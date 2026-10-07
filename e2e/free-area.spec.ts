@@ -141,7 +141,7 @@ test("a double click opens the table, a second the free area in its cell", async
   await clickAt(page, x, y, true)
   await clickAt(page, x, y, true)
   // Inside it: «Drin» is what a click takes now.
-  await expect(page.locator("#text")).toHaveValue("Drin")
+  await expect(page.locator("#text")).toHaveText("Drin")
 })
 
 test("a free area's look: a box behind its contents on the device; nothing without fill or edge", () => {

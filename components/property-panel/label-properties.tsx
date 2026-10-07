@@ -13,9 +13,12 @@
  * of its own, went into Text on 2026-10-07.
  */
 
+import { useState } from "react"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
-import { DEFAULT_SEPARATORS, referencedTopics, type Separators } from "@/lib/placeholders"
-import { lowerLiveText, placeholdersToLiveValues } from "@/lib/live-value"
+import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
+import { placeholdersToLiveValues, sourceShortName, textOf } from "@/lib/live-value"
+import { topicExample } from "@/lib/placeholder-completion"
+import { LiveTextField } from "./fields/live-text-field"
 import { liveValuesOf } from "@/lib/object-text"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectFont, Topic } from "../project-editor"
@@ -24,7 +27,6 @@ import {
   FontField,
   TextStyleField,
   FrameFields,
-  PlaceholderTextField,
   PropertySection,
   PropertySections,
   SelectField,
@@ -90,10 +92,8 @@ export function LabelProperties({
   }
 
   const liveValues = liveValuesOf(selectedObject)
-  const shownText: string | undefined =
-    liveValues.length > 0 && typeof selectedObject.properties.text === "string"
-      ? lowerLiveText(selectedObject.properties.text, liveValues).text
-      : selectedObject.properties.text
+  // The live value whose editor is open under the field (Task 8).
+  const [openLiveValueId, setOpenLiveValueId] = useState<string | null>(null)
 
   // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
@@ -104,20 +104,35 @@ export function LabelProperties({
   return (
     <PropertySections>
       <PropertySection title="Content">
-        <PlaceholderTextField
+        <LiveTextField
           id="text"
           label="Text"
-          // Until the field shows chips (tasks/live-values-todo.md, Task 6), a
-          // live value is shown and typed as the placeholder that says it, and
-          // every edit is kept as live values again.
-          value={shownText}
-          onChange={(value) => {
-            const live = placeholdersToLiveValues(value, [], numberSeparators ?? DEFAULT_SEPARATORS)
+          text={selectedObject.properties.text}
+          liveValues={liveValues}
+          onChange={(text, next) => {
             onUpdateObject(selectedObject.id, {
-              properties: { ...selectedObject.properties, text: live.text, liveValues: live.liveValues.length > 0 ? live.liveValues : undefined },
+              properties: { ...selectedObject.properties, text, liveValues: next.length > 0 ? next : undefined },
             })
           }}
-          onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
+          onBlur={(text, current) => {
+            // A placeholder typed in full becomes a chip; a live value whose
+            // chip is gone goes with it (docs/2026-10-07-live-values.md).
+            const typed = parse(text).some((segment) => segment.kind === "placeholder")
+            const live = typed ? placeholdersToLiveValues(text, current, numberSeparators ?? DEFAULT_SEPARATORS) : { text, liveValues: current }
+            const kept = live.liveValues.filter((lv) => live.text.includes(`{live:${lv.id}}`))
+            onDeclareTopics?.(kept.filter((lv) => lv.source.namespace === "topic").map((lv) => lv.source.path))
+            if (live.text !== text || kept.length !== current.length) {
+              onUpdateObject(selectedObject.id, {
+                properties: { ...selectedObject.properties, text: live.text, liveValues: kept.length > 0 ? kept : undefined },
+              })
+            }
+          }}
+          onOpenLiveValue={setOpenLiveValueId}
+          openLiveValueId={openLiveValueId}
+          chipLabel={(lv) => ({
+            name: sourceShortName(lv.source),
+            reads: textOf(lv, lv.source.namespace === "topic" ? topicExample(lv.source.path, topics) : undefined, numberSeparators ?? DEFAULT_SEPARATORS),
+          })}
           topics={topics}
           separators={numberSeparators}
         />

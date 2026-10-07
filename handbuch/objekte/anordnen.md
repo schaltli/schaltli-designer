@@ -44,7 +44,7 @@ Verbinden und lösen geht nur mit einer Zelle, in der ein Objekt steht, und nur 
 
 | Width | Breite |
 |---|---|
-| <span class="ui">Auto</span> | so breit wie ihr breitestes Objekt. Texte mit [Platzhalter](/objekte/anzeigen#platzhalter) zählen nicht mit, denn was sie zeigen, kennt erst das Gerät. |
+| <span class="ui">Auto</span> | so breit wie ihr breitestes Objekt. Texte mit [Werten](/objekte/anzeigen#platzhalter) zählen nicht mit, denn was sie zeigen, kennt erst das Gerät. |
 | <span class="ui">Share</span> | ein Anteil in Prozent an dem, was die anderen Spalten übrig lassen |
 | <span class="ui">Fixed (mm)</span> | fest in Millimetern, auf jedem Gerät gleich gross |
 | <span class="ui">Size multiple</span> | ein Vielfaches der Höhe einer Grösse XS, S, M oder L, etwa zweimal M |

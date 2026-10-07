@@ -6,7 +6,8 @@
       "controls": [
         "heading: Text v-label",
         "button: Content",
-        "input:text: Text",
+        "textbox: Text",
+        "button: + Value",
         "button: Text",
         "select: Text style",
         "button: Snap to Caption",

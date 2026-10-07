@@ -89,10 +89,10 @@ test.describe("table editing: the cell in context", () => {
     const { box } = await getMainCanvas(page)
     const links = devicePoint(box, 12, 14)
     await page.mouse.click(links.x, links.y)
-    await expect(page.locator("#text")).toHaveValue("Links")
+    await expect(page.locator("#text")).toHaveText("Links")
     // Row 1 starts below «Links» (23 px) and the 1.5 mm gap (6 px).
     await clickAt(page, 12, 8 + 23 + 6 + 8)
-    await expect(page.locator("#text")).toHaveValue("Tief")
+    await expect(page.locator("#text")).toHaveText("Tief")
     expect(await chosenCell(page)).toBeNull()
   })
 })
@@ -133,7 +133,7 @@ test.describe("table editing: the ribbon's Table group", () => {
     await expect(group).toHaveCount(0)
     // «Tief», three tables deep.
     await clickAt(page, 12, 8 + 23 + 6 + 8)
-    await expect(page.locator("#text")).toHaveValue("Tief")
+    await expect(page.locator("#text")).toHaveText("Tief")
     const pathBar = page.getByTestId("table-path")
     await expect(pathBar).toHaveText(/Table.*Table.*Table.*Cell 1, 1/)
     await pathBar.locator('[data-table-level="inner"]').click()
@@ -160,7 +160,7 @@ test.describe("table editing: the ribbon's Table group", () => {
   test("Merge right takes the empty neighbour; Merge down is off over an occupied cell", async ({ page }) => {
     await loadProject(page, await nestedProject())
     await clickAt(page, 12, 14)
-    await expect(page.locator("#text")).toHaveValue("Links")
+    await expect(page.locator("#text")).toHaveText("Links")
     const group = page.getByTestId("table-group")
     await expect(group.getByRole("button", { name: "Merge down" })).toBeDisabled()
     await expect(group.getByRole("button", { name: "Split" })).toBeDisabled()
@@ -223,7 +223,7 @@ test.describe("table editing: a nested table's handles", () => {
     await loadProject(page, await nestedProject())
     // «Tief» selected: the nested table, in row 1 from y 37, is the active one.
     await clickAt(page, 12, 8 + 23 + 6 + 8)
-    await expect(page.locator("#text")).toHaveValue("Tief")
+    await expect(page.locator("#text")).toHaveText("Tief")
     const { box } = await getMainCanvas(page)
     // Its strip would stand 14 px above it, over the row of «Links».
     const corner = devicePoint(box, 60, 37 - 14 - 2)
@@ -288,7 +288,7 @@ test.describe("table editing: no container frame around a table", () => {
   test("an object selected in a table: no violet frame on the canvas", async ({ page }) => {
     await loadProject(page, await nestedProject())
     await clickAt(page, 12, 8 + 23 + 6 + 8)
-    await expect(page.locator("#text")).toHaveValue("Tief")
+    await expect(page.locator("#text")).toHaveText("Tief")
     const { canvas } = await getMainCanvas(page)
     const violet = await canvas.evaluate((el) => {
       const c = el as HTMLCanvasElement
@@ -308,7 +308,7 @@ test.describe("table editing: pasting into a table", () => {
   test("an empty cell picked: Ctrl+V puts the copy into that cell", async ({ page }) => {
     await loadProject(page, await nestedProject())
     await clickAt(page, 12, 14)
-    await expect(page.locator("#text")).toHaveValue("Links")
+    await expect(page.locator("#text")).toHaveText("Links")
     await page.keyboard.press("ControlOrMeta+c")
     await clickAt(page, 300, 14)
     expect(await chosenCell(page)).toEqual({ tableId: "outer", row: 0, column: 1 })

@@ -186,9 +186,19 @@ carries the chip (and its live value, a new id if taken); a pasted
 (`finish-field.ts`). Its focus id stays `#text`.
 
 **Acceptance criteria:**
-- [ ] Typing around chips keeps them; the caret never lands inside one.
-- [ ] Deleting a chip removes its live value; Ctrl+Z restores both.
-- [ ] Copying a chip into another text gives that object its own live value.
+- [x] Typing around chips keeps them; the caret never lands inside one.
+- [x] Deleting a chip removes its live value; Ctrl+Z restores both.
+- [x] Copying a chip into another text gives that object its own live value.
+
+Done 2026-10-07 with Task 7 in one commit (without Task 7 the new field
+could not insert a value at all). `components/property-panel/fields/
+live-text-field.tsx`, a contenteditable built from the stored string. A
+zero-width space after every chip (Chrome otherwise moves the caret into the
+text before it) is never stored; Backspace, Delete, the arrows, Home and End
+step over chip and space together. Ctrl+Z inside the field is the browser's;
+a deleted chip's live value stays until the field is left, so it finds it.
+The old `PlaceholderTextField` and the completion stages only it used
+(`completionContext`, `applyCompletion`, `formatEntries`) are gone.
 
 **Verification:** new `e2e/live-value-chips.spec.ts`; `e2e/focus-on-create.spec.ts`,
 `e2e/placeholder-picker.spec.ts` (adapted); manual check in Chrome and Firefox.
@@ -209,10 +219,18 @@ and opens its editor. A topic the project lacks is added on leaving, as
 today.
 
 **Acceptance criteria:**
-- [ ] `{` + filter + Enter inserts a chip at the caret and opens its editor.
-- [ ] Esc closes the list and removes the typed `{`; a literal brace is
+- [x] `{` + filter + Enter inserts a chip at the caret and opens its editor.
+- [x] Esc closes the list and removes the typed `{`; a literal brace is
       `{{`, as today.
-- [ ] The list keeps today's keyboard behaviour (arrows, Tab, Ctrl+Space).
+- [x] The list keeps today's keyboard behaviour (arrows, Tab, Ctrl+Space).
+
+Done 2026-10-07 with Task 6. `{` opens a search with a field of its own
+(as mockup R3), not a list that follows the text typed after the brace: with
+chips in the text, tracking that run is fragile. `{` again at once writes
+`{{`, a brace, as before. Handbook: `objekte/anzeigen.md` («Werte im Text»
+replaces «Platzhalter»), `designer/tastatur.md` (chip keys),
+`designer/deploy.md`, `designer/projekte.md`, `designer/bausteine.md`,
+`objekte/anordnen.md`, `objekte/gemeinsames.md`.
 
 **Verification:** `e2e/live-value-chips.spec.ts`; `e2e/placeholder-picker.spec.ts`.
 

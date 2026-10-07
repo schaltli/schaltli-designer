@@ -292,6 +292,9 @@ async function harvestPanel(page: Page): Promise<string[]> {
       } else if (tag === "select") kind = "select"
       else if (tag === "textarea") kind = "textarea"
       else if (role === "combobox") kind = "combobox"
+      // A Text's field with chips (fields/live-text-field.tsx); its chips are
+      // its own markup.
+      else if (role === "textbox") kind = "textbox"
       else if (role === "checkbox" || role === "switch" || role === "slider" || role === "radio") kind = role
       else if (tag === "button" || role === "button") kind = "button"
       else if (el.hasAttribute("data-row-label")) {

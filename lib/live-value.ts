@@ -383,3 +383,47 @@ export function lowerLiveText(text: string, liveValues: readonly LiveValue[]): {
   }
   return { text: out, left }
 }
+
+/** A stored text as the field shows it: runs of text, and chips. */
+export type LiveTextSegment = { kind: "text"; text: string } | { kind: "live"; id: string }
+
+/**
+ * A text split where its `{live:<id>}` references stand, for the field that
+ * shows them as chips. Text runs are kept exactly as stored - `{{` stays
+ * `{{` - so joining them back with `{live:<id>}` gives the text again. A
+ * reference to an id the object does not have is text.
+ */
+export function liveTextSegments(text: string, liveValues: readonly LiveValue[]): LiveTextSegment[] {
+  const segments: LiveTextSegment[] = []
+  let run = ""
+  let i = 0
+  while (i < text.length) {
+    const c = text[i]
+    if ((c === "{" || c === "}") && text[i + 1] === c) {
+      run += c + c
+      i += 2
+      continue
+    }
+    const reference = c === "{" ? liveReferenceAt(text, i) : undefined
+    if (reference && liveValues.some((lv) => lv.id === reference.id)) {
+      if (run) segments.push({ kind: "text", text: run })
+      run = ""
+      segments.push({ kind: "live", id: reference.id })
+      i = reference.end
+      continue
+    }
+    run += c
+    i++
+  }
+  if (run) segments.push({ kind: "text", text: run })
+  return segments
+}
+
+/** The short name a chip shows for its source: the last part of a topic, a JSON field's name. */
+export function sourceShortName(source: Source): string {
+  if (source.namespace !== "topic") return source.path
+  const hash = source.path.indexOf("#")
+  if (hash >= 0) return source.path.slice(hash + 1)
+  const slash = source.path.lastIndexOf("/")
+  return slash >= 0 ? source.path.slice(slash + 1) : source.path
+}

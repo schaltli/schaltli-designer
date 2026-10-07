@@ -258,18 +258,18 @@ test.describe("Undo and redo", () => {
     const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
     await page.mouse.click(at.x, at.y)
     const text = page.locator("#text")
-    const old = await text.inputValue()
+    const old = (await text.textContent()) ?? ""
 
     await text.click()
     await text.press("ControlOrMeta+a")
     await text.pressSequentially("Hello undo", { delay: 30 })
     await text.evaluate((el) => (el as HTMLElement).blur())
-    await expect(text).toHaveValue("Hello undo")
+    await expect(text).toHaveText("Hello undo")
 
     await page.keyboard.press("ControlOrMeta+z")
-    await expect(text).toHaveValue(old)
+    await expect(text).toHaveText(old)
     await page.keyboard.press("ControlOrMeta+y")
-    await expect(text).toHaveValue("Hello undo")
+    await expect(text).toHaveText("Hello undo")
   })
 
   test("a pause in typing, or another field, starts a new step", async ({ page }) => {
@@ -279,7 +279,7 @@ test.describe("Undo and redo", () => {
     await openFrameSection(page)
     const text = page.locator("#text")
     const x = page.locator("#x")
-    const oldText = await text.inputValue()
+    const oldText = (await text.textContent()) ?? ""
     const oldX = await x.inputValue()
 
     await text.click()
@@ -296,11 +296,11 @@ test.describe("Undo and redo", () => {
 
     await page.keyboard.press("ControlOrMeta+z")
     await expect(x).toHaveValue(oldX)
-    await expect(text).toHaveValue("abcdef")
+    await expect(text).toHaveText("abcdef")
     await page.keyboard.press("ControlOrMeta+z")
-    await expect(text).toHaveValue("abc")
+    await expect(text).toHaveText("abc")
     await page.keyboard.press("ControlOrMeta+z")
-    await expect(text).toHaveValue(oldText)
+    await expect(text).toHaveText(oldText)
   })
 
   // Undo happens in front of the user: on the screen the step was made on,

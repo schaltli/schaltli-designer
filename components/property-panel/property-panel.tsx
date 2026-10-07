@@ -238,6 +238,15 @@ export function PropertyPanel({
       const field = selector ? panelRef.current?.querySelector<HTMLElement>(selector) : null
       field?.focus()
       if (field instanceof HTMLInputElement) field.select()
+      // A Text's field shows chips (live-text-field.tsx): all of it selected
+      // the same way.
+      else if (field?.isContentEditable) {
+        const range = document.createRange()
+        range.selectNodeContents(field)
+        const selection = window.getSelection()
+        selection?.removeAllRanges()
+        selection?.addRange(range)
+      }
       onJustCreatedFocused?.()
     }, 0)
     return () => clearTimeout(later)

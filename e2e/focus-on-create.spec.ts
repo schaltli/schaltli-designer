@@ -19,8 +19,22 @@ async function draw(page: Page, tool: string): Promise<void> {
   await page.mouse.up()
 }
 
+// The Text's field shows chips (contenteditable); a Button's is an input.
+// Either way: what is selected, and how long the whole text is.
 const selection = (page: Page) =>
-  page.locator("#text").evaluate((input: HTMLInputElement) => [input.selectionStart, input.selectionEnd, input.value.length])
+  page.locator("#text").evaluate((field: HTMLElement) => {
+    if (field instanceof HTMLInputElement) return [field.selectionStart, field.selectionEnd, field.value.length]
+    const selected = window.getSelection()?.toString() ?? ""
+    const length = field.textContent?.length ?? 0
+    return [0, selected.length, length]
+  })
+
+// What the field holds, an input's value or the chip field's text.
+async function expectFieldText(page: Page, text: string) {
+  const field = page.locator("#text")
+  if (await field.evaluate((f) => f instanceof HTMLInputElement)) await expect(field).toHaveValue(text)
+  else await expect(field).toHaveText(text)
+}
 
 test.describe("focus on create", () => {
   test.beforeEach(async ({ page }) => {
@@ -51,7 +65,7 @@ test.describe("focus on create", () => {
       await page.keyboard.type("Wassertank")
       await page.keyboard.press("Enter")
       await expect(field).not.toBeFocused()
-      await expect(field).toHaveValue("Wassertank")
+      await expectFieldText(page, "Wassertank")
       // Still the object just drawn, its text as typed.
       await expect(page.locator("h3").first()).toContainText(tool)
     })
@@ -64,7 +78,7 @@ test.describe("focus on create", () => {
     await page.keyboard.type("Grauwasser")
     await page.keyboard.press("Escape")
     await expect(field).not.toBeFocused()
-    await expect(field).toHaveValue("Grauwasser")
+    await expectFieldText(page, "Grauwasser")
     // The keyboard is the canvas's again.
     expect(await page.evaluate(() => document.activeElement?.hasAttribute("data-canvas-keys"))).toBe(true)
     await expect(page.locator("h3").first()).toContainText("Text")

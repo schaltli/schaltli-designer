@@ -5,7 +5,7 @@ import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
 import { migrateProject } from "../lib/object-types"
 import { exportedTextProperties, liveValuesNotOnDevices } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
-import { evaluate, isNo, isYes, lowerLiveText, placeholdersToLiveValues, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
+import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
 // lib/live-value/vectors.json, to be shared with the firmware and the Android
@@ -271,5 +271,28 @@ test.describe("opening a project turns its placeholders into live values", () =>
   test("opening it again changes nothing", () => {
     const once = migrateProject(project() as any)
     expect(migrateProject(structuredClone(once))).toEqual(once)
+  })
+})
+
+// Task 6: the field shows a text as runs and chips, and joins them back.
+test.describe("a text as the field shows it", () => {
+  const lv = (id: string, path: string): LiveValue => ({ id, source: { namespace: "topic", path }, rules: [] })
+  test("runs and chips, braces kept, an unknown id as text; joined back it is the text", () => {
+    const text = "Heizung {live:lv1}{live:lv2} {{x}} {live:lv9}"
+    const segments = liveTextSegments(text, [lv("lv1", "heizung/status"), lv("lv2", "heizung/timer")])
+    expect(segments).toEqual([
+      { kind: "text", text: "Heizung " },
+      { kind: "live", id: "lv1" },
+      { kind: "live", id: "lv2" },
+      { kind: "text", text: " {{x}} {live:lv9}" },
+    ])
+    expect(segments.map((s) => (s.kind === "text" ? s.text : `{live:${s.id}}`)).join("")).toBe(text)
+  })
+
+  test("a chip's short name", () => {
+    expect(sourceShortName({ namespace: "topic", path: "heizung/timer" })).toBe("timer")
+    expect(sourceShortName({ namespace: "topic", path: "van/klima#innen" })).toBe("innen")
+    expect(sourceShortName({ namespace: "topic", path: "pumpe" })).toBe("pumpe")
+    expect(sourceShortName({ namespace: "device", path: "model" })).toBe("model")
   })
 })

@@ -4,7 +4,7 @@ Objekte, die etwas zeigen und nichts schalten.
 
 ## Text {#text}
 
-Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Platzhalter](#platzhalter).
+Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Werte im Text](#platzhalter).
 
 - <span class="ui">Text</span>: der Text.
 - <span class="ui">Text style</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Stile](#stile).
@@ -46,35 +46,35 @@ Ein Text aus der Zeit vor den Stilen zeigt unter <span class="ui">Text style</sp
 
 Geräte, die ihre Grösse in Millimetern noch nicht angeben, zeigen stattdessen wie bisher <span class="ui">Font</span> mit den Schriften des Geräts.
 
-### Platzhalter {#platzhalter}
+### Werte im Text {#platzhalter}
 
-Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen Wert ein. Aus `Frischwasser {topic:schaltli/state/tank/1/level:F0} %` wird auf dem Display «Frischwasser 72 %», und die Zahl folgt dem Tank. Platzhalter gehen nur im Text.
+Ein Text kann Werte aus dem Van enthalten. Im Feld <span class="ui">Text</span> steht jeder Wert als Chip, etwa «Tank [Level 72] %». Auf dem Display steht an seiner Stelle der Wert, «Tank 72 %», und die Zahl folgt dem Tank. Ein Chip zeigt, woher sein Wert kommt und was er gerade liest. Ein Text kann mehrere Chips haben, jeder liest seinen eigenen Wert.
 
-| Platzhalter | zeigt |
+| Ein Chip liest | zeigt |
 |---|---|
-| `{topic:…}` | den letzten Wert des Topics. Bei einem JSON-Topic wählst du mit `#` ein Feld, etwa `{topic:van/klima#temp}`. |
-| `{device:model}` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8», auf dem Handy dessen Verkaufsname wie «HUAWEI P20 Pro» |
-| `{device:id}` | die Kennung des Geräts, mit der es sich am Broker meldet, etwa «waveshare-knob-1v8-c00f1e13cfd0» |
-| `{project:name}` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
+| ein Topic | den letzten Wert des Topics. Bei einem JSON-Topic liest er ein Feld, etwa `temp` aus `van/klima`. |
+| Device › `model` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8», auf dem Handy dessen Verkaufsname wie «HUAWEI P20 Pro» |
+| Device › `id` | die Kennung des Geräts, mit der es sich am Broker meldet, etwa «waveshare-knob-1v8-c00f1e13cfd0» |
+| Project › `name` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
 
-**Auswählen statt tippen:** Sobald du `{` tippst, klappt eine Liste auf. Sie zeigt die Topics des Projekts, jeweils mit Typ und erstem Beispielwert, und darunter die Felder von Gerät und Projekt. Was du weitertippst, filtert die Liste. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Platzhalter samt schliessender Klammer ein. Der Cursor steht danach vor dem `}`. Tippst du dort `:`, bietet die Liste die gängigen Formate an, mit einer Vorschau am Beispielwert: `F1` wird etwa zu 72.0. <kbd>Esc</kbd> schliesst die Liste. Hast du einen Platzhalter von Hand geändert, holt <kbd>Ctrl</kbd>+<kbd>Space</kbd> sie zurück, solange der Cursor zwischen den Klammern steht.
+**Einen Wert einfügen:** Tipp `{` oder klick unter dem Feld auf <span class="ui">+ Value</span>. Ein Suchfeld klappt auf, darunter die Topics des Projekts mit Typ und erstem Beispielwert, dann die Felder von Gerät und Projekt. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Chip dort ein, wo der Cursor stand. <kbd>Esc</kbd> schliesst die Suche, ohne etwas einzufügen.
 
-**Zahlen formatieren:** Ein Zusatz hinter dem Topic bestimmt, wie eine Zahl erscheint. `:F2` gibt zwei Nachkommastellen, `:N0` eine ganze Zahl mit Tausendertrennzeichen. Möglich sind `F0` bis `F9` und `N0` bis `N9`. Gerundet wird kaufmännisch, 72.5 wird bei `:F0` also zu 73. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen). Ohne Zusatz zeigt das Gerät den Wert genau so, wie er ankommt.
+**Mit Chips schreiben:** Ein Chip zählt als ein Zeichen. Die Pfeiltasten springen über ihn, <kbd>Backspace</kbd> und <kbd>Entf</kbd> löschen ihn ganz. Kopierst du Text samt Chips in einen anderen Text, kommen die Chips mit. Fügst du einen Platzhalter ein, wie ihn ältere Projekte schrieben, etwa `{topic:van/temp:F1}`, wird daraus ein Chip.
 
-**Bevor ein Wert da ist:** Nach dem Einschalten dauert es einen Moment, bis die Werte ankommen. Mit `??` gibst du an, was solange dasteht: `{topic:…/name ?? "Frischwasser"}` oder `{topic:… ?? 0:F1}`. Ohne `??` bleibt die Stelle leer.
+**Wie ein Wert erscheint:** Eine Zahl aus einem Topic vom Typ numeric zeigt der Chip mit einer Nachkommastelle, gerundet wird kaufmännisch. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen). Alles andere zeigt das Gerät genau so, wie es ankommt. Solange nach dem Einschalten noch kein Wert da ist, bleibt die Stelle leer.
 
 ::: v-pre
-**Klammern als Zeichen** schreibst du doppelt, `{{` und `}}`.
+**Klammern als Zeichen** schreibst du doppelt: Ein zweites `{` gleich nach dem ersten schliesst die Suche und schreibt `{{`. Auf dem Display steht dann eine Klammer.
 :::
 
-Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. Das siehst du schon im Designer: Unter dem Feld steht dann eine rote Zeile, die den Grund nennt. Eine gelbe Zeile bedeutet, dass ein Topic im Projekt noch fehlt. Der Designer trägt es ein, sobald du das Feld verlässt, und die Zeile verschwindet. Ist alles in Ordnung, steht dort ein kurzer Hinweis zu `{` und `??`.
+Steht im Text etwas in Klammern, das weder Chip noch Klammer als Zeichen ist, etwa aus der Zwischenablage, zeigt das Gerät es so, wie es dasteht. Unter dem Feld nennt dann eine rote Zeile den Grund.
 
 ### Aus Live Text wird Text {#live-text}
 
-Früher gab es für einen Wert aus einem Topic ein eigenes Objekt, Live Text. Ein Text mit Platzhalter kann dasselbe, darum gibt es Live Text nicht mehr. Öffnest du ein Projekt, das noch Live Text enthält, macht der Designer daraus einen Text: Topic, Präfix, Suffix und Nachkommastellen werden zu einem Platzhalter, etwa `Innen {topic:van/klima#temp:F1} °C`. Schrift, Ausrichtung und Farben bleiben. Zwei Dinge sind danach anders. Bevor ein Wert da ist, stehen Präfix und Suffix schon da, wo Live Text leer blieb. Und die Tausender trennt das Zeichen aus den Projekteinstellungen, nicht mehr eines pro Objekt.
+Früher gab es für einen Wert aus einem Topic ein eigenes Objekt, Live Text. Ein Text mit Chip kann dasselbe, darum gibt es Live Text nicht mehr. Öffnest du ein Projekt, das noch Live Text enthält, macht der Designer daraus einen Text: Das Topic wird zu einem Chip mit seinen Nachkommastellen, Präfix und Suffix stehen als Text davor und danach, etwa «Innen [temp 21.4] °C». Schrift, Ausrichtung und Farben bleiben. Zwei Dinge sind danach anders. Bevor ein Wert da ist, stehen Präfix und Suffix schon da, wo Live Text leer blieb. Und die Tausender trennt das Zeichen aus den Projekteinstellungen, nicht mehr eines pro Objekt.
 
 ::: warning Ältere Firmware
-Knob, 4.3B, PaperS3 und die Android-App setzen Platzhalter ab Systemgeneration 1.2 ein. Mit älterer Firmware oder einer älteren App steht der Text so auf dem Display, wie du ihn geschrieben hast, Klammern inklusive. Überträgst du auf ein solches Gerät, warnt der Designer. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Platzhalter nicht mehr.
+Knob, 4.3B, PaperS3 und die Android-App zeigen Werte im Text ab Systemgeneration 1.2. Mit älterer Firmware oder einer älteren App steht an Stelle eines Chips ein Platzhalter wie `{topic:…}` auf dem Display. Überträgst du auf ein solches Gerät, warnt der Designer. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Werte im Text nicht mehr.
 :::
 
 ## Icon {#icon}
@@ -100,7 +100,7 @@ Zeigt eines von mehreren Icons, je nach Wert eines Topics: eine leere oder volle
 
 Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Ein [Baustein](/designer/bausteine) aus einem Messwert in Prozent setzt einen Bar und darüber einen [Text](#text) mit seinem Namen.
 
-Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
+Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Werte](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 
 - <span class="ui">Show value</span>: am Ende des Balkens nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>). Bei einem waagrechten Balken steht die Zahl rechts, bei einem senkrechten darunter.
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).

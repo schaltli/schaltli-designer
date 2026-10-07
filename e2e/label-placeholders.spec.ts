@@ -65,7 +65,7 @@ test.describe("Placeholders in the export", () => {
 
     const typed = "{project:name} - {topic:a/b:F1} {device:id} {screen} {{x}}"
     await page.locator("#text").fill(typed)
-    await expect(page.locator("#text")).toHaveValue(typed)
+    await expect(page.locator("#text")).toHaveText(typed)
     // The old tokens' button row is gone with them.
     await expect(page.getByRole("button", { name: "{screen}", exact: true })).toHaveCount(0)
 
