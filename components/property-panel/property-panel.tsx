@@ -362,6 +362,11 @@ export function PropertyPanel({
                   projectAssets={projectAssets}
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
+                  topics={topics}
+                  onOpenLiveIconSelector={(liveValueId, target) => {
+                    setIconSelectorContext({ type: "live-value-rule", liveValueId, target })
+                    setShowIconSelector(true)
+                  }}
                   allScreens={allScreens}
                   textScale={textScale}
                 />

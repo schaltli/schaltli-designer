@@ -42,7 +42,7 @@ export interface IconFieldProps {
  * Three of the four old implementations carried their own copy of this,
  * and the fourth had no `try` around `atob`.
  */
-function svgMarkup(data: string): string {
+export function svgMarkup(data: string): string {
   try {
     if (data.startsWith("data:image/svg+xml;base64,")) return atob(data.split(",")[1])
     if (data.startsWith("data:image/svg+xml,")) return decodeURIComponent(data.split(",")[1])

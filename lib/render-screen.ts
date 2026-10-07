@@ -13,7 +13,7 @@
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { parse, referencedTopics, type PlaceholderScope, type Separators } from "@/lib/placeholders"
-import { liveValuesOf } from "@/lib/object-text"
+import { iconAsDrawn, liveValuesOf } from "@/lib/object-text"
 
 export { liveValuesOf, objectText } from "@/lib/object-text"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
@@ -389,7 +389,8 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "icon":
-        renderIcon({ ctx, obj, projectAssets, iconImageCache, requestRedraw, nested: options.nested })
+        // A live icon shows the icon its live value gives (lib/object-text.ts).
+        renderIcon({ ctx, obj: iconAsDrawn(obj, placeholders), projectAssets, iconImageCache, requestRedraw, nested: options.nested })
         break
 
       case "gauge":

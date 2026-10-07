@@ -233,7 +233,15 @@ function collectIconPreloads(
         wanted.set(iconCacheKey(assetId, color, flatten), { assetId, color, flatten })
       }
 
-      if (obj.type === "icon") want(obj.properties?.assetId)
+      if (obj.type === "icon") {
+        want(obj.properties?.assetId)
+        // A live icon may draw any of its results (lib/object-text.ts).
+        for (const lv of obj.properties?.liveValues ?? []) {
+          for (const result of [...(lv.rules ?? []).map((r: any) => r.result), lv.otherwise, lv.noValueYet]) {
+            if (result?.kind === "icon") want(result.icon)
+          }
+        }
+      }
       // A button's icon is loaded in black and coloured as it is drawn, so
       // the one image serves every style and state (render-software-button.ts).
       if (obj.type === "button") {

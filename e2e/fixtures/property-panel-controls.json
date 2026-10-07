@@ -73,6 +73,8 @@
       "controls": [
         "heading: Icon v-icon",
         "button: Content",
+        "radio: Fixed",
+        "radio: Live",
         "caption: Icon",
         "button: Choose icon",
         "button: Shape",

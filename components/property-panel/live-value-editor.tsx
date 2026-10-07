@@ -12,12 +12,12 @@
  */
 
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
-import type { Topic } from "@/components/project-editor"
+import type { ProjectAsset, Topic } from "@/components/project-editor"
 import { RULE_OPERATORS, type RuleOperator } from "@/lib/comparison-operators"
 import { DURATION_PATTERNS, isNo, isYes, sourceShortName, type LiveValue, type Result, type Rule, type ValueFormat } from "@/lib/live-value"
 import { referenceEntries } from "@/lib/placeholder-completion"
 import { cn } from "@/lib/utils"
-import { FIELD, FieldBox, Ornament } from "./fields"
+import { FIELD, FieldBox, Ornament, svgMarkup } from "./fields"
 
 export interface LiveValueEditorProps {
   liveValue: LiveValue
@@ -30,7 +30,18 @@ export interface LiveValueEditorProps {
   onNext?: () => void
   /** Closed with ✕ or Esc; Esc goes back into the text. */
   onClose: (backToText: boolean) => void
+  /** What a result is: text (a chip) or an icon (a live icon). */
+  resultKind?: "text" | "icon"
+  projectAssets?: ProjectAsset[]
+  /** An icon result's slot was clicked: a rule's index, Otherwise or No value yet. */
+  onPickIcon?: (target: IconTarget) => void
+  /** Instead of «Live value n of m»; a live icon has the one. */
+  title?: string
+  /** Whether ✕ is shown; a live icon's editor stays while it is live. */
+  closable?: boolean
 }
+
+export type IconTarget = number | "otherwise" | "noValueYet"
 
 const OPERATOR_LABELS: Record<RuleOperator, string> = {
   "==": "==",
@@ -83,7 +94,63 @@ function looksLikeYesNo(examples: string[] | undefined): boolean {
 
 const INPUT = cn(FIELD, "h-8")
 
-export function LiveValueEditor({ liveValue, position, count, topics, onChange, onPrevious, onNext, onClose }: LiveValueEditorProps) {
+/** An icon result's slot: the icon picked, or «None», and a click to pick. */
+function IconSlot({ label, result, projectAssets, onPick }: { label: string; result: Result | undefined; projectAssets: ProjectAsset[]; onPick: () => void }) {
+  const asset = result?.kind === "icon" ? projectAssets.find((a) => a.id === result.icon) : undefined
+  return (
+    <button type="button" aria-label={label} onClick={onPick} className={cn(INPUT, "flex min-w-0 flex-1 items-center gap-2 text-left")}>
+      {asset ? <span aria-hidden className="size-4 shrink-0 [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: svgMarkup(asset.data) }} /> : null}
+      <span className={cn("min-w-0 truncate", !asset && "text-muted-foreground")}>{asset ? asset.name : "None"}</span>
+    </button>
+  )
+}
+
+/**
+ * Every icon a live icon can show (mockup R1): what the export bakes, so the
+ * device never needs the internet.
+ */
+function CanShow({ liveValue, projectAssets }: { liveValue: LiveValue; projectAssets: ProjectAsset[] }) {
+  const ids = [...liveValue.rules.map((r) => r.result), liveValue.otherwise, liveValue.noValueYet].flatMap((result) =>
+    result?.kind === "icon" && result.icon ? [result.icon] : [],
+  )
+  const unique = [...new Set(ids)]
+  if (unique.length === 0) return null
+  return (
+    <div className="space-y-1" data-testid="live-icon-can-show">
+      <span className="text-muted-foreground">This rule can show</span>
+      <div className="flex flex-wrap gap-1.5">
+        {unique.map((id) => {
+          const asset = projectAssets.find((a) => a.id === id)
+          return asset ? (
+            <span
+              key={id}
+              title={asset.name}
+              className="size-7 rounded border bg-muted/40 p-1 [&>svg]:size-full"
+              dangerouslySetInnerHTML={{ __html: svgMarkup(asset.data) }}
+            />
+          ) : null
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function LiveValueEditor({
+  liveValue,
+  position,
+  count,
+  topics,
+  onChange,
+  onPrevious,
+  onNext,
+  onClose,
+  resultKind = "text",
+  projectAssets = [],
+  onPickIcon,
+  title,
+  closable = true,
+}: LiveValueEditorProps) {
+  const icons = resultKind === "icon"
   const reference = `${liveValue.source.namespace}:${liveValue.source.path}`
   const entries = referenceEntries("", topics)
   const known = entries.some((e) => e.reference === reference)
@@ -112,16 +179,22 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
       }}
     >
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
-        <span className="flex-1 text-xs font-medium">{`Live value ${position} of ${count}`}</span>
-        <button type="button" aria-label="Previous value" disabled={!onPrevious} onClick={onPrevious} className="rounded p-1 hover:bg-muted disabled:opacity-30">
-          <ChevronLeft className="size-3.5" />
-        </button>
-        <button type="button" aria-label="Next value" disabled={!onNext} onClick={onNext} className="rounded p-1 hover:bg-muted disabled:opacity-30">
-          <ChevronRight className="size-3.5" />
-        </button>
-        <button type="button" aria-label="Close" onClick={() => onClose(false)} className="rounded p-1 hover:bg-muted">
-          <X className="size-3.5" />
-        </button>
+        <span className="flex-1 text-xs font-medium">{title ?? `Live value ${position} of ${count}`}</span>
+        {title ? null : (
+          <>
+            <button type="button" aria-label="Previous value" disabled={!onPrevious} onClick={onPrevious} className="rounded p-1 hover:bg-muted disabled:opacity-30">
+              <ChevronLeft className="size-3.5" />
+            </button>
+            <button type="button" aria-label="Next value" disabled={!onNext} onClick={onNext} className="rounded p-1 hover:bg-muted disabled:opacity-30">
+              <ChevronRight className="size-3.5" />
+            </button>
+          </>
+        )}
+        {closable ? (
+          <button type="button" aria-label="Close" onClick={() => onClose(false)} className="rounded p-1 hover:bg-muted">
+            <X className="size-3.5" />
+          </button>
+        ) : null}
       </div>
 
       <div className="space-y-2 p-2 text-xs">
@@ -152,6 +225,7 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
           </FieldBox>
         </label>
 
+        {icons ? null : (
         <label className="flex flex-col gap-1">
           <span className="text-muted-foreground">Value shown as</span>
           <FieldBox>
@@ -178,6 +252,7 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
             </Ornament>
           </FieldBox>
         </label>
+        )}
 
         <div className="space-y-1.5" role="list" aria-label="Rules">
           {liveValue.rules.map((rule, index) => (
@@ -212,13 +287,17 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
                 />
               )}
               <span className="text-muted-foreground">→</span>
-              <input
-                aria-label={`Rule ${index + 1} shows`}
-                className={cn(INPUT, "min-w-0 flex-1")}
-                placeholder="empty"
-                value={resultText(rule.result)}
-                onChange={(e) => updateRule(index, { result: textResult(e.target.value) })}
-              />
+              {icons ? (
+                <IconSlot label={`Rule ${index + 1} shows`} result={rule.result} projectAssets={projectAssets} onPick={() => onPickIcon?.(index)} />
+              ) : (
+                <input
+                  aria-label={`Rule ${index + 1} shows`}
+                  className={cn(INPUT, "min-w-0 flex-1")}
+                  placeholder="empty"
+                  value={resultText(rule.result)}
+                  onChange={(e) => updateRule(index, { result: textResult(e.target.value) })}
+                />
+              )}
               <button
                 type="button"
                 aria-label={`Remove rule ${index + 1}`}
@@ -235,7 +314,9 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
           <button
             type="button"
             className="rounded border border-dashed px-2 py-1 hover:bg-muted"
-            onClick={() => update({ rules: [...liveValue.rules, { op: "==", operand: "", result: textResult("") }] })}
+            onClick={() =>
+              update({ rules: [...liveValue.rules, { op: "==", operand: "", result: icons ? { kind: "icon", icon: "" } : textResult("") }] })
+            }
           >
             + Add rule
           </button>
@@ -245,10 +326,15 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
               className="rounded border border-dashed px-2 py-1 hover:bg-muted"
               onClick={() =>
                 update({
-                  rules: [
-                    { op: "yes", result: textResult("yes") },
-                    { op: "no", result: textResult("no") },
-                  ],
+                  rules: icons
+                    ? [
+                        { op: "yes", result: { kind: "icon", icon: "" } },
+                        { op: "no", result: { kind: "icon", icon: "" } },
+                      ]
+                    : [
+                        { op: "yes", result: textResult("yes") },
+                        { op: "no", result: textResult("no") },
+                      ],
                 })
               }
             >
@@ -257,6 +343,20 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
           ) : null}
         </div>
 
+        {icons ? (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="w-24 shrink-0 text-muted-foreground">Otherwise</span>
+              <IconSlot label="Otherwise" result={liveValue.otherwise} projectAssets={projectAssets} onPick={() => onPickIcon?.("otherwise")} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-24 shrink-0 text-muted-foreground">No value yet</span>
+              <IconSlot label="No value yet" result={liveValue.noValueYet} projectAssets={projectAssets} onPick={() => onPickIcon?.("noValueYet")} />
+            </div>
+            <CanShow liveValue={liveValue} projectAssets={projectAssets} />
+          </>
+        ) : (
+          <>
         <label className="flex items-center gap-1.5">
           <span className="w-24 shrink-0 text-muted-foreground">Otherwise</span>
           <input
@@ -287,7 +387,13 @@ export function LiveValueEditor({ liveValue, position, count, topics, onChange, 
             }}
           />
         </label>
-        <p className="text-[11px] text-muted-foreground">{`Rules are read top to bottom; the first that applies wins. ${VALUE_TOKEN} writes the value in its format. ${sourceShortName(liveValue.source)} reads ${reference.replace(/^topic:/, "")}.`}</p>
+          </>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          {icons
+            ? "Rules are read top to bottom; the first that applies wins."
+            : `Rules are read top to bottom; the first that applies wins. ${VALUE_TOKEN} writes the value in its format. ${sourceShortName(liveValue.source)} reads ${reference.replace(/^topic:/, "")}.`}
+        </p>
       </div>
     </div>
   )

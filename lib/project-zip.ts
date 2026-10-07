@@ -15,7 +15,7 @@ import { mapObjectsDeep } from "@/lib/object-tree"
 import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { projectSeparators } from "@/lib/placeholders"
-import { exportedTextProperties } from "@/lib/object-text"
+import { exportedTextProperties, withLiveIconsAsFixed } from "@/lib/object-text"
 import { exportedTopics } from "@/lib/render-screen"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
@@ -267,7 +267,10 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // as authored, to be opened in the designer again.
   const authored = withIntegerProjectGeometry(rawProject)
   // A button opening a popup that is not there does nothing (lib/popup.ts).
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(authored))
+  // A live icon goes as the fixed icon of its Otherwise until devices read
+  // live values (lib/object-text.ts, the interim export); the recovery copy
+  // keeps it live.
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconsAsFixed(authored)))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {

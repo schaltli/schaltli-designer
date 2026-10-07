@@ -288,11 +288,22 @@ evaluated asset). Interim export: a live icon exports its Otherwise icon
 and is named in the deploy dialog. Handbook: `objekte/anzeigen.md` (Icon).
 
 **Acceptance criteria:**
-- [ ] The frost warning of mockup R1 can be set up and draws the right
+- [x] The frost warning of mockup R1 can be set up and draws the right
       icon at each example.
-- [ ] Switching Live → Fixed keeps the Otherwise icon as the fixed one.
-- [ ] Every icon of a rule is in `project.assets`; «Remove Unused Assets»
+- [x] Switching Live → Fixed keeps the Otherwise icon as the fixed one.
+- [x] Every icon of a rule is in `project.assets`; «Remove Unused Assets»
       keeps them.
+
+Done 2026-10-07. `properties.liveIconId` names the icon's live value in
+`properties.liveValues`. `iconAsDrawn` (lib/object-text.ts) picks the
+asset in the canvas and the read-only path; test-render preloads every
+result icon. The editor has an icon mode (`resultKind="icon"`, «Live icon»,
+«This rule can show»); `IconSelectorContext` type `"live-value-rule"`
+writes a pick into a rule, Otherwise or No value yet. Both exports send a
+live icon as its Otherwise icon (`withLiveIconsAsFixed`), the recovery copy
+keeps it live; the deploy dialog names it. «Remove Unused Assets» already
+keeps every id anywhere in the project. Handbook: `objekte/anzeigen.md`
+(Icon, with a `handbuch-macke #55` warning).
 
 **Verification:** new `e2e/live-icon-value.spec.ts`; `e2e/icon-*.spec.ts`;
 `e2e/handbook-labels.spec.ts`.

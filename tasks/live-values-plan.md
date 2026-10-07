@@ -83,7 +83,7 @@ say and warns about the rest.
 - [ ] The user builds «Heizung [status][timer] · [innen] °C» (mockup R3) in the designer and checks it in the preview
 
 ### Phase 3: Live icon and test value
-- [ ] Task 9: An icon is Fixed or Live; rule results are icons picked in Select Icon; «This rule can show»
+- [x] Task 9: An icon is Fixed or Live; rule results are icons picked in Select Icon; «This rule can show»
 - [ ] Task 10: The test value: slider / text / «No value yet», the rule that applies marked, for text and icon
 
 ### Checkpoint: Icon

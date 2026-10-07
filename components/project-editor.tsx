@@ -236,7 +236,7 @@ export interface ProjectAsset {
 // and incompatible with the real setter, which is what the type checker was
 // complaining about until 2026-08-22.
 export interface IconSelectorContext {
-  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state"
+  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule"
   pairIndex?: number
   screenId?: string
   stateIndex?: number
@@ -245,6 +245,10 @@ export interface IconSelectorContext {
   // at every call site, since it was added after "switch-state" itself -
   // see the Active Icon addition, 2026-08-14).
   slot?: "normal" | "active"
+  // A live icon's result (docs/2026-10-07-live-values.md): which live value,
+  // and a rule's index, Otherwise or No value yet.
+  liveValueId?: string
+  target?: number | "otherwise" | "noValueYet"
 }
 
 export interface ProjectFont {
@@ -2477,6 +2481,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             },
           })
         }
+      } else if (iconSelectorContext?.type === "live-value-rule" && selectedObject && iconSelectorContext.liveValueId) {
+        const { liveValueId, target } = iconSelectorContext
+        const icon = { kind: "icon" as const, icon: assetId }
+        const liveValues = (selectedObject.properties.liveValues ?? []).map((lv: any) => {
+          if (lv.id !== liveValueId) return lv
+          if (typeof target === "number") return { ...lv, rules: lv.rules.map((rule: any, i: number) => (i === target ? { ...rule, result: icon } : rule)) }
+          if (target === "otherwise") return { ...lv, otherwise: icon }
+          if (target === "noValueYet") return { ...lv, noValueYet: icon }
+          return lv
+        })
+        updateObject(selectedObject.id, { properties: { ...selectedObject.properties, liveValues } })
       } else if (iconSelectorContext?.type === "icon-properties" && selectedObject) {
         updateObject(selectedObject.id, {
           properties: {

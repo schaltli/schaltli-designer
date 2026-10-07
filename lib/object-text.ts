@@ -1,10 +1,11 @@
-// What an object's text reads (docs/2026-10-07-live-values.md): kept apart
+// What an object's text reads and which icon it shows
+// (docs/2026-10-07-live-values.md): kept apart
 // from lib/render-screen.ts so the text renderer, which render-screen itself
 // draws with, can use it without importing render-screen back.
 
 import type { ScreenObject } from "@/components/project-editor"
 import { bakeProjectFields, resolveIn, type PlaceholderScope } from "@/lib/placeholders"
-import { lowerLiveText, resolveLiveText, type LiveValue } from "@/lib/live-value"
+import { evaluate, lowerLiveText, resolveLiveText, type LiveValue } from "@/lib/live-value"
 
 // An object's live values (docs/2026-10-07-live-values.md, decision 17).
 export function liveValuesOf(obj: ScreenObject): LiveValue[] {
@@ -19,9 +20,29 @@ export function liveValuesOf(obj: ScreenObject): LiveValue[] {
 export function objectText(obj: ScreenObject, text: string, scope?: PlaceholderScope): string {
   const liveValues = liveValuesOf(obj)
   if (liveValues.length === 0) return resolveIn(text, scope)
-  const lookup = (source: LiveValue["source"]) =>
+  return resolveLiveText(text, liveValues, lookupIn(scope), scope?.separators ?? { decimal: ".", thousands: "'" })
+}
+
+// A live value's one value in a scope; nothing without one.
+function lookupIn(scope?: PlaceholderScope) {
+  return (source: LiveValue["source"]) =>
     scope && source.namespace !== "combined" ? scope.lookup({ namespace: source.namespace, path: source.path }) : undefined
-  return resolveLiveText(text, liveValues, lookup, scope?.separators ?? { decimal: ".", thousands: "'" })
+}
+
+// The live value a live icon shows (properties.liveIconId), if it is one.
+export function liveIconValue(obj: ScreenObject): LiveValue | undefined {
+  const id = obj.properties?.liveIconId
+  return typeof id === "string" ? liveValuesOf(obj).find((lv) => lv.id === id) : undefined
+}
+
+// An icon as drawn: a live icon shows the icon of the result that applies -
+// none where that result is not an icon (an Otherwise or No value yet left
+// unset). A fixed icon is returned as it is.
+export function iconAsDrawn(obj: ScreenObject, scope?: PlaceholderScope): ScreenObject {
+  const liveValue = liveIconValue(obj)
+  if (!liveValue) return obj
+  const { result } = evaluate(liveValue, lookupIn(scope)(liveValue.source))
+  return { ...obj, properties: { ...obj.properties, assetId: result?.kind === "icon" ? result.icon : undefined } }
 }
 
 // A text object's properties as they go to a device, until devices read live
@@ -49,7 +70,8 @@ export function liveValuesNotOnDevices(project: { screens?: { name: string; obje
       for (const obj of objects) {
         const liveValues = liveValuesOf(obj)
         const text = obj.properties?.text
-        if (liveValues.length > 0 && typeof text === "string" && lowerLiveText(text, liveValues).left.length > 0) {
+        if (liveIconValue(obj)) names.push(`an icon on ${screen.name}`)
+        else if (liveValues.length > 0 && typeof text === "string" && lowerLiveText(text, liveValues).left.length > 0) {
           const shown = text.replace(/\{live:[^}]*\}/g, "…").replace(/\{\{/g, "{").replace(/\}\}/g, "}")
           names.push(`"${shown}" on ${screen.name}`)
         }
@@ -59,4 +81,20 @@ export function liveValuesNotOnDevices(project: { screens?: { name: string; obje
     walk(screen.objects ?? [])
   }
   return names
+}
+
+// A project as it goes to a device until devices read live values: a live
+// icon is the fixed icon of its Otherwise (none without one), its live value
+// not sent. A copy; the project is left as it is.
+export function withLiveIconsAsFixed<T extends { screens?: { objects?: ScreenObject[] }[] }>(project: T): T {
+  const fix = (objects: ScreenObject[]): ScreenObject[] =>
+    objects.map((obj) => {
+      const children = obj.children?.length ? { children: fix(obj.children) } : {}
+      const liveValue = liveIconValue(obj)
+      if (!liveValue) return { ...obj, ...children }
+      const { liveIconId: _id, liveValues: _values, ...properties } = obj.properties
+      const otherwise = liveValue.otherwise?.kind === "icon" ? liveValue.otherwise.icon : undefined
+      return { ...obj, ...children, properties: { ...properties, assetId: otherwise } }
+    })
+  return { ...project, screens: (project.screens ?? []).map((screen) => ({ ...screen, objects: fix(screen.objects ?? []) })) }
 }

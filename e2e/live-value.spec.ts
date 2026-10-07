@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
 import { migrateProject } from "../lib/object-types"
-import { exportedTextProperties, liveValuesNotOnDevices } from "../lib/object-text"
+import { exportedTextProperties, iconAsDrawn, liveValuesNotOnDevices, withLiveIconsAsFixed } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 
@@ -294,5 +294,42 @@ test.describe("a text as the field shows it", () => {
     expect(sourceShortName({ namespace: "topic", path: "van/klima#innen" })).toBe("innen")
     expect(sourceShortName({ namespace: "topic", path: "pumpe" })).toBe("pumpe")
     expect(sourceShortName({ namespace: "device", path: "model" })).toBe("model")
+  })
+})
+
+// Task 9: an icon can be live - its one live value's results are icons.
+test.describe("a live icon", () => {
+  const frost: LiveValue = {
+    id: "lv1",
+    source: { namespace: "topic", path: "outside_temp" },
+    rules: [
+      { op: "<", operand: "0", result: { kind: "icon", icon: "asset-alert" } },
+      { op: "<", operand: "3", result: { kind: "icon", icon: "asset-flake" } },
+    ],
+    otherwise: { kind: "icon", icon: "asset-thermo" },
+    noValueYet: { kind: "icon", icon: "asset-thermo-off" },
+  }
+  const icon = { id: "i1", type: "icon", x: 0, y: 0, width: 40, height: 40, zIndex: 1, properties: { assetId: "asset-thermo", liveIconId: "lv1", liveValues: [frost] } } as any
+  const scope = (value: string | undefined) => ({ separators: { decimal: ".", thousands: "'" }, lookup: () => value })
+
+  test("draws the icon of the rule that applies, Otherwise, or No value yet", () => {
+    expect(iconAsDrawn(icon, scope("-2")).properties.assetId).toBe("asset-alert")
+    expect(iconAsDrawn(icon, scope("2.4")).properties.assetId).toBe("asset-flake")
+    expect(iconAsDrawn(icon, scope("10")).properties.assetId).toBe("asset-thermo")
+    expect(iconAsDrawn(icon, scope(undefined)).properties.assetId).toBe("asset-thermo-off")
+    expect(iconAsDrawn({ ...icon, properties: { ...icon.properties, liveValues: [{ ...frost, otherwise: undefined }] } }, scope("10")).properties.assetId).toBeUndefined()
+  })
+
+  test("a fixed icon is drawn as it is", () => {
+    const fixed = { ...icon, properties: { assetId: "asset-x" } }
+    expect(iconAsDrawn(fixed, scope("1"))).toBe(fixed)
+  })
+
+  test("the interim export sends its Otherwise icon and names it", () => {
+    const project = { screens: [{ name: "Wetter", objects: [icon] }] } as any
+    const exported = withLiveIconsAsFixed(project)
+    expect(exported.screens[0].objects[0].properties).toEqual({ assetId: "asset-thermo" })
+    expect(project.screens[0].objects[0].properties.liveIconId).toBe("lv1")
+    expect(liveValuesNotOnDevices(project)).toEqual(["an icon on Wetter"])
   })
 })

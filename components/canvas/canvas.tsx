@@ -1,5 +1,6 @@
 "use client"
 
+import { iconAsDrawn } from "@/lib/object-text"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useMemo, useState } from "react"
@@ -1953,7 +1954,8 @@ export function Canvas({
       case "icon":
         renderIcon({
           ctx,
-          obj,
+          // A live icon shows the icon its live value gives (lib/object-text.ts).
+          obj: iconAsDrawn(obj, placeholders),
           projectAssets,
           iconImageCache: iconImageCacheRef.current,
           requestRedraw: draw,

@@ -94,11 +94,22 @@ Knob, 4.3B, PaperS3 und die Android-App zeigen Werte im Text ab Systemgeneration
 
 Ein Bild aus der Icon-Sammlung des Projekts, immer quadratisch.
 
-- <span class="ui">Icon</span>: welches. Die Icons selbst verwaltest du unter <span class="ui">Settings</span> › <span class="ui">Assets</span>, siehe [Icons und Schriften](/designer/icons-schriften).
-- <span class="ui">Colour</span>: die Farbe des Icons und der Hintergrund, der anfangs durchsichtig ist.
+- <span class="ui">Icon</span>: <span class="ui">Fixed</span> zeigt immer dasselbe Icon. Die Icons selbst verwaltest du unter <span class="ui">Settings</span> › <span class="ui">Assets</span>, siehe [Icons und Schriften](/designer/icons-schriften). <span class="ui">Live</span> zeigt je nach Wert ein anderes, siehe unten.
+- <span class="ui">Colour</span>: die Farbe des Icons und der Hintergrund, der anfangs durchsichtig ist. Bei einem Icon mit <span class="ui">Live</span> gilt die Farbe für alle seine Icons.
 - <span class="ui">Size</span>: wie gross das Icon ist, in vier Stufen, <span class="ui">XS</span>, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (3, 4, 6 und 9 mm), wie beim [Bar](#bar). Auf älteren Geräten fehlt das Feld.
 
 In Pixeln stellst du die Grösse unter <span class="ui">Frame</span> als <span class="ui">Width</span> ein, die Höhe folgt.
+
+**Ein Icon, das sich mit einem Wert ändert:** Mit <span class="ui">Live</span> liest das Icon einen Wert und zeigt je nach Wert ein anderes Icon, etwa eine Schneeflocke, wenn es draussen kalt wird. Die Einstellungen sind dieselben wie bei einem [Wert im Text](#platzhalter): <span class="ui">Reads</span>, Regeln mit <span class="ui">+ Add rule</span>, <span class="ui">Otherwise</span> und <span class="ui">No value yet</span>. Nur steht in jeder Regel statt eines Texts ein Icon, das du mit einem Klick aus der Icon-Sammlung wählst. Das bisherige Icon wird zu <span class="ui">Otherwise</span>, es steht also da, solange keine Regel passt. Unter den Regeln zeigt <span class="ui">This rule can show</span> alle Icons, die vorkommen können.
+
+Eine Frostwarnung sieht so aus: <span class="ui">Reads</span> ist die Aussentemperatur, «If value < 0» zeigt ein Warnsymbol, «If value < 3» eine Schneeflocke, <span class="ui">Otherwise</span> ein Thermometer. Die Regeln werden von oben gelesen, bei 1.5 °C passt also die zweite.
+
+Stellst du zurück auf <span class="ui">Fixed</span>, bleibt das Icon aus <span class="ui">Otherwise</span>.
+
+<!-- handbuch-macke #55: Ein Icon mit Live zeigt auf dem Gerät nur sein Otherwise -->
+::: warning Noch nicht auf dem Gerät
+Ein Icon mit <span class="ui">Live</span> zeigt der Designer schon richtig, die Geräte zeigen vorerst immer das Icon aus <span class="ui">Otherwise</span>. Beim Übertragen nennt der Dialog solche Icons.
+:::
 
 ## Live Icon {#live-icon}
 

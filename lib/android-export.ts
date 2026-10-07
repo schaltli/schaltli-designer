@@ -7,7 +7,7 @@ import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { exportedButtonAction } from "./hardware-button-actions"
 import { projectSeparators } from "./placeholders"
-import { exportedTextProperties } from "./object-text"
+import { exportedTextProperties, withLiveIconsAsFixed } from "./object-text"
 import { exportedTopics } from "./render-screen"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
@@ -55,7 +55,9 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // The app has never heard of a group either (lib/object-groups.ts): its
   // children arrive as the objects they are, where they are on the screen.
   // A button opening a popup that is not there does nothing (lib/popup.ts).
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(authoredProject))
+  // A live icon goes as the fixed icon of its Otherwise until the app reads
+  // live values (lib/object-text.ts, the interim export).
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconsAsFixed(authoredProject)))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
