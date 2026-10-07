@@ -32,7 +32,7 @@ Beim Zeichnen einer Linie mit mehreren Punkten:
 | <kbd>Backspace</kbd> | letzten Punkt zurücknehmen |
 | <kbd>Esc</kbd> | abbrechen |
 
-<kbd>Entf</kbd>, <kbd>Backspace</kbd> und die Pfeiltasten wirken auf die Auswahl, ob du sie auf dem Screen oder in der Objektliste getroffen hast. Steht der Cursor in einem Eingabefeld, gehören die Tasten dem Feld. <kbd>Esc</kbd> hebt die Auswahl nur auf, wenn du vorher auf den Screen geklickt hast. Aus einer Gruppe führt <kbd>Esc</kbd> immer hinaus, auch wenn du sie über die Objektliste betreten hast.
+<kbd>Entf</kbd>, <kbd>Backspace</kbd> und die Pfeiltasten wirken auf die Auswahl, ob du sie auf dem Screen oder in der Objektliste getroffen hast. Steht der Cursor in einem Eingabefeld, gehören die Tasten dem Feld. Bei einem Textfeld führen <kbd>Enter</kbd> und <kbd>Esc</kbd> aus dem Feld zurück zum Screen, danach wirken die Tasten wieder auf die Auswahl. <kbd>Esc</kbd> hebt die Auswahl sonst nur auf, wenn du vorher auf den Screen geklickt hast. Aus einer Gruppe führt <kbd>Esc</kbd> immer hinaus, auch wenn du sie über die Objektliste betreten hast.
 
 <!-- handbuch-macke #35: Buchstaben-Kürzel wirken nicht -->
 Die Werkzeuge haben keine Buchstaben-Kürzel.

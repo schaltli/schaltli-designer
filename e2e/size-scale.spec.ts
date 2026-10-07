@@ -872,6 +872,9 @@ test.describe("choosing a typography", () => {
     await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
 
+    // The text just drawn has its field focused (focus-on-create.spec.ts):
+    // the first Esc lets go of it, the second clears the selection.
+    await page.keyboard.press("Escape")
     await page.keyboard.press("Escape")
 
     // Screen 1 inherits from Master 1, which has picked nothing: Standard.

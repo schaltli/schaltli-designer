@@ -29,6 +29,7 @@ import {
 import { DEFAULT_SEPARATORS, type Separators } from "@/lib/placeholders"
 import { cn } from "@/lib/utils"
 import { FIELD, FieldBox, PropertyRow } from "./field-shell"
+import { finishField, finishesField } from "./finish-field"
 
 export interface PlaceholderTextFieldProps {
   label: string
@@ -205,7 +206,15 @@ export function PlaceholderTextField({
       e.preventDefault()
       return
     }
-    if (!shown) return
+    if (!shown) {
+      // Enter or Esc with no list open finishes the text (finish-field.ts).
+      // With the list open, Esc closes the list and Enter picks (below).
+      if (finishesField(e.key)) {
+        if (e.key === "Enter") e.preventDefault()
+        finishField(e)
+      }
+      return
+    }
     const count = options.length
     if (e.key === "ArrowDown") setHighlight((h) => (h + 1) % count)
     else if (e.key === "ArrowUp") setHighlight((h) => (h - 1 + count) % count)

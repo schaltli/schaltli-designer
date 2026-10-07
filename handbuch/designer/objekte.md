@@ -4,7 +4,7 @@ Alles, was ein Screen zeigt, ist ein Objekt: ein Text, eine Tankanzeige, ein Sch
 
 ## Ein Objekt setzen
 
-Wähle ein Werkzeug in der Werkzeugleiste und zieh auf dem Screen ein Rechteck auf. Das Objekt entsteht in dieser Grösse, ist gleich ausgewählt, und das Werkzeug springt zurück auf <span class="ui">Select</span>.
+Wähle ein Werkzeug in der Werkzeugleiste und zieh auf dem Screen ein Rechteck auf. Das Objekt entsteht in dieser Grösse, ist gleich ausgewählt, und das Werkzeug springt zurück auf <span class="ui">Select</span>. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
 
 Einige Werkzeuge verhalten sich anders:
 

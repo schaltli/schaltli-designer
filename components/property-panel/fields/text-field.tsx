@@ -5,6 +5,7 @@
 import { useId } from "react"
 import { FIELD, PropertyRow } from "./field-shell"
 import { cn } from "@/lib/utils"
+import { finishField, finishesField } from "./finish-field"
 
 export interface TextFieldProps {
   label: string
@@ -35,6 +36,10 @@ export function TextField({ label, value, onChange, placeholder, hint, id, onBlu
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+        // Enter or Esc finishes the text (finish-field.ts).
+        onKeyDown={(e) => {
+          if (finishesField(e.key)) finishField(e)
+        }}
       />
     </PropertyRow>
   )

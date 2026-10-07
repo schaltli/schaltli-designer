@@ -4277,6 +4277,9 @@ export function Canvas({
       className="w-full h-full relative"
       style={{ backgroundColor: "rgb(var(--canvas-container-bg))" }}
       tabIndex={0}
+      // Where a finished text field hands the keyboard back to
+      // (property-panel/fields/finish-field.ts).
+      data-canvas-keys
       onKeyDown={handleKeyDown}
     >
       {/* What to do with the tool waiting to be used (asked 2026-10-04). */}

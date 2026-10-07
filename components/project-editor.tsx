@@ -1035,6 +1035,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // changes with every click: the screen's panel brings that button's row
   // into view (screen-properties.tsx). It used to open a panel of its own.
   const [focusedHardwareButton, setFocusedHardwareButton] = useState<{ id: string; key: number } | null>(null)
+  // The object just put on the screen, until its panel has put the focus on
+  // the field it is filled in through - a Text's text, say, selected, so it is
+  // typed over and Enter finishes it (the user, 2026-10-07).
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null)
 
   // Preview mode: buttons become functional (next/previous/goto-screen,
   // send-mqtt) and the right panel switches from editing properties to
@@ -1788,6 +1792,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           }),
         }))
         setSelectedObjectIds([id])
+        setJustCreatedId(id)
         return
       }
       const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
@@ -1814,6 +1819,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       }))
 
       setSelectedObjectIds([newObject.id])
+      setJustCreatedId(newObject.id)
     },
     [currentScreen.objects, currentScreenId, project.nextId],
   )
@@ -4237,6 +4243,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onOpenIconSelector={handleValueIconPairIconSelect}
                     onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
                     focusedHardwareButton={focusedHardwareButton}
+                    justCreatedId={justCreatedId}
+                    onJustCreatedFocused={() => setJustCreatedId(null)}
                     allScreens={project.screens}
                     onSaveScreenButtonAction={handleSaveScreenButtonAction}
                     supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}

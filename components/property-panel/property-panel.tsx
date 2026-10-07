@@ -1,4 +1,5 @@
 "use client"
+import { useEffect, useRef } from "react"
 import type { TextScale } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
@@ -32,6 +33,14 @@ import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/obj
 // id to open it for editing / know it's the only panel left) is handed the
 // parent found by walking the tree, the same way editingTabContext resolves
 // a tab-control from just its id elsewhere (see canvas.tsx).
+// The field a new object is filled in through, focused once it is drawn: a
+// Text's or Button's text, selected so typing replaces it and Enter finishes
+// it (the user, 2026-10-07). Other types keep the focus where it was.
+const FOCUS_ON_CREATE: Partial<Record<string, string>> = {
+  text: "#text",
+  button: "#text",
+}
+
 function findParentTabControl(objects: ScreenObject[], panelId: string): ScreenObject | null {
   for (const obj of objects) {
     if (obj.type === "switcher" && obj.children?.some((child) => child.id === panelId)) return obj
@@ -93,6 +102,10 @@ interface PropertyPanelProps {
   // The hardware button last clicked in the device's frame: the screen's
   // panel shows its row (screen-properties.tsx).
   focusedHardwareButton: { id: string; key: number } | null
+  // The object just put on the screen: its panel puts the focus on the field
+  // it is filled in through (FOCUS_ON_CREATE), then says so.
+  justCreatedId?: string | null
+  onJustCreatedFocused?: () => void
   allScreens: any[]
   onSaveScreenButtonAction: (buttonId: string, action: any) => void
   supportsSoftwareButtons: boolean
@@ -184,6 +197,8 @@ export function PropertyPanel({
   onOpenIconSelector,
   onOpenIconPropertiesSelector,
   focusedHardwareButton,
+  justCreatedId,
+  onJustCreatedFocused,
   allScreens,
   onSaveScreenButtonAction,
   supportsSoftwareButtons,
@@ -214,11 +229,27 @@ export function PropertyPanel({
   const isMultiSelection = selectedObjects.length > 1
   const hasSelection = selectedObjects.length > 0
 
+  // A Text or Button just drawn: its text, selected (FOCUS_ON_CREATE). A
+  // moment later - the drawing mouse's own default focus would take it back.
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!justCreatedId || selectedObject?.id !== justCreatedId) return
+    const selector = FOCUS_ON_CREATE[selectedObject.type]
+    const later = setTimeout(() => {
+      const field = selector ? panelRef.current?.querySelector<HTMLElement>(selector) : null
+      field?.focus()
+      if (field instanceof HTMLInputElement) field.select()
+      onJustCreatedFocused?.()
+    }, 0)
+    return () => clearTimeout(later)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justCreatedId, selectedObject?.id])
+
   return (
     // @container/panel: the rows measure themselves against the panel, which
     // the user drags between 280 and 900 px - see
     // components/property-panel/fields/field-shell.tsx.
-    <div className="@container/panel p-4 space-y-6 min-h-[560px] overflow-y-auto">
+    <div ref={panelRef} className="@container/panel p-4 space-y-6 min-h-[560px] overflow-y-auto">
       {hasSelection && (
         <div>
           <h3 className="text-sm font-medium mb-3">
