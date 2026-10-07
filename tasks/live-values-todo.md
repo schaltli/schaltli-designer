@@ -14,11 +14,14 @@ no» as one exported function each. `lib/comparison-operators.ts` gets
 `lib/live-value/vectors.json`, run by a new `e2e/live-value.spec.ts`.
 
 **Acceptance criteria:**
-- [ ] Every operator on a number, on text and on a non-number; a non-number
+- [x] Every operator on a number, on text and on a non-number; a non-number
       matches no order operator.
-- [ ] Every listed yes / no spelling, any case, trimmed; numbers ≠ 0 / = 0;
+- [x] Every listed yes / no spelling, any case, trimmed; numbers ≠ 0 / = 0;
       an empty message is no; no value at all is No value yet, never no.
-- [ ] First matching rule wins; Otherwise absent means «the value».
+- [x] First matching rule wins; Otherwise absent means «the value».
+
+Done 2026-10-07. `RULE_OPERATORS` sits beside `COMPARISON_OPERATORS`
+rather than in it: Live Icon, Live Line and Switcher still offer the six.
 
 **Verification:** `npx playwright test e2e/live-value.spec.ts`; `npm run typecheck`.
 

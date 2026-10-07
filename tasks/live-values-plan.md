@@ -63,7 +63,7 @@ say and warns about the rest.
 ## Task list
 
 ### Phase 1: Core and migration (`live-value-core`)
-- [ ] Task 1: The live value evaluates (model, operators, is yes / is no, rules, Otherwise, No value yet) with shared vectors
+- [x] Task 1: The live value evaluates (model, operators, is yes / is no, rules, Otherwise, No value yet) with shared vectors
 - [ ] Task 2: Formats and text results (number, duration, the `value` token, empty results, `{live:<id>}` in a text)
 - [ ] Task 3: `{topic:…}` in a text becomes a live value on open; blocks and discovery write live values
 

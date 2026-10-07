@@ -31,3 +31,13 @@ export function normalizeOperator(operator: string | undefined): ComparisonOpera
     ? (operator as ComparisonOperator)
     : DEFAULT_COMPARISON_OPERATOR
 }
+
+/**
+ * What a live value's rule can ask (docs/2026-10-07-live-values.md, decision
+ * 5): the six above and «is yes» / «is no». Kept apart from
+ * COMPARISON_OPERATORS, which the conditions not yet on live values (Live
+ * Icon, Live Line, Switcher) still offer as they are.
+ */
+export const RULE_OPERATORS = [...COMPARISON_OPERATORS, "yes", "no"] as const
+
+export type RuleOperator = (typeof RULE_OPERATORS)[number]
