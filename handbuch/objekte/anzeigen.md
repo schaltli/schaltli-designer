@@ -69,6 +69,8 @@ Ein Text kann Werte aus dem Van enthalten. Im Feld <span class="ui">Text</span> 
 - <span class="ui">Otherwise</span>: was dasteht, wenn keine Regel passt. Ohne eigene Eingabe ist das der Wert selbst.
 - <span class="ui">No value yet</span>: was dasteht, solange nach dem Einschalten noch nichts angekommen ist. Leer bleibt die Stelle leer.
 
+**Ausprobieren:** Unten in den Einstellungen steht ein Testwert, zu Beginn der erste Beispielwert des Topics, bei Zahlen mit einem Schieber. Die Regel, die bei diesem Wert gilt, ist blau umrandet, und der Screen zeigt den Wert so, wie ihn das Gerät zeigen würde. Mit <span class="ui">No value has arrived yet</span> siehst du, was nach dem Einschalten dasteht. Schliesst du die Einstellungen, zeigt der Screen wieder den Beispielwert.
+
 In einem Ergebnis schreibt `{value}` den Wert in seinem Format, etwa `noch {value}`. Ein leeres Ergebnis lässt den Chip ganz verschwinden. Ein Leerzeichen, das mit verschwinden soll, gehört deshalb ins Ergebnis und nicht davor in den Text. So zeigt «Heizung [status][timer]» mit dem Timer-Ergebnis ` timer {value}` und der Regel «== 0 → leer» entweder «Heizung läuft timer 3:23:18» oder «Heizung aus».
 
 <!-- handbuch-macke #55: Regeln und Dauer gehen noch nicht aufs Gerät -->

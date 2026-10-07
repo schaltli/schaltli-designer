@@ -228,4 +228,30 @@ test.describe("the live value editor", () => {
     await expect(editor(page)).toHaveCount(0)
     await expect(field(page)).toBeFocused()
   })
+
+  // Task 10: the test value marks the rule that applies and shows on the
+  // canvas while the editor is open.
+  test("the test value marks the rule that applies and the canvas shows it until the editor closes", async ({ page }) => {
+    await drawText(page, 20, 200)
+    await page.keyboard.type("Temp ")
+    await insertValue(page, "fan-setpoint")
+    await editor(page).getByRole("button", { name: "+ Add rule" }).click()
+    await editor(page).getByLabel("Rule 1 comparison").selectOption("<")
+    await editor(page).getByLabel("Rule 1 value").fill("0")
+    await editor(page).getByLabel("Rule 1 shows").fill("FROST")
+    await expect(editor(page).getByLabel("Test value", { exact: true })).toHaveValue("45")
+    await expect(editor(page).locator('[data-applies="true"]')).toContainText("Otherwise")
+
+    const canvas = (await getMainCanvas(page)).canvas
+    const atExample = await canvas.screenshot()
+    await editor(page).getByLabel("Test value", { exact: true }).fill("-3")
+    await expect(editor(page).getByTestId("live-value-rule").first()).toHaveAttribute("data-applies", "true")
+    await expect.poll(async () => Buffer.compare(await canvas.screenshot(), atExample)).not.toBe(0)
+
+    await editor(page).getByRole("checkbox", { name: "No value has arrived yet" }).check()
+    await expect(editor(page).locator('[data-applies="true"]')).toContainText("No value yet")
+
+    await editor(page).getByRole("button", { name: "Close" }).click()
+    await expect.poll(async () => Buffer.compare(await canvas.screenshot(), atExample)).toBe(0)
+  })
 })

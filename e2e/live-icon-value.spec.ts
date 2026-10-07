@@ -56,6 +56,12 @@ test.describe("a live icon", () => {
     await expect(editor(page).getByRole("button", { name: "Rule 1 shows" })).toContainText("snowflake")
     await expect(page.getByTestId("live-icon-can-show").locator("span[title]")).toHaveCount(2)
 
+    // The test value starts at the example, 45 - below 50, so the rule
+    // applies - and 60 is Otherwise.
+    await expect(editor(page).getByTestId("live-value-rule").first()).toHaveAttribute("data-applies", "true")
+    await editor(page).getByLabel("Test value", { exact: true }).fill("60")
+    await expect(editor(page).locator('[data-applies="true"]')).toContainText("Otherwise")
+
     const project = await downloadProjectJson(page)
     const icon = project.screens.flatMap((s: any) => s.objects).find((o: any) => o.type === "icon")
     const asset = (name: string) => project.assets.find((a: any) => a.name.startsWith(name))?.id

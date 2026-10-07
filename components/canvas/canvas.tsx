@@ -1,6 +1,7 @@
 "use client"
 
 import { iconAsDrawn } from "@/lib/object-text"
+import { isTested, useLiveValueTest } from "@/lib/live-value-test"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useMemo, useState } from "react"
@@ -1232,6 +1233,7 @@ export function Canvas({
     [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight, adornmentRotation],
   )
 
+  const liveValueTest = useLiveValueTest()
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -1360,13 +1362,18 @@ export function Canvas({
       ctx.stroke()
     })
 
-    const placeholders = placeholderScope({
+    const scope = placeholderScope({
       topics,
       liveValues,
       projectName,
       device: { model: deviceModel, id: deviceId },
       separators: numberSeparators,
     })
+    // An open live value editor's test value, for its source
+    // (lib/live-value-test.ts).
+    const placeholders = liveValueTest
+      ? { ...scope, lookup: (reference: Parameters<typeof scope.lookup>[0]) => (isTested(liveValueTest, reference) ? liveValueTest.value : scope.lookup(reference)) }
+      : scope
 
     // Draw in zIndex order (frontmost last) - matches firmware's
     // ScreenRenderer, which sorts top-level objects by zIndex the same way
@@ -1689,6 +1696,7 @@ export function Canvas({
     liveValues,
     askedValues,
     editingContainerId,
+    liveValueTest,
   ])
 
   useEffect(() => {

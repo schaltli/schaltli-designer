@@ -11,11 +11,13 @@
  * data and reads it back.
  */
 
+import { useEffect, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { setLiveValueTest } from "@/lib/live-value-test"
 import type { ProjectAsset, Topic } from "@/components/project-editor"
 import { RULE_OPERATORS, type RuleOperator } from "@/lib/comparison-operators"
-import { DURATION_PATTERNS, isNo, isYes, sourceShortName, type LiveValue, type Result, type Rule, type ValueFormat } from "@/lib/live-value"
-import { referenceEntries } from "@/lib/placeholder-completion"
+import { DURATION_PATTERNS, asNumber, evaluate, isNo, isYes, sourceShortName, type LiveValue, type Result, type Rule, type ValueFormat } from "@/lib/live-value"
+import { referenceEntries, topicExample } from "@/lib/placeholder-completion"
 import { cn } from "@/lib/utils"
 import { FIELD, FieldBox, Ornament, svgMarkup } from "./fields"
 
@@ -151,6 +153,25 @@ export function LiveValueEditor({
   closable = true,
 }: LiveValueEditorProps) {
   const icons = resultKind === "icon"
+
+  // The test value (Task 10): the example to start with, a slider where the
+  // source is a number. While the editor is open the canvas shows it.
+  const example = liveValue.source.namespace === "topic" ? topicExample(liveValue.source.path, topics) : undefined
+  const sourceKey = `${liveValue.source.namespace}:${liveValue.source.path}`
+  const [test, setTest] = useState<{ value: string; none: boolean }>({ value: example ?? "", none: false })
+  useEffect(() => setTest({ value: example ?? "", none: false }), [sourceKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setLiveValueTest({ source: liveValue.source, value: test.none ? undefined : test.value })
+  }, [sourceKey, test]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => setLiveValueTest(null), [])
+  const applies = evaluate(liveValue, test.none ? undefined : test.value).applies
+  const marked = (branch: number | "otherwise" | "noValueYet") => (branch === applies ? "rounded-md bg-blue-50 ring-1 ring-blue-400 dark:bg-blue-950" : "")
+  // The slider spans the example and every number a rule compares with.
+  const numbers = [asNumber(example ?? ""), ...liveValue.rules.map((r) => asNumber(r.operand ?? ""))].filter((n): n is number => n !== undefined)
+  const sliding = asNumber(example ?? "") !== undefined
+  const low = numbers.length ? Math.floor(Math.min(...numbers)) - 5 : 0
+  const high = numbers.length ? Math.ceil(Math.max(...numbers)) + 5 : 100
+  const step = numbers.some((n) => !Number.isInteger(n)) ? 0.1 : 0.5
   const reference = `${liveValue.source.namespace}:${liveValue.source.path}`
   const entries = referenceEntries("", topics)
   const known = entries.some((e) => e.reference === reference)
@@ -256,7 +277,7 @@ export function LiveValueEditor({
 
         <div className="space-y-1.5" role="list" aria-label="Rules">
           {liveValue.rules.map((rule, index) => (
-            <div key={index} role="listitem" className="flex items-center gap-1.5" data-testid="live-value-rule">
+            <div key={index} role="listitem" className={cn("flex items-center gap-1.5", marked(index))} data-testid="live-value-rule" data-applies={applies === index}>
               <span className="w-10 shrink-0 text-muted-foreground">If value</span>
               <FieldBox className="w-[66px] shrink-0">
                 <select
@@ -345,11 +366,11 @@ export function LiveValueEditor({
 
         {icons ? (
           <>
-            <div className="flex items-center gap-1.5">
+            <div className={cn("flex items-center gap-1.5", marked("otherwise"))} data-applies={applies === "otherwise"}>
               <span className="w-24 shrink-0 text-muted-foreground">Otherwise</span>
               <IconSlot label="Otherwise" result={liveValue.otherwise} projectAssets={projectAssets} onPick={() => onPickIcon?.("otherwise")} />
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className={cn("flex items-center gap-1.5", marked("noValueYet"))} data-applies={applies === "noValueYet"}>
               <span className="w-24 shrink-0 text-muted-foreground">No value yet</span>
               <IconSlot label="No value yet" result={liveValue.noValueYet} projectAssets={projectAssets} onPick={() => onPickIcon?.("noValueYet")} />
             </div>
@@ -357,7 +378,7 @@ export function LiveValueEditor({
           </>
         ) : (
           <>
-        <label className="flex items-center gap-1.5">
+        <label className={cn("flex items-center gap-1.5", marked("otherwise"))} data-applies={applies === "otherwise"}>
           <span className="w-24 shrink-0 text-muted-foreground">Otherwise</span>
           <input
             aria-label="Otherwise"
@@ -372,7 +393,7 @@ export function LiveValueEditor({
             }}
           />
         </label>
-        <label className="flex items-center gap-1.5">
+        <label className={cn("flex items-center gap-1.5", marked("noValueYet"))} data-applies={applies === "noValueYet"}>
           <span className="w-24 shrink-0 text-muted-foreground">No value yet</span>
           <input
             aria-label="No value yet"
@@ -389,6 +410,35 @@ export function LiveValueEditor({
         </label>
           </>
         )}
+        <div className="space-y-1.5 border-t pt-2" data-testid="live-value-test">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Test value</span>
+            <input
+              aria-label="Test value"
+              className={cn(INPUT, "w-24")}
+              value={test.value}
+              disabled={test.none}
+              onChange={(e) => setTest({ value: e.target.value, none: false })}
+            />
+          </div>
+          {sliding ? (
+            <input
+              type="range"
+              aria-label="Test value slider"
+              className="w-full"
+              min={low}
+              max={high}
+              step={step}
+              value={asNumber(test.value) ?? low}
+              disabled={test.none}
+              onChange={(e) => setTest({ value: e.target.value, none: false })}
+            />
+          ) : null}
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={test.none} onChange={(e) => setTest({ ...test, none: e.target.checked })} />
+            <span>No value has arrived yet</span>
+          </label>
+        </div>
         <p className="text-[11px] text-muted-foreground">
           {icons
             ? "Rules are read top to bottom; the first that applies wins."

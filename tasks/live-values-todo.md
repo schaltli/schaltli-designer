@@ -322,9 +322,15 @@ yet». The rule that applies is marked; the canvas shows the object at the
 test value while the editor is open.
 
 **Acceptance criteria:**
-- [ ] Moving the slider marks the rule that applies and redraws the object.
-- [ ] Closing the editor returns the canvas to the example value.
-- [ ] Works for a chip and for a live icon.
+- [x] Moving the slider marks the rule that applies and redraws the object.
+- [x] Closing the editor returns the canvas to the example value.
+- [x] Works for a chip and for a live icon.
+
+Done 2026-10-07. `lib/live-value-test.ts`, a small store the editor sets and
+the canvas reads, so nothing between them carries it: while an editor is
+open the canvas reads its test value for that source (every object reading
+it, not only the one edited). The rule that applies is marked
+(`data-applies`). Handbook: `objekte/anzeigen.md` («Ausprobieren»).
 
 **Verification:** `e2e/live-value-chips.spec.ts`, `e2e/live-icon-value.spec.ts`.
 

@@ -84,7 +84,7 @@ say and warns about the rest.
 
 ### Phase 3: Live icon and test value
 - [x] Task 9: An icon is Fixed or Live; rule results are icons picked in Select Icon; «This rule can show»
-- [ ] Task 10: The test value: slider / text / «No value yet», the rule that applies marked, for text and icon
+- [x] Task 10: The test value: slider / text / «No value yet», the rule that applies marked, for text and icon
 
 ### Checkpoint: Icon
 - [ ] The user builds the frost warning (mockup R1) without help
