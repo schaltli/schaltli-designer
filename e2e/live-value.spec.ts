@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { evaluate, isNo, isYes, type Rule } from "../lib/live-value"
+import { evaluate, isNo, isYes, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
 // lib/live-value/vectors.json, to be shared with the firmware and the Android
@@ -23,6 +23,43 @@ test.describe("live value vectors: which rule applies", () => {
     test(vector.name, () => {
       const rules = vector.rules.map((rule, i) => ({ ...rule, result: { kind: "text" as const, parts: [`rule ${i}`] } }))
       expect(evaluate({ id: "lv1", source: { namespace: "topic", path: "t" }, rules }, vector.value).applies).toEqual(vector.applies)
+    })
+  }
+})
+
+interface TextVector {
+  name: string
+  liveValue: LiveValue
+  value?: string
+  decimal?: string
+  thousands?: string
+  expected: string
+}
+
+interface ResolveVector {
+  name: string
+  text: string
+  liveValues: LiveValue[]
+  values: Record<string, string>
+  expected: string
+}
+
+const textVectors = vectors as unknown as { text: TextVector[]; resolve: ResolveVector[] }
+
+test.describe("live value vectors: as text", () => {
+  for (const vector of textVectors.text) {
+    test(vector.name, () => {
+      const separators = { decimal: vector.decimal ?? ".", thousands: vector.thousands ?? "'" }
+      expect(textOf(vector.liveValue, vector.value, separators)).toBe(vector.expected)
+    })
+  }
+})
+
+test.describe("live value vectors: a whole text", () => {
+  for (const vector of textVectors.resolve) {
+    test(vector.name, () => {
+      const lookup = (source: Source) => vector.values[`${source.namespace}:${source.path}`]
+      expect(resolveLiveText(vector.text, vector.liveValues, lookup, { decimal: ".", thousands: "'" })).toBe(vector.expected)
     })
   }
 })

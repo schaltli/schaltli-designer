@@ -40,13 +40,17 @@ written, `{{`/`}}` as today. Number formatting through `formatNumber` from
 `lib/placeholders.ts`.
 
 **Acceptance criteria:**
-- [ ] Number formats agree with every number case in
+- [x] Number formats agree with every number case in
       `lib/placeholders/vectors.json`; a non-number under a number format is
       written as it came.
-- [ ] Durations: 12198 → `3:23:18`, `3:23`, `203:18`; a negative or
+- [x] Durations: 12198 → `3:23:18`, `3:23`, `203:18`; a negative or
       non-number duration is written as it came.
-- [ ] An empty result leaves nothing, the space inside it included; an
+- [x] An empty result leaves nothing, the space inside it included; an
       unknown `{live:x}` stays as written.
+
+Done 2026-10-07. `formatValue`, `textOf`, `resolveLiveText` in
+`lib/live-value.ts`; 33 more vectors (`text`, `resolve`). That every
+placeholder case reads the same is Task 3's check, after migration.
 
 **Verification:** `e2e/live-value.spec.ts` (vectors extended); `npm run typecheck`.
 

@@ -7,6 +7,7 @@
 // vectors.json.
 
 import type { RuleOperator } from "@/lib/comparison-operators"
+import { formatNumber, type Separators } from "@/lib/placeholders"
 
 export type { RuleOperator }
 
@@ -31,10 +32,24 @@ export interface Rule {
   result: Result
 }
 
+/** How the value is written where a result asks for it, or where there is no result. */
+export type ValueFormat =
+  | { kind: "asIs" }
+  /** Rounded to `decimals`, half away from zero, the project's separators; `grouped` adds thousands. */
+  | { kind: "number"; decimals: number; grouped: boolean }
+  /** Seconds as a duration; the first unit is not wrapped, so 34 hours stay 34. */
+  | { kind: "duration"; pattern: DurationPattern }
+
+export type DurationPattern = "h:mm:ss" | "h:mm" | "m:ss"
+
+export const DURATION_PATTERNS: readonly DurationPattern[] = ["h:mm:ss", "h:mm", "m:ss"]
+
 export interface LiveValue {
   /** Unique within its object; a text refers to it as `{live:<id>}`. */
   id: string
   source: Source
+  /** Absent: as it came. */
+  format?: ValueFormat
   rules: Rule[]
   /** No rule matched. Absent: the value, in its format. */
   otherwise?: Result
@@ -156,4 +171,98 @@ export function evaluate(liveValue: LiveValue, value: string | undefined): { app
     if (matches(value, rule.op, rule.operand)) return { applies: i, result: rule.result }
   }
   return { applies: "otherwise", result: liveValue.otherwise }
+}
+
+/** Two digits, a leading zero where needed. */
+function twoDigits(n: number): string {
+  return n < 10 ? "0" + String(n) : String(n)
+}
+
+/**
+ * Whole seconds as a duration, or undefined for anything but a plain number
+ * of zero or more. A fraction is cut off, not rounded: a countdown at 59.9
+ * has not reached the minute.
+ */
+function formatDuration(value: string, pattern: DurationPattern): string | undefined {
+  const text = trimmed(value)
+  if (asNumber(text) === undefined) return undefined
+  let i = text[0] === "+" ? 1 : 0
+  if (text[i] === "-") return undefined
+  let seconds = 0
+  while (i < text.length && isDigit(text[i])) seconds = seconds * 10 + (text.charCodeAt(i++) - 48)
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (pattern === "h:mm:ss") return String(h) + ":" + twoDigits(m) + ":" + twoDigits(s)
+  if (pattern === "h:mm") return String(h) + ":" + twoDigits(m)
+  return String(Math.floor(seconds / 60)) + ":" + twoDigits(s)
+}
+
+/** The value in a format; as it came where the format does not fit it. */
+export function formatValue(value: string, format: ValueFormat | undefined, separators: Separators): string {
+  if (!format || format.kind === "asIs") return value
+  if (format.kind === "number") {
+    return formatNumber(value, { kind: format.grouped ? "N" : "F", digits: format.decimals }, separators) ?? value
+  }
+  return formatDuration(value, format.pattern) ?? value
+}
+
+/**
+ * What a live value reads as text: the result that applies, its value token
+ * written in the format; Otherwise absent is the value in its format, No
+ * value yet absent is nothing. An icon result reads as nothing - a text
+ * cannot show one.
+ */
+export function textOf(liveValue: LiveValue, value: string | undefined, separators: Separators): string {
+  const { applies, result } = evaluate(liveValue, value)
+  const formatted = value === undefined ? "" : formatValue(value, liveValue.format, separators)
+  if (!result) return applies === "otherwise" ? formatted : ""
+  if (result.kind !== "text") return ""
+  let out = ""
+  for (const part of result.parts) out += typeof part === "string" ? part : formatted
+  return out
+}
+
+/** The `<id>` of a `{live:<id>}` that starts at `at`, and where it ends; undefined if none does. */
+function liveReferenceAt(text: string, at: number): { id: string; end: number } | undefined {
+  const head = "{live:"
+  if (text.slice(at, at + head.length) !== head) return undefined
+  const close = text.indexOf("}", at + head.length)
+  if (close < 0) return undefined
+  const id = text.slice(at + head.length, close)
+  for (const c of id) if (c === "{" || isWhitespace(c)) return undefined
+  return id === "" ? undefined : { id, end: close + 1 }
+}
+
+/**
+ * A text as it reads: each `{live:<id>}` replaced by its live value's text,
+ * `{{` and `}}` as single braces. A reference to an id the object does not
+ * have, and any other brace, stays as written.
+ */
+export function resolveLiveText(
+  text: string,
+  liveValues: readonly LiveValue[] | undefined,
+  lookup: (source: Source) => string | undefined,
+  separators: Separators,
+): string {
+  let out = ""
+  let i = 0
+  while (i < text.length) {
+    const c = text[i]
+    if ((c === "{" || c === "}") && text[i + 1] === c) {
+      out += c
+      i += 2
+      continue
+    }
+    const reference = c === "{" ? liveReferenceAt(text, i) : undefined
+    const liveValue = reference ? liveValues?.find((lv) => lv.id === reference.id) : undefined
+    if (reference && liveValue) {
+      out += textOf(liveValue, lookup(liveValue.source), separators)
+      i = reference.end
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
 }
