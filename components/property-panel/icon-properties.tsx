@@ -17,6 +17,7 @@
 
 import type { ScreenObject, ProjectAsset, Topic } from "../project-editor"
 import { nextLiveValueId, type LiveValue } from "@/lib/live-value"
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { referenceEntries } from "@/lib/placeholder-completion"
 import { liveIconValue } from "@/lib/object-text"
 import { cn } from "@/lib/utils"
@@ -44,6 +45,7 @@ interface IconPropertiesProps {
   onOpenIconSelector?: () => void
   /** The project's topics, for a live icon's source. */
   topics?: Topic[]
+  combinedTopics?: CombinedTopic[]
   /** Opens the icon library for a live icon's result. */
   onOpenLiveIconSelector?: (liveValueId: string, target: IconTarget) => void
   allScreens?: Array<{
@@ -64,6 +66,7 @@ export function IconProperties({
   allScreens,
   textScale,
   topics = [],
+  combinedTopics = [],
   onOpenLiveIconSelector,
 }: IconPropertiesProps) {
   const liveValue = liveIconValue(selectedObject)
@@ -129,6 +132,7 @@ export function IconProperties({
         {liveValue ? (
           <LiveValueEditor
             liveValue={liveValue}
+            combinedTopics={combinedTopics}
             position={1}
             count={1}
             title="Live icon"

@@ -6,7 +6,7 @@ import { migrateProject } from "../lib/object-types"
 import { exportedTextProperties, iconAsDrawn, liveValuesNotOnDevices, withLiveIconsAsFixed } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
-import { computeCombined, dependentsOf, evaluationOrder, type CombinedTopic } from "../lib/combined-topics"
+import { combinedReadableFrom, combinedUsage, computeCombined, dependentsOf, evaluationOrder, renameCombined, type CombinedTopic } from "../lib/combined-topics"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
 // lib/live-value/vectors.json, to be shared with the firmware and the Android
@@ -378,5 +378,44 @@ test.describe("combined topics", () => {
     }))
     expect(evaluationOrder(chain).tooDeep).toBe("s8")
     expect(evaluationOrder(chain.slice(0, 8)).tooDeep).toBeUndefined()
+  })
+})
+
+// Task 12: combined topics in a project - who reads one, renaming, and what a
+// condition may read without closing a circular reference.
+test.describe("combined topics in a project", () => {
+  const glaette = (vectors as unknown as { combined: CombinedVector[] }).combined[0].combinedTopics
+  const project = () =>
+    ({
+      combinedTopics: structuredClone(glaette),
+      screens: [
+        {
+          name: "Wetter",
+          objects: [
+            { id: "t", type: "text", properties: { text: "Glätte {live:lv1}", liveValues: [{ id: "lv1", source: { namespace: "combined", path: "glaette" }, rules: [] }] } },
+            { id: "i", type: "icon", properties: { liveIconId: "lv1", liveValues: [{ id: "lv1", source: { namespace: "combined", path: "frost" }, rules: [] }] } },
+          ],
+        },
+      ],
+    }) as any
+
+  test("who reads a combined topic", () => {
+    expect(combinedUsage(project(), "glaette")).toEqual(['"Glätte …" on Wetter'])
+    expect(combinedUsage(project(), "frost")).toEqual(["an icon on Wetter", "combined glaette"])
+    expect(combinedUsage(project(), "nass")).toEqual(["combined glaette"])
+  })
+
+  test("renaming carries every reference", () => {
+    const renamed = renameCombined(project(), "frost", "eis")
+    expect(renamed.combinedTopics.map((ct: CombinedTopic) => ct.name)).toEqual(["eis", "nass", "glaette"])
+    expect(renamed.combinedTopics[2].conditions[0].source).toEqual({ namespace: "combined", path: "eis" })
+    expect(renamed.screens[0].objects[1].properties.liveValues[0].source).toEqual({ namespace: "combined", path: "eis" })
+    expect(renamed.screens[0].objects[0].properties.liveValues[0].source.path).toBe("glaette")
+  })
+
+  test("a condition may read neither its own topic nor one that reads it", () => {
+    expect(combinedReadableFrom(glaette, "frost")).toEqual(["nass"])
+    expect(combinedReadableFrom(glaette, "glaette")).toEqual(["frost", "nass"])
+    expect(combinedReadableFrom(glaette, "nass")).toEqual(["frost"])
   })
 })

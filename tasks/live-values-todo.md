@@ -379,11 +379,22 @@ at the four write sites; elsewhere it shows group «Combined» with
 circular reference. Handbook: `designer/topics.md`.
 
 **Acceptance criteria:**
-- [ ] A combined topic is offered in a live value and a switch's state,
-      never in a write field.
-- [ ] A project with a circular reference (written by hand) opens, shows
+- [x] A combined topic is offered in a live value (chip search, Reads, a
+      live icon). Not yet in a switch's state, and so in no `TopicSelector`
+      at all: the objects those serve do not read combined topics until the
+      migration turns their states into live values - offering it there
+      would bind something that never draws. No write field offers it.
+- [x] A project with a circular reference (written by hand) opens, shows
       it red, and the export refuses naming the chain.
-- [ ] Delete in use refused; rename updates live values and conditions.
+- [x] Delete in use refused; rename updates live values and conditions.
+
+Done 2026-10-07. `project.combinedTopics`; `components/combined-topics-section.tsx`
+in Project Settings › Topics; `referenceEntries` offers them as «Combined»;
+`combinedUsage`, `renameCombined`, `combinedReadableFrom`,
+`assertCombinedExportable` in `lib/combined-topics.ts`. Both exports refuse
+a circular reference or more than 8 levels, naming it. Handbook:
+`designer/topics.md` («Combined topics», with a `handbuch-macke #55`
+warning).
 
 **Verification:** new `e2e/combined-topics.spec.ts`; `e2e/topic-*.spec.ts`;
 `e2e/handbook-labels.spec.ts`.

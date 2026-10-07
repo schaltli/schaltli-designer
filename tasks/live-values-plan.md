@@ -91,7 +91,7 @@ say and warns about the rest.
 
 ### Phase 4: Combined topics (`combined-topics`, designer)
 - [x] Task 11: Combined topics evaluate: all / any, nesting, order, circular references, no value yet
-- [ ] Task 12: Combined topics in the Topics tab; delete and rename; the picker offers them only where something is read
+- [x] Task 12: Combined topics in the Topics tab; delete and rename; the picker offers them only where something is read
 - [ ] Task 13: The preview computes combined topics from examples, test values and live MQTT
 
 ### Checkpoint: Complete

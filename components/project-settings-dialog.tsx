@@ -1,5 +1,6 @@
 "use client"
 
+import { CombinedTopicsSection } from "@/components/combined-topics-section"
 import { resolveScale } from "@/lib/size-scale"
 import { useEffect } from "react"
 
@@ -1307,6 +1308,7 @@ export function ProjectSettingsDialog({
                               </div>
                             ))
                           )}
+                          <CombinedTopicsSection project={project} onProjectUpdate={onProjectUpdate} />
                         </div>
                       </ScrollArea>
                     </div>

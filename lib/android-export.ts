@@ -1,4 +1,5 @@
 import JSZip from "jszip"
+import { assertCombinedExportable } from "./combined-topics"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
@@ -52,6 +53,9 @@ function iconFilenameFor(cacheKey: string): string {
 }
 
 export async function exportAndroidProject(authoredProject: Project): Promise<Blob> {
+  // A circular reference among combined topics is refused, naming it
+  // (lib/combined-topics.ts).
+  assertCombinedExportable(authoredProject)
   // The app has never heard of a group either (lib/object-groups.ts): its
   // children arrive as the objects they are, where they are on the screen.
   // A button opening a popup that is not there does nothing (lib/popup.ts).

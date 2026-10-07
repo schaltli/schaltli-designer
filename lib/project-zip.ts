@@ -6,6 +6,7 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
+import { assertCombinedExportable } from "@/lib/combined-topics"
 import { applyColorDepth } from "@/lib/color-depth"
 import type { HardwareButtonAction, Project } from "@/components/project-editor"
 import JSZip from "jszip"
@@ -256,6 +257,9 @@ function themedObjects(screen: { id: string; name?: string; objects: any[] }, ma
 }
 
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
+  // A circular reference among combined topics is refused, naming it
+  // (lib/combined-topics.ts).
+  assertCombinedExportable(rawProject)
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
   // withIntegerProjectGeometry.

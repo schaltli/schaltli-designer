@@ -1,5 +1,6 @@
 "use client"
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
@@ -144,6 +145,9 @@ export interface Project {
   snapGuides: SnapGuide[]
   settings: ProjectSettings
   topics: Topic[]
+  // Topics the project computes from others (lib/combined-topics.ts,
+  // docs/2026-10-07-live-values.md decisions 10-15).
+  combinedTopics?: CombinedTopic[]
   nextId: number // Added nextId for incremental ID generation
   screenWidth: number
   screenHeight: number
@@ -4227,6 +4231,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     projectAssets={project.assets}
                     onAddAsset={addAsset}
                     topics={project.topics}
+                    combinedTopics={project.combinedTopics ?? []}
                     numberSeparators={projectSeparators(project.settings)}
                     fonts={project.fonts} // Added fonts prop
                     textScale={screenTextScale(project, currentScreen)}

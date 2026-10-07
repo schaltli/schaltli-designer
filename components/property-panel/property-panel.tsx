@@ -1,4 +1,5 @@
 "use client"
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useRef } from "react"
 import type { TextScale } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
@@ -88,6 +89,8 @@ interface PropertyPanelProps {
   // already read it, and the hash that dedupes assets is computed from it.
   onAddAsset: (asset: ProjectAsset) => void
   topics: Topic[]
+  /** The project's combined topics (lib/combined-topics.ts). */
+  combinedTopics?: CombinedTopic[]
   /** The project's number format, for the placeholder picker's previews. */
   numberSeparators?: Separators
   fonts: ProjectFont[]
@@ -187,6 +190,7 @@ export function PropertyPanel({
   projectAssets,
   onAddAsset,
   topics,
+  combinedTopics = [],
   numberSeparators,
   fonts,
   textScale,
@@ -317,6 +321,7 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   onDeclareTopics={onDeclareTopics}
                   topics={topics}
+                  combinedTopics={combinedTopics}
                   numberSeparators={numberSeparators}
                   fonts={fonts}
                   textScale={textScale}
@@ -363,6 +368,7 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
                   topics={topics}
+                  combinedTopics={combinedTopics}
                   onOpenLiveIconSelector={(liveValueId, target) => {
                     setIconSelectorContext({ type: "live-value-rule", liveValueId, target })
                     setShowIconSelector(true)

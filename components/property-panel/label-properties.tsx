@@ -13,6 +13,7 @@
  * of its own, went into Text on 2026-10-07.
  */
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useState } from "react"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
@@ -41,6 +42,8 @@ const ALIGN = [
 ] as const
 
 interface LabelPropertiesProps {
+  /** The project's combined topics, for a chip's source. */
+  combinedTopics?: CombinedTopic[]
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   /**
@@ -71,6 +74,7 @@ export function LabelProperties({
   onUpdateObject,
   onDeclareTopics,
   topics,
+  combinedTopics = [],
   numberSeparators,
   fonts,
   textScale,
@@ -144,11 +148,13 @@ export function LabelProperties({
             reads: textOf(lv, lv.source.namespace === "topic" ? topicExample(lv.source.path, topics) : undefined, numberSeparators ?? DEFAULT_SEPARATORS),
           })}
           topics={topics}
+          combinedTopics={combinedTopics}
           separators={numberSeparators}
         />
         {openLiveValue ? (
           <LiveValueEditor
             liveValue={openLiveValue}
+            combinedTopics={combinedTopics}
             position={chipOrder.indexOf(openLiveValue.id) + 1}
             count={chipOrder.length}
             topics={topics}

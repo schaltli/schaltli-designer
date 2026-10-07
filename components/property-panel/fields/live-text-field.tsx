@@ -54,6 +54,8 @@ export interface LiveTextFieldProps {
   openLiveValueId?: string | null
   chipLabel: (liveValue: LiveValue) => ChipLabel
   topics: Topic[]
+  /** The project's combined topics, offered after its topics. */
+  combinedTopics?: readonly { name: string }[]
   separators?: Separators
   hint?: string
   id?: string
@@ -72,7 +74,7 @@ const CLIPBOARD_TYPE = "web application/x-schaltli-live-text"
 
 export const LIVE_TEXT_HINT = "Type { to insert a value. Click a value to set how it shows."
 
-const HEADINGS = { topic: "Topics", device: "Device", project: "Project" } as const
+const HEADINGS = { topic: "Topics", combined: "Combined", device: "Device", project: "Project" } as const
 
 /** The stored string the field's DOM stands for. */
 function serialize(root: Node): string {
@@ -156,6 +158,7 @@ export function LiveTextField({
   openLiveValueId,
   chipLabel,
   topics,
+  combinedTopics = [],
   separators = DEFAULT_SEPARATORS,
   hint,
   id,
@@ -220,7 +223,7 @@ export function LiveTextField({
     [value, topics],
   )
 
-  const entries = useMemo(() => referenceEntries(query, topics), [query, topics])
+  const entries = useMemo(() => referenceEntries(query, topics, combinedTopics), [query, topics, combinedTopics])
   useEffect(() => setHighlight(0), [query])
   useEffect(() => {
     if (!searching) return

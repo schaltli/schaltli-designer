@@ -23,6 +23,8 @@ import { FIELD, FieldBox, Ornament, svgMarkup } from "./fields"
 
 export interface LiveValueEditorProps {
   liveValue: LiveValue
+  /** The project's combined topics, offered under Reads. */
+  combinedTopics?: readonly { name: string }[]
   /** Where it stands among the text's chips, from 1. */
   position: number
   count: number
@@ -139,6 +141,7 @@ function CanShow({ liveValue, projectAssets }: { liveValue: LiveValue; projectAs
 
 export function LiveValueEditor({
   liveValue,
+  combinedTopics = [],
   position,
   count,
   topics,
@@ -173,7 +176,7 @@ export function LiveValueEditor({
   const high = numbers.length ? Math.ceil(Math.max(...numbers)) + 5 : 100
   const step = numbers.some((n) => !Number.isInteger(n)) ? 0.1 : 0.5
   const reference = `${liveValue.source.namespace}:${liveValue.source.path}`
-  const entries = referenceEntries("", topics)
+  const entries = referenceEntries("", topics, combinedTopics)
   const known = entries.some((e) => e.reference === reference)
   const topic = liveValue.source.namespace === "topic" ? topics.find((t) => t.topic === liveValue.source.path.split("#")[0]) : undefined
   const update = (patch: Partial<LiveValue>) => onChange({ ...liveValue, ...patch })

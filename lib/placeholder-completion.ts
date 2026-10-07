@@ -8,7 +8,7 @@ import { extractJsonField } from "@/lib/json-path"
 import { FIELDS, parse } from "@/lib/placeholders"
 
 export interface ReferenceEntry {
-  section: "topic" | "device" | "project"
+  section: "topic" | "combined" | "device" | "project"
   /** What is written between the braces: `topic:a/b#temp`, `device:model`. */
   reference: string
   /** The type for a topic, a short description for a field. */
@@ -30,7 +30,7 @@ const FIELD_DETAILS: Record<string, string> = {
  * `küch` finds the topic whose example is «Küche» - and a namespace
  * typed in front (`topic:kitchen`) keeps to that section.
  */
-export function referenceEntries(query: string, topics: Topic[]): ReferenceEntry[] {
+export function referenceEntries(query: string, topics: Topic[], combined: readonly { name: string }[] = []): ReferenceEntry[] {
   const all: ReferenceEntry[] = []
   for (const topic of topics) {
     const first = topic.examples?.[0]
@@ -44,6 +44,8 @@ export function referenceEntries(query: string, topics: Topic[]): ReferenceEntry
       })
     }
   }
+  // Combined topics after the topics they are made of (lib/combined-topics.ts).
+  for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: "yes / no" })
   for (const namespace of ["device", "project"] as const) {
     for (const field of FIELDS[namespace]) {
       const reference = `${namespace}:${field}`
@@ -53,7 +55,7 @@ export function referenceEntries(query: string, topics: Topic[]): ReferenceEntry
 
   let term = query.toLowerCase()
   let section: ReferenceEntry["section"] | undefined
-  for (const namespace of ["topic", "device", "project"] as const) {
+  for (const namespace of ["topic", "combined", "device", "project"] as const) {
     if (term.startsWith(`${namespace}:`)) {
       section = namespace
       term = term.slice(namespace.length + 1)

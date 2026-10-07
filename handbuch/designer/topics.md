@@ -48,6 +48,31 @@ Bei einem JSON-Topic wählst du daneben das Feld. Ohne Wahl gilt <span class="ui
 
 Liest ein Objekt ein Topic, das nicht im Projekt eingetragen ist, markiert der Designer es mit <span class="ui">unregistered</span>.
 
+## Combined topics {#combined}
+
+Manches hängt an mehr als einem Wert: Glatt wird es, wenn es friert und nass ist, Licht brennt im Van, sobald irgendeine Lampe an ist. Ein Combined topic fasst das zusammen. Es ist «ja», wenn alle oder irgendeine seiner Bedingungen zutreffen, und lässt sich danach überall lesen, wo ein Wert gelesen wird: in einem [Wert im Text](/objekte/anzeigen#platzhalter) und in einem [Icon mit Live](/objekte/anzeigen#icon). Das Gerät rechnet es selbst aus. Es schickt nichts an den Broker, und auf die Brücke oder Node-RED musst du dafür nicht zugreifen.
+
+Unter <span class="ui">Settings</span> › <span class="ui">Topics</span> legt <span class="ui">Add combined topic</span> eines an. Gib ihm einen Namen ohne Leerzeichen. Dann wählst du, ob es ja ist, wenn alle (<span class="ui">all</span>) oder irgendeine (<span class="ui">any</span>) seiner Bedingungen zutreffen, und fügst mit <span class="ui">+ Add condition</span> Bedingungen hinzu. Eine Bedingung vergleicht einen Wert wie eine Regel in einem Wert im Text, mit `<`, `==`, «is yes» und so weiter.
+
+Eine Bedingung darf auch ein anderes Combined topic lesen. So entsteht Schritt für Schritt, was sich in einem einzigen Formular nicht sagen liesse:
+
+| Name | ist ja, wenn |
+|---|---|
+| `frost` | all: Aussentemperatur < 1 |
+| `nass` | any: Regen is yes, Feuchte > 90 |
+| `glaette` | all: `frost` is yes, `nass` is yes |
+
+Solange noch nicht alle Werte angekommen sind, gilt: Bei «any» genügt ein Ja, bei «all» ein Nein. Sonst hat das Combined topic noch keinen Wert, und ein Text oder Icon, das es liest, zeigt seinen Eintrag für <span class="ui">No value yet</span>.
+
+Ein Combined topic darf nicht über andere wieder auf sich selbst verweisen. Diese zirkuläre Referenz bietet die Auswahl gar nicht erst an. Steht sie trotzdem im Projekt, etwa nach einer Bearbeitung von Hand, zeigt der Designer sie rot und verweigert das Übertragen, bis du sie auflöst. Mehr als acht Stufen ineinander gehen ebenfalls nicht.
+
+Ein Combined topic, das noch gelesen wird, lässt sich nicht löschen. Der Designer sagt dann, wer es liest. Benennst du es um, ziehen alle Verweise mit.
+
+<!-- handbuch-macke #55: Combined topics gehen noch nicht aufs Gerät -->
+::: warning Noch nicht auf dem Gerät
+Combined topics rechnet vorerst nur der Designer. Ein Wert im Text oder ein Icon, das eines liest, bleibt auf dem Gerät leer, und beim Übertragen nennt der Dialog die betroffenen Objekte.
+:::
+
 ## Welcher Broker?
 
 Der Designer spricht den Broker über WebSocket an, unter derselben Adresse, unter der du den Designer geöffnet hast, auf Port 9001. Auf einem Pekaway-System richtet das [Installationsskript](/installieren/pekaway) das ein. Gibst du in einem der Dialoge eine andere Adresse ein, merkt sich der Browser sie. Benutzername und Passwort speichert er nicht.

@@ -132,3 +132,86 @@ export function dependentsOf(cts: readonly CombinedTopic[], name: string, namesp
   for (const ct of order) if (ct.conditions.some((c) => reads(c.source))) affected.add(ct.name)
   return order.filter((ct) => affected.has(ct.name)).map((ct) => ct.name)
 }
+
+interface ProjectLike {
+  combinedTopics?: CombinedTopic[]
+  screens?: { name: string; objects?: ObjectLike[] }[]
+}
+interface ObjectLike {
+  type: string
+  properties?: Record<string, any>
+  children?: ObjectLike[]
+}
+
+function forEachObject(project: ProjectLike, visit: (obj: ObjectLike, screen: { name: string }) => void) {
+  for (const screen of project.screens ?? []) {
+    const walk = (objects: ObjectLike[]) => {
+      for (const obj of objects) {
+        visit(obj, screen)
+        if (obj.children?.length) walk(obj.children)
+      }
+    }
+    walk(screen.objects ?? [])
+  }
+}
+
+const readsCombined = (source: Source | undefined, name: string) => source?.namespace === "combined" && source.path === name
+
+/**
+ * What reads a combined topic: texts (named by their text, a chip as "…"),
+ * icons, and other combined topics - so one still in use is not deleted and
+ * the refusal says where.
+ */
+export function combinedUsage(project: ProjectLike, name: string): string[] {
+  const users: string[] = []
+  forEachObject(project, (obj, screen) => {
+    const liveValues: { source?: Source }[] = Array.isArray(obj.properties?.liveValues) ? obj.properties!.liveValues : []
+    if (!liveValues.some((lv) => readsCombined(lv.source, name))) return
+    if (obj.type === "icon") users.push(`an icon on ${screen.name}`)
+    else {
+      const text = String(obj.properties?.text ?? "").replace(/\{live:[^}]*\}/g, "…").replace(/\{\{/g, "{").replace(/\}\}/g, "}")
+      users.push(`"${text}" on ${screen.name}`)
+    }
+  })
+  for (const ct of project.combinedTopics ?? []) {
+    if (ct.name !== name && ct.conditions.some((c) => readsCombined(c.source, name))) users.push(`combined ${ct.name}`)
+  }
+  return users
+}
+
+/** The project with a combined topic renamed, every live value and condition reading it along. A copy. */
+export function renameCombined<T extends ProjectLike>(project: T, from: string, to: string): T {
+  const copy = structuredClone(project)
+  const rename = (source: Source | undefined) => {
+    if (readsCombined(source, from)) source!.path = to
+  }
+  for (const ct of copy.combinedTopics ?? []) {
+    if (ct.name === from) ct.name = to
+    ct.conditions.forEach((c) => rename(c.source))
+  }
+  forEachObject(copy, (obj) => {
+    if (Array.isArray(obj.properties?.liveValues)) obj.properties!.liveValues.forEach((lv: { source?: Source }) => rename(lv.source))
+  })
+  return copy
+}
+
+/**
+ * The combined topics a condition of `name` may read: not itself, and none
+ * that reads it, directly or through others - either would close a circular
+ * reference. In the list's order.
+ */
+export function combinedReadableFrom(cts: readonly CombinedTopic[], name: string): string[] {
+  const readers = new Set(dependentsOf(cts, name))
+  return cts.map((ct) => ct.name).filter((n) => n !== name && !readers.has(n))
+}
+
+/**
+ * Refuses an export the device could not compute: a circular reference, or
+ * more than MAX_COMBINED_DEPTH levels. The message names the chain and says
+ * where to break it.
+ */
+export function assertCombinedExportable(project: { combinedTopics?: CombinedTopic[] }): void {
+  const { circular, tooDeep } = evaluationOrder(project.combinedTopics ?? [])
+  if (circular) throw new Error(`Circular reference among combined topics: ${circular.join(" → ")}. Break it in Project Settings › Topics.`)
+  if (tooDeep) throw new Error(`The combined topic ${tooDeep} is more than ${MAX_COMBINED_DEPTH} levels deep.`)
+}
