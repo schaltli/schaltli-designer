@@ -16,6 +16,8 @@ import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-type
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
+import { darkProperties, entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf, withDarkColours } from "@/lib/navigator-entries"
+import { navigatorScreens } from "@/lib/navigator"
 import {
   buttonIconKey,
   buttonIconUrl,
@@ -428,6 +430,155 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     }
   }
 
+  // One object as the app gets it - a text's two readings, icon paths, a
+  // switch state's and a button's bakes - keyed by the screen (or navigator
+  // entry, lib/navigator-entries.ts entryKey) its bakes were made for.
+  const appObject = (original: any, keyId: string): any => {
+    // A Bar or Slider has no name or icon of its own any more
+    // (2026-09-29). Loading a project drops them (migrateObjects); this
+    // drops them again for one that reached the export another way, so a
+    // device never draws a header the preview does not.
+    const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
+    // {project:name} is fixed at export and written in; every other
+    // placeholder goes to the device as written, for it to resolve
+    // live (docs/2026-09-25-text-placeholders.md). Live values go as
+    // the placeholders that say the same, until devices read them
+    // (lib/object-text.ts exportedTextProperties).
+    if (obj.type === "text") {
+      return { ...obj, properties: exportedTextProperties(obj, project) }
+    }
+    if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
+      return {
+        ...obj,
+        properties: {
+          ...obj.properties,
+          valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
+            ...pair,
+            // `thenShowIcon` is the asset the rule points at; `id` is
+            // the rule's own identity. The renderers read the former.
+            path: iconPathFor(
+              pair.thenShowIcon ?? pair.id,
+              obj.properties.iconColor,
+              obj.properties.iconColorFlatten,
+            ),
+            // The same SVG tinted in the dark colour. Content-keyed, so
+            // an icon whose tint does not change is the same file.
+            pathDark: iconPathFor(
+              pair.thenShowIcon ?? pair.id,
+              obj.properties.iconColorDark ?? obj.properties.iconColor,
+              obj.properties.iconColorFlatten,
+            ),
+          })),
+        },
+      }
+    }
+    if (isSwitchType(obj.type) && obj.properties.states) {
+      return {
+        ...obj,
+        properties: {
+          ...obj.properties,
+          states: obj.properties.states.map((state: any, index: number) => ({
+            ...state,
+            // The two baked variants, not the SVG: `path` is this state
+            // drawn in the ink it takes when it is not the chosen one,
+            // `activePath` the same picture (or the author's second
+            // one) in the ink it takes when it is. The app picks by
+            // which state is chosen and blits; see the baking above.
+            path: bakedIcons.get(`${keyId}:${obj.id}:${index}:normal`),
+            activePath: bakedIcons.get(`${keyId}:${obj.id}:${index}:active`),
+            pathDark: bakedIcons.get(`${keyId}:${obj.id}:${index}:normal:dark`),
+            activePathDark: bakedIcons.get(`${keyId}:${obj.id}:${index}:active:dark`),
+          })),
+        },
+      }
+    }
+    if (obj.type === "button") {
+      // The whole button, in both of its states - not its icon. What
+      // the app blits is what the designer drew, pill, label, icon and
+      // all; see the baking above.
+      const baked = bakedButtons.get(`${keyId}:${obj.id}`)
+      const bakedDark = bakedButtons.get(`${keyId}:${obj.id}:dark`)
+      return {
+        ...obj,
+        path: baked?.normal,
+        pressedPath: baked?.pressed,
+        // Only beside a light picture: an XDark without its X would be
+        // read differently by a device than by the reference render.
+        pathDark: baked ? bakedDark?.normal : undefined,
+        pressedPathDark: baked ? bakedDark?.pressed : undefined,
+      }
+    }
+    if (obj.type === "icon") {
+      // A live icon: each icon result as its own tinted SVG.
+      const liveValue = liveIconValue(obj)
+      const withPaths = (result: any) =>
+        result?.kind === "icon" && result.icon
+          ? {
+              ...result,
+              path: iconPathFor(result.icon, obj.properties.iconColor, obj.properties.iconColorFlatten),
+              pathDark: iconPathFor(result.icon, obj.properties.iconColorDark ?? obj.properties.iconColor, obj.properties.iconColorFlatten),
+            }
+          : result
+      const properties = liveValue
+        ? {
+            ...obj.properties,
+            liveValues: (obj.properties.liveValues ?? []).map((lv: any) =>
+              lv.id !== liveValue.id
+                ? lv
+                : {
+                    ...lv,
+                    rules: lv.rules.map((rule: any) => ({ ...rule, result: withPaths(rule.result) })),
+                    ...(lv.otherwise ? { otherwise: withPaths(lv.otherwise) } : {}),
+                    ...(lv.noValueYet ? { noValueYet: withPaths(lv.noValueYet) } : {}),
+                  },
+            ),
+          }
+        : obj.properties
+      return {
+        ...obj,
+        properties,
+        path: iconPathFor(
+          obj.properties.assetId,
+          obj.properties.iconColor,
+          obj.properties.iconColorFlatten,
+        ),
+        pathDark: iconPathFor(
+          obj.properties.assetId,
+          obj.properties.iconColorDark ?? obj.properties.iconColor,
+          obj.properties.iconColorFlatten,
+        ),
+      }
+    }
+    return obj
+  }
+
+  // The navigators (docs/2026-10-08-navigator.md, device contract 2.7), as
+  // for a board: each once, its entries as objects; icons as tinted SVGs.
+  const navigators = navigatorsOf(project).map(({ master, navigator }) => {
+    const nav = applyThemeWithDark([navigator], themeFor(master, project.screens), "24bit")[0]
+    const layout = exportLayout(project, nav)
+    const { width, height } = entrySize(layout)
+    const look = entryLook(nav, project.fonts ?? [])
+    const darkLook = entryLook({ ...nav, properties: darkProperties(nav.properties) }, project.fonts ?? [])
+    const entryObjects = (screen: any, active: boolean) =>
+      withDarkColours(navigatorEntryObjects(screen, width, height, look, active), navigatorEntryObjects(screen, width, height, darkLook, active)).map((o) =>
+        appObject(o, entryKey(master.id, screen.id, active)),
+      )
+    return {
+      id: navigator.id,
+      edge: nav.properties.edge ?? "left",
+      thickness: layout.horizontal ? layout.strip.height : layout.strip.width,
+      entryLength: layout.entryLength,
+      backgroundColor: nav.properties.backgroundColor,
+      ...(nav.properties.backgroundColorDark ? { backgroundColorDark: nav.properties.backgroundColorDark } : {}),
+      entries: navigatorScreens(project.screens).map((screen) => ({
+        screenId: screen.id,
+        normal: entryObjects(screen, false),
+        active: entryObjects(screen, true),
+      })),
+    }
+  })
+
   const exportProject = {
     platform: "android",
     name: project.name,
@@ -454,6 +605,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
     // declared topics.
     topics: exportedTopics(project),
+    ...(navigators.length > 0 ? { navigators } : {}),
     ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
     decimalSeparator: projectSeparators(project.settings).decimal,
     thousandsSeparator: projectSeparators(project.settings).thousands,
@@ -484,130 +636,20 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         backgroundColorDark,
         backgroundImage: screenBackgrounds.get(screen.id),
         backgroundImageDark: screenBackgroundsDark.get(screen.id),
+        // Which navigator it shows, and whether it is out of the paging.
+        navigatorId: masterScreen?.objects.find((o: any) => o.type === "navigator")?.id,
+        hidden: screen.hidden || undefined,
         buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
         // Deep, not just the top level: a Switch or an MQTTIconField inside
         // a tab-control's panel needs its icon paths written back exactly as
         // one at the top level does. The firmware export learned this on
         // 2026-08-27, when the bitmaps were baked but the paths pointing at
         // them stayed empty for everything inside a container.
-        objects: mapObjectsDeep(jsonObjects, (original: any) => {
-          // A Bar or Slider has no name or icon of its own any more
-          // (2026-09-29). Loading a project drops them (migrateObjects); this
-          // drops them again for one that reached the export another way, so a
-          // device never draws a header the preview does not.
-          const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
-          // {project:name} is fixed at export and written in; every other
-          // placeholder goes to the device as written, for it to resolve
-          // live (docs/2026-09-25-text-placeholders.md). Live values go as
-          // the placeholders that say the same, until devices read them
-          // (lib/object-text.ts exportedTextProperties).
-          if (obj.type === "text") {
-            return { ...obj, properties: exportedTextProperties(obj, project) }
-          }
-          if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
-            return {
-              ...obj,
-              properties: {
-                ...obj.properties,
-                valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
-                  ...pair,
-                  // `thenShowIcon` is the asset the rule points at; `id` is
-                  // the rule's own identity. The renderers read the former.
-                  path: iconPathFor(
-                    pair.thenShowIcon ?? pair.id,
-                    obj.properties.iconColor,
-                    obj.properties.iconColorFlatten,
-                  ),
-                  // The same SVG tinted in the dark colour. Content-keyed, so
-                  // an icon whose tint does not change is the same file.
-                  pathDark: iconPathFor(
-                    pair.thenShowIcon ?? pair.id,
-                    obj.properties.iconColorDark ?? obj.properties.iconColor,
-                    obj.properties.iconColorFlatten,
-                  ),
-                })),
-              },
-            }
-          }
-          if (isSwitchType(obj.type) && obj.properties.states) {
-            return {
-              ...obj,
-              properties: {
-                ...obj.properties,
-                states: obj.properties.states.map((state: any, index: number) => ({
-                  ...state,
-                  // The two baked variants, not the SVG: `path` is this state
-                  // drawn in the ink it takes when it is not the chosen one,
-                  // `activePath` the same picture (or the author's second
-                  // one) in the ink it takes when it is. The app picks by
-                  // which state is chosen and blits; see the baking above.
-                  path: bakedIcons.get(`${screen.id}:${obj.id}:${index}:normal`),
-                  activePath: bakedIcons.get(`${screen.id}:${obj.id}:${index}:active`),
-                  pathDark: bakedIcons.get(`${screen.id}:${obj.id}:${index}:normal:dark`),
-                  activePathDark: bakedIcons.get(`${screen.id}:${obj.id}:${index}:active:dark`),
-                })),
-              },
-            }
-          }
-          if (obj.type === "button") {
-            // The whole button, in both of its states - not its icon. What
-            // the app blits is what the designer drew, pill, label, icon and
-            // all; see the baking above.
-            const baked = bakedButtons.get(`${screen.id}:${obj.id}`)
-            const bakedDark = bakedButtons.get(`${screen.id}:${obj.id}:dark`)
-            return {
-              ...obj,
-              path: baked?.normal,
-              pressedPath: baked?.pressed,
-              // Only beside a light picture: an XDark without its X would be
-              // read differently by a device than by the reference render.
-              pathDark: baked ? bakedDark?.normal : undefined,
-              pressedPathDark: baked ? bakedDark?.pressed : undefined,
-            }
-          }
-          if (obj.type === "icon") {
-            // A live icon: each icon result as its own tinted SVG.
-            const liveValue = liveIconValue(obj)
-            const withPaths = (result: any) =>
-              result?.kind === "icon" && result.icon
-                ? {
-                    ...result,
-                    path: iconPathFor(result.icon, obj.properties.iconColor, obj.properties.iconColorFlatten),
-                    pathDark: iconPathFor(result.icon, obj.properties.iconColorDark ?? obj.properties.iconColor, obj.properties.iconColorFlatten),
-                  }
-                : result
-            const properties = liveValue
-              ? {
-                  ...obj.properties,
-                  liveValues: (obj.properties.liveValues ?? []).map((lv: any) =>
-                    lv.id !== liveValue.id
-                      ? lv
-                      : {
-                          ...lv,
-                          rules: lv.rules.map((rule: any) => ({ ...rule, result: withPaths(rule.result) })),
-                          ...(lv.otherwise ? { otherwise: withPaths(lv.otherwise) } : {}),
-                          ...(lv.noValueYet ? { noValueYet: withPaths(lv.noValueYet) } : {}),
-                        },
-                  ),
-                }
-              : obj.properties
-            return {
-              ...obj,
-              properties,
-              path: iconPathFor(
-                obj.properties.assetId,
-                obj.properties.iconColor,
-                obj.properties.iconColorFlatten,
-              ),
-              pathDark: iconPathFor(
-                obj.properties.assetId,
-                obj.properties.iconColorDark ?? obj.properties.iconColor,
-                obj.properties.iconColorFlatten,
-              ),
-            }
-          }
-          return obj
-        }),
+        // The navigator goes once, in navigators[]; a screen names it.
+        objects: mapObjectsDeep(
+          jsonObjects.filter((o: any) => o.type !== "navigator"),
+          (original: any) => appObject(original, screen.id),
+        ),
       }
     }),
     exportedAt: new Date().toISOString(),

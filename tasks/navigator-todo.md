@@ -188,8 +188,7 @@ entries' icons are baked on their own ground (lib/asset-export.ts
 bakeNavigators), keyed `nav-<master>-<screen>-normal|active`. «Byte-
 identical» is checked as «no new key» - the export carries a timestamp. The
 spec's export section is corrected to `navigators[]` / `navigatorId`;
-device contract §2.7. DDFs: schaltli-firmware f-commit «DDFs of the 4.3B and
-the PaperS3 declare the navigator», `public/ddf` zips regenerated from them.
+device contract §2.7. DDFs: schaltli-firmware 34d48a9, `public/ddf` zips regenerated from them.
 
 **Verification:** `npx playwright test e2e/navigator-export.spec.ts e2e/placeholders.spec.ts`; typecheck.
 
@@ -204,7 +203,12 @@ the PaperS3 declare the navigator», `public/ddf` zips regenerated from them.
 **Description:** The same in `lib/android-export.ts`, icons as tinted SVGs.
 
 **Acceptance criteria:**
-- [ ] The Android bundle carries `navigators[]` with icon paths that exist in it.
+- [x] The Android bundle carries `navigators[]` with icon paths that exist in it.
+
+Done 2026-10-08. `appObject` (lib/android-export.ts) maps screens' and
+entries' objects alike; entry icons and live results as tinted SVGs, light
+and dark. Android's DDF is built by the app, which declares the navigator
+in `navigator-android`.
 
 **Verification:** `npx playwright test e2e/navigator-export.spec.ts -g "Android"`
 

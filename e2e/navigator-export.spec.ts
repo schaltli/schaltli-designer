@@ -98,6 +98,34 @@ test.describe("the navigator in the device export", () => {
   })
 })
 
+// The app gets the same navigators[], its icons as tinted SVGs
+// (tasks/navigator-todo.md Task 8).
+test.describe("the navigator in the Android bundle", () => {
+  test("written once, icon paths that exist in the bundle, screens name it", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const base64: string = await page.evaluate((p) => (window as any).__buildAndroidZipForTest(p), project(true))
+    const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
+    const json = JSON.parse(await zip.file("project.json")!.async("string"))
+    expect(json.navigators).toHaveLength(1)
+    const nav = json.navigators[0]
+    expect(nav.entries.map((e: any) => e.screenId)).toEqual(["a", "c"])
+    for (const entry of nav.entries) {
+      for (const icon of [...entry.normal, ...entry.active].filter((o: any) => o.type === "icon")) {
+        expect(zip.file(icon.path), icon.path).not.toBeNull()
+        expect(zip.file(icon.pathDark), icon.pathDark).not.toBeNull()
+      }
+    }
+    const live = nav.entries[0].normal[0].properties.liveValues[0]
+    for (const result of [live.rules[0].result, live.otherwise]) expect(zip.file(result.path), result.path).not.toBeNull()
+    for (const screen of json.screens) {
+      expect(screen.objects.some((o: any) => o.type === "navigator")).toBe(false)
+      expect(screen.navigatorId).toBe("nav")
+    }
+    expect(json.screens.find((s: any) => s.id === "b").hidden).toBe(true)
+  })
+})
+
 // A device below 1.5 shows no navigator and pages to hidden screens: warned.
 test.describe("deploying a navigator to a device that cannot show it", () => {
   const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
