@@ -504,6 +504,28 @@ async function main() {
     })
   }
 
+  // Live values and combined topics (docs/2026-10-07-live-values.md,
+  // generation 1.4): three live values in a text, a threshold icon and an
+  // icon on a combined topic two levels deep, from nothing arrived to a
+  // change of only a combined topic's input - every picture 0 px, drawn as
+  // regions on the boards that redraw parts. The PaperS3 always draws the
+  // whole screen (--full). Installs its own project.
+  for (const [name, device, extra] of [["knob", WAVESHARE_DEVICE, []], ["4v3b", WAVESHARE_4V3B_DEVICE, []], ["papers3", PAPERS3_DEVICE, ["--full"]]]) {
+    console.log(`
+=== ${name} live values (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/live-value-redraw.js", "--device", device, ...extra], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-live-values`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}`
+          : exitCode === 0
+            ? "live values and combined topics follow their topics, 0 px"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Popups (docs/2026-10-06-popup-screens.md): opened by a tap, the screen
   // underneath set back, the popup's controls working, closed by a tap beside
   // it, a swipe and its own button - each time back to the screen exactly.

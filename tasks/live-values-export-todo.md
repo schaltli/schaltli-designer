@@ -96,8 +96,8 @@ on a topic any combined topic reads, all are recomputed in order;
 `getTopicValue` / `hasTopicValue` answer `combined:<name>`.
 
 **Acceptance criteria:**
-- [ ] A 1.3-format project loads exactly as before.
-- [ ] `/api/topic-values` shows combined topics following their inputs.
+- [x] A 1.3-format project loads exactly as before.
+- [x] `/api/topic-values` shows combined topics following their inputs.
 
 Done 2026-10-08 (schaltli-firmware d893dc4). Combined values are worked out
 lazily, on the first read after a topic changed. Both criteria are checked
@@ -120,8 +120,8 @@ the Knob's `screenUsesTopic` / `renderTopicChangePartial` and the 4.3B's
 three boards.
 
 **Acceptance criteria:**
-- [ ] A text and an icon reading a combined topic redraw when only that combined topic's input changes.
-- [ ] Generation 1.4 in `hello`.
+- [x] A text and an icon reading a combined topic redraw when only that combined topic's input changes.
+- [x] Generation 1.4 in `hello`.
 
 Done 2026-10-08 (schaltli-firmware 723f1b2). `readsTopic` replaces
 `textNamesTopic`; `liveTopics` also feeds the Knob's subscriptions (the
@@ -143,8 +143,20 @@ combined topic); their orchestrators compare it in every combination,
 including «no value yet» and a change of only a combined topic's input.
 
 **Acceptance criteria:**
-- [ ] 0 px difference on the Knob and the 4.3B in every combination.
-- [ ] The PaperS3 runs it when reachable.
+- [x] 0 px difference on the Knob and the 4.3B in every combination.
+- [x] The PaperS3 runs it when reachable.
+
+Done 2026-10-08 as its own script, `hil/live-value-redraw.js`, after the
+pattern of `hil/placeholder-redraw.js` rather than in the smoke fixtures:
+«nothing arrived yet» needs topics no earlier run has published, and a
+change of only a combined topic's input needs steps in a set order, which
+the examples-per-combination fixtures cannot express. Nine steps, 0 px on
+the knob, the 4.3B and the PaperS3 (`--full`); every change after the
+first drawn as regions on the knob and the 4.3B, and `combined:alarm` in
+`/api/topic-values` follows its inputs (Task 4's criteria). It found one
+fault, fixed in schaltli-firmware 8fc40c5: a text's redraw region left out
+the accents above its box (the dots of «läuft»). `test:all` runs it on all
+three boards.
 
 **Verification:** `npm run test:all` (knob, 4.3B).
 
@@ -154,7 +166,7 @@ including «no value yet» and a change of only a combined topic's input.
 `hil/waveshare4v3b/…`, `hil/hil-combinations` helpers
 
 ## Checkpoint: Firmware
-- [ ] `pio test -e native` green; knob + 4.3B HIL green with the new screen
+- [x] `pio test -e native` green; knob + 4.3B HIL green with the new screen
 - [ ] The user sees «Heizung läuft timer 3:23:18» on a board
 
 ## Task 7: LiveValue and CombinedTopics in the app

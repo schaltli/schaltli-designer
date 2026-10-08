@@ -63,6 +63,15 @@ results are directly comparable:
   the knob and the 4.3B, beside an object bound to the same topic and alone,
   held to the designer at 0 px; the board's own report must say it drew
   regions. Installs its own project; needs the dev server and the broker.
+- `live-value-redraw.js --device <ip> [--full]` - live values and combined
+  topics (docs/2026-10-07-live-values.md, generation 1.4): a text with three
+  live values (yes/no, a countdown empty at 0, a number with its own No
+  value yet), a threshold icon and an icon on a combined topic two levels
+  deep, walked from nothing arrived to a change of only a combined topic's
+  input. Each picture is held to the designer at 0 px, the board's
+  `combined:alarm` in `/api/topic-values` to what it must read, and every
+  change after the first must be drawn as regions (`--full` drops that, for
+  the PaperS3). Installs its own project; needs the dev server and the broker.
 - `popup.js --device <ip>` - popups (docs/2026-10-06-popup-screens.md) on
   a board that announces generation 1.3: a tap opens one, the screen
   underneath is set back (halved on an RGB board, left on e-ink), the
