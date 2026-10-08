@@ -11,7 +11,7 @@
  * data and reads it back.
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { setLiveValueTest } from "@/lib/live-value-test"
 import type { ProjectAsset, Topic } from "@/components/project-editor"
@@ -20,6 +20,7 @@ import { DURATION_PATTERNS, asNumber, evaluate, isNo, isYes, sourceShortName, ty
 import { referenceEntries, topicExample } from "@/lib/placeholder-completion"
 import { cn } from "@/lib/utils"
 import { FIELD, FieldBox, Ornament, svgMarkup } from "./fields"
+import { CHIP_CLASS, CHIP_NAME_CLASS, CHIP_READS_CLASS, chipReads, type ChipLabel } from "./fields/live-text-field"
 
 export interface LiveValueEditorProps {
   liveValue: LiveValue
@@ -39,8 +40,15 @@ export interface LiveValueEditorProps {
   projectAssets?: ProjectAsset[]
   /** An icon result's slot was clicked: a rule's index, Otherwise or No value yet. */
   onPickIcon?: (target: IconTarget) => void
-  /** Instead of «Live value n of m»; a live icon has the one. */
+  /** Instead of the chip in the head; a live icon has no chip. */
   title?: string
+  /** The chip this edits, shown in the head exactly as in the text. */
+  chip?: ChipLabel
+  /**
+   * The chip in the field, for the arrow from the head up to it: found by
+   * this selector when the editor lays out.
+   */
+  chipSelector?: string
   /** Whether ✕ is shown; a live icon's editor stays while it is live. */
   closable?: boolean
 }
@@ -153,8 +161,27 @@ export function LiveValueEditor({
   projectAssets = [],
   onPickIcon,
   title,
+  chip,
+  chipSelector,
   closable = true,
 }: LiveValueEditorProps) {
+  // The arrow from the editor up to its chip, at the chip's middle.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [arrowX, setArrowX] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const place = () => {
+      const target = chipSelector ? document.querySelector<HTMLElement>(chipSelector) : null
+      const root = rootRef.current
+      if (!target || !root) return setArrowX(null)
+      const a = target.getBoundingClientRect()
+      const b = root.getBoundingClientRect()
+      const x = a.left + a.width / 2 - b.left
+      setArrowX(x >= 12 && x <= b.width - 12 ? x : null)
+    }
+    place()
+    window.addEventListener("resize", place)
+    return () => window.removeEventListener("resize", place)
+  })
   const icons = resultKind === "icon"
 
   // The test value (Task 10): the example to start with, a slider where the
@@ -193,7 +220,8 @@ export function LiveValueEditor({
       role="group"
       aria-label="Live value"
       data-testid="live-value-editor"
-      className="mt-2 rounded-lg border bg-background shadow-sm"
+      ref={rootRef}
+      className="relative mt-3 rounded-lg border bg-background shadow-sm"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.preventDefault()
@@ -202,8 +230,26 @@ export function LiveValueEditor({
         }
       }}
     >
-      <div className="flex items-center gap-1 border-b px-2 py-1.5">
-        <span className="flex-1 text-xs font-medium">{title ?? `Live value ${position} of ${count}`}</span>
+      {arrowX !== null ? (
+        <span
+          aria-hidden
+          data-testid="live-value-arrow"
+          className="absolute -top-[7px] size-3 rotate-45 border-l border-t bg-background"
+          style={{ left: arrowX - 6 }}
+        />
+      ) : null}
+      <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
+        {title ? (
+          <span className="flex-1 text-xs font-medium">{title}</span>
+        ) : (
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className={CHIP_CLASS} data-open="true" data-testid="live-value-editor-chip" title={`${chip?.name ?? ""} · ${chipReads(chip)}`}>
+              <span className={CHIP_NAME_CLASS}>{chip?.name ?? sourceShortName(liveValue.source)}</span>
+              <span className={CHIP_READS_CLASS}>{chipReads(chip)}</span>
+            </span>
+            {count > 1 ? <span className="shrink-0 text-[11px] text-muted-foreground">{`${position} of ${count}`}</span> : null}
+          </span>
+        )}
         {title ? null : (
           <>
             <button type="button" aria-label="Previous value" disabled={!onPrevious} onClick={onPrevious} className="rounded p-1 hover:bg-muted disabled:opacity-30">

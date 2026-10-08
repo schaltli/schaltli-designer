@@ -17,7 +17,7 @@ import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useState } from "react"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
-import { liveTextSegments, placeholdersToLiveValues, sourceShortName, textOf } from "@/lib/live-value"
+import { liveTextSegments, placeholdersToLiveValues, sourceShortName, textOf, type LiveValue } from "@/lib/live-value"
 import { LiveValueEditor } from "./live-value-editor"
 import { topicExample } from "@/lib/placeholder-completion"
 import { LiveTextField } from "./fields/live-text-field"
@@ -109,6 +109,21 @@ export function LabelProperties({
   const openLiveValue = openLiveValueId && chipOrder.includes(openLiveValueId) ? liveValues.find((lv) => lv.id === openLiveValueId) : undefined
   const chipIndex = openLiveValue ? chipOrder.indexOf(openLiveValue.id) : -1
 
+  // What a chip shows - its source's short name and what it reads at the
+  // examples - in the field and in the head of its editor alike.
+  const chipLabelOf = (lv: LiveValue) => ({
+    name: sourceShortName(lv.source),
+    reads: textOf(
+      lv,
+      lv.source.namespace === "topic"
+        ? topicExample(lv.source.path, topics)
+        : lv.source.namespace === "combined"
+          ? computeCombined(combinedTopics, (path) => topicExample(path, topics)).get(lv.source.path)
+          : undefined,
+      numberSeparators ?? DEFAULT_SEPARATORS,
+    ),
+  })
+
   // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
   const derivedHeight = font
@@ -143,18 +158,7 @@ export function LabelProperties({
           }}
           onOpenLiveValue={setOpenLiveValueId}
           openLiveValueId={openLiveValueId}
-          chipLabel={(lv) => ({
-            name: sourceShortName(lv.source),
-            reads: textOf(
-              lv,
-              lv.source.namespace === "topic"
-                ? topicExample(lv.source.path, topics)
-                : lv.source.namespace === "combined"
-                  ? computeCombined(combinedTopics, (path) => topicExample(path, topics)).get(lv.source.path)
-                  : undefined,
-              numberSeparators ?? DEFAULT_SEPARATORS,
-            ),
-          })}
+          chipLabel={chipLabelOf}
           topics={topics}
           combinedTopics={combinedTopics}
           separators={numberSeparators}
@@ -163,6 +167,8 @@ export function LabelProperties({
           <LiveValueEditor
             liveValue={openLiveValue}
             combinedTopics={combinedTopics}
+            chip={chipLabelOf(openLiveValue)}
+            chipSelector={`#text [data-live-id="${openLiveValue.id}"]`}
             position={chipOrder.indexOf(openLiveValue.id) + 1}
             count={chipOrder.length}
             topics={topics}

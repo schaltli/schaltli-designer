@@ -176,7 +176,10 @@ test.describe("the live value editor", () => {
     await drawText(page, 20, 200)
     await page.keyboard.type("Stufe ")
     await insertValue(page, "fan-speed")
-    await expect(editor(page)).toContainText("Live value 1 of 1")
+    // The head shows the chip itself, as the text has it; one chip, no count.
+    const chipText = (l: ReturnType<typeof chips>) => l.evaluate((el) => el.textContent)
+    expect(await chipText(editor(page).getByTestId("live-value-editor-chip"))).toBe(await chipText(chips(page).first()))
+    await expect(editor(page)).not.toContainText("1 of 1")
     await editor(page).getByRole("button", { name: "+ Add rule" }).click()
     await editor(page).getByLabel("Rule 1 value").fill("LOW")
     await editor(page).getByLabel("Rule 1 shows").fill("langsam")
@@ -215,14 +218,32 @@ test.describe("the live value editor", () => {
     await insertValue(page, "fan-mode")
     await page.keyboard.type(" / ")
     await insertValue(page, "fan-speed")
-    await expect(editor(page)).toContainText("Live value 2 of 2")
+    await expect(editor(page)).toContainText("2 of 2")
     await editor(page).getByRole("button", { name: "Previous value" }).click()
-    await expect(editor(page)).toContainText("Live value 1 of 2")
+    await expect(editor(page)).toContainText("1 of 2")
     await expect(editor(page).getByLabel("Reads")).toHaveValue("topic:test/fan-mode")
     await editor(page).getByRole("button", { name: "Next value" }).click()
     await expect(editor(page).getByLabel("Reads")).toHaveValue("topic:test/fan-speed")
     await chips(page).first().click()
-    await expect(editor(page)).toContainText("Live value 1 of 2")
+    await expect(editor(page)).toContainText("1 of 2")
+    // The clicked chip is filled as selected, the other not; and its text
+    // never shows as selected text (2026-10-08).
+    await expect(chips(page).first()).toHaveAttribute("data-open", "true")
+    await expect(chips(page).nth(1)).toHaveAttribute("data-open", "false")
+    const fill = (l: ReturnType<typeof chips>) => l.evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(await fill(chips(page).first())).not.toBe(await fill(chips(page).nth(1)))
+    expect(
+      await chips(page).first().locator('[data-part="reads"]').evaluate((el) => getComputedStyle(el, "::selection").backgroundColor),
+    ).toBe("rgba(0, 0, 0, 0)")
+    // The arrow points up at the chip being edited, not at the other one.
+    const middle = async (l: ReturnType<typeof chips>) => {
+      const b = (await l.boundingBox())!
+      return b.x + b.width / 2
+    }
+    await expect.poll(async () => Math.abs((await middle(page.getByTestId("live-value-arrow"))) - (await middle(chips(page).first())))).toBeLessThan(3)
+    await editor(page).getByRole("button", { name: "Next value" }).click()
+    await expect.poll(async () => Math.abs((await middle(page.getByTestId("live-value-arrow"))) - (await middle(chips(page).nth(1))))).toBeLessThan(3)
+    await editor(page).getByRole("button", { name: "Previous value" }).click()
     await editor(page).getByLabel("Otherwise").focus()
     await page.keyboard.press("Escape")
     await expect(editor(page)).toHaveCount(0)

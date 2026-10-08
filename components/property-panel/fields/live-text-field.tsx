@@ -90,21 +90,39 @@ function serialize(root: Node): string {
   return out
 }
 
+/**
+ * How a chip looks, here and in the head of its editor (live-value-editor.tsx):
+ * one line whatever it holds - a long name or value is cut with «…», the
+ * title has it whole - never wrapped inside the chip.
+ */
+export const CHIP_CLASS =
+  "group mx-px inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-blue-300 bg-blue-50 px-2 py-px align-middle text-[12px] leading-5 text-blue-950 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100 " +
+  // The chip whose editor is open is filled, as a selection is (2026-10-08).
+  "data-[open=true]:border-blue-600 data-[open=true]:bg-blue-600 data-[open=true]:text-white " +
+  // Selected with the text it is copied with, but never shown as selected
+  // text: that looked as if it could be typed into (2026-10-08).
+  "selection:bg-transparent selection:text-inherit"
+export const CHIP_NAME_CLASS =
+  "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis text-blue-600 dark:text-blue-300 group-data-[open=true]:text-blue-100"
+export const CHIP_READS_CLASS = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis whitespace-pre font-medium"
+
+/** What a chip shows for what it reads: an empty result still shows something to click. */
+export function chipReads(label: ChipLabel | undefined): string {
+  return label?.reads ? label.reads : "–"
+}
+
 function chipElement(id: string, label: ChipLabel | undefined): HTMLElement {
   const chip = document.createElement("span")
   chip.contentEditable = "false"
   chip.dataset.liveId = id
   chip.setAttribute("role", "button")
   chip.setAttribute("data-testid", "live-chip")
-  chip.className =
-    // One line whatever it holds: a long name or value is cut with «…»
-    // (the title has it whole), never wrapped inside the chip.
-    "mx-px inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-blue-300 bg-blue-50 px-2 py-px align-middle text-[12px] leading-5 text-blue-950 cursor-pointer select-all dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100"
+  chip.className = `${CHIP_CLASS} cursor-pointer select-all`
   const name = document.createElement("span")
-  name.className = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis text-blue-600 dark:text-blue-300"
+  name.className = CHIP_NAME_CLASS
   name.dataset.part = "name"
   const reads = document.createElement("span")
-  reads.className = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis whitespace-pre font-medium"
+  reads.className = CHIP_READS_CLASS
   reads.dataset.part = "reads"
   chip.append(name, reads)
   fillChip(chip, label)
@@ -115,8 +133,7 @@ function fillChip(chip: HTMLElement, label: ChipLabel | undefined) {
   const name = chip.querySelector<HTMLElement>('[data-part="name"]')
   const reads = chip.querySelector<HTMLElement>('[data-part="reads"]')
   if (name && name.textContent !== (label?.name ?? "")) name.textContent = label?.name ?? ""
-  // An empty result still shows something to click.
-  const shown = label?.reads ? label.reads : "–"
+  const shown = chipReads(label)
   if (reads && reads.textContent !== shown) reads.textContent = shown
   chip.setAttribute("aria-label", `${label?.name ?? "value"}: ${label?.reads ?? ""}`)
   chip.title = `${label?.name ?? ""} · ${shown}`
@@ -208,8 +225,6 @@ export function LiveTextField({
       const lv = liveValues.find((l) => l.id === chip.dataset.liveId)
       fillChip(chip, lv ? chipLabel(lv) : undefined)
       chip.dataset.open = String(chip.dataset.liveId === openLiveValueId)
-      chip.classList.toggle("ring-2", chip.dataset.liveId === openLiveValueId)
-      chip.classList.toggle("ring-blue-400", chip.dataset.liveId === openLiveValueId)
     })
   })
 
