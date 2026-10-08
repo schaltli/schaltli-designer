@@ -8,7 +8,7 @@ Auf einem Pekaway-System führst du einfach das [Installationsskript](/installie
 curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/deploy/pekaway-install.sh | bash
 ```
 
-Es holt den neuen Stand, baut ihn, lädt die dazu passende Firmware für die Geräte, bringt die VanPi-Brücke auf den neuen Stand und startet den Designer neu. Deine Projekte und Einstellungen bleiben erhalten.
+Es holt die neueste offizielle Version, baut sie, lädt die dazu passende Firmware für die Geräte, bringt die VanPi-Brücke auf den neuen Stand und startet den Designer neu. Deine Projekte und Einstellungen bleiben erhalten. Designer und Firmware gehören dabei immer zur selben Version.
 
 Ohne Pekaway siehe [Ohne Pekaway](/installieren/ohne-pekaway#aktualisieren).
 

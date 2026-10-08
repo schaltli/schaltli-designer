@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
+import os from "os"
 import path from "path"
+import { execFileSync } from "child_process"
 
 // deploy/pekaway-install.sh cannot be run from here - it wants a Pekaway system,
 // sudo and systemd - but the things that went wrong with it can be read off
@@ -36,4 +38,34 @@ test("an existing install fetches from the address it would clone from", () => {
   expect(setsOrigin, "the script no longer points origin at REPO_URL").toBeGreaterThan(-1)
   expect(setsOrigin).toBeLessThan(fetches)
   expect(script).toMatch(/^REPO_URL="https:\/\/github\.com\/schaltli\/schaltli-designer\.git"$/m)
+})
+
+test("without --ref it installs the newest official release, not main and not a pre-release", () => {
+  // Until 2026-10-08 it installed main: whatever had just been committed went
+  // to every installation, with the firmware of the last release beside it.
+  // The choice is the script's own pipeline, run in a throwaway repository
+  // whose tags mimic the real ones.
+  const pick = /TARGET="\$\((git tag -l 'fw-\*'[^)]*)\)"/.exec(script)?.[1]
+  expect(pick, "the script no longer picks a release tag").toBeTruthy()
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "pekaway-install-tags-"))
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" })
+  try {
+    git("init", "-q")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "x")
+    for (const tag of [
+      "fw-2026.09.28.8",
+      "fw-2026.10.04.2",
+      "fw-2026.10.04.10",
+      "fw-2026.10.06.2-pre.popups",
+      "fw-2026.10.09.1-dryrun",
+    ]) {
+      git("tag", tag)
+    }
+    // Numbers compare as numbers: .10 is after .2. A pre-release and a dry
+    // run, newer or not, are never the default.
+    expect(execFileSync("bash", ["-c", pick!], { cwd: repo, encoding: "utf8" }).trim()).toBe("fw-2026.10.04.10")
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true })
+  }
+  expect(script).toMatch(/\[ -n "\$TARGET" \] \|\| TARGET="main"/)
 })

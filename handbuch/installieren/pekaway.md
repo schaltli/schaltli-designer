@@ -21,6 +21,8 @@ curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/dep
 
 Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build.
 
+Installiert wird die neueste offizielle Version, Designer und Firmware passend zueinander.
+
 
 ## Was das Skript verändert
 

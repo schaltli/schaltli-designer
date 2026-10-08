@@ -19,8 +19,12 @@
 #
 # installs exactly that version instead: a pre-release built for one person
 # to try (the firmware's tools/release-firmware.js --prerelease), or any tag
-# or branch. Without --ref it is always main, the official version - which is
-# also how to go back from a pre-release. Through curl:
+# or branch - --ref main is the newest state of development. Without --ref it
+# is the newest official release: the newest tag fw-YYYY.MM.DD.N without
+# "-pre.", whose designer names its own firmware - which is also how to go
+# back from a pre-release. Until 2026-10-08 it was main, so whatever had just
+# been committed went to every installation along with a firmware from the
+# last release. Through curl:
 #
 #   curl -fsSL .../pekaway-install.sh | bash -s -- --ref <tag>
 
@@ -68,12 +72,18 @@ else
   git clone "$REPO_URL" "$INSTALL_DIR"
   cd "$INSTALL_DIR"
 fi
-# Which version: main unless --ref names another. A pre-release is a tag, and
-# is checked out as it is (detached); a branch follows its remote. Fetched
-# every time, tags included, so a pre-release published since the last run is
-# found - and forced, since a pre-release's tag may be made again.
+# Which version: the newest official release unless --ref names another. A
+# release or pre-release is a tag, and is checked out as it is (detached); a
+# branch follows its remote. Fetched every time, tags included, so a release
+# published since the last run is found - and forced, since a pre-release's
+# tag may be made again.
 git fetch --prune --tags --force origin
-TARGET="${REF:-main}"
+if [ -n "$REF" ]; then
+  TARGET="$REF"
+else
+  TARGET="$(git tag -l 'fw-*' --sort=-v:refname | grep -v -e '-pre\.' -e '-dryrun' | head -n 1 || true)"
+  [ -n "$TARGET" ] || TARGET="main"
+fi
 if git show-ref --verify --quiet "refs/remotes/origin/$TARGET"; then
   git checkout -B "$TARGET" "origin/$TARGET"
 elif git show-ref --verify --quiet "refs/tags/$TARGET"; then
