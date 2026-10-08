@@ -154,7 +154,8 @@ function navigatorProject(ddf) {
       isMaster: true,
       backgroundColor: "#000000",
       buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-right": { type: "previous-screen" } },
-      objects: [navigator],
+      // NAVIGATOR_NONE=1: the same project without it - for measuring what it costs.
+      objects: process.env.NAVIGATOR_NONE ? [] : [navigator],
     },
     ...screens,
   ]
