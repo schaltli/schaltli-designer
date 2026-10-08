@@ -117,9 +117,17 @@ a screen using a master with a navigator, the strip is hatched in edit
 mode. Thumbnails and test-render draw it.
 
 **Acceptance criteria:**
-- [ ] The canvas draws exactly what `navigatorEntryObjects` returns (test-render comparison).
-- [ ] A new screen appears in the navigator; a hidden one disappears; a live screen icon follows its test value.
-- [ ] The strip is hatched on a screen, not in the preview.
+- [x] The canvas draws exactly what `navigatorEntryObjects` returns (test-render comparison).
+- [x] A new screen appears in the navigator; a hidden one disappears; a live screen icon follows its test value.
+- [x] The strip is hatched on a screen, not in the preview.
+
+Done 2026-10-08. `lib/navigator-entries.ts` builds an entry (icon 32 px
+centred, the name under it, an accent box inset 4 px with 8 px corners for
+the open one); `renderNavigator` (lib/render-screen.ts) draws the ground and
+the entries through `renderScreenObjects`, nested, clipped to the strip -
+for the canvas, thumbnails and test-render alike. Checked by pixels at known
+places rather than a second picture, since a picture built by hand would
+not take the nested route icons take. 55 rendering specs, 818 tests green.
 
 **Verification:** `npx playwright test e2e/navigator.spec.ts -g "draw"`
 

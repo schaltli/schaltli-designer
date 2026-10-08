@@ -70,7 +70,11 @@ export function navigatorStrip(edge: Edge, shows: Shows, screenWidth: number, sc
  * each is as short as it may be and the navigator scrolls (decision 12).
  */
 export function navigatorLayout(edge: Edge, shows: Shows, screenWidth: number, screenHeight: number, count: number): NavigatorLayout {
-  const strip = navigatorStrip(edge, shows, screenWidth, screenHeight)
+  return layoutInStrip(edge, shows, navigatorStrip(edge, shows, screenWidth, screenHeight), count)
+}
+
+/** The same, for a strip already placed (the navigator object's own rectangle). */
+export function layoutInStrip(edge: Edge, shows: Shows, strip: Rect, count: number): NavigatorLayout {
   const horizontal = edge === "top" || edge === "bottom"
   const length = horizontal ? strip.width : strip.height
   const min = NAVIGATOR_SIZES[shows].minEntry

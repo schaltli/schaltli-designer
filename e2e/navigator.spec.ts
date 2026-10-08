@@ -5,6 +5,7 @@ import os from "os"
 import path from "path"
 import { loadProject, getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
+import { Jimp } from "jimp"
 
 // The navigator (docs/2026-10-08-navigator.md, tasks/navigator-todo.md):
 // a bar along one edge with every screen, placed on a master. This file
@@ -121,6 +122,123 @@ test.describe("the navigator object", () => {
     const nav = saved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
     expect({ x: nav.x, y: nav.y, width: nav.width, height: nav.height }).toEqual({ x: 0, y: 416, width: 800, height: 64 })
     expect(nav.properties).toMatchObject({ edge: "bottom", shows: "icons" })
+  })
+})
+
+// Drawn through test-render, as every renderer draws: a navigator on a
+// screen with its entries, read back pixel by pixel where the colour is known.
+const svg = (body: string) =>
+  `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
+const SQUARE = svg('<rect x="4" y="4" width="16" height="16" fill="currentColor"/>')
+const CIRCLE = svg('<circle cx="12" cy="12" r="8" fill="currentColor"/>')
+const GROUND = "#202020"
+const INK = "#c0c0c0"
+const ACCENT = "#4060ff"
+const ON_ACCENT = "#ffffff"
+
+function drawProject(liveIcon: boolean): any {
+  const navigator = {
+    id: "nav",
+    type: "navigator",
+    x: 0,
+    y: 0,
+    width: 64,
+    height: 480,
+    zIndex: 9,
+    properties: { edge: "left", shows: "icons", backgroundColor: GROUND, textColor: INK, activeColor: ACCENT, activeTextColor: ON_ACCENT },
+  }
+  return {
+    name: "nav-draw",
+    screenWidth: 800,
+    screenHeight: 480,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [
+      { id: "square", name: "square", type: "icon", data: SQUARE },
+      { id: "circle", name: "circle", type: "icon", data: CIRCLE },
+    ],
+    topics: [{ id: "t", topic: "van/light", type: "text", examples: ["true"] }],
+    screens: [
+      { id: "a", name: "A", backgroundColor: "#000000", iconAssetId: "square", objects: [navigator] },
+      { id: "b", name: "B", hidden: true, iconAssetId: "square", objects: [] },
+      {
+        id: "c",
+        name: "C",
+        iconAssetId: "circle",
+        ...(liveIcon
+          ? { iconLive: { id: "lv1", source: { namespace: "topic", path: "van/light" }, rules: [{ op: "yes", result: { kind: "icon", icon: "square" } }], otherwise: { kind: "icon", icon: "circle" } } }
+          : {}),
+        objects: [],
+      },
+      { id: "d", name: "D", iconAssetId: "circle", objects: [] },
+    ],
+  }
+}
+
+async function pixels(page: Page, project: any, overrides: Record<string, string> = {}) {
+  const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project, screenIndex: 0, topicOverrides: overrides })
+  const img = await Jimp.read(Buffer.from(dataUrl.split(",")[1], "base64"))
+  return (x: number, y: number) => {
+    const c = img.getPixelColor(x, y)
+    return "#" + (c >>> 8).toString(16).padStart(6, "0")
+  }
+}
+
+test.describe("the navigator, drawn", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  })
+
+  // Three listed screens on 480: 160 each. Entry 0 (A) is open.
+  test("the open entry in the accent, the others on the ground, icons in their ink", async ({ page }) => {
+    const at = await pixels(page, drawProject(false))
+    expect(at(8, 20)).toBe(ACCENT)
+    expect(at(32, 80)).toBe(ON_ACCENT)
+    expect(at(8, 180)).toBe(GROUND)
+    expect(at(32, 240)).toBe(INK)
+    // Beside the strip the screen itself.
+    expect(at(100, 240)).toBe("#000000")
+  })
+
+  test("a hidden screen has no entry; a live screen icon follows its value", async ({ page }) => {
+    // C is the second entry (B is hidden): a corner of its icon box is inked
+    // by the square, not by the circle.
+    const corner = [16 + 7, 160 + 64 + 7] as const
+    expect((await pixels(page, drawProject(true), { "van/light": "true" }))(...corner)).toBe(INK)
+    expect((await pixels(page, drawProject(true), { "van/light": "false" }))(...corner)).toBe(GROUND)
+    expect((await pixels(page, drawProject(false)))(...corner)).toBe(GROUND)
+  })
+})
+
+test.describe("the navigator's strip on a screen", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(NAV_DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("navigator")) manifest.supportedObjectTypes.push("navigator")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  test("is hatched while editing, not in the preview", async ({ page }) => {
+    const { master, screen } = await newNavigatorProject(page)
+    await placeNavigator(page, master)
+    await page.getByRole("button", { name: screen }).click()
+    // A few pixels in the strip, below the first entry's highlight.
+    const strip = async () => {
+      const { box } = await getMainCanvas(page)
+      const at = devicePoint(box, 40, 470, SCREEN_43B)
+      const png = await page.screenshot({ clip: { x: at.x - 2, y: at.y - 2, width: 4, height: 4 } })
+      const img = await Jimp.read(png)
+      const colours = new Set<number>()
+      for (let y = 0; y < img.bitmap.height; y++) for (let x = 0; x < img.bitmap.width; x++) colours.add(img.getPixelColor(x, y))
+      return [...colours].sort().join(",")
+    }
+    const edit = await strip()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    expect(await strip()).not.toBe(edit)
   })
 })
 

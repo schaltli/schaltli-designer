@@ -1,5 +1,6 @@
 "use client"
 
+import { everyEntryObject } from "@/lib/navigator-entries"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
@@ -407,7 +408,11 @@ export default function TestRenderPage() {
       // its icons are files by then (hil/android/orchestrator.js builds them
       // back, but a caller that does not should draw a screen without icons
       // rather than throw).
-      await preloadIconImages(screen.objects, project.assets ?? [], iconImageCache)
+      // A navigator's entries too: their icons are not among the screen's objects.
+      const entryIcons = screen.objects
+        .filter((o: ScreenObject) => o.type === "navigator")
+        .flatMap((o: ScreenObject) => everyEntryObject(o, project.screens, fonts))
+      await preloadIconImages([...screen.objects, ...entryIcons], project.assets ?? [], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,
@@ -423,6 +428,7 @@ export default function TestRenderPage() {
         placeholders,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
+        navigator: { screens: project.screens, activeScreenId: screen.id },
       })
 
       if (quantize === "rgb565") {

@@ -30,6 +30,8 @@ import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { clampScroll, entryRect, layoutInStrip, navigatorScreens, scrollToShow } from "@/lib/navigator"
+import { entryLook, navigatorEntryObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
@@ -327,6 +329,50 @@ export interface RenderScreenObjectsOptions {
   // grid. The preview has to take whichever route the pixels really take, or
   // it shows an anti-aliased edge the device cannot produce.
   nested?: boolean
+
+  // What a navigator lists (docs/2026-10-08-navigator.md): the project's
+  // screens, the one whose entry is highlighted, and how far it is
+  // scrolled - absent, as far as shows the highlighted entry. Without it a
+  // navigator draws its ground only.
+  navigator?: NavigatorContext
+}
+
+export interface NavigatorContext {
+  screens: readonly (EntryScreen & { isMaster?: boolean; screenType?: "popup"; hidden?: boolean })[]
+  activeScreenId?: string
+  scroll?: number
+}
+
+/**
+ * A navigator: its ground over the strip, and each entry's objects
+ * (lib/navigator-entries.ts) at the entry's place, clipped to the strip -
+ * the last visible entry cut off where they do not all fit.
+ */
+export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject, options: RenderScreenObjectsOptions): void {
+  const strip = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(strip.x, strip.y, strip.width, strip.height)
+  ctx.clip()
+  ctx.fillStyle = obj.properties.backgroundColor ?? "#ffffff"
+  ctx.fillRect(strip.x, strip.y, strip.width, strip.height)
+  const context = options.navigator
+  if (context) {
+    const screens = navigatorScreens(context.screens)
+    const layout = layoutInStrip(obj.properties.edge ?? "left", obj.properties.shows ?? "iconsAndText", strip, screens.length)
+    const active = screens.findIndex((s) => s.id === context.activeScreenId)
+    const scroll = context.scroll !== undefined ? clampScroll(layout, context.scroll) : scrollToShow(layout, Math.max(0, active), 0)
+    const look = entryLook(obj, options.fonts)
+    screens.forEach((screen, i) => {
+      const rect = entryRect(layout, i, scroll)
+      if (rect.x >= strip.x + strip.width || rect.y >= strip.y + strip.height || rect.x + rect.width <= strip.x || rect.y + rect.height <= strip.y) return
+      ctx.save()
+      ctx.translate(rect.x, rect.y)
+      renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...options, nested: true, navigator: undefined })
+      ctx.restore()
+    })
+  }
+  ctx.restore()
 }
 
 // Sorts by zIndex itself (frontmost last) - matches firmware's
@@ -409,6 +455,10 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "live-line":
         renderMqttDataLine({ ctx, obj, zoom: 1, colorDepth, topics, getPreviewValueFromTopic })
+        break
+
+      case "navigator":
+        renderNavigator(ctx, obj, options)
         break
 
       case "icon":

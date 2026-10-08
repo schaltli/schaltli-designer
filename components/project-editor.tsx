@@ -4102,6 +4102,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
+            projectScreens={project.screens}
             screen={displayedScreen}
             popupUnderlay={popupUnderlay}
             onClosePopup={() => setPreviewPopupId(null)}

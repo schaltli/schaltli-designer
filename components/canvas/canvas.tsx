@@ -1,6 +1,7 @@
 "use client"
 
-import { navigatorStrip, staysPut } from "@/lib/navigator"
+import { navigatorScreens, navigatorStrip, staysPut } from "@/lib/navigator"
+import { renderNavigator } from "@/lib/render-screen"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -194,6 +195,26 @@ function fillButtonElement(ctx: CanvasRenderingContext2D, element: Element, colo
   ctx.restore()
 }
 
+// Diagonal lines over a rectangle, inside it: where a master's navigator
+// lies on a screen (docs/2026-10-08-navigator.md decision 11).
+function drawHatch(ctx: CanvasRenderingContext2D, rect: { x: number; y: number; width: number; height: number }): void {
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(rect.x, rect.y, rect.width, rect.height)
+  ctx.clip()
+  ctx.fillStyle = "rgba(127, 127, 127, 0.25)"
+  ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+  ctx.strokeStyle = "rgba(127, 127, 127, 0.7)"
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let d = -rect.height; d < rect.width; d += 8) {
+    ctx.moveTo(rect.x + d, rect.y + rect.height)
+    ctx.lineTo(rect.x + d + rect.height, rect.y)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
 export interface CanvasProps {
   screen: ProjectScreen
   // Resolved objects of `screen`'s assigned master screen (already filtered
@@ -209,6 +230,8 @@ export interface CanvasProps {
   // (lib/hardware-button-actions.ts's resolveButtonAction) reads the
   // master's buttonActions, not its objects.
   masterScreen?: ProjectScreen
+  // Every screen of the project, for what a navigator lists.
+  projectScreens?: ProjectScreen[]
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
@@ -756,6 +779,7 @@ export function Canvas({
   canGroup = false,
   canUngroup = false,
   previewMode = false,
+  projectScreens,
   onPreviewButtonAction,
   popupUnderlay,
   onClosePopup,
@@ -1391,6 +1415,14 @@ export function Canvas({
       drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholders)
     })
 
+    // Under a master's navigator nothing should be put by accident: its strip
+    // is hatched on every screen using that master, while editing
+    // (docs/2026-10-08-navigator.md decision 11).
+    if (!previewMode && !screen.isMaster) {
+      const navigator = (masterObjects ?? []).find((o) => o.type === "navigator")
+      if (navigator) drawHatch(ctx, navigator)
+    }
+
     // Inside a group, the rest of the screen steps back: a veil in the
     // screen's own colour over everything, the group drawn again on top of
     // it, and a dashed violet frame - the same colour a switcher's open
@@ -1934,6 +1966,26 @@ export function Canvas({
     switch (obj.type) {
       case "box":
         renderBox({ ctx, obj, zoom, colorDepth })
+        break
+
+      // On the master the first listed screen's entry is highlighted, on a
+      // screen its own (docs/2026-10-08-navigator.md).
+      case "navigator":
+        renderNavigator(ctx, obj, {
+          fonts,
+          projectAssets,
+          topics,
+          colorDepth,
+          bdfFontCache: bdfFontCacheRef.current,
+          iconImageCache: iconImageCacheRef.current,
+          getPreviewValueFromTopic,
+          placeholders,
+          requestRedraw: draw,
+          navigator: {
+            screens: projectScreens ?? [screen],
+            activeScreenId: screen.isMaster ? navigatorScreens(projectScreens ?? [])[0]?.id : screen.id,
+          },
+        })
         break
 
       case "text":

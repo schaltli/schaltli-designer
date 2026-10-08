@@ -23,6 +23,8 @@ interface ScreenThumbnailProps {
   // so this component can resolve inheritance the same way canvas.tsx does,
   // via lib/master-screen.ts (2026-08-16).
   masterScreen?: ProjectScreen
+  // Every screen of the project, for what a navigator lists.
+  projectScreens?: ProjectScreen[]
   screenWidth: number
   screenHeight: number
   projectName: string
@@ -65,6 +67,7 @@ interface ScreenThumbnailProps {
 // dimensions for a crisp render; CSS just scales the element visually.
 export function ScreenThumbnail({
   screen,
+  projectScreens,
   masterObjects = [],
   masterScreen,
   screenWidth,
@@ -119,6 +122,7 @@ export function ScreenThumbnail({
         placeholders,
         requestRedraw: render,
         screenBackgroundColor: background,
+        navigator: { screens: projectScreens ?? [screen], activeScreenId: screen.id },
       })
 
       // Same transform as the main canvas's adornment, so the mask lines up

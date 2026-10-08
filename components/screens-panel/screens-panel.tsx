@@ -440,6 +440,7 @@ export function ScreensPanel({
             >
               <ScreenThumbnail
                 screen={screen}
+                projectScreens={project.screens}
                 masterObjects={resolveMasterObjects(screen)}
                 masterScreen={screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens)}
                 screenWidth={project.screenWidth}
