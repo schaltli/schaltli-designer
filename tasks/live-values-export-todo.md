@@ -15,9 +15,20 @@ evaluation order. `LIVE_VALUE_GENERATION` 1.4 in `lib/system-generation.ts`;
 the deploy dialog's «Not on devices yet» shows only for a device below 1.4.
 
 **Acceptance criteria:**
-- [ ] A project without live values exports byte-identical to before (board and Android).
-- [ ] A text with three chips exports `text` as today and `liveText` / `liveValues` as authored; every icon result has a file in the zip.
-- [ ] A device announcing 1.4 gets no «Not on devices yet» warning; one announcing 1.3 does.
+- [x] A project without live values exports byte-identical to before (board and Android).
+- [x] A text with three chips exports `text` as today and `liveText` / `liveValues` as authored; every icon result has a file in the zip.
+- [x] A device announcing 1.4 gets no «Not on devices yet» warning; one announcing 1.3 does.
+
+Done 2026-10-08. `exportedTextProperties` writes `text` (1.3) and
+`liveText` / `liveValues` (1.4); `withLiveIconFallbacks` keeps a live icon
+live with its Otherwise icon as `assetId`. A live icon is no longer
+static: it stays out of the baked background on both exports, and every
+icon it can show is baked (boards: `<object>~<branch>`, the path on the
+result) or written as a tinted SVG (Android). `combinedTopics` in
+evaluation order. `LIVE_VALUE_GENERATION` 1.4; the deploy warning shows only
+below it. One change for old apps: an Android app below 1.4 draws no live
+icon (it draws no icon of its own; the warning names it) - a 1.3 board
+still draws the Otherwise icon. 4.3B HIL green.
 
 **Verification:** `e2e/live-value.spec.ts` (export cases), `e2e/android-export.spec.ts`, `e2e/deploy-dialog.spec.ts`; knob + 4.3B HIL.
 

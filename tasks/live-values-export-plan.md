@@ -76,7 +76,7 @@ keeps getting exactly what it gets today.
 ## Task list
 
 ### Phase 1: Export and contract (designer)
-- [ ] Task 1: Both exports write `liveText`, `liveValues` (icon results baked) and `combinedTopics`; `LIVE_VALUE_GENERATION` 1.4 and the deploy warning only below it
+- [x] Task 1: Both exports write `liveText`, `liveValues` (icon results baked) and `combinedTopics`; `LIVE_VALUE_GENERATION` 1.4 and the deploy warning only below it
 - [ ] Task 2: The device contract describes live values and combined topics
 
 ### Checkpoint: Export

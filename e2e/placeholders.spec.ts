@@ -279,6 +279,61 @@ test.describe("deploying placeholders to a device that cannot show them", () => 
   }
 })
 
+// Live values (docs/2026-10-07-live-values.md): a device below 1.4 shows a
+// text's rules as nothing and is warned about; one announcing 1.4 reads them.
+test.describe("deploying live values to a device that cannot show them", () => {
+  const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
+
+  for (const [generation, warned] of [
+    ["1.3", true],
+    ["1.4", false],
+  ] as const) {
+    test(`a device announcing ${generation} is ${warned ? "" : "not "}warned about`, async ({ page }, testInfo) => {
+      const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+      const p = JSON.parse(await zip.file("project.json")!.async("string"))
+      p.screens[0].objects.push({
+        id: "lv",
+        type: "text",
+        zIndex: 99,
+        x: 10,
+        y: 250,
+        width: 200,
+        height: 20,
+        properties: { text: "Pumpe {live:lv1}", liveValues: [{ id: "lv1", source: { namespace: "topic", path: "a/b" }, rules: [{ op: "yes", result: { kind: "text", parts: ["an"] } }] }] },
+      })
+      zip.file("project.json", JSON.stringify(p))
+      const withLiveValue = testInfo.outputPath("with-live-value.zip")
+      fs.writeFileSync(withLiveValue, await zip.generateAsync({ type: "nodebuffer" }))
+
+      const id = `e2e-lv-${testInfo.testId}`
+      const device = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+        const client = mqtt.connect(BROKER_URL, { clientId: `e2e-lv-${testInfo.testId}`, reconnectPeriod: 0 })
+        client.once("connect", () => resolve(client))
+        client.once("error", reject)
+      })
+      try {
+        device.publish(
+          `${TOPIC_PREFIX}/${id}/hello`,
+          JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Live Value Test ${id}`, systemGeneration: generation }),
+          { retain: true },
+        )
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "online", { retain: true })
+
+        await loadProject(page, withLiveValue)
+        await page.getByRole("button", { name: "File" }).click()
+        await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+        await page.getByText(`Live Value Test ${id}`, { exact: true }).click()
+        await expect(page.getByTestId("live-value-warning")).toHaveCount(warned ? 1 : 0)
+      } finally {
+        device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })
+        await new Promise((r) => setTimeout(r, 200))
+        device.end()
+      }
+    })
+  }
+})
+
 test.describe("placeholders beyond the shared vectors", () => {
   test("the vectors are many and their names unique", () => {
     expect(cases.length).toBeGreaterThan(50)

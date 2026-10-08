@@ -8,7 +8,8 @@ import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { exportedButtonAction } from "./hardware-button-actions"
 import { projectSeparators } from "./placeholders"
-import { exportedTextProperties, withLiveIconsAsFixed } from "./object-text"
+import { exportedTextProperties, liveIconValue, withLiveIconFallbacks } from "./object-text"
+import { evaluationOrder } from "./combined-topics"
 import { exportedTopics } from "./render-screen"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
@@ -59,9 +60,9 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // The app has never heard of a group either (lib/object-groups.ts): its
   // children arrive as the objects they are, where they are on the screen.
   // A button opening a popup that is not there does nothing (lib/popup.ts).
-  // A live icon goes as the fixed icon of its Otherwise until the app reads
-  // live values (lib/object-text.ts, the interim export).
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconsAsFixed(authoredProject)))
+  // A live icon keeps its live value (lib/object-text.ts withLiveIconFallbacks);
+  // the app draws it from 1.4 on, as it draws no static icon of its own.
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -453,6 +454,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
     // declared topics.
     topics: exportedTopics(project),
+    ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
     decimalSeparator: projectSeparators(project.settings).decimal,
     thousandsSeparator: projectSeparators(project.settings).thousands,
     screens: resolvedScreens.map(({ screen, masterScreen, jsonObjects, backgroundColor, backgroundColorDark }) => {
@@ -564,8 +566,34 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
             }
           }
           if (obj.type === "icon") {
+            // A live icon: each icon result as its own tinted SVG.
+            const liveValue = liveIconValue(obj)
+            const withPaths = (result: any) =>
+              result?.kind === "icon" && result.icon
+                ? {
+                    ...result,
+                    path: iconPathFor(result.icon, obj.properties.iconColor, obj.properties.iconColorFlatten),
+                    pathDark: iconPathFor(result.icon, obj.properties.iconColorDark ?? obj.properties.iconColor, obj.properties.iconColorFlatten),
+                  }
+                : result
+            const properties = liveValue
+              ? {
+                  ...obj.properties,
+                  liveValues: (obj.properties.liveValues ?? []).map((lv: any) =>
+                    lv.id !== liveValue.id
+                      ? lv
+                      : {
+                          ...lv,
+                          rules: lv.rules.map((rule: any) => ({ ...rule, result: withPaths(rule.result) })),
+                          ...(lv.otherwise ? { otherwise: withPaths(lv.otherwise) } : {}),
+                          ...(lv.noValueYet ? { noValueYet: withPaths(lv.noValueYet) } : {}),
+                        },
+                  ),
+                }
+              : obj.properties
             return {
               ...obj,
+              properties,
               path: iconPathFor(
                 obj.properties.assetId,
                 obj.properties.iconColor,

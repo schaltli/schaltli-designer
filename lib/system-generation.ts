@@ -38,6 +38,13 @@ export const PLACEHOLDER_GENERATION = { major: 1, minor: 2 } as const
 // does nothing there - a warning before a deploy, never a refusal.
 export const POPUP_GENERATION = { major: 1, minor: 3 } as const
 
+// The generation a device announces once it reads live values - liveText,
+// liveValues (a live icon's results with their own bitmaps) and
+// combinedTopics (docs/2026-10-07-live-values.md). Additive: a device below
+// it reads `text` and `path` as written for it, so what a placeholder cannot
+// say stays empty there - a warning before a deploy, never a refusal.
+export const LIVE_VALUE_GENERATION = { major: 1, minor: 4 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

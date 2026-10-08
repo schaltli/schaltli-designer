@@ -49,16 +49,19 @@ export function iconAsDrawn(obj: ScreenObject, scope?: PlaceholderScope): Screen
   return { ...obj, properties: { ...obj.properties, assetId: result?.kind === "icon" ? result.icon : undefined } }
 }
 
-// A text object's properties as they go to a device, until devices read live
-// values (tasks/live-values-plan.md, the interim export): each live value
-// written as the placeholder that says the same, or left out where none can;
-// the live values themselves not sent; {project:name} written in, as ever.
+// A text object's properties as they go to a device, in both readings
+// (tasks/live-values-export-plan.md): `text` as a device of generation 1.3
+// reads it - each live value written as the placeholder that says the same,
+// or left out where none can, {project:name} written in - and, for 1.4,
+// `liveText` with its `{live:<id>}` references and the `liveValues` they name.
 export function exportedTextProperties(obj: ScreenObject, project: { name: string }): Record<string, any> {
   const properties: Record<string, any> = { ...obj.properties }
   const liveValues = liveValuesOf(obj)
   let text: unknown = properties.text
-  if (liveValues.length > 0 && typeof text === "string") text = lowerLiveText(text, liveValues).text
-  delete properties.liveValues
+  if (liveValues.length > 0 && typeof text === "string") {
+    properties.liveText = text
+    text = lowerLiveText(text, liveValues).text
+  } else delete properties.liveValues
   if (typeof text === "string" && text) properties.text = bakeProjectFields(text, project)
   return properties
 }
@@ -87,18 +90,34 @@ export function liveValuesNotOnDevices(project: { screens?: { name: string; obje
   return names
 }
 
-// A project as it goes to a device until devices read live values: a live
-// icon is the fixed icon of its Otherwise (none without one), its live value
-// not sent. A copy; the project is left as it is.
-export function withLiveIconsAsFixed<T extends { screens?: { objects?: ScreenObject[] }[] }>(project: T): T {
+// Whether an icon is live (properties.liveIconId names its live value).
+export function isLiveIcon(obj: ScreenObject): boolean {
+  return obj.type === "icon" && !!liveIconValue(obj)
+}
+
+// Every icon a live icon can show, by branch - a rule's index as r<n>,
+// otherwise, noValueYet - for the export to bake each once.
+export function liveIconBranches(liveValue: LiveValue): { branch: string; icon: string }[] {
+  const branches: { branch: string; icon: string }[] = []
+  liveValue.rules.forEach((rule, i) => {
+    if (rule.result.kind === "icon" && rule.result.icon) branches.push({ branch: `r${i}`, icon: rule.result.icon })
+  })
+  if (liveValue.otherwise?.kind === "icon" && liveValue.otherwise.icon) branches.push({ branch: "otherwise", icon: liveValue.otherwise.icon })
+  if (liveValue.noValueYet?.kind === "icon" && liveValue.noValueYet.icon) branches.push({ branch: "noValueYet", icon: liveValue.noValueYet.icon })
+  return branches
+}
+
+// A project as it goes to a device: a live icon keeps its live value for a
+// device of generation 1.4, and its asset is the Otherwise icon, what a 1.3
+// device draws (none without one). A copy; the project is left as it is.
+export function withLiveIconFallbacks<T extends { screens?: { objects?: ScreenObject[] }[] }>(project: T): T {
   const fix = (objects: ScreenObject[]): ScreenObject[] =>
     objects.map((obj) => {
       const children = obj.children?.length ? { children: fix(obj.children) } : {}
       const liveValue = liveIconValue(obj)
       if (!liveValue) return { ...obj, ...children }
-      const { liveIconId: _id, liveValues: _values, ...properties } = obj.properties
       const otherwise = liveValue.otherwise?.kind === "icon" ? liveValue.otherwise.icon : undefined
-      return { ...obj, ...children, properties: { ...properties, assetId: otherwise } }
+      return { ...obj, ...children, properties: { ...obj.properties, assetId: otherwise } }
     })
   return { ...project, screens: (project.screens ?? []).map((screen) => ({ ...screen, objects: fix(screen.objects ?? []) })) }
 }

@@ -33,6 +33,7 @@ import { loadDeviceDescriptionByPath } from "@/lib/device-description"
 import {
   PLACEHOLDER_GENERATION,
   POPUP_GENERATION,
+  LIVE_VALUE_GENERATION,
   SYSTEM_GENERATION,
   SYSTEM_GENERATION_STRING,
   formatGeneration,
@@ -640,13 +641,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 )}
 
               {/* Live values no placeholder can say - a rule, a duration, a
-                  combined topic - are not exported yet (tasks/live-values-
-                  plan.md, the interim export): those parts of a text stay
-                  empty on every device until devices read live values. */}
-              {selectedDevice && liveValueTexts.length > 0 && (
+                  combined topic, a live icon - need a device that announces
+                  LIVE_VALUE_GENERATION; below it those parts stay empty (an
+                  icon shows its Otherwise one on a board), so this warns. */}
+              {selectedDevice && liveValueTexts.length > 0 && generationBelow(selectedDevice.systemGeneration, LIVE_VALUE_GENERATION) && (
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="live-value-warning">
                   {`Not on devices yet: ${liveValueTexts.join(", ")}. `}
-                  {`A live value with rules, its own Otherwise, a duration or a combined topic shows in the designer only, for now; on "${selectedDevice.name || selectedDevice.instanceId}" that part of the text stays empty.`}
+                  {`A live value with rules, its own Otherwise, a duration or a combined topic needs a device that announces generation ${formatGeneration(LIVE_VALUE_GENERATION)} or newer; on "${selectedDevice.name || selectedDevice.instanceId}" that part stays empty. Update its firmware or app first.`}
                 </p>
               )}
 

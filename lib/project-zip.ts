@@ -16,7 +16,8 @@ import { mapObjectsDeep } from "@/lib/object-tree"
 import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { projectSeparators } from "@/lib/placeholders"
-import { exportedTextProperties, withLiveIconsAsFixed } from "@/lib/object-text"
+import { exportedTextProperties, liveIconBranches, liveIconValue, withLiveIconFallbacks } from "@/lib/object-text"
+import { evaluationOrder } from "@/lib/combined-topics"
 import { exportedTopics } from "@/lib/render-screen"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
@@ -271,10 +272,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // as authored, to be opened in the designer again.
   const authored = withIntegerProjectGeometry(rawProject)
   // A button opening a popup that is not there does nothing (lib/popup.ts).
-  // A live icon goes as the fixed icon of its Otherwise until devices read
-  // live values (lib/object-text.ts, the interim export); the recovery copy
-  // keeps it live.
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconsAsFixed(authored)))
+  // A live icon keeps its live value for a 1.4 device and its Otherwise icon
+  // is what a 1.3 device draws (lib/object-text.ts withLiveIconFallbacks).
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored)))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -472,6 +472,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
     // declared topics.
     topics: exportedTopics(project),
+    // Combined topics in the order a device computes them
+    // (lib/combined-topics.ts); a 1.3 device skips the key.
+    ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
     decimalSeparator: projectSeparators(project.settings).decimal,
     thousandsSeparator: projectSeparators(project.settings).thousands,
     hardwareButtons: project.hardwareButtons,
@@ -558,8 +561,30 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
               }
             }
             if (obj.type === "icon") {
+              // A live icon's results each carry the bitmap baked for them
+              // (lib/asset-export.ts, keyed <object>~<branch>).
+              const liveValue = liveIconValue(obj)
+              const branchPath = (branch: string) => {
+                const key = assetKey(screen.id, `${obj.id}~${branch}`)
+                return iconPathMap.has(key) ? { path: iconPathMap.get(key), pathDark: iconDarkPathMap.get(key) } : {}
+              }
+              const baked = liveValue
+                ? (() => {
+                    const branches = new Set(liveIconBranches(liveValue).map((b) => b.branch))
+                    const at = (branch: string, result: any) => (result && branches.has(branch) ? { ...result, ...branchPath(branch) } : result)
+                    return {
+                      ...liveValue,
+                      rules: liveValue.rules.map((rule, i) => ({ ...rule, result: at(`r${i}`, rule.result) })),
+                      ...(liveValue.otherwise ? { otherwise: at("otherwise", liveValue.otherwise) } : {}),
+                      ...(liveValue.noValueYet ? { noValueYet: at("noValueYet", liveValue.noValueYet) } : {}),
+                    }
+                  })()
+                : undefined
               return {
                 ...obj,
+                ...(baked
+                  ? { properties: { ...obj.properties, liveValues: (obj.properties.liveValues ?? []).map((lv: any) => (lv.id === baked.id ? baked : lv)) } }
+                  : {}),
                 path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined,
                 ...(iconPathMap.has(assetKey(screen.id, obj.id))
                   ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)) }

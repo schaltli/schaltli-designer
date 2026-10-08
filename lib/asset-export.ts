@@ -7,6 +7,7 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
+import { isLiveIcon, liveIconBranches, liveIconValue } from "@/lib/object-text"
 import { rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
 import { mergeMasterAndScreenObjects } from '@/lib/object-order'
@@ -390,8 +391,10 @@ export class AssetExporter {
     // an icon baked twice leaves the union of two anti-aliased edges, and
     // an icon baked zero times disappears. Both were measured on the knob,
     // one after the other, on 2026-09-10.
+    // A live icon is not static: what it shows changes with its value
+    // (lib/object-text.ts isLiveIcon), so it stays out of the background.
     const flattenedIds = new Set(
-      (screenObjects ?? []).filter((o: any) => o.type === 'box' || o.type === 'line' || o.type === 'icon')
+      (screenObjects ?? []).filter((o: any) => o.type === 'box' || o.type === 'line' || (o.type === 'icon' && !isLiveIcon(o)))
         .map((o: any) => o.id),
     )
 
@@ -410,6 +413,20 @@ export class AssetExporter {
           )
           console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
           
+          if (exportResult) {
+            out.iconUsages.push(exportResult)
+            out.files.set(exportResult.filename, exportResult.data)
+          }
+        }
+        // A live icon: every icon it can show, baked once each on the
+        // screen's background, keyed <object>~<branch> (lib/project-zip.ts
+        // puts the path on the result).
+        const liveValue = liveIconValue(obj)
+        for (const { branch, icon } of liveValue ? liveIconBranches(liveValue) : []) {
+          const branchAsset = project.assets.find((a: any) => a.id === icon)
+          if (!branchAsset) continue
+          out.iconUsageCount++
+          const exportResult = await this.exportIconUsage(branchAsset, obj, screen, project, flattenedBackground, undefined, false, `${obj.id}~${branch}`)
           if (exportResult) {
             out.iconUsages.push(exportResult)
             out.files.set(exportResult.filename, exportResult.data)
@@ -518,7 +535,7 @@ export class AssetExporter {
 
     // 2. Get all static objects in drawing order (boxes, lines, icons only)
     const staticObjects = (objects ?? screen.objects).filter((obj: any) => {
-      return obj.type === 'box' || obj.type === 'line' || obj.type === 'icon'
+      return obj.type === 'box' || obj.type === 'line' || (obj.type === 'icon' && !isLiveIcon(obj))
     })
 
     // Sort by type-based drawing order
@@ -801,6 +818,8 @@ export class AssetExporter {
     flattenedBackground: HTMLCanvasElement,
     pairIndex?: number,
     alreadyFlattened = false,
+    /** The key a live icon's branch is baked under, `<object>~<branch>`. */
+    asObjectId?: string,
   ): Promise<IconUsageExport | null> {
     try {
       console.log(`[AssetExport] Exporting icon usage: ${asset.name} at (${iconObject.x}, ${iconObject.y})`)
@@ -868,7 +887,10 @@ export class AssetExporter {
       // every screen that shows it, against that screen's own background.
       // Keyed by object id alone, those bakes would overwrite each other and
       // whichever screen happened to be exported last would win.
-      if (pairIndex !== undefined) {
+      if (asObjectId) {
+        objectId = asObjectId
+        filename = `${screen.id}_${asObjectId.replace(/~/g, "_")}.${this.getFileExtension()}`
+      } else if (pairIndex !== undefined) {
         // For iconpairs in MQTTIconField
         const pairs = iconObject.properties.valueIconPairs || []
         const pair = pairs[pairIndex]

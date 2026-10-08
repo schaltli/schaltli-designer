@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
+import JSZip from "jszip"
 import path from "path"
 import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
 import { migrateProject } from "../lib/object-types"
-import { exportedTextProperties, iconAsDrawn, liveValuesNotOnDevices, withLiveIconsAsFixed } from "../lib/object-text"
+import { exportedTextProperties, iconAsDrawn, isLiveIcon, liveIconBranches, liveValuesNotOnDevices, withLiveIconFallbacks } from "../lib/object-text"
 import { exportedTopics, placeholderScope, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 import { combinedReadableFrom, combinedUsage, computeCombined, dependentsOf, evaluationOrder, renameCombined, type CombinedTopic } from "../lib/combined-topics"
@@ -194,7 +195,7 @@ test.describe("the interim export", () => {
     expect(lowerLiveText(text, liveValues)).toEqual({ text: 'A  B  C  D {topic:u ?? "leer":N2}', left: ["lv1", "lv2", "lv3"] })
   })
 
-  test("the exported object carries the placeholder, not the live values; project:name is written in", () => {
+  test("the exported object carries the placeholder for 1.3 and the live values for 1.4; project:name is written in", () => {
     const obj = {
       id: "o1",
       type: "text",
@@ -208,7 +209,9 @@ test.describe("the interim export", () => {
     } as any
     const exported = exportedTextProperties(obj, { name: "Mein Van" })
     expect(exported.text).toBe("{topic:van/temp:F1} in Mein Van")
-    expect(exported).not.toHaveProperty("liveValues")
+    // A device of generation 1.4 reads these (tasks/live-values-export-todo.md, Task 1).
+    expect(exported.liveText).toBe("{live:lv1} in {live:lv2}")
+    expect(exported.liveValues).toEqual(obj.properties.liveValues)
   })
 
   test("the deploy dialog names the objects whose live values a device cannot show yet", () => {
@@ -326,12 +329,22 @@ test.describe("a live icon", () => {
     expect(iconAsDrawn(fixed, scope("1"))).toBe(fixed)
   })
 
-  test("the interim export sends its Otherwise icon and names it", () => {
+  test("the export keeps it live and gives a 1.3 device its Otherwise icon; it is named for those", () => {
     const project = { screens: [{ name: "Wetter", objects: [icon] }] } as any
-    const exported = withLiveIconsAsFixed(project)
-    expect(exported.screens[0].objects[0].properties).toEqual({ assetId: "asset-thermo" })
-    expect(project.screens[0].objects[0].properties.liveIconId).toBe("lv1")
+    const exported = withLiveIconFallbacks(project)
+    expect(exported.screens[0].objects[0].properties).toEqual({ assetId: "asset-thermo", liveIconId: "lv1", liveValues: [frost] })
     expect(liveValuesNotOnDevices(project)).toEqual(["an icon on Wetter"])
+  })
+
+  test("every icon it can show, by branch, for the export to bake", () => {
+    expect(liveIconBranches(frost)).toEqual([
+      { branch: "r0", icon: "asset-alert" },
+      { branch: "r1", icon: "asset-flake" },
+      { branch: "otherwise", icon: "asset-thermo" },
+      { branch: "noValueYet", icon: "asset-thermo-off" },
+    ])
+    expect(isLiveIcon(icon)).toBe(true)
+    expect(isLiveIcon({ ...icon, properties: { assetId: "a" } })).toBe(false)
   })
 })
 
@@ -445,4 +458,90 @@ test.describe("combined topics in the preview's scope", () => {
     const scope = placeholderScope({ topics, combinedTopics: glaette, separators, test: { source: { namespace: "combined", path: "glaette" }, value: undefined } })
     expect(scope.combined?.("glaette")).toBeUndefined()
   })
+})
+
+// Task 1 of tasks/live-values-export-todo.md: the device export carries both
+// readings - what a 1.3 device shows today, and the live values for 1.4.
+test.describe("the export for devices of generation 1.4", () => {
+  const svg = (d: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="${d}"/></svg>`
+  const T = (word: string) => ({ kind: "text", parts: [word] })
+  const project = {
+    name: "export",
+    screenWidth: 200,
+    screenHeight: 80,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [
+      { id: "a-thermo", name: "thermometer", type: "icon", data: svg("M10 2h4v14a4 4 0 1 1-4 0z") },
+      { id: "a-flake", name: "snowflake", type: "icon", data: svg("M11 1h2v22h-2zM1 11h22v2H1z") },
+    ],
+    topics: [{ id: "t", topic: "outside_temp", type: "numeric", examples: ["10"] }, { id: "r", topic: "rain", type: "text", examples: ["false"] }],
+    combinedTopics: [
+      { id: "c2", name: "glaette", mode: "all", conditions: [{ source: { namespace: "combined", path: "frost" }, op: "yes" }, { source: { namespace: "topic", path: "rain" }, op: "yes" }] },
+      { id: "c1", name: "frost", mode: "all", conditions: [{ source: { namespace: "topic", path: "outside_temp" }, op: "<", operand: "1" }] },
+    ],
+    screens: [
+      {
+        id: "s1",
+        name: "S",
+        backgroundColor: "#ffffff",
+        objects: [
+          {
+            id: "t1",
+            type: "text",
+            x: 4,
+            y: 4,
+            width: 150,
+            height: 24,
+            zIndex: 1,
+            properties: { text: "Strasse {live:lv1}", textColor: "#000000", liveValues: [{ id: "lv1", source: { namespace: "combined", path: "glaette" }, rules: [{ op: "yes", result: T("GLATT") }], otherwise: T("ok") }] },
+          },
+          {
+            id: "i1",
+            type: "icon",
+            x: 160,
+            y: 4,
+            width: 32,
+            height: 32,
+            zIndex: 2,
+            properties: {
+              iconColor: "#000000",
+              assetId: "a-thermo",
+              liveIconId: "lv1",
+              liveValues: [{ id: "lv1", source: { namespace: "topic", path: "outside_temp" }, rules: [{ op: "<", operand: "3", result: { kind: "icon", icon: "a-flake" } }], otherwise: { kind: "icon", icon: "a-thermo" } }],
+            },
+          },
+        ],
+      },
+    ],
+  }
+
+  async function exported(page: import("@playwright/test").Page, hook: string) {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const base64 = await page.evaluate(([h, p]) => (window as any)[h as string](p), [hook, project] as const)
+    const zip = await JSZip.loadAsync(Buffer.from(base64 as string, "base64"))
+    return { zip, json: JSON.parse(await zip.file("project.json")!.async("string")) }
+  }
+
+  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"]) {
+    test(`${hook}: both readings, every icon result baked, combined topics in order`, async ({ page }) => {
+      const { zip, json } = await exported(page, hook)
+      const objects = json.screens[0].objects
+      const text = objects.find((o: any) => o.id === "t1")
+      expect(text.properties.text).toBe("Strasse ")
+      expect(text.properties.liveText).toBe("Strasse {live:lv1}")
+      expect(text.properties.liveValues[0].source).toEqual({ namespace: "combined", path: "glaette" })
+      const icon = objects.find((o: any) => o.id === "i1")
+      expect(icon.properties.liveIconId).toBe("lv1")
+      const lv = icon.properties.liveValues[0]
+      for (const result of [lv.rules[0].result, lv.otherwise]) {
+        expect(result.path, JSON.stringify(result)).toBeTruthy()
+        expect(zip.file(result.path)).not.toBeNull()
+      }
+      // A 1.3 device draws what it draws today: the Otherwise icon.
+      if (hook === "__buildDeviceZipForTest") expect(zip.file(icon.path)).not.toBeNull()
+      expect(json.combinedTopics.map((ct: any) => ct.name)).toEqual(["frost", "glaette"])
+    })
+  }
 })
