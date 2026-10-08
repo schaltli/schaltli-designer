@@ -147,6 +147,11 @@ entry opens it.
 **Dependencies:** Task 7 · **Scope:** S
 
 ## Checkpoint: complete
-- [ ] `npm run test:all`
-- [ ] Handbook warnings (`handbuch-macke #54`) removed
+- [x] `npm run test:all`
+- [x] Handbook warnings (`handbuch-macke #54`) removed
 - [ ] Spec status updated; #54 closed with the user's OK
+
+test:all 2026-10-09: Overall PASS - navigator on the 4.3B (17) and the
+PaperS3 (10), android-HIL 16/16, firmware updates on both boards. Skipped:
+the knob's firmware runs (it still runs an older build), epaper,
+factory-flash. Spec status updated; #54 waits for the user.
