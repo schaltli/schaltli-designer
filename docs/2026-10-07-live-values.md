@@ -9,7 +9,7 @@ there are no released projects or devices to keep working. Issue #55.
 Mockups: R1-R3 in the «Navigator 4.3B» canvas
 (https://claude.ai/artifact/535dvb6DZkCfUWQGdZ4Ekg), images in #55.
 
-Status: spec draft 2026-10-07, not yet agreed; open question 1 decided the same day. No plan yet.
+Status: designer part built 2026-10-07 (`tasks/live-values-plan.md`); devices planned 2026-10-08 (`tasks/live-values-export-plan.md`). Open question 1 decided 2026-10-07.
 
 ## Objective
 
@@ -216,7 +216,10 @@ from zero, never through a float.
 - **Recomputing:** a message on a source recomputes the combined topics
   that depend on it, in order, and goes on only where a result actually
   changed. To everything downstream this looks like an incoming message;
-  partial redraw is untouched. The export ships the dependency list.
+  partial redraw is untouched. The export ships them in evaluation order and
+  no dependency list: a device recomputes them all after a message on a
+  topic any of them reads, a few dozen comparisons at most (decided
+  2026-10-08; contract §2.6).
 - **Delete and rename:** a combined topic still in use cannot be deleted
   (as a master with screens today); renaming carries every reference.
 - The preview computes combined topics from their sources' examples and
@@ -225,12 +228,12 @@ from zero, never through a float.
 
 ### Export and devices
 
-- Each live value is exported as data in its object's `liveValues`, the
-  text with its `{live:<id>}` references unchanged;
-  each icon result as a baked bitmap per size and colour, referenced by
-  index.
-- Combined topics: `combinedTopics[]`, in evaluation order, with their
-  dependents.
+- Both readings in one file (decided 2026-10-08): `text` and `path` as a
+  1.3 device reads them, and beside them `liveText`, `liveValues` (each icon
+  result with its own baked `path`) and `combinedTopics` for 1.4. Exact
+  shape: `docs/device-contract.md` §2.6.
+- Combined topics: `combinedTopics[]`, in evaluation order, without a
+  dependency list.
 - A new minor system generation. Firmware or an app that does not know it
   is warned about by the designer on deploy, as for placeholders and
   popups (`lib/system-generation.ts`).

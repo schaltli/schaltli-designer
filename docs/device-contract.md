@@ -724,6 +724,85 @@ device needs.
   and leaves an `open-popup` button doing nothing; the deploy dialog warns
   before sending a project with such buttons, naming them.
 
+### 2.6 Live values and combined topics - generation 1.4 (designer side 2026-10-08)
+
+Whatever changes with a value - a value in a text, an icon - is a **live
+value**: one value, read through rules (`docs/2026-10-07-live-values.md`).
+Several values combine into a **combined topic**, a yes/no the device works
+out itself. This is what a device needs. The export writes every key below
+**beside** what a 1.3 device reads, so a 1.3 device keeps showing what it
+shows today and needs no change.
+
+- **A text:** `properties.text` stays as a 1.3 device reads it (§2.4: each
+  live value as the placeholder that says the same, or nothing where none
+  can). A 1.4 device reads instead:
+  - `properties.liveText` - the text with `{live:<id>}` where a value
+    stands; `{{` and `}}` are literal braces; a `{live:<id>}` naming no live
+    value of this object is drawn as written.
+  - `properties.liveValues` - the object's live values (below).
+- **A live icon:** an `icon` object with `properties.liveIconId` naming its
+  one live value in `properties.liveValues`. Its `path` / `pathDark` (and
+  `properties.assetId`) are its Otherwise icon, what a 1.3 device draws. A
+  1.4 device draws the icon of the result that applies: each icon result
+  carries its own `path` / `pathDark` (boards: a baked BMP; the Android
+  bundle: a tinted SVG). No result, or a result without a path: draw
+  nothing. A live icon is never baked into the screen's background.
+- **A live value:**
+  ```json
+  { "id": "lv2", "source": { "namespace": "topic", "path": "heizung/timer" },
+    "format": { "kind": "duration", "pattern": "h:mm:ss" },
+    "rules": [ { "op": "==", "operand": "0", "result": { "kind": "text", "parts": [] } } ],
+    "otherwise": { "kind": "text", "parts": [" timer ", { "value": true }] },
+    "noValueYet": { "kind": "text", "parts": ["?"] } }
+  ```
+  - `source.namespace`: `topic` (with `#json.path` as for bindings),
+    `device` (`model`, `id` - as §2.4), `project` (`name`, the top-level
+    `name`), `combined` (a combined topic's name, below).
+  - `format` (absent: as it arrived): `number` with `decimals` 0-9 and
+    `grouped` (the project's separators, rounding as §2.4), or `duration`
+    with `pattern` `h:mm:ss` | `h:mm` | `m:ss` - whole seconds, the first
+    unit not wrapped (123735 s is `34:22:15`). A value that does not fit the
+    format is written as it arrived.
+  - **Evaluation:** nothing arrived → `noValueYet` (absent: nothing). Else
+    the first rule that matches → its `result`. Else `otherwise` (absent:
+    the value in its format). Operators: `==` `!=` compare trimmed text;
+    `<` `<=` `>` `>=` compare plain decimal numbers - a value or operand
+    that is not one matches none of them; `yes`: `true`, `on`, `yes`, `1`
+    (any case, trimmed) or a number ≠ 0; `no`: `false`, `off`, `no`, `0`, an
+    empty message or a number = 0.
+  - **A text result:** its `parts` joined, `{ "value": true }` being the
+    value in the format. An empty result leaves nothing - the space that
+    goes with it is inside it. An icon result in a text reads as nothing.
+- **`combinedTopics`**, top level, already in evaluation order - each after
+  everything it reads:
+  ```json
+  [ { "id": "c1", "name": "frost", "mode": "all",
+      "conditions": [ { "source": { "namespace": "topic", "path": "outside_temp" }, "op": "<", "operand": "1" } ] },
+    { "id": "c3", "name": "glaette", "mode": "all",
+      "conditions": [ { "source": { "namespace": "combined", "path": "frost" }, "op": "yes" },
+                      { "source": { "namespace": "topic", "path": "rain" }, "op": "yes" } ] } ]
+  ```
+  A condition matches as a rule does. `any`: `"true"` once one matches,
+  `"false"` once all have a value and none matches; `all`: `"false"` once
+  one has a value and does not match, `"true"` once all match; otherwise -
+  and with no conditions - no value. Compute them in the given order, after
+  each message on a topic any of them reads; a condition naming a combined
+  topic not computed before it reads no value. The export refuses circular
+  references and more than 8 levels; a device needs no check of its own. A
+  combined topic is the device's own: never published.
+- **Redraw:** an object redraws when a value it reads changes - a text or
+  icon through its live values, and through a combined topic every topic
+  that one reads, directly or through others.
+- **Subscriptions:** every topic a live value or a combined topic reads is
+  in `topics[]` (bare); subscribe to those as to bindings.
+- **Conformance:** `lib/live-value/vectors.json` (sections `evaluate`,
+  `text`, `resolve`, `combined`) is the set of cases every implementation
+  must pass, byte for byte. Copy it; do not edit a copy.
+- **Announce** generation **1.4** in `hello` once live values, live icons
+  and combined topics are drawn. The deploy dialog warns before sending a
+  project with a live value no placeholder can say to a device below it,
+  naming the texts and icons.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008

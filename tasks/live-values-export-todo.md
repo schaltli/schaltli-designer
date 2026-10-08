@@ -46,8 +46,12 @@ evaluation order and when to recompute them, generation 1.4 and what a 1.3
 device does with the file.
 
 **Acceptance criteria:**
-- [ ] Every key Task 1 writes is described, with an example.
+- [x] Every key Task 1 writes is described, with an example.
 - [ ] The user has read the format once before Phase 2 starts.
+
+Done 2026-10-08: `docs/device-contract.md` §2.6. The spec's «dependency
+list» is gone from it (decided in the plan), its status updated. Waiting
+for the user to read §2.6.
 
 **Verification:** review.
 
