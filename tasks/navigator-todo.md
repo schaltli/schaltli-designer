@@ -223,7 +223,12 @@ icon on the screens page, with a warning that devices draw it from 1.5
 (`handbuch-macke` with the device issue). Through `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] `e2e/handbook-labels.spec.ts` green; every new label quoted exists.
+- [x] `e2e/handbook-labels.spec.ts` green; every new label quoted exists.
+
+Done 2026-10-08: objekte/anordnen.md «Navigator», objekte/index.md (17
+types, the Knob has none), designer/screens.md («Hide screen», the live
+screen icon). Both warnings carry `handbuch-macke #54`; #54 is labelled
+handbuch. The handbook builds, the warnings render as blocks.
 
 **Verification:** `npx playwright test e2e/handbook-labels.spec.ts`; `npm run dev --prefix handbuch` looks right.
 

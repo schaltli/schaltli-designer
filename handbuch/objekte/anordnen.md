@@ -78,6 +78,31 @@ Ohne Wert zeigt der Switcher das erste Panel.
 
 Die Reiter gibt es nur im Designer. Auf dem Gerät sieht man immer nur das gerade gültige Panel.
 
+## Navigator {#navigator}
+
+Eine Leiste am Rand mit einem Eintrag für jeden Screen. Ein Tipp auf einen Eintrag öffnet diesen Screen, und der Eintrag des offenen Screens ist in der Akzentfarbe des Themes hervorgehoben. So kommst du ohne langes Wischen zur Heizung, auch bei zehn Screens.
+
+Du legst den Navigator auf einen [Master](/designer/screens#master-screens). Jeder Screen, der diesen Master verwendet, zeigt ihn dann. Das Werkzeug <span class="ui">Navigator</span> steht nur auf einem Master, der noch keinen hat, und nur bei Geräten mit rechteckigem Display: 4.3B, PaperS3 und Android-App. Der runde Knob hat dafür sein Screen-Menü.
+
+Ein Klick auf den Master setzt ihn an den linken Rand. Verschieben oder in der Grösse ändern lässt er sich nicht, das erledigen seine Eigenschaften unter <span class="ui">Layout</span>:
+
+- <span class="ui">Edge</span>: links, rechts, oben oder unten. Der Navigator füllt diese Kante ganz aus.
+- <span class="ui">Shows</span>: <span class="ui">Icons</span> oder <span class="ui">Icons and text</span>. Das Icon ist das Icon des Screens, der Text sein Name. Mit Text wird die Leiste breiter.
+- <span class="ui">Font</span>: die Schrift der Namen, nur bei <span class="ui">Icons and text</span>.
+
+Die Farben kommen aus dem Theme: der Grund aus «Surface», Icons und Namen aus «Text», der offene Eintrag aus «Accent» und «Text on accent».
+
+**Die Einträge:** einer pro Screen, in der Reihenfolge der Screen-Liste. Master, Popups und Screens mit <span class="ui">Hide screen</span> fehlen. Einen neuen Screen nimmt der Navigator von selbst auf. Passen alle Einträge hin, teilen sie sich die Kante. Sonst scrollst du den Navigator mit einem Wisch entlang der Leiste, und der letzte sichtbare Eintrag ist angeschnitten, damit man sieht, dass es weitergeht. Nach jedem Screenwechsel scrollt er so weit, dass der offene Eintrag zu sehen ist. Ein Wisch auf dem Navigator scrollt nur und blättert nie, ein Wisch daneben blättert wie bisher.
+
+**Was er zeigt:** Ist das Icon eines Screens auf <span class="ui">Live</span> gestellt, zeigt der Navigator gleich, wie es dort steht, etwa eine erleuchtete Glühbirne, solange irgendwo ein Licht brennt. Wie das geht, steht unter [Die Eigenschaften eines Screens](/designer/screens#die-eigenschaften-eines-screens).
+
+Auf den Screens, die den Master verwenden, ist sein Streifen beim Bearbeiten schraffiert, damit du nicht aus Versehen etwas darunter legst. Verboten ist es nicht: Der Navigator deckt zu, was darunter liegt, auch ein Hintergrundbild. In der Vorschau probierst du ihn aus. Ein Klick öffnet einen Screen, Ziehen entlang der Leiste scrollt.
+
+<!-- handbuch-macke #54: Der Navigator geht noch nicht aufs Gerät -->
+::: warning Noch nicht auf dem Gerät
+Den Navigator zeigt vorerst nur der Designer. 4.3B, PaperS3 und Android-App zeichnen ihn ab Systemgeneration 1.5, die noch kommt. Bis dahin fehlt er dort, und beim Übertragen nennt der Dialog ihn.
+:::
+
 ## Panel {#panel}
 
 Panels legst du nicht mit einem Werkzeug an, sondern im Switcher. Ausgewählt zeigen sie nur ihre Bedingung unter <span class="ui">Shown when</span>. Position und Grösse übernehmen sie vom Switcher.

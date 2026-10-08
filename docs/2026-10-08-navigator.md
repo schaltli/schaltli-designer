@@ -5,7 +5,9 @@ mockups B1-B3, C and D on 800 × 480 (4.3B, theme Schaltli dark). Builds on
 live values and combined topics (#55, `docs/2026-10-07-live-values.md`).
 Later: a live name in an entry (#57).
 
-Status: spec, 2026-10-08. Not planned yet.
+Status: designer part built 2026-10-08 (`tasks/navigator-plan.md`:
+`screen-live-icon`, `navigator-designer`, `navigator-export`). The devices
+(`navigator-4v3b`, `navigator-papers3`, `navigator-android`) are next.
 
 ## Objective
 

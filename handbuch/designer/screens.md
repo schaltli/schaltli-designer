@@ -52,6 +52,15 @@ Projekte, in denen ein Screen noch selbst eine Tabelle war oder ein Master einen
 Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. Du kommst auch dorthin, indem du neben den Screen oder in der Objektliste auf die oberste Zeile klickst.
 
 - **<span class="ui">Screen</span>:** der Name, die Art, das Icon und der Master. <span class="ui">Screen type</span> ist <span class="ui">Main screen</span> oder <span class="ui">Popup</span>, siehe [Popups](#popups). Mit <span class="ui">Show master</span> blendest du die Objekte des Masters für diesen einen Screen aus. Theme und Typografie übernimmt der Screen trotzdem. Ein Popup hat weder Icon noch <span class="ui">Show master</span>.
+
+  Das Icon ist <span class="ui">Fixed</span> oder <span class="ui">Live</span>. Live zeigt je nach Wert ein anderes Icon, mit denselben Regeln wie ein [Icon mit Live](/objekte/anzeigen#icon): etwa die erleuchtete Glühbirne, solange ein Combined topic «irgendwo brennt Licht» ja sagt. Das bisherige Icon wird zu <span class="ui">Otherwise</span>. Der [Navigator](/objekte/anordnen#navigator) zeigt das Icon, das gerade gilt.
+
+  Mit <span class="ui">Hide screen</span> nimmst du einen Screen aus dem Wischen und aus dem Navigator. Ein Button mit <span class="ui">Go to a screen</span> erreicht ihn weiter, das passt etwa für einen Einstellungs-Screen. Das Projekt startet auf dem ersten Screen, der nicht versteckt ist. In der Screen-Liste trägt er die Marke «Hidden».
+
+  <!-- handbuch-macke #54: Hide screen und das Live-Icon gehen noch nicht aufs Gerät -->
+  ::: warning Noch nicht auf dem Gerät
+  Auf den Geräten wirkt <span class="ui">Hide screen</span> erst ab Systemgeneration 1.5, die noch kommt. Bis dahin lässt sich ein versteckter Screen dort per Wischen erreichen, und beim Übertragen nennt der Dialog ihn.
+  :::
 - **<span class="ui">Hardware buttons</span>:** was die Tasten des Geräts auslösen, jede mit ihrer Auswahl, siehe [Hardware-Tasten und Gesten](/designer/tasten). Nur bei Geräten mit Tasten, etwa dem Knob.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch. Auf einem Popup steht hier nur <span class="ui">A swipe closes a popup.</span>
 - **<span class="ui">Look</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters, siehe [Themes und Farben](/designer/themes). <span class="ui">Typography</span> legt fest, welche Schriften die [Stile](/objekte/anzeigen#stile) bekommen; ohne eigene Wahl gilt auch hier die des Masters. Das Feld erscheint nur, wenn das Gerät mehr als eine Typografie hat. Wählst du eine andere, bekommen alle Texte mit Stil auf dem Screen deren Schriften, auf einem Master auch die Texte der Screens, die seine übernehmen. Fehlt dem Gerät die gewählte, etwa nach einem Gerätewechsel, gilt «Standard», die Typografie, die jedes Gerät hat. <span class="ui">Background</span> ist die Rolle des Hintergrunds, ohne eigene Wahl die des Masters.
