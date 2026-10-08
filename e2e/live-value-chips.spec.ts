@@ -294,4 +294,23 @@ test.describe("the live value editor", () => {
     await expect.poll(async () => (await box(field(page))).height).toBeGreaterThan(oneLine + 10)
     expect((await box(chip)).height).toBeLessThan(26)
   })
+
+  // Reported 2026-10-08: with its own selection colour hidden, a chip inside
+  // a selection looked left out of it. It takes the selection's colour.
+  test("a chip inside a selection shows it is selected, and not once the selection is gone", async ({ page }) => {
+    await drawText(page, 20, 200)
+    await page.keyboard.type("a ")
+    await insertValue(page, "fan-mode")
+    await page.keyboard.type(" b")
+    await editor(page).getByRole("button", { name: "Close" }).click()
+    await field(page).click()
+    const chip = chips(page).first()
+    const before = await chip.evaluate((el) => getComputedStyle(el).backgroundColor)
+    await page.keyboard.press("End")
+    await page.keyboard.press("Shift+Home")
+    await expect(chip).toHaveAttribute("data-selected", "true")
+    expect(await chip.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(before)
+    await page.keyboard.press("End")
+    await expect(chip).toHaveAttribute("data-selected", "false")
+  })
 })

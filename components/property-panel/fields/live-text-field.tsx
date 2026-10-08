@@ -100,10 +100,13 @@ export const CHIP_CLASS =
   // The chip whose editor is open is filled, as a selection is (2026-10-08).
   "data-[open=true]:border-blue-600 data-[open=true]:bg-blue-600 data-[open=true]:text-white " +
   // Selected with the text it is copied with, but never shown as selected
-  // text: that looked as if it could be typed into (2026-10-08).
-  "selection:bg-transparent selection:text-inherit"
+  // text: that looked as if it could be typed into (2026-10-08). Inside a
+  // selection the whole chip takes the selection's colour instead, so it is
+  // seen to be part of it (data-selected, set on selectionchange).
+  "selection:bg-transparent selection:text-inherit " +
+  "data-[selected=true]:border-[Highlight] data-[selected=true]:bg-[Highlight] data-[selected=true]:text-[HighlightText]"
 export const CHIP_NAME_CLASS =
-  "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis text-blue-600 dark:text-blue-300 group-data-[open=true]:text-blue-100"
+  "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis text-blue-600 dark:text-blue-300 group-data-[open=true]:text-blue-100 group-data-[selected=true]:text-[HighlightText]"
 export const CHIP_READS_CLASS = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis whitespace-pre font-medium"
 
 /** What a chip shows for what it reads: an empty result still shows something to click. */
@@ -227,6 +230,21 @@ export function LiveTextField({
       chip.dataset.open = String(chip.dataset.liveId === openLiveValueId)
     })
   })
+
+  // A chip inside the text's selection shows it (CHIP_CLASS, data-selected).
+  useEffect(() => {
+    const mark = () => {
+      const root = rootRef.current
+      if (!root) return
+      const selection = window.getSelection()
+      const ranged = !!selection && selection.rangeCount > 0 && !selection.isCollapsed && root.contains(selection.anchorNode)
+      root.querySelectorAll<HTMLElement>("[data-live-id]").forEach((chip) => {
+        chip.dataset.selected = String(ranged && selection!.containsNode(chip, true))
+      })
+    }
+    document.addEventListener("selectionchange", mark)
+    return () => document.removeEventListener("selectionchange", mark)
+  }, [])
 
   const emit = (next: string, nextLiveValues: LiveValue[] = liveValues) => {
     shownRef.current = next
