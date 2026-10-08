@@ -66,7 +66,14 @@ shows an entry (last visible cut off), the entry under a point. Cases in
 `lib/navigator/vectors.json`.
 
 **Acceptance criteria:**
-- [ ] Every vector passes; four edges, both «Shows», 3 and 12 screens, hidden screens, masters and popups left out.
+- [x] Every vector passes; four edges, both «Shows», 3 and 12 screens, hidden screens, masters and popups left out.
+
+Done 2026-10-08: 31 cases, expected values worked out by hand. Decided
+here, for the user to see at the designer checkpoint: entries that all fit
+share the strip evenly (a bar along the bottom with three screens is three
+thirds, as mockup B3); otherwise each is as short as it may be (64 icons,
+88 icons and text) and the navigator scrolls. Strip 64 thick for icons, 80
+for icons and text.
 
 **Verification:** `npx playwright test e2e/navigator-core.spec.ts`
 

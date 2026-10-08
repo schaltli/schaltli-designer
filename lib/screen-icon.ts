@@ -33,7 +33,7 @@ export function screenIconObject(screen: IconScreen, size = 24): ScreenObject {
 }
 
 /** The screen with its icon made live: Otherwise is the fixed icon, the source the first one offered. */
-export function withLiveIcon<S extends IconScreen>(screen: S, source: LiveValue["source"]): S {
+export function withLiveIcon<S extends IconScreen>(screen: S, source: LiveValue["source"]): S & { iconLive: LiveValue } {
   return {
     ...screen,
     iconLive: {
