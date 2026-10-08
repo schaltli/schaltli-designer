@@ -61,7 +61,7 @@ for the user to read §2.6.
 
 ## Checkpoint: Export
 - [ ] A project without live values exports byte-identical (both exports)
-- [ ] Knob and 4.3B HIL green on today's firmware
+- [x] Knob and 4.3B HIL green on today's firmware
 
 ## Task 3: LiveValue and CombinedTopics in the firmware
 
@@ -240,6 +240,16 @@ it merged them - the fixture could not be rebuilt since 2026-10-07.
 **Files likely touched:** `hil/android/fixtures/build-android-test.js`, `hil/android/orchestrator.js`
 
 ## Checkpoint: Complete
-- [ ] `npm run test:all` with what is connected
-- [ ] Handbook warnings (`handbuch-macke #55`) removed; «ältere Firmware» says 1.4
-- [ ] Spec status updated
+- [x] `npm run test:all` with what is connected
+- [x] Handbook warnings (`handbuch-macke #55`) removed; «ältere Firmware» says 1.4
+- [x] Spec status updated
+
+test:all 2026-10-08: every board HIL, the live value runs on all three
+boards and android-HIL (15/15) green. Red were fw-level-shape,
+fw-switch-shape and fw-theme-variant - the host tools no longer compiled
+ProjectTypes.h once it included the live value headers with ArduinoJson;
+fixed in schaltli-firmware 31e291c (LiveValueJson.h), all three green
+again. Two e2e specs failed in the full run only (leave-unsaved,
+handbook-screenshots «from the device to a project on the board») and pass
+on their own. Skipped: epaper (unreachable), PaperS3 firmware-upload/ota/
+designer (its running build is not the checkout's), factory-flash.
