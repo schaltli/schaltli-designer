@@ -99,6 +99,10 @@ on a topic any combined topic reads, all are recomputed in order;
 - [ ] A 1.3-format project loads exactly as before.
 - [ ] `/api/topic-values` shows combined topics following their inputs.
 
+Done 2026-10-08 (schaltli-firmware d893dc4). Combined values are worked out
+lazily, on the first read after a topic changed. Both criteria are checked
+on the boards in Task 6.
+
 **Verification:** native test for the loader's parse (if separable), HIL via `/api/topic-values`.
 
 **Dependencies:** Task 3 · **Scope:** M
@@ -118,6 +122,11 @@ three boards.
 **Acceptance criteria:**
 - [ ] A text and an icon reading a combined topic redraw when only that combined topic's input changes.
 - [ ] Generation 1.4 in `hello`.
+
+Done 2026-10-08 (schaltli-firmware 723f1b2). `readsTopic` replaces
+`textNamesTopic`; `liveTopics` also feeds the Knob's subscriptions (the
+4.3B and the PaperS3 subscribe to `topics[]`). A native test covers
+`combined::inputTopics`. All three envs build; HIL in Task 6.
 
 **Verification:** `pio run` for all three envs; HIL (Task 6).
 
