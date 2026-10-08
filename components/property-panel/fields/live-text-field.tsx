@@ -97,12 +97,14 @@ function chipElement(id: string, label: ChipLabel | undefined): HTMLElement {
   chip.setAttribute("role", "button")
   chip.setAttribute("data-testid", "live-chip")
   chip.className =
-    "mx-px inline-flex items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-px align-baseline text-[12px] leading-5 text-blue-950 cursor-pointer select-all dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100"
+    // One line whatever it holds: a long name or value is cut with «…»
+    // (the title has it whole), never wrapped inside the chip.
+    "mx-px inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-blue-300 bg-blue-50 px-2 py-px align-middle text-[12px] leading-5 text-blue-950 cursor-pointer select-all dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100"
   const name = document.createElement("span")
-  name.className = "text-blue-600 dark:text-blue-300"
+  name.className = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis text-blue-600 dark:text-blue-300"
   name.dataset.part = "name"
   const reads = document.createElement("span")
-  reads.className = "font-medium whitespace-pre"
+  reads.className = "min-w-0 max-w-[9rem] overflow-hidden text-ellipsis whitespace-pre font-medium"
   reads.dataset.part = "reads"
   chip.append(name, reads)
   fillChip(chip, label)
@@ -117,6 +119,7 @@ function fillChip(chip: HTMLElement, label: ChipLabel | undefined) {
   const shown = label?.reads ? label.reads : "–"
   if (reads && reads.textContent !== shown) reads.textContent = shown
   chip.setAttribute("aria-label", `${label?.name ?? "value"}: ${label?.reads ?? ""}`)
+  chip.title = `${label?.name ?? ""} · ${shown}`
 }
 
 /** Text and chips as DOM nodes. */
@@ -539,7 +542,9 @@ export function LiveTextField({
             suppressContentEditableWarning
             spellCheck={false}
             data-testid="live-text-field"
-            className={cn(FIELD, "min-h-8 cursor-text whitespace-pre-wrap break-words leading-6")}
+            // A block that grows with its text, line by line, and scrolls past
+            // about eight lines - not the one-line flex box FIELD is.
+            className={cn(FIELD, "block h-auto max-h-48 min-h-7 cursor-text overflow-y-auto whitespace-pre-wrap break-words py-0.5 leading-6")}
             onInput={read}
             onKeyDown={onKeyDown}
             onCopy={(e) => onCopy(e, false)}

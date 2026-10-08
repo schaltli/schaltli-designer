@@ -254,4 +254,23 @@ test.describe("the live value editor", () => {
     await editor(page).getByRole("button", { name: "Close" }).click()
     await expect.poll(async () => Buffer.compare(await canvas.screenshot(), atExample)).toBe(0)
   })
+
+  // Reported 2026-10-08 with a JSON topic: a long name and value wrapped
+  // inside the chip and spilled out of a one-line field.
+  test("a chip stays one line inside the field; a long text makes the field grow", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"])
+    await drawText(page, 20, 200)
+    await page.evaluate(() => navigator.clipboard.writeText("{topic:test/zone-level-with-a-very-long-name-indeed ?? \"a very long value nobody reads whole\"}"))
+    await page.keyboard.press("ControlOrMeta+v")
+    const chip = chips(page).first()
+    const box = async (l: ReturnType<typeof chips>) => (await l.boundingBox())!
+    expect((await box(chip)).height).toBeLessThan(26)
+    const oneLine = (await box(field(page))).height
+    const fieldBox = await box(field(page))
+    const chipBox = await box(chip)
+    expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(fieldBox.x + fieldBox.width + 1)
+    await page.keyboard.type(" und noch ein ganzer Satz, der nicht mehr in eine Zeile passt, so lang ist er")
+    await expect.poll(async () => (await box(field(page))).height).toBeGreaterThan(oneLine + 10)
+    expect((await box(chip)).height).toBeLessThan(26)
+  })
 })
