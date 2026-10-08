@@ -25,6 +25,8 @@ import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
+import { darkProperties, entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf, withDarkColours } from "@/lib/navigator-entries"
+import { navigatorScreens } from "@/lib/navigator"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -426,6 +428,140 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     { pathDark: `assets/${i.normalFilename}`, ...(i.activeFilename ? { pathActiveDark: `assets/${i.activeFilename}` } : {}) },
   ]))
 
+  // One object as a device gets it - a text's height and two readings, an
+  // icon's baked paths, a button's and a switch state's - keyed by the
+  // screen (or navigator entry, lib/navigator-entries.ts entryKey) its
+  // bakes were made for.
+  const deviceObject = (original: any, keyId: string): any => {
+    // A Bar or Slider has no name or icon of its own any more
+    // (2026-09-29). Loading a project drops them (migrateObjects); this
+    // drops them again for one that reached the export another way, so a
+    // device never draws a header the preview does not.
+    const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
+    // {project:name} is fixed at export and written in; every other
+    // placeholder goes to the device as written, for it to resolve
+    // live (docs/2026-09-25-text-placeholders.md). Live values go as
+    // the placeholders that say the same, until devices read them
+    // (lib/object-text.ts exportedTextProperties).
+    if (obj.type === "text") {
+      const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
+      const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
+      return { ...obj, height, properties: exportedTextProperties(obj, project) }
+    }
+    if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
+      return {
+        ...obj,
+        properties: {
+          ...obj.properties,
+          valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
+            ...pair,
+            path: iconPathMap.get(assetKey(keyId, pair.id)) || undefined,
+            // Only beside a light path: an XDark without its X would
+            // be read differently by a device than by the reference.
+            ...(iconPathMap.has(assetKey(keyId, pair.id))
+              ? { pathDark: iconDarkPathMap.get(assetKey(keyId, pair.id)) }
+              : {}),
+          })),
+        },
+      }
+    }
+    if (obj.type === "icon") {
+      // A live icon's results each carry the bitmap baked for them
+      // (lib/asset-export.ts, keyed <object>~<branch>).
+      const liveValue = liveIconValue(obj)
+      const branchPath = (branch: string) => {
+        const key = assetKey(keyId, `${obj.id}~${branch}`)
+        return iconPathMap.has(key) ? { path: iconPathMap.get(key), pathDark: iconDarkPathMap.get(key) } : {}
+      }
+      const baked = liveValue
+        ? (() => {
+            const branches = new Set(liveIconBranches(liveValue).map((b) => b.branch))
+            const at = (branch: string, result: any) => (result && branches.has(branch) ? { ...result, ...branchPath(branch) } : result)
+            return {
+              ...liveValue,
+              rules: liveValue.rules.map((rule, i) => ({ ...rule, result: at(`r${i}`, rule.result) })),
+              ...(liveValue.otherwise ? { otherwise: at("otherwise", liveValue.otherwise) } : {}),
+              ...(liveValue.noValueYet ? { noValueYet: at("noValueYet", liveValue.noValueYet) } : {}),
+            }
+          })()
+        : undefined
+      return {
+        ...obj,
+        ...(baked
+          ? { properties: { ...obj.properties, liveValues: (obj.properties.liveValues ?? []).map((lv: any) => (lv.id === baked.id ? baked : lv)) } }
+          : {}),
+        path: iconPathMap.get(assetKey(keyId, obj.id)) || undefined,
+        ...(iconPathMap.has(assetKey(keyId, obj.id))
+          ? { pathDark: iconDarkPathMap.get(assetKey(keyId, obj.id)) }
+          : {}),
+      }
+    }
+    if (obj.type === "button") {
+      const buttonPaths = buttonPathMap.get(assetKey(keyId, obj.id))
+      return {
+        ...obj,
+        pathNormal: buttonPaths?.pathNormal || undefined,
+        pathActive: buttonPaths?.pathActive || undefined,
+        ...(buttonPaths ? buttonDarkPathMap.get(assetKey(keyId, obj.id)) : {}),
+      }
+    }
+    if (isSwitchType(obj.type) && obj.properties.states) {
+      return {
+        ...obj,
+        properties: {
+          ...obj.properties,
+          states: obj.properties.states.map((state: any, stateIndex: number) => {
+            const key = assetKey(keyId, switchStateKey(obj, state, stateIndex))
+            const iconPaths = switchIconPathMap.get(key)
+            return {
+              ...state,
+              path: iconPaths?.path || undefined,
+              pathActive: iconPaths?.pathActive || undefined,
+              ...(iconPaths ? switchIconDarkPathMap.get(key) : {}),
+            }
+          }),
+        },
+      }
+    }
+    return obj
+  }
+
+  // The navigators (docs/2026-10-08-navigator.md, device contract 2.7): each
+  // once, its entries as ordinary objects, normal and active, with the
+  // icons baked for them.
+  const navigators = navigatorsOf(project).map(({ master, navigator }) => {
+    const theme = themeFor(master, project.screens)
+    const colorDepth = project.settings.colorDepth
+    const nav = applyThemeWithDark([navigator], theme, colorDepth)[0]
+    const withDark = colorDepth === undefined || colorDepth === "24bit"
+    const layout = exportLayout(project, nav)
+    const { width, height } = entrySize(layout)
+    const look = entryLook(nav, project.fonts ?? [])
+    const darkLook = entryLook({ ...nav, properties: darkProperties(nav.properties) }, project.fonts ?? [])
+    const entryObjects = (screen: any, active: boolean) => {
+      const light = navigatorEntryObjects(screen, width, height, look, active)
+      const objects = withDark ? withDarkColours(light, navigatorEntryObjects(screen, width, height, darkLook, active)) : light
+      return objects.map((o) => deviceObject(o, entryKey(master.id, screen.id, active)))
+    }
+    return {
+      id: navigator.id,
+      edge: nav.properties.edge ?? "left",
+      thickness: layout.horizontal ? layout.strip.height : layout.strip.width,
+      entryLength: layout.entryLength,
+      backgroundColor: nav.properties.backgroundColor,
+      ...(withDark && nav.properties.backgroundColorDark ? { backgroundColorDark: nav.properties.backgroundColorDark } : {}),
+      entries: navigatorScreens(project.screens).map((screen) => ({
+        screenId: screen.id,
+        normal: entryObjects(screen, false),
+        active: entryObjects(screen, true),
+      })),
+    }
+  })
+  const navigatorOfScreen = (screen: any): string | undefined => {
+    const master = resolveMasterScreen(screen, project.screens)
+    return master?.objects.find((o: any) => o.type === "navigator")?.id
+  }
+
   const exportProject = {
     name: project.name,
     // The same system generation the editable project file carries - one
@@ -472,6 +608,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
     // declared topics.
     topics: exportedTopics(project),
+    ...(navigators.length > 0 ? { navigators } : {}),
     // Combined topics in the order a device computes them
     // (lib/combined-topics.ts); a 1.3 device skips the key.
     ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
@@ -526,100 +663,17 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // firmware that's never seen this field just ignores it, same as
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
+          // Which navigator it shows, and whether it is out of the paging
+          // (docs/2026-10-08-navigator.md). A device below 1.5 ignores both.
+          navigatorId: navigatorOfScreen(screen),
+          hidden: screen.hidden || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
-          objects: mapObjectsDeep(themedObjects(screen, masterObjects, theme, colorDepth), (original) => {
-            // A Bar or Slider has no name or icon of its own any more
-            // (2026-09-29). Loading a project drops them (migrateObjects); this
-            // drops them again for one that reached the export another way, so a
-            // device never draws a header the preview does not.
-            const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
-            // {project:name} is fixed at export and written in; every other
-            // placeholder goes to the device as written, for it to resolve
-            // live (docs/2026-09-25-text-placeholders.md). Live values go as
-            // the placeholders that say the same, until devices read them
-            // (lib/object-text.ts exportedTextProperties).
-            if (obj.type === "text") {
-              const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
-              const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
-              return { ...obj, height, properties: exportedTextProperties(obj, project) }
-            }
-            if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
-              return {
-                ...obj,
-                properties: {
-                  ...obj.properties,
-                  valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
-                    ...pair,
-                    path: iconPathMap.get(assetKey(screen.id, pair.id)) || undefined,
-                    // Only beside a light path: an XDark without its X would
-                    // be read differently by a device than by the reference.
-                    ...(iconPathMap.has(assetKey(screen.id, pair.id))
-                      ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, pair.id)) }
-                      : {}),
-                  })),
-                },
-              }
-            }
-            if (obj.type === "icon") {
-              // A live icon's results each carry the bitmap baked for them
-              // (lib/asset-export.ts, keyed <object>~<branch>).
-              const liveValue = liveIconValue(obj)
-              const branchPath = (branch: string) => {
-                const key = assetKey(screen.id, `${obj.id}~${branch}`)
-                return iconPathMap.has(key) ? { path: iconPathMap.get(key), pathDark: iconDarkPathMap.get(key) } : {}
-              }
-              const baked = liveValue
-                ? (() => {
-                    const branches = new Set(liveIconBranches(liveValue).map((b) => b.branch))
-                    const at = (branch: string, result: any) => (result && branches.has(branch) ? { ...result, ...branchPath(branch) } : result)
-                    return {
-                      ...liveValue,
-                      rules: liveValue.rules.map((rule, i) => ({ ...rule, result: at(`r${i}`, rule.result) })),
-                      ...(liveValue.otherwise ? { otherwise: at("otherwise", liveValue.otherwise) } : {}),
-                      ...(liveValue.noValueYet ? { noValueYet: at("noValueYet", liveValue.noValueYet) } : {}),
-                    }
-                  })()
-                : undefined
-              return {
-                ...obj,
-                ...(baked
-                  ? { properties: { ...obj.properties, liveValues: (obj.properties.liveValues ?? []).map((lv: any) => (lv.id === baked.id ? baked : lv)) } }
-                  : {}),
-                path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined,
-                ...(iconPathMap.has(assetKey(screen.id, obj.id))
-                  ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)) }
-                  : {}),
-              }
-            }
-            if (obj.type === "button") {
-              const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))
-              return {
-                ...obj,
-                pathNormal: buttonPaths?.pathNormal || undefined,
-                pathActive: buttonPaths?.pathActive || undefined,
-                ...(buttonPaths ? buttonDarkPathMap.get(assetKey(screen.id, obj.id)) : {}),
-              }
-            }
-            if (isSwitchType(obj.type) && obj.properties.states) {
-              return {
-                ...obj,
-                properties: {
-                  ...obj.properties,
-                  states: obj.properties.states.map((state: any, stateIndex: number) => {
-                    const key = assetKey(screen.id, switchStateKey(obj, state, stateIndex))
-                    const iconPaths = switchIconPathMap.get(key)
-                    return {
-                      ...state,
-                      path: iconPaths?.path || undefined,
-                      pathActive: iconPaths?.pathActive || undefined,
-                      ...(iconPaths ? switchIconDarkPathMap.get(key) : {}),
-                    }
-                  }),
-                },
-              }
-            }
-            return obj
-          }),
+          objects: mapObjectsDeep(
+            // The navigator goes once, in navigators[] below; a screen says
+            // which it shows (navigatorId).
+            themedObjects(screen, masterObjects, theme, colorDepth).filter((o: any) => o.type !== "navigator"),
+            (original) => deviceObject(original, screen.id),
+          ),
         }
       }),
     exportedAt: new Date().toISOString(),

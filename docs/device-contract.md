@@ -803,6 +803,67 @@ shows today and needs no change.
   project with a live value no placeholder can say to a device below it,
   naming the texts and icons.
 
+### 2.7 The navigator and hidden screens - generation 1.5 (designer side 2026-10-08)
+
+A bar along one edge with an entry per screen; a tap on an entry opens
+that screen (designer `docs/2026-10-08-navigator.md`). In the designer it
+is an object on a master; in the export it is written once per master,
+since a device knows no masters and the navigator must stand still while
+the screens slide beneath it.
+
+```json
+"navigators": [
+  {
+    "id": "nav",
+    "edge": "left",
+    "thickness": 80,
+    "entryLength": 96,
+    "backgroundColor": "#fffbfe", "backgroundColorDark": "#1c1b1f",
+    "entries": [
+      { "screenId": "s-licht",
+        "normal": [ { "type": "icon", "x": 24, "y": 22, "width": 32, "height": 32, "path": "assets/…", "properties": { … } },
+                    { "type": "text", "x": 4, "y": 58, … } ],
+        "active": [ { "type": "box", … }, { "type": "icon", … }, { "type": "text", … } ] }
+    ]
+  }
+]
+```
+
+- **Strip:** `edge` is `top`, `bottom`, `left` or `right`; the navigator
+  fills that edge of the screen, `thickness` deep. It is opaque:
+  `backgroundColor` (`XDark` as in 2.3) covers whatever the screen has
+  there.
+- **Entries:** one per screen listed, in order. Each is `entryLength`
+  along the edge and `thickness` across; entry *i* starts at
+  *i* × `entryLength` − scroll from the strip's start. The open screen's
+  entry draws `active`, every other one `normal`. Both are ordinary objects
+  (2.1, 2.3, 2.6 - an icon may be live, a text has a font), positioned
+  relative to the entry's top left and drawn clipped to the strip. A device
+  draws nothing in the navigator but these objects.
+- **A screen** that shows a navigator names it: `"navigatorId": "nav"`.
+  One without the key shows none.
+- **Scroll:** when the entries are longer than the strip, a swipe that
+  starts on the navigator scrolls it and never pages, even across. After
+  every screen change it scrolls as far as shows the open screen's entry.
+  The last visible entry is cut off; no arrows. A device that acts on
+  release (e-ink) scrolls a page of whole entries at a time.
+- **Tap:** a tap on an entry acts as `goto-screen` to its `screenId`.
+  Under an open popup the navigator is set back with the screen, and a tap
+  on it closes the popup only.
+- **Swiping:** the navigator stands still; only the screen follows the
+  finger, cut off at the navigator's edge. The highlight moves when the
+  swipe completes.
+- **Hidden screens:** `"hidden": true` on a screen takes it out of
+  next/previous paging (and it has no entry). It is still a `goto-screen`
+  target. A device starts on the first screen that is not hidden.
+- **Conformance:** `lib/navigator/vectors.json` - the strip, entry
+  rectangles at a scroll, the scroll that shows an entry, the entry under a
+  point, a page of scrolling. Copy it; do not edit a copy.
+- **Announce** generation **1.5** in `hello` once both are done. Below it a
+  device ignores `navigators`, `navigatorId` and `hidden`: no navigator, and
+  a hidden screen is paged to. The deploy dialog warns before sending,
+  naming the navigators and hidden screens.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008

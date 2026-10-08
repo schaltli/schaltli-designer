@@ -45,6 +45,13 @@ export const POPUP_GENERATION = { major: 1, minor: 3 } as const
 // say stays empty there - a warning before a deploy, never a refusal.
 export const LIVE_VALUE_GENERATION = { major: 1, minor: 4 } as const
 
+// The generation a device announces once it draws the navigator and pages
+// past hidden screens - navigators[], a screen's navigatorId and hidden
+// (docs/2026-10-08-navigator.md). Additive: a device below it shows no
+// navigator, pages to a hidden screen and starts on the first screen - a
+// warning before a deploy, never a refusal.
+export const NAVIGATOR_GENERATION = { major: 1, minor: 5 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

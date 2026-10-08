@@ -7,6 +7,8 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
+import { entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf } from "@/lib/navigator-entries"
+import { navigatorScreens } from "@/lib/navigator"
 import { isLiveIcon, liveIconBranches, liveIconValue } from "@/lib/object-text"
 import { rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
@@ -14,6 +16,7 @@ import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { applyTheme, themeFor } from '@/lib/themes'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
+import { applyColorDepth } from '@/lib/color-depth'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
 import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
@@ -352,6 +355,16 @@ export class AssetExporter {
       }
     }
 
+    // The navigators' entries (docs/2026-10-08-navigator.md): their icons,
+    // normal and on the accent, light and at 24 bit dark.
+    const navigatorLight = await this.bakeNavigators(project, 'light')
+    iconUsages.push(...navigatorLight)
+    if (this.options.colorDepth === '24bit') {
+      const lightFiles = new Map(navigatorLight.map((b) => [b.filename, b.data] as [string, Uint8Array]))
+      const navigatorDark = await this.bakeNavigators(project, 'dark')
+      dark.iconUsages.push(...navigatorDark.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
+    }
+
     console.log(`[AssetExport] Total icon objects found: ${iconUsageCount}, successfully exported: ${iconUsages.length}`)
     console.log(`[AssetExport] Total software buttons exported: ${softwareButtons.length}`)
     console.log(`[AssetExport] Total switch state icons exported: ${switchStateIcons.length}`)
@@ -363,6 +376,51 @@ export class AssetExporter {
       pageIcons,
       dark,
     }
+  }
+
+  /**
+   * The icon of every navigator entry, normal and active, and every icon a
+   * live screen icon can show - each on the entry's own ground (the
+   * navigator's colour, and for the open entry its accent box), keyed by
+   * entryKey (lib/navigator-entries.ts) as a screen of its own.
+   */
+  private async bakeNavigators(project: any, variant: 'light' | 'dark'): Promise<IconUsageExport[]> {
+    const out: IconUsageExport[] = []
+    for (const { master, navigator } of navigatorsOf(project)) {
+      const themed = applyTheme([navigator], themeFor(master, project.screens), variant, this.options.colorDepth)[0]
+      const layout = exportLayout(project, themed)
+      const { width, height } = entrySize(layout)
+      const look = entryLook(themed, project.fonts ?? [])
+      for (const screen of navigatorScreens(project.screens) as any[]) {
+        for (const active of [false, true]) {
+          const objects = navigatorEntryObjects(screen, width, height, look, active)
+          const ground = document.createElement('canvas')
+          ground.width = width
+          ground.height = height
+          const ctx = ground.getContext('2d')
+          if (!ctx) continue
+          ctx.fillStyle = applyColorDepth(themed.properties.backgroundColor ?? '#ffffff', this.options.colorDepth)
+          ctx.fillRect(0, 0, width, height)
+          for (const box of objects.filter((o) => o.type === 'box')) renderBox({ ctx, obj: box, zoom: 1, colorDepth: this.options.colorDepth })
+          const icon = objects.find((o) => o.type === 'icon')
+          if (!icon) continue
+          const key = { id: entryKey(master.id, screen.id, active), name: screen.name, objects: [] }
+          const asset = project.assets.find((a: any) => a.id === icon.properties.assetId)
+          if (asset) {
+            const baked = await this.exportIconUsage(asset, icon, key, project, ground)
+            if (baked) out.push(baked)
+          }
+          const liveValue = liveIconValue(icon)
+          for (const { branch, icon: branchIcon } of liveValue ? liveIconBranches(liveValue) : []) {
+            const branchAsset = project.assets.find((a: any) => a.id === branchIcon)
+            if (!branchAsset) continue
+            const baked = await this.exportIconUsage(branchAsset, icon, key, project, ground, undefined, false, `${icon.id}~${branch}`)
+            if (baked) out.push(baked)
+          }
+        }
+      }
+    }
+    return out
   }
 
   /**

@@ -18,7 +18,7 @@ export interface IconScreen {
 /** The screen's icon as an icon object, at the origin, `size` square. */
 export function screenIconObject(screen: IconScreen, size = 24): ScreenObject {
   return {
-    id: `${screen.id}~icon`,
+    id: `${screen.id}-icon`,
     type: "icon",
     x: 0,
     y: 0,

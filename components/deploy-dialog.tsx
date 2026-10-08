@@ -34,6 +34,7 @@ import {
   PLACEHOLDER_GENERATION,
   POPUP_GENERATION,
   LIVE_VALUE_GENERATION,
+  NAVIGATOR_GENERATION,
   SYSTEM_GENERATION,
   SYSTEM_GENERATION_STRING,
   formatGeneration,
@@ -42,6 +43,7 @@ import {
 } from "@/lib/system-generation"
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
+import { navigatorNotOnDevices } from "@/lib/navigator-entries"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -507,6 +509,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // The buttons a device below POPUP_GENERATION would leave doing nothing.
   const popupOpenerNames = popupOpeners(project)
   const liveValueTexts = liveValuesNotOnDevices(project)
+  const navigatorParts = navigatorNotOnDevices(project as any)
 
   return (
     <>
@@ -648,6 +651,16 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="live-value-warning">
                   {`Not on devices yet: ${liveValueTexts.join(", ")}. `}
                   {`A live value with rules, its own Otherwise, a duration or a combined topic needs a device that announces generation ${formatGeneration(LIVE_VALUE_GENERATION)} or newer; on "${selectedDevice.name || selectedDevice.instanceId}" that part stays empty. Update its firmware or app first.`}
+                </p>
+              )}
+
+              {/* The navigator and «Hide screen» need a device that announces
+                  NAVIGATOR_GENERATION (docs/2026-10-08-navigator.md). Below
+                  it there is no navigator and a hidden screen is paged to. */}
+              {selectedDevice && navigatorParts.length > 0 && generationBelow(selectedDevice.systemGeneration, NAVIGATOR_GENERATION) && (
+                <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="navigator-generation-warning">
+                  {`Not on "${selectedDevice.name || selectedDevice.instanceId}" yet: ${navigatorParts.join(", ")}. `}
+                  {`The navigator and «Hide screen» need a device that announces generation ${formatGeneration(NAVIGATOR_GENERATION)} or newer; below it there is no navigator and hidden screens are paged to. Update its firmware or app first.`}
                 </p>
               )}
 

@@ -9,7 +9,8 @@
 import type { ScreenObject } from "@/components/project-editor"
 import type { LiveValue } from "@/lib/live-value"
 import { screenIconObject } from "@/lib/screen-icon"
-import { navigatorScreens, type Shows } from "@/lib/navigator"
+import { navigatorLayout, navigatorScreens, type NavigatorLayout, type Shows } from "@/lib/navigator"
+import { COLOR_KEYS } from "@/lib/themes"
 
 /** The icon's side, and the gaps around it and between it and the name. */
 export const ENTRY_ICON = 32
@@ -71,7 +72,7 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
 
   if (active) {
     objects.push({
-      id: `${screen.id}~active`,
+      id: `${screen.id}-active`,
       type: "box",
       x: ACTIVE_INSET,
       y: ACTIVE_INSET,
@@ -93,7 +94,7 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
 
   if (withText) {
     objects.push({
-      id: `${screen.id}~name`,
+      id: `${screen.id}-name`,
       type: "text",
       x: GAP,
       y: top + ENTRY_ICON + GAP,
@@ -128,4 +129,75 @@ export function everyEntryObject(
     ...navigatorEntryObjects(s, 88, 88, look, false),
     ...navigatorEntryObjects(s, 88, 88, look, true),
   ])
+}
+
+// ------------------------------------------------------------------ export
+
+interface NavigatorProject {
+  screenWidth: number
+  screenHeight: number
+  screens: readonly (EntryScreen & { isMaster?: boolean; screenType?: "popup"; hidden?: boolean; objects: ScreenObject[] })[]
+}
+
+/**
+ * What a device below the navigator's generation would not show: each
+ * navigator, by its master, and each hidden screen - named for the deploy
+ * dialog's warning.
+ */
+export function navigatorNotOnDevices(project: NavigatorProject & { screens: readonly { name: string }[] }): string[] {
+  return [
+    ...navigatorsOf(project).map(({ master }) => `the navigator on ${(master as { name: string }).name}`),
+    ...project.screens.filter((s) => s.hidden && !s.isMaster && s.screenType !== "popup").map((s) => `hidden screen ${(s as { name: string }).name}`),
+  ]
+}
+
+/** Every master's navigator, in screen-list order (decisions 1, 16). */
+export function navigatorsOf<P extends NavigatorProject>(project: P): { master: P["screens"][number]; navigator: ScreenObject }[] {
+  return project.screens.flatMap((master) => {
+    if (!master.isMaster) return []
+    const navigator = master.objects.find((o) => o.type === "navigator")
+    return navigator ? [{ master, navigator }] : []
+  })
+}
+
+/** A navigator's layout on the project's screen, with every listed screen. */
+export function exportLayout(project: NavigatorProject, navigator: ScreenObject): NavigatorLayout {
+  return navigatorLayout(
+    navigator.properties.edge ?? "left",
+    navigator.properties.shows ?? "iconsAndText",
+    project.screenWidth,
+    project.screenHeight,
+    navigatorScreens(project.screens).length,
+  )
+}
+
+/** An entry's width and height. */
+export function entrySize(layout: NavigatorLayout): { width: number; height: number } {
+  return layout.horizontal
+    ? { width: layout.entryLength, height: layout.strip.height }
+    : { width: layout.strip.width, height: layout.entryLength }
+}
+
+/** The key an entry's bakes go under - a file-name-safe screen id of their own. */
+export function entryKey(masterId: string, screenId: string, active: boolean): string {
+  return `nav-${masterId}-${screenId}-${active ? "active" : "normal"}`
+}
+
+/** A navigator's properties as drawn dark: each colour's `XDark` where it has one. */
+export function darkProperties(properties: Record<string, any>): Record<string, any> {
+  const out = { ...properties }
+  for (const key of COLOR_KEYS) if (properties[`${key}Dark`]) out[key] = properties[`${key}Dark`]
+  return out
+}
+
+/** Light entry objects with the dark ones' colours beside them as `XDark` (24 bit). */
+export function withDarkColours(light: ScreenObject[], dark: ScreenObject[]): ScreenObject[] {
+  return light.map((obj, i) => {
+    const properties = { ...obj.properties }
+    for (const key of COLOR_KEYS) {
+      const value = dark[i]?.properties[key]
+      if (typeof value === "string" && value !== "transparent") properties[`${key}Dark`] = value
+    }
+    return { ...obj, properties }
+  })
 }

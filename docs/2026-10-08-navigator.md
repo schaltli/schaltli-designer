@@ -146,20 +146,27 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
 
 ## Export and device contract (§2.7)
 
+Corrected 2026-10-08 while building it: two masters can each have a
+navigator (decision 16), so the export carries a list, and a screen names
+the one it shows (`navigatorId`) rather than saying `navigator: true`.
+
 ```json
-"navigator": {
-  "edge": "left",
-  "thickness": 96,
-  "entryLength": 88,
-  "backgroundColor": "#1c1b1f",
-  "entries": [
-    {
-      "screenId": "s-heizung",
-      "normal": [ { "type": "icon", ... }, { "type": "text", ... } ],
-      "active": [ { "type": "box", ... }, { "type": "icon", ... }, { "type": "text", ... } ]
-    }
-  ]
-}
+"navigators": [
+  {
+    "id": "nav",
+    "edge": "left",
+    "thickness": 80,
+    "entryLength": 88,
+    "backgroundColor": "#1c1b1f",
+    "entries": [
+      {
+        "screenId": "s-heizung",
+        "normal": [ { "type": "icon", ... }, { "type": "text", ... } ],
+        "active": [ { "type": "box", ... }, { "type": "icon", ... }, { "type": "text", ... } ]
+      }
+    ]
+  }
+]
 ```
 
 - Objects in an entry have coordinates relative to the entry's top left.
@@ -167,8 +174,8 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
   live, `liveIconId`/`liveValues` with each result's path, as an icon
   object does since 1.4. Colours are resolved, with `XDark` beside them at
   24 bit, as everywhere.
-- A screen that shows it has `"navigator": true`; a hidden screen has
-  `"hidden": true` and no entry.
+- A screen that shows one has `"navigatorId": "<id>"`; a hidden screen
+  has `"hidden": true` and no entry.
 - The navigator's topics (live screen icons) are in `topics[]`, combined
   topics in `combinedTopics[]`.
 - A device below 1.5 ignores `navigator` and `hidden`: no navigator,

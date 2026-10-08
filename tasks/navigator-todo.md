@@ -178,9 +178,18 @@ on their grounds including live branches) and `screen.navigatorId`,
 sources and `public/ddf` zips.
 
 **Acceptance criteria:**
-- [ ] A project with a navigator exports it once, with every entry's bitmaps in the zip.
-- [ ] A project without navigator or hidden screen exports byte-identical.
-- [ ] The warning names the navigator / hidden screens below 1.5, not at 1.5.
+- [x] A project with a navigator exports it once, with every entry's bitmaps in the zip.
+- [x] A project without navigator or hidden screen exports byte-identical.
+- [x] The warning names the navigator / hidden screens below 1.5, not at 1.5.
+
+Done 2026-10-08. `deviceObject` (lib/project-zip.ts) is the one mapping
+from object to device object, for screens and navigator entries alike;
+entries' icons are baked on their own ground (lib/asset-export.ts
+bakeNavigators), keyed `nav-<master>-<screen>-normal|active`. «Byte-
+identical» is checked as «no new key» - the export carries a timestamp. The
+spec's export section is corrected to `navigators[]` / `navigatorId`;
+device contract §2.7. DDFs: schaltli-firmware f-commit «DDFs of the 4.3B and
+the PaperS3 declare the navigator», `public/ddf` zips regenerated from them.
 
 **Verification:** `npx playwright test e2e/navigator-export.spec.ts e2e/placeholders.spec.ts`; typecheck.
 
