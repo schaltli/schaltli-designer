@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-07",
+  "harvestedAt": "2026-10-08",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -548,6 +548,7 @@
         "input:text: ",
         "select: Screen type",
         "button: Select icon",
+        "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",
         "button: Hardware buttons",
@@ -592,6 +593,7 @@
         "input:text: ",
         "select: Screen type",
         "button: Select icon",
+        "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",
         "button: Hardware buttons",
@@ -620,6 +622,7 @@
         "input:text: ",
         "select: Screen type",
         "button: Select icon",
+        "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",
         "button: Hardware buttons",

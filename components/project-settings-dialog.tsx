@@ -925,6 +925,12 @@ export function ProjectSettingsDialog({
                                       onRename={(name) => renameScreen(screen.id, name)}
                                       onSetMaster={(masterScreenId) => setScreenMaster(screen.id, masterScreenId)}
                                       onSetShowMaster={(showMaster) => setScreenShowMaster(screen.id, showMaster)}
+                                      onPatch={(patch) =>
+                                        onProjectUpdate({
+                                          ...project,
+                                          screens: project.screens.map((s) => (s.id === screen.id ? { ...s, ...patch } : s)),
+                                        })
+                                      }
                                       onSetScreenType={(type) => setScreenType(screen.id, type)}
                                       onOpenIconSelector={() => onOpenScreenIconSelector?.(screen.id)}
                                       onClearIcon={() => clearScreenIcon(screen.id)}

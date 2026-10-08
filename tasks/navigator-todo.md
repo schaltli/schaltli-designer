@@ -10,9 +10,14 @@ preview starts on the first screen that is not hidden, «Go to a screen»
 still reaches one. The screen list marks a hidden screen.
 
 **Acceptance criteria:**
-- [ ] Swiping in the preview passes over a hidden screen; a button with «Go to a screen» opens it.
-- [ ] A project whose first screen is hidden opens the preview on the next.
-- [ ] Not offered on a master or a popup.
+- [x] Swiping in the preview passes over a hidden screen; a button with «Go to a screen» opens it.
+- [x] A project whose first screen is hidden opens the preview on the next.
+- [x] Not offered on a master or a popup.
+
+Done 2026-10-08. `isPagedScreen` (lib/popup.ts) for next/previous;
+`firstScreenToOpen` takes the first paged screen, so the editor opens there
+too. The screen fields take `onPatch` for the screen's own fields, which
+Task 2 uses as well. The screen list marks a hidden screen «Hidden».
 
 **Verification:** `npx playwright test e2e/navigator.spec.ts -g "Hide screen"`; typecheck.
 

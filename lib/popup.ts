@@ -11,6 +11,7 @@ export type ScreenType = "main" | "popup"
 interface TypedScreen {
   screenType?: "popup"
   isMaster?: boolean
+  hidden?: boolean
 }
 
 export function isPopup(screen: TypedScreen | undefined): boolean {
@@ -22,9 +23,18 @@ export function isMainScreen(screen: TypedScreen | undefined): boolean {
   return !!screen && !screen.isMaster && !isPopup(screen)
 }
 
-/** The screen a project opens on: its first main screen, else its first one. */
+/**
+ * A screen next/previous pages to: a main screen that is not hidden («Hide
+ * screen», docs/2026-10-08-navigator.md decision 3). A hidden one stays a
+ * «Go to Screen» target.
+ */
+export function isPagedScreen(screen: TypedScreen | undefined): boolean {
+  return isMainScreen(screen) && !screen!.hidden
+}
+
+/** The screen a project opens on: its first paged screen, else its first main one, else its first. */
 export function firstScreenToOpen<S extends TypedScreen & { id: string }>(screens: S[]): S | undefined {
-  return screens.find(isMainScreen) ?? screens[0]
+  return screens.find(isPagedScreen) ?? screens.find(isMainScreen) ?? screens[0]
 }
 
 const SWIPE_BUTTON_IDS = ["swipe-left", "swipe-right", "swipe-up", "swipe-down"]

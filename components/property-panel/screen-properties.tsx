@@ -70,6 +70,7 @@ interface ScreenPropertiesProps {
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
+  onPatchScreen: (patch: Partial<ProjectScreen>) => void
   onSetScreenType: (type: ScreenType) => void
   onOpenScreenIconSelector: () => void
   onClearScreenIcon: () => void
@@ -98,6 +99,7 @@ export function ScreenProperties({
   onRenameScreen,
   onSetScreenMaster,
   onSetScreenShowMaster,
+  onPatchScreen,
   onSetScreenType,
   onOpenScreenIconSelector,
   onClearScreenIcon,
@@ -155,6 +157,7 @@ export function ScreenProperties({
           onRename={onRenameScreen}
           onSetMaster={onSetScreenMaster}
           onSetShowMaster={onSetScreenShowMaster}
+          onPatch={onPatchScreen}
           onSetScreenType={onSetScreenType}
           onOpenIconSelector={onOpenScreenIconSelector}
           onClearIcon={onClearScreenIcon}

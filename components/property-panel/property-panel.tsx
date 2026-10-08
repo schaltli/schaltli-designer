@@ -3,7 +3,7 @@ import type { CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useRef } from "react"
 import type { TextScale } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
-import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
+import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext, ProjectScreen } from "../project-editor"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
@@ -79,6 +79,7 @@ interface PropertyPanelProps {
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
+  onPatchScreen: (patch: Partial<ProjectScreen>) => void
   onSetScreenType: (type: ScreenType) => void
   onClearScreenIcon: () => void
   onSetScreenTheme: (themeId: string | undefined) => void
@@ -179,6 +180,7 @@ export function PropertyPanel({
   onRenameScreen,
   onSetScreenMaster,
   onSetScreenShowMaster,
+  onPatchScreen,
   onSetScreenType,
   onClearScreenIcon,
   onSetScreenTheme,
@@ -500,6 +502,7 @@ export function PropertyPanel({
             onRenameScreen={onRenameScreen}
             onSetScreenMaster={onSetScreenMaster}
             onSetScreenShowMaster={onSetScreenShowMaster}
+            onPatchScreen={onPatchScreen}
             onSetScreenType={onSetScreenType}
             onOpenScreenIconSelector={() => {
               setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })

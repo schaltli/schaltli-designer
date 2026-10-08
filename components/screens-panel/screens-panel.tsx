@@ -472,6 +472,11 @@ export function ScreensPanel({
                   Popup
                 </Badge>
               )}
+              {screen.hidden && !screen.isMaster && !isPopup(screen) && (
+                <Badge variant="outline" className="h-3.5 shrink-0 px-1 py-0 text-[9px] leading-none">
+                  Hidden
+                </Badge>
+              )}
             </div>
           </div>
         </button>

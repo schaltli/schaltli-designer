@@ -20,6 +20,8 @@ interface ScreenEditorFieldsProps {
   onRename: (name: string) => void
   onSetMaster: (masterScreenId: string | undefined) => void
   onSetShowMaster: (showMaster: boolean) => void
+  // Any of the screen's own fields («Hide screen», …).
+  onPatch: (patch: Partial<ProjectScreen>) => void
   onSetScreenType: (type: ScreenType) => void
   onOpenIconSelector: () => void
   onClearIcon: () => void
@@ -40,6 +42,7 @@ export function ScreenEditorFields({
   onRename,
   onSetMaster,
   onSetShowMaster,
+  onPatch,
   onSetScreenType,
   onOpenIconSelector,
   onClearIcon,
@@ -160,6 +163,20 @@ export function ScreenEditorFields({
             </Button>
           )}
         </div>
+      )}
+
+      {/* Out of next/previous and the navigator, still a «Go to Screen»
+          target (docs/2026-10-08-navigator.md decision 3). */}
+      {!screen.isMaster && !popup && (
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={!!screen.hidden}
+            onChange={(e) => onPatch({ hidden: e.target.checked || undefined })}
+            className="h-3.5 w-3.5"
+          />
+          Hide screen
+        </label>
       )}
 
       {!screen.isMaster && masterScreens.length > 0 && (

@@ -38,7 +38,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
-import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
+import { firstScreenToOpen, isMainScreen, isPagedScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -221,6 +221,10 @@ export interface ProjectScreen {
   // overlay that doesn't exist yet, same as buttonActions/HardwareButton
   // fields were added ahead of their own firmware dispatch.
   iconAssetId?: string
+  // «Hide screen» (docs/2026-10-08-navigator.md decision 3): out of
+  // next/previous and the navigator, still a «Go to Screen» target. A main
+  // screen only. Absent: shown.
+  hidden?: boolean
 }
 
 export interface ProjectAsset {
@@ -1373,9 +1377,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         setPreviewPopupId(null)
       }
       if (action.type === "next-screen" || action.type === "previous-screen") {
-        // Masters and popups aren't part of the normal screen sequence - see
-        // ProjectScreen.isMaster and lib/popup.ts.
-        const screens = project.screens.filter(isMainScreen)
+        // Masters, popups and hidden screens aren't part of the normal screen
+        // sequence - see ProjectScreen.isMaster and lib/popup.ts.
+        const screens = project.screens.filter(isPagedScreen)
         if (screens.length === 0) return
         const currentIndex = screens.findIndex((s) => s.id === previewScreenId)
         const delta = action.type === "next-screen" ? 1 : -1
@@ -1736,6 +1740,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, showMaster } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  // Any of the current screen's own fields («Hide screen», …).
+  const patchCurrentScreen = useCallback(
+    (patch: Partial<ProjectScreen>) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, ...patch } : screen)),
       }))
     },
     [currentScreenId],
@@ -4221,6 +4236,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onRenameScreen={renameCurrentScreen}
                     onSetScreenMaster={setCurrentScreenMaster}
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
+                    onPatchScreen={patchCurrentScreen}
                     onSetScreenType={setCurrentScreenType}
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
