@@ -9,7 +9,7 @@ there are no released projects or devices to keep working. Issue #55.
 Mockups: R1-R3 in the «Navigator 4.3B» canvas
 (https://claude.ai/artifact/535dvb6DZkCfUWQGdZ4Ekg), images in #55.
 
-Status: designer part built 2026-10-07 (`tasks/live-values-plan.md`); devices planned 2026-10-08 (`tasks/live-values-export-plan.md`). Open question 1 decided 2026-10-07.
+Status: designer part built 2026-10-07 (`tasks/live-values-plan.md`); devices built 2026-10-08 (`tasks/live-values-export-plan.md`): Knob, 4.3B, PaperS3 and the Android app draw live values and combined topics from generation 1.4, checked on each by HIL. Open question 1 decided 2026-10-07. Not done: moving Live Icon, Live Line, Switcher and Switch onto live values.
 
 ## Objective
 

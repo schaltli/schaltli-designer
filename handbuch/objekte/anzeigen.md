@@ -73,11 +73,6 @@ Ein Text kann Werte aus dem Van enthalten. Im Feld <span class="ui">Text</span> 
 
 In einem Ergebnis schreibt `{value}` den Wert in seinem Format, etwa `noch {value}`. Ein leeres Ergebnis lässt den Chip ganz verschwinden. Ein Leerzeichen, das mit verschwinden soll, gehört deshalb ins Ergebnis und nicht davor in den Text. So zeigt «Heizung [status][timer]» mit dem Timer-Ergebnis ` timer {value}` und der Regel «== 0 → leer» entweder «Heizung läuft timer 3:23:18» oder «Heizung aus».
 
-<!-- handbuch-macke #55: Regeln und Dauer gehen noch nicht aufs Gerät -->
-::: warning Noch nicht auf dem Gerät
-Einen Wert mit Regeln, mit einem eigenen <span class="ui">Otherwise</span> oder als <span class="ui">Duration</span> zeigt der Designer schon, die Geräte noch nicht. Dort bleibt diese Stelle im Text leer, und beim Übertragen nennt der Dialog die betroffenen Texte. Ein Wert, so wie er ankommt oder als Zahl, mit oder ohne Text für <span class="ui">No value yet</span>, geht schon heute aufs Gerät.
-:::
-
 ::: v-pre
 **Klammern als Zeichen** schreibst du doppelt: Ein zweites `{` gleich nach dem ersten schliesst die Suche und schreibt `{{`. Auf dem Display steht dann eine Klammer.
 :::
@@ -89,7 +84,7 @@ Steht im Text etwas in Klammern, das weder Chip noch Klammer als Zeichen ist, et
 Früher gab es für einen Wert aus einem Topic ein eigenes Objekt, Live Text. Ein Text mit Chip kann dasselbe, darum gibt es Live Text nicht mehr. Öffnest du ein Projekt, das noch Live Text enthält, macht der Designer daraus einen Text: Das Topic wird zu einem Chip mit seinen Nachkommastellen, Präfix und Suffix stehen als Text davor und danach, etwa «Innen [temp 21.4] °C». Schrift, Ausrichtung und Farben bleiben. Zwei Dinge sind danach anders. Bevor ein Wert da ist, stehen Präfix und Suffix schon da, wo Live Text leer blieb. Und die Tausender trennt das Zeichen aus den Projekteinstellungen, nicht mehr eines pro Objekt.
 
 ::: warning Ältere Firmware
-Knob, 4.3B, PaperS3 und die Android-App zeigen Werte im Text ab Systemgeneration 1.2. Mit älterer Firmware oder einer älteren App steht an Stelle eines Chips ein Platzhalter wie `{topic:…}` auf dem Display. Überträgst du auf ein solches Gerät, warnt der Designer. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Werte im Text nicht mehr.
+Knob, 4.3B, PaperS3 und die Android-App zeigen einen Wert im Text, so wie er ankommt oder als Zahl, ab Systemgeneration 1.2. Regeln, ein eigenes <span class="ui">Otherwise</span>, eine <span class="ui">Duration</span> und Combined topics brauchen die Systemgeneration 1.4. Mit älterer Firmware oder einer älteren App steht an Stelle eines Chips ein Platzhalter wie `{topic:…}` auf dem Display, oder die Stelle bleibt leer. Überträgst du auf ein solches Gerät, warnt der Designer und nennt die betroffenen Texte. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Werte im Text nicht mehr.
 :::
 
 ## Icon {#icon}
@@ -108,9 +103,8 @@ Eine Frostwarnung sieht so aus: <span class="ui">Reads</span> ist die Aussentemp
 
 Stellst du zurück auf <span class="ui">Fixed</span>, bleibt das Icon aus <span class="ui">Otherwise</span>.
 
-<!-- handbuch-macke #55: Ein Icon mit Live zeigt auf dem Gerät nur sein Otherwise -->
-::: warning Noch nicht auf dem Gerät
-Ein Icon mit <span class="ui">Live</span> zeigt der Designer schon richtig, die Geräte zeigen vorerst immer das Icon aus <span class="ui">Otherwise</span>. Beim Übertragen nennt der Dialog solche Icons.
+::: warning Ältere Firmware
+Ein Icon mit <span class="ui">Live</span> wechselt auf Geräten ab Systemgeneration 1.4. Knob, 4.3B und PaperS3 mit älterer Firmware zeigen immer das Icon aus <span class="ui">Otherwise</span>, eine ältere Android-App zeigt keines. Überträgst du auf ein solches Gerät, nennt der Dialog diese Icons.
 :::
 
 ## Live Icon {#live-icon}

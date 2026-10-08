@@ -68,9 +68,8 @@ Ein Combined topic darf nicht über andere wieder auf sich selbst verweisen. Die
 
 Ein Combined topic, das noch gelesen wird, lässt sich nicht löschen. Der Designer sagt dann, wer es liest. Benennst du es um, ziehen alle Verweise mit.
 
-<!-- handbuch-macke #55: Combined topics gehen noch nicht aufs Gerät -->
-::: warning Noch nicht auf dem Gerät
-Combined topics rechnet vorerst nur der Designer. Ein Wert im Text oder ein Icon, das eines liest, bleibt auf dem Gerät leer, und beim Übertragen nennt der Dialog die betroffenen Objekte.
+::: warning Ältere Firmware
+Combined topics rechnen Knob, 4.3B, PaperS3 und die Android-App ab Systemgeneration 1.4 selbst. Mit älterer Firmware oder einer älteren App bleibt ein Wert im Text, der eines liest, leer. Ein Icon zeigt dort auf den Boards sein <span class="ui">Otherwise</span> und in der App gar keines. Beim Übertragen nennt der Dialog die betroffenen Objekte.
 :::
 
 ## Welcher Broker?
