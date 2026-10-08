@@ -5,9 +5,10 @@ mockups B1-B3, C and D on 800 × 480 (4.3B, theme Schaltli dark). Builds on
 live values and combined topics (#55, `docs/2026-10-07-live-values.md`).
 Later: a live name in an entry (#57).
 
-Status: designer part built 2026-10-08 (`tasks/navigator-plan.md`:
-`screen-live-icon`, `navigator-designer`, `navigator-export`). The devices
-(`navigator-4v3b`, `navigator-papers3`, `navigator-android`) are next.
+Status: built 2026-10-08. Designer (`tasks/navigator-plan.md`) and devices
+(`tasks/navigator-devices-plan.md`): the 4.3B, the PaperS3 and the Android
+app draw it from generation 1.5, each checked by HIL (`hil/navigator.js`,
+the Android orchestrator). Later: a live name in an entry (#57).
 
 ## Objective
 

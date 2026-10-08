@@ -98,9 +98,10 @@ Die Farben kommen aus dem Theme: der Grund aus «Surface», Icons und Namen aus 
 
 Auf den Screens, die den Master verwenden, ist sein Streifen beim Bearbeiten schraffiert, damit du nicht aus Versehen etwas darunter legst. Verboten ist es nicht: Der Navigator deckt zu, was darunter liegt, auch ein Hintergrundbild. In der Vorschau probierst du ihn aus. Ein Klick öffnet einen Screen, Ziehen entlang der Leiste scrollt.
 
-<!-- handbuch-macke #54: Der Navigator geht noch nicht aufs Gerät -->
-::: warning Noch nicht auf dem Gerät
-Den Navigator zeigt vorerst nur der Designer. 4.3B, PaperS3 und Android-App zeichnen ihn ab Systemgeneration 1.5, die noch kommt. Bis dahin fehlt er dort, und beim Übertragen nennt der Dialog ihn.
+Auf dem PaperS3 folgt die Leiste dem Finger nicht, das E-Paper reagiert erst beim Loslassen. Ein Wisch auf dem Navigator blättert dort eine ganze Seite Einträge weiter.
+
+::: warning Ältere Firmware
+4.3B, PaperS3 und Android-App zeigen den Navigator ab Systemgeneration 1.5. Mit älterer Firmware oder einer älteren App fehlt er, und beim Übertragen nennt der Dialog ihn. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App.
 :::
 
 ## Panel {#panel}

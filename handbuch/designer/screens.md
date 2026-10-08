@@ -57,9 +57,8 @@ Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. D
 
   Mit <span class="ui">Hide screen</span> nimmst du einen Screen aus dem Wischen und aus dem Navigator. Ein Button mit <span class="ui">Go to a screen</span> erreicht ihn weiter, das passt etwa für einen Einstellungs-Screen. Das Projekt startet auf dem ersten Screen, der nicht versteckt ist. In der Screen-Liste trägt er die Marke «Hidden».
 
-  <!-- handbuch-macke #54: Hide screen und das Live-Icon gehen noch nicht aufs Gerät -->
-  ::: warning Noch nicht auf dem Gerät
-  Auf den Geräten wirkt <span class="ui">Hide screen</span> erst ab Systemgeneration 1.5, die noch kommt. Bis dahin lässt sich ein versteckter Screen dort per Wischen erreichen, und beim Übertragen nennt der Dialog ihn.
+  ::: warning Ältere Firmware
+  <span class="ui">Hide screen</span> wirkt auf Geräten ab Systemgeneration 1.5. Mit älterer Firmware lässt sich ein versteckter Screen dort per Wischen erreichen, und beim Übertragen nennt der Dialog ihn.
   :::
 - **<span class="ui">Hardware buttons</span>:** was die Tasten des Geräts auslösen, jede mit ihrer Auswahl, siehe [Hardware-Tasten und Gesten](/designer/tasten). Nur bei Geräten mit Tasten, etwa dem Knob.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch. Auf einem Popup steht hier nur <span class="ui">A swipe closes a popup.</span>
