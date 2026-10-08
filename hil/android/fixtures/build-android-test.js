@@ -24,6 +24,10 @@
 //   screen-2  arc-level with a setpoint marker, SoftwareButton with an icon
 //   screen-3  Switch in both modes - segmented with per-state icons, single
 //   screen-4  tab-control whose panel holds a Switch and an MQTTIconField
+//   screen-5  live values (docs/2026-10-07-live-values.md): a text with three
+//             of them - yes/no, a countdown empty at 0, a number - a live
+//             icon on a threshold, and one on a combined topic two levels
+//             deep, whose examples turn it on once through only its input
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -115,6 +119,36 @@ function buildProject(fonts) {
       { id: "t-text", topic: "hil/text", type: "text", examples: ["OK", "WARN", "FAIL"] },
       { id: "t-mode", topic: "hil/mode", type: "text", examples: ["AUTO", "MANUAL", "AUTO"] },
       { id: "t-power", topic: "hil/power", type: "text", examples: ["ON", "OFF", "ON"] },
+      // screen-5. Combination 0: the heating on, so `alarm` (warm and night)
+      // on; 1: the heating off and only the boiler on - `alarm` on through
+      // an input two levels down; 2: night off, `alarm` off. The countdown
+      // runs out in 1, so its chip is empty there.
+      { id: "t-heat", topic: "hil/live/heat", type: "boolean", examples: ["true", "false", "true"] },
+      { id: "t-timer", topic: "hil/live/timer", type: "numeric", examples: ["12198", "0", "59"] },
+      { id: "t-inside", topic: "hil/live/inside", type: "numeric", examples: ["21.46", "-3", "1234.5"] },
+      { id: "t-outside", topic: "hil/live/outside", type: "numeric", examples: ["8", "-2", "0.5"] },
+      { id: "t-boiler", topic: "hil/live/boiler", type: "boolean", examples: ["false", "true", "false"] },
+      { id: "t-night", topic: "hil/live/night", type: "boolean", examples: ["true", "true", "false"] },
+    ],
+    combinedTopics: [
+      {
+        id: "c-warm",
+        name: "warm",
+        mode: "any",
+        conditions: [
+          { source: { namespace: "topic", path: "hil/live/heat" }, op: "yes" },
+          { source: { namespace: "topic", path: "hil/live/boiler" }, op: "yes" },
+        ],
+      },
+      {
+        id: "c-alarm",
+        name: "alarm",
+        mode: "all",
+        conditions: [
+          { source: { namespace: "combined", path: "warm" }, op: "yes" },
+          { source: { namespace: "topic", path: "hil/live/night" }, op: "yes" },
+        ],
+      },
     ],
     screens: [
       {
@@ -662,6 +696,122 @@ function buildProject(fonts) {
         ],
       },
 
+      {
+        id: "screen-5",
+        name: "Live",
+        masterScreenId: "master-1",
+        objects: [
+          {
+            id: "l-heating",
+            type: "text",
+            zIndex: 1,
+            x: 12,
+            y: 80,
+            width: 336,
+            height: 28,
+            properties: {
+              // No descender: the designer cuts a TTF's descenders at the
+              // box's bottom and the app does not. The «g» of «Heizung»
+              // alone made this box differ by 7% from its own reference,
+              // about as much as from another combination's, and a live
+              // box has to look most like its own
+              // (hil/android/orchestrator.js, liveObjectVerdicts).
+              text: "Ofen {live:heat} {live:timer}",
+              fontId: "font-roboto-20",
+              color: WHITE,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+              liveValues: [
+                {
+                  id: "heat",
+                  source: { namespace: "topic", path: "hil/live/heat" },
+                  rules: [
+                    { op: "yes", result: { kind: "text", parts: ["läuft"] } },
+                    { op: "no", result: { kind: "text", parts: ["aus"] } },
+                  ],
+                },
+                {
+                  id: "timer",
+                  source: { namespace: "topic", path: "hil/live/timer" },
+                  format: { kind: "duration", pattern: "h:mm:ss" },
+                  rules: [{ op: "<=", operand: "0", result: { kind: "text", parts: [] } }],
+                },
+              ],
+            },
+          },
+          {
+            id: "l-inside",
+            type: "text",
+            zIndex: 1,
+            x: 12,
+            y: 130,
+            width: 336,
+            height: 28,
+            properties: {
+              // The project's own separators (decimal ","), grouped.
+              text: "Innen {live:inside} °C",
+              fontId: "font-roboto-20",
+              color: WHITE,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+              liveValues: [
+                {
+                  id: "inside",
+                  source: { namespace: "topic", path: "hil/live/inside" },
+                  format: { kind: "number", decimals: 1, grouped: true },
+                  rules: [],
+                  noValueYet: { kind: "text", parts: ["--"] },
+                },
+              ],
+            },
+          },
+          {
+            id: "l-frost",
+            type: "icon",
+            zIndex: 1,
+            x: 100,
+            y: 200,
+            width: 64,
+            height: 64,
+            properties: {
+              assetId: "icon-circle",
+              iconColor: ACCENT,
+              liveIconId: "frost",
+              liveValues: [
+                {
+                  id: "frost",
+                  source: { namespace: "topic", path: "hil/live/outside" },
+                  rules: [{ op: "<", operand: "1", result: { kind: "icon", icon: "icon-triangle" } }],
+                  otherwise: { kind: "icon", icon: "icon-circle" },
+                },
+              ],
+            },
+          },
+          {
+            id: "l-alarm",
+            type: "icon",
+            zIndex: 1,
+            x: 196,
+            y: 200,
+            width: 64,
+            height: 64,
+            properties: {
+              assetId: "icon-square",
+              iconColor: WHITE,
+              liveIconId: "alarm",
+              liveValues: [
+                {
+                  id: "alarm",
+                  source: { namespace: "combined", path: "alarm" },
+                  rules: [{ op: "yes", result: { kind: "icon", icon: "icon-triangle" } }],
+                  otherwise: { kind: "icon", icon: "icon-square" },
+                },
+              ],
+            },
+          },
+        ],
+      },
+
       // A popup (docs/2026-10-06-popup-screens.md): out of the paging above,
       // opened by screen-2's «Timer». Its master gives the theme only. A
       // light ground, so that it cannot be mistaken for the dark screens
@@ -887,7 +1037,12 @@ async function main() {
   // types that work. A list kept by hand cannot notice what was added to the
   // other end.
   const placed = new Set(objects.map((o) => o.type));
-  const declared = (await phoneDdf()).supportedObjectTypes;
+  // Read through the designer's renames, as it reads a DDF: a Live Text is
+  // a Text since 2026-10-07 (lib/object-types.ts), the app still declares
+  // and draws "live-text", and the designer can place none - so the Texts
+  // here cover it. Without this the fixture could not be built at all.
+  const RENAMED = { "live-text": "text" };
+  const declared = [...new Set((await phoneDdf()).supportedObjectTypes.map((type) => RENAMED[type] || type))];
   const missing = declared.filter((type) => !placed.has(type));
   if (missing.length > 0) {
     fail(

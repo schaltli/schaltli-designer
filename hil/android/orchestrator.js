@@ -115,12 +115,45 @@ function getProjectZipPath() {
 // that from its own extracted bundle at runtime, but the headless
 // app/test-render harness needs the actual font bytes attached (as a
 // data: URL, matching what a real DDF-loaded ProjectFont looks like).
+/**
+ * The exported project.json read back the way the designer keeps a project,
+ * where the two differ in what the reference render reads:
+ *
+ *  - a text's `text` is, for a 1.4 export, the text lowered to placeholders
+ *    for the devices before - a rule that has no placeholder form (läuft /
+ *    aus) is left out of it. The designer's own text is `liveText`, with
+ *    `{live:<id>}` where its live values stand (docs/device-contract.md 2.6).
+ *  - the separators are written at the top; the designer keeps them in
+ *    `settings`. Read from there, the reference drew «21.5» against the
+ *    phone's «21,5» - and Readouts' placeholder text had done the same since
+ *    it was added, unseen under the tolerance (found 2026-10-08).
+ */
+function asDesignerProject(project) {
+  const walk = (objects) =>
+    (objects || []).map((obj) => ({
+      ...obj,
+      ...(typeof obj.properties?.liveText === "string" && obj.properties.liveText
+        ? { properties: { ...obj.properties, text: obj.properties.liveText } }
+        : {}),
+      ...(obj.children ? { children: walk(obj.children) } : {}),
+    }));
+  const separators = {};
+  if (typeof project.decimalSeparator === "string") separators.decimalSeparator = project.decimalSeparator;
+  if (typeof project.thousandsSeparator === "string") separators.thousandsSeparator = project.thousandsSeparator;
+  return {
+    ...project,
+    settings: { ...(project.settings || {}), ...separators },
+    screens: (project.screens || []).map((screen) => ({ ...screen, objects: walk(screen.objects) })),
+    ...(project.popups ? { popups: project.popups.map((popup) => ({ ...popup, objects: walk(popup.objects) })) } : {}),
+  };
+}
+
 async function loadProjectFromZip(zipPath) {
   const buf = fs.readFileSync(zipPath);
   const zip = await JSZip.loadAsync(buf);
   const projectFile = zip.file("project.json");
   if (!projectFile) throw new Error(`${zipPath} has no project.json`);
-  const project = JSON.parse(await projectFile.async("string"));
+  const project = asDesignerProject(JSON.parse(await projectFile.async("string")));
 
   project.assets = await iconAssetsFor(zipPath, project, zip);
 
@@ -474,6 +507,67 @@ const MARKER_BACKGROUND = 0xc81e1eff; // opaque red - nothing in a fixture is th
  * never a quiet edit to make a red run green.
  */
 const ANDROID_MISMATCH_LIMIT = 0.8
+
+/**
+ * A live value's box (a text with `liveText`, a live icon -
+ * docs/2026-10-07-live-values.md) must look most like its own reference.
+ *
+ * The whole-screen limit above cannot see one drawn wrong: on the Live
+ * screen the phone showing combination 1 against the reference for
+ * combination 0 - another word, another icon - came to 0.69%, a pass
+ * (measured 2026-10-08). Nor can a fixed limit per box: the app sets text a
+ * hair wider than the browser, the drift grows along a line, and a right
+ * «Ofen läuft 0:00:59» differs by 4.4% in its box where a wrong short one
+ * differs by 5%. So each box is compared with the references of the
+ * screen's other combinations too, and has to be closer to its own than to
+ * every one that draws something else there - with a ceiling, so that
+ * garbage closest to its own reference still fails.
+ */
+const LIVE_OBJECT_CEILING = 10
+
+function liveObjects(screen) {
+  return (screen.objects || []).filter(
+    (o) => (o.type === "text" && o.properties?.liveText) || (o.type === "icon" && o.properties?.liveIconId),
+  )
+}
+
+/** Percent of `o`'s box (project units) that differs between two pictures. */
+function boxMismatch(project, o, imgA, imgB) {
+  const scale = imgA.bitmap.width / project.screenWidth
+  const x0 = Math.max(0, Math.round(o.x * scale))
+  const y0 = Math.max(0, Math.round(o.y * scale))
+  const x1 = Math.min(imgA.bitmap.width, Math.round((o.x + o.width) * scale))
+  const y1 = Math.min(imgA.bitmap.height, Math.round((o.y + o.height) * scale))
+  const a = imgA.bitmap.data
+  const b = imgB.bitmap.data
+  let diff = 0
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * imgA.bitmap.width + x) * 4
+      if (Math.abs(a[i] - b[i]) > 24 || Math.abs(a[i + 1] - b[i + 1]) > 24 || Math.abs(a[i + 2] - b[i + 2]) > 24) diff++
+    }
+  }
+  return (100 * diff) / Math.max(1, (x1 - x0) * (y1 - y0))
+}
+
+/**
+ * For each live box: its mismatch against its own reference, and the
+ * combination whose reference it is closer to, if any. `references[k]` is
+ * combination k's reference picture; `own` is this one's index.
+ */
+function liveObjectVerdicts(project, screen, actualImg, references, own) {
+  return liveObjects(screen).map((o) => {
+    const pct = boxMismatch(project, o, references[own], actualImg)
+    let closerTo = null
+    references.forEach((ref, k) => {
+      if (k === own || closerTo !== null) return
+      // Only a combination that draws something else in this box counts.
+      if (boxMismatch(project, o, references[own], ref) < 0.5) return
+      if (boxMismatch(project, o, ref, actualImg) <= pct) closerTo = k
+    })
+    return { id: o.id, pct, closerTo, ok: closerTo === null && pct < LIVE_OBJECT_CEILING }
+  })
+}
 
 /**
  * The fixture with flat-coloured screen backgrounds. Same zip otherwise,
@@ -1717,6 +1811,7 @@ async function main() {
     console.log(`\nScreen ${si} "${screen.name}": ${combos} combination(s)`);
 
     let touchedThisScreen = false;
+    let liveReferences = null;
     for (let ci = 0; ci < combos; ci++) {
       const overrides = combinationOverrides(project, screen, ci);
       const caseId = `${si}-${ci}`;
@@ -1749,10 +1844,33 @@ async function main() {
       // 4. Tolerance pixel comparison (see file header for why not strict).
       const { dimensionMismatch, diffPixels, totalPixels } = comparePixelsWithTolerance(expectedImg, actualImg);
       const mismatchPct = totalPixels > 0 ? (100 * diffPixels) / totalPixels : 0;
-      const pass = !dimensionMismatch && mismatchPct < ANDROID_MISMATCH_LIMIT;
+      // Every combination's reference, once per screen, for the live boxes.
+      if (liveObjects(screen).length > 0 && !dimensionMismatch && !liveReferences) {
+        liveReferences = []
+        for (let k = 0; k < combos; k++) {
+          liveReferences.push(
+            k === ci
+              ? expectedImg
+              : await renderReference(
+                  page, project, si, combinationOverrides(project, screen, k), actualImg.bitmap.width, actualImg.bitmap.height,
+                ),
+          )
+        }
+      }
+      const liveBoxes = liveReferences ? liveObjectVerdicts(project, screen, actualImg, liveReferences, ci) : [];
+      const liveWrong = liveBoxes.filter((box) => !box.ok);
+      const pass = !dimensionMismatch && mismatchPct < ANDROID_MISMATCH_LIMIT && liveWrong.length === 0;
       console.log(
         `  [${caseId}] ${pass ? "PASS" : "FAIL"}` +
-        (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels}px, ${mismatchPct.toFixed(2)}%)`)
+        (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels}px, ${mismatchPct.toFixed(2)}%)`) +
+        (liveBoxes.length ? `, live values ${liveBoxes.map((box) => `${box.id} ${box.pct.toFixed(1)}%`).join(", ")}` : "") +
+        liveWrong
+          .map((box) =>
+            box.closerTo !== null
+              ? ` - ${box.id} looks like combination ${box.closerTo}, not its own`
+              : ` - ${box.id} over ${LIVE_OBJECT_CEILING}% in its own box`,
+          )
+          .join("")
       );
 
       // A tenth of the screen is far more than rasterisation noise and far

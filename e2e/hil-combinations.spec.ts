@@ -122,6 +122,34 @@ test.describe("hil combination generation", () => {
     })
   })
 
+  // A live value has no binding and no placeholder (docs/2026-10-07-live-
+  // values.md): its topic, and every topic under a combined topic it reads -
+  // two levels down here, the second through a JSON path - has to be
+  // published, or the phone and the reference each draw their own «no value
+  // yet» and the run says nothing.
+  test("a live value's topics are published, through combined topics too", () => {
+    const p: any = project(
+      [
+        topic("van/heat", ["true", "false"], "boolean"),
+        topic("van/timer", ["12198", "0", "59"], "numeric"),
+        topic("van/boiler", ['{"on":true}']),
+        topic("van/night", ["true"], "boolean"),
+      ],
+      [
+        { id: "t", type: "text", properties: { text: "{live:timer}", liveValues: [{ id: "timer", source: { namespace: "topic", path: "van/timer" }, rules: [] }] } },
+        { id: "i", type: "icon", properties: { liveIconId: "a", liveValues: [{ id: "a", source: { namespace: "combined", path: "alarm" }, rules: [] }] } },
+      ],
+    )
+    p.combinedTopics = [
+      { id: "c1", name: "warm", mode: "any", conditions: [{ source: { namespace: "topic", path: "van/heat" }, op: "yes" }, { source: { namespace: "topic", path: "van/boiler#on" }, op: "yes" }] },
+      { id: "c2", name: "alarm", mode: "all", conditions: [{ source: { namespace: "combined", path: "warm" }, op: "yes" }, { source: { namespace: "topic", path: "van/night" }, op: "yes" }] },
+    ]
+
+    expect(screenTopics(p, screenOf(p)).sort()).toEqual(["van/boiler", "van/heat", "van/night", "van/timer"])
+    expect(combinationCount(p, screenOf(p))).toBe(3)
+    expect(combinationOverrides(p, screenOf(p), 1)).toEqual({ "van/timer": "0", "van/heat": "false", "van/boiler": '{"on":true}', "van/night": "true" })
+  })
+
   test("a screen that binds nothing still runs once", () => {
     const p = project([], [{ id: "lbl", type: "text", properties: { text: "static" } }])
 

@@ -198,8 +198,14 @@ through the live values and a live icon's result path; `TopicCollector`
 subscribes to live sources and combined inputs. `SYSTEM_GENERATION` 1.4.
 
 **Acceptance criteria:**
-- [ ] The live value screen reads right in the app at every combination.
-- [ ] A 1.3-format project shows as before.
+- [x] The live value screen reads right in the app at every combination.
+- [x] A 1.3-format project shows as before.
+
+Done 2026-10-08 (schaltli-android 751029d). `Project.combinedTopics` is read
+raw and parsed once (`combinedOrder`); combined values are computed from the
+topic map on each draw. A fixed icon stays baked; a live icon is drawn by
+`IconPathView` from its result's `path` (the dark theme's swap reaches it, as
+it reaches everything). `LiveValueTextTest` (6 tests); 79 unit tests green.
 
 **Verification:** unit tests; Task 9.
 
@@ -214,7 +220,18 @@ subscribes to live sources and combined inputs. `SYSTEM_GENERATION` 1.4.
 value screen; the orchestrator compares it.
 
 **Acceptance criteria:**
-- [ ] The phone matches the designer's reference in every combination.
+- [x] The phone matches the designer's reference in every combination.
+
+Done 2026-10-08 on the P20: 15/15, the new «Live» screen (screen-5) in its
+three combinations. Three things the run needed besides the screen:
+`hil/combinations.js` publishes a live value's topics and those under its
+combined topics (`e2e/hil-combinations.spec.ts`); the reference reads the
+export back as the designer keeps it (`liveText` as `text`, the separators
+in `settings` - Readouts' «,» had been compared against a «.» since it was
+added); and each live box has to look most like its own reference, because
+the whole-screen tolerance passed a swapped combination at 0.69%. The
+fixture's type check reads «live-text» as «text», as the designer does since
+it merged them - the fixture could not be rebuilt since 2026-10-07.
 
 **Verification:** `node hil/android/orchestrator.js` with a phone attached.
 

@@ -47,6 +47,22 @@ function placeholderTopics(text) {
   return topics;
 }
 
+// The topics under a combined topic: its own conditions' and those of every
+// combined topic it reads, eight levels deep at most, as a device subscribes
+// (docs/device-contract.md 2.6). The fifth way a topic stayed unpublished
+// would have been a live value's: no binding, no placeholder.
+function combinedInputs(project, name, depth = 1, out = new Set()) {
+  if (depth > 8) return out;
+  for (const t of project.combinedTopics || []) {
+    if (t.name !== name) continue;
+    for (const c of t.conditions || []) {
+      if (c.source?.namespace === "combined") combinedInputs(project, c.source.path, depth + 1, out);
+      else if (c.source?.namespace === "topic") out.add(baseTopic(c.source.path));
+    }
+  }
+  return out;
+}
+
 function screenTopics(project, screen) {
   const set = new Set();
   const walk = (objects) => {
@@ -63,6 +79,10 @@ function screenTopics(project, screen) {
       if (obj.properties && obj.properties.setpointTopic) set.add(baseTopic(obj.properties.setpointTopic));
       if (obj.type === "text" && typeof obj.properties?.text === "string") {
         for (const topic of placeholderTopics(obj.properties.text)) set.add(baseTopic(topic));
+      }
+      for (const lv of obj.properties?.liveValues || []) {
+        if (lv.source?.namespace === "topic") set.add(baseTopic(lv.source.path));
+        if (lv.source?.namespace === "combined") for (const t of combinedInputs(project, lv.source.path)) set.add(t);
       }
       if (obj.children && obj.children.length > 0) walk(obj.children);
     }
