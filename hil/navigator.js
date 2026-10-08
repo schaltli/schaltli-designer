@@ -273,10 +273,17 @@ async function main() {
       return Jimp.read(file)
     }
     const values = {}
-    const shows = async (name, screenId, scroll) => {
-      const actual = await fetchBmp("snapshot.bmp", name)
-      const { dimensionMismatch, diffPixels } = comparePixels(actual, await expected(screenId, values, scroll))
-      check(`${name}: ${screenId}${scroll !== undefined ? `, scrolled ${scroll}` : ""}`, !dimensionMismatch && diffPixels === 0, dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`)
+    // The canvas, and after a swipe the glass as well: a swipe writes its
+    // frames straight to the panel, and the glass is what a person sees -
+    // the canvas was right while the glass kept the old strip (2026-10-08).
+    const shows = async (name, screenId, scroll, alsoGlass = false) => {
+      const want = await expected(screenId, values, scroll)
+      for (const what of alsoGlass && !eink ? ["snapshot.bmp", "panel.bmp"] : ["snapshot.bmp"]) {
+        const actual = await fetchBmp(what, name)
+        const { dimensionMismatch, diffPixels } = comparePixels(actual, want)
+        const where = what === "panel.bmp" ? " (glass)" : ""
+        check(`${name}${where}: ${screenId}${scroll !== undefined ? `, scrolled ${scroll}` : ""}`, !dimensionMismatch && diffPixels === 0, dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`)
+      }
     }
     const stripPixels = (img) => {
       const out = []
@@ -330,7 +337,7 @@ async function main() {
     } else {
       await drag(sw * 0.8, sh / 2, sw * 0.2, sh / 2)
     }
-    await shows("a swipe beside it pages on", S(6), 200)
+    await shows("a swipe beside it pages on", S(6), 200, true)
 
     // From S2 back: S1 is hidden, so S12. The navigator follows.
     await wake()
@@ -338,7 +345,13 @@ async function main() {
     if (!(await r.json()).success) throw new Error("/api/screen failed")
     await settle()
     await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
-    await shows("paging back from S2 passes over the hidden S1", S(12), 488)
+    await shows("paging back from S2 passes over the hidden S1", S(12), 488, true)
+    // Swipe after swipe, the number on the screen and the highlighted entry
+    // agree on the glass too (reported by hand 2026-10-08).
+    await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
+    await shows("and back again", S(11), 488, true)
+    await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
+    await shows("and again", S(10), 488, true)
 
     // The live screen icon of S2, and a value under the strip.
     await wake()
