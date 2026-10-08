@@ -140,10 +140,60 @@ function asDesignerProject(project) {
   const separators = {};
   if (typeof project.decimalSeparator === "string") separators.decimalSeparator = project.decimalSeparator;
   if (typeof project.thousandsSeparator === "string") separators.thousandsSeparator = project.thousandsSeparator;
+  // A navigator (docs/2026-10-08-navigator.md) goes once, in navigators[],
+  // and the designer draws one from the screens it lists. So back: each
+  // screen gets its icon from its entry, and a screen that shows one the
+  // navigator object the designer would draw, its look read off the entries.
+  const navigators = project.navigators || []
+  const entryOf = (screenId) => {
+    for (const nav of navigators) for (const entry of nav.entries || []) if (entry.screenId === screenId) return entry
+    return undefined
+  }
+  const navigatorObject = (nav) => {
+    const sample = nav.entries?.[0] || { normal: [], active: [] }
+    const normalText = sample.normal.find((o) => o.type === "text")
+    const normalIcon = sample.normal.find((o) => o.type === "icon")
+    const activeBox = sample.active.find((o) => o.type === "box")
+    const activeIcon = sample.active.find((o) => o.type === "icon")
+    const horizontal = nav.edge === "top" || nav.edge === "bottom"
+    const w = project.screenWidth
+    const h = project.screenHeight
+    const t = nav.thickness
+    const strip =
+      nav.edge === "top" ? { x: 0, y: 0, width: w, height: t } : nav.edge === "bottom" ? { x: 0, y: h - t, width: w, height: t } : nav.edge === "right" ? { x: w - t, y: 0, width: t, height: h } : { x: 0, y: 0, width: t, height: h }
+    void horizontal
+    return {
+      id: nav.id,
+      type: "navigator",
+      zIndex: 1000,
+      ...strip,
+      properties: {
+        edge: nav.edge,
+        shows: normalText ? "iconsAndText" : "icons",
+        fontId: normalText?.properties?.fontId,
+        backgroundColor: nav.backgroundColor,
+        textColor: normalIcon?.properties?.iconColor ?? normalText?.properties?.textColor,
+        activeColor: activeBox?.properties?.fillColor,
+        activeTextColor: activeIcon?.properties?.iconColor,
+      },
+    }
+  }
+  const withNavigator = (screen) => {
+    const entry = entryOf(screen.id)
+    const icon = entry?.normal?.find((o) => o.type === "icon")
+    const live = icon?.properties?.liveValues?.find((lv) => lv.id === icon.properties.liveIconId)
+    const nav = navigators.find((n) => n.id === screen.navigatorId)
+    return {
+      ...screen,
+      ...(icon?.properties?.assetId ? { iconAssetId: icon.properties.assetId } : {}),
+      ...(live ? { iconLive: live } : {}),
+      objects: nav ? [...walk(screen.objects), navigatorObject(nav)] : walk(screen.objects),
+    }
+  }
   return {
     ...project,
     settings: { ...(project.settings || {}), ...separators },
-    screens: (project.screens || []).map((screen) => ({ ...screen, objects: walk(screen.objects) })),
+    screens: (project.screens || []).map(withNavigator),
     ...(project.popups ? { popups: project.popups.map((popup) => ({ ...popup, objects: walk(popup.objects) })) } : {}),
   };
 }
@@ -432,7 +482,7 @@ function matchDeviceScaling(srcImg, dstWidth, dstHeight) {
  * At a fractional ratio none of that is established - the 2026-07-27 finding
  * stands there - so the old path is kept.
  */
-async function renderReference(page, project, screenIndex, overrides, dstWidth, dstHeight) {
+async function renderReference(page, project, screenIndex, overrides, dstWidth, dstHeight, navigatorScroll) {
   const sx = dstWidth / project.screenWidth;
   const sy = dstHeight / project.screenHeight;
   // HIL_ANDROID_NO_SCALE forces the old 1x-then-enlarge path. It is how you
@@ -442,6 +492,7 @@ async function renderReference(page, project, screenIndex, overrides, dstWidth, 
     !process.env.HIL_ANDROID_NO_SCALE && sx === sy && Number.isInteger(sx) && sx >= 1;
 
   const req = { project, screenIndex, topicOverrides: overrides };
+  if (navigatorScroll !== undefined) req.navigatorScroll = navigatorScroll;
   if (wholeMultiple) req.scale = sx;
 
   const dataUrl = await page.evaluate((r) => window.__renderScreenForTest(r), req);
@@ -1255,6 +1306,56 @@ async function swipeToScreen(deviceSerial, from, to) {
  * Rendering the other screens with the same topic values costs a second and
  * turns that into one sentence.
  */
+/**
+ * The navigator on the phone (docs/2026-10-08-navigator.md), on the screen
+ * that shows one: a drag along its strip scrolls it and pages nothing, and a
+ * tap on an entry opens that entry's screen. Returns the screen index the
+ * phone is on afterwards.
+ *
+ * Its strip is along the bottom in the fixture (the orchestrator's own swipes
+ * start at the sides). Drawn as far as shows the open entry, which on the
+ * last screen is scrolled to the end; dragged right by the whole strip it is
+ * back at the start, and the first entry is under the finger.
+ */
+async function checkNavigator(deviceSerial, page, project, si) {
+  const screen = project.screens[si];
+  const nav = (project.navigators || []).find((n) => n.id === screen.navigatorId);
+  if (!nav) return si;
+  if (nav.edge !== "bottom" && nav.edge !== "top") throw new Error("checkNavigator expects a navigator along the top or bottom");
+  const stripY = nav.edge === "bottom" ? project.screenHeight - nav.thickness / 2 : nav.thickness / 2;
+
+  const before = await settledFrame(deviceSerial);
+  const from = await devicePointFor(deviceSerial, project, project.screenWidth * 0.2, stripY);
+  const to = await devicePointFor(deviceSerial, project, project.screenWidth * 0.95, stripY);
+  await startSwipe(deviceSerial, from.x, to.x, from.y, 400);
+  const after = await settledFrame(deviceSerial);
+  fs.writeFileSync(path.join(IMG_DIR, "navigator-drag.png"), after);
+  const changed = await frameChange(before, after);
+  if (changed <= 0) throw new Error("A drag along the navigator changed nothing on the glass - it did not scroll.");
+  // The same screen, its strip scrolled to the start - not another screen
+  // (which a reference of the unscrolled strip cannot tell apart from a
+  // near-empty one: "Live" scored closer than "Navigator" itself).
+  const actual = await cropDeviceScreenshot(after, project, deviceSerial);
+  const expected = await renderReference(page, project, si, {}, actual.bitmap.width, actual.bitmap.height, 0);
+  const { diffPixels, totalPixels } = comparePixelsWithTolerance(expected, actual);
+  const pct = (100 * diffPixels) / totalPixels;
+  if (pct >= ANDROID_MISMATCH_LIMIT) {
+    throw new Error(`After a drag along the navigator the phone is not "${screen.name}" scrolled to the start (${pct.toFixed(2)}% differ). See images/navigator-drag.png.`);
+  }
+  console.log(`  navigator: a drag along the strip scrolled it (${(changed * 100).toFixed(1)}% of the glass) and paged nothing`);
+
+  const first = nav.entries[0];
+  const target = project.screens.findIndex((s) => s.id === first.screenId);
+  const at = await devicePointFor(deviceSerial, project, nav.entryLength / 2, stripY);
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(at.x), String(at.y)]));
+  const landed = await identifyScreen(page, project, {}, await cropDeviceScreenshot(await settledFrame(deviceSerial), project, deviceSerial));
+  if (landed[0].screenIndex !== target) {
+    throw new Error(`A tap on the navigator's first entry should open "${project.screens[target].name}"; the phone shows "${landed[0].name}".`);
+  }
+  console.log(`  navigator: a tap on the first entry opened "${project.screens[target].name}"`);
+  return target;
+}
+
 async function identifyScreen(page, project, overrides, actualImg) {
   const scores = [];
   for (let si = 0; si < project.screens.length; si++) {
@@ -1918,6 +2019,12 @@ async function main() {
   }
 
   // The touch checks above, beyond a tap: a drag on a slider, and popups.
+  // The navigator, from the screen that shows it, which the loop above ends on.
+  if (project.screens[currentScreen]?.navigatorId) {
+    console.log("\nThe navigator...");
+    currentScreen = await checkNavigator(deviceSerial, page, project, currentScreen);
+  }
+
   console.log("\nA drag on a slider, and popups...");
   if (currentScreen !== 0) {
     await swipeToScreen(deviceSerial, currentScreen, 0);

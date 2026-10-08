@@ -24,6 +24,9 @@
 //   screen-2  arc-level with a setpoint marker, SoftwareButton with an icon
 //   screen-3  Switch in both modes - segmented with per-state icons, single
 //   screen-4  tab-control whose panel holds a Switch and an MQTTIconField
+//   screen-6  the navigator (docs/2026-10-08-navigator.md): its own master
+//             holds one on the bottom edge, icons and names, listing every
+//             screen by its icon; screen-6 is the one that shows it
 //   screen-5  live values (docs/2026-10-07-live-values.md): a text with three
 //             of them - yes/no, a countdown empty at 0, a number - a live
 //             icon on a threshold, and one on a combined topic two levels
@@ -200,6 +203,7 @@ function buildProject(fonts) {
       {
         id: "screen-1",
         name: "Readouts",
+        iconAssetId: "icon-circle",
         masterScreenId: "master-1",
         objects: [
           {
@@ -344,6 +348,7 @@ function buildProject(fonts) {
       {
         id: "screen-2",
         name: "Ring",
+        iconAssetId: "icon-square",
         masterScreenId: "master-1",
         objects: [
           // The one object whose pixels come from the shared integer
@@ -456,6 +461,7 @@ function buildProject(fonts) {
       {
         id: "screen-3",
         name: "Switches",
+        iconAssetId: "icon-triangle",
         masterScreenId: "master-1",
         objects: [
           // Segmented: n segments, the active one carrying the marker bar.
@@ -593,6 +599,7 @@ function buildProject(fonts) {
       {
         id: "screen-4",
         name: "Panels",
+        iconAssetId: "icon-circle",
         masterScreenId: "master-1",
         objects: [
           {
@@ -699,6 +706,7 @@ function buildProject(fonts) {
       {
         id: "screen-5",
         name: "Live",
+        iconAssetId: "icon-square",
         masterScreenId: "master-1",
         objects: [
           {
@@ -808,6 +816,78 @@ function buildProject(fonts) {
                 },
               ],
             },
+          },
+        ],
+      },
+
+      // A second master, for the navigator alone: the screens above keep
+      // theirs and are compared as before. It pages like master-1.
+      {
+        id: "master-nav",
+        name: "Master with navigator",
+        isMaster: true,
+        backgroundColor: DARK,
+        buttonActions: {
+          "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+          "swipe-left": { type: "next-screen" },
+          "swipe-right": { type: "previous-screen" },
+        },
+        objects: [
+          // The title every screen carries.
+          {
+            id: "m-title",
+            type: "text",
+            zIndex: 0,
+            x: 12,
+            y: 8,
+            width: 248,
+            height: 24,
+            properties: {
+              text: "{project:name}",
+              fontId: "font-roboto-20",
+              color: WHITE,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+            },
+          },
+          {
+            // Along the bottom: the orchestrator's swipes start at 15 % and
+            // 85 % of the width, and one starting on a left or right strip is
+            // the navigator's - it scrolls and pages nothing, by design.
+            id: "nav",
+            type: "navigator",
+            zIndex: 50,
+            x: 0,
+            y: SCREEN_H - 80,
+            width: SCREEN_W,
+            height: 80,
+            properties: {
+              edge: "bottom",
+              shows: "iconsAndText",
+              fontId: "font-roboto-16",
+              backgroundColor: "#202020",
+              textColor: "#c0c0c0",
+              activeColor: ACCENT,
+              activeTextColor: WHITE,
+            },
+          },
+        ],
+      },
+      {
+        id: "screen-6",
+        name: "Navigator",
+        masterScreenId: "master-nav",
+        iconAssetId: "icon-triangle",
+        objects: [
+          {
+            id: "n-title",
+            type: "text",
+            zIndex: 1,
+            x: 100,
+            y: 80,
+            width: 240,
+            height: 32,
+            properties: { text: "Navigator", fontId: "font-roboto-24", textColor: WHITE, backgroundColor: "transparent", borderColor: "transparent" },
           },
         ],
       },
@@ -1037,6 +1117,9 @@ async function main() {
   // types that work. A list kept by hand cannot notice what was added to the
   // other end.
   const placed = new Set(objects.map((o) => o.type));
+  // A navigator leaves the screens' objects for navigators[] (device
+  // contract 2.7): placed is placed.
+  if ((exported.navigators || []).length > 0) placed.add("navigator");
   // Read through the designer's renames, as it reads a DDF: a Live Text is
   // a Text since 2026-10-07 (lib/object-types.ts), the app still declares
   // and draws "live-text", and the designer can place none - so the Texts

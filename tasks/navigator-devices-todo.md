@@ -119,7 +119,11 @@ drag scrolls (consumes the down); paging and start skip hidden;
 `DdfBuilder` declares `navigator`; `SYSTEM_GENERATION` 1.5.
 
 **Acceptance criteria:**
-- [ ] Vectors pass; unit tests for paging and start; the app builds.
+- [x] Vectors pass; unit tests for paging and start; the app builds.
+
+Done 2026-10-08 (schaltli-android 763f64b). The navigator is an `overlay`
+layer of FollowingScreens, outside the sliding screens; NavigatorLayoutTest
+(4 tests, the vectors with the copy check); 83 unit tests green.
 
 **Verification:** `gradle testDebugUnitTest assembleDebug` · **Dependencies:** Task 2 · **Scope:** L
 
@@ -129,7 +133,16 @@ drag scrolls (consumes the down); paging and start skip hidden;
 orchestrator compares screens with it and taps an entry.
 
 **Acceptance criteria:**
-- [ ] Orchestrator green on the phone.
+- [x] Orchestrator green on the phone.
+
+Done 2026-10-08 on the P20: 16/16; the fixture gets a second master with a
+navigator along the bottom (a left or right one would take the
+orchestrator's own swipes, which start at the sides - by design) and a
+screen showing it; the reference rebuilds the designer's navigator from
+navigators[]. checkNavigator: a drag along the strip scrolls it and pages
+nothing (held to the reference scrolled to 0 - identifying the screen from
+unscrolled references picked a near-empty other screen), a tap on the first
+entry opens it.
 
 **Dependencies:** Task 7 · **Scope:** S
 
