@@ -176,7 +176,12 @@ in Task 3; `LiveValueTest.kt` runs a copy of the vectors with the same copy
 check.
 
 **Acceptance criteria:**
-- [ ] Every case passes; the copy check works.
+- [x] Every case passes; the copy check works.
+
+Done 2026-10-08 (schaltli-android). `LiveValues` and `CombinedTopics` read
+the export through kotlinx.serialization, as `ProjectModels` does;
+`CombinedTopics.inputTopics` (what the app subscribes to) has its own test.
+Six tests green; a copy changed by one byte fails the copy check.
 
 **Verification:** `gradlew testDebugUnitTest` (JAVA_HOME = Android Studio's jbr).
 
