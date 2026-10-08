@@ -143,7 +143,14 @@ drag along the navigator scrolls it, never pages; after a screen change it
 scrolls to show the active entry.
 
 **Acceptance criteria:**
-- [ ] Click opens the screen; a drag on the navigator scrolls and does not page; with 12 screens the active entry stays visible.
+- [x] Click opens the screen; a drag on the navigator scrolls and does not page; with 12 screens the active entry stays visible.
+
+Done 2026-10-08. The designer's preview pages only through the device's
+swipe buttons, never by a drag on the canvas, so a drag on the navigator
+cannot page there by construction. A press on the strip belongs to the
+navigator: moved more than 4 px it scrolls, else it opens the entry. The
+mouse handlers read the scroll through a ref, being callbacks with fixed
+dependencies.
 
 **Verification:** `npx playwright test e2e/navigator.spec.ts -g "preview"`
 

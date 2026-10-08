@@ -242,6 +242,92 @@ test.describe("the navigator's strip on a screen", () => {
   })
 })
 
+// A navigator project with twelve screens, the last with a button back to
+// the first: built from the designer's own download, loaded again.
+async function twelveScreenProject(page: Page): Promise<string[]> {
+  const { master } = await newNavigatorProject(page)
+  await placeNavigator(page, master)
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+  const chunks: Buffer[] = []
+  for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const masterScreen = project.screens.find((s: any) => s.isMaster)
+  const names = Array.from({ length: 12 }, (_, i) => `Nav ${i + 1}`)
+  project.screens = [
+    masterScreen,
+    ...names.map((name, i) => ({
+      id: `nav-${i + 1}`,
+      name,
+      masterScreenId: masterScreen.id,
+      objects:
+        i === 11
+          ? [{ id: "back", type: "button", x: 380, y: 220, width: 80, height: 40, zIndex: 1, properties: { text: "Back", buttonStyle: "tonal", action: { type: "goto-screen", targetScreenId: "nav-1" } } }]
+          : [],
+    })),
+  ]
+  zip.file("project.json", JSON.stringify(project))
+  const out = path.join(os.tmpdir(), `navigator-12-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  await loadProject(page, out)
+  return names
+}
+
+test.describe("the navigator in the preview", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(NAV_DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("navigator")) manifest.supportedObjectTypes.push("navigator")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  // Twelve entries of 88 on 480 (lib/navigator.ts): entry i at 88 i - scroll.
+  const press = async (page: Page, y: number, toY = y) => {
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 40, y, SCREEN_43B)
+    const to = devicePoint(box, 40, toY, SCREEN_43B)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    if (toY !== y) await page.mouse.move(to.x, to.y, { steps: 10 })
+    await page.mouse.up()
+  }
+  const isOpen = (page: Page, name: string) => expect(page.getByRole("button", { name, exact: true })).toHaveClass(/bg-accent/)
+
+  test("a click opens the entry's screen; a drag scrolls and opens nothing; a change scrolls to the open entry", async ({ page }) => {
+    await twelveScreenProject(page)
+    await page.getByRole("button", { name: "Nav 1", exact: true }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+
+    await press(page, 88 * 2 + 40)
+    await isOpen(page, "Nav 3")
+
+    // Up by 200: the same place is two entries further on, and the drag
+    // itself opened nothing.
+    await press(page, 400, 200)
+    await isOpen(page, "Nav 3")
+    await press(page, 40)
+    await isOpen(page, "Nav 3")
+    await press(page, 130)
+    await isOpen(page, "Nav 4")
+
+    // To the end and the last entry, then its button back to the first: the
+    // navigator follows to the start, so 130 is the second entry again.
+    await press(page, 460, 0)
+    await press(page, 470)
+    await isOpen(page, "Nav 12")
+    const { box } = await getMainCanvas(page)
+    const back = devicePoint(box, 420, 240, SCREEN_43B)
+    await page.mouse.click(back.x, back.y)
+    await isOpen(page, "Nav 1")
+    await press(page, 130)
+    await isOpen(page, "Nav 2")
+  })
+})
+
 test.describe("Hide screen", () => {
   test.beforeEach(async () => {
     test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")

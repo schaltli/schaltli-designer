@@ -1,6 +1,6 @@
 "use client"
 
-import { navigatorScreens, navigatorStrip, staysPut } from "@/lib/navigator"
+import { clampScroll, entryAt, layoutInStrip, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorLayout } from "@/lib/navigator"
 import { renderNavigator } from "@/lib/render-screen"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
@@ -807,6 +807,59 @@ export function Canvas({
   // The level a finger holds in the preview, at its place on the screen - it
   // may sit in a switcher's panel, where its own x/y are the panel's.
   const levelDragRef = useRef<{ id: string; value: number; object: ScreenObject } | null>(null)
+
+  // The navigator in the preview (docs/2026-10-08-navigator.md): how far it
+  // is scrolled, and a press on it - a drag along it scrolls, a press that
+  // does not move opens the entry's screen.
+  const [navigatorScroll, setNavigatorScroll] = useState<number | undefined>(undefined)
+  const navigatorDragRef = useRef<{
+    layout: NavigatorLayout
+    start: { x: number; y: number }
+    startScroll: number
+    scroll: number
+    moved: boolean
+  } | null>(null)
+
+  // The navigator shown in the preview - the master's, on a screen showing
+  // its master - laid out on its strip, or undefined.
+  // What the mouse handlers read of it, current at every render - they are
+  // callbacks with fixed dependencies.
+  const navigatorLatest = useRef({
+    scroll: undefined as number | undefined,
+    screens: [] as ProjectScreen[],
+    screenId: "",
+    goTo: (_id: string) => {},
+    layout: (): NavigatorLayout | undefined => undefined,
+  })
+  const previewNavigatorLayout = (): NavigatorLayout | undefined => {
+    if (!previewMode) return undefined
+    const navigator = [...(masterObjects ?? []), ...screen.objects].find((o) => o.type === "navigator")
+    if (!navigator) return undefined
+    const strip = { x: navigator.x, y: navigator.y, width: navigator.width, height: navigator.height }
+    return layoutInStrip(navigator.properties.edge ?? "left", navigator.properties.shows ?? "iconsAndText", strip, navigatorScreens(projectScreens ?? []).length)
+  }
+  navigatorLatest.current = {
+    scroll: navigatorScroll,
+    screens: projectScreens ?? [],
+    screenId: screen.id,
+    goTo: (id) => onPreviewButtonAction?.({ type: "goto-screen", targetScreenId: id }),
+    layout: previewNavigatorLayout,
+  }
+  const insideStrip = (layout: NavigatorLayout, p: { x: number; y: number }) =>
+    p.x >= layout.strip.x && p.y >= layout.strip.y && p.x < layout.strip.x + layout.strip.width && p.y < layout.strip.y + layout.strip.height
+
+  // After every screen change in the preview, as far as shows the open
+  // screen's entry (decision 12); out of the preview it starts over.
+  useEffect(() => {
+    const layout = previewNavigatorLayout()
+    if (!layout) {
+      setNavigatorScroll(undefined)
+      return
+    }
+    const index = navigatorScreens(projectScreens ?? []).findIndex((s) => s.id === screen.id)
+    setNavigatorScroll((previous) => (index < 0 ? previous : scrollToShow(layout, index, previous ?? 0)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewMode, screen.id])
 
   // Preview mode: the software button the mouse is holding down, drawn pressed
   // until the button is let go - wherever that happens, so a release outside
@@ -1687,6 +1740,7 @@ export function Canvas({
     screen,
     masterObjects,
     masterScreen,
+    navigatorScroll,
     resolvedBackgroundColor,
     selectedObjectIds,
     hoveredObjectId,
@@ -1984,6 +2038,7 @@ export function Canvas({
           navigator: {
             screens: projectScreens ?? [screen],
             activeScreenId: screen.isMaster ? navigatorScreens(projectScreens ?? [])[0]?.id : screen.id,
+            scroll: previewMode ? navigatorScroll : undefined,
           },
         })
         break
@@ -2625,6 +2680,14 @@ export function Canvas({
           return
         }
 
+        // On the navigator: the press is its own, whatever follows.
+        const layout = navigatorLatest.current.layout()
+        if (layout && insideStrip(layout, coords)) {
+          const scroll = navigatorLatest.current.scroll ?? 0
+          navigatorDragRef.current = { layout, start: coords, startScroll: scroll, scroll, moved: false }
+          return
+        }
+
         const clickedObject = findPreviewObjectAt(coords.x, coords.y, previewObjects, (switcher) =>
           getActivePanel(switcher, previewValueRef.current),
         )
@@ -3011,6 +3074,16 @@ export function Canvas({
       }
 
       if (previewMode) {
+        const drag = navigatorDragRef.current
+        if (drag) {
+          const delta = drag.layout.horizontal ? coords.x - drag.start.x : coords.y - drag.start.y
+          if (Math.abs(delta) > 4) drag.moved = true
+          if (drag.moved) {
+            drag.scroll = clampScroll(drag.layout, drag.startScroll - delta)
+            setNavigatorScroll(drag.scroll)
+          }
+          return
+        }
         if (levelDragRef.current) {
           const dragged = levelDragRef.current.object
           if (dragged) {
@@ -3612,6 +3685,19 @@ export function Canvas({
   )
 
   const handleMouseUp = useCallback(() => {
+    // Off the navigator: a press that did not move opens its entry's screen.
+    const navigatorDrag = navigatorDragRef.current
+    if (navigatorDrag) {
+      navigatorDragRef.current = null
+      if (!navigatorDrag.moved) {
+        const index = entryAt(navigatorDrag.layout, navigatorDrag.start.x, navigatorDrag.start.y, navigatorDrag.scroll)
+        const latest = navigatorLatest.current
+        const target = navigatorScreens(latest.screens)[index]
+        if (target && target.id !== latest.screenId) latest.goTo(target.id)
+      }
+      return
+    }
+
     // The finger is off a settable level: publish what it settled on, whether
     // or not the coalescer already sent that value (decision 3).
     if (levelDragRef.current) {
