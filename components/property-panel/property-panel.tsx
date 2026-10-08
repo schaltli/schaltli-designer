@@ -504,6 +504,11 @@ export function PropertyPanel({
             onSetScreenShowMaster={onSetScreenShowMaster}
             onPatchScreen={onPatchScreen}
             onSetScreenType={onSetScreenType}
+            combinedTopics={combinedTopics}
+            onOpenScreenLiveIconSelector={(target) => {
+              setIconSelectorContext({ type: "screen-live-rule", screenId: currentScreen.id, target })
+              setShowIconSelector(true)
+            }}
             onOpenScreenIconSelector={() => {
               setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })
               setShowIconSelector(true)

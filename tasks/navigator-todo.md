@@ -36,9 +36,16 @@ its Otherwise the fixed icon. The icon picker gets a screen-rule context.
 icons. The screen list's icon shows the branch that applies.
 
 **Acceptance criteria:**
-- [ ] A live screen icon on «any light on» shows the lit bulb with a test value «true» and the dark one with «false».
-- [ ] A combined topic read by a screen icon cannot be deleted and is renamed in it.
-- [ ] Its topic is in the exported `topics[]`.
+- [x] A live screen icon on «any light on» shows the lit bulb with a test value «true» and the dark one with «false».
+- [x] A combined topic read by a screen icon cannot be deleted and is renamed in it.
+- [x] Its topic is in the exported `topics[]`.
+
+Done 2026-10-08. `screen.iconLive` (Otherwise = `iconAssetId`, which the
+Knob's page icon keeps showing); `lib/screen-icon.ts` turns a screen's icon
+into the icon object it amounts to, so `iconAsDrawn` draws it - checked
+there, the canvas draws it from Task 5 on. The screen list keeps showing
+the fixed icon. Project Settings' screen list offers only the fixed icon
+and says where a live one is set.
 
 **Verification:** `npx playwright test e2e/screen-live-icon.spec.ts`; typecheck.
 
@@ -49,7 +56,7 @@ icons. The screen list's icon shows the branch that applies.
 (`exportedTopics`), `lib/combined-topics.ts`, `e2e/screen-live-icon.spec.ts`
 
 ## Checkpoint: screens
-- [ ] typecheck; `e2e/navigator.spec.ts`, `e2e/screen-live-icon.spec.ts`, `e2e/live-value*.spec.ts`, `e2e/combined-topics.spec.ts` green
+- [x] typecheck; `e2e/navigator.spec.ts`, `e2e/screen-live-icon.spec.ts`, `e2e/live-value*.spec.ts`, `e2e/combined-topics.spec.ts` green (with popup-screens, property-panel, handbook-labels: 287)
 
 ## Task 3: `lib/navigator.ts` and its vectors
 

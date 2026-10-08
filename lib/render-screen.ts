@@ -12,6 +12,7 @@
 
 import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
+import type { LiveValue } from "@/lib/live-value"
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { parse, referencedTopics, type PlaceholderScope, type Separators } from "@/lib/placeholders"
@@ -201,7 +202,7 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
 // (the firmware's ProjectLoader::setTopicValue), so a reference the editor
 // never declared - a text pasted, imported or written before 2026-09-25 -
 // would stay empty there for good.
-export function exportedTopics(project: { topics?: Topic[]; screens?: { objects: ScreenObject[] }[] }): Topic[] {
+export function exportedTopics(project: { topics?: Topic[]; screens?: { objects: ScreenObject[]; iconLive?: LiveValue }[] }): Topic[] {
   const topics = [...(project.topics ?? [])]
   const walk = (objects: ScreenObject[]) => {
     for (const obj of objects) {
@@ -214,7 +215,11 @@ export function exportedTopics(project: { topics?: Topic[]; screens?: { objects:
       if (obj.children?.length) walk(obj.children)
     }
   }
-  for (const screen of project.screens ?? []) walk(screen.objects ?? [])
+  for (const screen of project.screens ?? []) {
+    walk(screen.objects ?? [])
+    // A live screen icon reads a topic too (docs/2026-10-08-navigator.md).
+    if (screen.iconLive) walk([{ id: "screen-icon", type: "icon", x: 0, y: 0, width: 0, height: 0, zIndex: 0, properties: { liveValues: [screen.iconLive] } } as ScreenObject])
+  }
   return topics
 }
 

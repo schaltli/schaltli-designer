@@ -26,6 +26,8 @@ import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import { isPopup, type ScreenType } from "@/lib/popup"
+import type { IconTarget } from "./live-value-editor"
+import type { CombinedTopic } from "@/lib/combined-topics"
 import {
   ColorField,
   PropertySection,
@@ -73,6 +75,9 @@ interface ScreenPropertiesProps {
   onPatchScreen: (patch: Partial<ProjectScreen>) => void
   onSetScreenType: (type: ScreenType) => void
   onOpenScreenIconSelector: () => void
+  // A result of the live screen icon (rule index, Otherwise, No value yet).
+  onOpenScreenLiveIconSelector: (target: IconTarget) => void
+  combinedTopics?: CombinedTopic[]
   onClearScreenIcon: () => void
   supportsSoftwareButtons: boolean
   // The device's buttons, the swipes among them (ProjectSettings via the
@@ -102,6 +107,8 @@ export function ScreenProperties({
   onPatchScreen,
   onSetScreenType,
   onOpenScreenIconSelector,
+  onOpenScreenLiveIconSelector,
+  combinedTopics,
   onClearScreenIcon,
   supportsSoftwareButtons,
   hardwareButtons,
@@ -158,6 +165,9 @@ export function ScreenProperties({
           onSetMaster={onSetScreenMaster}
           onSetShowMaster={onSetScreenShowMaster}
           onPatch={onPatchScreen}
+          topics={topics}
+          combinedTopics={combinedTopics}
+          onPickLiveIcon={onOpenScreenLiveIconSelector}
           onSetScreenType={onSetScreenType}
           onOpenIconSelector={onOpenScreenIconSelector}
           onClearIcon={onClearScreenIcon}

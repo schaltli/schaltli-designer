@@ -1,6 +1,7 @@
 "use client"
 
 import type { CombinedTopic } from "@/lib/combined-topics"
+import type { LiveValue } from "@/lib/live-value"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
@@ -221,6 +222,9 @@ export interface ProjectScreen {
   // overlay that doesn't exist yet, same as buttonActions/HardwareButton
   // fields were added ahead of their own firmware dispatch.
   iconAssetId?: string
+  // The screen icon made live (docs/2026-10-08-navigator.md decision 6): a
+  // live value whose Otherwise is iconAssetId. See lib/screen-icon.ts.
+  iconLive?: LiveValue
   // «Hide screen» (docs/2026-10-08-navigator.md decision 3): out of
   // next/previous and the navigator, still a «Go to Screen» target. A main
   // screen only. Absent: shown.
@@ -244,7 +248,7 @@ export interface ProjectAsset {
 // and incompatible with the real setter, which is what the type checker was
 // complaining about until 2026-08-22.
 export interface IconSelectorContext {
-  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule"
+  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule" | "screen-live-rule"
   pairIndex?: number
   screenId?: string
   stateIndex?: number
@@ -2546,6 +2550,26 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             },
           })
         }
+      } else if (iconSelectorContext?.type === "screen-live-rule" && iconSelectorContext.screenId) {
+        // A result of a live screen icon: a rule, Otherwise or No value yet.
+        const { screenId, target } = iconSelectorContext
+        const icon = { kind: "icon" as const, icon: assetId }
+        setProject((prev) => ({
+          ...prev,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== screenId || !screen.iconLive) return screen
+            const lv = screen.iconLive
+            const iconLive =
+              typeof target === "number"
+                ? { ...lv, rules: lv.rules.map((rule, i) => (i === target ? { ...rule, result: icon } : rule)) }
+                : target === "otherwise"
+                  ? { ...lv, otherwise: icon }
+                  : target === "noValueYet"
+                    ? { ...lv, noValueYet: icon }
+                    : lv
+            return { ...screen, iconLive }
+          }),
+        }))
       } else if (iconSelectorContext?.type === "screen-icon" && iconSelectorContext.screenId) {
         const screenId = iconSelectorContext.screenId
         setProject((prev) => ({

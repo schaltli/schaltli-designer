@@ -135,7 +135,7 @@ export function dependentsOf(cts: readonly CombinedTopic[], name: string, namesp
 
 interface ProjectLike {
   combinedTopics?: CombinedTopic[]
-  screens?: { name: string; objects?: ObjectLike[] }[]
+  screens?: { name: string; objects?: ObjectLike[]; iconLive?: { source?: Source } }[]
 }
 interface ObjectLike {
   type: string
@@ -143,8 +143,12 @@ interface ObjectLike {
   children?: ObjectLike[]
 }
 
+// Every object, and a screen's live icon as the icon object it amounts to
+// (lib/screen-icon.ts) - its live value the screen's own, so a rename
+// reaches it.
 function forEachObject(project: ProjectLike, visit: (obj: ObjectLike, screen: { name: string }) => void) {
   for (const screen of project.screens ?? []) {
+    if (screen.iconLive) visit({ type: "screen-icon", properties: { liveValues: [screen.iconLive] } }, screen)
     const walk = (objects: ObjectLike[]) => {
       for (const obj of objects) {
         visit(obj, screen)
@@ -167,7 +171,8 @@ export function combinedUsage(project: ProjectLike, name: string): string[] {
   forEachObject(project, (obj, screen) => {
     const liveValues: { source?: Source }[] = Array.isArray(obj.properties?.liveValues) ? obj.properties!.liveValues : []
     if (!liveValues.some((lv) => readsCombined(lv.source, name))) return
-    if (obj.type === "icon") users.push(`an icon on ${screen.name}`)
+    if (obj.type === "screen-icon") users.push(`the screen icon of ${screen.name}`)
+    else if (obj.type === "icon") users.push(`an icon on ${screen.name}`)
     else {
       const text = String(obj.properties?.text ?? "").replace(/\{live:[^}]*\}/g, "…").replace(/\{\{/g, "{").replace(/\}\}/g, "}")
       users.push(`"${text}" on ${screen.name}`)

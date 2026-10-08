@@ -8,6 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MasterScreenIcon } from "@/components/icons/master-screen-icon"
 import type { ProjectScreen } from "./project-editor"
 import { isPopup, type ScreenType } from "@/lib/popup"
+import { withFixedIcon, withLiveIcon } from "@/lib/screen-icon"
+import { referenceEntries } from "@/lib/placeholder-completion"
+import type { LiveValue } from "@/lib/live-value"
+import type { CombinedTopic } from "@/lib/combined-topics"
+import type { Topic } from "./project-editor"
+import { LiveValueEditor, type IconTarget } from "./property-panel/live-value-editor"
+import { cn } from "@/lib/utils"
 
 interface ScreenEditorFieldsProps {
   screen: ProjectScreen
@@ -22,6 +29,11 @@ interface ScreenEditorFieldsProps {
   onSetShowMaster: (showMaster: boolean) => void
   // Any of the screen's own fields («Hide screen», …).
   onPatch: (patch: Partial<ProjectScreen>) => void
+  // For «Fixed / Live» on the screen icon; without them only the fixed icon
+  // is offered (Project Settings' list of screens).
+  topics?: Topic[]
+  combinedTopics?: CombinedTopic[]
+  onPickLiveIcon?: (target: IconTarget) => void
   onSetScreenType: (type: ScreenType) => void
   onOpenIconSelector: () => void
   onClearIcon: () => void
@@ -43,6 +55,9 @@ export function ScreenEditorFields({
   onSetMaster,
   onSetShowMaster,
   onPatch,
+  topics,
+  combinedTopics = [],
+  onPickLiveIcon,
   onSetScreenType,
   onOpenIconSelector,
   onClearIcon,
@@ -123,7 +138,59 @@ export function ScreenEditorFields({
 
       {/* Not meaningful on a master screen itself, nor on a popup - neither
           is ever in navigation; see ProjectScreen.iconAssetId's own comment. */}
-      {!screen.isMaster && !popup && (
+      {/* Fixed or Live, as an icon object (docs/2026-10-08-navigator.md
+          decision 6): Live keeps the fixed icon as Otherwise. */}
+      {!screen.isMaster && !popup && topics && onPickLiveIcon && (
+        <div role="radiogroup" aria-label="Screen icon" className="flex w-fit rounded-md bg-muted p-0.5 text-xs">
+          {(["Fixed", "Live"] as const).map((mode) => {
+            const on = (mode === "Live") === Boolean(screen.iconLive)
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-label={mode}
+                aria-checked={on}
+                onClick={() => {
+                  if (mode === "Live" && !screen.iconLive) {
+                    const first = referenceEntries("", topics)[0]?.reference ?? "topic:"
+                    const colon = first.indexOf(":")
+                    const source = { namespace: first.slice(0, colon) as LiveValue["source"]["namespace"], path: first.slice(colon + 1) }
+                    onPatch({ iconLive: withLiveIcon(screen, source).iconLive })
+                  } else if (mode === "Fixed" && screen.iconLive) {
+                    const fixed = withFixedIcon(screen)
+                    onPatch({ iconLive: undefined, iconAssetId: fixed.iconAssetId })
+                  }
+                }}
+                className={cn("rounded px-3 py-1", on ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}
+              >
+                {mode}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {!screen.isMaster && !popup && screen.iconLive && topics && onPickLiveIcon && (
+        <LiveValueEditor
+          liveValue={screen.iconLive}
+          combinedTopics={combinedTopics}
+          position={1}
+          count={1}
+          title="Live screen icon"
+          closable={false}
+          resultKind="icon"
+          projectAssets={projectAssets as any}
+          topics={topics}
+          onChange={(changed) => onPatch({ iconLive: changed })}
+          onClose={() => {}}
+          onPickIcon={onPickLiveIcon}
+        />
+      )}
+      {!screen.isMaster && !popup && screen.iconLive && !(topics && onPickLiveIcon) && (
+        <div className="text-xs text-muted-foreground">Live screen icon - set in the screen&apos;s properties</div>
+      )}
+
+      {!screen.isMaster && !popup && !screen.iconLive && (
         <div className="flex items-center gap-2">
           {iconAsset?.data && (
             <div
