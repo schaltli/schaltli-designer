@@ -264,6 +264,25 @@ async function main() {
     })
   }
 
+  // The firmware's own unit tests on the PC: the shared placeholder and live
+  // value vectors against its C++ ports, and the popup fence
+  // (schaltli-firmware platformio.ini [env:native]). Needs PlatformIO and a
+  // host GCC; skipped with a warning without them.
+  console.log("\n=== fw-native (host, no hardware) ===")
+  if (!fs.existsSync(path.join(FIRMWARE_REPO, "platformio.ini"))) {
+    console.warn(`SKIPPED - firmware repo not checked out at ${FIRMWARE_REPO}`)
+    summary.push({ name: "fw-native", status: "SKIPPED", detail: "firmware repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("pio", ["test", "-e", "native"], { cwd: FIRMWARE_REPO })
+    const missing = exitCode === 9009 || exitCode === 127
+    summary.push({
+      name: "fw-native",
+      status: exitCode === 0 ? "PASS" : missing ? "SKIPPED" : "FAIL",
+      detail: exitCode === 0 ? "placeholder and live value vectors, popup fence" : missing ? "pio not found - install PlatformIO Core" : `exit code ${exitCode} - see output above`,
+      report: "",
+    })
+  }
+
   console.log(`\n=== epaper HIL (device: ${EPAPER_DEVICE}) ===`)
   const epaperReachable = (await httpGetStatus(`http://${EPAPER_DEVICE}/`)) === 200
   if (!epaperReachable) {

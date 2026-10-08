@@ -83,7 +83,7 @@ keeps getting exactly what it gets today.
 - [ ] A project without live values exports byte-identical to today (both exports); knob + 4.3B HIL green on 1.3 firmware
 
 ### Phase 2: Firmware (`schaltli-firmware`)
-- [ ] Task 3: `LiveValue` and `CombinedTopics` in plain C++, native-tested against the shared vectors
+- [x] Task 3: `LiveValue` and `CombinedTopics` in plain C++, native-tested against the shared vectors
 - [ ] Task 4: The loader reads them; combined topics are recomputed on every message they read
 - [ ] Task 5: Texts and icons draw through live values; partial redraw follows live and combined reads; generation 1.4
 - [ ] Task 6: HIL: the live value screen on the Knob and the 4.3B (PaperS3 when reachable)

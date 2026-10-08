@@ -73,8 +73,13 @@ runs a byte-identical copy of `lib/live-value/vectors.json` (evaluate,
 text, resolve, combined) and checks the copy against the designer's.
 
 **Acceptance criteria:**
-- [ ] Every case of every section passes.
-- [ ] The copy check fails when the designer's file differs.
+- [x] Every case of every section passes.
+- [x] The copy check fails when the designer's file differs.
+
+Done 2026-10-08 (schaltli-firmware). `evaluationOrder` is ported too: the
+shared cases give combined topics in any order. `test:all` gains
+`fw-native`, which runs `pio test -e native` (placeholders, live values,
+popup fence) - it did not run the firmware's unit tests before.
 
 **Verification:** `pio test -e native` (in schaltli-firmware).
 
