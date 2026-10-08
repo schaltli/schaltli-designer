@@ -39,6 +39,8 @@ export const OBJECT_TYPES = [
   "box",
   "switcher",
   "panel",
+  // A bar of every screen on a master's edge (docs/2026-10-08-navigator.md).
+  "navigator",
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
@@ -126,6 +128,8 @@ export function objectTypeLabel(type: string): string {
       return "Switcher"
     case "panel":
       return "Panel"
+    case "navigator":
+      return "Navigator"
     case "group":
       return "Group"
     case "free":

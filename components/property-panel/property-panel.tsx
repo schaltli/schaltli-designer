@@ -8,6 +8,7 @@ import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
+import { NavigatorProperties } from "./navigator-properties"
 import { LineProperties } from "./line-properties"
 import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
@@ -80,6 +81,9 @@ interface PropertyPanelProps {
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
   onPatchScreen: (patch: Partial<ProjectScreen>) => void
+  // The screen's size, for what places itself on it (the navigator).
+  screenWidth: number
+  screenHeight: number
   onSetScreenType: (type: ScreenType) => void
   onClearScreenIcon: () => void
   onSetScreenTheme: (themeId: string | undefined) => void
@@ -181,6 +185,8 @@ export function PropertyPanel({
   onSetScreenMaster,
   onSetScreenShowMaster,
   onPatchScreen,
+  screenWidth,
+  screenHeight,
   onSetScreenType,
   onClearScreenIcon,
   onSetScreenTheme,
@@ -330,6 +336,17 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "navigator" && (
+                <NavigatorProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
+                  screenWidth={screenWidth}
+                  screenHeight={screenHeight}
                 />
               )}
 

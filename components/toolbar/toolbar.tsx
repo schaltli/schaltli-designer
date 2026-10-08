@@ -62,6 +62,9 @@ interface ToolbarProps {
   // placing them would create objects invisible on the real device.
   // undefined = no device loaded, no restriction.
   supportedObjectTypes?: string[]
+  // Whether the screen being edited may take a navigator: a master that has
+  // none yet (docs/2026-10-08-navigator.md decision 1).
+  navigatorPlaceable?: boolean
   // "vertical" (default) is the classic left-sidebar layout (icon-only tiles);
   // "horizontal" is a ribbon-style row with a label under each icon, grouped
   // like Word's ribbon (a vertical divider + group caption per group).
@@ -76,6 +79,7 @@ export function Toolbar({
   onTableShapeSelect,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
+  navigatorPlaceable = false,
   orientation = "vertical",
 }: ToolbarProps) {
   // The catalog is read while the Block menu is open, afresh each time.
@@ -129,7 +133,13 @@ export function Toolbar({
         tool("box", "Box", "A rectangle"),
       ],
     },
-    { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
+    {
+      label: "Arrange",
+      tools: [
+        tool("switcher", "Switcher", "Shows one of its panels, chosen by a value"),
+        tool("navigator", "Navigator", "A bar of every screen along an edge, on a master: a tap opens a screen"),
+      ],
+    },
     // A table (docs/2026-10-02-layout-tables.md), the designer's alone:
     // every device gets the objects inside it. A free area went from the
     // tools on 2026-10-04, since a screen is free (docs/2026-10-03-free-
@@ -147,10 +157,11 @@ export function Toolbar({
   // What the device does not declare is not shown - not shown-disabled
   // (decision 11). A group with nothing left in it goes too.
   const offered = (t: ToolDef) =>
-    t.type === "select" ||
+    (t.type !== "navigator" || navigatorPlaceable) &&
+    (t.type === "select" ||
     isLayoutOnlyType(t.type) ||
     supportedObjectTypes === undefined ||
-    supportedObjectTypes.includes(t.type)
+    supportedObjectTypes.includes(t.type))
   const toolGroups = groups
     .map((group) => ({ ...group, tools: group.tools.filter(offered) }))
     .filter((group) => group.tools.length > 0)

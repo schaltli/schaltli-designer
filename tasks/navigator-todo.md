@@ -89,8 +89,16 @@ placement on its edge (`placeNavigator`), not draggable or resizable, a
 panel with «Edge», «Shows», «Font».
 
 **Acceptance criteria:**
-- [ ] The tool is there on a master, gone on a normal screen and once a navigator exists.
-- [ ] Changing «Edge» or «Shows» moves and sizes it; dragging does nothing.
+- [x] The tool is there on a master, gone on a normal screen and once a navigator exists.
+- [x] Changing «Edge» or «Shows» moves and sizes it; dragging does nothing.
+
+Done 2026-10-08. A click places it on the left edge, icons and text, the
+smallest font. `staysPut` (lib/navigator.ts) keeps it and locked objects
+from dragging, resizing and nudging. Roles: «Surface», «Text», «Accent»,
+«Text on accent» on new colour keys `activeColor` / `activeTextColor`.
+Drawn from Task 5; until then the canvas shows nothing of it. The tests use
+a 4.3B fixture whose DDF declares it (`seedWaveshare4v3bDdf` takes a
+change now).
 
 **Verification:** `npx playwright test e2e/navigator.spec.ts -g "object"`; typecheck.
 

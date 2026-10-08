@@ -45,6 +45,8 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     // child), so its rank is a formality.
     switcher: 9,
     panel: 10,
+    // Over everything: it covers what lies under it (decision 10).
+    navigator: 11,
     // A group (lib/object-groups.ts) is drawn by zIndex like everything
     // else; this rank only says where a new one lands in the list, which
     // for something holding controls is where the controls go.

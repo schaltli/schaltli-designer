@@ -203,6 +203,17 @@ export const GroupIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// The navigator: a rail of entries along an edge, the first one marked.
+export const NavigatorIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
+    <rect width="3" height="3" x="4.5" y="6" rx="0.5" fill="currentColor" />
+    <rect width="3" height="3" x="4.5" y="11" rx="0.5" />
+    <rect width="3" height="3" x="4.5" y="16" rx="0.5" />
+  </Glyph>
+)
+
 // The layout containers (lib/layout.ts): the box, and how it divides.
 export const TableIcon = (p: IconProps) => (
   <Glyph {...p}>
@@ -235,6 +246,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   box: BoxIcon,
   switcher: SwitcherIcon,
   panel: PanelIcon,
+  navigator: NavigatorIcon,
   group: GroupIcon,
   free: FreeIcon,
   table: TableIcon,

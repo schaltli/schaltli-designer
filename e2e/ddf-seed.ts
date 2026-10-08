@@ -173,8 +173,8 @@ export async function seedWaveshareDdf(options?: {
 // The 4.3B's DDF from its source in the firmware repo, always under a
 // fixture id: the real board announces itself and would overwrite a copy
 // seeded under its own id mid-run, the same way the knob did.
-export async function seedWaveshare4v3bDdf(deviceId: string): Promise<boolean> {
-  return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId)
+export async function seedWaveshare4v3bDdf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
+  return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId, mutateDeviceJson)
 }
 
 // Same for the PaperS3, which announces itself just the same.

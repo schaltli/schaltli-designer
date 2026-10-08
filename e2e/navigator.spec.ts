@@ -3,8 +3,8 @@ import JSZip from "jszip"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { loadProject, getMainCanvas, devicePoint } from "./helpers"
-import { seedRoundFixtureDdf } from "./ddf-seed"
+import { loadProject, getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
+import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 
 // The navigator (docs/2026-10-08-navigator.md, tasks/navigator-todo.md):
 // a bar along one edge with every screen, placed on a master. This file
@@ -52,6 +52,77 @@ async function downloadProjectJson(page: Page): Promise<any> {
   const zip = await JSZip.loadAsync(Buffer.concat(chunks))
   return JSON.parse(await zip.file("project.json")!.async("string"))
 }
+
+// A 4.3B whose DDF declares the navigator (the real one does from Task 7 on).
+const NAV_DEVICE_ID = "e2e-navigator-4v3b"
+const SCREEN_43B = { width: 800, height: 480 }
+
+async function newNavigatorProject(page: Page): Promise<{ master: string; screen: string }> {
+  await page.goto("/")
+  await waitForDeviceGate(page)
+  await chooseDevice(page, NAV_DEVICE_ID, "auto-discovered")
+  await createProject(page)
+  await waitForEditorReady(page)
+  const saved = await downloadProjectJson(page)
+  await page.keyboard.press("Escape")
+  return {
+    master: saved.screens.find((s: any) => s.isMaster).name,
+    screen: saved.screens.find((s: any) => !s.isMaster && s.screenType !== "popup").name,
+  }
+}
+
+async function placeNavigator(page: Page, master: string): Promise<void> {
+  await page.getByRole("button", { name: master }).click()
+  await page.getByRole("button", { name: "Navigator", exact: true }).click()
+  const { box } = await getMainCanvas(page)
+  const at = devicePoint(box, 400, 240, SCREEN_43B)
+  await page.mouse.click(at.x, at.y)
+}
+
+test.describe("the navigator object", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(NAV_DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("navigator")) manifest.supportedObjectTypes.push("navigator")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  test("the tool is on a master that has none; placed, it fills the left edge and the tool goes", async ({ page }) => {
+    const { master, screen } = await newNavigatorProject(page)
+    await page.getByRole("button", { name: screen }).click()
+    await expect(page.getByRole("button", { name: "Navigator", exact: true })).toHaveCount(0)
+
+    await placeNavigator(page, master)
+    await expect(page.getByRole("button", { name: "Navigator", exact: true })).toHaveCount(0)
+    const saved = await downloadProjectJson(page)
+    await page.keyboard.press("Escape")
+    const nav = saved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
+    expect({ x: nav.x, y: nav.y, width: nav.width, height: nav.height }).toEqual({ x: 0, y: 0, width: 80, height: 480 })
+    expect(nav.properties).toMatchObject({ edge: "left", shows: "iconsAndText" })
+  })
+
+  test("«Edge» and «Shows» move and size it; dragging does not", async ({ page }) => {
+    const { master } = await newNavigatorProject(page)
+    await placeNavigator(page, master)
+    await page.locator("#navigatorEdge").selectOption("bottom")
+    await page.locator("#navigatorShows").selectOption("icons")
+
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 400, 450, SCREEN_43B)
+    const to = devicePoint(box, 400, 200, SCREEN_43B)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 8 })
+    await page.mouse.up()
+
+    const saved = await downloadProjectJson(page)
+    const nav = saved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
+    expect({ x: nav.x, y: nav.y, width: nav.width, height: nav.height }).toEqual({ x: 0, y: 416, width: 800, height: 64 })
+    expect(nav.properties).toMatchObject({ edge: "bottom", shows: "icons" })
+  })
+})
 
 test.describe("Hide screen", () => {
   test.beforeEach(async () => {

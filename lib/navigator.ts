@@ -7,6 +7,14 @@
 // cases all three must agree on are lib/navigator/vectors.json.
 
 export type Edge = "top" | "bottom" | "left" | "right"
+
+/**
+ * An object nobody moves or sizes by hand: a locked one, and the navigator,
+ * which «Edge» and «Shows» place (decision 4).
+ */
+export function staysPut(obj: { type: string; locked?: boolean }): boolean {
+  return !!obj.locked || obj.type === "navigator"
+}
 export type Shows = "icons" | "iconsAndText"
 
 export interface Rect {

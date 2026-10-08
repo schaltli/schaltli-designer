@@ -104,6 +104,10 @@ export const COLOR_KEYS = [
   // migrateColorsToRoles, never read.
   "trackColor",
   "trackEdgeColor",
+  // The navigator's open entry: its ground and its icon and text
+  // (docs/2026-10-08-navigator.md decision 7).
+  "activeColor",
+  "activeTextColor",
 ] as const
 
 export const THEMES: Theme[] = [
@@ -502,6 +506,7 @@ export function resolveColor(value: string, theme: Theme, variant: Variant, colo
 const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   text: { backgroundColor: "surface", borderColor: "outline" },
   box: { fillColor: "panel", strokeColor: "text" },
+  navigator: { backgroundColor: "surface", textColor: "text", activeColor: "accent", activeTextColor: "onAccent" },
   line: { color: "text" },
   "live-line": { color: "text" },
   bar: { fillColor: "accent", textColor: "text", trackColor: "track", trackEdgeColor: "trackEdge" },

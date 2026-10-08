@@ -4060,6 +4060,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               onTableShapeSelect={selectTableShape}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
+              navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
             />
             {tableContext && (
               <TableGroup
@@ -4261,6 +4262,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onSetScreenMaster={setCurrentScreenMaster}
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
                     onPatchScreen={patchCurrentScreen}
+                    screenWidth={project.screenWidth}
+                    screenHeight={project.screenHeight}
                     onSetScreenType={setCurrentScreenType}
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}

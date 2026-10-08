@@ -1,5 +1,6 @@
 "use client"
 
+import { navigatorStrip, staysPut } from "@/lib/navigator"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -2221,7 +2222,7 @@ export function Canvas({
     // Draw selection handles (moved outside of renderers for consistency).
     // Not on a locked object: the outline says it is selected, and a handle
     // would promise a resize the canvas refuses.
-    if (isSelected && !obj.locked && obj.type !== "group") {
+    if (isSelected && !staysPut(obj) && obj.type !== "group") {
       if (isLineType(obj.type)) {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
@@ -2825,7 +2826,7 @@ export function Canvas({
               return
             }
           } else {
-            const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
+            const resizeHandle = staysPut(clickedObject) ? null : findResizeHandle(clickedObject, coords.x, coords.y)
             if (resizeHandle) {
               setDragState({
                 mode: "resize",
@@ -3137,7 +3138,7 @@ export function Canvas({
       } else if (dragState.mode === "drag" && dragState.objectId) {
         // A locked object stays where it is, even selected in the tree
         // alongside the ones being dragged.
-        const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !obj.locked)
+        const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !staysPut(obj))
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
         // Over a table: the empty cell or the row line where letting go
@@ -3621,6 +3622,10 @@ export function Canvas({
         width = Math.max(4 * minSize, screenWidth - x)
         height = 40
       }
+      // The navigator goes on its edge whatever was drawn (lib/navigator.ts).
+      if (dragState.creatingType === "navigator") {
+        ;({ x, y, width, height } = navigatorStrip("left", "iconsAndText", screenWidth, screenHeight))
+      }
 
       if (isLineType(dragState.creatingType)) {
         const distance = Math.sqrt(width * width + height * height)
@@ -3650,6 +3655,16 @@ export function Canvas({
           } else {
             onInsertBaustein?.(rect)
           }
+          onToolChange("select")
+        } else if (dragState.creatingType === "navigator") {
+          addInteractionObject({
+            type: "navigator",
+            x,
+            y,
+            width,
+            height,
+            properties: { edge: "left", shows: "iconsAndText", fontId: findSmallestFont()?.id },
+          })
           onToolChange("select")
         } else if (dragState.creatingType === "live-icon") {
           // MQTT Icon Fields must be square
@@ -4035,7 +4050,7 @@ export function Canvas({
       const step = e.shiftKey ? 10 : 1
       const [dx, dy] = nudge[e.key]
       for (const obj of interactionObjects) {
-        if (!selectedObjectIds.includes(obj.id) || obj.locked) continue
+        if (!selectedObjectIds.includes(obj.id) || staysPut(obj)) continue
         const moved = translateObject(obj, dx * step, dy * step)
         updateInteractionObject(obj.id, moved.properties === obj.properties ? { x: moved.x, y: moved.y } : { x: moved.x, y: moved.y, properties: moved.properties })
       }
