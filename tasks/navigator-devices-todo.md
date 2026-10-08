@@ -10,7 +10,10 @@ show, entry at, page scroll). `test/test_navigator/` runs a byte-for-byte
 copy of `lib/navigator/vectors.json` with the copy check.
 
 **Acceptance criteria:**
-- [ ] Every vector passes; a changed copy fails the check.
+- [x] Every vector passes; a changed copy fails the check.
+
+Done 2026-10-08 (schaltli-firmware, «NavigatorLayout»). `fw-native` in
+test:all runs it with the others.
 
 **Verification:** `pio test -e native` · **Dependencies:** None · **Scope:** S
 
