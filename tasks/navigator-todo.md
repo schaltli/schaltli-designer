@@ -237,5 +237,9 @@ handbuch. The handbook builds, the warnings render as blocks.
 **Files likely touched:** `handbuch/objekte/*.md`, `handbuch/designer/screens.md`
 
 ## Checkpoint: complete
-- [ ] `npm run test:all` with what is connected
-- [ ] Spec status updated
+- [x] `npm run test:all` with what is connected
+- [x] Spec status updated
+
+test:all 2026-10-08: Overall PASS. Skipped: the firmware-update runs (the
+checkout's build differs from the boards' since the DDF headers changed),
+android-HIL (the phone was on the camper broker), epaper, factory-flash.
