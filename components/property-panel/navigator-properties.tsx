@@ -10,8 +10,7 @@
 
 import type { ProjectFont, ScreenObject } from "../project-editor"
 import { navigatorStrip, type Edge, type Shows } from "@/lib/navigator"
-import { FontSelect } from "./font-select"
-import { PropertySection, PropertySections, SelectField } from "./fields"
+import { FontField, PropertySection, PropertySections, SelectField } from "./fields"
 
 interface NavigatorPropertiesProps {
   selectedObject: ScreenObject
@@ -74,7 +73,7 @@ export function NavigatorProperties({
           hint="The screen's icon, and its name under it."
         />
         {shows === "iconsAndText" && (
-          <FontSelect
+          <FontField
             value={selectedObject.properties.fontId}
             fonts={fonts}
             onChange={(fontId) => onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, fontId } })}

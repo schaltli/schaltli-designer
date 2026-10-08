@@ -159,7 +159,12 @@ dependencies.
 **Files likely touched:** `components/canvas/canvas.tsx`, `components/project-editor.tsx`
 
 ## Checkpoint: designer
-- [ ] typecheck; e2e green
+- [x] typecheck; e2e green
+
+2026-10-08: the full e2e run 1331 passed, 3 failed: font-select (the
+navigator's panel picks a font and was missing from its list; it uses
+FontField now and is listed), mock-simulator and project-persistence-api
+(both pass on their own, 6/6).
 - [ ] The user places a navigator on a master and tries it in the preview
 
 ## Task 7: Board export, contract, generation

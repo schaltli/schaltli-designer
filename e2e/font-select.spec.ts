@@ -29,6 +29,7 @@ test("every panel that sets a font uses the shared picker, and none has its own"
     "arc-level-properties.tsx",
     "label-properties.tsx",
     "level-indicator-properties.tsx",
+    "navigator-properties.tsx",
     "software-button-properties.tsx",
     "switch-properties.tsx",
   ])
