@@ -16,7 +16,6 @@ import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { applyTheme, themeFor } from '@/lib/themes'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
-import { applyColorDepth } from '@/lib/color-depth'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
 import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
@@ -399,7 +398,10 @@ export class AssetExporter {
           ground.height = height
           const ctx = ground.getContext('2d')
           if (!ctx) continue
-          ctx.fillStyle = applyColorDepth(themed.properties.backgroundColor ?? '#ffffff', this.options.colorDepth)
+          // Unrounded, as a screen's ground is in createFlattenedBackground: the
+          // icon's soft edges mix into it before the bake is reduced to the
+          // panel's colours, as they do in the designer's own picture.
+          ctx.fillStyle = themed.properties.backgroundColor ?? '#ffffff'
           ctx.fillRect(0, 0, width, height)
           for (const box of objects.filter((o) => o.type === 'box')) renderBox({ ctx, obj: box, zoom: 1, colorDepth: this.options.colorDepth })
           const icon = objects.find((o) => o.type === 'icon')

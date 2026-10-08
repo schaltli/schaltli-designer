@@ -531,7 +531,7 @@ async function main() {
   // beside it with the strip standing still, hidden screens skipped, a live
   // entry redrawn, 0 px. A board joins once it announces 1.5
   // (tasks/navigator-devices-todo.md). Installs its own project.
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE]]) {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     console.log(`
 === ${name} navigator (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/navigator.js", "--device", device], { cwd: REPO_ROOT })

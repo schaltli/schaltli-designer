@@ -255,7 +255,7 @@ async function main() {
     let shots = 0
     const fetchBmp = async (what, name) => {
       const buf = Buffer.from(await (await fetch(`${base}/${what}`, { signal: AbortSignal.timeout(45000) })).arrayBuffer())
-      const file = path.join(OUT_DIR, `${String(++shots).padStart(2, "0")}-${name}.bmp`)
+      const file = path.join(OUT_DIR, `${String(++shots).padStart(2, "0")}-${name.replace(/[^\w .,()-]+/g, "_")}.bmp`)
       fs.writeFileSync(file, buf)
       return Jimp.read(file)
     }
@@ -299,19 +299,40 @@ async function main() {
     }
     await wake()
 
-    const ENTRY = 88
-    const entryY = (i, scroll = 0) => i * ENTRY - scroll + ENTRY / 2
+    // The navigator's rules, as the board keeps them (lib/navigator.ts,
+    // contract 2.7), to know what each step must show: eleven entries (S1
+    // is hidden) on a strip as tall as the screen, a scroll that is "as far
+    // as shows the open entry" (-1) until a finger moves it, then follows
+    // every screen change only as far as shows the new entry.
+    const listed = Array.from({ length: 11 }, (_, i) => i + 2)
+    const ENTRY = listed.length * 88 <= sh ? Math.floor(sh / listed.length) : 88
+    const maxScroll = Math.max(0, listed.length * ENTRY - sh)
+    const clamp = (v) => Math.min(Math.max(0, v), maxScroll)
+    const toShow = (i, from) => clamp(i * ENTRY < from ? i * ENTRY : (i + 1) * ENTRY > from + sh ? (i + 1) * ENTRY - sh : from)
+    let scroll = -1
+    let open = 0 // index into listed
+    const effective = () => (scroll >= 0 ? clamp(scroll) : toShow(open, 0))
+    const goTo = (i) => {
+      if (scroll >= 0) scroll = toShow(i, scroll)
+      open = i
+    }
+    const showsOpen = (name, alsoGlass = false) => shows(name, S(listed[open]), scroll >= 0 ? scroll : undefined, alsoGlass)
+    const entryAtY = (y) => Math.floor((y + effective()) / ENTRY)
 
-    await shows("starts on the first screen not hidden", S(2))
+    await showsOpen("starts on the first screen not hidden")
 
-    await tap(40, entryY(2))
-    await shows("a tap on the third entry", S(4))
+    await tap(40, 2 * ENTRY + ENTRY / 2)
+    goTo(2)
+    await showsOpen("a tap on the third entry")
 
-    await drag(40, 400, 40, 200)
-    await shows("a drag up the strip scrolls it, the screen stays", S(4), 200)
+    // Up the strip: the 4.3B follows the finger, the PaperS3 turns a page.
+    await drag(40, sh * 0.8, 40, sh * 0.4)
+    scroll = eink ? clamp(effective() + Math.max(1, Math.floor(sh / ENTRY)) * ENTRY) : clamp(effective() + Math.round(sh * 0.4))
+    await showsOpen("a swipe up the strip scrolls it, the screen stays")
 
+    goTo(entryAtY(130))
     await tap(40, 130)
-    await shows("a tap after it opens the entry under the finger now", S(5), 200)
+    await showsOpen("a tap after it opens the entry under the finger now")
 
     // A swipe beside the strip: the strip stands still while the screen moves.
     if (!eink) {
@@ -332,41 +353,45 @@ async function main() {
       check("... while the strip's pixels stay as they were", before === stripPixels(glass))
       await touch(sw * 0.4, sh / 2, false)
       await settle()
-      const gestures = (await get(`${base}/api/debug`)).body.split(/\r?\n/).filter((l) => /last swipe|contacts|last tap/.test(l))
-      console.log(`  (board: ${gestures.map((l) => l.trim()).join("; ")})`)
     } else {
       await drag(sw * 0.8, sh / 2, sw * 0.2, sh / 2)
     }
-    await shows("a swipe beside it pages on", S(6), 200, true)
+    goTo(open + 1)
+    await showsOpen("a swipe beside it pages on", true)
 
     // From S2 back: S1 is hidden, so S12. The navigator follows.
     await wake()
     const r = await fetch(`${base}/api/screen`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "index=1" })
     if (!(await r.json()).success) throw new Error("/api/screen failed")
+    goTo(0)
     await settle()
     await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
-    await shows("paging back from S2 passes over the hidden S1", S(12), 488, true)
+    goTo(listed.length - 1)
+    await showsOpen("paging back from S2 passes over the hidden S1", true)
     // Swipe after swipe, the number on the screen and the highlighted entry
     // agree on the glass too (reported by hand 2026-10-08).
     await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
-    await shows("and back again", S(11), 488, true)
+    goTo(open - 1)
+    await showsOpen("and back again", true)
     await drag(sw * 0.2, sh / 2, sw * 0.8, sh / 2)
-    await shows("and again", S(10), 488, true)
+    goTo(open - 1)
+    await showsOpen("and again", true)
 
     // The live screen icon of S2, and a value under the strip.
     await wake()
     await fetch(`${base}/api/screen`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "index=1" })
+    goTo(0)
     await settle()
     values[LIGHT] = "true"
     await publish(LIGHT, "true")
     await settle()
     const how = /last value draw: (.*)/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? "?"
-    await shows(`a live screen icon follows its topic (drawn as ${how})`, S(2), 0)
+    await showsOpen(`a live screen icon follows its topic (drawn as ${how})`)
     if (!eink) check("... as a region", /region\(s\)/.test(how), how)
     values[NAME] = "Frischwasser"
     await publish(NAME, "Frischwasser")
     await settle()
-    await shows("a value under the strip leaves it whole", S(2), 0)
+    await showsOpen("a value under the strip leaves it whole")
   } finally {
     await browser.close()
     client.end()

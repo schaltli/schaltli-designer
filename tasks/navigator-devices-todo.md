@@ -97,7 +97,16 @@ release; hidden/start as Task 3. Generation 1.5. The HIL runs with
 `--e-ink`.
 
 **Acceptance criteria:**
-- [ ] `hil/navigator.js --device 192.168.1.118 --e-ink` green.
+- [x] `hil/navigator.js --device 192.168.1.118 --e-ink` green.
+
+Done 2026-10-08: 10 checks on the PaperS3, 0 px (e-ink is found from the
+DDF; the glass checks are the 4.3B's). The HIL now works out what each
+step must show from the navigator's rules rather than fixed numbers, so
+the same walk runs on both boards. Found on the way: a redraw of the same
+screen undid a scroll (both boards now follow screen changes only), and
+the entry icons were baked on a ground already reduced to the panel's
+greys - the designer mixes into the true colour first (lib/asset-export.ts).
+In test:all for both boards.
 
 **Dependencies:** Task 5 · **Scope:** M
 
