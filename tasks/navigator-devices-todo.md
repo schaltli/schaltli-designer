@@ -26,8 +26,12 @@ parsed (entries through `parseScreenObject`); `pagedScreen` /
 clipped, the screen's entry active.
 
 **Acceptance criteria:**
-- [ ] A project without navigators loads and draws as before.
-- [ ] Paging skips hidden screens, wraps, and a goto still reaches one (native).
+- [x] A project without navigators loads and draws as before.
+- [x] Paging skips hidden screens, wraps, and a goto still reaches one (native).
+
+Done 2026-10-08 (schaltli-firmware 8559388). renderScreen and
+renderScreenRegion draw the navigator themselves, last, cut to the region -
+so every board path, FollowSwipe's spare canvas included, gets it.
 
 **Verification:** `pio test -e native`; all envs build · **Dependencies:** Task 1 · **Scope:** M
 
@@ -39,7 +43,9 @@ next/previous and swipe paging skip hidden screens; boot starts on the
 first shown screen. `SYSTEM_GENERATION_MINOR` 5 on the 4.3B.
 
 **Acceptance criteria:**
-- [ ] The strip matches the designer's at 0 px; a tap on an entry opens it; a value region under the strip leaves it intact.
+- [x] The strip matches the designer's at 0 px; a tap on an entry opens it; a value region under the strip leaves it intact.
+
+Done 2026-10-08 (schaltli-firmware 1a76d13).
 
 **Verification:** build; HIL (Task 5) · **Dependencies:** Task 2 · **Scope:** M
 
@@ -51,7 +57,13 @@ the gesture: drag scrolls (region redraw), release still = tap. A live
 screen icon in an entry redraws its entry as a region.
 
 **Acceptance criteria:**
-- [ ] During a swipe the strip's pixels do not change; a swipe on the strip scrolls and never pages; a live entry follows its topic as regions.
+- [x] During a swipe the strip's pixels do not change; a swipe on the strip scrolls and never pages; a live entry follows its topic as regions.
+
+Done 2026-10-08 (schaltli-firmware, «the navigator stands still while
+swiping»). The test needed two things of the board: /panel.bmp (the glass,
+RgbPanel::front) and the swipe loop serving the web client - an injected
+swipe had followed its first step only, since no request was served until
+it gave up.
 
 **Verification:** build; HIL (Task 5) · **Dependencies:** Task 3 · **Scope:** M
 
@@ -64,7 +76,12 @@ strip during a swipe, the hidden screen skipped, the start screen; in
 `test:all`.
 
 **Acceptance criteria:**
-- [ ] Green on the 4.3B.
+- [x] Green on the 4.3B.
+
+Done 2026-10-08: 11 checks, every picture 0 px; in test:all. The project
+needs its swipes among `hardwareButtons`, or the export writes no swipe
+action. popup, live-value-redraw and placeholder-redraw still green on the
+new firmware.
 
 **Verification:** `node hil/navigator.js --device 192.168.1.117` · **Dependencies:** Task 4 · **Scope:** M
 

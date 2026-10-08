@@ -122,6 +122,9 @@ interface RenderTestRequest {
    * the editor's own preview keys it.
    */
   askedValues?: Record<string, string>
+  // How far a navigator on the screen is scrolled; absent, as far as shows
+  // the screen's own entry (docs/2026-10-08-navigator.md).
+  navigatorScroll?: number
   /**
    * "dark" draws an exported project the way a device does while the theme
    * is dark: every XDark in place of its X (lib/themes.ts darkVariantOf).
@@ -428,7 +431,7 @@ export default function TestRenderPage() {
         placeholders,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
-        navigator: { screens: project.screens, activeScreenId: screen.id },
+        navigator: { screens: project.screens, activeScreenId: screen.id, scroll: req.navigatorScroll },
       })
 
       if (quantize === "rgb565") {

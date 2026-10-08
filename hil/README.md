@@ -72,6 +72,15 @@ results are directly comparable:
   `combined:alarm` in `/api/topic-values` to what it must read, and every
   change after the first must be drawn as regions (`--full` drops that, for
   the PaperS3). Installs its own project; needs the dev server and the broker.
+- `navigator.js --device <ip> [--e-ink]` - the navigator
+  (docs/2026-10-08-navigator.md, generation 1.5): a master's strip over
+  twelve screens, S1 hidden; the board starts on S2, a tap opens an entry,
+  a drag along the strip scrolls it and pages nothing, a swipe beside it
+  pages while the strip's pixels on the glass (`/panel.bmp`) stay, paging
+  passes over the hidden screen, a live screen icon in an entry is redrawn
+  as a region, a value under the strip leaves it whole - each picture held
+  to the designer at 0 px. Installs its own project; needs the dev server
+  and the broker.
 - `popup.js --device <ip>` - popups (docs/2026-10-06-popup-screens.md) on
   a board that announces generation 1.3: a tap opens one, the screen
   underneath is set back (halved on an RGB board, left on e-ink), the

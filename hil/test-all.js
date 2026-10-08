@@ -526,6 +526,27 @@ async function main() {
     })
   }
 
+  // The navigator (docs/2026-10-08-navigator.md, generation 1.5): a master's
+  // strip over twelve screens, one hidden - start, tap, scroll, a swipe
+  // beside it with the strip standing still, hidden screens skipped, a live
+  // entry redrawn, 0 px. A board joins once it announces 1.5
+  // (tasks/navigator-devices-todo.md). Installs its own project.
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE]]) {
+    console.log(`
+=== ${name} navigator (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/navigator.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-navigator`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}`
+          : exitCode === 0
+            ? "the navigator: start, tap, scroll, still while swiping, hidden skipped, live entry, 0 px"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Popups (docs/2026-10-06-popup-screens.md): opened by a tap, the screen
   // underneath set back, the popup's controls working, closed by a tap beside
   // it, a swipe and its own button - each time back to the screen exactly.

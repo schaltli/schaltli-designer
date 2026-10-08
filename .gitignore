@@ -43,6 +43,7 @@ next-env.d.ts
 /hil/placeholder-redraw-report/
 /hil/popup-report/
 /hil/live-value-redraw-report/
+/hil/navigator-report/
 /hil/size-scale/out/
 /hil/layout/out/
 /hil/epaper/designer-preview/
