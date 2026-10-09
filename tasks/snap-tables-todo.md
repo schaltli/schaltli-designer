@@ -48,11 +48,19 @@ or one above the other, and the drop target for a point (empty cell, a
 column or row line, a free object's edge, nothing).
 
 **Acceptance criteria:**
-- [ ] A column inserted inside a 2-column span makes it 3 wide; one at its edge does not.
-- [ ] Taking out the last object of a row removes the row; of a two-object table returns the one left.
-- [ ] A span grows left over two empty cells and is refused over an occupied one.
-- [ ] After inserting a column at index 0, every other object keeps its absolute position.
-- [ ] The drop target over an occupied cell is the nearest of its four edges; over an empty cell the cell.
+- [x] A column inserted inside a 2-column span makes it 3 wide; one at its edge does not.
+- [x] Taking out the last object of a row removes the row; of a two-object table returns the one left.
+- [x] A span grows left over two empty cells and is refused over an occupied one.
+- [x] After inserting a column at index 0, every other object keeps its absolute position.
+- [x] The drop target over an occupied cell is the nearest of its four edges; over an empty cell the cell.
+
+Done 2026-10-09. In `lib/snap-table.ts`: `insertSnapColumn`/`insertSnapRow`,
+`placeInCell`, `setLineSize`, `takeOutOf` (taken and left objects come out
+absolute and as drawn, without cell, fill or align), `resizeSpan`,
+`keepInPlace`, `snapPair`, `snapTargetAt`, `freeSideAt`. Found by a test:
+shrinking a span must not remove the column it leaves empty - it would
+vanish under the pointer; only taking an object out tidies lines, as in the
+prototype.
 
 **Verification:** `npx playwright test e2e/snap-table-model.spec.ts`; typecheck.
 

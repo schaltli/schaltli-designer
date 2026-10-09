@@ -1,6 +1,26 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { arrangeSnapTable, isSnapTable, roleOf, snapTableGeometry, SNAP_GAP_MM, SNAP_EMPTY_MM } from "../lib/snap-table"
+import {
+  arrangeSnapTable,
+  freeSideAt,
+  insertSnapColumn,
+  insertSnapRow,
+  isSnapTable,
+  keepInPlace,
+  placeInCell,
+  resizeSpan,
+  roleOf,
+  setLineSize,
+  snapCellOf,
+  snapColumnsOf,
+  snapPair,
+  snapRowsOf,
+  snapTableGeometry,
+  snapTargetAt,
+  takeOutOf,
+  SNAP_GAP_MM,
+  SNAP_EMPTY_MM,
+} from "../lib/snap-table"
 
 // The table put together by snapping (docs/2026-10-09-snap-tables.md,
 // module snap-table-model): a flat grid, each object in the cell it names,
@@ -117,5 +137,121 @@ test.describe("snap table: layout", () => {
   test("only a table marked grid 1 is the new kind", () => {
     expect(isSnapTable(table([], [], []))).toBe(true)
     expect(isSnapTable({ id: "old", type: "table", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: { columns: [] } })).toBe(false)
+  })
+})
+
+// A laid-out 3×3 table of 40×20 boxes at 100,100, with a gap at row 1, column 1.
+function grid3(): ScreenObject {
+  const cells: ScreenObject[] = []
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) if (!(r === 1 && c === 1)) cells.push({ ...box(40, 20, { row: r, column: c }), id: `r${r}c${c}` })
+  return arrangeSnapTable({ ...table(cells, [{}, {}, {}], [{}, {}, {}]), x: 100, y: 100 }, SCALE)
+}
+const abs = (t: ScreenObject, id: string) => ({ x: t.x + child(t, id).x, y: t.y + child(t, id).y })
+const cellOfId = (t: ScreenObject, id: string) => snapCellOf(child(t, id))
+
+test.describe("snap table: editing", () => {
+  test("a column inserted inside a span widens it; one at its edge does not", () => {
+    const wide = box(100, 20, { row: 0, column: 0, columnSpan: 2 })
+    const t = table([wide, box(20, 20, { row: 0, column: 2 })], [{}, {}, {}], [{}])
+    expect(cellOfId(insertSnapColumn(t, 1), wide.id).columnSpan).toBe(3)
+    expect(cellOfId(insertSnapColumn(t, 2), wide.id).columnSpan).toBe(2)
+    const before = insertSnapColumn(t, 0)
+    expect(cellOfId(before, wide.id)).toMatchObject({ column: 1, columnSpan: 2 })
+    expect(snapColumnsOf(before)).toHaveLength(4)
+    // Rows the same way.
+    const tall = box(20, 60, { row: 0, column: 0, rowSpan: 2 })
+    const r = insertSnapRow(table([tall, box(20, 20, { row: 0, column: 1 }), box(20, 20, { row: 1, column: 1 })], [{}, {}], [{}, {}]), 1)
+    expect(cellOfId(r, tall.id).rowSpan).toBe(3)
+    expect(snapRowsOf(r)).toHaveLength(3)
+  })
+
+  test("a column width set by hand moves with its column when one is inserted before it", () => {
+    const t = setLineSize(table([box(20, 20, { row: 0, column: 0 }), box(20, 20, { row: 0, column: 1 })], [{}, {}], [{}]), "column", 1, 12)
+    expect(snapColumnsOf(insertSnapColumn(t, 0)).map((c) => c.mm)).toEqual([undefined, undefined, 12])
+    expect(snapColumnsOf(setLineSize(t, "column", 1, undefined))[1].mm).toBeUndefined()
+  })
+
+  test("taking out the last object of a row removes the row; it comes out where it stood, without its cell", () => {
+    const t = grid3()
+    const before = abs(t, "r1c0")
+    const first = takeOutOf(t, "r1c0")
+    expect(first.taken).toMatchObject({ id: "r1c0", ...before })
+    expect(first.taken.properties?.cell).toBeUndefined()
+    expect(snapRowsOf(first.table!)).toHaveLength(3)
+    const second = takeOutOf(arrangeSnapTable(first.table!, SCALE), "r1c2")
+    expect(snapRowsOf(second.table!)).toHaveLength(2)
+    expect(second.table!.children!.map((c) => snapCellOf(c).row).sort()).toEqual([0, 0, 0, 1, 1, 1])
+  })
+
+  test("a table left with one object dissolves into it, at its place", () => {
+    const pair = arrangeSnapTable({ ...table([{ ...box(40, 20, { row: 0, column: 0 }), id: "a" }, { ...box(40, 20, { row: 0, column: 1 }), id: "b" }], [{}, {}], [{}]), x: 50, y: 60 }, SCALE)
+    const where = abs(pair, "a")
+    const out = takeOutOf(pair, "b")
+    expect(out.table).toBeNull()
+    expect(out.left).toMatchObject({ id: "a", ...where })
+    expect(out.left!.properties?.cell).toBeUndefined()
+  })
+
+  test("a filled object taken out is as drawn again", () => {
+    const top = { ...box(100, 20, { row: 0, column: 0 }), id: "top" }
+    const filled = { ...box(20, 10, { row: 1, column: 0 }, { fill: { width: true } }), id: "filled" }
+    const out = takeOutOf(arrangeSnapTable(table([top, filled, { ...box(20, 10, { row: 1, column: 1 }), id: "x" }], [{}, {}], [{}, {}]), SCALE), "filled")
+    expect([out.taken.width, out.taken.height]).toEqual([20, 10])
+    expect(out.taken.properties?.fill).toBeUndefined()
+  })
+
+  test("a span grows left over empty cells, is refused over an occupied one, and shrinks back", () => {
+    const t = table([{ ...box(20, 20, { row: 0, column: 2 }), id: "s" }, { ...box(20, 20, { row: 1, column: 0 }), id: "o" }], [{}, {}, {}], [{}, {}])
+    const grown = resizeSpan(t, "s", "left", 0)!
+    expect(cellOfId(grown, "s")).toMatchObject({ column: 0, columnSpan: 3 })
+    expect(resizeSpan(grown, "s", "bottom", 1)).toBeNull()
+    expect(cellOfId(resizeSpan(grown, "s", "left", 2)!, "s")).toMatchObject({ column: 2, columnSpan: 1 })
+    expect(cellOfId(resizeSpan(t, "s", "bottom", 1)!, "s")).toMatchObject({ row: 0, rowSpan: 2 })
+    // Never past the table's edge.
+    expect(cellOfId(resizeSpan(t, "s", "right", 7)!, "s").columnSpan).toBe(1)
+  })
+
+  test("after inserting a column at the left, every other object keeps its place on the screen", () => {
+    const t = grid3()
+    const added = placeInCell(insertSnapColumn(t, 0), box(30, 20, {}), 0, 0)
+    const kept = keepInPlace(t, added, SCALE)
+    expect(abs(kept, "r0c0")).toEqual(abs(t, "r0c0"))
+    expect(abs(kept, "r2c2")).toEqual(abs(t, "r2c2"))
+  })
+
+  test("two free objects become a table, the one that stood keeping its place", () => {
+    const still: ScreenObject = { id: "still", type: "box", x: 200, y: 50, width: 40, height: 20, zIndex: 1, properties: {} }
+    const moving: ScreenObject = { id: "moving", type: "box", x: 0, y: 0, width: 30, height: 20, zIndex: 2, properties: {} }
+    const left = snapPair(still, moving, "left", SCALE)
+    expect(isSnapTable(left)).toBe(true)
+    expect(abs(left, "still")).toEqual({ x: 200, y: 50 })
+    expect([cellOfId(left, "moving").column, cellOfId(left, "still").column]).toEqual([0, 1])
+    const below = snapPair(still, moving, "bottom", SCALE)
+    expect([cellOfId(below, "still").row, cellOfId(below, "moving").row]).toEqual([0, 1])
+    expect(abs(below, "still")).toEqual({ x: 200, y: 50 })
+  })
+
+  test("the drop target: an empty cell, the nearest edge of an occupied one, a line outside, nothing far away", () => {
+    const t = grid3()
+    const g = snapTableGeometry(t, SCALE)
+    const at = (c: number, r: number, fx: number, fy: number) => ({ x: t.x + g.lefts[c] + fx * g.widths[c], y: t.y + g.tops[r] + fy * g.heights[r] })
+    const zone = 25
+    expect(snapTargetAt(t, at(1, 1, 0.5, 0.5), zone, SCALE)).toEqual({ kind: "cell", row: 1, column: 1 })
+    expect(snapTargetAt(t, at(0, 0, 0.1, 0.5), zone, SCALE)).toEqual({ kind: "column", at: 0, row: 0 })
+    expect(snapTargetAt(t, at(2, 0, 0.9, 0.5), zone, SCALE)).toEqual({ kind: "column", at: 3, row: 0 })
+    expect(snapTargetAt(t, at(0, 2, 0.5, 0.95), zone, SCALE)).toEqual({ kind: "row", at: 3, column: 0 })
+    expect(snapTargetAt(t, at(2, 2, 0.5, 0.05), zone, SCALE)).toEqual({ kind: "row", at: 2, column: 2 })
+    expect(snapTargetAt(t, { x: t.x - 10, y: t.y + 5 }, zone, SCALE)).toEqual({ kind: "column", at: 0, row: 0 })
+    expect(snapTargetAt(t, { x: t.x - 100, y: t.y + 5 }, zone, SCALE)).toBeNull()
+    // An object being dragged out leaves its cell free.
+    expect(snapTargetAt(t, at(0, 0, 0.5, 0.5), zone, SCALE, "r0c0")).toEqual({ kind: "cell", row: 0, column: 0 })
+  })
+
+  test("the side of a free object a drop goes to", () => {
+    const o: ScreenObject = { id: "o", type: "box", x: 100, y: 100, width: 40, height: 20, zIndex: 1, properties: {} }
+    expect(freeSideAt(o, { x: 95, y: 110 }, 25)).toBe("left")
+    expect(freeSideAt(o, { x: 145, y: 110 }, 25)).toBe("right")
+    expect(freeSideAt(o, { x: 120, y: 125 }, 25)).toBe("bottom")
+    expect(freeSideAt(o, { x: 120, y: 60 }, 25)).toBeNull()
   })
 })
