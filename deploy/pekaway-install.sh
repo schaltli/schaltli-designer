@@ -114,6 +114,13 @@ else
 fi
 
 # --- 3a. Install deps + build ---
+# The running designer stopped first, its socket too, so a visit or a device
+# fetching a deploy cannot start it again mid-build: it holds some 180 MB the
+# build needs, and on an update it was still running beside npm ci and next
+# build (tester Arno's Pi ran out of memory there, 2026-10-09). Nobody can use
+# it while its files are replaced anyway; section 5 starts the socket again.
+# On a first install there is nothing to stop.
+sudo systemctl stop "${SERVICE_NAME}.socket" "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true
 log "Installing dependencies (npm ci)..."
 npm ci
 log "Building..."

@@ -112,3 +112,15 @@ test("the Pi builds without the type check, and leaves nothing behind", () => {
   // Gone also when the build fails and set -e ends the script.
   expect(script.slice(wrapper, build)).toContain("trap 'rm -f \"$INSTALL_DIR/next.config.js\"' EXIT")
 })
+
+test("an update stops the running designer before it builds, and starts its socket after", () => {
+  // On an update the designer from before was still running beside npm ci
+  // and next build, some 180 MB the build needed (tester Arno, 2026-10-09).
+  const at = (line: string) => script.indexOf(`\n${line}\n`)
+  const stop = at('sudo systemctl stop "${SERVICE_NAME}.socket" "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true')
+  expect(stop, "the designer is not stopped before the build").toBeGreaterThan(0)
+  expect(stop).toBeLessThan(at("npm ci"))
+  expect(stop).toBeLessThan(at("npm run build"))
+  // And the socket listens again afterwards, so the next visit starts the new build.
+  expect(at('sudo systemctl restart "${SERVICE_NAME}.socket"')).toBeGreaterThan(at("npm run build"))
+})
