@@ -22,11 +22,13 @@ with it); no other upgrades in this commit.
 **Description:** decision 4, `hooks/use-mqtt-connection.ts`.
 
 **Acceptance criteria:**
-- [ ] http: `ws://<host>:9001`, as before.
-- [ ] https: `wss://<host>/mqtt`.
-- [ ] A URL set in the MQTT dialog still wins.
+- [x] http: `ws://<host>:9001`, as before.
+- [x] https: `wss://<host>/mqtt`.
+- [x] A URL set in the MQTT dialog still wins (e2e/mqtt-connection.spec.ts).
 
-**Verification:** a spec on `defaultWebsocketUrl()` (exported for it).
+Done 2026-10-09: `lib/broker-url.ts` `defaultBrokerUrl()`, used by the hook.
+
+**Verification:** `e2e/broker-url.spec.ts`.
 
 **Scope:** XS
 
