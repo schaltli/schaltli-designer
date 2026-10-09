@@ -1,0 +1,600 @@
+<title>Verbund-Prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Werkbank – links Palette, Screen, Inspector; rechts Gesten und Aufgaben. Farben nach dem Designer (neutral, Auswahl blau). */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --fg:#17191c; --muted:#62686f; --line:#e1e4e8;
+  --well:#c4c7cb; --sel:#3b82f6; --sel-fg:#ffffff; --ok:#16a34a;
+  --scr:#0f1620; --scr-fg:#e8edf3; --scr-line:rgba(232,237,243,.22); --scr-faint:rgba(232,237,243,.07);
+  --btn:#2f6fd6; --sw:#1f8a5b;
+  --font:"Geist",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111315; --panel:#1a1d20; --fg:#e9ebee; --muted:#9aa1a9; --line:#2c3035; --well:#2a2e33; --sel:#4f8ff7; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111315; --panel:#1a1d20; --fg:#e9ebee; --muted:#9aa1a9; --line:#2c3035; --well:#2a2e33; --sel:#4f8ff7; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.45;padding:20px 16px 32px}
+.wrapall{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;justify-content:space-between}
+h1{font-size:20px;font-weight:600;margin:0;text-wrap:balance}
+header p{margin:2px 0 0;color:var(--muted);max-width:66ch}
+header .eyebrow{font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 4px}
+.prose h2,.bar h2{font-size:15px;font-weight:600;margin:0 0 8px}
+.prose p{margin:0 0 10px;max-width:68ch}
+.prose ul{margin:0 0 10px;padding-left:18px;display:grid;gap:6px;max-width:68ch}
+.prose .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:8px 32px}
+.prose .qs{margin-bottom:18px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:-6px}
+.bar h2{margin:0}
+footer{color:var(--muted);font-size:13px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;padding:6px 12px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.pal{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pi{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:grab;user-select:none;touch-action:none;background:var(--bg)}
+.pi i{width:10px;height:10px;border-radius:2px;display:inline-block}
+#wrap{position:relative;width:100%;background:var(--well);border-radius:8px;overflow:hidden}
+#screen{position:absolute;left:0;top:0;width:480px;height:320px;transform-origin:0 0;background:var(--scr);color:var(--scr-fg);user-select:none;touch-action:none;overflow:hidden;--k:1}
+.insp{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:12px;min-height:34px}
+.crumbs{display:flex;flex-wrap:wrap;gap:2px;align-items:center;font-size:13px;flex:1;min-width:0}
+.crumbs button{border:0;background:transparent;color:var(--fg);font:inherit;padding:2px 6px;border-radius:4px;cursor:pointer}
+.crumbs button:hover{background:var(--bg)}
+.crumbs button.cur{background:var(--sel);color:var(--sel-fg)}
+.crumbs span{color:var(--muted)}
+.props{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--fg);font:inherit;font-size:13px;padding:4px 9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.mm{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.props input{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:150px}
+.log{margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted);display:grid;gap:2px;min-height:4.5em}
+.log div:first-child{color:var(--fg)}
+aside h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:500}
+aside dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:0}
+aside dt{font-family:var(--mono);font-size:12px;white-space:nowrap;padding-top:1px}
+aside dd{margin:0}
+aside .note{color:var(--muted);font-size:13px;margin:10px 0 0}
+aside ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+aside label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+aside input{margin-top:3px}
+aside .card+.card{margin-top:16px}
+
+/* Screen-Inhalt; --k hält Griffe und Linien unabhängig vom Zoom gleich dick */
+.c,.gbox,.gcell,.selbox,.hov,.ins,.cellok{position:absolute}
+.c{display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.c.label{justify-content:flex-start;color:var(--scr-fg);line-height:1}
+.c.button{background:var(--btn);color:#fff;border-radius:6px;font-weight:500}
+.c.switch{background:var(--sw);border-radius:999px}
+.c.switch b{position:absolute;border-radius:50%;background:#fff}
+.c.icon svg{width:100%;height:100%;stroke:var(--scr-fg);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ghost{opacity:.8;outline:calc(1.5px*var(--k)) dashed var(--sel);outline-offset:calc(2px*var(--k));pointer-events:none}
+.gbox{border:calc(1px*var(--k)) dashed var(--scr-faint);pointer-events:none}
+.gbox.on{border-color:var(--scr-line)}
+.gcell{border:calc(1px*var(--k)) dashed var(--scr-line);pointer-events:none}
+.hov{outline:calc(1px*var(--k)) solid var(--sel);pointer-events:none}
+.selbox{outline:calc(2px*var(--k)) solid var(--sel);outline-offset:calc(1px*var(--k));pointer-events:none}
+.chip{position:absolute;transform:translateY(calc(-100% - 4px*var(--k)));font-size:calc(11px*var(--k));line-height:1.3;padding:calc(2px*var(--k)) calc(7px*var(--k));background:var(--sel);color:var(--sel-fg);border-radius:calc(4px*var(--k));cursor:grab;white-space:nowrap;font-family:var(--font)}
+.ins{background:var(--sel);pointer-events:none;border-radius:calc(2px*var(--k))}
+.ins.faint{opacity:.3}
+.rtag{position:absolute;font-family:var(--mono);font-size:calc(9px*var(--k));color:var(--sel);text-align:center;pointer-events:none;white-space:nowrap}
+.newcol{position:absolute;transform:translateY(-50%);background:var(--sel);color:var(--sel-fg);font-size:calc(10px*var(--k));padding:calc(1px*var(--k)) calc(5px*var(--k));border-radius:calc(3px*var(--k));white-space:nowrap;pointer-events:none;font-family:var(--font)}
+.pi.row em{font-style:normal;font-family:var(--mono);font-size:12px}
+.cellok{background:rgba(22,163,74,.3);outline:calc(2px*var(--k)) solid var(--ok);pointer-events:none}
+</style>
+
+<div class="wrapall">
+  <header>
+    <div>
+      <p class="eyebrow">Schaltli Designer · Idee vom 9. Oktober 2026</p>
+      <h1>Verbund-Prototyp</h1>
+      <p>Ein Versuch, Controls ohne Tabellen in Reih und Glied zu bringen. Probier ihn aus und sag mir, was sich falsch anfühlt.</p>
+    </div>
+  </header>
+
+  <section class="card prose" aria-labelledby="h-worum">
+    <div class="cols">
+      <div>
+        <h2 id="h-worum">Worum es geht</h2>
+        <p>Im Designer richtest du Controls heute mit Tabellen aus. Das geht, ist aber mühsam: Ein Klick in eine Tabelle trifft immer das innerste Objekt, an die Tabelle selbst kommst du nur über einen kleinen Griff, und eine Tabelle in einer Tabelle lässt sich kaum verschieben oder in der Grösse ändern.</p>
+        <p>Dabei soll eine Tabelle gar kein Container sein. Schaltli arbeitet mit fixen Grössen, die Tabelle ist nur dafür da, dass alles bündig steht. Der Prototyp probiert darum etwas anderes: Statt eine Tabelle zu bauen, steckst du Controls zusammen wie Lego-Steine. Daraus entsteht ein Verbund.</p>
+      </div>
+      <div>
+        <h2>So funktioniert ein Verbund</h2>
+        <ul>
+          <li>Ein Verbund ist ein unsichtbares Raster ohne Verschachtelung. Jede Zelle hält genau ein Control.</li>
+          <li>Eine Spalte ist so breit wie ihr breitestes Control, eine Reihe so hoch wie ihr höchstes. Darum stehen die Switches immer untereinander, und wird ein Control grösser, rücken die Nachbarn.</li>
+          <li>Jede Spalte hat eine Rolle: Icon, Label oder Control. Eine ganze Reihe wie «Icon · Label · Switch» ordnet sich selbst ein. Fehlt ein Teil, bleibt seine Zelle leer.</li>
+          <li>Die Auswahl hat immer zwei Ebenen: Ein Klick wählt den Verbund, ein Doppelklick das Control darin, Esc geht zurück.</li>
+          <li>Auf einem Screen liegen beliebig viele Verbünde. Einen Griff, um einen Verbund grösser zu ziehen, gibt es nicht.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="bar">
+    <h2>Ausprobieren</h2>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+
+  <div class="main">
+    <section class="card">
+      <div class="pal" id="pal">
+        <span class="lbl">Add</span>
+        <span class="pi" data-kind="switch"><i style="background:var(--sw);border-radius:5px"></i>Switch</span>
+        <span class="pi" data-kind="button"><i style="background:var(--btn)"></i>Button</span>
+        <span class="pi" data-kind="label"><i style="border:1.5px solid var(--muted)"></i>Label</span>
+        <span class="pi" data-kind="icon"><i style="border:1.5px solid var(--muted);border-radius:50%"></i>Icon</span>
+      </div>
+      <div class="pal" id="pal2">
+        <span class="lbl">Add row</span>
+        <span class="pi row" data-tmpl="ils"><em>Icon · Label · Switch</em></span>
+        <span class="pi row" data-tmpl="ls"><em>Label · Switch</em></span>
+        <span class="pi row" data-tmpl="is"><em>Icon · Switch</em></span>
+        <span class="pi row" data-tmpl="lb"><em>Label · Button</em></span>
+      </div>
+      <div id="wrap"><div id="screen"></div></div>
+      <div class="insp">
+        <div class="crumbs" id="crumbs"></div>
+        <div class="props" id="props"></div>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <h2>Gesten</h2>
+        <dl>
+          <dt>Klick</dt><dd>wählt den ganzen Verbund (ein loses Control direkt)</dd>
+          <dt>Doppelklick</dt><dd>das Control im Verbund</dd>
+          <dt>Klick daneben</dt><dd>bleibt auf Control-Ebene im selben Verbund</dd>
+          <dt>Ctrl/⌘-Klick</dt><dd>direkt das Control</dd>
+          <dt>Esc</dt><dd>eine Ebene hoch; beim Ziehen: abbrechen</dd>
+          <dt>Enter</dt><dd>vom Verbund ins erste Control</dd>
+          <dt>Ziehen</dt><dd>Verbund verschieben bzw. Control herausziehen</dd>
+          <dt>blaue Linie</dt><dd>hier entsteht eine neue Spalte oder Reihe</dd>
+          <dt>grünes Feld</dt><dd>in diese leere Zelle</dd>
+          <dt>nichts</dt><dd>liegt frei auf dem Screen</dd>
+          <dt>Entf</dt><dd>löschen; leere Spalten und Reihen fallen weg</dd>
+          <dt>Add row</dt><dd>an einen Verbund ziehen: neue Reihe, jedes Teil landet in der Spalte seiner Rolle (Icon, Label, Control); fehlt eine, entsteht sie</dd>
+        </dl>
+        <p class="note">Ein Verbund hat keinen Grössengriff. Grösser wird er nur, wenn ein Control grösser wird (XS–L unten im Inspector) oder längeren Text bekommt.</p>
+      </div>
+      <div class="card">
+        <h2>Zum Ausprobieren</h2>
+        <ul>
+          <li><label><input type="checkbox" id="s1">Die drei losen Switches unten zu einer Reihe zusammenstecken</label></li>
+          <li><label><input type="checkbox" id="s2">Daraus eine Spalte machen und vor jeden Switch ein Label setzen; die Switches sollen bündig untereinander stehen</label></li>
+          <li><label><input type="checkbox" id="s3">«Wasserpumpe» auf L stellen oder umbenennen und zusehen, wie die Nachbarn rücken</label></li>
+          <li><label><input type="checkbox" id="s4">Den Lüfter-Switch herausziehen und frei ablegen</label></li>
+          <li><label><input type="checkbox" id="s5">Ein Icon zwischen Label und Switch einfügen</label></li>
+          <li><label><input type="checkbox" id="s6">Die Szenen-Buttons an eine andere Stelle schieben</label></li>
+          <li><label><input type="checkbox" id="s7">«Label · Switch» unter «Lüfter» ziehen: Der Switch soll unter den anderen Switches stehen, die Icon-Zelle bleibt leer</label></li>
+          <li><label><input type="checkbox" id="s8">«Label · Button» an die Szenen-Buttons ziehen: Dort entsteht eine Label-Spalte</label></li>
+          <li><label><input type="checkbox" id="s9">«Icon · Label · Switch» frei ablegen: Das ist der Anfang eines neuen Verbunds</label></li>
+        </ul>
+        <p class="note">Achte darauf, wo etwas landet, bevor du loslässt. Am besten geht es am Computer mit der Maus.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="card prose" aria-labelledby="h-fragen">
+    <h2 id="h-fragen">Was ich von dir wissen möchte</h2>
+    <ul class="qs">
+      <li>Landet ein Control dort, wo du es erwartest, wenn du es an ein anderes ziehst? Vor allem: neben oder unter?</li>
+      <li>Passt es, dass beim Herausziehen eine Lücke bleibt und erst eine ganz leere Spalte oder Reihe verschwindet?</li>
+      <li>Fehlt dir etwas, das du heute mit verschachtelten Tabellen machst?</li>
+      <li>Brauchst du Controls über zwei Spalten oder Reihen, zum Beispiel einen grossen Gauge neben zwei Switches?</li>
+      <li>Hast du Reihen mit zwei Controls nebeneinander, etwa «Licht innen | aussen»?</li>
+    </ul>
+    <div class="cols">
+      <div>
+        <h2>Bewusst nicht</h2>
+        <p>Keine Verbünde in Verbünden: Verschachtelt wurde bisher nur, um mehrere Controls in eine Zelle zu bekommen, und das übernehmen jetzt die Spalten. Kein responsives Layout und keine Griffe zum Grösserziehen, weil Schaltli mit fixen Grössen arbeitet. Kein gemeinsames Raster über den ganzen Screen, weil die Grössen XS bis L je nach Art des Controls verschieden viele Millimeter haben.</p>
+      </div>
+      <div>
+        <h2>Noch offen</h2>
+        <p>Bausteine aus der Discovery sollen als dieselbe Reihe kommen, nur schon mit Topics verbunden. Ein grosses Bedienfeld wie das der Heizung wäre ein eigener Verbund neben den anderen. Bestehende Projekte müssten umgewandelt werden, Tabellen ohne Verschachtelung zuerst.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>Nur eine Skizze im Browser: Nichts davon ist im Designer, und nichts wird gespeichert. «Reset» stellt den Anfang wieder her.</footer>
+</div>
+
+<script>
+const SW=480,SH=320,GAP=6,M=24;
+const HPX={control:{xs:25,s:30,m:40,l:55},icon:{xs:15,s:20,m:30,l:45},font:{xs:11,s:13,m:16,l:21}};
+const MM={control:{xs:5,s:6,m:8,l:11},icon:{xs:3,s:4,m:6,l:9},font:{xs:'2,0',s:'3,0',m:'3,0',l:'4,5'}};
+const KIND={switch:'Switch',button:'Button',label:'Label',icon:'Icon'};
+const GLYPH={
+  bulb:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+  drop:'<path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/>',
+  fan:'<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 4-2 7M14 12c4 0 7 1 7 4s-4 2-7-2M12 14c0 4-1 7-4 7s-2-4 2-7M10 12c-4 0-7-1-7-4s4-2 7 2"/>',
+  flame:'<path d="M12 3c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 1.5 1 2 2.5 2 4 1-2 1-5 1-8z"/>',
+  plug:'<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v5"/>'
+};
+const ROLE={icon:'icon',label:'label',switch:'control',button:'control'};
+const RANK={icon:0,label:1,control:2};
+const RNAME={icon:'Icon',label:'Label',control:'Control'};
+const TMPL={ils:['icon','label','switch'],ls:['label','switch'],is:['icon','switch'],lb:['label','button']};
+const $=s=>document.querySelector(s);
+const scr=$('#screen'),wrap=$('#wrap');
+let items,nid,gcount,sel,drag=null,hover=null,logs=[],scale=1,lastDown={t:0,x:0,y:0},LY={},R={},snap=null,crumbs=[],inspKey='';
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const inR=(r,p)=>!!r&&p.x>=r.x&&p.x<r.x+r.w&&p.y>=r.y&&p.y<r.y+r.h;
+const box=r=>`left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
+const same=(a,b)=>!!a&&!!b&&a.kind===b.kind&&a.id===b.id;
+function say(m){logs=[m,...logs].slice(0,4)}
+
+/* ---------- Modell ---------- */
+function ctrl(kind,size='m',text,glyph){return{id:'c'+(nid++),type:'ctrl',kind,size,text:text??({switch:'',button:'Button',label:'Text',icon:''}[kind]),glyph:glyph||'plug'}}
+function group(x,y,grid){return{id:'g'+(nid++),type:'group',name:'Group '+(++gcount),x,y,grid}}
+function free(c,x,y){c.x=x;c.y=y;return c}
+function reset(){
+  nid=1;gcount=0;sel=null;drag=null;snap=null;
+  const row=(g,t)=>[ctrl('icon','s','',g),ctrl('label','m',t),ctrl('switch','m')];
+  items=[
+    group(16,16,[row('bulb','Licht Wohnraum'),row('drop','Wasserpumpe'),row('fan','Lüfter')]),
+    group(330,16,[[ctrl('button','m','Szene A')],[ctrl('button','m','Szene B')],[ctrl('button','m','Alles aus')]]),
+    free(ctrl('switch','m'),40,250),free(ctrl('switch','m'),130,250),free(ctrl('switch','m'),220,250),
+    free(ctrl('label','m','Heizung'),320,262),free(ctrl('icon','m','','flame'),420,255)
+  ];
+  logs=[];say('Bereit. Die drei losen Switches unten warten aufs Zusammenstecken.');render();
+}
+function find(id){
+  for(const it of items){
+    if(it.type==='ctrl'){if(it.id===id)return{c:it}}
+    else for(let r=0;r<it.grid.length;r++)for(let c=0;c<it.grid[r].length;c++)if(it.grid[r][c]&&it.grid[r][c].id===id)return{c:it.grid[r][c],g:it,r,col:c};
+  }return null;
+}
+const groupOf=id=>{const f=find(id);return f?f.g:null};
+const ctrlsOf=g=>g.grid.flat().filter(Boolean);
+
+/* ---------- Masse & Layout ---------- */
+const mctx=document.createElement('canvas').getContext('2d');
+function tw(t,f,w=500){mctx.font=`${w} ${f}px Geist, system-ui, sans-serif`;return Math.ceil(mctx.measureText(t||' ').width)}
+function dims(c){
+  if(c.kind==='label'){const f=HPX.font[c.size];return{w:tw(c.text,f,600),h:Math.round(f*1.3)}}
+  if(c.kind==='icon'){const h=HPX.icon[c.size];return{w:h,h}}
+  const h=HPX.control[c.size];
+  if(c.kind==='switch')return{w:Math.round(h*1.75),h};
+  return{w:tw(c.text,Math.round(h*.4))+Math.round(h*.9),h};
+}
+function gl(g){
+  const rows=g.grid.length,cols=g.grid[0].length,cw=Array(cols).fill(0),rh=Array(rows).fill(0);
+  g.grid.forEach((row,r)=>row.forEach((c,ci)=>{if(c){const d=dims(c);cw[ci]=Math.max(cw[ci],d.w);rh[r]=Math.max(rh[r],d.h)}}));
+  for(let i=0;i<cols;i++)if(!cw[i])cw[i]=20;
+  for(let i=0;i<rows;i++)if(!rh[i])rh[i]=20;
+  const cx=[g.x],cy=[g.y];
+  for(let i=1;i<cols;i++)cx.push(cx[i-1]+cw[i-1]+GAP);
+  for(let i=1;i<rows;i++)cy.push(cy[i-1]+rh[i-1]+GAP);
+  return{cx,cy,cw,rh,rect:{x:g.x,y:g.y,w:cx[cols-1]+cw[cols-1]-g.x,h:cy[rows-1]+rh[rows-1]-g.y}};
+}
+const cellRect=(L,r,c)=>({x:L.cx[c],y:L.cy[r],w:L.cw[c],h:L.rh[r]});
+function inCell(cell,c){const d=dims(c);return{x:c.kind==='label'?cell.x:cell.x+Math.round((cell.w-d.w)/2),y:cell.y+Math.round((cell.h-d.h)/2),w:d.w,h:d.h}}
+function rectOf(id){const f=find(id);if(!f)return null;if(!f.g){const d=dims(f.c);return{x:f.c.x,y:f.c.y,...d}}const L=gl(f.g);return inCell(cellRect(L,f.r,f.col),f.c)}
+function slot(cs,ws,v){let i=0;while(i<cs.length-1&&v>=cs[i+1]-GAP/2)i++;return i}
+// Hält ein bestehendes Control an seinem Platz, während der Verbund um es herum wächst oder schrumpft.
+function keep(g,id,before){if(!id||!before)return;const now=rectOf(id);if(!now)return;g.x+=before.x-now.x;g.y+=before.y-now.y}
+function anchor(g,not){const c=ctrlsOf(g).find(c=>c!==not);return c?{id:c.id,r:rectOf(c.id)}:null}
+
+/* ---------- Herausnehmen, aufräumen, einfügen ---------- */
+function tidy(g){
+  const a=anchor(g);
+  g.grid=g.grid.filter(row=>row.some(Boolean));
+  if(!g.grid.length){items=items.filter(x=>x!==g);return}
+  const keepCols=[...g.grid[0].keys()].filter(c=>g.grid.some(row=>row[c]));
+  g.grid=g.grid.map(row=>keepCols.map(c=>row[c]));
+  if(a)keep(g,a.id,a.r);
+  const all=ctrlsOf(g);
+  if(all.length===1){const c=all[0],r=rectOf(c.id);items[items.indexOf(g)]=free(c,r.x,r.y);say(`${g.name} hat nur noch ein Control und löst sich auf.`);if(sel&&sel.id===g.id)sel={kind:'ctrl',id:c.id}}
+}
+function lift(id){
+  const f=find(id);
+  if(!f.g){items=items.filter(x=>x!==f.c);return f.c}
+  f.g.grid[f.r][f.col]=null;tidy(f.g);return f.c;
+}
+function target(p){
+  if(p.x<0||p.y<0||p.x>SW||p.y>SH)return{type:'none'};
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(it.type==='group'){
+      const L=gl(it),R0=L.rect;
+      if(!inR({x:R0.x-M,y:R0.y-M,w:R0.w+2*M,h:R0.h+2*M},p))continue;
+      const inX=p.x>=R0.x&&p.x<R0.x+R0.w,inY=p.y>=R0.y&&p.y<R0.y+R0.h;
+      const rows=it.grid.length,cols=it.grid[0].length,c=slot(L.cx,L.cw,p.x),r=slot(L.cy,L.rh,p.y);
+      if(!inX&&inY)return{type:'col',g:it,i:p.x<R0.x?0:cols,r};
+      if(inX&&!inY)return{type:'row',g:it,j:p.y<R0.y?0:rows,c};
+      if(!inX&&!inY)continue;
+      if(!it.grid[r][c])return{type:'cell',g:it,r,c};
+      const cr=cellRect(L,r,c),fx=clamp((p.x-cr.x)/cr.w,0,1),fy=clamp((p.y-cr.y)/cr.h,0,1),m=Math.min(fx,1-fx,fy,1-fy);
+      if(m===fx)return{type:'col',g:it,i:c,r};
+      if(m===1-fx)return{type:'col',g:it,i:c+1,r};
+      if(m===fy)return{type:'row',g:it,j:r,c};
+      return{type:'row',g:it,j:r+1,c};
+    }else{
+      const fr=rectOf(it.id);
+      if(!inR({x:fr.x-M,y:fr.y-M,w:fr.w+2*M,h:fr.h+2*M},p))continue;
+      const fx=(p.x-fr.x)/fr.w,fy=(p.y-fr.y)/fr.h;
+      const d={l:fx,r:1-fx,t:fy,b:1-fy};
+      const side=Object.keys(d).reduce((a,b)=>d[b]<d[a]?b:a);
+      return{type:'pair',f:it,side};
+    }
+  }
+  return{type:'free'};
+}
+function apply(t,c){
+  if(t.type==='cell'){t.g.grid[t.r][t.c]=c;say(`→ leere Zelle in ${t.g.name}.`)}
+  if(t.type==='col'){const a=anchor(t.g);t.g.grid.forEach((row,r)=>row.splice(t.i,0,r===t.r?c:null));keep(t.g,a&&a.id,a&&a.r);say(`→ neue Spalte in ${t.g.name}; die Nachbarn rücken.`)}
+  if(t.type==='row'){const a=anchor(t.g);const row=Array(t.g.grid[0].length).fill(null);row[t.c]=c;t.g.grid.splice(t.j,0,row);keep(t.g,a&&a.id,a&&a.r);say(`→ neue Reihe in ${t.g.name}; die Nachbarn rücken.`)}
+  if(t.type==='pair'){
+    const f=t.f,before=rectOf(f.id),grid={l:[[c,f]],r:[[f,c]],t:[[c],[f]],b:[[f],[c]]}[t.side];
+    const g=group(before.x,before.y,grid);items[items.indexOf(f)]=g;keep(g,f.id,before);
+    say(`Eingerastet: neuer Verbund ${g.name}.`);
+  }
+  if(t.type==='free'){c.x=Math.round(clamp(drag.p.x-drag.off.x,0,SW-20));c.y=Math.round(clamp(drag.p.y-drag.off.y,0,SH-20));items.push(c);say('Liegt frei auf dem Screen.')}
+  sel={kind:'ctrl',id:c.id};
+}
+/* ---------- Reihen-Vorlagen: jedes Teil in die Spalte seiner Rolle ---------- */
+function colRoles(g){return g.grid[0].map((_,c)=>{for(const row of g.grid){const x=row[c];if(x)return ROLE[x.kind]}return null})}
+function makeRow(key){return TMPL[key].map(k=>ctrl(k,k==='icon'?'s':'m',k==='label'?'Label':undefined,'plug'))}
+function rowDims(parts){const ds=parts.map(dims);return{ds,w:ds.reduce((a,d)=>a+d.w,0)+GAP*(ds.length-1),h:Math.max(...ds.map(d=>d.h))}}
+// Welche bestehende Spalte jedes Teil bekommt und wo neue Spalten entstehen.
+function plan(g,parts){
+  const roles=colRoles(g),used={},match=[],inserts=[];
+  let after=0;
+  parts.forEach((p,i)=>{
+    const r=ROLE[p.kind],k=used[r]=(used[r]||0);used[r]++;
+    const idxs=roles.map((x,c)=>x===r?c:-1).filter(c=>c>=0);
+    if(k<idxs.length&&idxs[k]>=after){match.push({i,c:idxs[k]});after=idxs[k]+1;return}
+    let at=0;roles.forEach((x,c)=>{if(x!==null&&RANK[x]<=RANK[r])at=c+1});
+    at=Math.max(at,after);inserts.push({i,at,role:r});after=at;
+  });
+  return{match,inserts};
+}
+function insertRow(g,j,parts){
+  const a=anchor(g),pl=plan(g,parts);
+  const row=Array(g.grid[0].length).fill(null);
+  for(const m of pl.match)row[m.c]=parts[m.i];
+  [...pl.inserts].sort((x,y)=>y.at-x.at||y.i-x.i).forEach(n=>{g.grid.forEach(r=>r.splice(n.at,0,null));row.splice(n.at,0,parts[n.i])});
+  g.grid.splice(j,0,row);keep(g,a&&a.id,a&&a.r);
+  return pl;
+}
+function rowTarget(p){
+  if(p.x<0||p.y<0||p.x>SW||p.y>SH)return{type:'none'};
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];if(it.type!=='group')continue;
+    const L=gl(it),R0=L.rect;
+    if(!inR({x:R0.x-M,y:R0.y-M,w:R0.w+2*M,h:R0.h+2*M},p))continue;
+    const bs=L.cy.map(y=>y-GAP/2);bs.push(R0.y+R0.h+GAP/2);
+    let j=0;bs.forEach((b,k)=>{if(Math.abs(p.y-b)<Math.abs(p.y-bs[j]))j=k});
+    return{type:'trow',g:it,j,y:bs[j]};
+  }
+  return{type:'tfree'};
+}
+function clone(){return JSON.parse(JSON.stringify({items,nid,gcount}))}
+function restore(s){items=s.items;nid=s.nid;gcount=s.gcount}
+
+/* ---------- Auswahl ---------- */
+function hitAt(p){
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(it.type==='ctrl'){if(inR(R[it.id],p))return{ctrl:it}}
+    else{const L=LY[it.id];if(inR(L.rect,p)){const r=slot(L.cy,L.rh,p.y),c=slot(L.cx,L.cw,p.x);return{g:it,ctrl:it.grid[r][c]}}}
+  }return null;
+}
+function pick(p,deep){
+  const h=hitAt(p);if(!h)return null;
+  if(!h.g)return{kind:'ctrl',id:h.ctrl.id};
+  const G={kind:'group',id:h.g.id},C=h.ctrl?{kind:'ctrl',id:h.ctrl.id}:G;
+  if(deep)return C;
+  if(sel&&sel.kind==='ctrl'&&groupOf(sel.id)===h.g)return C;
+  return G;
+}
+function deeper(p){const h=hitAt(p);if(h&&h.g&&sel&&sel.kind==='group'&&sel.id===h.g.id&&h.ctrl)return{kind:'ctrl',id:h.ctrl.id};return pick(p)}
+function up(){if(!sel)return null;if(sel.kind==='group')return null;const g=groupOf(sel.id);return g?{kind:'group',id:g.id}:null}
+const itemById=id=>items.find(x=>x.id===id);
+function selName(s){if(!s)return'nichts';if(s.kind==='group')return itemById(s.id).name;const c=find(s.id).c;return KIND[c.kind]+(c.text?` «${c.text}»`:'')}
+
+/* ---------- Zeichnen ---------- */
+function ctrlHTML(c,r,cls=''){
+  const k=`c ${c.kind} ${cls}`;
+  if(c.kind==='label')return`<div class="${k}" style="${box(r)};font-size:${HPX.font[c.size]}px;font-weight:600">${esc(c.text)}</div>`;
+  if(c.kind==='icon')return`<div class="${k}" style="${box(r)}"><svg viewBox="0 0 24 24">${GLYPH[c.glyph]||GLYPH.plug}</svg></div>`;
+  if(c.kind==='switch'){const d=r.h-6;return`<div class="${k}" style="${box(r)}"><b style="width:${d}px;height:${d}px;right:3px;top:3px"></b></div>`}
+  return`<div class="${k}" style="${box(r)};font-size:${Math.round(r.h*.4)}px">${esc(c.text)}</div>`;
+}
+function related(g){
+  if(sel&&((sel.kind==='group'&&sel.id===g.id)||(sel.kind==='ctrl'&&groupOf(sel.id)===g)))return true;
+  if(drag&&drag.moved&&snap&&snap.g===g)return true;
+  return false;
+}
+function render(){
+  LY={};R={};
+  for(const it of items){
+    if(it.type==='group'){const L=gl(it);LY[it.id]=L;it.grid.forEach((row,r)=>row.forEach((c,ci)=>{if(c)R[c.id]=inCell(cellRect(L,r,ci),c)}))}
+    else R[it.id]={x:it.x,y:it.y,...dims(it)};
+  }
+  let h='';
+  for(const it of items){
+    if(it.type==='group'){
+      const L=LY[it.id],on=related(it);
+      h+=`<div class="gbox${on?' on':''}" style="${box({x:L.rect.x-3,y:L.rect.y-3,w:L.rect.w+6,h:L.rect.h+6})}"></div>`;
+      if(on){it.grid.forEach((row,r)=>row.forEach((_,c)=>{h+=`<div class="gcell" style="${box(cellRect(L,r,c))}"></div>`}));
+        colRoles(it).forEach((ro,c)=>{if(ro)h+=`<div class="rtag" style="left:${L.cx[c]}px;width:${L.cw[c]}px;top:calc(${L.rect.y+L.rect.h}px + 5px*var(--k))">${RNAME[ro]}</div>`})}
+      it.grid.forEach(row=>row.forEach(c=>{if(c)h+=ctrlHTML(c,R[c.id])}));
+    }else h+=ctrlHTML(it,R[it.id]);
+  }
+  scr.innerHTML=h+overlay();
+  side();
+}
+function overlay(){
+  let s='';
+  if(drag&&drag.moved&&drag.parts){
+    const t=snap;
+    if(t&&t.type==='trow'){const L=LY[t.g.id],R0=L.rect,pl=plan(t.g,drag.parts);
+      s+=`<div class="ins faint" style="top:calc(${t.y}px - 1.5px*var(--k));left:${R0.x}px;height:calc(3px*var(--k));width:${R0.w}px"></div>`;
+      for(const m of pl.match)s+=`<div class="ins" style="top:calc(${t.y}px - 2px*var(--k));left:${L.cx[m.c]}px;height:calc(4px*var(--k));width:${L.cw[m.c]}px"></div>`;
+      if(pl.inserts.length)s+=`<div class="newcol" style="left:calc(${R0.x+R0.w}px + 6px*var(--k));top:${t.y}px">+ ${pl.inserts.map(n=>RNAME[n.role]).join(', ')}-Spalte</div>`;
+    }
+    const rd=rowDims(drag.parts);let x=drag.p.x-rd.w/2;const y=drag.p.y-rd.h/2;
+    drag.parts.forEach((c,i)=>{const d=rd.ds[i];s+=ctrlHTML(c,{x,y:y+(rd.h-d.h)/2,...d},'ghost');x+=d.w+GAP});
+    return s;
+  }
+  if(drag&&drag.moved&&drag.c){
+    const t=snap;
+    if(t&&t.type==='cell')s+=`<div class="cellok" style="${box(cellRect(LY[t.g.id],t.r,t.c))}"></div>`;
+    if(t&&t.type==='col'){const L=LY[t.g.id],cols=t.g.grid[0].length,R0=L.rect;
+      const x=t.i===0?R0.x-GAP/2:t.i===cols?R0.x+R0.w+GAP/2:L.cx[t.i]-GAP/2;const r=clamp(t.r,0,t.g.grid.length-1);
+      s+=`<div class="ins faint" style="left:calc(${x}px - 1.5px*var(--k));top:${R0.y}px;width:calc(3px*var(--k));height:${R0.h}px"></div>`;
+      s+=`<div class="ins" style="left:calc(${x}px - 2px*var(--k));top:${L.cy[r]}px;width:calc(4px*var(--k));height:${L.rh[r]}px"></div>`}
+    if(t&&t.type==='row'){const L=LY[t.g.id],rows=t.g.grid.length,R0=L.rect;
+      const y=t.j===0?R0.y-GAP/2:t.j===rows?R0.y+R0.h+GAP/2:L.cy[t.j]-GAP/2;const c=clamp(t.c,0,t.g.grid[0].length-1);
+      s+=`<div class="ins faint" style="top:calc(${y}px - 1.5px*var(--k));left:${R0.x}px;height:calc(3px*var(--k));width:${R0.w}px"></div>`;
+      s+=`<div class="ins" style="top:calc(${y}px - 2px*var(--k));left:${L.cx[c]}px;height:calc(4px*var(--k));width:${L.cw[c]}px"></div>`}
+    if(t&&t.type==='pair'){const r=R[t.f.id],o=GAP/2;
+      const b={l:{x:r.x-o-2,y:r.y,w:4,h:r.h},r:{x:r.x+r.w+o-2,y:r.y,w:4,h:r.h},t:{x:r.x,y:r.y-o-2,w:r.w,h:4},b:{x:r.x,y:r.y+r.h+o-2,w:r.w,h:4}}[t.side];
+      s+=`<div class="ins" style="${box(b)}"></div>`}
+    const d=dims(drag.c);s+=ctrlHTML(drag.c,{x:drag.p.x-drag.off.x,y:drag.p.y-drag.off.y,...d},'ghost');
+    return s;
+  }
+  if(!drag&&hover){const hv=pick(hover.p,hover.deep);if(hv&&!same(hv,sel))s+=`<div class="hov" style="${box(selRect(hv))}"></div>`}
+  if(sel&&!(drag&&drag.moved&&drag.kind==='group')){
+    const r=selRect(sel);
+    s+=`<div class="selbox" style="${box(r)}"></div>`;
+    let label;
+    if(sel.kind==='group'){const g=itemById(sel.id);label=`${g.name} · ${g.grid[0].length}×${g.grid.length}`}
+    else{const c=find(sel.id).c;label=`${KIND[c.kind]} · ${c.size.toUpperCase()}`}
+    s+=`<div class="chip" data-h="chip" style="left:${r.x}px;top:${r.y}px">${esc(label)}</div>`;
+  }
+  return s;
+}
+function selRect(s){if(s.kind==='group')return LY[s.id].rect;return R[s.id]}
+function side(){
+  crumbs=[{label:'Screen',s:null}];
+  if(sel){if(sel.kind==='group')crumbs.push({label:itemById(sel.id).name,s:sel});
+    else{const g=groupOf(sel.id);if(g)crumbs.push({label:g.name,s:{kind:'group',id:g.id}});crumbs.push({label:selName(sel),s:sel})}}
+  $('#crumbs').innerHTML=crumbs.map((c,i)=>`${i?'<span>›</span>':''}<button data-c="${i}" class="${i===crumbs.length-1?'cur':''}">${esc(c.label)}</button>`).join('');
+  $('#log').innerHTML=logs.map(l=>`<div>${esc(l)}</div>`).join('');
+  const key=sel?sel.kind+sel.id+(sel.kind==='ctrl'?find(sel.id).c.size:''):'';
+  if(key===inspKey)return;inspKey=key;
+  let h='';
+  if(sel&&sel.kind==='ctrl'){const c=find(sel.id).c;const unit=c.kind==='icon'?'icon':c.kind==='label'?'font':'control';
+    h+=`<span class="lbl">Size</span><div class="seg" role="group" aria-label="Size">${['xs','s','m','l'].map(z=>`<button data-size="${z}" aria-pressed="${c.size===z}">${z.toUpperCase()}</button>`).join('')}</div><span class="mm">${MM[unit][c.size]} mm</span>`;
+    if(c.kind==='label'||c.kind==='button')h+=`<input id="txt" aria-label="Text" value="${esc(c.text)}">`;
+  }
+  if(sel)h+=`<button class="btn" id="del">Delete</button>`;
+  $('#props').innerHTML=h;
+}
+
+/* ---------- Eingabe ---------- */
+function pt(e){const r=scr.getBoundingClientRect();return{x:(e.clientX-r.left)/scale,y:(e.clientY-r.top)/scale}}
+function arm(s,p){
+  if(!s)return;
+  if(s.kind==='group'){const g=itemById(s.id);drag={kind:'group',id:g.id,start:p,off:{x:p.x-g.x,y:p.y-g.y},moved:false}}
+  else drag={kind:'ctrl',id:s.id,start:p,moved:false};
+}
+scr.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return;e.preventDefault();
+  const p=pt(e);
+  if(e.target.closest('[data-h="chip"]')){arm(sel,p);return}
+  const now=performance.now(),dbl=now-lastDown.t<350&&Math.hypot(p.x-lastDown.x,p.y-lastDown.y)<8;
+  lastDown={t:dbl?0:now,x:p.x,y:p.y};
+  const deep=e.ctrlKey||e.metaKey,prev=sel;
+  const next=dbl?deeper(p):pick(p,deep);
+  sel=next;
+  if(!same(prev,next))say(`${dbl?'Doppelklick':deep?'Ctrl-Klick':'Klick'}: ${selName(next)}`);
+  arm(next,p);render();
+});
+$('#pal').addEventListener('pointerdown',e=>{
+  const it=e.target.closest('.pi');if(!it)return;e.preventDefault();
+  const c=ctrl(it.dataset.kind,'m',undefined,it.dataset.kind==='icon'?'plug':undefined),d=dims(c);
+  drag={kind:'new',c,start:pt(e),off:{x:d.w/2,y:d.h/2},moved:false,client:{x:e.clientX,y:e.clientY}};
+});
+$('#pal2').addEventListener('pointerdown',e=>{
+  const it=e.target.closest('.pi');if(!it)return;e.preventDefault();
+  drag={kind:'tmpl',key:it.dataset.tmpl,parts:makeRow(it.dataset.tmpl),start:pt(e),moved:false,client:{x:e.clientX,y:e.clientY}};
+});
+window.addEventListener('pointermove',e=>{
+  const p=pt(e);
+  if(drag){
+    if(!drag.moved){
+      const dist=drag.kind==='new'||drag.kind==='tmpl'?Math.hypot(e.clientX-drag.client.x,e.clientY-drag.client.y):Math.hypot(p.x-drag.start.x,p.y-drag.start.y)*scale;
+      if(dist<5)return;
+      drag.moved=true;drag.snapshot=clone();
+      if(drag.kind==='ctrl'){const r=rectOf(drag.id);drag.off={x:drag.start.x-r.x,y:drag.start.y-r.y};drag.prevSel=sel;sel=null;drag.c=lift(drag.id)}
+    }
+    drag.p=p;
+    if(drag.kind==='group'){const g=itemById(drag.id);g.x=Math.round(clamp(p.x-drag.off.x,-40,SW-20));g.y=Math.round(clamp(p.y-drag.off.y,-20,SH-20))}
+    else snap=drag.kind==='tmpl'?rowTarget(p):target(p);
+    render();return;
+  }
+  const inside=p.x>=0&&p.y>=0&&p.x<=SW&&p.y<=SH,nh=inside?{p,deep:e.ctrlKey||e.metaKey}:null;
+  if(nh||hover){hover=nh;render()}
+});
+window.addEventListener('pointerup',()=>{
+  if(!drag)return;
+  const d=drag;
+  if(d.kind==='tmpl'){
+    const t=snap,parts=d.parts;
+    if(d.moved&&t&&t.type==='trow'){const pl=insertRow(t.g,t.j,parts);sel={kind:'group',id:t.g.id};
+      say(`Reihe in ${t.g.name} eingefügt${pl.inserts.length?`; neue ${pl.inserts.map(n=>RNAME[n.role]).join(', ')}-Spalte`:''}${t.g.grid[t.j].some(x=>x===null)?'; fehlende Teile bleiben leere Zellen':''}.`)}
+    else if(!d.moved||(t&&t.type==='tfree')){const rd=rowDims(parts);const at=d.moved?{x:d.p.x-rd.w/2,y:d.p.y-rd.h/2}:{x:(SW-rd.w)/2,y:SH-rd.h-16};
+      const g=group(Math.round(clamp(at.x,0,SW-rd.w)),Math.round(clamp(at.y,0,SH-rd.h)),[parts]);items.push(g);sel={kind:'group',id:g.id};say(`Neuer Verbund ${g.name} aus einer Reihe.`)}
+    else say('Ausserhalb des Screens: nichts eingefügt.');
+    drag=null;snap=null;render();return;
+  }
+  if(d.moved&&d.c){
+    if(!snap||snap.type==='none'){restore(d.snapshot);if(d.prevSel)sel=d.prevSel;if(d.kind==='new')say('Ausserhalb des Screens: nichts eingefügt.');else say('Ausserhalb des Screens: zurück an den alten Platz.')}
+    else apply(snap,d.c);
+  }else if(d.moved&&d.kind==='group')say(`${itemById(d.id).name} verschoben.`);
+  else if(!d.moved&&d.kind==='new'){const c=d.c;items.push(free(c,Math.round((SW-dims(c).w)/2),SH-60));sel={kind:'ctrl',id:c.id};say(`${KIND[c.kind]} frei abgelegt. Zum Einrasten an ein anderes Control ziehen.`)}
+  drag=null;snap=null;render();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Control'||e.key==='Meta'){if(hover){hover.deep=true;render()}return}
+  if(e.target.closest('input'))return;
+  if(e.key==='Escape'){
+    e.preventDefault();
+    if(drag){if(drag.moved&&drag.snapshot)restore(drag.snapshot);if(drag.prevSel)sel=drag.prevSel;drag=null;snap=null;say('Ziehen abgebrochen.');render();return}
+    sel=up();say(`Esc: ${selName(sel)}`);render();return}
+  if(e.key==='Enter'&&sel&&sel.kind==='group'){const c=ctrlsOf(itemById(sel.id))[0];sel={kind:'ctrl',id:c.id};say(`Enter: ${selName(sel)}`);render();e.preventDefault();return}
+  if(e.key==='Delete'||e.key==='Backspace'){if(e.target.closest('button'))return;e.preventDefault();del()}
+});
+document.addEventListener('keyup',e=>{if((e.key==='Control'||e.key==='Meta')&&hover){hover.deep=false;render()}});
+function del(){
+  if(!sel)return;
+  if(sel.kind==='group'){const g=itemById(sel.id);items=items.filter(x=>x!==g);say(`${g.name} gelöscht.`);sel=null}
+  else{const name=selName(sel),g=groupOf(sel.id);lift(sel.id);say(`${name} gelöscht${g?'; die Lücke bleibt, leere Spalten und Reihen fallen weg':''}.`);sel=g&&items.includes(g)?{kind:'group',id:g.id}:null}
+  inspKey='';render();
+}
+$('#props').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='del'){del();return}
+  if(b.dataset.size&&sel&&sel.kind==='ctrl'){const f=find(sel.id);
+    const a=f.g?anchor(f.g,f.c):null;f.c.size=b.dataset.size;if(a)keep(f.g,a.id,a.r);
+    say(`${KIND[f.c.kind]} auf ${b.dataset.size.toUpperCase()}${f.g?'; die Nachbarn rücken':''}.`);inspKey='';render()}
+});
+$('#props').addEventListener('input',e=>{
+  if(e.target.id!=='txt'||!sel)return;const f=find(sel.id);const a=f.g?anchor(f.g,f.c):null;
+  f.c.text=e.target.value;if(a)keep(f.g,a.id,a.r);render();
+});
+$('#crumbs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sel=crumbs[+b.dataset.c].s;say(`Pfad: ${selName(sel)}`);render()});
+$('#reset').addEventListener('click',()=>{inspKey='x';reset()});
+scr.addEventListener('pointerleave',()=>{if(!drag&&hover){hover=null;render()}});
+
+function fit(){scale=Math.min(1.6,wrap.clientWidth/SW);scr.style.transform=`scale(${scale})`;scr.style.left=Math.max(0,(wrap.clientWidth-SW*scale)/2)+'px';scr.style.setProperty('--k',1/scale);wrap.style.height=SH*scale+'px';if(items)render()}
+new ResizeObserver(fit).observe(wrap);
+reset();fit();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>render());
+</script>
