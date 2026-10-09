@@ -96,3 +96,19 @@ test("run as curl | bash, the whole script is read before anything runs", () => 
   expect(execFileSync("bash", [], { input: shaped(false), encoding: "utf8" }).trim()).toBe("")
   expect(execFileSync("bash", [], { input: shaped(true), encoding: "utf8" }).trim()).toBe("after")
 })
+
+test("the Pi builds without the type check, and leaves nothing behind", () => {
+  // Tester Arno's install sat at "Checking validity of types" for 45 minutes
+  // (2026-10-09): the check is where a Pi with Node-RED runs out of memory.
+  // The types are checked before a release exists; on the Pi a
+  // next.config.js beside the tag's next.config.mjs turns it off for the
+  // build and is gone after it.
+  const build = script.indexOf("npm run build")
+  const wrapper = script.lastIndexOf("cat > next.config.js", build)
+  expect(wrapper, "no next.config.js before the build").toBeGreaterThan(0)
+  expect(script.slice(wrapper, build)).toContain("ignoreBuildErrors: true")
+  expect(script.slice(wrapper, build)).toContain('import("./next.config.mjs")')
+  expect(script.slice(build)).toMatch(/^npm run build\nrm -f next\.config\.js\n/)
+  // Gone also when the build fails and set -e ends the script.
+  expect(script.slice(wrapper, build)).toContain("trap 'rm -f \"$INSTALL_DIR/next.config.js\"' EXIT")
+})

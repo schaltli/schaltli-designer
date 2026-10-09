@@ -117,7 +117,26 @@ fi
 log "Installing dependencies (npm ci)..."
 npm ci
 log "Building..."
+# Without the type check. next build checks every type before it builds, and
+# on a Pi with Node-RED beside it that is where the memory runs out: tester
+# Arno's install sat at "Checking validity of types" for 45 minutes at 12 %
+# CPU (2026-10-09; Pekaway's image has no swap). The types are checked before
+# a release exists (test:all), so on the Pi the check proves nothing new. The
+# switch is in next.config, which comes with the tag being installed, so a
+# next.config.js beside it for the build - read before next.config.mjs, and
+# untracked, so the build does not call itself -dirty - takes that config and
+# turns the check off.
+cat > next.config.js <<'NEXTCONFIG'
+module.exports = async (...args) => {
+  const base = (await import("./next.config.mjs")).default
+  const config = typeof base === "function" ? await base(...args) : base
+  return { ...config, typescript: { ...config.typescript, ignoreBuildErrors: true } }
+}
+NEXTCONFIG
+trap 'rm -f "$INSTALL_DIR/next.config.js"' EXIT
 npm run build
+rm -f next.config.js
+trap - EXIT
 
 # --- 3b. Firmware for the devices (docs/2026-09-15-firmware-ota.md) ---
 # The images firmware/manifest.json names, downloaded from this repo's GitHub
