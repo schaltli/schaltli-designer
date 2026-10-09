@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
+import { layoutProject, naturalWidth } from "../lib/layout"
+import { dissolveGroupsInProject } from "../lib/object-groups"
 import {
   arrangeSnapTable,
   freeSideAt,
@@ -31,9 +33,10 @@ const GAP = Math.round(SNAP_GAP_MM * SCALE.pixelsPerMm)
 const EMPTY = Math.round(SNAP_EMPTY_MM * SCALE.pixelsPerMm)
 
 let ids = 0
-// A box is as large as it is drawn: its natural size is its own.
-function box(width: number, height: number, cell: Record<string, unknown>, extra: Record<string, unknown> = {}): ScreenObject {
-  return { id: `b${++ids}`, type: "box", x: 0, y: 0, width, height, zIndex: ids, properties: { cell, ...extra } }
+// A box is as large as it is drawn: its natural size is its own. `how` is
+// how it stands in its cell (align, fill), kept in the cell with its place.
+function box(width: number, height: number, cell: Record<string, unknown>, how: Record<string, unknown> = {}): ScreenObject {
+  return { id: `b${++ids}`, type: "box", x: 0, y: 0, width, height, zIndex: ids, properties: { cell: { ...cell, ...how } } }
 }
 function table(children: ScreenObject[], columns: Array<{ mm?: number }>, rows: Array<{ mm?: number }>): ScreenObject {
   return { id: `t${++ids}`, type: "table", x: 10, y: 20, width: 1, height: 1, zIndex: ids, properties: { grid: 1, columns, rows }, children }
@@ -115,7 +118,8 @@ test.describe("snap table: layout", () => {
     const twice = arrangeSnapTable(once, SCALE)
     expect(snapTableGeometry(twice, SCALE).widths).toEqual([100])
     expect(rect(child(twice, filled.id))).toEqual(rect(child(once, filled.id)))
-    const unfilled = { ...child(twice, filled.id), properties: { ...child(twice, filled.id).properties, fill: {} } }
+    const was = child(twice, filled.id)
+    const unfilled = { ...was, properties: { ...was.properties, cell: { ...was.properties!.cell, fill: {} } } }
     const back = arrangeSnapTable({ ...twice, children: [child(twice, top.id), unfilled] }, SCALE)
     expect([child(back, filled.id).width, child(back, filled.id).height]).toEqual([20, 10])
   })
@@ -197,7 +201,8 @@ test.describe("snap table: editing", () => {
     const filled = { ...box(20, 10, { row: 1, column: 0 }, { fill: { width: true } }), id: "filled" }
     const out = takeOutOf(arrangeSnapTable(table([top, filled, { ...box(20, 10, { row: 1, column: 1 }), id: "x" }], [{}, {}], [{}, {}]), SCALE), "filled")
     expect([out.taken.width, out.taken.height]).toEqual([20, 10])
-    expect(out.taken.properties?.fill).toBeUndefined()
+    // Nothing of its place in the table is left; its own properties are untouched.
+    expect(out.taken.properties).toEqual({})
   })
 
   test("a span grows left over empty cells, is refused over an occupied one, and shrinks back", () => {
@@ -253,5 +258,40 @@ test.describe("snap table: editing", () => {
     expect(freeSideAt(o, { x: 145, y: 110 }, 25)).toBe("right")
     expect(freeSideAt(o, { x: 120, y: 125 }, 25)).toBe("bottom")
     expect(freeSideAt(o, { x: 120, y: 60 }, 25)).toBeNull()
+  })
+})
+
+test.describe("snap table: in a project", () => {
+  // A table as a file holds it before the layout pass: children unplaced.
+  const unlaid = () =>
+    table(
+      [
+        { ...box(40, 20, { row: 0, column: 0 }), id: "p" },
+        { ...box(60, 30, { row: 0, column: 1 }), id: "q" },
+        { ...box(30, 20, { row: 1, column: 1 }, { align: "right" }), id: "s" },
+      ],
+      [{}, {}],
+      [{}, {}],
+    )
+  const project = (objects: ScreenObject[]) => ({ settings: { pixelsPerMm: SCALE.pixelsPerMm }, screens: [{ id: "s1", objects }] })
+
+  test("the layout pass after every change lays a new table out, and changes nothing the second time", () => {
+    const t = unlaid()
+    const once = layoutProject(project([t]))
+    expect(once.screens[0].objects[0]).toEqual(arrangeSnapTable(t, SCALE))
+    expect(layoutProject(once)).toBe(once)
+  })
+
+  test("the export dissolves a new table into objects where they stand on the screen", () => {
+    const laid = layoutProject(project([unlaid()]))
+    const t = laid.screens[0].objects[0]
+    const out = dissolveGroupsInProject(laid).screens[0].objects
+    expect(out.map((o) => o.type)).toEqual(["box", "box", "box"])
+    for (const id of ["p", "q", "s"]) expect(out.find((o) => o.id === id)).toMatchObject(abs(t, id))
+  })
+
+  test("a new table is as wide as its columns for whatever measures it", () => {
+    const laid = arrangeSnapTable(unlaid(), SCALE)
+    expect(naturalWidth(unlaid(), SCALE)).toBe(laid.width)
   })
 })

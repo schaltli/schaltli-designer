@@ -25,11 +25,23 @@ export const SNAP_GAP_MM = 1.5
 /** How large a column or row is with nothing of its own in it. */
 export const SNAP_EMPTY_MM = 4
 
+/**
+ * Where an object stands in its table, and how: everything about its place
+ * lives in `properties.cell`, so an object's own properties (a text's
+ * textAlign, a box's colours) never meet it, and taking `cell` away frees the
+ * object of its table entirely.
+ */
 export interface SnapCell {
   row: number
   column: number
   rowSpan?: number
   columnSpan?: number
+  align?: SnapAlign
+  alignY?: SnapAlignY
+  fill?: SnapFill
+  /** The drawn size, kept while Fill overwrites it. */
+  drawnWidth?: number
+  drawnHeight?: number
 }
 export type SnapAlign = "left" | "center" | "right"
 export type SnapAlignY = "top" | "middle" | "bottom"
@@ -57,6 +69,7 @@ export function roleOf(obj: ScreenObject): SnapRole {
 export function snapCellOf(obj: ScreenObject): SnapCell {
   const cell = obj.properties?.cell ?? {}
   return {
+    ...cell,
     row: Math.max(0, Number(cell.row) || 0),
     column: Math.max(0, Number(cell.column) || 0),
     rowSpan: Math.max(1, Number(cell.rowSpan) || 1),
@@ -114,11 +127,11 @@ const px = (mm: number, scale: LayoutScale) => Math.round(mm * scale.pixelsPerMm
 // pass would take the filled size for the natural one and the column would
 // grow on every change.
 function drawn(child: ScreenObject): ScreenObject {
-  const props = child.properties ?? {}
+  const cell = snapCellOf(child)
   return {
     ...child,
-    width: typeof props.drawnWidth === "number" ? props.drawnWidth : child.width,
-    height: typeof props.drawnHeight === "number" ? props.drawnHeight : child.height,
+    width: typeof cell.drawnWidth === "number" ? cell.drawnWidth : child.width,
+    height: typeof cell.drawnHeight === "number" ? cell.drawnHeight : child.height,
   }
 }
 
@@ -182,20 +195,21 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale): Scree
   const placed = sized.map(({ child, cell, size }) => {
     const room = across(widths, cell.column, cell.columnSpan!)
     const roomHeight = across(heights, cell.row, cell.rowSpan!)
-    const fill: SnapFill = child.properties?.fill ?? {}
+    const fill: SnapFill = cell.fill ?? {}
     const own = drawn(child)
     const sizedChild = fill.width ? fit(own, room, scale) : size
     const width = fill.width ? room : sizedChild.width
     const height = fill.height ? roomHeight : sizedChild.height
-    const align: SnapAlign = child.properties?.align ?? (roleOf(child) === "label" ? "left" : "center")
-    const alignY: SnapAlignY = child.properties?.alignY ?? "middle"
+    const align: SnapAlign = cell.align ?? (roleOf(child) === "label" ? "left" : "center")
+    const alignY: SnapAlignY = cell.alignY ?? "middle"
     const dx = align === "left" ? 0 : align === "right" ? room - width : Math.round((room - width) / 2)
     const dy = alignY === "top" ? 0 : alignY === "bottom" ? roomHeight - height : Math.round((roomHeight - height) / 2)
     // The drawn size kept while filled, dropped once it is not.
-    const { drawnWidth: _w, drawnHeight: _h, ...rest } = sizedChild.properties ?? {}
-    const properties: Record<string, any> = { ...rest }
-    if (fill.width) properties.drawnWidth = own.width
-    if (fill.height) properties.drawnHeight = own.height
+    const { drawnWidth: _w, drawnHeight: _h, ...kept } = child.properties?.cell ?? {}
+    const placedCell: Record<string, any> = { ...kept }
+    if (fill.width) placedCell.drawnWidth = own.width
+    if (fill.height) placedCell.drawnHeight = own.height
+    const properties = { ...sizedChild.properties, cell: placedCell }
     return { ...sizedChild, width, height, properties, x: lefts[cell.column] + dx, y: tops[cell.row] + dy }
   })
   const total = (sizes: number[]) => (sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap : 0)
@@ -210,8 +224,11 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale): Scree
 
 export type SnapSide = "left" | "right" | "top" | "bottom"
 
+// An object moved to another place in its table; how it stands there
+// (align, fill, drawn size) goes with it.
 const withCell = (obj: ScreenObject, cell: SnapCell): ScreenObject => {
-  const clean: Record<string, number> = { row: cell.row, column: cell.column }
+  const { rowSpan: _r, columnSpan: _c, ...how } = obj.properties?.cell ?? {}
+  const clean: Record<string, any> = { ...how, row: cell.row, column: cell.column }
   if ((cell.rowSpan ?? 1) > 1) clean.rowSpan = cell.rowSpan!
   if ((cell.columnSpan ?? 1) > 1) clean.columnSpan = cell.columnSpan!
   return { ...obj, properties: { ...obj.properties, cell: clean } }
@@ -288,15 +305,9 @@ function tidied(table: ScreenObject): ScreenObject {
 // An object out of its table: where it stood on the screen, as drawn, with
 // nothing left of its place in the table.
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
-  const { cell: _c, fill: _f, align: _a, alignY: _y, drawnWidth, drawnHeight, ...properties } = child.properties ?? {}
-  return {
-    ...child,
-    x: table.x + child.x,
-    y: table.y + child.y,
-    width: typeof drawnWidth === "number" ? drawnWidth : child.width,
-    height: typeof drawnHeight === "number" ? drawnHeight : child.height,
-    properties,
-  }
+  const { cell: _cell, ...properties } = child.properties ?? {}
+  const own = drawn(child)
+  return { ...child, x: table.x + child.x, y: table.y + child.y, width: own.width, height: own.height, properties }
 }
 
 /**

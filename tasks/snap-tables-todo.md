@@ -76,9 +76,25 @@ tables as before. A new table's children keep coordinates relative to it,
 so export dissolves it as an old one.
 
 **Acceptance criteria:**
-- [ ] `layoutProject` on a project with a new table sets its children's x/y/width/height as Task 1 computes.
-- [ ] The device zip, the Android export and the preview get absolute objects, no `table`, for a new table.
-- [ ] Every existing `table-model`, `layout-*` and `bausteine` test still passes (old tables untouched).
+- [x] `layoutProject` on a project with a new table sets its children's x/y/width/height as Task 1 computes.
+- [x] The device zip, the Android export and the preview get absolute objects, no `table`, for a new table.
+- [x] Every existing `table-model`, `layout-*` and `bausteine` test still passes (old tables untouched).
+
+Done 2026-10-09. `lib/layout.ts` lays a table with `grid = 1` out through
+`arrangeSnapTable` (its children first), measures it by its content and
+never stretches it. Export: tested on `dissolveGroupsInProject`, the first
+step every export (zip, Android, assets, preview) takes. Moved align, fill
+and the drawn size into `properties.cell` so they cannot meet an object's
+own properties (spec updated). Test infrastructure for the worktree:
+`E2E_PORT` (playwright.config.ts, e2e/global-setup.ts) runs the suite
+against the worktree's own dev server, `SCHALTLI_FIRMWARE_REPO`
+(e2e/ddf-seed.ts) finds the firmware from a worktree - without it 17
+`bausteine` tests skipped. Ran: snap-table-model 22, table-model,
+layout-model, block-description, ha-discovery 125 (Node); bausteine,
+table-canvas, table-editing, layout-canvas, free-area, layout-templates,
+vanpi-bridge 149 against port 3100 (4 `placing a catalog entry` tests failed
+once under the cold server's load and passed alone, together and in a
+second full run).
 
 **Verification:** `npx playwright test e2e/snap-table-model.spec.ts e2e/table-model.spec.ts e2e/layout-model.spec.ts e2e/bausteine.spec.ts`; typecheck.
 
@@ -87,7 +103,7 @@ so export dissolves it as an old one.
 **Files likely touched:** `lib/layout.ts`, `lib/object-groups.ts` (only if a test shows a gap), `e2e/snap-table-model.spec.ts`
 
 ## Checkpoint A: the core
-- [ ] typecheck; `e2e/snap-table-model.spec.ts` and the old table/layout/bausteine specs green.
+- [x] typecheck; `e2e/snap-table-model.spec.ts` and the old table/layout/bausteine specs green (2026-10-09).
 
 ## Module `snap-table-canvas`
 

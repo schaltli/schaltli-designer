@@ -19,9 +19,14 @@ import JSZip from "jszip"
 // Seeding under a fixture id rather than the real one also keeps them clear
 // of the curated copy, which the Startup Gate would otherwise offer
 // alongside - see ROUND_FIXTURE_DEVICE_ID below.
-const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source")
-const WAVESHARE_4V3B_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-waveshare4v3b")
-const PAPERS3_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-papers3")
+//
+// The firmware checkout beside this repo, or where SCHALTLI_FIRMWARE_REPO
+// says (as e2e/factory-image.spec.ts reads it): a worktree under
+// .claude/worktrees has no sibling of that name.
+const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "schaltli-firmware")
+const WAVESHARE_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source")
+const WAVESHARE_4V3B_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4v3b")
+const PAPERS3_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-papers3")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 

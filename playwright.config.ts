@@ -5,6 +5,14 @@ import { defineConfig, devices } from "@playwright/test"
 // (selection state drifting on a right-click, copy/paste silently failing
 // for nested objects, tab-strip hit-testing) only show up in the actual
 // interaction pipeline, not in isolated unit logic.
+
+// The dev server's port: 3000 unless E2E_PORT says otherwise. A worktree has
+// its own checkout and needs its own server - one `next dev` per checkout -
+// so it runs the suite against another port (`E2E_PORT=3100`), leaving the
+// main checkout's server on 3000 alone.
+export const E2E_PORT = Number(process.env.E2E_PORT) || 3000
+export const E2E_BASE = `http://localhost:${E2E_PORT}`
+
 export default defineConfig({
   testDir: "./e2e",
   // Sweeps the DDF fixtures the suite seeds into .data/ddf. Global rather
@@ -45,7 +53,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [["html", { open: "never" }], ["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: E2E_BASE,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -59,8 +67,8 @@ export default defineConfig({
   // iterating), otherwise starts one itself - either way the suite is
   // runnable with a single `npm run test:e2e`.
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
+    command: `npm run dev -- -p ${E2E_PORT}`,
+    url: E2E_BASE,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

@@ -54,7 +54,7 @@ export default async function globalSetup() {
  * request to each is enough; what they answer does not matter.
  */
 async function warmUpRoutes() {
-  const base = "http://localhost:3000"
+  const base = `http://localhost:${Number(process.env.E2E_PORT) || 3000}`
   const probe = "__e2e_warm_up__"
   const requests: Array<[string, RequestInit?]> = [
     ["/"],

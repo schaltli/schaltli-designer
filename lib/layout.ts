@@ -17,6 +17,7 @@ import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { TABLE_TYPE, arrangeTable, tableMinimumWidth, tableNaturalWidth } from "@/lib/table"
+import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 
 // A table (lib/table.ts, docs/2026-10-02-layout-tables.md) and a free area.
 // The stacks, the grid and the spacer of layout Tasks 1-12 are gone; a file
@@ -79,6 +80,9 @@ export function spacing(container: ScreenObject, scale: LayoutScale): { padding:
  * placed at the start of its cell or stack, not stretched.
  */
 export function fills(obj: ScreenObject): boolean {
+  // A table put together by snapping is as large as its content, always
+  // (docs/2026-10-09-snap-tables.md).
+  if (isSnapTable(obj)) return false
   return obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || isContainerType(obj.type)
 }
 
@@ -89,7 +93,8 @@ export function fills(obj: ScreenObject): boolean {
  * else as wide as it is.
  */
 export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
-  // A table as its columns need (lib/table.ts).
+  // A table as its columns need (lib/snap-table.ts, lib/table.ts).
+  if (isSnapTable(obj)) return arrangeSnapTable(obj, scale).width
   if (obj.type === TABLE_TYPE) return tableNaturalWidth(obj, scale)
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
@@ -109,6 +114,7 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
  * Checkpoint B). Anything else can be as narrow as it is given.
  */
 export function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
+  if (isSnapTable(obj)) return arrangeSnapTable(obj, scale).width
   if (obj.type === TABLE_TYPE) return tableMinimumWidth(obj, scale)
   return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
 }
@@ -178,6 +184,9 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 
 // An object with its subtree laid out inside its own width and height.
 function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
+  // A table put together by snapping: what it holds laid out first (a
+  // switcher's panels, a free area's tables), then placed in its cells.
+  if (isSnapTable(obj)) return arrangeSnapTable({ ...obj, children: layoutObjects(obj.children ?? [], scale) }, scale)
   // A table even when empty: its rows still take room. It ends with its
   // last row wherever it stands - a free-standing one kept the height it
   // was drawn with, and its frame ended in the middle of appended rows

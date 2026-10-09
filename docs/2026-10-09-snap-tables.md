@@ -85,10 +85,15 @@ A `table` object, marked as the new kind by `properties.grid = 1`:
 - `properties.columns: { mm?: number }[]` - one entry per column; `mm` is a
   width set by hand, the column never narrower than its content.
 - `properties.rows: { mm?: number }[]` - the same for row heights.
-- Each child's `properties.cell = { row, column, rowSpan?, columnSpan? }`,
-  0-based; `properties.align?: "left" | "center" | "right"`,
-  `properties.alignY?: "top" | "middle" | "bottom"`,
-  `properties.fill?: { width?: true, height?: true }`.
+- Each child's `properties.cell = { row, column, rowSpan?, columnSpan?,
+  align?, alignY?, fill?, drawnWidth?, drawnHeight? }`, 0-based; `align`
+  `"left" | "center" | "right"`, `alignY` `"top" | "middle" | "bottom"`,
+  `fill` `{ width?: true, height?: true }`. Everything about an object's
+  place lives in `cell`, so it never meets the object's own properties (a
+  text's `textAlign`) and taking `cell` away frees the object entirely
+  (moved there in Task 3, 2026-10-09). `drawnWidth`/`drawnHeight` keep the
+  drawn size while Fill overwrites it, so that the next layout pass does
+  not take the filled size for the natural one.
 
 Every row and every column holds at least one object or part of a span;
 a gap is an empty cell. The gap between columns and rows is the existing
