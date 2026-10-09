@@ -743,6 +743,32 @@ Needs the app installed on an unlocked, adb-authorised phone with a broker
 configured in its settings. The project is *not* put there by hand: the run
 installs it over MQTT, the way the designer's deploy dialog does.
 
+With more than one phone on the cable, `--device` picks which one, and the
+run deploys to the phone whose DDF that is, not to whichever hello arrives
+first.
+
+### Android 6 on the emulator
+
+The app runs from Android 6.0 (minSdk 23) on; the P20 on the desk is
+Android 10. The oldest version is checked on an emulator, set up once
+(`sdkmanager`/`avdmanager` come with the SDK's command-line tools, Java as in
+the Gradle note):
+
+```
+sdkmanager "system-images;android-23;google_apis;x86_64"
+avdmanager create avd -n api23 -k "system-images;android-23;google_apis;x86_64" -d pixel
+```
+
+In `~/.android/avd/api23.avd/config.ini`, set `hw.lcd.width=1080`,
+`hw.lcd.height=2253` and `hw.lcd.density=480`: that is the 360x679 the
+fixture is built for, after Android 6's status and navigation bars. `adb shell
+wm size` is no substitute, because a screenshot keeps the emulator's own
+resolution. Then start it, install the debug APK, set the broker to this
+machine's LAN address (`adb -s emulator-5554 shell am broadcast -n
+com.schaltli.android/.data.BrokerConfigReceiver -a
+com.schaltli.android.SET_BROKER --es host 192.168.1.120`) and run the suite
+with `--device emulator-5554`. Last run 2026-10-09: 16/16.
+
 ### The install has to reach the screen
 
 Before a single pixel is compared, the run installs twice. First a marker -

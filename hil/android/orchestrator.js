@@ -693,8 +693,13 @@ function serveBundle(zipBuffer, deviceSerial) {
  * The phone, from its own retained announcement. `--device-id` skips the
  * wait; `--device-host` goes with it when the address cannot be read from a
  * hello either.
+ *
+ * `cabledId` is the id the phone on the cable gives in its DDF. Without it
+ * the first hello won, and with a second phone on the broker that was often
+ * the wrong one: on 2026-10-09, with the Android 6 emulator on `--device`,
+ * the run sent its deploy to the P20 on the desk.
  */
-async function discoverPhone(mqttClient) {
+async function discoverPhone(mqttClient, cabledId) {
   const given = getArg("--device-id");
   if (given) return { deviceId: given, host: getArg("--device-host") || null };
 
@@ -711,6 +716,7 @@ async function discoverPhone(mqttClient) {
     function onMessage(topic, payload) {
       const match = /^schaltli\/(android-[^/]+)\/hello$/.exec(topic);
       if (!match) return;
+      if (cabledId && match[1] !== cabledId) return;
       clearTimeout(timer);
       mqttClient.removeListener("message", onMessage);
       let host = null;
@@ -903,6 +909,14 @@ async function silenceBanners(deviceSerial) {
     ADB,
     adbArgs(deviceSerial, ["shell", "settings", "put", "global", "heads_up_notifications_enabled", "0"]),
   ).catch(() => {});
+  // Android 6 to 9 explain full screen once, with a "Viewing full screen ...
+  // GOT IT" panel over the top third of the app that dims the rest - every
+  // case on the Android 6 emulator failed by a third because of it
+  // (2026-10-09). This is what tapping GOT IT stores, so it is not undone.
+  await execFileAsync(
+    ADB,
+    adbArgs(deviceSerial, ["shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed"]),
+  ).catch(() => {});
   return async () => {
     const back = before && before !== "null" ? before : "1";
     await execFileAsync(
@@ -1086,7 +1100,7 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
     );
   }
 
-  const { deviceId, host: phoneHost } = await discoverPhone(mqttClient);
+  const { deviceId, host: phoneHost } = await discoverPhone(mqttClient, ddf.device?.id);
   // Named before the first deploy goes out, so the caller can clear it again
   // however this ends.
   onDeviceKnown(deviceId);

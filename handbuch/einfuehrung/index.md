@@ -62,7 +62,7 @@ Die drei Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach 
 
 ## Ein altes Handy aus der Schublade
 
-Das günstigste Schaltli-Display hast du vielleicht schon. Jedes Android-Handy oder -Tablet mit Android 8.0 oder neuer taugt dafür. Es hat einen Touchscreen in Farbe, der meist grösser und schärfer ist als die Displays der Boards, dazu WLAN und einen Akku, der kurze Stromausfälle überbrückt. Flashen musst du nichts, und löten auch nicht.
+Das günstigste Schaltli-Display hast du vielleicht schon. Jedes Android-Handy oder -Tablet mit Android 6.0 oder neuer taugt dafür. Es hat einen Touchscreen in Farbe, der meist grösser und schärfer ist als die Displays der Boards, dazu WLAN und einen Akku, der kurze Stromausfälle überbrückt. Flashen musst du nichts, und löten auch nicht.
 
 Die App macht aus dem Handy ein festes Bedienteil. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App lässt sich nicht versehentlich verlassen. Das Handy meldet sich beim Broker selbst an und sagt dem Designer, wie gross sein Display ist. Im Designer erscheint es danach als eigenes Gerät, und du gestaltest Screens genau für diese Grösse. Hängt es an einem Ladekabel an der Wand, sieht man ihm sein früheres Leben kaum noch an.
 

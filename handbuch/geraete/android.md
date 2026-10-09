@@ -1,6 +1,8 @@
 # Android-App
 
-Ein altes Android-Handy oder -Tablet wird mit der Schaltli-App zum Bedienteil im Van. Du brauchst Android 8.0 oder neuer, WLAN und ein Ladekabel, das dauerhaft angeschlossen bleibt. Flashen und löten musst du nichts.
+Ein altes Android-Handy oder -Tablet wird mit der Schaltli-App zum Bedienteil im Van. Du brauchst Android 6.0 oder neuer, WLAN und ein Ladekabel, das dauerhaft angeschlossen bleibt. Flashen und löten musst du nichts.
+
+Welche Android-Version ein Gerät hat, steht in den Einstellungen unter «Über das Telefon», beim Tablet «Über das Tablet», meist ganz unten. Bei manchen Herstellern liegt der Eintrag eine Ebene tiefer: bei Samsung unter «Softwareinformationen», bei neueren Geräten oft unter System. Dort findest du die Zeile «Android-Version». Ist die Version älter als 6.0, lässt sich die App nicht installieren, und Android meldet nur, beim Parsen des Pakets sei ein Problem aufgetreten. Für ein solches Gerät gibt es manchmal ein neueres Android, siehe [LineageOS für sehr alte Handys](#tipp-lineageos-fur-sehr-alte-handys).
 
 ## Was die App tut
 
