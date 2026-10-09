@@ -121,6 +121,47 @@ fi
 # it while its files are replaced anyway; section 5 starts the socket again.
 # On a first install there is nothing to stop.
 sudo systemctl stop "${SERVICE_NAME}.socket" "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true
+
+# A compressed swap in RAM for npm ci and the build, gone again after them
+# (zram; nothing is written to the SD card). Pekaway's image has no swap, and
+# a 2 GB Pi with Node-RED had some 770 MB free for the build (tester Arno,
+# 2026-10-09). Every install sets it up, also on a Pi with memory to spare -
+# there it costs nothing while unused, and the code is exercised on every run
+# rather than only on the small Pis. Its own device from `zramctl --find`:
+# Pekaway uses /dev/zram0 for /var/log, which this never touches. Without
+# zram the build simply runs as before.
+# BUILD-SWAP-BEGIN
+BUILD_SWAP=""
+start_build_swap() {
+  sudo -n sh -c 'command -v zramctl && command -v mkswap && command -v swapon' >/dev/null 2>&1 || { log "No zram tools - building without extra swap."; return 0; }
+  sudo modprobe zram 2>/dev/null || true
+  local ram_mb
+  ram_mb="$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
+  BUILD_SWAP="$(sudo zramctl --find --size "${ram_mb}M" --algorithm lz4 2>/dev/null || sudo zramctl --find --size "${ram_mb}M" 2>/dev/null || true)"
+  if [ -z "$BUILD_SWAP" ]; then log "No free zram device - building without extra swap."; return 0; fi
+  if ! { sudo mkswap "$BUILD_SWAP" >/dev/null 2>&1 && sudo swapon --priority 100 "$BUILD_SWAP"; }; then
+    log "Could not use $BUILD_SWAP as swap - building without it."
+    stop_build_swap
+    return 0
+  fi
+  log "Compressed swap in RAM for the build: $BUILD_SWAP, ${ram_mb} MB."
+}
+stop_build_swap() {
+  [ -n "$BUILD_SWAP" ] || return 0
+  sudo swapoff "$BUILD_SWAP" 2>/dev/null || true
+  sudo zramctl --reset "$BUILD_SWAP" 2>/dev/null || true
+  BUILD_SWAP=""
+}
+# BUILD-SWAP-END
+# Whatever the build leaves behind is taken away also when it fails and set -e
+# ends the script, or when it is broken off with Ctrl+C.
+end_build() {
+  rm -f "$INSTALL_DIR/next.config.js"
+  stop_build_swap
+}
+trap end_build EXIT
+start_build_swap
+
 log "Installing dependencies (npm ci)..."
 npm ci
 log "Building..."
@@ -140,9 +181,8 @@ module.exports = async (...args) => {
   return { ...config, typescript: { ...config.typescript, ignoreBuildErrors: true } }
 }
 NEXTCONFIG
-trap 'rm -f "$INSTALL_DIR/next.config.js"' EXIT
 npm run build
-rm -f next.config.js
+end_build
 trap - EXIT
 
 # --- 3b. Firmware for the devices (docs/2026-09-15-firmware-ota.md) ---

@@ -108,9 +108,79 @@ test("the Pi builds without the type check, and leaves nothing behind", () => {
   expect(wrapper, "no next.config.js before the build").toBeGreaterThan(0)
   expect(script.slice(wrapper, build)).toContain("ignoreBuildErrors: true")
   expect(script.slice(wrapper, build)).toContain('import("./next.config.mjs")')
-  expect(script.slice(build)).toMatch(/^npm run build\nrm -f next\.config\.js\n/)
-  // Gone also when the build fails and set -e ends the script.
-  expect(script.slice(wrapper, build)).toContain("trap 'rm -f \"$INSTALL_DIR/next.config.js\"' EXIT")
+  // Taken away right after the build by end_build, and by the same function
+  // on exit when the build fails and set -e ends the script.
+  expect(script.slice(build)).toMatch(/^npm run build\nend_build\ntrap - EXIT\n/)
+  const endBuild = /end_build\(\) \{\n([\s\S]*?)\n\}/.exec(script)?.[1] ?? ""
+  expect(endBuild).toContain('rm -f "$INSTALL_DIR/next.config.js"')
+  expect(script.indexOf("\ntrap end_build EXIT\n")).toBeGreaterThan(0)
+  expect(script.indexOf("\ntrap end_build EXIT\n")).toBeLessThan(script.indexOf("\nnpm ci\n"))
+})
+
+test("npm ci and the build get a compressed swap in RAM, on its own zram device, gone after them", () => {
+  // Tester Arno's 2 GB Pi had some 770 MB free for the build and no swap
+  // (2026-10-09). Every install now adds a zram swap for npm ci and the build
+  // - never /dev/zram0, which Pekaway's image uses for /var/log - and takes
+  // it away after. Run here with stand-ins for sudo and the zram tools, so
+  // what the script would do to a Pi is a log, not a Pi.
+  const block = /# BUILD-SWAP-BEGIN\n([\s\S]*?)# BUILD-SWAP-END/.exec(script)?.[1]
+  expect(block, "the build-swap functions are not marked").toBeTruthy()
+  const at = (line: string) => script.indexOf(`\n${line}\n`)
+  expect(at("start_build_swap")).toBeGreaterThan(0)
+  expect(at("start_build_swap")).toBeLessThan(at("npm ci"))
+  const endBuild = /end_build\(\) \{\n([\s\S]*?)\n\}/.exec(script)?.[1] ?? ""
+  expect(endBuild).toContain("stop_build_swap")
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pekaway-install-swap-"))
+  try {
+    // The stand-ins write what they were asked to a file: the script sends
+    // mkswap's output to /dev/null, as it should.
+    const run = (stubs: string) => {
+      fs.writeFileSync(path.join(dir, "calls"), "")
+      const out = execFileSync("bash", ["-c", `set -euo pipefail
+log() { echo "LOG $*"; }
+${stubs}
+${block}
+start_build_swap
+echo "SWAP=$BUILD_SWAP"
+stop_build_swap
+echo "AFTER=$BUILD_SWAP"`], { encoding: "utf8", cwd: dir })
+      return out + fs.readFileSync(path.join(dir, "calls"), "utf8")
+    }
+
+    // A Pi with zram: a free device found, made a swap, and reset after.
+    const withZram = run(`sudo() { if [ "$1" = "-n" ]; then return 0; fi; "$@"; }
+modprobe() { echo "CALL modprobe $*" >> calls; }
+zramctl() { echo "CALL zramctl $*" >> calls; if [ "$1" = "--find" ]; then echo /dev/zram1; fi; }
+mkswap() { echo "CALL mkswap $*" >> calls; }
+swapon() { echo "CALL swapon $*" >> calls; }
+swapoff() { echo "CALL swapoff $*" >> calls; }`)
+    expect(withZram).toContain("CALL mkswap /dev/zram1")
+    expect(withZram).toContain("CALL swapon --priority 100 /dev/zram1")
+    expect(withZram).toContain("SWAP=/dev/zram1")
+    expect(withZram).toContain("CALL swapoff /dev/zram1")
+    expect(withZram).toContain("AFTER=")
+    expect(withZram).not.toContain("zram0")
+
+    // No zram tools: the build runs as before, nothing set up, nothing reset.
+    const without = run(`sudo() { if [ "$1" = "-n" ]; then return 1; fi; "$@"; }
+swapoff() { echo "CALL swapoff $*" >> calls; }`)
+    expect(without).toContain("LOG No zram tools - building without extra swap.")
+    expect(without).toContain("SWAP=")
+    expect(without).not.toContain("CALL swapoff")
+
+    // A device found but swapon refused: given back, and the build goes on.
+    const refused = run(`sudo() { if [ "$1" = "-n" ]; then return 0; fi; "$@"; }
+modprobe() { :; }
+zramctl() { echo "CALL zramctl $*" >> calls; if [ "$1" = "--find" ]; then echo /dev/zram1; fi; }
+mkswap() { :; }
+swapon() { return 1; }
+swapoff() { echo "CALL swapoff $*" >> calls; }`)
+    expect(refused).toContain("LOG Could not use /dev/zram1 as swap - building without it.")
+    expect(refused).toContain("CALL zramctl --reset /dev/zram1")
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test("an update stops the running designer before it builds, and starts its socket after", () => {
