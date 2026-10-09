@@ -69,3 +69,30 @@ test("without --ref it installs the newest official release, not main and not a 
   }
   expect(script).toMatch(/\[ -n "\$TARGET" \] \|\| TARGET="main"/)
 })
+
+test("run as curl | bash, the whole script is read before anything runs", () => {
+  // On 2026-10-09 a command in the install read stdin - which, under
+  // `curl … | bash`, is the rest of the script - and ate the closing lines:
+  // "Schaltli Designer: http://192.168.8.107:9001". Everything runs inside
+  // main(), called on the last line, so bash has the whole text first.
+  const lines = script.trimEnd().split("\n")
+  expect(lines[lines.length - 1]).toBe('main "$@"')
+  const opens = lines.indexOf("main() {")
+  expect(opens, "no main() wrapping the body").toBeGreaterThan(0)
+  // Before it only the shebang, comments, blank lines and the shell options.
+  for (const line of lines.slice(0, opens)) {
+    expect(line.trim() === "" || line.startsWith("#") || line === "set -euo pipefail", line).toBe(true)
+  }
+  // And it closes just before the call.
+  expect(lines.slice(opens).filter((l) => l === "}").length).toBeGreaterThanOrEqual(1)
+  expect(lines[lines.length - 3]).toBe("}")
+  // And the text bash reads from the pipe parses as a whole.
+  expect(execFileSync("bash", ["-n"], { input: script, encoding: "utf8" })).toBe("")
+  // What the wrapping buys, shown on a script of the same shape: a command
+  // that reads stdin first, a line after it. Without main() the cat eats
+  // the echo; with it the echo runs.
+  const shaped = (wrapped: boolean) =>
+    wrapped ? ["main() {", "cat >/dev/null", "echo after", "}", 'main "$@"', ""].join("\n") : ["cat >/dev/null", "echo after", ""].join("\n")
+  expect(execFileSync("bash", [], { input: shaped(false), encoding: "utf8" }).trim()).toBe("")
+  expect(execFileSync("bash", [], { input: shaped(true), encoding: "utf8" }).trim()).toBe("after")
+})
