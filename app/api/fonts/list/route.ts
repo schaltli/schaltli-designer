@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
 import { readdir } from "fs/promises"
 import { join } from "path"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // See app/api/ddf/list/route.ts for why this is needed.
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   try {
     const fontsDir = join(process.cwd(), "public", "fonts", "bdf")
     

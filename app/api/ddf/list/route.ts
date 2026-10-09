@@ -3,6 +3,7 @@ import { readdir, readFile } from "fs/promises"
 import { join } from "path"
 import JSZip from "jszip"
 import { computeDdfHash } from "@/lib/ddf-name"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // This route reads its DDF directories from disk on every request. Without
 // this, Next.js may treat a GET route handler with no dynamic APIs as
@@ -77,7 +78,9 @@ async function scanDdfDir(
   )
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   // public/ddf/ - hand-curated, committed to the repo, served statically at
   // /ddf/*.zip. .data/ddf/ - auto-fetched at runtime whenever a device
   // announces a DDF in its MQTT hello that isn't cached yet (see

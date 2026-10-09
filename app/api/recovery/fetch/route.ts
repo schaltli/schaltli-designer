@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 /**
  * POST /api/recovery/fetch { url } - server-side proxy for
@@ -29,6 +30,8 @@ function isBlockedHost(hostname: string): boolean {
 }
 
 export async function POST(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const body = await request.json().catch(() => null)
   const url = body?.url
 

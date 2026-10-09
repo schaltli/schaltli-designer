@@ -39,12 +39,16 @@ Done 2026-10-09: `lib/broker-url.ts` `defaultBrokerUrl()`, used by the hook.
 of every route handler, `demo: true` in `/api/version`.
 
 **Acceptance criteria:**
-- [ ] With `x-schaltli-demo: 1` (dev) or `SCHALTLI_DEMO=1`: every refused
+- [x] With `x-schaltli-demo: 1` (dev) or `SCHALTLI_DEMO=1`: every refused
       route answers 403 «Not in the demo», every allowed one as usual.
-- [ ] The header does nothing when `NODE_ENV=production`.
-- [ ] Without either, every route as before.
-- [ ] Every route handler refuses on its own too: called directly, past the
+- [x] The header does nothing when `NODE_ENV=production` (in `isDemo`; seen
+      on the server in Task 9).
+- [x] Without either, every route as before (154 API and project specs green).
+- [x] Every route handler refuses on its own too: called directly, past the
       middleware, a refused route is still 403.
+
+Done 2026-10-09: `lib/demo-mode.ts`, `middleware.ts`, `refuseInDemo` at the
+top of all 23 handlers, `demo: true` in `/api/version`.
 
 **Verification:** `e2e/demo-mode.spec.ts` (API part).
 

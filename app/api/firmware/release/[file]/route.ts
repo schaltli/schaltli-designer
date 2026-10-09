@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { readFile } from "fs/promises"
 import { releaseImagePath } from "@/lib/firmware-release"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/firmware/release/[file] - a release image, fetched by the device
 // after the firmware trigger names this URL (app/api/firmware/release). Only
@@ -8,7 +9,9 @@ import { releaseImagePath } from "@/lib/firmware-release"
 // served; anything else is a 404, whatever happens to sit in firmware/bin/.
 export const dynamic = "force-dynamic"
 
-export async function GET(_request: Request, { params }: { params: Promise<{ file: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ file: string }> }) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const { file } = await params
   const path = await releaseImagePath(file)
   if (!path) return NextResponse.json({ error: "No such firmware image in this release" }, { status: 404 })

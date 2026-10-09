@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 /**
  * GET /api/translate?q=<text>&target=en - server-side proxy for the New
@@ -33,6 +34,8 @@ const FETCH_TIMEOUT_MS = 5000
 const SOURCE_LANGUAGE = "de"
 
 export async function GET(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const { searchParams } = new URL(request.url)
   const q = searchParams.get("q")?.trim()
   const target = searchParams.get("target") || "en"

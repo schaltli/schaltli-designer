@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { readFile } from "fs/promises"
 import { join } from "path"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/ddf/data/[filename] - serves auto-fetched DDFs from .data/ddf/
 // (see app/api/ddf/fetch/route.ts, which writes them there). Needed because
@@ -19,7 +20,9 @@ const DATA_DDF_DIR = join(process.cwd(), ".data", "ddf")
 // building a filesystem path from a request param in this app.
 const VALID_FILENAME = /^[A-Za-z0-9_-]+\.ddf\.zip$/
 
-export async function GET(_request: Request, { params }: { params: Promise<{ filename: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ filename: string }> }) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const { filename } = await params
   if (!VALID_FILENAME.test(filename)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 })
