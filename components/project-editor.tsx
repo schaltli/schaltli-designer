@@ -33,6 +33,7 @@ import { ExportDialog } from "./export-dialog"
 import { DeployDialog } from "./deploy-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
+import { DEMO_INSTALL_URL, useDemoMode } from "@/hooks/use-demo-mode"
 import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
@@ -3047,24 +3048,34 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // opens that project on mount. An unknown name lands on the start page with
   // «No project "…"». Until that first open has run, nothing else shows, so
   // the start page does not flash up first.
-  const [openingInitial, setOpeningInitial] = useState(!!initialName)
+  //
+  // The demo (hooks/use-demo-mode.ts) opens its start project on the start
+  // page's address too, so a visitor never sees the start page; until the
+  // server has said whether this is the demo, nothing shows.
+  const demo = useDemoMode()
+  const [openingInitial, setOpeningInitial] = useState(true)
+  const initialToOpen = initialName ?? (demo ? demo.start : undefined)
   useEffect(() => {
-    if (!initialName) return
+    if (demo === null) return
+    if (!initialToOpen) {
+      setOpeningInitial(false)
+      return
+    }
     let current = true
-    fetch(`/api/projects/${encodeURIComponent(initialName)}`)
+    fetch(`/api/projects/${encodeURIComponent(initialToOpen)}`)
       .then((res) => (res.ok ? res.json() : null))
       .catch(() => null)
       .then(async (data) => {
         if (!current) return
         if (data) await openSavedProject(data.name)
-        else setDeviceGateError(`No project "${initialName}"`)
+        else setDeviceGateError(`No project "${initialToOpen}"`)
         setOpeningInitial(false)
       })
     return () => {
       current = false
     }
-    // Once, for the address the page was loaded with.
-  }, [])
+    // Once, for the address the page was loaded with, once demo or not is known.
+  }, [demo])
 
   // From then on the address follows the editor: the saved name while a named
   // project is open, the start page's address otherwise. Replaced, never
@@ -3737,6 +3748,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "s") {
         event.preventDefault()
         if (!projectOpen) return
+        // The demo saves nothing (docs/2026-10-09-demo-instance.md).
+        if (demo) {
+          toast({ title: "Demo - nothing is saved", description: "Download Project takes your screen with you." })
+          return
+        }
         if (event.shiftKey) handleSaveAs()
         else void handleSave()
         return
@@ -3824,7 +3840,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, demo, toast, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool])
 
   // A button in the device's frame: the screen's panel, at that button's row
   // - so whatever was selected lets go.
@@ -3861,7 +3877,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   if (openingInitial) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center text-sm text-muted-foreground">
-        Opening &quot;{initialName}&quot;...
+        {initialToOpen ? <>Opening &quot;{initialToOpen}&quot;...</> : null}
       </div>
     )
   }
@@ -3926,16 +3942,22 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <FilePlus2 className="w-4 h-4" />
                 New Project
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleSave()} className="flex items-center gap-2">
-                <Save className="w-4 h-4" />
-                Save
-                <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSaveAs} className="flex items-center gap-2">
-                <SaveAll className="w-4 h-4" />
-                Save As...
-                <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
-              </DropdownMenuItem>
+              {/* The demo saves nothing: no Save, Save As, Version History,
+                  Deploy (docs/2026-10-09-demo-instance.md, decision 3). */}
+              {!demo && (
+                <DropdownMenuItem onClick={() => void handleSave()} className="flex items-center gap-2">
+                  <Save className="w-4 h-4" />
+                  Save
+                  <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              )}
+              {!demo && (
+                <DropdownMenuItem onClick={handleSaveAs} className="flex items-center gap-2">
+                  <SaveAll className="w-4 h-4" />
+                  Save As...
+                  <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <ExportDialog project={project}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
@@ -3955,7 +3977,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   self-update firmware path exists there yet" - which stopped
                   being true when the app learned to announce itself and to
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
-              {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
+              {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && !demo && (
                 // Deploy only binds the project to the device it went to -
                 // a fact, not an edit, so it is no undo step and survives
                 // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
@@ -3982,13 +4004,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <Download className="w-4 h-4" />
                 Download Project
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
-                  <History className="w-4 h-4" />
-                  Version History
-                </DropdownMenuItem>
-              </VersionHistoryDialog>
+              {!demo && <DropdownMenuSeparator />}
+              {!demo && (
+                <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Version History
+                  </DropdownMenuItem>
+                </VersionHistoryDialog>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <SaveProjectDialog
@@ -4080,7 +4104,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </TooltipProvider>
         </div>
 
-        <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>
+        {/* The demo's notice (docs/2026-10-09-demo-instance.md, decision 3):
+            nothing is saved, and how to keep what was built. */}
+        {demo && (
+          <div data-testid="demo-notice" className="ml-auto pl-4 text-xs text-muted-foreground truncate">
+            Demo - nothing is saved. Download Project takes your screen with you.{" "}
+            <a href={DEMO_INSTALL_URL} target="_blank" rel="noreferrer" className="underline">
+              Install Schaltli
+            </a>
+          </div>
+        )}
+
+        <Button variant="ghost" size="sm" className={cn("h-8 px-3 gap-1.5 font-normal", !demo && "ml-auto")} asChild>
           <a href={HANDBOOK_URL} target="_blank" rel="noreferrer" data-testid="help-link">
             <CircleHelp className="w-4 h-4" />
             Help
@@ -4141,7 +4176,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
 
       <div className="flex-1 flex min-h-0">
-        {!isPreviewMode && (
+        {/* The demo has one project and saves none: no list (its place is
+            «Your van», docs/2026-10-09-demo-instance.md, decision 8). */}
+        {!isPreviewMode && !demo && (
           <ProjectsPanel
             openName={save.savedName}
             openUnsaved={save.unsaved}

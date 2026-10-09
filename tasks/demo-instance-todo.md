@@ -59,12 +59,17 @@ top of all 23 handlers, `demo: true` in `/api/version`.
 **Description:** decision 3.
 
 **Acceptance criteria:**
-- [ ] `/` opens «Camper» at once in demo mode.
-- [ ] Save, Save As, Rename, Delete, Version History, Deploy, firmware, MQTT
-      settings, «Add device from URL» absent; Download, Upload, Export,
-      preview, Discover present.
-- [ ] The notice with its handbook link.
-- [ ] Outside demo mode nothing changes (the existing suite).
+- [x] `/` opens the start project at once in demo mode (its name from the
+      server's `SCHALTLI_DEMO_START`, not from the designer's code).
+- [x] Save, Save As, Version History, Deploy, the Projects panel (with its
+      rename and delete), MQTT connection settings, «Add device from URL»
+      absent; Download, Upload, Export, New Project, preview, Discover present;
+      Ctrl+S says the demo saves nothing.
+- [x] The notice with its link to the handbook's install page.
+- [x] Outside demo mode nothing changes: the whole e2e suite 1367 passed, the
+      one failure (no-van-words, the start project's name in the code) fixed.
+
+Done 2026-10-09.
 
 **Verification:** `e2e/demo-mode.spec.ts` (UI part, with
 `extraHTTPHeaders`).

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { DESIGNER_BUILD } from "@/lib/designer-build"
 import { readFirmwareRelease } from "@/lib/firmware-release"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
-import { isDemo, refuseInDemo } from "@/lib/demo-mode"
+import { demoStartProject, isDemo, refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/version - what this designer is, without an SSH session. Three
 // separate things, deliberately not merged into one number
@@ -26,9 +26,9 @@ export async function GET(request: Request) {
     designer: DESIGNER_BUILD,
     systemGeneration: SYSTEM_GENERATION_STRING,
     firmware: { release: release.release, commit: release.commit ?? null },
-    // Whether this is demo.schaltli.com's demo mode (lib/demo-mode.ts): the
-    // client asks here rather than a build-time flag, so one build serves
-    // both and the tests can switch it per request.
-    ...(isDemo(request) ? { demo: true } : {}),
+    // Whether this is demo.schaltli.com's demo mode (lib/demo-mode.ts), and
+    // the project it opens: the client asks here rather than a build-time
+    // flag, so one build serves both and the tests can switch it per request.
+    ...(isDemo(request) ? { demo: { start: demoStartProject() } } : {}),
   })
 }

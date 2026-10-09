@@ -43,6 +43,15 @@ export function allowedInDemo(method: string, pathname: string): boolean {
   return ALLOWED.some((rule) => rule.method === effective && rule.path.test(pathname))
 }
 
+/**
+ * The project the demo opens at once: named in the server's environment
+ * (`SCHALTLI_DEMO_START`, set by deploy/demo/setup.sh), so the designer
+ * itself names nothing of what a project is about. "Demo" without it.
+ */
+export function demoStartProject(): string {
+  return process.env.SCHALTLI_DEMO_START?.trim() || "Demo"
+}
+
 /** The answer to anything the demo does not do. */
 export function demoRefusal(): NextResponse {
   return NextResponse.json({ error: "Not in the demo" }, { status: 403 })

@@ -64,7 +64,10 @@ announcement.
    - `GET /api/projects`, `GET /api/projects/<name>` (the start project only
      exists there), `GET /api/projects/<name>/versions` (empty)
    - `GET /api/ddf/list`, `GET /api/ddf/data/*`, `GET /api/fonts/list`
-   - `GET /api/version`, which also answers `demo: true`
+   - `GET /api/version`, which also answers `demo: { start }` - the start
+     project's name, from the server's `SCHALTLI_DEMO_START` («Camper» on
+     the demo server, "Demo" without it), so the designer's own code names
+     nothing of a van (e2e/no-van-words.spec.ts)
 
    Refused are every POST and DELETE (saving, versions, rename, deploys,
    firmware upload, DDF fetch by URL, recovery), `GET /api/deploy/*`,
@@ -73,7 +76,7 @@ announcement.
 3. **The client asks the server**, via `/api/version`, rather than a
    build-time variable: one build serves both, and the tests can switch it.
    In demo mode:
-   - `/` opens the start project at once (`/projects/Camper`), no gate;
+   - `/` opens the start project at once (`/projects/<start>`), no gate;
    - the Projects panel shows «Your van» instead of the list (decision 8);
    - hidden: Save, Save As, Rename, Delete, Version History, Deploy to Device,
      firmware, the MQTT connection settings, «Add device from URL»;
@@ -148,7 +151,8 @@ announcement.
    idempotent, run from the PC with `ssh schaltli-demo 'bash -s'`: clone or
    update the designer at a given ref, `npm ci`, build, seed
    `.data/projects/Camper`, write `/etc/schaltli-demo.env`
-   (`SCHALTLI_DEMO=1`, the van's broker password), Mosquitto's config and
+   (`SCHALTLI_DEMO=1`, `SCHALTLI_DEMO_START=Camper`, the van's broker
+   password), Mosquitto's config and
    ACL, the Caddyfile (`demo.schaltli.com`: `/mqtt` to 9001, everything
    else to 127.0.0.1:3000), systemd units for the designer and the van,
    then start them. Caddy fetches the certificate itself. Against the
