@@ -31,12 +31,12 @@
 set -euo pipefail
 
 # Everything below is one function, called on the last line: run as
-# `curl … | bash`, bash reads this script from the pipe as it goes, and any
-# command in it that reads stdin (npm, node, sudo, ssh-ish tools) swallows
-# the lines that follow. On 2026-10-09 that ate the end of the van's install
-# - the closing lines ran together into "Schaltli Designer: http://…:9001".
-# A step in the middle could be lost the same way, silently. With the body in
-# a function bash has read all of it before the first command runs.
+# `curl … | bash`, bash reads this script from the pipe as it goes, and a
+# command in it that read stdin would swallow the lines that follow - a step
+# lost without a word. With the body in a function bash has read all of it
+# before the first command runs. (Put in on 2026-10-09 for closing lines that
+# ran together into "Schaltli Designer: http://…:9001"; that turned out to be
+# an apostrophe, see the end, but the guard stays: it costs nothing.)
 main() {
 
 REF=""
@@ -316,9 +316,14 @@ fi
 # naming it here sent people to a page their browser could not find; the
 # nginx site for it stays, for the day Pekaway's zone carries the name.
 LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+# No apostrophe in the fallback: inside "${…:-…}" bash takes it as a quote,
+# so "<this system's IP>" twice made one string from the first to the second
+# and the two lines one - "Schaltli Designer: http://192.168.8.107:9001" on
+# every install until 2026-10-09.
+LAN_IP="${LAN_IP:-<IP of this Pi>}"
 log "Done."
-log "Schaltli Designer: http://${LAN_IP:-<this system's IP>}:${APP_PORT}/"
-log "MQTT WebSocket broker: ws://${LAN_IP:-<this system's IP>}:${MQTT_WS_PORT}"
+log "Schaltli Designer: http://${LAN_IP}:${APP_PORT}/"
+log "MQTT WebSocket broker: ws://${LAN_IP}:${MQTT_WS_PORT}"
 }
 
 main "$@"

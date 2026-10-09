@@ -71,10 +71,10 @@ test("without --ref it installs the newest official release, not main and not a 
 })
 
 test("run as curl | bash, the whole script is read before anything runs", () => {
-  // On 2026-10-09 a command in the install read stdin - which, under
-  // `curl … | bash`, is the rest of the script - and ate the closing lines:
-  // "Schaltli Designer: http://192.168.8.107:9001". Everything runs inside
-  // main(), called on the last line, so bash has the whole text first.
+  // A command in the install that read stdin - which, under `curl … | bash`,
+  // is the rest of the script - would eat the lines after it. Everything
+  // runs inside main(), called on the last line, so bash has the whole text
+  // first.
   const lines = script.trimEnd().split("\n")
   expect(lines[lines.length - 1]).toBe('main "$@"')
   const opens = lines.indexOf("main() {")
@@ -193,4 +193,29 @@ test("an update stops the running designer before it builds, and starts its sock
   expect(stop).toBeLessThan(at("npm run build"))
   // And the socket listens again afterwards, so the next visit starts the new build.
   expect(at('sudo systemctl restart "${SERVICE_NAME}.socket"')).toBeGreaterThan(at("npm run build"))
+})
+
+test("the closing lines name the designer's and the broker's address, each on its own line", () => {
+  // Until 2026-10-09 they came out as one: "Schaltli Designer:
+  // http://192.168.8.107:9001". The fallback "<this system's IP>" had an
+  // apostrophe, which bash takes as a quote inside "${…:-…}". Run here as the
+  // script runs them, with an address and without.
+  const NL = String.fromCharCode(10)
+  const end = script.slice(script.lastIndexOf(NL + 'LAN_IP="$(hostname -I'), script.lastIndexOf(NL + "}" + NL))
+  const run = (hostname: string) =>
+    execFileSync("bash", ["-c", `log() { echo "[pekaway-install] $*"; }
+hostname() { echo "${hostname}"; }
+APP_PORT=3000
+MQTT_WS_PORT=9001
+${end}`], { encoding: "utf8" }).trim().split(NL)
+  expect(run("192.168.8.107 fd00::1")).toEqual([
+    "[pekaway-install] Done.",
+    "[pekaway-install] Schaltli Designer: http://192.168.8.107:3000/",
+    "[pekaway-install] MQTT WebSocket broker: ws://192.168.8.107:9001",
+  ])
+  expect(run("")).toEqual([
+    "[pekaway-install] Done.",
+    "[pekaway-install] Schaltli Designer: http://<IP of this Pi>:3000/",
+    "[pekaway-install] MQTT WebSocket broker: ws://<IP of this Pi>:9001",
+  ])
 })
