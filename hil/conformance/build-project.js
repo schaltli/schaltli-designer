@@ -107,6 +107,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
   const colors = palette(screen.colorDepth);
 
   const screens = [];
+  const masters = [];
   const taps = {};
   const drags = {};
   const topics = [];
@@ -170,10 +171,21 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     if (built.taps && built.taps.length) taps[type] = built.taps;
     if (built.drags && built.drags.length) drags[type] = built.drags;
 
+    // A specimen that lives on a master - the navigator does, and a device
+    // draws it over every screen that uses the master - brings that master's
+    // objects. The master goes at the end of the project's screens, so the
+    // specimens' screens keep the indices the device pages by
+    // (chunkProject keeps it so).
+    const master = built.master
+      ? { id: `master-${type}`, name: `${type} master`, isMaster: true, backgroundColor: colors.bg, objects: built.master }
+      : null;
+    if (master) masters.push(master);
     screens.push({
       id: `screen-${type}`,
       name: type,
       backgroundColor: colors.bg,
+      ...(master ? { masterScreenId: master.id } : {}),
+      ...(built.screen || {}),
       objects: built.objects,
     });
   }
@@ -224,7 +236,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     assets: [...assets.values()],
     hardwareButtons: [],
     fonts: fonts.map(({ data, ...metrics }) => metrics),
-    screens,
+    screens: [...screens, ...masters],
   };
 
   return { project, skipped, fontsWithData: fonts, taps, drags };
@@ -284,11 +296,17 @@ function screensPerInstall(screen, override) {
 
 // Splits a project into installable chunks, each a complete project carrying
 // only its own screens and only the topics those screens bind to.
+//
+// Masters are not counted: each chunk carries the masters its screens use,
+// after them, so a screen's index in the chunk is the one the device pages by.
 function chunkProject(project, screenTopicsOf, size) {
   const chunks = [];
-  for (let i = 0; i < project.screens.length; i += size) {
-    const screens = project.screens.slice(i, i + size);
-    const used = new Set(screens.flatMap((s) => screenTopicsOf(project, s)));
+  const shown = project.screens.filter((s) => !s.isMaster);
+  for (let i = 0; i < shown.length; i += size) {
+    const own = shown.slice(i, i + size);
+    const masterIds = new Set(own.map((s) => s.masterScreenId).filter(Boolean));
+    const screens = [...own, ...project.screens.filter((s) => s.isMaster && masterIds.has(s.id))];
+    const used = new Set(own.flatMap((s) => screenTopicsOf(project, s)));
     chunks.push({
       ...project,
       // Assets are left whole on purpose: the export bakes only what a screen

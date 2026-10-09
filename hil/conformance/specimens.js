@@ -822,6 +822,65 @@ const SPECIMENS = {
   "switcher": {
     build: (c) => tabbed(c, "tab"),
   },
+
+  // The strip with an entry per screen (docs/2026-10-08-navigator.md). It
+  // lives on a master, so the specimen brings one (build-project.js), and the
+  // reference draws it among the screen's objects (run.js). In a chunk of
+  // its own the screen is the only entry, and the open one: drawn in the
+  // active colours, icon and name, beside a text the strip must not cover.
+  // Tapping, scrolling, hidden screens and a live entry are
+  // hil/navigator.js's; this asks only whether the board draws the strip as
+  // the designer does.
+  navigator: {
+    build: (c) => {
+      const strip = Math.round(c.screen.width / 10);
+      return {
+        assets: [RING],
+        screen: { iconAssetId: RING.id },
+        master: [
+          {
+            id: c.id("strip"),
+            type: "navigator",
+            zIndex: 50,
+            x: 0,
+            y: 0,
+            width: strip,
+            height: c.screen.height,
+            properties: {
+              edge: "left",
+              shows: "iconsAndText",
+              fontId: c.font("small"),
+              backgroundColor: c.colors.border,
+              textColor: c.colors.bg,
+              activeColor: c.colors.accent,
+              activeTextColor: c.colors.fg,
+            },
+          },
+        ],
+        objects: [
+          {
+            id: c.id("beside"),
+            type: "text",
+            zIndex: 1,
+            x: strip + 10,
+            y: c.square.y,
+            width: c.screen.width - strip - 20,
+            height: Math.round(c.square.height / 4),
+            properties: {
+              text: TEXT_SAMPLE,
+              fontId: c.font("large"),
+              fontSize: c.fontSize("large"),
+              color: c.colors.fg,
+              textAlign: "left",
+              fontWeight: "normal",
+              backgroundColor: c.colors.bg,
+              borderColor: c.colors.border,
+            },
+          },
+        ],
+      };
+    },
+  },
 };
 
 // A tab-control holding two panels, each with one child, for both the

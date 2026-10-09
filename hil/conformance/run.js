@@ -660,8 +660,23 @@ async function main() {
     // device already has the bytes, and a zip carrying them would ship a
     // second copy of the same file.
     const chunk = { ...chunks[bi], fonts: ddf.fonts };
+    // The screens the device pages through; the masters after them are not
+    // among them (build-project.js, chunkProject).
+    const shown = chunk.screens.filter((s) => !s.isMaster);
+    // The designer's reference draws a screen alone - test-render does not
+    // merge masters - so each screen gets its master's objects among its own,
+    // as hil/navigator.js does for its reference.
+    const reference = {
+      ...chunk,
+      screens: chunk.screens.map((s) => {
+        const master = s.masterScreenId && chunk.screens.find((m) => m.id === s.masterScreenId);
+        if (!master) return s;
+        const { masterScreenId, ...alone } = s;
+        return { ...alone, objects: [...s.objects, ...master.objects] };
+      }),
+    };
     console.log(
-      `\n=== install ${bi + 1}/${chunks.length}: ${chunk.screens.map((s) => s.name).join(", ")}`,
+      `\n=== install ${bi + 1}/${chunks.length}: ${shown.map((s) => s.name).join(", ")}`,
     );
     const base64 = await page.evaluate(
       (p) => window.__buildDeviceZipForTest(p),
@@ -673,8 +688,8 @@ async function main() {
       zipBuffer,
       ddf.testInterface,
       args.device,
-      chunk.screens.length,
-      chunk.screens.map((s) => s.id),
+      shown.length,
+      shown.map((s) => s.id),
     );
 
     // One photographed case: the values published (or, for the case before
@@ -720,7 +735,7 @@ async function main() {
           (req) => window.__renderScreenForTest(req),
           {
             quantize,
-            project: chunk,
+            project: reference,
             screenIndex: si,
             topicOverrides: overrides,
           },
@@ -834,8 +849,8 @@ async function main() {
     // report a topic's first example if it seeded from there, which every
     // board did until 2026-09-15 - and the photograph checks that each type
     // draws "no value" the way the designer does.
-    for (let si = 0; si < chunk.screens.length; si++) {
-      const screen = chunk.screens[si];
+    for (let si = 0; si < shown.length; si++) {
+      const screen = shown[si];
       const topics = screenTopics(chunk, screen);
       if (topics.length === 0) continue;
       console.log(`\n[${screen.name}] before any value`);
@@ -849,8 +864,8 @@ async function main() {
       );
     }
 
-    for (let si = 0; si < chunk.screens.length; si++) {
-      const screen = chunk.screens[si];
+    for (let si = 0; si < shown.length; si++) {
+      const screen = shown[si];
       const combos = combinationCount(chunk, screen);
       let lastOverrides = {};
       console.log(`\n[${screen.name}] ${combos} combination(s)`);
@@ -904,7 +919,7 @@ async function main() {
             fs.writeFileSync(devicePath, deviceBuf)
             const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
               quantize,
-              project: chunk,
+              project: reference,
               screenIndex: si,
               topicOverrides: overrides,
             })
