@@ -9,8 +9,9 @@ Chat German, docs English.
 with it); no other upgrades in this commit.
 
 **Acceptance criteria:**
-- [ ] `next` at the newest 14.2.x; `npm audit` no longer lists the
-      middleware bypass.
+- [x] `next` at 14.2.35, the newest 14.2.x (2026-10-09); the middleware
+      bypass is closed. Some twenty advisories stay open in the 14 line,
+      accepted for the demo (spec decision 1); Next.js 16 is issue #61.
 - [ ] `npm run test:all` green (or only the known load-flaky tests, run
       alone green).
 
@@ -31,14 +32,17 @@ with it); no other upgrades in this commit.
 
 ## Task 3: Demo mode on the server
 
-**Description:** decision 2. `lib/demo-mode.ts` (`isDemo`, the allow-list),
-`middleware.ts` over `/api/*`, `demo: true` in `/api/version`.
+**Description:** decision 2. `lib/demo-mode.ts` (`isDemo`, the allow-list,
+`refuseInDemo`), `middleware.ts` over `/api/*`, the same check at the top
+of every route handler, `demo: true` in `/api/version`.
 
 **Acceptance criteria:**
 - [ ] With `x-schaltli-demo: 1` (dev) or `SCHALTLI_DEMO=1`: every refused
       route answers 403 «Not in the demo», every allowed one as usual.
 - [ ] The header does nothing when `NODE_ENV=production`.
 - [ ] Without either, every route as before.
+- [ ] Every route handler refuses on its own too: called directly, past the
+      middleware, a refused route is still 403.
 
 **Verification:** `e2e/demo-mode.spec.ts` (API part).
 

@@ -40,12 +40,23 @@ announcement.
 
 ## Decisions
 
-1. **Next.js to the newest 14.2.x first.** `npm audit` reports critical
-   issues for 14.2.16, among them a middleware bypass that is fixed from
-   14.2.25 on, and decision 2 relies on middleware. A whole test:all after.
+1. **Next.js to the newest 14.2.x first: 14.2.35.** It closes the middleware
+   bypass (fixed from 14.2.25). The 14 line gets no more fixes, though:
+   `npm audit` still lists some twenty advisories for 14.2.35, fixed only in
+   15 or 16. Most concern what the designer does not use (image optimization
+   - `images.unoptimized` is set -, server actions, Pages Router i18n,
+   rewrites, CSP nonces); what remains is mostly denial of service through
+   React Server Components. For a demo that saves nothing and holds no
+   secret but the van's broker password, that is someone taking it down, not
+   taking anything - accepted (2026-10-09), with decisions 2 and 10 as the
+   guard. The move to Next.js 16 and React 19 is its own piece of work, not
+   under the announcement's pressure (issue).
 
-2. **Demo mode is decided per request, on the server.** `middleware.ts`
-   over `/api/*` asks `isDemo(request)`: true when `SCHALTLI_DEMO=1` in the
+2. **Demo mode is decided per request, on the server, twice.** `middleware.ts`
+   over `/api/*` asks `isDemo(request)`, and every route handler asks it
+   again through the same `refuseInDemo(request)` before it does anything -
+   so the guard does not hang on middleware, where half of the open
+   advisories live. `isDemo` is true when `SCHALTLI_DEMO=1` in the
    server's environment, or - only when `NODE_ENV !== "production"` - when
    the request carries `x-schaltli-demo: 1`, which is how the e2e tests turn
    it on against the shared dev server without a second one. In demo mode
@@ -140,7 +151,14 @@ announcement.
    (`SCHALTLI_DEMO=1`, the van's broker password), Mosquitto's config and
    ACL, the Caddyfile (`demo.schaltli.com`: `/mqtt` to 9001, everything
    else to 127.0.0.1:3000), systemd units for the designer and the van,
-   then start them. Caddy fetches the certificate itself.
+   then start them. Caddy fetches the certificate itself. Against the
+   advisories decision 1 leaves open: request bodies above 64 KB refused
+   at Caddy (the demo takes in nothing larger), the designer and the van
+   restarted by systemd on failure (`Restart=always`), the designer's
+   memory capped (`MemoryMax=1G`), so a request that blows it up costs a
+   restart, not the server. Caddy 2.6 has no rate limiting of its own;
+   connections per visitor are left to Mosquitto's `max_connections` and
+   the kernel for now.
 
 ## What the code says
 
