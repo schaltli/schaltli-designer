@@ -6,7 +6,7 @@ import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
-import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, projectSubscriptionTopics } from "@/lib/render-screen"
+import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
 import { blockFont, blockTable, buildEntry, type BausteinOptions } from "@/lib/bausteine"
@@ -542,6 +542,11 @@ export interface ColorRecoloration {
   originalColor: string
   newColor: string
 }
+
+// How late a value only screens out of view read reaches liveValues - the
+// list of topic values beside the preview, and those screens once shown,
+// which take in everything at once anyway (#58).
+const LIVE_QUIET_MS = 500
 
 export const extractColorsFromSVG = (svgContent: string): string[] => {
 
@@ -1120,9 +1125,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const lastLevelPublishRef = useRef<Map<string, number>>(new Map())
   const { connect: connectPreviewMqtt, disconnect: disconnectPreviewMqtt } = previewMqtt
 
+  // Every value the broker has given, current to the message - liveValues is
+  // what was last drawn from it (#58): values only screens out of view read
+  // reach liveValues within LIVE_QUIET_MS, without a redraw of their own, and
+  // all of them the moment the view changes. heardTopicsRef is what the view
+  // reads (previewHeardTopics), set further down once the view is known.
+  const liveAllRef = useRef<Record<string, string>>({})
+  const heardTopicsRef = useRef<Set<string>>(new Set())
+  const quietTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const stopLive = useCallback(() => {
     liveGenRef.current++
     disconnectPreviewMqtt()
+    if (quietTimerRef.current) clearTimeout(quietTimerRef.current)
+    quietTimerRef.current = null
+    liveAllRef.current = {}
     setLiveValues({})
     setAskedValues({})
     setLiveStatus("idle")
@@ -1131,6 +1148,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const startLive = useCallback(() => {
     const gen = ++liveGenRef.current
     disconnectPreviewMqtt()
+    liveAllRef.current = {}
     setLiveValues({})
     setPreviewSource("live")
     setLiveStatus("connecting")
@@ -1140,20 +1158,56 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           client.end(true)
           return
         }
-        client.on("message", (topic, payload) => {
-          if (gen !== liveGenRef.current) return
-          const value = payload.toString()
-          setLiveValues((prev) => (prev[topic] === value ? prev : { ...prev, [topic]: value }))
+        // What arrives is collected and taken in once per frame (#58): a
+        // render per message was what stalled the preview of a large
+        // project on a slow browser - thirty values a second, each redrawing
+        // everything. Per topic the last value of the frame wins; an asked
+        // value is checked against each one in order, as before.
+        let pending: [string, string][] = []
+        let frame = 0
+        const takeIn = () => {
+          frame = 0
+          const arrived = pending
+          pending = []
+          if (gen !== liveGenRef.current || arrived.length === 0) return
+          const all = liveAllRef.current
+          let seen = false
+          let quiet = false
+          for (const [topic, value] of arrived) {
+            if (all[topic] === value) continue
+            all[topic] = value
+            if (heardTopicsRef.current.has(topic)) seen = true
+            else quiet = true
+          }
+          if (seen) {
+            if (quietTimerRef.current) clearTimeout(quietTimerRef.current)
+            quietTimerRef.current = null
+            setLiveValues({ ...all })
+          } else if (quiet && !quietTimerRef.current) {
+            quietTimerRef.current = setTimeout(() => {
+              quietTimerRef.current = null
+              if (gen === liveGenRef.current) setLiveValues({ ...liveAllRef.current })
+            }, LIVE_QUIET_MS)
+          }
           // The installation has spoken about a topic a finger set: its word
           // wins from here, whether it confirms the value or disagrees with
           // it. A repeat of what was already there is not an answer.
+          const now = Date.now()
           setAskedValues((prev) => {
-            const held = prev[topic]
-            if (!held || !askedValueAnswered(held, value, Date.now())) return prev
-            const next = { ...prev }
-            delete next[topic]
+            let next = prev
+            for (const [topic, value] of arrived) {
+              const held = next[topic]
+              if (!held || !askedValueAnswered(held, value, now)) continue
+              if (next === prev) next = { ...prev }
+              delete next[topic]
+            }
             return next
           })
+        }
+        client.on("message", (topic, payload) => {
+          if (gen !== liveGenRef.current) return
+          pending.push([topic, payload.toString()])
+          if (!frame) frame = requestAnimationFrame(takeIn)
         })
         client.on("close", () => {
           if (gen === liveGenRef.current) setLiveStatus("lost")
@@ -1527,6 +1581,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
+
+  // What the view reads, for the live preview to redraw at once (#58); and
+  // when the view changes, everything the broker has given so far.
+  useEffect(() => {
+    if (!isPreviewMode) return
+    heardTopicsRef.current = previewHeardTopics(
+      [displayedScreen, displayedScreenMaster, popupUnderlay?.screen, popupUnderlay?.masterScreen],
+      project.screens,
+      project.combinedTopics,
+    )
+    if (Object.keys(liveAllRef.current).length > 0) setLiveValues({ ...liveAllRef.current })
+  }, [isPreviewMode, displayedScreen, displayedScreenMaster, popupUnderlay, project.screens, project.combinedTopics])
 
   // project.topics with previewTopicValues applied as each topic's current
   // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,

@@ -211,11 +211,24 @@ async function main() {
   })
 
   console.log("\n=== e2e (Playwright) ===")
-  const e2eCode = await run("npx", ["playwright", "test"], { cwd: REPO_ROOT })
+  const e2eCode = await run("npx", ["playwright", "test", "--grep-invert", "@alone"], { cwd: REPO_ROOT })
   summary.push({
     name: "e2e",
     status: e2eCode === 0 ? "PASS" : "FAIL",
     detail: e2eCode === 0 ? "" : `exit code ${e2eCode}`,
+    report: "playwright-report/index.html",
+  })
+
+  // Specs tagged @alone measure time (e2e/preview-performance.spec.ts, #58):
+  // beside three other browsers and the dev server they measure the machine,
+  // not the code - 0.6 s alone, 1.2 s in the full run (2026-10-09). So they
+  // run after the rest, one browser at a time.
+  console.log("\n=== e2e timing (Playwright, @alone, one worker) ===")
+  const aloneCode = await run("npx", ["playwright", "test", "--grep", "@alone", "--workers=1"], { cwd: REPO_ROOT })
+  summary.push({
+    name: "e2e timing",
+    status: aloneCode === 0 ? "PASS" : "FAIL",
+    detail: aloneCode === 0 ? "" : `exit code ${aloneCode}`,
     report: "playwright-report/index.html",
   })
 

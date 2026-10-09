@@ -3,7 +3,7 @@ import {
   PILL_SUBPIXEL_SCALE,
   insidePillTip,
   pillBandsBounds,
-  pillPixelBands,
+  pillCoverage,
   type PillBand,
 } from "@/lib/pill-raster"
 import { blendBands, fromRgb565, toRgb565, type Rgb565 } from "@/lib/arc-raster"
@@ -216,9 +216,16 @@ function softPills(
   const exact = runs.map((r) => (r.colour === null ? null : exactRgb(r.colour)))
   const mixInto = toRgb565(background)
 
+  // The counts come from the cache (#58): only the colouring below runs on
+  // every draw.
+  const coverage = pillCoverage(bands, bounds)
+  const n = bands.length
+  const counts = new Array<number>(n).fill(0)
+
   for (let py = 0; py < bounds.h; py++) {
     for (let px = 0; px < bounds.w; px++) {
-      const counts = pillPixelBands(bands, bounds.x + px, bounds.y + py)
+      const base = (py * bounds.w + px) * n
+      for (let b = 0; b < n; b++) counts[b] = coverage[base + b]
       const inked: { colour: ReturnType<typeof toRgb565>; count: number }[] = []
       let covered = 0
       let claimed = 0

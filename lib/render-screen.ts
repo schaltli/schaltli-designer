@@ -198,6 +198,29 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
   return [...set]
 }
 
+// The topics a live preview redraws for at once (#58, docs/2026-10-09-
+// preview-performance.md): what the screens on view read - the screen, its
+// master, a popup and the screen under it - plus every topic a combined topic
+// reads and every screen's live icon, which the navigator may show. Any other
+// value is taken in a little later and without a redraw of its own: a
+// large project's values for screens out of view were most of what kept a
+// slow browser busy. Missing a reader here makes a value late, never wrong.
+export function previewHeardTopics(
+  onView: readonly ({ objects: ScreenObject[] } | null | undefined)[],
+  allScreens: readonly { iconLive?: LiveValue }[],
+  combinedTopics: readonly CombinedTopic[] | undefined,
+): Set<string> {
+  const screens = onView.filter((s): s is { objects: ScreenObject[] } => !!s)
+  const set = new Set(projectSubscriptionTopics({ screens }))
+  for (const ct of combinedTopics ?? []) {
+    for (const c of ct.conditions) if (c.source.namespace === "topic" && c.source.path) set.add(splitTopicPath(c.source.path).topic)
+  }
+  for (const screen of allScreens) {
+    if (screen.iconLive?.source.namespace === "topic" && screen.iconLive.source.path) set.add(splitTopicPath(screen.iconLive.source.path).topic)
+  }
+  return set
+}
+
 // The topics an export declares: the project's own, and every topic a text's
 // placeholder names that the project lacks, added the way the editor adds one
 // when a text field is left. A device keeps values only for declared topics

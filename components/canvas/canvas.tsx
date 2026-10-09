@@ -1791,55 +1791,38 @@ export function Canvas({
     combinedTopics,
   ])
 
+  // The canvas follows its container's size, and only a change of size sets
+  // it: setting canvas.width allocates the buffer anew and clears it. Until
+  // 2026-10-09 this hung on `draw`, which changes on every render of the
+  // editor, so every render resized the canvas and drew it a second time -
+  // half of what the live preview spent per value (#58).
+  const drawRef = useRef(draw)
+  drawRef.current = draw
   useEffect(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
     const resizeCanvas = () => {
-      const canvas = canvasRef.current
-      const container = containerRef.current
-      if (!canvas || !container) return
-
       const rect = container.getBoundingClientRect()
+      if (canvas.width === Math.trunc(rect.width) && canvas.height === Math.trunc(rect.height)) return
       canvas.width = rect.width
       canvas.height = rect.height
       canvas.style.width = `${rect.width}px`
       canvas.style.height = `${rect.height}px`
-      draw()
+      drawRef.current()
     }
-
-    window.addEventListener("resize", resizeCanvas)
-    // Initial resize to set canvas dimensions on load
+    const observer = new ResizeObserver(resizeCanvas)
+    observer.observe(container)
     resizeCanvas()
+    return () => observer.disconnect()
+  }, [])
 
-    return () => window.removeEventListener("resize", resizeCanvas)
-  }, [draw])
-
-
+  // Whatever draw() reads is in its dependencies, so a new draw is a picture
+  // to paint - once. A hovered hardware button is among them; it used to
+  // have an effect of its own besides, which drew every hover twice.
   useEffect(() => {
     draw()
-  }, [
-    screen.objects,
-    selectedObjectIds,
-    hoveredObjectId,
-    zoom,
-    offset,
-    dragState,
-    adornmentImage,
-    adornmentSvgDoc,
-    showAdornment,
-    adornmentDrawingArea,
-    adornmentRotation,
-    snapGuides,
-    editingContainerId,
-    pressedButtonId,
-    pressedSwitch,
-  ]) // Added snapGuides to dependency array to force redraw when snap guides change
-
-  // Separate effect for hover state changes to avoid infinite loop
-  useEffect(() => {
-    if (hoveredSvgButtonId !== null) {
-      draw()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hoveredSvgButtonId])
+  }, [draw])
 
   useEffect(() => {
     // Clear the entire icon cache when assets change

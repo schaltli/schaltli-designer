@@ -192,3 +192,59 @@ export function pillBandsBounds(bands: readonly PillBand[]): {
   if (!Number.isFinite(x0)) return { x: 0, y: 0, w: 0, h: 0 }
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
+
+/**
+ * Every pixel's counts over a box, as pillPixelBands gives them one pixel at
+ * a time: `w * h * bands.length` numbers, pixel (px, py) of the box at
+ * `(py * w + px) * bands.length`, one count per band in the bands' order.
+ *
+ * Cached, because this is where the live preview spent its time (#58,
+ * docs/2026-10-09-preview-performance.md): every redraw counted sixteen
+ * sub-samples against every band of every Switch and bar anew, though the
+ * shapes had not changed. The counts are geometry only - no colour,
+ * background, glow or gradient enters them - so one entry serves a shape in
+ * every state and theme, and the colouring after it stays exactly as it was.
+ *
+ * Keyed by the bands relative to the box's corner: a sub-sample sits at the
+ * same place inside its pixel everywhere, and every coordinate here is a
+ * whole pixel times PILL_SUBPIXEL_SCALE, so a shape moved by whole pixels
+ * counts the same. The returned array is shared - read it, never write it.
+ */
+export function pillCoverage(
+  bands: readonly PillBand[],
+  box: { x: number; y: number; w: number; h: number },
+): Uint8Array {
+  const local = bands.map((b) => ({ ...b, x: b.x - box.x, y: b.y - box.y }))
+  const key = `${box.w}x${box.h}|` + local.map((b) => `${b.x},${b.y},${b.w},${b.h},${b.rLow},${b.rHigh},${b.vertical ? 1 : 0},${b.tip ?? ""}`).join(";")
+  const hit = coverageCache.get(key)
+  if (hit) {
+    // Re-inserted, so the Map's order stays oldest-used first.
+    coverageCache.delete(key)
+    coverageCache.set(key, hit)
+    return hit
+  }
+  const n = local.length
+  const out = new Uint8Array(box.w * box.h * n)
+  for (let py = 0; py < box.h; py++) {
+    for (let px = 0; px < box.w; px++) {
+      const counts = pillPixelBands(local, px, py)
+      const at = (py * box.w + px) * n
+      for (let b = 0; b < n; b++) out[at + b] = counts[b]
+    }
+  }
+  coverageCache.set(key, out)
+  if (coverageCache.size > PILL_COVERAGE_CACHE_SIZE) coverageCache.delete(coverageCache.keys().next().value as string)
+  return out
+}
+
+/**
+ * How many shapes pillCoverage keeps. A screen has a few dozen distinct
+ * ones; this is many screens, and a few MB at the very worst.
+ */
+export const PILL_COVERAGE_CACHE_SIZE = 512
+const coverageCache = new Map<string, Uint8Array>()
+
+/** How many shapes the cache holds now - for the tests. */
+export function pillCoverageCacheSize(): number {
+  return coverageCache.size
+}
