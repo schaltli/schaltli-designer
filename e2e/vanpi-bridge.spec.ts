@@ -129,10 +129,15 @@ test.describe("VanPi bridge logic", () => {
       ...logic.flatten("dimmer", RECORDED.dimmer),
       ...logic.flatten("heater", '{"heatertoggle":true,"targettemp_vanpi":22}'),
     ])
+    // Shown at once and held, as a dimmer is (2026-10-09, tester Arno: a
+    // relay followed only with the next poll, 1-2 s).
     expect(logic.command("schaltli/cmnd/relay/3", "on", state)).toEqual({
       publish: [{ topic: "pkw/cmnd/relay/3/POWER", payload: "on" }],
       refresh: "relay",
+      state: [{ topic: "schaltli/state/relay/3/power", value: "on" }],
+      hold: true,
     })
+    expect(logic.command("schaltli/cmnd/wifirelay/2", "off", state).state).toEqual([{ topic: "schaltli/state/wifirelay/2/power", value: "off" }])
     expect(logic.command("schaltli/cmnd/relay/6", "toggle", state).publish[0].payload).toBe("off")
     expect(logic.command("schaltli/cmnd/relay/1", "TOGGLE", state).publish[0].payload).toBe("on")
     expect(logic.command("schaltli/cmnd/wifirelay/2", "off", state).publish[0].topic).toBe("pkw/cmnd/wrelay/2/POWER")
@@ -1069,7 +1074,7 @@ test.describe("VanPi bridge flow", () => {
     return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi), status, sent }
   }
 
-  test("its function nodes do on Node-RED's terms what the logic promises", () => {
+  test("its function nodes do on Node-RED's terms what the logic promises", async () => {
     const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
     const flowContext = new Map<string, unknown>()
 
@@ -1088,9 +1093,16 @@ test.describe("VanPi bridge flow", () => {
     expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
 
     const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
-    const [toPekaway, refresh] = commands.run({ topic: "schaltli/cmnd/relay/6", payload: "toggle" })
+    // A relay is shown off at once and held (2026-10-09); Pekaway is asked
+    // a moment later, as after a dimmer level.
+    const [toPekaway, refresh, shown] = commands.run({ topic: "schaltli/cmnd/relay/6", payload: "toggle" })
     expect(toPekaway).toEqual([{ topic: "pkw/cmnd/relay/6/POWER", payload: "off", retain: false }])
-    expect(refresh).toEqual({ topic: "pkw/stat/relay", payload: "" })
+    expect(refresh).toBeNull()
+    expect(shown).toEqual([{ topic: "schaltli/state/relay/6/power", payload: "off", retain: true }])
+    await new Promise((r) => setTimeout(r, 250))
+    expect(commands.sent).toEqual([[null, { topic: "pkw/stat/relay", payload: "" }, null]])
+    // Pekaway's answer still saying on is set aside while the hold lasts.
+    expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
     expect(commands.run({ topic: "schaltli/cmnd/relay/6", payload: "maybe" })).toBeNull()
 
     // The theme: third output, the retained state node, and only on a change.

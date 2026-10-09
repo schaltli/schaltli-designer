@@ -759,7 +759,18 @@ function createBridgeLogic() {
       var wanted = n && power(state[PREFIX + group + "/" + n + "/power"])
       if (!wanted) return null
       var pkw = group === "relay" ? "relay" : "wrelay"
-      return { publish: [{ topic: "pkw/cmnd/" + pkw + "/" + n + "/POWER", payload: wanted }], refresh: "relay" }
+      // Shown the moment it is asked for, as a dimmer is, and held against
+      // an answer still saying otherwise (HOLD_MS). Until 2026-10-09 a relay
+      // waited for Pekaway's word: its answer to the immediate ask was often
+      // still the old state, so the switch followed only with the next poll
+      // - "mit 1-5 Relais 1-2 Sekunden" (tester Arno). A relay Pekaway does
+      // not switch comes back with the next poll, two seconds later at most.
+      return {
+        publish: [{ topic: "pkw/cmnd/" + pkw + "/" + n + "/POWER", payload: wanted }],
+        refresh: "relay",
+        state: [{ topic: PREFIX + group + "/" + n + "/power", value: wanted }],
+        hold: true,
+      }
     }
     if (group === "dimmer" && parts.length === 4) {
       var dn = intIn(parts[3], 1, 8)

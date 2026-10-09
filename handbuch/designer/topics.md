@@ -27,11 +27,13 @@ Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <spa
 - <span class="ui">Mock Responses</span>: nur für die [Simulation](/designer/vorschau#simulation). Hier legst du fest, wie ein Befehl beantwortet wird, etwa dass «on» auf dem Befehls-Topic den Zustand auf «on» setzt.
 - Bei JSON zusätzlich <span class="ui">Subtopics</span>: die einzelnen Felder der Nachricht. <span class="ui">Detect from examples</span> liest sie aus den Beispielwerten.
 
+<span class="ui">Remove unused topics</span> entfernt auf einmal alle Topics, die nichts im Projekt liest oder schreibt: kein Objekt, keine Aktion, kein Wert im Text und kein Combined topic. Die Zahl in Klammern sagt, wie viele es sind. Der Designer fragt nicht nach, <kbd>Strg</kbd>+<kbd>Z</kbd> holt sie zurück.
+
 ## Topics vom Broker holen
 
 <span class="ui">Discover MQTT Topics</span> hört eine Weile mit, was auf dem Broker passiert, und listet alle Topics, die dabei vorkommen. <span class="ui">retained</span> heisst, der Wert lag schon auf dem Broker; <span class="ui">live</span>, er kam erst während des Mithörens. Den Typ erkennt der Designer selbst.
 
-Wähle die gewünschten Topics aus, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>.
+Am Anfang ist keines ausgewählt. Wähle die Topics aus, die du brauchst, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>. Nimm nur, was ein Screen zeigen oder schalten soll: Die Vorschau hört jedes Topic des Projekts mit.
 
 Der Dialog verbindet sich selbst mit dem Broker auf dem Rechner, auf dem der Designer läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. Beides merkt sich der Browser, bis du es änderst.
 

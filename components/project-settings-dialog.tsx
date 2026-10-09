@@ -2,7 +2,7 @@
 
 import { CombinedTopicsSection } from "@/components/combined-topics-section"
 import { resolveScale } from "@/lib/size-scale"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 
 import { useState } from "react"
 
@@ -41,6 +41,7 @@ import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { useToast } from "@/hooks/use-toast"
 import { ddfName } from "@/lib/ddf-name"
 import { NumberFormatField } from "@/components/number-format-field"
+import { unusedTopics } from "@/lib/topic-usage"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import { withScreenType, type ScreenType } from "@/lib/popup"
@@ -304,6 +305,20 @@ export function ProjectSettingsDialog({
 
     setAddTopicDialogOpen(false)
     resetTopicForm()
+  }
+
+  // Every topic nothing in the project reads or writes, in one go (lib/
+  // topic-usage.ts). No question first, like deleting a screen: Ctrl+Z
+  // brings them back, and the toast says so.
+  const unused = useMemo(() => (showProjectSettings ? unusedTopics(project) : []), [showProjectSettings, project])
+  const handleRemoveUnusedTopics = () => {
+    if (unused.length === 0) return
+    const gone = new Set(unused.map((t) => t.topic))
+    onProjectUpdate({ ...project, topics: topics.filter((t) => !gone.has(t.topic)) })
+    toast({
+      title: `Removed ${unused.length} unused topic${unused.length === 1 ? "" : "s"}`,
+      description: "Ctrl+Z brings them back.",
+    })
   }
 
   const handleDeleteTopic = (topicName: string) => {
@@ -1227,6 +1242,15 @@ export function ProjectSettingsDialog({
                         <p className="text-sm text-muted-foreground">Manage MQTT topics for your project</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          onClick={handleRemoveUnusedTopics}
+                          size="sm"
+                          variant="outline"
+                          disabled={unused.length === 0}
+                          title={unused.length === 0 ? "Every topic is in use" : `${unused.length} topic(s) nothing in the project reads or writes`}
+                        >
+                          Remove unused topics{unused.length > 0 ? ` (${unused.length})` : ""}
+                        </Button>
                         <Button onClick={handleMqttDiscovery} size="sm" variant="outline">
                           <MqttIcon className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
                           Discover MQTT Topics

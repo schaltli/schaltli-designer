@@ -221,7 +221,13 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
             subtopics: merged?.subtopics ?? [],
             lastValue: message,
             messageCount: 1,
-            selected: true,
+            // Nothing is chosen until the user chooses it. Every topic used
+            // to start selected, and «Add Selected Topics» then took a whole
+            // broker into the project - 293 topics at tester Arno's, Home
+            // Assistant's discovery configs among them, each one subscribed
+            // by the preview, and no way to take them out but one by one
+            // (2026-10-09).
+            selected: false,
             retained,
           }
           return [...prev, newTopic].sort((a, b) => a.topic.localeCompare(b.topic))
@@ -316,11 +322,11 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     : discoveredTopics
   const isFiltered = searchQuery.trim().length > 0
 
-  // Every topic starts out selected="true" the moment it's discovered (see
-  // processMessageQueue), so with a filter active most topics carry a
-  // stale "selected" flag from before the filter existed - scope to what's
-  // actually visible, or "Add Selected Topics" would silently add
-  // currently-hidden topics the user never consciously chose.
+  // With a filter active, topics selected before it was typed are hidden but
+  // still carry their flag - scope to what's actually visible, or "Add
+  // Selected Topics" would silently add topics the user can no longer see.
+  // (Every topic started out selected until 2026-10-09, which made this
+  // the common case; it still happens after a selection and a new filter.)
   const handleAddSelectedTopics = () => {
     const selectedTopics = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected)
     if (selectedTopics.length > 0) {

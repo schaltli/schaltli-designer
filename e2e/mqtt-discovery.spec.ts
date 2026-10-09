@@ -70,8 +70,8 @@ test.describe("MQTT topic discovery", () => {
   })
 
   test("filtering scopes 'Add Selected Topics' to what's actually visible", async ({ page }, testInfo) => {
-    // Reported live (2026-08-02): every discovered topic starts out
-    // selected="true" (see processMessageQueue), so typing a filter only
+    // Reported live (2026-08-02): every discovered topic started out
+    // selected="true" (until 2026-10-09), so typing a filter only
     // changed what was *shown*, not what "Add Selected Topics" would add -
     // clicking it while filtered silently added every hidden topic too,
     // not just the ones the user could actually see and meant to pick.
@@ -93,6 +93,8 @@ test.describe("MQTT topic discovery", () => {
     await page.getByRole("button", { name: "Start Discovery" }).click()
     await expect(page.getByText(keepTopic)).toBeVisible()
     await expect(page.getByText(dropTopic)).toBeVisible()
+    // Both chosen, then the filter: the hidden one keeps its flag.
+    await page.getByRole("dialog", { name: "Discover MQTT Topics" }).getByRole("button", { name: "Select All", exact: true }).click()
 
     await page.getByPlaceholder("Filter topics...").fill("keep-me")
     await expect(page.getByText(keepTopic)).toBeVisible()
@@ -106,6 +108,38 @@ test.describe("MQTT topic discovery", () => {
     await expect(page.getByText(dropTopic)).not.toBeVisible()
 
     testClient.publish(dropTopic, "", { retain: true })
+  })
+
+  // Tester Arno, 2026-10-09: every topic started out selected, so «Add
+  // Selected Topics» took 293 into his project - the whole broker, Home
+  // Assistant's discovery configs among them - and the preview subscribed
+  // to every one. Nothing is chosen until the user chooses it.
+  test("nothing is selected until the user picks it", async ({ page }, testInfo) => {
+    const one = `test/discovery-none-${testInfo.testId}/one`
+    const two = `test/discovery-none-${testInfo.testId}/two`
+    await new Promise<void>((resolve) => {
+      testClient.publish(one, "1", { retain: true }, () => {
+        testClient.publish(two, "2", { retain: true }, () => resolve())
+      })
+    })
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await expect(page.getByText(one)).toBeVisible()
+    await expect(page.getByText(two)).toBeVisible()
+    await expect(page.getByText(/^0 of \d+ topics selected$/)).toBeVisible()
+    await expect(page.getByRole("button", { name: "Add Selected Topics" })).toBeDisabled()
+
+    await page.getByText(one).click()
+    await page.getByRole("button", { name: "Add Selected Topics" }).click()
+    await expect(page.getByText(one)).toBeVisible()
+    await expect(page.getByText(two)).not.toBeVisible()
+
+    testClient.publish(one, "", { retain: true })
+    testClient.publish(two, "", { retain: true })
   })
 
   test("derives subtopics from a JSON topic and merges fields across differing payloads", async ({
@@ -146,6 +180,7 @@ test.describe("MQTT topic discovery", () => {
     await expect(row.getByText(`${derived}, mode`, { exact: true })).toBeVisible()
 
     await page.getByPlaceholder("Filter topics...").fill(jsonTopic)
+    await page.getByRole("dialog", { name: "Discover MQTT Topics" }).getByRole("button", { name: "Select Shown", exact: true }).click()
     await page.getByRole("button", { name: "Add Selected Topics" }).click()
 
     // The derived fields must land on the project's topic as real
