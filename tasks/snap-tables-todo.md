@@ -16,11 +16,18 @@ fit growing their last column/row, empty ones about 4 mm, the 1.5 mm gap,
 each object placed by align/fill (text left, rest centred by default).
 
 **Acceptance criteria:**
-- [ ] A 3×2 table of known object sizes lays out to the expected column x, row y and object rectangles.
-- [ ] A width set by hand raises a column, never lowers it; below the content it has no effect.
-- [ ] A 2-column span wider than its columns widens the last of them only.
-- [ ] Align left/center/right, top/middle/bottom and Fill width/height place an object as specified.
-- [ ] Roles: icon and live-icon Icon, text Label, everything else Control.
+- [x] A 3×2 table of known object sizes lays out to the expected column x, row y and object rectangles.
+- [x] A width set by hand raises a column, never lowers it; below the content it has no effect.
+- [x] A 2-column span wider than its columns widens the last of them only.
+- [x] Align left/center/right, top/middle/bottom and Fill width/height place an object as specified.
+- [x] Roles: icon and live-icon Icon, text Label, everything else Control.
+
+Done 2026-10-09. `lib/snap-table.ts`: `arrangeSnapTable`, `snapTableGeometry`,
+`occupancy`, `dimensions`, `roleOf`, `isSnapTable`. Found while writing it:
+Fill overwrites an object's width or height, and the next layout pass would
+take that for its natural size and grow the column on every change; the
+drawn size is kept in `properties.drawnWidth`/`drawnHeight` while filled
+(tested by laying out twice).
 
 **Verification:** `npx playwright test e2e/snap-table-model.spec.ts`; `npm run typecheck`.
 
