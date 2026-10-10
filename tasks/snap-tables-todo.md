@@ -357,8 +357,16 @@ as on a screen (snapping, selection, spans, lines). A switcher and a free
 area can sit in a new table's cell as one object (role Control).
 
 **Acceptance criteria:**
-- [ ] Two switches snapped inside a switcher panel form a table there.
-- [ ] A free area snapped beside a label forms a table; the free area's content stays free.
+- [x] Two switches snapped inside a switcher panel form a table there (texts: the test device has no switch).
+- [x] A free area snapped beside a label forms a table; the free area's content stays free.
+
+Done 2026-10-10 without a code change: snapping, selection and the layout
+already work in whatever space is open (`interactionObjects`, `drawSpace`,
+the editing container), a panel and a free area included, and a switcher
+and a free area may stand in a cell (`canStandInCell`). Three canvas cases
+now hold it: two texts into a table in an open switcher panel, two in an
+open free area, a free area beside a text (its content kept). Handbook: a
+paragraph in «Zusammenstecken». Ran snap-table-canvas: 25 green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g contexts`; typecheck.
 

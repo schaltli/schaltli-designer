@@ -6,7 +6,7 @@ import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutProject } from "../lib/layout"
 import { placedSize } from "../lib/placing"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, getSelectedHeader, loadProject, placingFreely, saveProjectAs } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, getSelectedHeader, loadProject, objectTreeRow, openAllTwisties, placingFreely, saveProjectAs } from "./helpers"
 
 // Tables put together by snapping, on the canvas (docs/2026-10-09-snap-tables.md,
 // module snap-table-canvas). The combined project's first screen, 400 x 300,
@@ -466,6 +466,106 @@ test.describe("snap table: lines", () => {
     await expect.poll(async () => typeof (await savedObjects(page)).find((o) => o.id === "grid")!.properties!.rows[0].mm).toBe("number")
     await page.keyboard.press("ControlOrMeta+z")
     expect((await savedObjects(page)).find((o) => o.id === "grid")!.properties!.rows[0].mm).toBeUndefined()
+  })
+})
+
+// The first screen holding `objects`, nothing else.
+async function projectWith(objects: Obj[]): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  project.screens.find((s: Obj) => s.id === "screen-1").objects = objects
+  zip.file("project.json", JSON.stringify(project))
+  const out = path.join(os.tmpdir(), `snap-ctx-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return out
+}
+const freeText = (id: string, words: string, x: number, y: number, z: number): Obj => {
+  const { cell: _cell, ...properties } = text(id, words, z, {}).properties
+  return { ...text(id, words, z, {}), x, y, properties }
+}
+
+test.describe("snap table: in a switcher panel and a free area", () => {
+  test("two texts snapped inside an open switcher panel form a table there", async ({ page }) => {
+    const switcher: Obj = {
+      id: "sw",
+      type: "switcher",
+      x: 60,
+      y: 60,
+      width: 280,
+      height: 180,
+      zIndex: 1,
+      properties: { topic: "t/mode" },
+      children: [
+        { id: "p1", type: "panel", x: 0, y: 0, width: 280, height: 180, zIndex: 0, properties: {}, children: [freeText("a", "Licht", 20, 20, 1), freeText("b", "Pumpe", 20, 100, 2)] },
+      ],
+    }
+    await loadProject(page, await projectWith([switcher]))
+    await openAllTwisties(page)
+    await objectTreeRow(page, "p1").click()
+    await expect.poll(() => editing(page)).toBe("p1")
+    // «Pumpe» (80,160 on the screen) carried until its left edge is 3 px right of «Licht» (80..140, 80).
+    await drag(page, { x: 110, y: 171 }, { x: 143 + 30, y: 91 })
+    const objects = await savedObjects(page)
+    const panel = objects.find((o) => o.id === "sw")!.children!.find((p) => p.id === "p1")!
+    const table = panel.children!.find((o) => o.type === "table")!
+    expect(table.properties?.grid).toBe(1)
+    expect(table.children!.map((o) => [o.id, o.properties?.cell?.column])).toEqual([
+      ["a", 0],
+      ["b", 1],
+    ])
+    // Nothing left the panel.
+    expect(objects.map((o) => o.id)).toEqual(["sw"])
+  })
+
+  test("two texts snapped inside an open free area form a table in it", async ({ page }) => {
+    const area: Obj = {
+      id: "area",
+      type: "free",
+      x: 40,
+      y: 40,
+      width: 300,
+      height: 200,
+      zIndex: 1,
+      properties: {},
+      children: [freeText("a", "Licht", 20, 20, 1), freeText("b", "Pumpe", 20, 120, 2)],
+    }
+    await loadProject(page, await projectWith([area]))
+    await objectTreeRow(page, "area").click()
+    await expect.poll(() => editing(page)).toBe("area")
+    // «Pumpe» (60,160 on the screen) carried until its left edge is 3 px right of «Licht» (60..120, 60).
+    await drag(page, { x: 90, y: 171 }, { x: 123 + 30, y: 71 })
+    const placed = (await savedObjects(page)).find((o) => o.id === "area")!
+    const table = placed.children!.find((o) => o.type === "table")!
+    expect(table.children!.map((o) => o.id)).toEqual(["a", "b"])
+  })
+
+  test("a free area snapped beside a text forms a table; what the area holds stays in it", async ({ page }) => {
+    const area: Obj = {
+      id: "area",
+      type: "free",
+      x: 100,
+      y: 150,
+      width: 80,
+      height: 50,
+      zIndex: 2,
+      properties: {},
+      children: [freeText("inside", "Innen", 10, 10, 1)],
+    }
+    await loadProject(page, await projectWith([freeText("label", "Licht", 100, 60, 1), area]))
+    // The area chosen by a click on its edge, away from what it holds.
+    await click(page, { x: 175, y: 195 })
+    await expect.poll(() => getSelectedHeader(page)).toContain("area")
+    // Carried until its left edge is 3 px right of «Licht» (100..160, 60).
+    await drag(page, { x: 175, y: 195 }, { x: 175 + (163 - 100), y: 195 - 90 })
+    const objects = await savedObjects(page)
+    const table = objects.find((o) => o.type === "table")!
+    expect(table.children!.map((o) => [o.id, o.properties?.cell?.column])).toEqual([
+      ["label", 0],
+      ["area", 1],
+    ])
+    const placed = table.children!.find((o) => o.id === "area")!
+    expect(placed.children!.map((o) => o.id)).toEqual(["inside"])
+    expect(placed.children![0]).toMatchObject({ x: 10, y: 10 })
   })
 })
 
