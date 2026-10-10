@@ -110,6 +110,9 @@ type DeployStatusState =
   // A phone has nothing to reboot: it puts the new screen up under whoever
   // is looking at it, and says so (2026-09-21-android-self-announce.md).
   | "applied"
+  // Not from the device: the dialog's own word once a board is back after
+  // restarting with the project (#52).
+  | "deployed"
   | "error"
   | "busy"
   | "up_to_date"
@@ -499,8 +502,28 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // download is what comes; if it does not answer, publishTrigger says
       // so and takes the trigger back.
       setDeployStatus({ deployId, state: "downloading", percent: 0 })
+      // Its end, and - for a board, which restarts - its return: «Deploy
+      // successful» only once it is back (#52). Until 2026-10-10 the dialog
+      // stopped at «Rebooting» and never said whether the board came back.
+      const ended = awaitMessage(
+        (l, i, payload) => {
+          const status = l === "deploy-status" && i === instanceId ? statusOf(payload) : null
+          return !!status && status.deployId === deployId && ["rebooting", "applied", "error", "busy", "up_to_date"].includes(status.state)
+        },
+        FIRMWARE_MS,
+      )
       const answered = await publishTrigger(instanceId, "deploy", deployId, { deployId, url, crc32: checksum })
       if (!answered) return
+      void ended.then(async (payload) => {
+        if (statusOf(payload ?? "")?.state !== "rebooting") return
+        const back = await awaitMessage((l, i) => l === "hello" && i === instanceId, RETURN_MS)
+        if (activeDeployIdRef.current !== deployId) return
+        setDeployStatus(
+          back
+            ? { deployId, state: "deployed" }
+            : { deployId, state: "error", error: "The device did not come back after restarting. Check that it is on." },
+        )
+      })
 
       // Bind this project to the device it was just sent to, and mark the
       // saved version as what is on that device (which also points the
@@ -715,7 +738,11 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 deviceName={selectedDevice?.name || selectedInstanceId || ""}
                 kind={statusKind}
               />
-              {(deployStatus.state === "error" || deployStatus.state === "busy" || deployStatus.state === "up_to_date") &&
+              {(deployStatus.state === "error" ||
+                deployStatus.state === "busy" ||
+                deployStatus.state === "up_to_date" ||
+                deployStatus.state === "deployed" ||
+                deployStatus.state === "applied") &&
                 !isDeploying && (
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => setDeployStatus(null)}>
@@ -911,6 +938,7 @@ const STATE_LABELS: Record<DeployStatusState, string> = {
   applying: "Applying",
   rebooting: "Rebooting",
   applied: "Done",
+  deployed: "Deploy successful",
   error: "Failed",
   busy: "Device is busy with another deploy",
   up_to_date: "Already up to date",
@@ -925,7 +953,9 @@ function DeployProgress({
   deviceName: string
   kind: "deploy" | "firmware"
 }) {
-  const isDone = status.state === "rebooting" || status.state === "applied"
+  // A board's project deploy ends when it is back (#52); a firmware update
+  // on its own still ends at its restart.
+  const isDone = status.state === "deployed" || status.state === "applied" || (kind === "firmware" && status.state === "rebooting")
   const isError = status.state === "error" || status.state === "busy"
 
   return (

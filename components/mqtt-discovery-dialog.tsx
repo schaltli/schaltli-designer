@@ -37,6 +37,9 @@ interface MqttDiscoveryDialogProps {
   isOpen: boolean
   onClose: () => void
   onTopicsSelected: (topics: DiscoveredTopic[]) => void
+  // The topics the project has already: shown «in project» and not offered
+  // again (#37 - they were added a second time).
+  existingTopics?: readonly string[]
 }
 
 let globalDiscoveryStopFlag = false
@@ -60,7 +63,8 @@ const PROCESSING_DELAY = 100
 // messages aren't inspected at all.
 const MAX_JSON_EXAMPLES = 10
 
-export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttDiscoveryDialogProps) {
+export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existingTopics = [] }: MqttDiscoveryDialogProps) {
+  const inProject = new Set(existingTopics)
   // The demo's broker is the demo's own; nobody points it elsewhere
   // (docs/2026-10-09-demo-instance.md, decision 3).
   const demo = useDemoMode()
@@ -318,6 +322,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
   }
 
   const toggleTopicSelection = (topicName: string) => {
+    if (inProject.has(topicName)) return
     setDiscoveredTopics((prev) => prev.map((t) => (t.topic === topicName ? { ...t, selected: !t.selected } : t)))
   }
 
@@ -332,14 +337,14 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
   // (Every topic started out selected until 2026-10-09, which made this
   // the common case; it still happens after a selection and a new filter.)
   const handleAddSelectedTopics = () => {
-    const selectedTopics = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected)
+    const selectedTopics = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected && !inProject.has(t.topic))
     if (selectedTopics.length > 0) {
       onTopicsSelected(selectedTopics)
       onClose()
     }
   }
 
-  const selectedCount = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected).length
+  const selectedCount = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected && !inProject.has(t.topic)).length
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -585,6 +590,11 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
+                                {inProject.has(topic.topic) && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 shrink-0" data-testid="in-project">
+                                    in project
+                                  </Badge>
+                                )}
                                 <Badge
                                   variant="outline"
                                   className={cn(
@@ -648,7 +658,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                       onClick={() => {
                         const visible = new Set(filteredTopics.map((t) => t.topic))
                         setDiscoveredTopics((prev) =>
-                          prev.map((t) => (visible.has(t.topic) ? { ...t, selected: true } : t)),
+                          prev.map((t) => (visible.has(t.topic) && !inProject.has(t.topic) ? { ...t, selected: true } : t)),
                         )
                       }}
                       size="sm"

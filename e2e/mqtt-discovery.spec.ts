@@ -142,6 +142,40 @@ test.describe("MQTT topic discovery", () => {
     testClient.publish(two, "", { retain: true })
   })
 
+  // #37: a topic the project has already is shown «in project», cannot be
+  // picked, and «Add Selected Topics» never adds it a second time.
+  test("a topic the project has is marked and not added again", async ({ page }, testInfo) => {
+    const fresh = `test/discovery-fresh-${testInfo.testId}/value`
+    // A topic the combined test project has (and the broker may well carry).
+    const existing = "Freshwater/Level"
+    await new Promise<void>((resolve) => {
+      testClient.publish(fresh, "1", { retain: true }, () => {
+        testClient.publish(existing, "42", { retain: false }, () => resolve())
+      })
+    })
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    const settings = page.getByRole("dialog")
+    const before = await settings.getByText(existing, { exact: true }).count()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+    const discovery = page.getByRole("dialog", { name: "Discover MQTT Topics" })
+    await expect(discovery.getByText(fresh)).toBeVisible()
+    // Published again while discovering, so it is listed whatever the broker held.
+    testClient.publish(existing, "43")
+    const existingRow = discovery.locator("div.cursor-pointer").filter({ hasText: existing }).first()
+    await expect(existingRow.getByTestId("in-project")).toBeVisible()
+
+    await discovery.getByRole("button", { name: "Select All", exact: true }).click()
+    await discovery.getByRole("button", { name: "Add Selected Topics" }).click()
+    await expect(settings.getByText(fresh, { exact: true })).toBeVisible()
+    await expect(settings.getByText(existing, { exact: true })).toHaveCount(before)
+
+    testClient.publish(fresh, "", { retain: true })
+  })
+
   test("derives subtopics from a JSON topic and merges fields across differing payloads", async ({
     page,
   }, testInfo) => {

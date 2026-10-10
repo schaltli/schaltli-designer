@@ -30,15 +30,16 @@ Danach zeigt der Dialog jeden Schritt:
 | <span class="ui">Downloading</span> | das Gerät lädt das Projekt |
 | <span class="ui">Verifying</span> | es prüft das Projekt |
 | <span class="ui">Applying</span> | es übernimmt das Projekt |
-| <span class="ui">Rebooting</span> | es startet neu, fertig |
+| <span class="ui">Rebooting</span> | es startet neu; der Dialog wartet, bis es wieder da ist |
+| <span class="ui">Deploy successful</span> | das Board ist mit dem neuen Projekt zurück, fertig |
 | <span class="ui">Done</span> | fertig (Android-App, ohne Neustart) |
 | <span class="ui">Already up to date</span> | das Gerät hat genau dieses Projekt schon |
 | <span class="ui">Device is busy with another deploy</span> | es ist noch mit einer anderen Übertragung beschäftigt |
 | <span class="ui">Failed</span> | etwas ging schief, darunter steht der Grund |
 
-<Screenshot narrow name="deploy-fertig" alt="Der Dialog meldet Rebooting" />
+<Screenshot narrow name="deploy-fertig" alt="Der Dialog meldet Deploy successful" />
 
-Antwortet das Gerät nicht innerhalb von 30 Sekunden, nimmt der Designer den Auftrag zurück und meldet <span class="ui">The device did not respond</span>. Mit <span class="ui">Try again</span> versuchst du es noch einmal. Scheitert das Firmware-Update, wird das Projekt nicht übertragen, und das Board läuft mit seiner bisherigen Firmware weiter.
+Kommt ein Board nach dem Neustart nicht innerhalb von drei Minuten zurück, sagt der Dialog das. Antwortet das Gerät nicht innerhalb von 30 Sekunden, nimmt der Designer den Auftrag zurück und meldet <span class="ui">The device did not respond</span>. Mit <span class="ui">Try again</span> versuchst du es noch einmal. Scheitert das Firmware-Update, wird das Projekt nicht übertragen, und das Board läuft mit seiner bisherigen Firmware weiter.
 
 ## Wenn der Dialog nicht überträgt
 

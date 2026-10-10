@@ -239,7 +239,7 @@ async function main() {
     if (source === "deploy" && outcome === "rebooting") {
       // Then, once the board is back with the release, the project: its own
       // progress, without the "Firmware update" prefix, to the end.
-      const projectDone = page.locator("span").filter({ hasText: /: (Rebooting|Done)$/ }).filter({ hasNotText: "Firmware update" })
+      const projectDone = page.locator("span").filter({ hasText: /: (Deploy successful|Done)$/ }).filter({ hasNotText: "Firmware update" })
       const projectFailed = page.locator("span").filter({ hasText: /: Failed$/ }).filter({ hasNotText: "Firmware update" })
       const sent = await Promise.race([
         projectDone.first().waitFor({ timeout: 300000 }).then(() => "sent"),

@@ -37,10 +37,7 @@ Am Anfang ist keines ausgewählt. Wähle die Topics aus, die du brauchst, das Fi
 
 Der Dialog verbindet sich selbst mit dem Broker auf dem Rechner, auf dem der Designer läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. Beides merkt sich der Browser, bis du es änderst.
 
-::: warning Doppelte Einträge
-<!-- handbuch-macke #37: Discovery legt Topics doppelt an -->
-Topics, die schon im Projekt sind, trägt <span class="ui">Add Selected Topics</span> ein zweites Mal ein. Wähle nur die aus, die noch fehlen.
-:::
+Topics, die schon im Projekt sind, stehen mit <span class="ui">in project</span> in der Liste. Du kannst sie nicht noch einmal wählen, und <span class="ui">Add Selected Topics</span> legt sie nie ein zweites Mal an.
 
 ## Ein Topic an ein Objekt binden
 

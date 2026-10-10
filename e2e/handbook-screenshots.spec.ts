@@ -174,7 +174,7 @@ test.describe("handbook: Erste Schritte", () => {
         deviceId: DEVICE_ID,
         firmwareVersion: release,
         firmwareBuild: release,
-        systemGeneration: "1.0",
+        systemGeneration: "1.5",
         ddfHash: computeDdfHash(new Uint8Array(ddf)),
         url: "http://192.0.2.1/ddf.zip",
       }),
@@ -344,6 +344,13 @@ test.describe("handbook: Erste Schritte", () => {
       await publish(board, `${TOPIC_PREFIX}/${INSTANCE_ID}/deploy-status`, JSON.stringify({ deployId, state, ...extra }), false)
     }
     await expect(page.getByText(`${INSTANCE_ID}: Rebooting`)).toBeVisible({ timeout: 15000 })
+    // Back after its restart, as a board announces itself again (#52).
+    await publish(
+      board,
+      `${TOPIC_PREFIX}/${INSTANCE_ID}/hello`,
+      JSON.stringify({ deviceId: DEVICE_ID, firmwareVersion: "x", systemGeneration: "1.5" }),
+    )
+    await expect(page.getByText(`${INSTANCE_ID}: Deploy successful`)).toBeVisible({ timeout: 15000 })
     await dialogShot("deploy-fertig")
 
     // 6. The deploy saved first; Version History shows that version, marked

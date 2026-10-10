@@ -2827,7 +2827,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     setProject((prev) => {
       let currentNextId = prev.nextId
-      const newTopics: Topic[] = discoveredTopics.map((topic) => {
+      // Never a second topic of a name the project has (#37): the dialog
+      // offers none, and this holds whatever it is handed.
+      const have = new Set(prev.topics.map((t) => t.topic))
+      const newTopics: Topic[] = discoveredTopics.filter((topic) => !have.has(topic.topic)).map((topic) => {
         const newTopic: Topic = {
           id: `topic_${currentNextId}`,
           topic: topic.topic,
@@ -4439,6 +4442,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
+        existingTopics={project.topics.map((t) => t.topic)}
       />
     </div>
   )

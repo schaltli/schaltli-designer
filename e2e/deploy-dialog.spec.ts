@@ -229,6 +229,16 @@ test.describe("Deploy to Device dialog", () => {
 
     publishStatus("rebooting")
     await expect(page.getByText(`Camper Dashboard ${epaperId}: Rebooting`)).toBeVisible()
+
+    // Not done at «Rebooting» (#52): once the board is back - its hello
+    // again, as a board publishes it after every start - the deploy is.
+    await expect(page.getByText(`Camper Dashboard ${epaperId}: Deploy successful`)).toHaveCount(0)
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${epaperId}/hello`,
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
+      { retain: true },
+    )
+    await expect(page.getByText(`Camper Dashboard ${epaperId}: Deploy successful`)).toBeVisible()
   })
 
   test("shows a clear error and lets the user go back on a failed deploy", async ({ page }) => {
