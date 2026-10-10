@@ -592,10 +592,17 @@ test.describe("Undo across loads", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Undo Test ${epaperId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: `Undo Test ${epaperId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+      // It answers a deploy as a device does (#66: only an answered deploy counts).
+      deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`)
+      deviceClient.on("message", (topic, payload) => {
+        if (topic !== `${TOPIC_PREFIX}/${epaperId}/deploy` || payload.length === 0) return
+        const { deployId } = JSON.parse(payload.toString())
+        deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy-status`, JSON.stringify({ deployId, state: "downloading", percent: 0 }))
+      })
 
       await loadProject(page, COMBINED_TEST_PROJECT)
       await deleteOnCanvas(page, OBJ_4)

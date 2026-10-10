@@ -55,7 +55,7 @@ test.describe("Page icon export", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: ROUND_FIXTURE_DEVICE_ID, name: `Page Icon Test ${deviceId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: ROUND_FIXTURE_DEVICE_ID, name: `Page Icon Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })

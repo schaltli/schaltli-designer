@@ -107,7 +107,7 @@ test.describe("Master screen mechanism", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Master Test ${epaperId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: `Master Test ${epaperId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })

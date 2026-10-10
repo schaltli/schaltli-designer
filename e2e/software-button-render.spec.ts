@@ -43,7 +43,7 @@ test.describe("SoftwareButton base-state rendering", () => {
       // invisible in the dialog.
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: ROUND_FIXTURE_DEVICE_ID, name: `SoftwareButton Test ${deviceId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: ROUND_FIXTURE_DEVICE_ID, name: `SoftwareButton Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })

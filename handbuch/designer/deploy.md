@@ -9,8 +9,7 @@
 Der Dialog verbindet sich mit dem Broker und listet alle Geräte, die sich dort melden. Oben stehen die, für die das Projekt gemacht ist, darunter die übrigen mit dem Vermerk <span class="ui">Other device</span>. Boards heissen nach ihrem Typ und einer Kennung, Android-Handys nach ihrem Modell.
 
 - Ein grünes WLAN-Zeichen heisst: Das Gerät ist online.
-- <span class="ui">will apply on reconnect</span>: Das Gerät ist gerade nicht online. Überträgst du trotzdem, holt es sich das Projekt, sobald es wieder da ist.
-- <span class="ui">firmware update</span>: Der Designer bringt eine neuere Firmware mit, siehe [Firmware-Updates](/geraete/firmware-updates).
+- <span class="ui">offline</span>: Das Gerät ist gerade nicht erreichbar. Übertragen geht erst, wenn es wieder online ist. Wählst du es aus, nennt der Dialog, was zu prüfen ist: Das Gerät muss eingeschaltet sein, im selben Netz wie der Designer hängen und als Broker die Adresse eingetragen haben, die der Dialog angibt, zum Beispiel `192.168.8.107:1883`. Etwas auf Vorrat zu schicken, das ein Gerät erst Tage später übernimmt, ist bewusst nicht möglich.
 
 ### Ein anderes Gerät
 
@@ -20,7 +19,9 @@ Wählst du ein Gerät mit <span class="ui">Other device</span>, sagt der Dialog,
 
 ## Übertragen
 
-Wähle das Gerät und klick auf <span class="ui">Deploy</span>. Vorher speichert der Designer das Projekt, denn was auf einem Gerät läuft, soll auch im Designer liegen. Hat das Projekt noch keinen Namen, fragt er zuerst danach, wie beim ersten [Speichern](/designer/projekte#speichern). Brichst du dort ab, wird nichts übertragen.
+Wähle das Gerät. Unter der Liste steht in einer Zeile, welche Firmware es hat und was <span class="ui">Deploy</span> tun wird, etwa «Firmware fw-2026.10.04.2 · Deploy installs fw-2026.10.09.1 first». Bringt der Designer eine neuere Firmware mit, als das Board hat, spielt er sie zuerst auf, wartet, bis das Board mit ihr zurück ist, und überträgt dann das Projekt. Der Knopf heisst dann <span class="ui">Update & Deploy</span>. Eine neuere Firmware, etwa eine Testversion, ersetzt er dabei nie durch eine ältere. Mehr dazu unter [Firmware-Updates](/geraete/firmware-updates).
+
+Klick auf <span class="ui">Deploy</span>. Vorher speichert der Designer das Projekt, denn was auf einem Gerät läuft, soll auch im Designer liegen. Hat das Projekt noch keinen Namen, fragt er zuerst danach, wie beim ersten [Speichern](/designer/projekte#speichern). Brichst du dort ab, wird nichts übertragen.
 
 Danach zeigt der Dialog jeden Schritt:
 
@@ -37,11 +38,15 @@ Danach zeigt der Dialog jeden Schritt:
 
 <Screenshot narrow name="deploy-fertig" alt="Der Dialog meldet Rebooting" />
 
-## Warnungen vor dem Übertragen
+Antwortet das Gerät nicht innerhalb von 30 Sekunden, nimmt der Designer den Auftrag zurück und meldet <span class="ui">The device did not respond</span>. Mit <span class="ui">Try again</span> versuchst du es noch einmal. Scheitert das Firmware-Update, wird das Projekt nicht übertragen, und das Board läuft mit seiner bisherigen Firmware weiter.
 
-- Enthält das Projekt Objekttypen, die die Firmware des Geräts nicht kennt, warnt der Dialog. Übertragen kannst du trotzdem, diese Objekte fehlen dann auf dem Gerät. Meist hilft ein [Firmware-Update](/geraete/firmware-updates).
-- Ist die Firmware des Geräts so alt, dass sie das Projekt nicht lesen kann, verweigert der Dialog das Übertragen und verlangt zuerst ein Firmware-Update.
-- Enthält ein Text [Werte](/objekte/anzeigen#platzhalter) aus Topics oder vom Gerät und kennen Firmware oder App sie noch nicht, warnt der Dialog ebenfalls. Das Gerät zeigt an Stelle eines Werts dann einen Platzhalter wie `{topic:…}`. Übertragen kannst du trotzdem.
+## Wenn der Dialog nicht überträgt
+
+Übertragen wird nur, was das Gerät ganz zeigen kann. Lieber gar nichts als ein Projekt mit Lücken. Statt <span class="ui">Deploy</span> steht dann, woran es liegt und was zu tun ist:
+
+- **Die Android-App ist zu alt** für Teile des Projekts, etwa Popups oder den Navigator. Aktualisiere die App, der Dialog verlinkt sie.
+- **Die Firmware ist zu alt, und der Designer bringt keine neuere mit.** Spiel eine neuere über den [Flasher](/geraete/flashen) auf.
+- **Das Gerät kennt einen Objekttyp gar nicht**, etwa einen Navigator auf dem runden Knob. Der Dialog nennt ihn. Entferne ihn aus dem Projekt oder wähle ein anderes Gerät.
 
 ## Nach dem Übertragen
 

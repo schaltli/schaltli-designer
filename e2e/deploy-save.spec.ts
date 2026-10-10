@@ -28,11 +28,16 @@ async function fakeDevice(testInfo: { testId: string }) {
   const triggers: string[] = []
   client.subscribe(`${TOPIC_PREFIX}/${instanceId}/deploy`)
   client.on("message", (_topic, payload) => {
-    if (payload.length > 0) triggers.push(payload.toString())
+    if (payload.length === 0) return
+    triggers.push(payload.toString())
+    // Answered as a device does: a deploy only counts once the device has
+    // taken it (#66 - one that does not answer gets it taken back).
+    const { deployId } = JSON.parse(payload.toString())
+    client.publish(`${TOPIC_PREFIX}/${instanceId}/deploy-status`, JSON.stringify({ deployId, state: "downloading", percent: 0 }))
   })
   client.publish(
     `${TOPIC_PREFIX}/${instanceId}/hello`,
-    JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: label }),
+    JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: label }),
     { retain: true },
   )
   client.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "online", { retain: true })

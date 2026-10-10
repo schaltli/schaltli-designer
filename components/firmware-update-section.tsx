@@ -150,9 +150,13 @@ export function FirmwareUpdateSection({
 
       {confirming ? (
         <div className="space-y-2 rounded-md bg-muted/50 p-2">
-          <p className="text-xs">
-            Install {confirming.kind === "release" ? release?.build : `"${confirming.file.name}"`} on {deviceName}? The device
-            restarts when it is done, and keeps its current firmware if anything goes wrong.
+          <p className="text-xs" data-testid="firmware-confirm">
+            {confirming.kind === "release" && standing === "device-ahead"
+              ? // A downgrade, never by accident (#66): the 4.3B sat on an old
+                // release for a day on 2026-10-09 and nobody knew why.
+                `${deviceName} runs ${firmwareBuild}, newer than this designer's ${release?.build}. Replace it with the older ${release?.build}? `
+              : `Install ${confirming.kind === "release" ? release?.build : `"${confirming.file.name}"`} on ${deviceName}? `}
+            The device restarts when it is done, and keeps its current firmware if anything goes wrong.
           </p>
           <div className="flex gap-2">
             <Button
@@ -178,12 +182,12 @@ export function FirmwareUpdateSection({
           {release && standing !== "no-release" && (
             <Button
               size="sm"
-              variant={standing === "update-available" ? "default" : "outline"}
+              variant="outline"
               className="flex-1"
               disabled={busy || !release.available}
               onClick={() => setConfirming({ kind: "release" })}
             >
-              {standing === "update-available" ? "Update firmware" : "Install release"}
+              Install release
             </Button>
           )}
           <Button size="sm" variant="outline" className="flex-1" disabled={busy} onClick={() => fileInput.current?.click()}>

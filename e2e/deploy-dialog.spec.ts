@@ -115,19 +115,19 @@ test.describe("Deploy to Device dialog", () => {
     return page.getByRole("button").filter({ hasText: name })
   }
 
-  test("filters by device type, shows offline devices, and reacts to live deploy-status", async ({ page }) => {
+  test("lists the project's devices first, greys an offline one, and reacts to live deploy-status", async ({ page }) => {
     // A compatible device (this test's own kind, which its project is bound
     // to) and an incompatible one (Android): both listed since 2026-10-10
     // (#62), the project's first, the other marked as another device.
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
     deviceClient.publish(
       `${TOPIC_PREFIX}/${androidId}/hello`,
-      JSON.stringify({ deviceId: "android-a1b2c3d4", name: "My Phone" }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: "android-a1b2c3d4", name: "My Phone" }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${androidId}/status`, "online", { retain: true })
@@ -141,17 +141,18 @@ test.describe("Deploy to Device dialog", () => {
     const names = await rows.allTextContents()
     expect(names.findIndex((t) => t.includes(`Camper Dashboard ${epaperId}`))).toBeLessThan(names.findIndex((t) => t.includes("My Phone")))
 
-    // Take it offline - the row should stay visible but relabel, not
-    // disappear (a currently-offline device is still a valid deploy
-    // target, per the retained-trigger design: it applies automatically
-    // next time it reconnects).
+    // Take it offline: the row stays, marked, and nothing can be sent to it
+    // (#66 - nothing is queued for a device that is not there).
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "offline", { retain: true })
-    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
-
-    // Back online, select it, and deploy.
-    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
-    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).not.toBeVisible()
+    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("offline", { exact: true })).toBeVisible()
     await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
+    await expect(page.getByTestId("device-offline")).toContainText(":1883")
+    await expect(page.getByRole("button", { name: "Deploy", exact: true })).toBeDisabled()
+
+    // Back online: deployable.
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("offline", { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId("device-offline")).toHaveCount(0)
 
     // Capture the retained trigger the dialog publishes, so this test's
     // fake device can echo status against the real deployId - proves the
@@ -233,7 +234,7 @@ test.describe("Deploy to Device dialog", () => {
   test("shows a clear error and lets the user go back on a failed deploy", async ({ page }) => {
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -266,49 +267,31 @@ test.describe("Deploy to Device dialog", () => {
     await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`, { exact: true })).toBeVisible()
   })
 
-  test("deploying to an offline device shows queued, not a stuck fake progress bar", async ({ page }) => {
-    // Reported live (2026-08-01): the dialog set state to "downloading"
-    // unconditionally the moment the (retained) trigger was published,
-    // regardless of whether the device was actually there to receive it.
-    // With the device powered off, nothing ever corrects that guess - the
-    // UI just sat on a fake "Downloading" forever, since only the device
-    // itself would ever publish a real deploy-status update.
+  // #66: a device that does not answer gets nothing left lying on the broker.
+  // The trigger is taken back after 30 s, and the dialog says so - no
+  // «will apply on reconnect», no update days later that nobody can explain.
+  test("a device that does not answer: the trigger is taken back, and the dialog says so", async ({ page }) => {
+    test.setTimeout(120_000)
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
-    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "offline", { retain: true })
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+    const triggers: string[] = []
+    await new Promise<void>((resolve) => deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => resolve()))
+    deviceClient.on("message", (topic, message) => {
+      if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy`) triggers.push(message.toString())
+    })
 
     await openDeployDialog(page)
-    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
     await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
     await pressDeploy(page)
-
-    // Not the default 5s: the queued state only shows once the project zip is
-    // built and uploaded, and during a full test:all that took longer - the
-    // failure screenshot of 2026-09-15 shows the dialog still on
-    // "Uploading...", with nothing wrong but the machine being busy.
-    await expect(page.getByText(/Offline - will apply automatically when the device reconnects/)).toBeVisible({ timeout: 30_000 })
-    // Never claims active progress for a device that was never asked to do
-    // anything yet, and never silently gets stuck with no way out.
-    await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).not.toBeVisible()
-    await expect(page.getByRole("button", { name: "Back" })).toBeVisible()
-
-    // If the device comes online and actually starts processing the
-    // (still-retained) trigger later in the same session, real progress
-    // should still replace the queued placeholder.
-    const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
-      deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
-      deviceClient.on("message", (topic, message) => {
-        if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
-          resolve(JSON.parse(message.toString()))
-        }
-      })
-    })
-    const trigger = await triggerPromise
-    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy-status`, JSON.stringify({ deployId: trigger.deployId, state: "downloading", percent: 50 }))
-    await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).toBeVisible()
+    // Published, and then - nobody answering - cleared.
+    await expect.poll(() => triggers.some((t) => t.length > 0), { timeout: 30_000 }).toBe(true)
+    await expect(page.getByText("The device did not respond. Nothing was sent")).toBeVisible({ timeout: 45_000 })
+    expect(triggers[triggers.length - 1]).toBe("")
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible()
   })
 
   // Reported from the van, 2026-09-27: a project made for the 4.3B and moved to
@@ -320,7 +303,7 @@ test.describe("Deploy to Device dialog", () => {
     const phoneProject = await projectBoundTo(phoneKind, testInfo.outputPath("phone-project.zip"))
     deviceClient.publish(
       `${TOPIC_PREFIX}/${androidId}/hello`,
-      JSON.stringify({ deviceId: phoneKind, name: `Phone ${androidId}`, platform: "android" }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: phoneKind, name: `Phone ${androidId}`, platform: "android" }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${androidId}/status`, "online", { retain: true })
@@ -365,7 +348,7 @@ test.describe("Deploy to Device dialog", () => {
 
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -452,7 +435,7 @@ test.describe("Deploy to Device dialog", () => {
       const otherName = `Someone Else ${epaperId}`
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: otherDeviceId, name: otherName, firmwareVersion: "1.0.0", url: `http://${lanIp}:${port}/other.zip` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: otherDeviceId, name: otherName, firmwareVersion: "1.0.0", url: `http://${lanIp}:${port}/other.zip` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -531,34 +514,40 @@ test.describe("Deploy to Device dialog", () => {
   //
   // Harmless now that it is alone in that: the shared .data/ddf entry it
   // writes and deletes is read by no other test any more.
-  test("warns about object types the selected device's live DDF doesn't support, and leaves the project's ddfHash untouched on deploy", async ({
+  test("blocks object types the selected device's live DDF doesn't declare, and leaves the project's ddfHash untouched on deploy", async ({
     page,
   }, testInfo) => {
-    // supportedObjectTypes: [] guarantees a mismatch regardless of exactly
-    // what combined-test-project.zip's default screen happens to place.
-    const ddfZip = new JSZip()
-    ddfZip.file(
-      "device.json",
-      JSON.stringify({
-        device: { id: "mqtt-epaper-display-2", name: "e-Paper Display" },
-        screen: { width: 400, height: 300, colorDepth: "1bit" },
-        adornment: {
-          svgPath: "adornment.svg",
-        },
-        hardwareButtons: [],
-        fonts: [],
-        supportedObjectTypes: [],
-      }),
-    )
-    ddfZip.file(
-      "adornment.svg",
-      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect id="screen" x="0" y="0" width="400" height="300" fill="none" stroke="none"/></svg>`,
-    )
-    const ddfBytes = await ddfZip.generateAsync({ type: "nodebuffer" })
+    // A description declaring no types first: a mismatch whatever
+    // combined-test-project.zip's default screen places. Then one declaring
+    // every type there is, to deploy.
+    const ddf = async (supportedObjectTypes: string[]) => {
+      const zip = new JSZip()
+      zip.file(
+        "device.json",
+        JSON.stringify({
+          device: { id: "mqtt-epaper-display-2", name: "e-Paper Display" },
+          screen: { width: 400, height: 300, colorDepth: "1bit" },
+          adornment: { svgPath: "adornment.svg" },
+          hardwareButtons: [],
+          fonts: [],
+          supportedObjectTypes,
+        }),
+      )
+      zip.file(
+        "adornment.svg",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect id="screen" x="0" y="0" width="400" height="300" fill="none" stroke="none"/></svg>`,
+      )
+      return zip.generateAsync({ type: "nodebuffer" })
+    }
+    const ALL_TYPES = [
+      "text", "live-text", "icon", "live-icon", "bar", "slider", "gauge", "dial", "switch", "button-group", "button",
+      "line", "live-line", "box", "switcher", "panel", "navigator", "group", "table", "free",
+    ]
+    let ddfBytes = await ddf([])
     // The hello has to announce the hash of exactly these bytes, or
-    // /api/ddf/fetch refuses the fetch and the warning below never appears -
+    // /api/ddf/fetch refuses the fetch and the check below never happens -
     // the same check a real device is held to.
-    const ddfHash = computeDdfHash(new Uint8Array(ddfBytes))
+    let ddfHash = computeDdfHash(new Uint8Array(ddfBytes))
 
     const httpServer = http.createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/zip" })
@@ -571,24 +560,35 @@ test.describe("Deploy to Device dialog", () => {
     const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
 
     try {
-      deviceClient.publish(
-        `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({
-          deviceId: "mqtt-epaper-display-2",
-          name: `Old Firmware ${epaperId}`,
-          ddfHash,
-          url: ddfUrl,
-        }),
-        { retain: true },
-      )
+      const hello = () =>
+        deviceClient.publish(
+          `${TOPIC_PREFIX}/${epaperId}/hello`,
+          JSON.stringify({
+            deviceId: "mqtt-epaper-display-2",
+            name: `Old Firmware ${epaperId}`,
+            systemGeneration: "1.5",
+            ddfHash,
+            url: ddfUrl,
+          }),
+          { retain: true },
+        )
+      hello()
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
       await openDeployDialog(page, COMBINED_TEST_PROJECT)
       await expect(page.getByRole("dialog").getByText(`Old Firmware ${epaperId}`)).toBeVisible()
       await page.getByRole("dialog").getByText(`Old Firmware ${epaperId}`).click()
 
-      // Warning appears, deploy stays enabled (never a block).
-      await expect(page.getByText(/doesn't support/)).toBeVisible({ timeout: 10000 })
+      // Blocked since 2026-10-10 (#66, it was a warning): rather nothing on
+      // the device than a project with holes, and the types named.
+      await expect(page.getByTestId("deploy-blocked")).toContainText(`"Old Firmware ${epaperId}" cannot show`, { timeout: 10000 })
+      await expect(page.getByRole("button", { name: "Deploy", exact: true })).toBeDisabled()
+
+      // The device now declares every type: deployable.
+      ddfBytes = await ddf(ALL_TYPES)
+      ddfHash = computeDdfHash(new Uint8Array(ddfBytes))
+      hello()
+      await expect(page.getByTestId("deploy-blocked")).toHaveCount(0, { timeout: 10000 })
       await expect(page.getByRole("button", { name: "Deploy", exact: true })).toBeEnabled()
 
       const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
@@ -644,7 +644,7 @@ test.describe("Deploy to Device dialog", () => {
   test("device export embeds the full editable project as _source/project.zip", async ({ page }) => {
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: epaperDeviceId, name: `Recovery Test ${epaperId}` }),
+      JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Recovery Test ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })

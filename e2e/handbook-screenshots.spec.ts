@@ -321,9 +321,9 @@ test.describe("handbook: Erste Schritte", () => {
     const row = page.getByRole("button").filter({ hasText: INSTANCE_ID })
     await expect(row).toBeVisible({ timeout: 15000 })
     await row.click()
-    // The board runs the firmware this designer ships, so there is nothing to
-    // update - the state a freshly flashed board is in.
-    await expect(page.getByTestId("firmware-section")).toContainText("Up to date with the release.", { timeout: 15000 })
+    // The board runs the firmware this designer ships, so Deploy has nothing
+    // to update first - the state a freshly flashed board is in: one line.
+    await expect(page.getByTestId("firmware-line")).toHaveText(/^Firmware fw-/, { timeout: 15000 })
     await dialogShot("deploy-dialog")
 
     // The trigger arrives on the board's own topic; it answers as a board does.

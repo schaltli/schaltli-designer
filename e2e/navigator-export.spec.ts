@@ -161,8 +161,8 @@ test.describe("deploying a navigator to a device that cannot show it", () => {
         await page.getByRole("button", { name: "File" }).click()
         await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
         await page.getByText(`Navigator Test ${id}`, { exact: true }).click()
-        await expect(page.getByTestId("navigator-generation-warning")).toHaveCount(warned ? 1 : 0)
-        if (warned) await expect(page.getByTestId("navigator-generation-warning")).toContainText(`hidden screen ${main.name}`)
+        await expect(page.getByTestId("deploy-blocked")).toHaveCount(warned ? 1 : 0)
+        if (warned) await expect(page.getByTestId("deploy-blocked")).toContainText(`hidden screen ${main.name}`)
       } finally {
         device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
         device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })

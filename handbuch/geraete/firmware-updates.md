@@ -6,15 +6,19 @@ Jede Version des Designers bringt die Firmware mit, die zu ihr passt. Das [Insta
 
 ## So geht's
 
-1. Öffne <span class="ui">File</span> › <span class="ui">Deploy to Device</span> und wähle das Board.
-2. Unter <span class="ui">Firmware</span> steht, welche Version das Board hat (<span class="ui">Running</span>) und welche der Designer mitbringt (<span class="ui">Release</span>). Ist die mitgebrachte neuer, steht in der Geräteliste <span class="ui">firmware update</span> und hier <span class="ui">A newer firmware is available.</span>
-3. Klick auf <span class="ui">Update firmware</span> und bestätige mit <span class="ui">Install firmware</span>.
+Das macht [Deploy to Device](/designer/deploy) von selbst. Wählst du dort ein Board, steht unter der Liste, welche Firmware es hat und ob der Designer eine neuere mitbringt: «Firmware fw-2026.10.04.2 · Deploy installs fw-2026.10.09.1 first». Ein Klick auf <span class="ui">Update & Deploy</span> spielt zuerst die Firmware auf und dann das Projekt.
 
 Das Board lädt die Firmware, prüft sie und startet neu. Der Dialog zeigt jeden Schritt. Auf dem Board steht währenddessen «Firmware-Update / bitte nicht ausschalten».
 
-Geht dabei etwas schief, bricht das Board ab und läuft mit seiner bisherigen Firmware weiter. Es schreibt die neue in einen zweiten Speicherbereich und wechselt erst, wenn sie vollständig und geprüft ist.
+Geht dabei etwas schief, bricht das Board ab und läuft mit seiner bisherigen Firmware weiter. Es schreibt die neue in einen zweiten Speicherbereich und wechselt erst, wenn sie vollständig und geprüft ist. Das Projekt wird dann nicht übertragen.
 
-Ein Board, das gerade nicht erreichbar ist, holt das Update nach, sobald es wieder online ist.
+Ein Board, das nicht online ist, bekommt kein Update. Der Dialog sagt, was zu prüfen ist.
+
+Eine neuere Firmware als die mitgebrachte, etwa eine Testversion, ersetzt Deploy nie.
+
+## Ohne Projekt
+
+Unter dem Link <span class="ui">Firmware...</span> im selben Dialog spielst du eine Firmware auch ohne Projekt auf. <span class="ui">Install release</span> installiert die Version, die der Designer mitbringt, zum Beispiel um ein Board aktuell zu machen, bevor es ein Projekt bekommt. Hat das Board eine neuere Firmware, fragt der Dialog nach und nennt beide Versionen, denn damit stufst du es herunter.
 
 ## Eine Datei aufspielen
 
@@ -26,6 +30,6 @@ Designer und Firmware teilen eine Systemgeneration, zum Beispiel 1.0. Ändert si
 
 ## Ein Board, das nie im Designer auftaucht
 
-Ein neues Board hat noch keine Schaltli-Firmware, der Designer kann es also nicht aktualisieren. Es muss einmal über USB [geflasht](/geraete/flashen) werden. Der Link <span class="ui">Flash it over USB</span> im Firmware-Bereich führt zum Flasher.
+Ein neues Board hat noch keine Schaltli-Firmware, der Designer kann es also nicht aktualisieren. Es muss einmal über USB [geflasht](/geraete/flashen) werden. Der Link <span class="ui">Flash it over USB</span> unter <span class="ui">Firmware...</span> führt zum Flasher.
 
 Android-Handys haben keine Firmware. Neue Versionen der App installierst du wie beim ersten Mal, siehe [Android-App](/geraete/android#installieren).

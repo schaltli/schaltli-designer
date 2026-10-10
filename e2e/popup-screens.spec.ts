@@ -645,7 +645,7 @@ test.describe("Popup screens: deploying to a device that does not know them", ()
         await page.getByRole("button", { name: "File" }).click()
         await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
         await page.getByText(`Popup Test ${id}`).click()
-        const warning = page.getByTestId("popup-generation-warning")
+        const warning = page.getByTestId("deploy-blocked")
         await expect(warning).toHaveCount(warned ? 1 : 0)
         if (warned) await expect(warning).toContainText('"Go" on Main D')
       } finally {

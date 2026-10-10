@@ -62,7 +62,7 @@ Tippst du in der Vorschau auf den Schalter, geht das Licht im Van tatsächlich a
 
 ## 6. Aufs Board übertragen
 
-Öffne <span class="ui">File</span> › <span class="ui">Deploy to Device</span>. Der Dialog zeigt alle Boards dieses Typs, die sich beim Broker gemeldet haben. Sie heissen nach Gerätetyp und einer Kennung, etwa `waveshare-touch-lcd-4v3b-0a1b2c3d4e5f`. Wähle deines aus.
+Öffne <span class="ui">File</span> › <span class="ui">Deploy to Device</span>. Der Dialog zeigt alle Geräte, die sich beim Broker gemeldet haben, die für dieses Projekt passenden zuoberst. Sie heissen nach Gerätetyp und einer Kennung, etwa `waveshare-touch-lcd-4v3b-0a1b2c3d4e5f`. Wähle deines aus.
 
 Unter <span class="ui">Firmware</span> siehst du, welche Firmware das Board hat und ob der Designer eine neuere mitbringt. Stimmen beide überein, steht dort <span class="ui">Up to date with the release.</span>
 

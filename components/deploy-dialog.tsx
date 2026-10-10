@@ -31,6 +31,7 @@ import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
 import { projectOnDevice } from "@/lib/project-device"
+import { planDeploy, type ProjectNeed } from "@/lib/deploy-plan"
 import {
   PLACEHOLDER_GENERATION,
   POPUP_GENERATION,
@@ -130,13 +131,16 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployError, setDeployError] = useState<string | null>(null)
   const [deployStatus, setDeployStatus] = useState<DeployStatus | null>(null)
-  // Which of the project's own placed object types this device's live DDF
-  // doesn't support - null while unchecked/checking or once nothing's
-  // wrong. A warning, never a block (docs/nested-provenance.md's "Version
-  // compatibility" > Fall 2, step 3) - the device already gracefully
-  // skips anything it can't render, this just tells the human before
-  // deploy instead of them discovering it by staring at the device.
-  const [unsupportedTypeWarning, setUnsupportedTypeWarning] = useState<string | null>(null)
+  // The object types this project places that the selected device's live
+  // description does not declare - a block, since 2026-10-10 (#66): rather
+  // nothing on the device than a project with holes in it.
+  const [unsupportedTypes, setUnsupportedTypes] = useState<string[]>([])
+  // Where devices reach this machine, for naming the broker an offline device
+  // should be set to (app/api/firmware/release).
+  const [deviceHost, setDeviceHost] = useState<string | null>(null)
+  // «Firmware…»: the install from a file and the release on its own, folded
+  // away - Deploy brings a board up to the release by itself (#66).
+  const [showFirmware, setShowFirmware] = useState(false)
   // The firmware release shipped with this designer, per device id
   // (app/api/firmware/release), and whether the progress view is showing a
   // project deploy or a firmware update - both report on deploy-status.
@@ -159,8 +163,9 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       setSelectedInstanceId(null)
       setDeployStatus(null)
       setDeployError(null)
-      setUnsupportedTypeWarning(null)
+      setUnsupportedTypes([])
       setFirmwareError(null)
+      setShowFirmware(false)
       activeDeployIdRef.current = null
       return
     }
@@ -169,6 +174,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       .then((body) => {
         setFirmwareRelease(body.devices || {})
         setFirmwareReleaseTag(body.release || null)
+        setDeviceHost(body.deviceHost || null)
       })
       .catch(() => {
         setFirmwareRelease({})
@@ -287,7 +293,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // only meant to save the user from discovering it by staring at a
   // device that's silently missing a widget.
   useEffect(() => {
-    setUnsupportedTypeWarning(null)
+    setUnsupportedTypes([])
     if (!selectedInstanceId) return
     const device = devices.get(selectedInstanceId)
     // Another device than the project's: nothing to check against until the
@@ -311,12 +317,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
           (set, screen) => collectObjectTypes(screen.objects, set),
           new Set<string>(),
         )
-        const unsupported = Array.from(placedTypes).filter((type) => !fields.supportedObjectTypes.includes(type))
-        if (unsupported.length > 0) {
-          setUnsupportedTypeWarning(
-            `This project places ${unsupported.join(", ")} - "${device.name || device.deviceId}"'s current firmware doesn't support ${unsupported.length === 1 ? "that type" : "those types"}, so ${unsupported.length === 1 ? "it" : "they"} won't render on the device.`,
-          )
-        }
+        setUnsupportedTypes(Array.from(placedTypes).filter((type) => !fields.supportedObjectTypes.includes(type)))
       } catch {
         // Best-effort - see this effect's own comment.
       }
@@ -325,10 +326,60 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     return () => {
       cancelled = true
     }
-  }, [selectedInstanceId, devices, project.screens])
+  }, [selectedInstanceId, devices, project.screens, project.settings.deviceId])
+
+  // A message the device sends, awaited: resolves with it, or with null after
+  // `ms`. Registered before the trigger it answers is published, so a quick
+  // answer is not missed.
+  const awaitMessage = (match: (leaf: string, instanceId: string, payload: string) => boolean, ms: number) => {
+    const client = clientRef.current
+    return new Promise<string | null>((resolve) => {
+      if (!client) return resolve(null)
+      const onMessage = (topic: string, message: { toString(): string }) => {
+        const [prefix, instanceId, leaf] = topic.split("/")
+        if (prefix !== TOPIC_PREFIX) return
+        const payload = message.toString()
+        if (match(leaf, instanceId, payload)) done(payload)
+      }
+      const timer = setTimeout(() => done(null), ms)
+      function done(value: string | null) {
+        clearTimeout(timer)
+        client!.removeListener("message", onMessage)
+        resolve(value)
+      }
+      client.on("message", onMessage)
+    })
+  }
+  const statusOf = (payload: string): DeployStatus | null => {
+    try {
+      return JSON.parse(payload)
+    } catch {
+      return null
+    }
+  }
+
+  // Published on the device's `leaf` topic, retained as the device contract
+  // has it - and taken back if the device has not answered within
+  // RESPONSE_MS: nothing is left lying on the broker for a device to pick up
+  // days later (#66). The device clears the trigger itself as it takes it.
+  const publishTrigger = async (instanceId: string, leaf: "deploy" | "firmware", id: string, body: object) => {
+    const answered = awaitMessage(
+      (l, i, payload) => l === "deploy-status" && i === instanceId && statusOf(payload)?.deployId === id,
+      RESPONSE_MS,
+    )
+    clientRef.current?.publish(`${TOPIC_PREFIX}/${instanceId}/${leaf}`, JSON.stringify(body), { retain: true, qos: 1 })
+    if (await answered) return true
+    if (activeDeployIdRef.current !== id) return false
+    clientRef.current?.publish(`${TOPIC_PREFIX}/${instanceId}/${leaf}`, "", { retain: true, qos: 1 })
+    setDeployStatus({ deployId: id, state: "error", error: "The device did not respond. Nothing was sent; check that it is on and try again." })
+    return false
+  }
 
   const handleDeploy = async () => {
-    if (!selectedInstanceId || !clientRef.current) return
+    if (!selectedInstanceId || !clientRef.current || !plan) return
+    if (plan.kind !== "deploy" && plan.kind !== "update-and-deploy") return
+    const instanceId = selectedInstanceId
+    const device = selectedDevice
     setIsDeploying(true)
     setDeployError(null)
     setDeployStatus(null)
@@ -343,17 +394,71 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // Before uploading anything: a device whose firmware is an older
       // major can't read what this designer writes, and would refuse the
       // project after downloading the whole zip - with the refusal visible
-      // only in its own logs. Checked here so the answer arrives in the
-      // dialog the human is looking at. Only an older *major* blocks; a
-      // newer one reads this project fine, and a newer minor is additive by
-      // definition (see lib/system-generation.ts).
-      const deviceGeneration = selectedDevice?.systemGeneration
+      // only in its own logs. Only an older *major* blocks; a newer one
+      // reads this project fine, and a newer minor is additive by
+      // definition (see lib/system-generation.ts). A board about to be
+      // updated is judged by the release it gets.
+      const release = device ? firmwareRelease[device.deviceId] : undefined
+      const deviceGeneration = plan.kind === "update-and-deploy" ? release?.systemGeneration : device?.systemGeneration
       if (deviceGeneration !== undefined && parseGeneration(deviceGeneration).major < SYSTEM_GENERATION.major) {
         throw new Error(
-          `"${selectedDevice?.name || selectedDevice?.deviceId}" runs system generation ` +
+          `"${device?.name || device?.deviceId}" runs system generation ` +
             `${formatGeneration(parseGeneration(deviceGeneration))}, which can't read a ${SYSTEM_GENERATION_STRING} ` +
             `project - flash its firmware to a ${SYSTEM_GENERATION.major}.x build before deploying.`,
         )
+      }
+
+      // The board up to this designer's release first (#66): the update,
+      // then the board back announcing that build, then the project. Any
+      // step that fails ends here, and the project is not sent.
+      if (plan.kind === "update-and-deploy" && device && release) {
+        const updateId = generateUuid()
+        activeDeployIdRef.current = updateId
+        activeKindRef.current = "firmware"
+        setStatusKind("firmware")
+        setDeployStatus({ deployId: updateId, state: "downloading", percent: 0 })
+        const finished = awaitMessage(
+          (l, i, payload) => {
+            const status = l === "deploy-status" && i === instanceId ? statusOf(payload) : null
+            return !!status && status.deployId === updateId && ["rebooting", "error", "busy", "up_to_date"].includes(status.state)
+          },
+          FIRMWARE_MS,
+        )
+        const back = awaitMessage((l, i, payload) => {
+          if (l !== "hello" || i !== instanceId) return false
+          try {
+            return JSON.parse(payload).firmwareBuild === release.build
+          } catch {
+            return false
+          }
+        }, FIRMWARE_MS + RETURN_MS)
+        const answered = await publishTrigger(instanceId, "firmware", updateId, {
+          updateId,
+          url: release.url,
+          sha256: release.sha256,
+          size: release.size,
+          deviceId: device.deviceId,
+          build: release.build,
+          force: false,
+        })
+        if (!answered) return
+        const end = statusOf((await finished) ?? "")
+        if (!end) {
+          setDeployStatus({ deployId: updateId, state: "error", error: "The firmware update did not finish. The project was not sent." })
+          return
+        }
+        if (end.state === "error" || end.state === "busy") {
+          setDeployStatus({ ...end, error: `${end.error || "The firmware update failed"}. The project was not sent.` })
+          return
+        }
+        if (end.state === "rebooting" && !(await back)) {
+          setDeployStatus({
+            deployId: updateId,
+            state: "error",
+            error: `The device did not come back with ${release.build}. The project was not sent.`,
+          })
+          return
+        }
       }
 
       // A phone takes the same bundle the Export button writes for it -
@@ -365,13 +470,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // project: a project made for a board and moved to a phone kept the
       // board's platform, and the phone was sent BMPs with a white or black
       // box baked around every Switch icon (2026-09-27, in the van).
-      const toPhone = selectedDevice?.platform === "android" || project.settings.devicePlatform === "android"
+      const toPhone = device?.platform === "android" || project.settings.devicePlatform === "android"
       const zipBlob = toPhone ? await exportAndroidProject(project) : await buildDeviceProjectZip(project)
       const zipBytes = new Uint8Array(await zipBlob.arrayBuffer())
       const checksum = crc32(zipBytes)
 
       const formData = new FormData()
-      formData.append("instanceId", selectedInstanceId)
+      formData.append("instanceId", instanceId)
       formData.append("file", zipBlob, "project.zip")
 
       const res = await fetch("/api/deploy", { method: "POST", body: formData })
@@ -390,38 +495,23 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       activeDeployIdRef.current = deployId
       activeKindRef.current = "deploy"
       setStatusKind("deploy")
-
-      clientRef.current.publish(
-        `${TOPIC_PREFIX}/${selectedInstanceId}/deploy`,
-        JSON.stringify({ deployId, url, crc32: checksum }),
-        { retain: true, qos: 1 },
-      )
-
-      // The trigger is retained, so this always "succeeds" from the
-      // browser's point of view whether or not the device is actually
-      // there to receive it right now - an offline device picks it up on
-      // its own next reconnect (that's the whole point of retaining it).
-      // Claiming "Downloading" here regardless was a real bug (reported
-      // live, 2026-08-01): with the device off, nothing ever corrects
-      // that guess, since the device is the only thing that would
-      // publish a real deploy-status - the UI just sat on a fake
-      // "Downloading" forever. Show the honest state instead; if the
-      // device is (or becomes) reachable, its own deploy-status messages
-      // for this deployId still arrive on the same subscription and
-      // naturally replace this.
-      setDeployStatus({ deployId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
+      // The device is online (#66: nothing goes to one that is not), so the
+      // download is what comes; if it does not answer, publishTrigger says
+      // so and takes the trigger back.
+      setDeployStatus({ deployId, state: "downloading", percent: 0 })
+      const answered = await publishTrigger(instanceId, "deploy", deployId, { deployId, url, crc32: checksum })
+      if (!answered) return
 
       // Bind this project to the device it was just sent to, and mark the
       // saved version as what is on that device (which also points the
       // device at this project server-side, app/api/by-instance/). Best-
       // effort: a failed marker shouldn't fail the deploy itself, which has
-      // already genuinely succeeded (the retained trigger is published) by
-      // this point.
+      // already genuinely succeeded by this point.
       const boundProject: Project = {
         ...project,
         settings: {
           ...project.settings,
-          boundInstanceId: selectedInstanceId,
+          boundInstanceId: instanceId,
           // Deliberately does *not* refresh settings.ddfHash from the
           // device's hello (the ddfVersion equivalent did, until
           // 2026-08-21). The hash records which DDF this project's fields
@@ -439,8 +529,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             versionId: saved.versionId,
-            instanceId: selectedInstanceId,
-            deviceName: selectedDevice?.name || selectedInstanceId,
+            instanceId,
+            deviceName: device?.name || instanceId,
           }),
         }).catch(() => {})
       }
@@ -468,12 +558,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     activeDeployIdRef.current = updateId
     activeKindRef.current = "firmware"
     setStatusKind("firmware")
-    clientRef.current.publish(
-      `${TOPIC_PREFIX}/${selectedInstanceId}/firmware`,
-      JSON.stringify({ updateId, ...fields }),
-      { retain: true, qos: 1 },
-    )
-    setDeployStatus({ deployId: updateId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
+    setDeployStatus({ deployId: updateId, state: "downloading", percent: 0 })
+    void publishTrigger(selectedInstanceId, "firmware", updateId, { updateId, ...fields })
   }
 
   const handleInstallRelease = (release: ReleaseImage, standing: FirmwareStanding) => {
@@ -558,10 +644,32 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       setSwitching(false)
     }
   }
-  // The buttons a device below POPUP_GENERATION would leave doing nothing.
+  // What the project needs of a device, and so what Deploy does with the one
+  // chosen (lib/deploy-plan.ts, #66).
   const popupOpenerNames = popupOpeners(project)
   const liveValueTexts = liveValuesNotOnDevices(project)
   const navigatorParts = navigatorNotOnDevices(project as any)
+  const needs: ProjectNeed[] = [
+    ...(projectUsesLivePlaceholders(project) ? [{ generation: PLACEHOLDER_GENERATION, parts: ["values in texts"] }] : []),
+    ...(popupOpenerNames.length > 0 ? [{ generation: POPUP_GENERATION, parts: [`popups (${popupOpenerNames.join(", ")})`] }] : []),
+    ...(liveValueTexts.length > 0 ? [{ generation: LIVE_VALUE_GENERATION, parts: liveValueTexts }] : []),
+    ...(navigatorParts.length > 0 ? [{ generation: NAVIGATOR_GENERATION, parts: navigatorParts }] : []),
+  ]
+  const plan = deployTarget
+    ? planDeploy({
+        device: {
+          name: deployTarget.name || deployTarget.instanceId,
+          platform: deployTarget.platform,
+          online: deployTarget.online,
+          systemGeneration: deployTarget.systemGeneration,
+          firmwareBuild: deployTarget.firmwareBuild,
+          firmwareVersion: deployTarget.firmwareVersion,
+        },
+        release: firmwareRelease[deployTarget.deviceId],
+        needs,
+        unsupportedTypes,
+      })
+    : null
 
   return (
     <>
@@ -607,14 +715,26 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 deviceName={selectedDevice?.name || selectedInstanceId || ""}
                 kind={statusKind}
               />
-              {(deployStatus.state === "error" ||
-                deployStatus.state === "busy" ||
-                deployStatus.state === "up_to_date" ||
-                deployStatus.state === "queued") && (
-                <Button size="sm" variant="outline" className="w-full" onClick={() => setDeployStatus(null)}>
-                  Back
-                </Button>
-              )}
+              {(deployStatus.state === "error" || deployStatus.state === "busy" || deployStatus.state === "up_to_date") &&
+                !isDeploying && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => setDeployStatus(null)}>
+                      Back
+                    </Button>
+                    {(deployStatus.state === "error" || deployStatus.state === "busy") && (
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setDeployStatus(null)
+                          void handleDeploy()
+                        }}
+                      >
+                        Try again
+                      </Button>
+                    )}
+                  </div>
+                )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -625,7 +745,10 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 </p>
               )}
 
-              <ScrollArea className="max-h-64">
+              {/* A plain scrolling box: since every device on the broker is
+                  listed (#62) the list can be long, and the ScrollArea grew
+                  past its max height over the controls below it. */}
+              <div className="max-h-64 overflow-y-auto" data-testid="deploy-devices">
                 {listedDevices.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">
                     No devices on the broker yet. Listening...
@@ -650,7 +773,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                         ) : (
                           <WifiOff className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className={cn("flex-1 truncate", !isProjectDevice(device) && "text-muted-foreground")}>
+                        <span className={cn("flex-1 truncate", (!isProjectDevice(device) || !device.online) && "text-muted-foreground")}>
                           {device.name || device.instanceId}
                         </span>
                         {!isProjectDevice(device) && (
@@ -658,26 +781,16 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                             Other device
                           </Badge>
                         )}
-                        {/* Never for a phone: its app is not a firmware this
-                            designer ships, so a release of the same device id
-                            says nothing about it. */}
-                        {device.platform !== "android" &&
-                          firmwareRelease[device.deviceId]?.available &&
-                          firmwareStanding(device.firmwareBuild, firmwareRelease[device.deviceId].build) === "update-available" && (
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              firmware update
-                            </Badge>
-                          )}
                         {!device.online && (
                           <Badge variant="outline" className="text-xs shrink-0">
-                            will apply on reconnect
+                            offline
                           </Badge>
                         )}
                       </button>
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
 
               {switchedNote && (
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="switched-device-note">
@@ -700,88 +813,75 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 </div>
               )}
 
-              {/* Placeholders the device resolves itself - {topic:…},
-                  {device:…} - need a device that announces
-                  PLACEHOLDER_GENERATION. Below it the text arrives fine and
-                  is shown as written, so this warns rather than refuses
-                  (docs/2026-09-25-text-placeholders.md). */}
-              {deployTarget &&
-                projectUsesLivePlaceholders(project) &&
-                generationBelow(deployTarget.systemGeneration, PLACEHOLDER_GENERATION) && (
-                  <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="placeholder-generation-warning">
-                    {`"${deployTarget.name || deployTarget.instanceId}" shows placeholders such as {topic:…} as written, not as values: `}
-                    {`they need a device that announces generation ${formatGeneration(PLACEHOLDER_GENERATION)} or newer. Update its firmware or app first.`}
-                  </p>
-                )}
-
-              {/* Live values no placeholder can say - a rule, a duration, a
-                  combined topic, a live icon - need a device that announces
-                  LIVE_VALUE_GENERATION; below it those parts stay empty (an
-                  icon shows its Otherwise one on a board), so this warns. */}
-              {deployTarget && liveValueTexts.length > 0 && generationBelow(deployTarget.systemGeneration, LIVE_VALUE_GENERATION) && (
-                <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="live-value-warning">
-                  {`Not on devices yet: ${liveValueTexts.join(", ")}. `}
-                  {`A live value with rules, its own Otherwise, a duration or a combined topic needs a device that announces generation ${formatGeneration(LIVE_VALUE_GENERATION)} or newer; on "${deployTarget.name || deployTarget.instanceId}" that part stays empty. Update its firmware or app first.`}
+              {/* What Deploy will do (lib/deploy-plan.ts, #66): one line, or
+                  why it cannot and what to do about it. */}
+              {plan?.kind === "offline" && selectedDevice && (
+                <p className="text-sm text-muted-foreground" data-testid="device-offline">
+                  {`"${selectedDevice.name || selectedDevice.instanceId}" is offline. Switch it on and check that it is on the same network as this designer, with the broker set to ${deviceHost ?? "this designer's address"}:1883.`}
+                </p>
+              )}
+              {plan?.kind === "blocked" && (
+                <div className="text-sm text-amber-700 dark:text-amber-400 space-y-1" data-testid="deploy-blocked">
+                  <p>{plan.reason}</p>
+                  {plan.link && (
+                    <a href={plan.link.url} target="_blank" rel="noreferrer" className="underline">
+                      {plan.link.label}
+                    </a>
+                  )}
+                </div>
+              )}
+              {(plan?.kind === "deploy" || plan?.kind === "update-and-deploy") && (
+                <p className="text-sm text-muted-foreground" data-testid="firmware-line">
+                  {plan.line}
                 </p>
               )}
 
-              {/* The navigator and «Hide screen» need a device that announces
-                  NAVIGATOR_GENERATION (docs/2026-10-08-navigator.md). Below
-                  it there is no navigator and a hidden screen is paged to. */}
-              {deployTarget && navigatorParts.length > 0 && generationBelow(deployTarget.systemGeneration, NAVIGATOR_GENERATION) && (
-                <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="navigator-generation-warning">
-                  {`Not on "${deployTarget.name || deployTarget.instanceId}" yet: ${navigatorParts.join(", ")}. `}
-                  {`The navigator and «Hide screen» need a device that announces generation ${formatGeneration(NAVIGATOR_GENERATION)} or newer; below it there is no navigator and hidden screens are paged to. Update its firmware or app first.`}
-                </p>
-              )}
-
-              {/* Popups need a device that announces POPUP_GENERATION. Below
-                  it the project reads fine - popups[] is skipped - but the
-                  buttons that open one do nothing, so this names them and
-                  warns rather than refuses (docs/2026-10-06-popup-screens.md). */}
-              {deployTarget &&
-                popupOpenerNames.length > 0 &&
-                generationBelow(deployTarget.systemGeneration, POPUP_GENERATION) && (
-                  <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="popup-generation-warning">
-                    {`"${deployTarget.name || deployTarget.instanceId}" does not open popups: `}
-                    {`${popupOpenerNames.join(", ")} will do nothing there. `}
-                    {`Popups need a device that announces generation ${formatGeneration(POPUP_GENERATION)} or newer.`}
-                  </p>
-                )}
-
-              {selectedDevice && (
-                <FirmwareUpdateSection
-                  deviceName={selectedDevice.name || selectedDevice.instanceId}
-                  platform={selectedDevice.platform}
-                  firmwareBuild={selectedDevice.firmwareBuild}
-                  systemGeneration={selectedDevice.systemGeneration}
-                  release={firmwareRelease[selectedDevice.deviceId]}
-                  busy={isDeploying}
-                  error={firmwareError}
-                  onInstallRelease={handleInstallRelease}
-                  onInstallFile={handleInstallFile}
-                />
-              )}
-
-              {unsupportedTypeWarning && (
-                <p className="text-sm text-amber-600 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  {unsupportedTypeWarning}
-                </p>
+              {/* «Firmware…»: a firmware from a file, or the release on its
+                  own - for a board, while it is online. */}
+              {selectedDevice && selectedDevice.platform !== "android" && selectedDevice.online && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => setShowFirmware((v) => !v)}
+                  >
+                    Firmware...
+                  </button>
+                  {showFirmware && (
+                    <FirmwareUpdateSection
+                      deviceName={selectedDevice.name || selectedDevice.instanceId}
+                      platform={selectedDevice.platform}
+                      firmwareBuild={selectedDevice.firmwareBuild}
+                      systemGeneration={selectedDevice.systemGeneration}
+                      release={firmwareRelease[selectedDevice.deviceId]}
+                      busy={isDeploying}
+                      error={firmwareError}
+                      onInstallRelease={handleInstallRelease}
+                      onInstallFile={handleInstallFile}
+                    />
+                  )}
+                </div>
               )}
 
               {deployError && <p className="text-sm text-destructive">{deployError}</p>}
 
               <Button
                 onClick={handleDeploy}
-                disabled={!selectedInstanceId || selectedForeign || isDeploying || !project.settings.deviceId}
+                disabled={
+                  !selectedInstanceId ||
+                  isDeploying ||
+                  !project.settings.deviceId ||
+                  (plan?.kind !== "deploy" && plan?.kind !== "update-and-deploy")
+                }
                 className="w-full"
               >
                 {isDeploying ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Uploading...
+                    Working...
                   </>
+                ) : plan?.kind === "update-and-deploy" ? (
+                  "Update & Deploy"
                 ) : (
                   "Deploy"
                 )}
@@ -795,6 +895,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     </>
   )
 }
+
+// How long a device has to answer a trigger before it is taken back (#66).
+const RESPONSE_MS = 30_000
+// How long a firmware download and install may take, and the board then to
+// come back announcing the new build.
+const FIRMWARE_MS = 10 * 60_000
+const RETURN_MS = 3 * 60_000
 
 const STATE_LABELS: Record<DeployStatusState, string> = {
   queued: "Offline - will apply automatically when the device reconnects",

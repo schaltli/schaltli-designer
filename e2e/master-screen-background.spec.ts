@@ -76,7 +76,7 @@ test.describe("Master screen background inheritance", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `BG Test ${epaperId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: `BG Test ${epaperId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })

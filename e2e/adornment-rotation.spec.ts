@@ -92,7 +92,7 @@ test.describe("Device rotation", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Rotation Test ${epaperId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: `Rotation Test ${epaperId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })

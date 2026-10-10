@@ -35,17 +35,20 @@ Die Anlage hat den Befehl nicht ausgeführt oder meldet einen anderen Zustand. D
 
 ## Übertragen
 
-**Der Dialog findet kein Gerät für dieses Projekt.**
-Er zeigt nur Geräte desselben Typs wie das Projekt. Er nennt, welche Geräte sich stattdessen melden. Passt eines davon, wurde das Projekt für einen anderen Gerätetyp angelegt; unter <span class="ui">Settings</span> › <span class="ui">Device</span> gibst du ihm das richtige.
+**Mein Gerät steht mit <span class="ui">Other device</span> in der Liste.**
+Das Projekt wurde für einen anderen Gerätetyp angelegt. Wähl das Gerät und stell das Projekt mit <span class="ui">Switch this project to</span> darauf um, siehe [Ein anderes Gerät](/designer/deploy#ein-anderes-gerat).
 
-**<span class="ui">Offline - will apply automatically when the device reconnects</span>**
-Das Gerät ist gerade nicht online. Das Projekt wartet auf dem Broker und wird übernommen, sobald das Gerät wieder da ist.
+**Mein Gerät steht mit <span class="ui">offline</span> in der Liste, oder gar nicht.**
+Es ist nicht mit dem Broker verbunden. Prüf, dass es eingeschaltet ist, im selben Netz hängt wie der Designer und als Broker die Adresse eingetragen hat, die der Dialog nennt. Ein Handy, das das WLAN gewechselt hat, meldet sich manchmal erst richtig an, wenn du die App einmal schliesst und neu öffnest.
+
+**<span class="ui">The device did not respond</span>**
+Das Gerät hat auf den Auftrag nicht reagiert. Der Designer hat ihn zurückgenommen, es wird also nichts später nachgeholt. Prüf das Gerät und versuch es mit <span class="ui">Try again</span> noch einmal.
 
 **<span class="ui">Failed</span> mit «Download failed».**
 Das Gerät hat das Projekt nicht vom Designer laden können. Die Geräte laden es über die Adresse des Designers im lokalen Netz. Läuft der Designer auf einem Rechner mit mehreren Netzwerken oder einem VPN, kann er eine Adresse wählen, die das Gerät nicht erreicht.
 
-**Der Dialog verlangt zuerst ein Firmware-Update.**
-Die Firmware des Geräts ist zu alt für dieses Projekt. Aktualisiere sie im selben Dialog, siehe [Firmware-Updates](/geraete/firmware-updates).
+**Der Dialog überträgt nicht und nennt einen Grund.**
+Das Gerät kann das Projekt nicht ganz zeigen. Was zu tun ist, steht dabei, siehe [Wenn der Dialog nicht überträgt](/designer/deploy#wenn-der-dialog-nicht-ubertragt).
 
 ## Flashen
 

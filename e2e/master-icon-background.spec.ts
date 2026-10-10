@@ -114,7 +114,7 @@ test.describe("Master-inherited icon backgrounds", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Icon Test ${deviceId}` }),
+        JSON.stringify({ systemGeneration: "1.5", deviceId: "mqtt-epaper-display-2", name: `Icon Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })

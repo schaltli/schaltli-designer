@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { readFirmwareRelease } from "@/lib/firmware-release"
-import { deviceFacingUrl } from "@/lib/server-lan-address"
+import { deviceFacingUrl, serverLanAddress } from "@/lib/server-lan-address"
 import { refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/firmware/release - the firmware release that ships with this
@@ -20,5 +20,8 @@ export async function GET(request: Request) {
       { ...entry, url: deviceFacingUrl(request, `/api/firmware/release/${entry.file}`) },
     ]),
   )
-  return NextResponse.json({ release: release.release, devices })
+  // And the address devices reach this machine at, for the Deploy dialog to
+  // name the broker an offline device should be set to (#66): on a Pekaway
+  // the broker runs beside the designer.
+  return NextResponse.json({ release: release.release, devices, deviceHost: serverLanAddress() })
 }

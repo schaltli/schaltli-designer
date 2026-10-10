@@ -268,7 +268,7 @@ test.describe("deploying placeholders to a device that cannot show them", () => 
         await page.getByRole("button", { name: "File" }).click()
         await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
         await page.getByText(`Placeholder Test ${id}`).click()
-        await expect(page.getByTestId("placeholder-generation-warning")).toHaveCount(warned ? 1 : 0)
+        await expect(page.getByTestId("deploy-blocked")).toHaveCount(warned ? 1 : 0)
       } finally {
         device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
         device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })
@@ -323,7 +323,7 @@ test.describe("deploying live values to a device that cannot show them", () => {
         await page.getByRole("button", { name: "File" }).click()
         await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
         await page.getByText(`Live Value Test ${id}`, { exact: true }).click()
-        await expect(page.getByTestId("live-value-warning")).toHaveCount(warned ? 1 : 0)
+        await expect(page.getByTestId("deploy-blocked")).toHaveCount(warned ? 1 : 0)
       } finally {
         device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
         device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })

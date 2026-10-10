@@ -63,13 +63,13 @@ test.describe("Firmware in the Deploy dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, online ? "online" : "offline", { retain: true })
   }
 
-  const stubRelease = async (page: Page, build: string, available = true) => {
+  const stubRelease = async (page: Page, build: string, available = true, systemGeneration = "1.5") => {
     const release = {
       build,
       file: `${deviceId}-${build}.bin`,
       size: 1_808_192,
       sha256: "ab".repeat(32),
-      systemGeneration: "1.0",
+      systemGeneration,
       url: `http://192.0.2.1:3000/api/firmware/release/${deviceId}-${build}.bin`,
       available,
     }
@@ -104,15 +104,17 @@ test.describe("Firmware in the Deploy dialog", () => {
     announce("fw-2026.09.15.1")
     await openDialog(page)
 
-    await expect(row(page).getByText("firmware update")).toBeVisible()
     await row(page).click()
+    // One line says what Deploy would do (#66); the rest is behind «Firmware…».
+    await expect(page.getByTestId("firmware-line")).toHaveText("Firmware fw-2026.09.15.1 · Deploy installs fw-2026.09.15.2 first")
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
     await expect(section.getByText("A newer firmware is available.")).toBeVisible()
     await expect(section.getByText("fw-2026.09.15.1", { exact: true })).toBeVisible()
     await expect(section.getByText("fw-2026.09.15.2", { exact: true })).toBeVisible()
 
     const trigger = nextTrigger()
-    await section.getByRole("button", { name: "Update firmware" }).click()
+    await section.getByRole("button", { name: "Install release" }).click()
     // Asks once more before anything is sent.
     await expect(section.getByText(/Install fw-2026\.09\.15\.2 on Van Panel/)).toBeVisible()
     await section.getByRole("button", { name: "Install firmware" }).click()
@@ -139,6 +141,75 @@ test.describe("Firmware in the Deploy dialog", () => {
     await expect(page.getByText(`Van Panel ${instanceId}: Firmware update - Rebooting`)).toBeVisible()
   })
 
+  // #66: Deploy brings a board up to the designer's release first - the
+  // update, the board back announcing that build, then the project - and
+  // stops, sending nothing, when the update fails.
+  test("Update & Deploy installs the release, waits for the board to come back with it, then sends the project", async ({ page }) => {
+    const release = await stubRelease(page, "fw-2026.09.15.2", true, "1.5")
+    announce("fw-2026.09.15.1")
+    await openDialog(page)
+    await row(page).click()
+    await expect(page.getByTestId("firmware-line")).toHaveText("Firmware fw-2026.09.15.1 · Deploy installs fw-2026.09.15.2 first")
+    await expect(page.getByRole("button", { name: "Update & Deploy", exact: true })).toBeEnabled()
+
+    const deployTopic = `${TOPIC_PREFIX}/${instanceId}/deploy`
+    const projectTriggers: string[] = []
+    await new Promise<void>((resolve) => deviceClient.subscribe(deployTopic, () => resolve()))
+    deviceClient.on("message", (t, message) => {
+      if (t === deployTopic && message.length > 0) projectTriggers.push(message.toString())
+    })
+    const trigger = nextTrigger()
+    await page.getByRole("button", { name: "Update & Deploy", exact: true }).click()
+    // A first save asks for a name.
+    if (await page.getByRole("heading", { name: "Save Project" }).isVisible().catch(() => false)) {
+      await page.locator("#save-project-name").fill(`e2e update deploy ${Date.now().toString(36)}`)
+      await page.getByRole("button", { name: "Save", exact: true }).click()
+    }
+    const sent = await trigger
+    expect(sent).toMatchObject({ build: release.build, force: false, deviceId })
+
+    const id = sent.updateId as string
+    publishStatus(id, "downloading", { percent: 30 })
+    await expect(page.getByText(`Van Panel ${instanceId}: Firmware update - Downloading`)).toBeVisible()
+    publishStatus(id, "rebooting")
+    // Not before the board is back with the new build.
+    await page.waitForTimeout(1500)
+    expect(projectTriggers).toEqual([])
+    announce("fw-2026.09.15.2")
+    await expect.poll(() => projectTriggers.length, { timeout: 30_000 }).toBe(1)
+    const project = JSON.parse(projectTriggers[0])
+    expect(project.url).toContain(`/api/deploy/${instanceId}`)
+    publishStatus(project.deployId, "applying")
+    await expect(page.getByText(`Van Panel ${instanceId}: Applying`)).toBeVisible()
+    deviceClient.publish(deployTopic, "", { retain: true })
+  })
+
+  test("a failed update stops Update & Deploy: the project is not sent", async ({ page }) => {
+    await stubRelease(page, "fw-2026.09.15.2", true, "1.5")
+    announce("fw-2026.09.15.1")
+    await openDialog(page)
+    await row(page).click()
+
+    const deployTopic = `${TOPIC_PREFIX}/${instanceId}/deploy`
+    const projectTriggers: string[] = []
+    await new Promise<void>((resolve) => deviceClient.subscribe(deployTopic, () => resolve()))
+    deviceClient.on("message", (t, message) => {
+      if (t === deployTopic && message.length > 0) projectTriggers.push(message.toString())
+    })
+    const trigger = nextTrigger()
+    await page.getByRole("button", { name: "Update & Deploy", exact: true }).click()
+    if (await page.getByRole("heading", { name: "Save Project" }).isVisible().catch(() => false)) {
+      await page.locator("#save-project-name").fill(`e2e update fail ${Date.now().toString(36)}`)
+      await page.getByRole("button", { name: "Save", exact: true }).click()
+    }
+    const id = (await trigger).updateId as string
+    publishStatus(id, "error", { error: "Checksum mismatch" })
+    await expect(page.getByText("Checksum mismatch. The project was not sent.")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible()
+    await page.waitForTimeout(1500)
+    expect(projectTriggers).toEqual([])
+  })
+
   test("a release that has not been fetched is shown but cannot be installed", async ({ page }) => {
     await stubRelease(page, "fw-2026.09.15.2", false)
     announce("fw-2026.09.15.1")
@@ -148,9 +219,10 @@ test.describe("Firmware in the Deploy dialog", () => {
     await expect(row(page)).toBeVisible()
     await expect(row(page).getByText("firmware update")).not.toBeVisible()
     await row(page).click()
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
     await expect(section.getByText(/has not been downloaded to this designer yet/)).toBeVisible()
-    await expect(section.getByRole("button", { name: "Update firmware" })).toBeDisabled()
+    await expect(section.getByRole("button", { name: "Install release" })).toBeDisabled()
   })
 
   test("it names the way in for a board that never appeared", async ({ page }) => {
@@ -162,6 +234,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     announce("fw-2026.09.15.1")
     await openDialog(page)
     await row(page).click()
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
 
     const link = page.getByTestId("firmware-section").getByTestId("flasher-link")
     await expect(link).toHaveText("Flash it over USB")
@@ -177,13 +250,18 @@ test.describe("Firmware in the Deploy dialog", () => {
     await expect(row(page)).toBeVisible()
     await expect(row(page).getByText("firmware update")).not.toBeVisible()
     await row(page).click()
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
     await expect(section.getByText("The device runs a development build newer than the release.")).toBeVisible()
 
     // Installing the release over it anyway is allowed, and forced - the
-    // device must not answer "up to date" to a deliberate downgrade.
+    // device must not answer "up to date" to a deliberate downgrade. It asks
+    // first, naming both builds (#66): never by accident.
     const trigger = nextTrigger()
     await section.getByRole("button", { name: "Install release" }).click()
+    await expect(section.getByTestId("firmware-confirm")).toContainText(
+      `Van Panel ${instanceId} runs fw-2026.09.15.2-4-g0123456789, newer than this designer's fw-2026.09.15.2. Replace it with the older fw-2026.09.15.2?`,
+    )
     await section.getByRole("button", { name: "Install firmware" }).click()
     expect((await trigger).force).toBe(true)
   })
@@ -193,6 +271,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     announce("fw-2026.09.15.2")
     await openDialog(page)
     await row(page).click()
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
 
     const image = Buffer.concat([randomBytes(60_000), Buffer.from(`<<schaltli-image device=${deviceId}>>`), randomBytes(20_000)])
@@ -226,6 +305,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     announce("fw-2026.09.15.2")
     await openDialog(page)
     await row(page).click()
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
 
     let triggered = false
@@ -280,17 +360,10 @@ test.describe("Firmware in the Deploy dialog", () => {
     await openDialog(page)
     await row(page).click()
 
-    const section = page.getByTestId("firmware-section")
-    await expect(section.getByText("This device runs the Schaltli app, so there is no firmware to update here.")).toBeVisible()
-    // Where the app comes from instead - the signed APK on the app's own
-    // Releases page, not a domain that serves nothing (issue #12).
-    const app = section.getByTestId("android-app-link")
-    await expect(app).toHaveAttribute("href", "https://github.com/schaltli/schaltli-android/releases/latest")
-    await expect(app).toHaveAttribute("target", "_blank")
-    await expect(section.getByRole("button")).toHaveCount(0)
-    // Not even the "a newer firmware is available" line the stubbed release
-    // would otherwise produce: there is nothing for it to be newer than.
-    await expect(section.getByText("A newer firmware is available.")).toHaveCount(0)
+    // A phone has no firmware to offer: no «Firmware…» at all, and the line
+    // or the reason names the app (#66).
+    await expect(page.getByRole("button", { name: "Firmware...", exact: true })).toHaveCount(0)
+    await expect(page.getByTestId("deploy-blocked").or(page.getByTestId("firmware-line"))).toContainText("App 0.1.0")
     await expect(row(page).getByText("firmware update")).toHaveCount(0)
   })
 })

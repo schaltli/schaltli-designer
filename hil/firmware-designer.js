@@ -13,7 +13,7 @@
 //   --source file      "From file..." with the image the board already runs
 //                      (the checkout's build must have the running MD5).
 //                      Repeatable, so this is what test:all runs.
-//   --source release   "Update firmware" / "Install release" with the release
+//   --source release   «Firmware…» › "Install release" with the release
 //                      the designer ships (GET /api/firmware/release must name
 //                      an image for this board). Changes the board's firmware
 //                      to that release, so it is run deliberately.
@@ -185,13 +185,15 @@ async function main() {
     const row = page.getByRole("button").filter({ hasText: instanceId })
     await row.waitFor({ timeout: 30000 })
     await row.click()
+    // Behind «Firmware…» since 2026-10-10 (#66).
+    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
     const section = page.getByTestId("firmware-section")
     await section.waitFor()
 
     if (source === "file") {
       await section.getByTestId("firmware-file-input").setInputFiles(expected.file)
     } else {
-      await section.getByRole("button", { name: /Update firmware|Install release/ }).click()
+      await section.getByRole("button", { name: "Install release" }).click()
     }
     await section.getByRole("button", { name: "Install firmware" }).click()
 
