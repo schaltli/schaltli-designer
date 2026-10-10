@@ -18,7 +18,8 @@
 const fs = require("fs")
 const path = require("path")
 
-const DDF_SOURCE_DIR = path.join(__dirname, "../../../schaltli-firmware/ddf-source")
+// SCHALTLI_FIRMWARE_REPO where the firmware is not beside this repo (a git worktree).
+const DDF_SOURCE_DIR = path.join(process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "../../../schaltli-firmware"), "ddf-source")
 
 // Returns a copy of `fonts` with `data` filled in from the DDF source.
 // Fonts that already carry their own bytes are left alone.

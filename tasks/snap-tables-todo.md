@@ -526,7 +526,7 @@ parts of `table-model`, `table-canvas`, `layout-*`, `free-area`).
 tables (rows, spans, a hand-set column width, align, fill).
 
 **Acceptance criteria:**
-- [ ] The Knob and the 4.3B show the fixture as the preview does (user runs it on the hardware).
+- [x] The Knob and the 4.3B show the fixture as the preview does: 3/3 screens each, 0 differing pixels (2026-10-10).
 
 **Verification:** `npm run test:all` with the devices connected.
 
