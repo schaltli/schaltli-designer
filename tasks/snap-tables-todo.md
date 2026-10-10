@@ -422,10 +422,10 @@ covered by a span skipped; «+ Label column» shows while one would be made.
 Released free or clicked: a new table of one row. Handbook updated.
 
 **Acceptance criteria:**
-- [ ] «Label · Switch» under a row «Icon · Label · Switch» puts its switch under the other switches, the icon cell empty.
-- [ ] «Label · Button» onto a table of buttons only adds a Label column left of them.
-- [ ] A row inserted across a 3-row span lengthens the span and skips its column.
-- [ ] A clicked template lands as a table of one row.
+- [x] «Label · Switch» under a row «Icon · Label · Switch» puts its switch under the other switches, the icon cell empty.
+- [x] «Label · Button» onto a table of buttons only adds a Label column left of them.
+- [x] A row inserted across a 3-row span lengthens the span and skips its column.
+- [x] A clicked template lands as a table of one row.
 
 **Verification:** `npx playwright test e2e/snap-table-rows.spec.ts e2e/handbook-labels.spec.ts`; typecheck.
 

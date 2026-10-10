@@ -17,7 +17,8 @@ import { TableShapePicture } from "@/components/toolbar/table-shape-picture"
 import { cn } from "@/lib/utils"
 import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
 import type { CatalogEntry } from "@/lib/ha-discovery"
-import { MousePointer2, Blocks } from "lucide-react"
+import { MousePointer2, Blocks, Rows3 } from "lucide-react"
+import { ROW_TEMPLATES, type RowTemplate } from "@/lib/snap-table"
 import { objectTypeLabel } from "@/lib/object-types"
 import { isLayoutOnlyType } from "@/lib/layout"
 import type { ObjectType } from "@/lib/object-types"
@@ -30,6 +31,17 @@ type ToolType =
   // Block dialog arms the tool with an entry and its options, and the drag
   // gives it its rectangle.
   | "baustein"
+  // Not a type either: a row of several objects, one per role, carried as
+  // one (docs/2026-10-09-snap-tables.md, module snap-table-rows).
+  | "row"
+
+// The row templates, as the menu names them.
+const ROW_TEMPLATE_LABELS: Record<RowTemplate, string> = {
+  "icon-label-switch": "Icon · Label · Switch",
+  "label-switch": "Label · Switch",
+  "icon-switch": "Icon · Switch",
+  "label-button": "Label · Button",
+}
 
 interface ToolDef {
   type: ToolType
@@ -56,6 +68,8 @@ interface ToolbarProps {
   // drawn table gets, and a shape picked in its menu - which arms the tool.
   tableShape?: TableShapeId
   onTableShapeSelect?: (shape: TableShapeId) => void
+  // A row template picked in the Row menu, which arms the Row tool.
+  onRowTemplateSelect?: (template: RowTemplate) => void
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
   // Description File). Tools outside this list are shown but disabled, since
@@ -77,6 +91,7 @@ export function Toolbar({
   onCatalogEntrySelect,
   tableShape,
   onTableShapeSelect,
+  onRowTemplateSelect,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
   navigatorPlaceable = false,
@@ -262,6 +277,54 @@ export function Toolbar({
     )
   }
 
+  // The Row tool: a menu of rows - an icon, a label, a control - each carried
+  // as one and put into a table by role. A row with a part the device does
+  // not render is shown disabled, as a tool is.
+  const renderRowButton = () => {
+    const isActive = activeTool === "row"
+    const renders = (template: RowTemplate) =>
+      supportedObjectTypes === undefined || ROW_TEMPLATES[template].every((type) => supportedObjectTypes.includes(type))
+    return (
+      <DropdownMenu key="row">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={isActive ? "default" : "ghost"}
+                size="sm"
+                data-testid="row-tool"
+                className={cn(isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0")}
+              >
+                <Rows3 className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
+                {isHorizontal && <span className="text-[10px] leading-tight text-center whitespace-nowrap">Row</span>}
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side={tooltipSide}>
+            <div className="text-sm">
+              <div className="font-medium">Row</div>
+              <div className="text-muted-foreground text-xs">Several objects at once, each into the column of its kind</div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start">
+          <DropdownMenuLabel>Row template</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {(Object.keys(ROW_TEMPLATES) as RowTemplate[]).map((template) => (
+            <DropdownMenuItem
+              key={template}
+              data-testid={`row-template-${template}`}
+              disabled={!renders(template)}
+              onSelect={() => onRowTemplateSelect?.(template)}
+            >
+              {ROW_TEMPLATE_LABELS[template]}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   const renderToolButton = (tool: ToolDef) => {
     if (tool.type === "table" && onTableShapeSelect) return renderTableButton(tool)
     const Icon = tool.icon
@@ -314,7 +377,10 @@ export function Toolbar({
                 index > 0 && "border-l border-border ml-1 pl-3",
               )}
             >
-              <div className="flex items-stretch gap-1">{group.tools.map(renderToolButton)}</div>
+              <div className="flex items-stretch gap-1">
+                {group.tools.map(renderToolButton)}
+                {group.label === "Tables" && onRowTemplateSelect && renderRowButton()}
+              </div>
               <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{group.label}</div>
             </div>
           ))}
@@ -326,6 +392,7 @@ export function Toolbar({
       ) : (
         <div className="flex flex-col gap-1 p-2">
           {toolGroups.flatMap((group) => group.tools).map(renderToolButton)}
+          {onRowTemplateSelect && renderRowButton()}
           {renderBausteinButton()}
         </div>
       )}

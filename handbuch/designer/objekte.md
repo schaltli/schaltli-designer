@@ -13,6 +13,7 @@ Einige Werkzeuge verhalten sich anders:
 - <span class="ui">Icon</span>, <span class="ui">Live Icon</span>, <span class="ui">Gauge</span> und <span class="ui">Dial</span> sind immer quadratisch.
 - Mit <span class="ui">Icon</span> öffnet ein Klick die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast.
 - <span class="ui">Line</span> und <span class="ui">Live Line</span> zeichnest du weiterhin: Mit gedrückter Maustaste ziehst du eine gerade Linie. Eine gezeichnete Linie rastet nie ein, sie liegt danach frei, und du verschiebst sie wie jedes Objekt in eine Tabelle. Klickst du stattdessen, setzt jeder weitere Klick einen Punkt. <kbd>Enter</kbd> oder ein Doppelklick beenden die Linie, <kbd>Esc</kbd> bricht ab, <kbd>Backspace</kbd> nimmt den letzten Punkt zurück.
+- <span class="ui">Row</span> setzt mehrere Objekte auf einmal als eine Zeile, etwa Icon, Text und Schalter, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken).
 - <span class="ui">Switcher</span> legt einen Bereich mit einem ersten Panel an. Darüber erscheinen Reiter, einer pro Panel, und <span class="ui">+</span> fügt ein Panel hinzu. Ein Klick auf einen Reiter öffnet dieses Panel zum Bearbeiten, neue Objekte landen dann darin.
 
 Schneller geht es oft mit den [Bausteinen](/designer/bausteine): Sie setzen fertige Objekte, die schon an die richtigen Werte gebunden sind.

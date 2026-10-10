@@ -626,6 +626,137 @@ export function moveOutOf(
   return drop ? applySnapDrop(list, objectId, drop, scale, newTableId) : list
 }
 
+// ---------------------------------------------------------------------------
+// Rows (module snap-table-rows): several objects at once - an icon, a label,
+// a control - as one row, each part into the column of its role.
+
+/** The row templates the toolbar offers, by the types of their parts. */
+export const ROW_TEMPLATES = {
+  "icon-label-switch": ["icon", "text", "switch"],
+  "label-switch": ["text", "switch"],
+  "icon-switch": ["icon", "switch"],
+  "label-button": ["text", "button"],
+} as const
+export type RowTemplate = keyof typeof ROW_TEMPLATES
+
+const RANK: Record<SnapRole, number> = { icon: 0, label: 1, control: 2 }
+
+/** Each column's role: that of the first object, row by row, standing in it alone; null for a column without one. */
+export function columnRoles(table: ScreenObject): (SnapRole | null)[] {
+  const { columns } = dimensions(table)
+  const alone = inReadingOrder(table.children ?? []).filter((c) => snapCellOf(c).columnSpan === 1)
+  return Array.from({ length: columns }, (_, c) => {
+    const first = alone.find((o) => snapCellOf(o).column === c)
+    return first ? roleOf(first) : null
+  })
+}
+
+/**
+ * Where the parts of a row inserted at line `at` go: each into the next
+ * column of its role from the left that a span across that line does not
+ * cover, in the parts' order; a part with no such column gets a new one,
+ * after the last column of an earlier or equal role (Icon, Label, Control).
+ * `match` names existing columns, `inserts` new ones by where they go in
+ * the columns as they are.
+ */
+export function planRow(table: ScreenObject, at: number, parts: ScreenObject[]): { match: Array<{ part: number; column: number }>; inserts: Array<{ part: number; at: number; role: SnapRole }> } {
+  const roles = columnRoles(table)
+  const blocked = new Set<number>()
+  for (const child of table.children ?? []) {
+    const cell = snapCellOf(child)
+    if (cell.row < at && at < cell.row + cell.rowSpan!) for (let c = cell.column; c < cell.column + cell.columnSpan!; c++) blocked.add(c)
+  }
+  const used: Partial<Record<SnapRole, number>> = {}
+  const match: Array<{ part: number; column: number }> = []
+  const inserts: Array<{ part: number; at: number; role: SnapRole }> = []
+  let after = 0
+  parts.forEach((part, i) => {
+    const role = roleOf(part)
+    const k = used[role] ?? 0
+    used[role] = k + 1
+    const own = roles.map((r, c) => (r === role && !blocked.has(c) ? c : -1)).filter((c) => c >= 0)
+    if (k < own.length && own[k] >= after) {
+      match.push({ part: i, column: own[k] })
+      after = own[k] + 1
+      return
+    }
+    let place = 0
+    roles.forEach((r, c) => {
+      if (r !== null && RANK[r] <= RANK[role]) place = c + 1
+    })
+    place = Math.max(place, after)
+    inserts.push({ part: i, at: place, role })
+    after = place
+  })
+  return { match, inserts }
+}
+
+/** A row of `parts` inserted into a laid-out table at line `at` (planRow); what stood there keeps its place. */
+export function insertRowOf(table: ScreenObject, at: number, parts: ScreenObject[], scale: LayoutScale): ScreenObject {
+  const laid = arrangeSnapTable(table, scale)
+  const plan = planRow(laid, at, parts)
+  let t = insertSnapRow(laid, at)
+  for (const m of plan.match) t = placeInCell(t, parts[m.part], at, m.column)
+  // From the right, so each insert's place still counts in the columns as
+  // they were; parts meeting at one place keep their order.
+  for (const n of [...plan.inserts].sort((a, b) => b.at - a.at || b.part - a.part)) {
+    t = insertSnapColumn(t, n.at)
+    t = placeInCell(t, parts[n.part], at, n.at)
+  }
+  return keepInPlace(laid, t, scale)
+}
+
+/** A row of `parts` as a table of its own, its top left corner at `at`. */
+export function rowAsTable(parts: ScreenObject[], at: { x: number; y: number }, scale: LayoutScale, id: string): ScreenObject {
+  const table: ScreenObject = {
+    id,
+    type: "table",
+    x: at.x,
+    y: at.y,
+    width: 1,
+    height: 1,
+    zIndex: Math.max(0, ...parts.map((p) => p.zIndex)),
+    properties: { grid: SNAP_GRID, columns: parts.map(() => ({})), rows: [{}] },
+    children: parts.map((p, i) => withCell(p, { row: 0, column: i })),
+  }
+  return arrangeSnapTable(table, scale)
+}
+
+/**
+ * Where a row carried at `rect` goes among the objects of one space: the
+ * table it lies across - overlapping it sideways, within `zone` of it up or
+ * down - at the line between its rows nearest the row's middle. Null when
+ * none is that near.
+ */
+export function rowTargetAt(objects: ScreenObject[], rect: SnapRect, zone: number, scale: LayoutScale): { tableId: string; at: number } | null {
+  const middle = rect.y + rect.height / 2
+  let best: { tableId: string; at: number; distance: number } | null = null
+  for (const obj of objects) {
+    if (!isSnapTable(obj) || obj.locked) continue
+    const across = Math.min(obj.x + obj.width, rect.x + rect.width) - Math.max(obj.x, rect.x) > 0
+    const near = rect.y + rect.height >= obj.y - zone && rect.y <= obj.y + obj.height + zone
+    if (!across || !near) continue
+    const g = snapTableGeometry(obj, scale)
+    const lines = [...g.tops.map((t) => obj.y + t - g.gap / 2), obj.y + obj.height + g.gap / 2]
+    lines.forEach((y, at) => {
+      const distance = Math.abs(middle - y)
+      if (!best || distance < best.distance) best = { tableId: obj.id, at, distance }
+    })
+  }
+  const found = best as { tableId: string; at: number } | null
+  return found ? { tableId: found.tableId, at: found.at } : null
+}
+
+/**
+ * A row let go among the objects of one space: into the table `target`
+ * names, or a table of its own with its top left corner at `at`.
+ */
+export function applyRowDrop(objects: ScreenObject[], parts: ScreenObject[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, scale: LayoutScale, newTableId: string): ScreenObject[] {
+  const table = target ? objects.find((o) => o.id === target.tableId) : undefined
+  if (target && table && isSnapTable(table)) return objects.map((o) => (o.id === table.id ? insertRowOf(table, target.at, parts, scale) : o))
+  return [...objects, rowAsTable(parts, at, scale, newTableId)]
+}
+
 /**
  * The column (for a left or right span handle) or row (top, bottom) under a
  * point, for a laid-out table whose x and y are in the point's space - where

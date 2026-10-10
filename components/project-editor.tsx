@@ -66,7 +66,7 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { FALLBACK_SCALE, layoutProject } from "@/lib/layout"
-import { applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
+import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
@@ -907,12 +907,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       window.removeEventListener("mouseup", handleMouseUp)
     }
   }, [isResizingRightPanel])
-  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein">("select")
+  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row">("select")
   // The shape the Table tool draws (docs/2026-10-03-free-screens.md).
   const [tableShape, setTableShape] = useState<TableShapeId>(DEFAULT_TABLE_SHAPE)
   const selectTableShape = useCallback((shape: TableShapeId) => {
     setTableShape(shape)
     setActiveTool("table")
+  }, [])
+  // The row the Row tool carries (docs/2026-10-09-snap-tables.md, module
+  // snap-table-rows).
+  const [rowTemplate, setRowTemplate] = useState<RowTemplate>("icon-label-switch")
+  const selectRowTemplate = useCallback((template: RowTemplate) => {
+    setRowTemplate(template)
+    setActiveTool("row")
   }, [])
   // The building-block tool (lib/bausteine.ts): the catalog entry picked in
   // the Block menu while its options are being chosen; then, once Insert is
@@ -2441,6 +2448,41 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setSelectedObjectIds([movingId])
     },
     [currentScreenId, editingContainerId, project.nextId, setProject],
+  )
+
+  // A row the Row tool carried, let go (docs/2026-10-09-snap-tables.md,
+  // module snap-table-rows): into the table at the row line `target` names,
+  // each part into the column of its role, or a table of one row with its
+  // top left corner at `at` - in the space `parentId` names, the screen
+  // when none. That table is open afterwards, the row's first part chosen.
+  const insertRow = useCallback(
+    (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => {
+      const ids = parts.map((_, i) => `obj-${project.nextId + i}`)
+      const newTableId = `obj-${project.nextId + parts.length}`
+      setProject((prev) => {
+        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        const add = (list: ScreenObject[]) => {
+          const inside = target ? (list.find((o) => o.id === target.tableId)?.children ?? []) : []
+          const base = Math.max(0, ...inside.map((o) => o.zIndex))
+          const made = parts.map((part, i) => ({ ...part, id: ids[i], zIndex: base + i + 1 }) as ScreenObject)
+          const zIndex = Math.max(0, ...list.map((o) => o.zIndex)) + 1
+          return applyRowDrop(list, made, target, at, scale, newTableId).map((o) => (o.id === newTableId ? { ...o, zIndex } : o))
+        }
+        return {
+          ...prev,
+          nextId: prev.nextId + parts.length + 1,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            if (!parentId) return { ...screen, objects: add(screen.objects) }
+            const space = findObjectById(screen.objects, parentId)
+            return space ? { ...screen, objects: updateObjectById(screen.objects, parentId, { children: add(space.children ?? []) }) } : screen
+          }),
+        }
+      })
+      setEditingContainerId(target ? target.tableId : newTableId)
+      setSelectedObjectIds(ids.slice(0, 1))
+    },
+    [currentScreenId, project.nextId, setProject],
   )
 
   // An object dragged out of a table put together by snapping and let go
@@ -4241,6 +4283,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               onCatalogEntrySelect={selectCatalogEntry}
               tableShape={tableShape}
               onTableShapeSelect={selectTableShape}
+              onRowTemplateSelect={selectRowTemplate}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
               navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
@@ -4308,6 +4351,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMoveToTable={moveToTable}
             onSnapDrop={snapDrop}
             onSnapMoveOut={snapMoveOut}
+            rowTemplate={rowTemplate}
+            onInsertRow={insertRow}
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}

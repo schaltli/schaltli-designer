@@ -10,7 +10,7 @@ export interface KeyboardHandlerContext {
   onCopy: () => void
   onPaste: () => void
   hasClipboard: boolean
-  onToolChange: (tool: "select" | ObjectType | "background" | "baustein") => void
+  onToolChange: (tool: "select" | ObjectType | "background" | "baustein" | "row") => void
 }
 
 /**
