@@ -1,31 +1,31 @@
-// Layout tables on a real device - Checkpoint A of the tables work
-// (docs/2026-10-02-layout-tables.md, tasks/layout-tables-todo.md; before
-// that Checkpoint B of docs/2026-10-02-layout.md): a «Name and control»
-// table with a span and a nested table, on the Knob and the 4.3B, against the designer's
-// own render - and the same screen at the size steps S, M and L, which must
-// not make anything overlap.
+// Tables on a real device (docs/2026-10-09-snap-tables.md, Task 16; before
+// that the old tables' Checkpoint A, docs/2026-10-02-layout-tables.md): a
+// table put together by snapping - names and their controls in rows, a
+// title spanning every column, a column set wider by hand, an object
+// aligned right, a bar and two buttons filling their cells - on the Knob
+// and the 4.3B, against the designer's own render; and the same screen at
+// the size steps S, M and L, which must not make anything overlap.
 //
-// Nothing is placed here. The project names containers, styles and steps
-// only; the designer sizes them for the device (/test-render's
+// Nothing is placed here. The project names cells, styles and steps only;
+// the designer sizes them for the device (/test-render's
 // __applyScaleForTest, as hil/size-scale/text-styles.js does) and lays them
 // out (__layoutProjectForTest - lib/layout.ts layoutProject, the pass the
-// editor runs after every change). Screens are free
-// (docs/2026-10-03-free-screens.md): each one holds one table object, set
-// here where a screen's own table used to lay out - the whole screen on the
-// 4.3B, the square inside the circle on the Knob (screen.shape in the DDF),
-// 2 mm in. The zip then goes through the
-// designer's own export, which dissolves the containers into the absolute
+// editor runs after every change). The table is as large as its content;
+// its corner is set here where a screen's own table used to lay out - the
+// whole screen on the 4.3B, the square inside the circle on the Knob
+// (screen.shape in the DDF), 2 mm in. The zip then goes through the
+// designer's own export, which dissolves the table into the absolute
 // objects a device knows.
 //
 // Checks, before anything is installed: no two objects of a container
 // overlap - that fails it. What does not fit - an object outside its
-// screen's content area, a container marked as overflowing - is reported,
-// not failed: the designer shows that state too, and the device then cuts
-// at the screen's edge exactly where the designer does, which is what the
-// pixel comparison checks. On the Knob's 32 mm square this screen does not
-// fit at any step; on the 4.3B it fits at all three (Checkpoint B,
-// 2026-10-02). Then --upload installs it; the device's orchestrator
-// compares it pixel for pixel (hil/test-all.js runs both).
+// screen's content area - is reported, not failed: the designer shows that
+// state too, and the device then cuts at the screen's edge exactly where
+// the designer does, which is what the pixel comparison checks. On the
+// Knob's 32 mm square this screen does not fit at any step; on the 4.3B it
+// fits at all three (2026-10-10, as with the old tables before). Then
+// --upload installs it; the device's orchestrator compares it pixel for
+// pixel (hil/test-all.js runs both).
 //
 // Needs the designer dev server (npm run dev) and schaltli-firmware next to
 // this repo.
@@ -98,13 +98,16 @@ const text = (id, words, style = "label") =>
     borderColor: "transparent",
   })
 
-// An object in its table's cell (docs/2026-10-02-layout-tables.md).
+// An object in its table's cell (docs/2026-10-09-snap-tables.md): row,
+// column, and how it stands there - a span, an align, a fill.
 const at = (o, row, column, extra = {}) => ({ ...o, properties: { ...o.properties, cell: { row, column, ...extra } } })
 
-// One screen, a «Name and control» table: a title across both columns,
-// three names with their controls, and two buttons sharing the width in a
-// table of their own across both columns - all at one size step. The
-// table's place and size are set once the scale is known (placeTables).
+// One screen, a table put together by snapping: a title across both
+// columns, centred; three names with their controls, the switch to the
+// right of its cell, the bar filling its width; two buttons side by side,
+// each filling its cell. The names' column is set to 22 mm by hand, wider
+// than its widest name. All at one size step. The table's corner is set
+// once the scale is known (placeTables).
 function screenAt(step) {
   const s = (id) => `${id}-${step}`
   return {
@@ -113,33 +116,27 @@ function screenAt(step) {
     masterScreenId: "master-1",
     backgroundColor: "#ffffff",
     objects: [
-      object(s("table"), "table", { columns: [{ width: "auto" }, { width: { share: 100 } }] }, [
-      at(text(s("title"), "Wohnraum", "title"), 0, 0, { columnSpan: 2 }),
-      at(text(s("name-light"), "Licht"), 1, 0),
-      at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1),
-      at(text(s("name-heat"), "Heizung"), 2, 0),
-      at(object(s("modes"), "button-group", { ...CONTROL, sizeStep: step, topic: "layout/mode", writeTopic: "layout/mode/set", states: MODES }), 2, 1),
-      at(text(s("name-water"), "Wasser"), 3, 0),
-      at(object(s("bar"), "bar", { ...LEVEL, sizeStep: step }), 3, 1),
-      at(
-        object(s("buttons"), "table", { columns: [{ width: { share: 50 } }, { width: { share: 50 } }] }, [
-          at(object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 0, 0, { align: "stretch" }),
-          at(object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 0, 1, { align: "stretch" }),
-        ]),
-        4,
-        0,
-        { columnSpan: 2 },
-      ),
+      object(s("table"), "table", { grid: 1, columns: [{ mm: 22 }, {}], rows: [{}, {}, {}, {}, {}] }, [
+        at(text(s("title"), "Wohnraum", "title"), 0, 0, { columnSpan: 2, align: "center" }),
+        at(text(s("name-light"), "Licht"), 1, 0),
+        at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1, { align: "right" }),
+        at(text(s("name-heat"), "Heizung"), 2, 0),
+        at(object(s("modes"), "button-group", { ...CONTROL, sizeStep: step, topic: "layout/mode", writeTopic: "layout/mode/set", states: MODES }), 2, 1),
+        at(text(s("name-water"), "Wasser"), 3, 0),
+        at(object(s("bar"), "bar", { ...LEVEL, sizeStep: step }), 3, 1, { fill: { width: true } }),
+        at(object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 0, { fill: { width: true } }),
+        at(object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 1, { fill: { width: true } }),
       ]),
     ],
   }
 }
 
-// Each screen's table where a screen's own table laid out: in `area`, 2 mm in.
+// Each screen's table where a screen's own table laid out: its corner in
+// `area`, 2 mm in. Its size is its content's (the layout pass).
 function placeTables(project, area, pixelsPerMm) {
   const pad = Math.round(2 * pixelsPerMm)
   for (const screen of project.screens.filter((sc) => !sc.isMaster)) {
-    Object.assign(screen.objects[0], { x: area.x + pad, y: area.y + pad, width: area.width - 2 * pad, height: area.height - 2 * pad })
+    Object.assign(screen.objects[0], { x: area.x + pad, y: area.y + pad })
   }
   return project
 }
@@ -166,7 +163,7 @@ function projectFor(source, device) {
 }
 
 // What a laid-out screen gets wrong: siblings that overlap, objects outside
-// the content area, containers marked as overflowing.
+// the content area.
 function problemsOf(screen, area) {
   const problems = []
   const notes = []
@@ -176,9 +173,6 @@ function problemsOf(screen, area) {
       const a = boxes[i]
       if (a.x < area.x || a.y < area.y || a.x + a.o.width > area.x + area.width || a.y + a.o.height > area.y + area.height) {
         notes.push(`${a.o.id} at ${a.x},${a.y} ${a.o.width}x${a.o.height} is outside the content area`)
-      }
-      if (a.o.properties?.overflow) {
-        notes.push(`${a.o.id} does not fit (content ${a.o.properties.contentWidth}x${a.o.properties.contentHeight} px in ${a.o.width}x${a.o.height})`)
       }
       for (let j = i + 1; j < boxes.length; j++) {
         const b = boxes[j]

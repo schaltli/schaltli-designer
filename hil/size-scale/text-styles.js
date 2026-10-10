@@ -28,7 +28,9 @@ const fs = require("fs")
 const path = require("path")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
-const FIRMWARE = path.join(__dirname, "..", "..", "..", "schaltli-firmware")
+// The firmware checkout beside this repo, or where SCHALTLI_FIRMWARE_REPO
+// says - from a git worktree it is not beside it (e2e/ddf-seed.ts too).
+const FIRMWARE = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "..", "schaltli-firmware")
 const OUT_DIR = path.join(__dirname, "out")
 
 // Home addresses from the workplace notes; --device overrides.
