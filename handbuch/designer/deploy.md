@@ -6,13 +6,17 @@
 
 ## Das Gerät wählen
 
-Der Dialog verbindet sich mit dem Broker und listet alle Geräte, die zum Projekt passen, also denselben Gerätetyp haben. Boards heissen nach ihrem Typ und einer Kennung, Android-Handys nach ihrem Modell.
+Der Dialog verbindet sich mit dem Broker und listet alle Geräte, die sich dort melden. Oben stehen die, für die das Projekt gemacht ist, darunter die übrigen mit dem Vermerk <span class="ui">Other device</span>. Boards heissen nach ihrem Typ und einer Kennung, Android-Handys nach ihrem Modell.
 
 - Ein grünes WLAN-Zeichen heisst: Das Gerät ist online.
 - <span class="ui">will apply on reconnect</span>: Das Gerät ist gerade nicht online. Überträgst du trotzdem, holt es sich das Projekt, sobald es wieder da ist.
 - <span class="ui">firmware update</span>: Der Designer bringt eine neuere Firmware mit, siehe [Firmware-Updates](/geraete/firmware-updates).
 
-Findet der Dialog kein passendes Gerät, sagt er, welche Geräte sich stattdessen melden. Oft steckt dahinter ein Projekt, das für einen anderen Gerätetyp angelegt wurde.
+### Ein anderes Gerät
+
+Ein Projekt ist für ein bestimmtes Gerät gemacht, mit dessen Bildschirmgrösse und Ausrichtung. Auf ein anderes Gerät überträgt der Dialog es nicht: Ein Projekt für den 4.3B mit 800×480 Pixeln wäre auf einem Tablet abgeschnitten oder winzig, und Teile würden fehlen.
+
+Wählst du ein Gerät mit <span class="ui">Other device</span>, sagt der Dialog, für welches Gerät das Projekt gemacht ist. Mit <span class="ui">Switch this project to</span> stellst du das Projekt auf das gewählte Gerät um, wie unter <span class="ui">Settings</span> › <span class="ui">Device</span>. Bildschirmgrösse, Schriften und Tasten kommen dann vom neuen Gerät, deine Objekte bleiben, wo sie sind. Hat sich die Grösse geändert, sagt der Dialog das: Prüf deine Screens, bevor du überträgst, denn Objekte können jetzt ausserhalb liegen. <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt das Umstellen zurück.
 
 ## Übertragen
 

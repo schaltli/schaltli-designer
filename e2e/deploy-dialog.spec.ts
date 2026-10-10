@@ -117,7 +117,8 @@ test.describe("Deploy to Device dialog", () => {
 
   test("filters by device type, shows offline devices, and reacts to live deploy-status", async ({ page }) => {
     // A compatible device (this test's own kind, which its project is bound
-    // to) and an incompatible one (Android) - only the first should show.
+    // to) and an incompatible one (Android): both listed since 2026-10-10
+    // (#62), the project's first, the other marked as another device.
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
       JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
@@ -134,7 +135,11 @@ test.describe("Deploy to Device dialog", () => {
     await openDeployDialog(page)
 
     await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
-    await expect(page.getByText("My Phone")).not.toBeVisible()
+    const phone = page.getByRole("dialog").getByTestId("deploy-device").filter({ hasText: "My Phone" })
+    await expect(phone.getByText("Other device")).toBeVisible()
+    const rows = page.getByRole("dialog").getByTestId("deploy-device")
+    const names = await rows.allTextContents()
+    expect(names.findIndex((t) => t.includes(`Camper Dashboard ${epaperId}`))).toBeLessThan(names.findIndex((t) => t.includes("My Phone")))
 
     // Take it offline - the row should stay visible but relabel, not
     // disappear (a currently-offline device is still a valid deploy
@@ -395,53 +400,59 @@ test.describe("Deploy to Device dialog", () => {
   // (e2e/ddf-seed.ts renames and removes variants now); this pins the
   // message, because the leak is only one of the ways a project can end up
   // bound to a deviceId nothing announces.
-  test("says which device the project wants when the broker has others, not just 'none found'", async ({
+  // #62, tester Arno 2026-10-10: a project made for the 4.3B, and only an
+  // Android tablet. The dialog listed nothing but a line of device ids, so
+  // he loaded a board export into the app by hand. Now every device on the
+  // broker is listed; one the project is not made for says so, cannot be
+  // deployed to, and offers to move the project onto it - after which it can.
+  test("lists another device, says the project is not made for it, and moves the project onto it", async ({
     page,
   }, testInfo) => {
-    // Its own throwaway device, and its own deviceId - which every test in
-    // this file has since gained, for exactly the reason first written here:
-    // these run in parallel against one broker, so a shared device kind made
-    // a test assert on whether a sibling happened to publish first. Here it
-    // is also the state under test, since the point is a project bound to a
-    // deviceId nothing announces at all.
+    // Two throwaway devices with ids of their own (these tests share one
+    // broker and run in parallel): the one the project is made for, which
+    // announces nothing, and another, online, with a description to move to.
     const orphanDeviceId = `e2e-orphan-${testInfo.testId}`
-    const ddfZip = new JSZip()
-    ddfZip.file(
-      "device.json",
-      JSON.stringify({
-        device: { id: orphanDeviceId, name: `Orphaned Device ${testInfo.testId}` },
-        screen: { width: 10, height: 10, colorDepth: "1bit" },
-        adornment: { svgPath: "adornment.svg" },
-        fonts: [],
-        supportedObjectTypes: [],
-      }),
-    )
-    ddfZip.file(
-      "adornment.svg",
-      `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
-    )
-    const ddfBytes = await ddfZip.generateAsync({ type: "nodebuffer" })
-
-    const httpServer = http.createServer((_req, res) => {
-      res.writeHead(200, { "Content-Type": "application/zip" })
-      res.end(ddfBytes)
+    const otherDeviceId = `e2e-other-${testInfo.testId}`
+    const ddf = async (id: string, name: string, width: number, height: number) => {
+      const zip = new JSZip()
+      zip.file(
+        "device.json",
+        JSON.stringify({
+          device: { id, name },
+          screen: { width, height, colorDepth: "24bit" },
+          adornment: { svgPath: "adornment.svg" },
+          fonts: [],
+          supportedObjectTypes: ["text", "box"],
+        }),
+      )
+      zip.file(
+        "adornment.svg",
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect id="screen" x="0" y="0" width="${width}" height="${height}" fill="none" stroke="none"/></svg>`,
+      )
+      return zip.generateAsync({ type: "nodebuffer" })
+    }
+    const zips: Record<string, Buffer> = {
+      "/orphan.zip": await ddf(orphanDeviceId, `Orphaned Device ${testInfo.testId}`, 800, 480),
+      "/other.zip": await ddf(otherDeviceId, `Other Device ${testInfo.testId}`, 600, 1024),
+    }
+    const httpServer = http.createServer((req, res) => {
+      const body = zips[req.url ?? ""]
+      res.writeHead(body ? 200 : 404, { "Content-Type": "application/zip" })
+      res.end(body ?? "")
     })
     await new Promise<void>((resolve) => httpServer.listen(0, resolve))
     const port = (httpServer.address() as { port: number }).port
     const lanIp = serverLanAddress()
-    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake devices' DDFs from")
 
     try {
-      const fetched = await page.request.post("/api/ddf/fetch", {
-        data: { url: `http://${lanIp}:${port}/ddf.zip` },
-      })
+      const fetched = await page.request.post("/api/ddf/fetch", { data: { url: `http://${lanIp}:${port}/orphan.zip` } })
       expect(fetched.ok(), JSON.stringify(await fetched.json())).toBe(true)
 
-      // A real, online device on the same broker - just not this project's.
-      const otherDeviceId = `e2e-other-${testInfo.testId}`
+      const otherName = `Someone Else ${epaperId}`
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
-        JSON.stringify({ deviceId: otherDeviceId, name: `Someone Else ${epaperId}`, firmwareVersion: "1.0.0" }),
+        JSON.stringify({ deviceId: otherDeviceId, name: otherName, firmwareVersion: "1.0.0", url: `http://${lanIp}:${port}/other.zip` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -454,16 +465,47 @@ test.describe("Deploy to Device dialog", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-
       const dialog = page.getByRole("dialog")
-      // Both halves matter: what this project needs, and what is actually
-      // out there. Either one alone still leaves a human guessing.
-      await expect(dialog.getByText(orphanDeviceId)).toBeVisible({ timeout: 15000 })
-      await expect(dialog.getByText(otherDeviceId, { exact: false })).toBeVisible()
+
+      // Listed by its name, marked as another device.
+      const row = dialog.getByTestId("deploy-device").filter({ hasText: otherName })
+      await expect(row).toBeVisible({ timeout: 15000 })
+      await expect(row.getByText("Other device")).toBeVisible()
       await expect(dialog.getByText("No devices on the broker yet")).toHaveCount(0)
+
+      // Chosen: what the project is made for and what this is - no deploy.
+      await row.click()
+      const foreign = dialog.getByTestId("foreign-device")
+      await expect(foreign).toContainText(`This project is made for Orphaned Device ${testInfo.testId} (800×480)`)
+      await expect(foreign).toContainText(`"${otherName}" is a different device`)
+      await expect(dialog.getByRole("button", { name: "Deploy", exact: true })).toBeDisabled()
+
+      // Moved onto it: the project's screen is the other device's, the row is
+      // no longer another device's, and it can be deployed to.
+      await foreign.getByRole("button", { name: `Switch this project to "${otherName}"` }).click()
+      await expect(dialog.getByTestId("switched-device-note")).toContainText(
+        `This project is now made for "${otherName}". Its screen is 600×1024 instead of 800×480`,
+      )
+      await expect(foreign).toHaveCount(0)
+      await expect(row.getByText("Other device")).toHaveCount(0)
+      await expect(dialog.getByRole("button", { name: "Deploy", exact: true })).toBeEnabled()
+
+      // An edit like any other: Ctrl+Z takes it back.
+      await dialog.getByRole("button", { name: "Close" }).click()
+      await expect(dialog).toHaveCount(0)
+      // The File menu the dialog was opened from is still open behind it.
+      await page.keyboard.press("Escape")
+      await page.keyboard.press("ControlOrMeta+z")
+      await expect(page.getByText("800 × 480")).toBeVisible()
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+      await expect(
+        page.getByRole("dialog").getByTestId("deploy-device").filter({ hasText: otherName }).getByText("Other device"),
+      ).toBeVisible({ timeout: 15000 })
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
       await rm(join(__dirname, "..", ".data", "ddf", `${orphanDeviceId}.ddf.zip`), { force: true })
+      await rm(join(__dirname, "..", ".data", "ddf", `${otherDeviceId}.ddf.zip`), { force: true })
     }
   })
 

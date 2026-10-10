@@ -30,6 +30,7 @@ import { exportAndroidProject } from "@/lib/android-export"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
+import { projectOnDevice } from "@/lib/project-device"
 import {
   PLACEHOLDER_GENERATION,
   POPUP_GENERATION,
@@ -58,6 +59,9 @@ interface DeployDialogProps {
   // instanceId - a no-op if omitted, so this stays backward compatible with
   // any other DeployDialog caller.
   onProjectUpdate?: (project: Project) => void
+  // An edit of the project, undoable like any other: moving it onto another
+  // device («Switch this project to …», #62). Without it that is not offered.
+  onProjectChange?: (project: Project) => void
   // Deploy saves first (docs/2026-09-23-explicit-save.md): resolves to the
   // version that is then sent and marked as deployed, or null when the save
   // was cancelled or failed - and then nothing is sent. Without it the
@@ -116,7 +120,7 @@ interface DeployStatus {
   error?: string
 }
 
-export function DeployDialog({ project: openProject, children, onProjectUpdate, onSaveBeforeDeploy }: DeployDialogProps) {
+export function DeployDialog({ project: openProject, children, onProjectUpdate, onProjectChange, onSaveBeforeDeploy }: DeployDialogProps) {
   // What the dialog shows and checks is the open project; what a deploy
   // sends is the version the save before it returned (handleDeploy).
   const project = openProject
@@ -256,15 +260,18 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       })
   }
 
-  const compatibleDevices = Array.from(devices.values()).filter((d) => d.deviceId === project.settings.deviceId)
-  // "Nothing is announcing itself" and "something is, but it isn't this
-  // project's device" are completely different problems with completely
-  // different fixes, and one message for both sent a real debugging session
-  // down the wrong path on 2026-08-21: three identically-named devices in
-  // the picker meant the project had been built on a look-alike, and the
-  // dialog - which knew perfectly well it was talking to a device - only
-  // said "no matching devices found yet".
-  const announcedDeviceIds = Array.from(new Set(Array.from(devices.values()).map((d) => d.deviceId))).filter(Boolean)
+  // Every device on the broker, this project's first (#62). Until 2026-10-10
+  // only those with the project's deviceId were listed, and when there was
+  // none a line of device ids said what was announcing instead: tester Arno,
+  // with a project made for the 4.3B and only an Android tablet, never found
+  // his tablet here and loaded a board export into the app by hand, where it
+  // came out cut off and without its buttons. Now the tablet is listed, says
+  // what it is, and offers to move the project onto it.
+  const isProjectDevice = (d: DiscoveredDevice) => d.deviceId === project.settings.deviceId
+  const listedDevices = Array.from(devices.values()).sort((x, y) => Number(isProjectDevice(y)) - Number(isProjectDevice(x)))
+  const [switching, setSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState<string | null>(null)
+  const [switchedNote, setSwitchedNote] = useState<string | null>(null)
 
   // Checks the selected device's *live* supportedObjectTypes (fetched
   // fresh via the same /api/ddf/fetch proxy device-scan-section.tsx uses,
@@ -283,7 +290,9 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     setUnsupportedTypeWarning(null)
     if (!selectedInstanceId) return
     const device = devices.get(selectedInstanceId)
-    if (!device?.ddfUrl) return
+    // Another device than the project's: nothing to check against until the
+    // project is moved onto it.
+    if (!device?.ddfUrl || device.deviceId !== project.settings.deviceId) return
 
     let cancelled = false
     ;(async () => {
@@ -506,6 +515,49 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   }
 
   const selectedDevice = selectedInstanceId ? devices.get(selectedInstanceId) : null
+  // A device the project is not made for: chosen, explained, never deployed to.
+  const selectedForeign = !!selectedDevice && !isProjectDevice(selectedDevice)
+  const deployTarget = selectedForeign ? null : selectedDevice
+
+  // «Switch this project to …»: what Settings › Device › Load Device does
+  // (lib/project-device.ts), with this device's description fetched fresh as
+  // the type check above fetches it.
+  const handleSwitchToDevice = async () => {
+    if (!selectedDevice || !onProjectChange) return
+    const device = selectedDevice
+    setSwitching(true)
+    setSwitchError(null)
+    try {
+      if (device.ddfUrl) {
+        const res = await fetch("/api/ddf/fetch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId: device.deviceId, ddfHash: device.ddfHash, url: device.ddfUrl }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || `Could not fetch its device description (${res.status})`)
+        }
+      }
+      const fields = await loadDeviceDescriptionByPath(`/api/ddf/data/${device.deviceId}.ddf.zip`)
+      const before = `${project.screenWidth}×${project.screenHeight}`
+      const moved = projectOnDevice(project, fields)
+      onProjectChange(moved.project)
+      const after = `${moved.screenWidth}×${moved.screenHeight}`
+      setSwitchedNote(
+        `This project is now made for "${device.name || fields.deviceName}". ` +
+          (before === after
+            ? "Its screen is the same size. "
+            : `Its screen is ${after} instead of ${before}: objects stayed where they were and may lie outside or look different. `) +
+          (moved.rotationWasReset ? "The rotation went back to 0°, the device does not offer it. " : "") +
+          "Check your screens before you deploy.",
+      )
+    } catch (error) {
+      setSwitchError(error instanceof Error ? error.message : "Switching the project failed")
+    } finally {
+      setSwitching(false)
+    }
+  }
   // The buttons a device below POPUP_GENERATION would leave doing nothing.
   const popupOpenerNames = popupOpeners(project)
   const liveValueTexts = liveValuesNotOnDevices(project)
@@ -574,29 +626,20 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
               )}
 
               <ScrollArea className="max-h-64">
-                {compatibleDevices.length === 0 ? (
-                  announcedDeviceIds.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">
-                      No devices on the broker yet. Listening...
-                    </p>
-                  ) : (
-                    <div className="text-sm text-muted-foreground py-6 px-3 space-y-2">
-                      <p>
-                        This project is built for <span className="font-medium text-foreground">{project.settings.deviceId}</span>, and
-                        nothing on the broker announces that.
-                      </p>
-                      <p>
-                        Announcing right now: {announcedDeviceIds.join(", ")}. If one of those is the device you mean, the project was
-                        built on a different DDF with the same name - switch it in Project Settings under Device.
-                      </p>
-                    </div>
-                  )
+                {listedDevices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-6 text-center">
+                    No devices on the broker yet. Listening...
+                  </p>
                 ) : (
                   <div className="space-y-1">
-                    {compatibleDevices.map((device) => (
+                    {listedDevices.map((device) => (
                       <button
                         key={device.instanceId}
-                        onClick={() => setSelectedInstanceId(device.instanceId)}
+                        data-testid="deploy-device"
+                        onClick={() => {
+                          setSelectedInstanceId(device.instanceId)
+                          setSwitchError(null)
+                        }}
                         className={cn(
                           "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm border",
                           selectedInstanceId === device.instanceId ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/50",
@@ -607,7 +650,14 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                         ) : (
                           <WifiOff className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className="flex-1 truncate">{device.name || device.instanceId}</span>
+                        <span className={cn("flex-1 truncate", !isProjectDevice(device) && "text-muted-foreground")}>
+                          {device.name || device.instanceId}
+                        </span>
+                        {!isProjectDevice(device) && (
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            Other device
+                          </Badge>
+                        )}
                         {/* Never for a phone: its app is not a firmware this
                             designer ships, so a release of the same device id
                             says nothing about it. */}
@@ -629,16 +679,37 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 )}
               </ScrollArea>
 
+              {switchedNote && (
+                <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="switched-device-note">
+                  {switchedNote}
+                </p>
+              )}
+
+              {selectedForeign && selectedDevice && (
+                <div className="rounded-md border border-amber-500/50 p-3 space-y-2" data-testid="foreign-device">
+                  <p className="text-sm">
+                    {`This project is made for ${project.settings.deviceName || project.settings.deviceId || "another device"} (${project.screenWidth}×${project.screenHeight}). `}
+                    {`"${selectedDevice.name || selectedDevice.instanceId}" is a different device: the project would not fit it, so it cannot be deployed there as it is.`}
+                  </p>
+                  {onProjectChange && (
+                    <Button size="sm" variant="outline" onClick={handleSwitchToDevice} disabled={switching}>
+                      {switching ? "Switching..." : `Switch this project to "${selectedDevice.name || selectedDevice.instanceId}"`}
+                    </Button>
+                  )}
+                  {switchError && <p className="text-sm text-destructive">{switchError}</p>}
+                </div>
+              )}
+
               {/* Placeholders the device resolves itself - {topic:…},
                   {device:…} - need a device that announces
                   PLACEHOLDER_GENERATION. Below it the text arrives fine and
                   is shown as written, so this warns rather than refuses
                   (docs/2026-09-25-text-placeholders.md). */}
-              {selectedDevice &&
+              {deployTarget &&
                 projectUsesLivePlaceholders(project) &&
-                generationBelow(selectedDevice.systemGeneration, PLACEHOLDER_GENERATION) && (
+                generationBelow(deployTarget.systemGeneration, PLACEHOLDER_GENERATION) && (
                   <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="placeholder-generation-warning">
-                    {`"${selectedDevice.name || selectedDevice.instanceId}" shows placeholders such as {topic:…} as written, not as values: `}
+                    {`"${deployTarget.name || deployTarget.instanceId}" shows placeholders such as {topic:…} as written, not as values: `}
                     {`they need a device that announces generation ${formatGeneration(PLACEHOLDER_GENERATION)} or newer. Update its firmware or app first.`}
                   </p>
                 )}
@@ -647,19 +718,19 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   combined topic, a live icon - need a device that announces
                   LIVE_VALUE_GENERATION; below it those parts stay empty (an
                   icon shows its Otherwise one on a board), so this warns. */}
-              {selectedDevice && liveValueTexts.length > 0 && generationBelow(selectedDevice.systemGeneration, LIVE_VALUE_GENERATION) && (
+              {deployTarget && liveValueTexts.length > 0 && generationBelow(deployTarget.systemGeneration, LIVE_VALUE_GENERATION) && (
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="live-value-warning">
                   {`Not on devices yet: ${liveValueTexts.join(", ")}. `}
-                  {`A live value with rules, its own Otherwise, a duration or a combined topic needs a device that announces generation ${formatGeneration(LIVE_VALUE_GENERATION)} or newer; on "${selectedDevice.name || selectedDevice.instanceId}" that part stays empty. Update its firmware or app first.`}
+                  {`A live value with rules, its own Otherwise, a duration or a combined topic needs a device that announces generation ${formatGeneration(LIVE_VALUE_GENERATION)} or newer; on "${deployTarget.name || deployTarget.instanceId}" that part stays empty. Update its firmware or app first.`}
                 </p>
               )}
 
               {/* The navigator and «Hide screen» need a device that announces
                   NAVIGATOR_GENERATION (docs/2026-10-08-navigator.md). Below
                   it there is no navigator and a hidden screen is paged to. */}
-              {selectedDevice && navigatorParts.length > 0 && generationBelow(selectedDevice.systemGeneration, NAVIGATOR_GENERATION) && (
+              {deployTarget && navigatorParts.length > 0 && generationBelow(deployTarget.systemGeneration, NAVIGATOR_GENERATION) && (
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="navigator-generation-warning">
-                  {`Not on "${selectedDevice.name || selectedDevice.instanceId}" yet: ${navigatorParts.join(", ")}. `}
+                  {`Not on "${deployTarget.name || deployTarget.instanceId}" yet: ${navigatorParts.join(", ")}. `}
                   {`The navigator and «Hide screen» need a device that announces generation ${formatGeneration(NAVIGATOR_GENERATION)} or newer; below it there is no navigator and hidden screens are paged to. Update its firmware or app first.`}
                 </p>
               )}
@@ -668,11 +739,11 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   it the project reads fine - popups[] is skipped - but the
                   buttons that open one do nothing, so this names them and
                   warns rather than refuses (docs/2026-10-06-popup-screens.md). */}
-              {selectedDevice &&
+              {deployTarget &&
                 popupOpenerNames.length > 0 &&
-                generationBelow(selectedDevice.systemGeneration, POPUP_GENERATION) && (
+                generationBelow(deployTarget.systemGeneration, POPUP_GENERATION) && (
                   <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="popup-generation-warning">
-                    {`"${selectedDevice.name || selectedDevice.instanceId}" does not open popups: `}
+                    {`"${deployTarget.name || deployTarget.instanceId}" does not open popups: `}
                     {`${popupOpenerNames.join(", ")} will do nothing there. `}
                     {`Popups need a device that announces generation ${formatGeneration(POPUP_GENERATION)} or newer.`}
                   </p>
@@ -703,7 +774,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
 
               <Button
                 onClick={handleDeploy}
-                disabled={!selectedInstanceId || isDeploying || !project.settings.deviceId}
+                disabled={!selectedInstanceId || selectedForeign || isDeploying || !project.settings.deviceId}
                 className="w-full"
               >
                 {isDeploying ? (

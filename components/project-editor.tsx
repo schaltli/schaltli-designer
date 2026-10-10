@@ -3914,7 +3914,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 // Deploy only binds the project to the device it went to -
                 // a fact, not an edit, so it is no undo step and survives
                 // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
-                <DeployDialog project={project} onProjectUpdate={history.amend} onSaveBeforeDeploy={saveBeforeDeploy}>
+                <DeployDialog project={project} onProjectUpdate={history.amend} onProjectChange={setProject} onSaveBeforeDeploy={saveBeforeDeploy}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
                     Deploy to Device

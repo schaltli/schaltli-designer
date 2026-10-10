@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ddfName } from "@/lib/ddf-name"
 import { NumberFormatField } from "@/components/number-format-field"
 import { unusedTopics } from "@/lib/topic-usage"
+import { projectOnDevice } from "@/lib/project-device"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import { withScreenType, type ScreenType } from "@/lib/popup"
@@ -605,48 +606,19 @@ export function ProjectSettingsDialog({
       const parsed = await parseDeviceDescriptionFile(zipBlob)
       const ddfZipBase64 = await blobToBase64(zipBlob)
       const fields = deviceDescriptionToProjectFields(parsed, ddfZipBase64)
-      const rotated = resolveRotatedScreenSize(fields, project.settings.rotation ?? 0)
-      if (rotated.rotationWasReset) {
+      // The same move the Deploy dialog makes (lib/project-device.ts).
+      const moved = projectOnDevice(project, fields)
+      if (moved.rotationWasReset) {
         toast({
           title: "Rotation reset",
           description: `This device doesn't support ${project.settings.rotation}° rotation - reset to 0°.`,
         })
       }
-
-      // Styled objects take the new device's fonts; objects in a font by hand
-      // keep theirs (docs/2026-09-30-size-scale.md).
-      onProjectUpdate(resolveScale({
-        ...project,
-        screenWidth: rotated.screenWidth,
-        screenHeight: rotated.screenHeight,
-        adornment: fields.adornment,
-        adornmentDrawingArea: fields.adornmentDrawingArea,
-        hardwareButtons: fields.hardwareButtons,
-        fonts: fields.fonts,
-        embeddedDdfZipBase64: fields.ddfZipBase64,
-        settings: {
-          ...project.settings,
-          colorDepth: fields.colorDepth,
-          deviceId: fields.deviceId,
-          deviceName: fields.deviceName,
-          // The platform and the device's own actions come with the device too: a
-          // project moved from a board to a phone kept "firmware" and was deployed
-          // the boards' BMPs (2026-09-27).
-          devicePlatform: fields.devicePlatform,
-          deviceActions: fields.deviceActions,
-          supportedObjectTypes: fields.supportedObjectTypes,
-          ddfHash: fields.ddfHash,
-          rotation: rotated.rotation,
-          needsPageIconsInSize: fields.needsPageIconsInSize,
-          pixelsPerMm: fields.pixelsPerMm,
-          typographies: fields.typographies,
-          screenShape: fields.screenShape,
-        },
-      }))
+      onProjectUpdate(moved.project)
 
       toast({
         title: "Device loaded",
-        description: `"${fields.deviceName}" applied: screen ${rotated.screenWidth}x${rotated.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
+        description: `"${fields.deviceName}" applied: screen ${moved.screenWidth}x${moved.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
       })
       onDeviceResolved?.()
     } catch (error) {
