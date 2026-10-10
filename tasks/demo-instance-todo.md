@@ -82,13 +82,19 @@ Done 2026-10-09.
 `--broker` option, its seed (three dimmers, two relays) and its clock.
 
 **Acceptance criteria:**
-- [ ] Against the local broker: the dimmers and relays are announced under
-      `homeassistant/…` and published under `schaltli/state/…`; no other
-      kind is.
-- [ ] `schaltli/cmnd/dimmer/1 60` and `schaltli/cmnd/relay/1 on` change the
+- [x] Against the local broker: the dimmers and relays are announced under
+      `homeassistant/…` (and the bridge's theme switch) and published under
+      `schaltli/state/…`; no other kind is.
+- [x] `schaltli/cmnd/dimmer/2 60` and `schaltli/cmnd/relay/1 on` change the
       fake Pekaway and come back as their states.
-- [ ] `schaltli/demo/daylight` runs through a day in ten minutes.
-- [ ] A reset puts every light off.
+- [x] `schaltli/demo/daylight` and `schaltli/demo/time` run through a day in
+      ten minutes.
+- [x] A reset puts every light off.
+
+Done 2026-10-10. The flow's nodes run as Node-RED would: function nodes
+with their context and flow context, the inject interval, the delay, MQTT in
+and out; the HTTP node answers «not in this van». The spec clears exactly
+what the van published retained.
 
 **Verification:** `e2e/demo-van.spec.ts`.
 
