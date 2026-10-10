@@ -17,6 +17,12 @@
 //                      the designer ships (GET /api/firmware/release must name
 //                      an image for this board). Changes the board's firmware
 //                      to that release, so it is run deliberately.
+//   --source deploy    «Update & Deploy» (#66, docs/2026-10-10-deploy-simple.md):
+//                      a board on an older build than the designer's release
+//                      gets the release first and then the project, in one
+//                      click. Needs the board behind the release - set it to
+//                      an older one first (flash it, or «Install release» from
+//                      an older designer) - and leaves it on the release.
 //
 // Asserts the dialog reaches "Firmware update - Rebooting" without failing,
 // and that the board then boots from the other slot, by software, running
@@ -49,8 +55,8 @@ function parseArgs(argv) {
     else if (argv[i] === "--env") args.env = argv[++i]
     else if (argv[i] === "--source") args.source = argv[++i]
   }
-  if (!args.device || !args.env || !["file", "release"].includes(args.source)) {
-    console.error("usage: node hil/firmware-designer.js --device <ip> --env <platformio env> [--source file|release]")
+  if (!args.device || !args.env || !["file", "release", "deploy"].includes(args.source)) {
+    console.error("usage: node hil/firmware-designer.js --device <ip> --env <platformio env> [--source file|release|deploy]")
     process.exit(1)
   }
   return args
@@ -141,6 +147,9 @@ async function main() {
       process.exit(1)
     }
     expected = { md5: crypto.createHash("md5").update(served).digest("hex"), build: release.build }
+    if (source === "deploy" && before.build === release.build) {
+      skip(`${device} already runs the release ${release.build} - --source deploy needs it on an older build first`, 3)
+    }
   }
 
   const failures = []
@@ -185,17 +194,33 @@ async function main() {
     const row = page.getByRole("button").filter({ hasText: instanceId })
     await row.waitFor({ timeout: 30000 })
     await row.click()
-    // Behind «Firmware…» since 2026-10-10 (#66).
-    await page.getByRole("button", { name: "Firmware...", exact: true }).click()
-    const section = page.getByTestId("firmware-section")
-    await section.waitFor()
 
-    if (source === "file") {
-      await section.getByTestId("firmware-file-input").setInputFiles(expected.file)
+    let projectName = null
+    if (source === "deploy") {
+      // One line says what will happen, one click does it: the release,
+      // then the project (#66).
+      const line = (await page.getByTestId("firmware-line").textContent({ timeout: 30000 })) || ""
+      check(line.includes(`Deploy installs ${expected.build} first`), `0. the dialog says Deploy installs ${expected.build} first ("${line}")`)
+      await page.getByRole("button", { name: "Update & Deploy", exact: true }).click()
+      // The project is saved before it is sent; a new one asks for a name.
+      const naming = page.getByRole("heading", { name: "Save Project" })
+      if (await naming.waitFor({ timeout: 5000 }).then(() => true).catch(() => false)) {
+        projectName = `hil update deploy ${Date.now().toString(36)}`
+        await page.locator("#save-project-name").fill(projectName)
+        await page.getByRole("button", { name: "Save", exact: true }).click()
+      }
     } else {
-      await section.getByRole("button", { name: "Install release" }).click()
+      // Behind «Firmware…» since 2026-10-10 (#66).
+      await page.getByRole("button", { name: "Firmware...", exact: true }).click()
+      const section = page.getByTestId("firmware-section")
+      await section.waitFor()
+      if (source === "file") {
+        await section.getByTestId("firmware-file-input").setInputFiles(expected.file)
+      } else {
+        await section.getByRole("button", { name: "Install release" }).click()
+      }
+      await section.getByRole("button", { name: "Install firmware" }).click()
     }
-    await section.getByRole("button", { name: "Install firmware" }).click()
 
     const done = page.getByText(/Firmware update - Rebooting/)
     const failed = page.getByText(/Firmware update - Failed/)
@@ -210,6 +235,19 @@ async function main() {
       console.log(`  dialog at the time: ${shot}`)
     }
     check(outcome === "rebooting", `1. the dialog followed the update to "Rebooting" (${outcome})`)
+
+    if (source === "deploy" && outcome === "rebooting") {
+      // Then, once the board is back with the release, the project: its own
+      // progress, without the "Firmware update" prefix, to the end.
+      const projectDone = page.locator("span").filter({ hasText: /: (Rebooting|Done)$/ }).filter({ hasNotText: "Firmware update" })
+      const projectFailed = page.locator("span").filter({ hasText: /: Failed$/ }).filter({ hasNotText: "Firmware update" })
+      const sent = await Promise.race([
+        projectDone.first().waitFor({ timeout: 300000 }).then(() => "sent"),
+        projectFailed.first().waitFor({ timeout: 300000 }).then(async () => `failed: ${await page.locator("p.text-destructive").allTextContents()}`),
+      ]).catch((e) => `no outcome: ${e.message.split("\n")[0]}`)
+      check(sent === "sent", `1b. then the project went to the board after it came back (${sent})`)
+    }
+    if (projectName) await page.request.delete(`${DESIGNER}/api/projects/${encodeURIComponent(projectName)}`).catch(() => {})
   } finally {
     await browser.close()
     fs.rmSync(projectPath, { force: true })
