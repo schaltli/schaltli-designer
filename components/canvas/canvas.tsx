@@ -947,9 +947,13 @@ export function Canvas({
   // What a finger can reach in preview: every group dissolved, so a button
   // inside one is pressed like any other (lib/object-groups.ts) - the
   // device never sees the group either.
+  // What a tap in the preview can land on: the screen's objects and its
+  // master's, merged as they are drawn and as the export hands them to the
+  // device - a switch on the master answers a tap on every screen, as it does
+  // there (2026-10-10: the demo's light/dark switch did nothing).
   const previewObjects = useMemo(
-    () => (previewMode ? dissolveGroups(screen.objects) : screen.objects),
-    [previewMode, screen.objects],
+    () => (previewMode ? dissolveGroups(mergeMasterAndScreenObjects(masterObjects ?? [], screen.objects)) : screen.objects),
+    [previewMode, masterObjects, screen.objects],
   )
 
   // Wraps onUpdateObject so position/size updates computed by the drag/
