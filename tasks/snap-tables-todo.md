@@ -407,8 +407,8 @@ handbook-labels: 90, green.
 **Files likely touched:** `components/property-panel/snap-table-properties.tsx` (new), `components/property-panel/property-panel.tsx`, `components/object-tree/object-tree-panel.tsx`, `handbuch/objekte/anordnen.md`
 
 ## Checkpoint B: try it
-- [ ] Full `npm run test:e2e` green.
-- [ ] The user tries Tasks 4-10 in the designer on port 3000 and compares with the prototype; findings go into the spec before Task 11.
+- [x] Full `npm run test:e2e` green (2026-10-10, port 3100: 1408 passed, 18 skipped, 1 failed - preview-performance `@alone`, the timing test flaky on this machine).
+- [ ] The user tries Tasks 4-10 in the designer on port 3100 (the worktree's) and compares with the prototype; findings go into the spec before Task 11.
 
 ## Module `snap-table-rows`
 
