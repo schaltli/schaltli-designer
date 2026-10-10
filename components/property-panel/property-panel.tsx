@@ -22,6 +22,8 @@ import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
 import { CellProperties, FreeProperties, TableColumnProperties, TableProperties } from "./table-properties"
+import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties"
+import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE, isOldTable, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
@@ -135,10 +137,16 @@ interface PropertyPanelProps {
   onUngroup?: () => void
 }
 
-// Whether the object stands in a table's cell.
+// Whether the object stands in an old table's cell.
 function inTable(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
-  return findParentOf(screen.objects ?? [], id)?.parent?.type === TABLE_TYPE
+  return isOldTable(findParentOf(screen.objects ?? [], id)?.parent)
+}
+
+// Whether it stands in a table put together by snapping (docs/2026-10-09-snap-tables.md).
+function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boolean {
+  if (!screen) return false
+  return isSnapTable(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
 /**
@@ -303,8 +311,10 @@ export function PropertyPanel({
                 <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
               )}
               {isOldTable(selectedObject) && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
               {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 
               {selectedObject.type === "live-icon" && (

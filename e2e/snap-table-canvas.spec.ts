@@ -569,6 +569,89 @@ test.describe("snap table: in a switcher panel and a free area", () => {
   })
 })
 
+test.describe("snap table: panel and tree", () => {
+  test("Align right puts an object at its cell's right edge; one Ctrl+Z takes it back", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "bad")
+    await page.locator("#snapAlign").selectOption("right")
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const bad = grid.children!.find((c) => c.id === "bad")!
+    const licht = grid.children!.find((c) => c.id === "licht")!
+    expect(bad.properties!.cell.align).toBe("right")
+    // Column 0's right edge is the wider «Licht»'s.
+    expect(bad.x + bad.width).toBe(licht.x + licht.width)
+    await page.keyboard.press("ControlOrMeta+z")
+    expect((await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "bad")!.properties!.cell.align).toBeUndefined()
+  })
+
+  test("Fill Width makes a box as wide as its column; Fill is offered only where it fits", async ({ page }) => {
+    const box: Obj = { id: "kasten", type: "box", x: 0, y: 0, width: 20, height: 10, zIndex: 4, properties: { cell: { row: 1, column: 1 } } }
+    const { zip, table } = await snapProject([])
+    // The box in the empty cell, laid out by the designer on load.
+    const z = await JSZip.loadAsync(fs.readFileSync(zip))
+    const project = JSON.parse(await z.file("project.json")!.async("string"))
+    project.screens.find((s: Obj) => s.id === "screen-1").objects[0].children.push(box)
+    z.file("project.json", JSON.stringify(project))
+    fs.writeFileSync(zip, await z.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, zip)
+    // A text has no Fill.
+    await chooseInTable(page, table, "bad")
+    await expect(page.getByLabel("Width", { exact: true })).toHaveCount(0)
+    // The box has.
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Escape")
+    const grid0 = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const k0 = grid0.children!.find((c) => c.id === "kasten")!
+    const middle = { x: grid0.x + k0.x + k0.width / 2, y: grid0.y + k0.y + k0.height / 2 }
+    await click(page, middle)
+    await doubleClick(page, middle)
+    await expect.poll(() => getSelectedHeader(page)).toContain("kasten")
+    // The toggle's own checkbox is hidden; its label is what one clicks.
+    await page.locator("label:has(input[type=checkbox])", { hasText: /^Width$/ }).click()
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const k = grid.children!.find((c) => c.id === "kasten")!
+    const pumpe = grid.children!.find((c) => c.id === "pumpe")!
+    expect(k.properties!.cell.fill).toEqual({ width: true })
+    expect(k.width).toBe(pumpe.width)
+  })
+
+  test("Auto sizes shows only with a size set by hand, and clears them", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    await expect(page.getByRole("button", { name: "Auto sizes" })).toHaveCount(0)
+    const ppm = await ppmOf(page)
+    const line = await sizeLine(page, "column", 0)
+    const y = line.y1 + 5
+    await drag(page, { x: line.x1, y }, { x: line.x1 + 10 * ppm, y })
+    await page.getByRole("button", { name: "Auto sizes" }).click()
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(grid.properties!.columns.every((c: Obj) => c.mm === undefined)).toBe(true)
+    await expect(page.getByRole("button", { name: "Auto sizes" })).toHaveCount(0)
+  })
+
+  test("the object list shows a table's objects row by row, left to right", async ({ page }) => {
+    // Stacked in another order than they read, so the list cannot get it right by accident.
+    const grid: Obj = {
+      id: "grid",
+      type: "table",
+      x: 100,
+      y: 60,
+      width: 1,
+      height: 1,
+      zIndex: 1,
+      properties: { grid: 1, columns: [{}, {}], rows: [{}, {}] },
+      children: [text("bad", "Bad", 1, { row: 1, column: 0 }), text("pumpe", "Pumpe", 3, { row: 0, column: 1 }), text("licht", "Licht", 2, { row: 0, column: 0 })],
+    }
+    await loadProject(page, await projectWith([grid]))
+    await openAllTwisties(page)
+    const ids = await page.locator("[data-object-id]").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-object-id")))
+    const inTable = ids.filter((id) => ["licht", "pumpe", "bad"].includes(id!))
+    expect(inTable).toEqual(["licht", "pumpe", "bad"])
+  })
+})
+
 test.describe("snap table: selection", () => {
   test("a click selects the table, a double click the object in it, a click on another object of it stays inside", async ({ page }) => {
     const { zip, table } = await snapProject()

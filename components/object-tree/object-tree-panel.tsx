@@ -28,6 +28,7 @@ import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
 import { cellOf, isOldTable, type TableDrop } from "@/lib/table"
+import { isSnapTable } from "@/lib/snap-table"
 import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
@@ -272,7 +273,10 @@ export function ObjectTreePanel({
     // A table's row by row, left to right, as it stands.
     const byCell = (a: ScreenObject, b: ScreenObject) =>
       (cellOf(a)?.row ?? 0) - (cellOf(b)?.row ?? 0) || (cellOf(a)?.column ?? 0) - (cellOf(b)?.column ?? 0)
-    const displayed = isTable(parentId) ? [...children].sort(byCell) : laysOut(parentId) ? ascending : [...ascending].reverse()
+    // A table put together by snapping too (docs/2026-10-09-snap-tables.md),
+    // though it takes no drops here.
+    const inCells = isTable(parentId) || (parentId !== null && isSnapTable(findObjectById(objects, parentId)))
+    const displayed = inCells ? [...children].sort(byCell) : laysOut(parentId) ? ascending : [...ascending].reverse()
     return displayed.map((child) => renderRow(child, depth, parentId))
   }
 

@@ -385,10 +385,20 @@ sizes» when any width or height is set by hand. The object tree lists a
 new table's objects row by row. Handbook updated with the labels.
 
 **Acceptance criteria:**
-- [ ] Align and Fill change the object's place on the canvas and are one undo step each.
-- [ ] «Auto sizes» shows only with a hand-set width or height and clears them all.
-- [ ] The tree lists a 2×2 table's objects in reading order.
-- [ ] Every new label is quoted in the handbook and passes `e2e/handbook-labels.spec.ts`.
+- [x] Align and Fill change the object's place on the canvas and are one undo step each (undo tested for Align).
+- [x] «Auto sizes» shows only with a hand-set width or height and clears them all.
+- [x] The tree lists a 2×2 table's objects in reading order.
+- [x] Every new label is quoted in the handbook and passes `e2e/handbook-labels.spec.ts`.
+
+Done 2026-10-10. `components/property-panel/snap-table-properties.tsx`:
+`SnapTableProperties` («Table», its size as columns × rows, «Auto sizes»)
+and `SnapCellProperties` («Cell»: Align, Vertical align, Fill Width/Height
+where offered - open question 1's proposal). The old Cell section is for
+old tables only now. Found while doing it: since Task 4 the object list
+sorted a new table's objects by stacking, not row by row - fixed; the test
+stacks them out of reading order. Handbook: «In den Eigenschaften». Ran
+snap-table-canvas 29 and property-panel, object-tree-*, table-*, bausteine,
+handbook-labels: 90, green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g panel e2e/handbook-labels.spec.ts`; typecheck.
 
