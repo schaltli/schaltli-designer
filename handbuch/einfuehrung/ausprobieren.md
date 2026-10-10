@@ -12,7 +12,7 @@ Die Demo öffnet in der Vorschau. Das Gerät liegt auf schwarzem Filz und reagie
 
 Der rote Schalter unter dem Gerät wechselt zwischen <span class="ui">Preview</span> und <span class="ui">Designer</span>. Im Designer stehen die Screens und die Werkzeuge bereit, und du baust am Projekt weiter.
 
-Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>.
+Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>. <span class="ui">Save</span>, <span class="ui">Deploy to Device</span> und <span class="ui">Version History</span> stehen zwar im Menü, aber ein Klick darauf meldet nur, dass das erst dein eigenes Schaltli kann, und verlinkt die Installation.
 
 ## Ein Projekt für ein Gerät, das du nicht hast
 

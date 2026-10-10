@@ -214,16 +214,39 @@ test.describe("the demo in the browser", () => {
     await expect(backdrop).toHaveAttribute("data-backdrop", "felt")
   })
 
-  test("File offers what keeps a screen, nothing that saves or deploys", async ({ page }) => {
+  // What only an own Schaltli does stays in the menu and says so, with the
+  // way on, and does nothing (2026-10-10; until then it was not shown).
+  test("File shows everything; what saves, deploys or keeps versions says it is not possible here, and how to get it", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByTestId("project-title")).toHaveText(START)
-    await page.getByRole("button", { name: "File" }).click()
+    let sent = false
+    page.on("request", (req) => {
+      if (req.method() !== "GET" && req.url().includes("/api/")) sent = true
+    })
+    const file = page.getByRole("button", { name: "File" })
+    await file.click()
     for (const kept of ["Download Project", "Upload Project", "Export Project", "New Project"]) {
       await expect(page.getByRole("menuitem", { name: kept })).toBeVisible()
     }
-    for (const gone of ["Save", "Save As...", "Version History", "Deploy to Device"]) {
-      await expect(page.getByRole("menuitem", { name: gone, exact: true })).toHaveCount(0)
+    await page.keyboard.press("Escape")
+    for (const [item, why] of [
+      [/^Save\s*Ctrl\+S$/, "saves your projects"],
+      [/^Save As\.\.\./, "saves your projects"],
+      [/^Deploy to Device$/, "sends a screen to the displays"],
+      [/^Version History$/, "keeps every saved version"],
+    ] as const) {
+      await file.click()
+      await page.getByRole("menuitem", { name: item }).click()
+      const refusal = page.getByTestId("demo-refusal").last()
+      await expect(page.getByText("Not possible in the demo").last()).toBeVisible()
+      await expect(refusal).toContainText(why)
+      await expect(refusal.getByRole("link", { name: "How to install Schaltli" })).toHaveAttribute(
+        "href",
+        "https://schaltli.com/installieren/pekaway.html",
+      )
+      await expect(page.getByRole("dialog")).toHaveCount(0)
     }
+    expect(sent).toBe(false)
   })
 
   test("Ctrl+S says the demo saves nothing, and saves nothing", async ({ page }) => {
@@ -234,7 +257,8 @@ test.describe("the demo in the browser", () => {
       if (req.method() === "POST" && req.url().includes("/api/projects")) saved = true
     })
     await page.keyboard.press("ControlOrMeta+s")
-    await expect(page.getByText("Demo - nothing is saved").first()).toBeVisible()
+    await expect(page.getByText("Not possible in the demo").first()).toBeVisible()
+    await expect(page.getByTestId("demo-refusal").first()).toContainText("Download Project takes your screen with you")
     expect(saved).toBe(false)
   })
 

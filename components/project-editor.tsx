@@ -84,6 +84,7 @@ import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
+import { DEMO_REFUSES, demoRefusalToast } from "./demo-refusal"
 import { DemoScenePanel } from "./demo-scene-panel"
 import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
@@ -3791,7 +3792,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         if (!projectOpen) return
         // The demo saves nothing (docs/2026-10-09-demo-instance.md).
         if (demo) {
-          toast({ title: "Demo - nothing is saved", description: "Download Project takes your screen with you." })
+          toast(demoRefusalToast(DEMO_REFUSES.save))
           return
         }
         if (event.shiftKey) handleSaveAs()
@@ -3987,22 +3988,26 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <FilePlus2 className="w-4 h-4" />
                 New Project
               </DropdownMenuItem>
-              {/* The demo saves nothing: no Save, Save As, Version History,
-                  Deploy (docs/2026-10-09-demo-instance.md, decision 3). */}
-              {!demo && (
-                <DropdownMenuItem onClick={() => void handleSave()} className="flex items-center gap-2">
-                  <Save className="w-4 h-4" />
-                  Save
-                  <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              )}
-              {!demo && (
-                <DropdownMenuItem onClick={handleSaveAs} className="flex items-center gap-2">
-                  <SaveAll className="w-4 h-4" />
-                  Save As...
-                  <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              )}
+              {/* The demo saves nothing (docs/2026-10-09-demo-instance.md,
+                  decision 3): Save, Save As, Deploy and Version History stay
+                  in the menu, so a visitor sees what the designer does, and
+                  say why not here and how to get it (2026-10-10). */}
+              <DropdownMenuItem
+                onClick={() => (demo ? toast(demoRefusalToast(DEMO_REFUSES.save)) : void handleSave())}
+                className="flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save
+                <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => (demo ? toast(demoRefusalToast(DEMO_REFUSES.save)) : handleSaveAs())}
+                className="flex items-center gap-2"
+              >
+                <SaveAll className="w-4 h-4" />
+                Save As...
+                <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <ExportDialog project={project}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
@@ -4022,6 +4027,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   self-update firmware path exists there yet" - which stopped
                   being true when the app learned to announce itself and to
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
+              {demo && (
+                <DropdownMenuItem
+                  onClick={() => toast(demoRefusalToast(DEMO_REFUSES.deploy))}
+                  className="flex items-center gap-2"
+                >
+                  <Rocket className="w-4 h-4" />
+                  Deploy to Device
+                </DropdownMenuItem>
+              )}
               {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && !demo && (
                 // Deploy only binds the project to the device it went to -
                 // a fact, not an edit, so it is no undo step and survives
@@ -4049,7 +4063,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <Download className="w-4 h-4" />
                 Download Project
               </DropdownMenuItem>
-              {!demo && <DropdownMenuSeparator />}
+              <DropdownMenuSeparator />
+              {demo && (
+                <DropdownMenuItem
+                  onClick={() => toast(demoRefusalToast(DEMO_REFUSES.versions))}
+                  className="flex items-center gap-2"
+                >
+                  <History className="w-4 h-4" />
+                  Version History
+                </DropdownMenuItem>
+              )}
               {!demo && (
                 <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
