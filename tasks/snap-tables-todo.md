@@ -202,12 +202,25 @@ drawn as today. The old table's click placement (`tablePlacementRef`) and
 the Table tool keep working until module old-table-removal.
 
 **Acceptance criteria:**
-- [ ] A switch: press, move, release - it lies where it was let go, at M, its middle where the pointer was.
-- [ ] Pressed and let go with its edge against a free text: they are a table.
-- [ ] Esc before release: no object, nothing to undo.
-- [ ] One Ctrl+Z after placing removes the object.
-- [ ] A line is still drawn from point to point, and lies free even when drawn against a table or with a table open.
-- [ ] A drawn line dragged onto an empty cell goes into it.
+- [x] A switch: press, move, release - it lies where it was let go, at M, its middle where the pointer was (tested with a box: the test device has no switch).
+- [x] Pressed and let go with its edge against a free text: they are a table.
+- [x] Esc before release: no object, nothing to undo.
+- [x] One Ctrl+Z after placing removes the object.
+- [x] A line is still drawn from point to point, and lies free even when drawn against a table or with a table open.
+- [x] A drawn line dragged onto an empty cell goes into it (snap-table-canvas, since the line fix).
+
+Done 2026-10-10. `lib/placing.ts`: `placedSize` (the spec's proposed
+sizes; null for line, polyline, the old table's tool and a block) and
+`heldAt`. The canvas starts the existing create drag with `placing: true`
+and the default size held at the pointer; moving carries it and snaps by
+its edges; release builds the object through the existing creation code
+from that rectangle; Esc takes it away (the tool stays in hand). The canvas
+carries `data-pixels-per-mm` for tests. Kept, not removed as the spec said:
+`createSnapRef` hands the snap to the creation on release, and `drawSpace`
+still sends a new object out of an open table. **Not yet:** the full suite -
+many specs still draw rectangles - and the handbook; both are Task P2.
+Ran: place-by-dragging 7, snap-table-canvas 11 (three rewritten for the new
+gesture).
 
 **Verification:** `npx playwright test e2e/place-by-dragging.spec.ts e2e/snap-table-canvas.spec.ts`; typecheck.
 

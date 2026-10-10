@@ -89,6 +89,7 @@ import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, colu
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
 import { drawSnapChip, drawSnapDrop, drawSnapTableCells, snapChipText } from "./snap-table-overlay"
+import { heldAt, placedSize } from "@/lib/placing"
 import { dimensions, isSnapTable, snapDropAt, snapTableGeometry, type SnapDrop } from "@/lib/snap-table"
 
 // How near a table or a free object a dragged object snaps
@@ -2917,6 +2918,15 @@ export function Canvas({
         if (drop && "blocked" in drop) return
         tablePlacementRef.current = drop ?? null
         setTableDrop(null)
+        // Placing by dragging (lib/placing.ts): the object at its default
+        // size, its middle under the pointer, carried until let go - as one
+        // moved is. A line is still drawn, the old table's tool and a block
+        // still place as before.
+        const size = drop ? null : placedSize(activeTool, layoutScale.pixelsPerMm)
+        if (size) {
+          setDragState({ mode: "create", objectId: null, startPos: coords, startObjectPos: heldAt(coords, size), creatingType: activeTool, placing: true })
+          return
+        }
         // Start creating the object with drag state
         setDragState({
           mode: "create",
@@ -3091,6 +3101,7 @@ export function Canvas({
     [
       tableDropFor,
       sizedBySnapTable,
+      layoutScale,
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
@@ -3322,25 +3333,29 @@ export function Canvas({
               height: deltaY,
             },
           })
+        } else if (dragState.placing) {
+          // Carried at its middle (lib/placing.ts), its size its own.
+          const held = heldAt(coords, dragState.startObjectPos)
+          setDragState({ ...dragState, startObjectPos: held })
+          // Near a table put together by snapping or a free object it snaps
+          // there when let go, as one moved does; where, it shows meanwhile
+          // (docs/2026-10-09-snap-tables.md). Among what stands where it is
+          // placed - beside an open table too. A navigator goes onto its edge.
+          const type = dragState.creatingType
+          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && type !== "navigator"
+          const carried = { id: NEW_OBJECT, type, ...held, zIndex: 0 } as ScreenObject
+          const snapping = snaps ? snapDropAt([...drawSpace.objects, carried], NEW_OBJECT, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         } else {
+          // Still drawn as a rectangle: the old table's tool, a block.
           const width = Math.abs(deltaX)
           const height = Math.abs(deltaY)
           const x = Math.min(dragState.startPos.x, coords.x)
           const y = Math.min(dragState.startPos.y, coords.y)
-
           setDragState({
             ...dragState,
             startObjectPos: { x, y, width, height },
           })
-          // A new object drawn near a table put together by snapping or a
-          // free object snaps there when let go, as one dragged does
-          // (docs/2026-10-09-snap-tables.md); where, it shows while drawing.
-          const type = dragState.creatingType
-          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && type !== "baustein" && type !== "navigator" && type !== "table" && type !== "background"
-          const drawn = { id: NEW_OBJECT, type, x, y, width, height, zIndex: 0 } as ScreenObject
-          // Among what stands where it is drawn - beside an open table too.
-          const snapping = snaps ? snapDropAt([...drawSpace.objects, drawn], NEW_OBJECT, drawn, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
-          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         }
       } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
         setDragState({
@@ -4347,6 +4362,15 @@ export function Canvas({
         setSnapDrop(null)
         return
       }
+      // Esc while a new object is carried: it is taken away, nothing made;
+      // the tool stays in hand for another try.
+      if (e.key === "Escape" && dragState?.mode === "create" && dragState.placing) {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragState(null)
+        setSnapDrop(null)
+        return
+      }
       if (e.key === "Escape" && dragState?.mode === "drag" && dragState.objectId) {
         e.preventDefault()
         e.stopPropagation()
@@ -4566,6 +4590,7 @@ export function Canvas({
         // The empty cell picked, for the same reason.
         data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
         data-snap-chip={snapChip?.text}
+        data-pixels-per-mm={layoutScale.pixelsPerMm}
         data-editing-container={editingContainerId ?? undefined}
         style={{
           imageRendering: "pixelated",

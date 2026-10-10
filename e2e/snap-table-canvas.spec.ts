@@ -5,6 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutProject } from "../lib/layout"
+import { placedSize } from "../lib/placing"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, getSelectedHeader, loadProject, placingFreely, saveProjectAs } from "./helpers"
 
 // Tables put together by snapping, on the canvas (docs/2026-10-09-snap-tables.md,
@@ -73,6 +74,11 @@ async function doubleClick(page: Page, point: { x: number; y: number }) {
 async function chip(page: Page): Promise<string | null> {
   const { canvas } = await getMainCanvas(page)
   return canvas.getAttribute("data-snap-chip")
+}
+// The size a tool's object starts at on this device (lib/placing.ts).
+async function sizeOf(page: Page, tool: string): Promise<{ width: number; height: number }> {
+  const { canvas } = await getMainCanvas(page)
+  return placedSize(tool, Number(await canvas.getAttribute("data-pixels-per-mm")))!
 }
 async function editing(page: Page): Promise<string | null> {
   const { canvas } = await getMainCanvas(page)
@@ -164,11 +170,12 @@ test.describe("snap table: snapping", () => {
     expect([row.x + a.x, row.y + a.y]).toEqual([100, 60])
   })
 
-  test("a new text drawn just right of a free one makes a table with it", async ({ page }) => {
+  test("a new text carried just right of a free one makes a table with it", async ({ page }) => {
     await loadProject(page, await freeProject())
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
-    // Drawn from below up to just right of «Licht» (100,60, 60 wide).
-    await drag(page, { x: 200, y: 100 }, { x: 164, y: 70 })
+    // Carried at its middle until its left edge is 3 px right of «Licht» (100,60, 60 wide).
+    const size = await sizeOf(page, "text")
+    await drag(page, { x: 250, y: 200 }, { x: 163 + size.width / 2, y: 60 + size.height / 2 })
     await expect.poll(() => editing(page)).not.toBeNull()
     const objects = await savedObjects(page)
     const table = objects.find((o) => o.type === "table")!
@@ -221,7 +228,7 @@ test.describe("snap table: snapping", () => {
     }
   })
 
-  test("with a table open, a box drawn far from it lies freely on the screen, not in the table", async ({ page }) => {
+  test("with a table open, a box placed far from it lies freely on the screen, not in the table", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)
     // The table open, an object in it chosen.
@@ -229,23 +236,26 @@ test.describe("snap table: snapping", () => {
     await doubleClick(page, middleOf(table, "pumpe"))
     await expect.poll(() => editing(page)).toBe("grid")
     await page.getByRole("button", { name: "Box", exact: true }).first().click()
-    await drag(page, { x: 250, y: 200 }, { x: 320, y: 260 })
+    await drag(page, { x: 250, y: 200 }, { x: 285, y: 230 })
     const objects = await savedObjects(page)
     const box = objects.find((o) => o.type === "box")!
-    expect(box).toMatchObject({ x: 250, y: 200 })
+    // Its middle where it was let go.
+    expect(Math.abs(box.x + box.width / 2 - 285)).toBeLessThanOrEqual(2)
+    expect(Math.abs(box.y + box.height / 2 - 230)).toBeLessThanOrEqual(2)
     expect(box.properties?.cell).toBeUndefined()
     expect(objects.find((o) => o.id === "grid")!.children!.map((c) => c.id).sort()).toEqual(["bad", "licht", "pumpe"])
     expect(await editing(page)).toBeNull()
   })
 
-  test("with a table open, a box drawn against its side snaps into it", async ({ page }) => {
+  test("with a table open, a box carried against its side snaps into it", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)
     await click(page, middleOf(table, "pumpe"))
     await doubleClick(page, middleOf(table, "pumpe"))
     await page.getByRole("button", { name: "Box", exact: true }).first().click()
-    // Its left edge 3 px right of the table, level with its first row.
-    await drag(page, { x: table.x + table.width + 3, y: table.y }, { x: table.x + table.width + 33, y: table.y + 15 })
+    // Its left edge 3 px right of the table, its top level with the table's.
+    const size = await sizeOf(page, "box")
+    await drag(page, { x: 250, y: 220 }, { x: table.x + table.width + 3 + size.width / 2, y: table.y + size.height / 2 })
     const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
     const box = grid.children!.find((c) => c.type === "box")!
     expect(box.properties?.cell).toMatchObject({ row: 0, column: 2 })
