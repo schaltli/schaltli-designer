@@ -252,6 +252,18 @@ test.describe("Android-Export", () => {
     expect(quarterTurn.project.screenHeight).toBe(360)
   })
 
+  // schaltli-android#3: the app says so when a project made for another
+  // phone is loaded on it, and refuses a board's export - for which it reads
+  // these two and "platform".
+  test("says which phone it is made for", async ({ page }) => {
+    const out = await exportAndroid(page, {
+      settings: { colorDepth: "24bit", deviceId: "android-0758cf8b", deviceName: "HUAWEI P20 Pro" },
+    })
+    expect(out.project.platform).toBe("android")
+    expect(out.project.deviceId).toBe("android-0758cf8b")
+    expect(out.project.deviceName).toBe("HUAWEI P20 Pro")
+  })
+
   test("a font's vertical measure travels with it", async ({ page }) => {
     // The app lays a level indicator's header line out from the font's own
     // measure and nothing else - one line of it, with the text standing on a

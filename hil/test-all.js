@@ -1158,6 +1158,26 @@ async function main() {
     }
   }
 
+  // What the app refuses and how it goes dark (schaltli-android#3, #5):
+  // a board's export sent to the phone, an Android bundle for another phone,
+  // and the backlight after the display timeout (hil/android/app-guards.js).
+  console.log("\n=== android app guards ===")
+  {
+    const serial = await adbConnectedDevice()
+    const exitCode = serial ? await run("node", ["hil/android/app-guards.js", "--device", serial], { cwd: REPO_ROOT }) : 2
+    summary.push({
+      name: "android-guards",
+      status: exitCode === 0 ? "PASS" : exitCode === 2 ? "SKIPPED" : "FAIL",
+      detail:
+        exitCode === 0
+          ? "a board's export refused, another phone's bundle installed, dark with the backlight off, a touch wakes"
+          : exitCode === 2
+            ? "no phone on the cable or on the broker"
+            : `exit code ${exitCode} - see output above`,
+      report: "",
+    })
+  }
+
   // Flashing a blank chip over USB: the one proof a factory image really
   // boots (docs/2026-09-18-factory-image.md, decision 9). It erases the board
   // it touches, credentials and all, so it does nothing unless it is armed AND

@@ -40,6 +40,10 @@ Reisst die Verbindung zum Broker ab, verbindet sich die App von selbst wieder. W
 
 Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Die Geste gilt, sobald ein Projekt läuft; davor führt der Knopf <span class="ui fw">Set up MQTT connection…</span> in die Einstellungen.
 
+Oben in den Einstellungen steht, ob die App mit dem Broker verbunden ist, und unter welchem Namen das Handy im Designer erscheint. Unten unter <span class="ui fw">Project</span> lädt <span class="ui fw">Load project from file…</span> eine Projektdatei, auch wenn schon ein Projekt läuft. Nimm dafür eine Datei, die der Designer für dieses Handy exportiert hat. Ein Export für ein Board lehnt die App ab und sagt, wofür er gemacht ist: Wähl im Designer unter <span class="ui">Settings</span> › <span class="ui">Device</span> dieses Handy, oder stell das Projekt in <span class="ui">Deploy to Device</span> mit <span class="ui">Switch this project to</span> um. Ein Projekt für ein anderes Handy lädt sie, weist aber darauf hin, dass es nicht passen könnte.
+
+Wechselt das Handy das WLAN, meldet es sich mit seiner neuen Adresse neu an. Das geht ab Version 0.8.0 der App; davor musste man die App einmal schliessen und neu öffnen.
+
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 
 ## Als festes Bedienteil im Van
@@ -100,7 +104,7 @@ Nach einer Weile ohne Berührung wird das Display schwarz und so dunkel wie mög
 
 Wie lange es dauert, stellst du in den Einstellungen der App ein, unter <span class="ui fw">Turn the display off after (seconds)</span>. Voreingestellt sind 60 Sekunden, 0 lässt das Display immer an. Werte, die über MQTT ankommen, zählen nicht als Berührung. Das geht ab Version 0.4.0 der App.
 
-Ganz aus schaltet die App das Display dabei nicht. Ein ausgeschaltetes Display bemerkt keine Berührung, dann wäre nur noch die Power-Taste ein Weg zurück. Auf Handys mit OLED-Display, wie den meisten neueren, ist Schwarz trotzdem praktisch aus, und es brennt sich nichts ein.
+Ganz aus schaltet die App das Display dabei nicht. Ein ausgeschaltetes Display bemerkt keine Berührung, dann wäre nur noch die Power-Taste ein Weg zurück. Sie schaltet aber die Beleuchtung so weit ab, wie das Gerät es zulässt. Auf Handys mit OLED-Display ist Schwarz praktisch aus, und es brennt sich nichts ein. Ein Tablet mit LCD wurde bis Version 0.7.0 im Dunkeln nur grau; ab 0.8.0 geht auch dort die Beleuchtung aus, soweit das Gerät es erlaubt.
 
 ## Gut zu wissen
 

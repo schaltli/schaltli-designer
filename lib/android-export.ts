@@ -581,6 +581,10 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
 
   const exportProject = {
     platform: "android",
+    // Which phone it is made for, so the app can say so when a project made
+    // for another one is loaded on it (schaltli-android#3).
+    deviceId: project.settings.deviceId,
+    deviceName: project.settings.deviceName,
     name: project.name,
     screenWidth: project.screenWidth,
     screenHeight: project.screenHeight,
