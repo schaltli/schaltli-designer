@@ -82,6 +82,8 @@ Ein gelöschtes Projekt ist mit allen Versionen weg, Rückgängig holt es nicht 
 
 Unter <span class="ui">Device</span> kannst du dem Projekt auch ein anderes Gerät geben (<span class="ui">Load Device</span>). Grösse, Farbtiefe, Rahmen, Tasten und Schriften kommen dann vom neuen Gerät. Deine Objekte bleiben, wo sie sind, und können danach ausserhalb des Screens liegen. Texte mit einem [Stil](/objekte/anzeigen#stile) bekommen die passende Schrift des neuen Geräts: Ein Label bleibt ein Label, nur in dessen Schrift. Texte mit einer von Hand gewählten Schrift («Custom») behalten ihre. Objekttypen, die das neue Gerät nicht kann, markiert der Designer mit einem orangen gestrichelten Rahmen. Speicherst du danach, läuft die Versionsgeschichte unter demselben Namen weiter.
 
+Die Liste fragt dabei den Broker, welche Geräte gerade da sind. Unter <span class="ui">Announced Devices</span> stehen die, die sich jetzt melden, unter <span class="ui">Seen before</span> die übrigen, etwa ein ausgeschaltetes Gerät. Meldet das Gerät deines Projekts eine neuere Beschreibung, als das Projekt hat, zum Beispiel nach einem Update der App oder der Firmware, bietet der Tab <span class="ui">Update device</span> an. Erst danach stehen die Objekttypen zur Verfügung, die das Gerät neu kann, etwa der Navigator.
+
 Die Drehung unter <span class="ui">Rotation</span> sagt, wie das Gerät eingebaut ist. Bei 90 und 270 Grad tauschen Breite und Höhe.
 
 <!-- handbuch-macke #36: Checkbox "Hardware supports Software Buttons" -->

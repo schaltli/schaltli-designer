@@ -43,6 +43,7 @@ import { ddfName } from "@/lib/ddf-name"
 import { NumberFormatField } from "@/components/number-format-field"
 import { unusedTopics } from "@/lib/topic-usage"
 import { projectOnDevice } from "@/lib/project-device"
+import { DeviceScanSection } from "@/components/device-scan-section"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import { withScreenType, type ScreenType } from "@/lib/popup"
@@ -156,6 +157,12 @@ export function ProjectSettingsDialog({
   const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
+  // Which devices are on the broker right now (DeviceScanSection), null while
+  // that is unknown. The Device tab used to list every description ever
+  // fetched as «Announced Devices», gone ones too, and never fetched a newer
+  // one (#63, #64): the van's designer offered the phone's old description
+  // without the navigator.
+  const [hereNow, setHereNow] = useState<Set<string> | null>(null)
   const [ddfLoading, setDdfLoading] = useState(false)
   const [ddfError, setDdfError] = useState<string | null>(null)
   // Which rotations the *currently loaded* device allows (screen.allowedRotations,
@@ -589,8 +596,9 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const handleLoadDevice = async () => {
-    if (!selectedDdfPath) return
+  const handleLoadDevice = async (path: string = selectedDdfPath) => {
+    if (!path) return
+    const selectedDdfPath = path
 
     setDdfLoading(true)
     setDdfError(null)
@@ -735,6 +743,47 @@ export function ProjectSettingsDialog({
                         </div>
                       )}
 
+                      {/* Asks the broker what is here, and fetches a description
+                          a device announces that this designer does not have
+                          yet - a newer one included (#63, #64). */}
+                      {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
+                        <DeviceScanSection
+                          knownDdfHashes={
+                            new Map(
+                              availableDdfs
+                                .filter((d) => d.deviceId && d.source === "auto-discovered")
+                                .map((d) => [d.deviceId as string, d.ddfHash]),
+                            )
+                          }
+                          onDdfFetched={() => listDeviceDescriptionFiles().then(setAvailableDdfs)}
+                          onAnnouncedDevicesChange={setHereNow}
+                        />
+                      )}
+
+                      {/* The project's own device announces a description it
+                          was not made with: offered, with what is new (#64). */}
+                      {(() => {
+                        const current = availableDdfs.find(
+                          (d) =>
+                            d.source === "auto-discovered" &&
+                            d.deviceId === project.settings.deviceId &&
+                            hereNow?.has(d.deviceId) &&
+                            d.ddfHash &&
+                            d.ddfHash !== project.settings.ddfHash,
+                        )
+                        if (!current) return null
+                        return (
+                          <div className="rounded-md border border-primary/40 p-3 space-y-2" data-testid="device-update">
+                            <p className="text-sm">
+                              {`"${current.deviceName}" has a newer description than this project was made with: it may offer more, such as new object types. Load it to use them.`}
+                            </p>
+                            <Button size="sm" onClick={() => handleLoadDevice(current.path)} disabled={ddfLoading}>
+                              Update device
+                            </Button>
+                          </div>
+                        )
+                      })()}
+
                       {availableDdfs.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No devices found in <code>public/ddf/</code>.
@@ -768,23 +817,41 @@ export function ProjectSettingsDialog({
                                       ))}
                                   </SelectGroup>
                                 )}
-                                {availableDdfs.some((d) => d.source === "auto-discovered") && (
-                                  <SelectGroup>
-                                    <SelectLabel>Announced Devices</SelectLabel>
-                                    {availableDdfs
-                                      .filter((d) => d.source === "auto-discovered")
-                                      .map((ddf) => (
-                                        <SelectItem key={ddf.path} value={ddf.path}>
-                                          {ddf.deviceName}
-                                          {ddfName(ddf.ddfHash) ? ` (${ddfName(ddf.ddfHash)})` : ""}
-                                        </SelectItem>
-                                      ))}
-                                  </SelectGroup>
-                                )}
+                                {/* On the broker now first; the rest - a device
+                                    switched off, or long gone - under «Seen
+                                    before». Without a broker connection nothing
+                                    is known, and all are listed as announced. */}
+                                {(() => {
+                                  const discovered = availableDdfs.filter((d) => d.source === "auto-discovered")
+                                  const here = hereNow ? discovered.filter((d) => d.deviceId && hereNow.has(d.deviceId)) : discovered
+                                  const seen = hereNow ? discovered.filter((d) => !(d.deviceId && hereNow.has(d.deviceId))) : []
+                                  const item = (ddf: (typeof discovered)[number]) => (
+                                    <SelectItem key={ddf.path} value={ddf.path}>
+                                      {ddf.deviceName}
+                                      {ddfName(ddf.ddfHash) ? ` (${ddfName(ddf.ddfHash)})` : ""}
+                                    </SelectItem>
+                                  )
+                                  return (
+                                    <>
+                                      {here.length > 0 && (
+                                        <SelectGroup>
+                                          <SelectLabel>Announced Devices</SelectLabel>
+                                          {here.map(item)}
+                                        </SelectGroup>
+                                      )}
+                                      {seen.length > 0 && (
+                                        <SelectGroup>
+                                          <SelectLabel>Seen before</SelectLabel>
+                                          {seen.map(item)}
+                                        </SelectGroup>
+                                      )}
+                                    </>
+                                  )
+                                })()}
                               </SelectContent>
                             </Select>
                           </div>
-                          <Button onClick={handleLoadDevice} disabled={!selectedDdfPath || ddfLoading}>
+                          <Button onClick={() => handleLoadDevice()} disabled={!selectedDdfPath || ddfLoading}>
                             {ddfLoading ? "Loading..." : "Load Device"}
                           </Button>
                         </div>
