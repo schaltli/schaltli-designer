@@ -24,6 +24,7 @@ import { readDescription } from "../lib/block-description"
 import { blockTable, buildEntry, catalogLooks } from "../lib/bausteine"
 import { controlPalette } from "../lib/control-palette"
 import { layoutObjects } from "../lib/layout"
+import { isSnapTable, snapCellOf } from "../lib/snap-table"
 import { asPlaceholders } from "./helpers"
 
 const RECORDED = {
@@ -895,43 +896,50 @@ test.describe("VanPi bridge logic", () => {
       let next = 0
       const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
       const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm })
-      const cell: any = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
-      const rowsOf = (side: any) => [...side.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
-      const [statusRow, modeRow, controls, fuel] = rowsOf(cell)
-      expect([statusRow.type, modeRow.type, controls.type, fuel.type]).toEqual(["text", "button-group", "table", "table"])
-      expect(statusRow.width).toBe(cell.width)
-      // The mode's dial beside the timer, half the width each.
-      const [left, right] = [...controls.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
-      expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1)
-      const switcherOf = (side: any) => rowsOf(side).find((r: any) => r.type === "switcher")
-      expect(switcherOf(left).properties.topic).toBe("schaltli/state/heater/view")
-      expect(switcherOf(left).children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "power", "fan"])
+      // A table of its own (docs/2026-10-09-snap-tables.md): the name, then
+      // two Control columns - a part in neither spans both.
+      expect(isSnapTable(laid)).toBe(true)
+      const kids: any[] = laid.children ?? []
+      const cellOf = (o: any) => snapCellOf(o)
+      const first = Math.min(...kids.filter((c) => c.type !== "text" || cellOf(c).column > 0).map((c) => cellOf(c).column))
+      const column = (c: number) => kids.filter((k) => cellOf(k).column === c).sort((x, y) => cellOf(x).row - cellOf(y).row)
+      const [statusRow, modeRow] = column(first)
+      expect([statusRow.type, modeRow.type]).toEqual(["text", "button-group"])
+      expect([cellOf(statusRow).columnSpan, cellOf(modeRow).columnSpan]).toEqual([2, 2])
+      // The mode's dial beside the timer.
+      const left = column(first).find((k) => k.type === "switcher")
+      expect(left.properties.topic).toBe("schaltli/state/heater/view")
+      expect(left.children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "power", "fan"])
       // The timer is a switch, as the description asks (asked 2026-10-05).
-      expect(rowsOf(right).map((r: any) => r.type)).toEqual(["switch", "switcher"])
-      expect(switcherOf(right).properties.topic).toBe("schaltli/state/heater/timer_on")
+      const rightSide = column(first + 1)
+      expect(rightSide.map((r) => r.type).slice(0, 2)).toEqual(["switch", "switcher"])
+      const right = rightSide[1]
+      expect(right.properties.topic).toBe("schaltli/state/heater/timer_on")
       // The target dial: fill the room, handle the target, no longer 64 px.
-      const dial = switcherOf(left).children[0].children[0].children[0]
+      const dial = left.children[0].children[0].children[0]
       expect(dial).toMatchObject({ type: "dial", properties: { topic: "schaltli/state/temp/1/value", setpointTopic: "schaltli/state/heater/target" } })
       expect(dial.width).toBeGreaterThanOrEqual(100)
-      // The two dials the same size, on one line: the sides stand at the
-      // bottom of their row, so the timer's switch sits above its dial.
-      const timerDial = switcherOf(right).children[0].children[0].children[0]
+      // The two dials the same size, on one line: both switchers stand at
+      // the bottom of the rows of their run, so the timer's switch sits
+      // above its dial.
+      const timerDial = right.children[0].children[0].children[0]
       expect(timerDial.width).toBe(dial.width)
       expect(left.y + left.height).toBe(right.y + right.height)
-      expect(left.y + switcherOf(left).y + switcherOf(left).height).toBe(right.y + switcherOf(right).y + switcherOf(right).height)
       // «Nullen» in XS, which the editor applies when it places the block.
       expect(built.objects.find((o) => o.properties.text === "Nullen")?.properties.blockSizeStep).toBe("xs")
-      // The fuel's line takes the width, «Nullen» what it needs beside it.
-      const [line, button] = [...fuel.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
-      expect(asPlaceholders(line.children[0])).toBe("{topic:schaltli/state/heater/fuel_text}")
-      expect(button.children[0]).toMatchObject({ type: "button", properties: { text: "Nullen" } })
-      expect(line.width).toBeGreaterThan(button.width)
-      for (const rows of [rowsOf(cell), rowsOf(left), rowsOf(right)]) {
+      // The fuel's line beside «Nullen», which takes what it needs.
+      const line = column(first).find((k) => asPlaceholders(k) === "{topic:schaltli/state/heater/fuel_text}")
+      const button = rightSide.find((k) => k.type === "button")
+      expect(button).toMatchObject({ type: "button", properties: { text: "Nullen" } })
+      expect(cellOf(line).row).toBe(cellOf(button).row)
+      expect(button.x).toBeGreaterThanOrEqual(line.x + line.width)
+      // Beside the dial's side, «Nullen» does not fill its column.
+      expect(button.width).toBeLessThan(right.width)
+      for (const rows of [column(first), rightSide]) {
         for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height, `row ${i}`).toBeLessThanOrEqual(rows[i + 1].y)
       }
-      expect(cell.properties.overflow).toBeUndefined()
       // On the 4.3B the whole block fits its 480 px with room to spare.
-      if (pixelsPerMm === 8.66) expect(laid.properties.contentHeight ?? laid.height).toBeLessThanOrEqual(400)
+      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(400)
     })
   }
 

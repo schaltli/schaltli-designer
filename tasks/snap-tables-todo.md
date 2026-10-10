@@ -463,9 +463,9 @@ table when more than one (pending open question 3). The switcher's size is
 its tallest panel's. Handbook `designer/bausteine.md` updated.
 
 **Acceptance criteria:**
-- [ ] The MaxxFan block lands as a table of its own; dropped on another table it lies free beside it.
-- [ ] Its switcher sits in one cell; each panel shows its parts as before; nothing below jumps when the mode changes.
-- [ ] `e2e/vanpi-bridge.spec.ts` green.
+- [x] The MaxxFan block lands as a table of its own; dropped on another table it lies free beside it.
+- [x] Its switcher sits in one cell; each panel shows its parts as before; nothing below jumps when the mode changes.
+- [x] `e2e/vanpi-bridge.spec.ts` green.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts e2e/vanpi-bridge.spec.ts e2e/handbook-labels.spec.ts`; typecheck.
 

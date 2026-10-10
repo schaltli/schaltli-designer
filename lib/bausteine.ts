@@ -17,6 +17,7 @@ import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { groupOfPieces } from "@/lib/object-groups"
+import { SNAP_GRID } from "@/lib/snap-table"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
@@ -951,28 +952,21 @@ function switcherSlot(
   for (const part of parts) for (const value of part.values) if (!values.includes(value)) values.push(value)
   const panels = values.map((value) => {
     const pieces = parts.filter((p) => p.values.includes(value)).flatMap((p) => p.built.objects)
-    const stack = groupOfPieces(pieces)
-    const table = {
-      ...stack,
-      id: "",
-      zIndex: 0,
-      x: 0,
-      y: 0,
-      type: "table",
-      // Every part across the panel, as in the block's parts table.
-      properties: { columns: [{ width: { share: 100 }, align: "stretch" }], rows: pieces.length },
-      children: (stack.children ?? []).map((piece, row) => ({ ...piece, properties: { ...piece.properties, cell: { row, column: 0 } } })),
-    } as ScreenObject
+    // Its parts a table of one column (docs/2026-10-09-snap-tables.md,
+    // open question 3), one part too: the switcher stretches it to its
+    // width, so each part spans it (lib/layout.ts fitSwitcher).
+    const content = snapTableOf(pieces.map((piece, row) => inCell(piece, { row, column: 0 })))
+    const placed = { ...content, id: "", zIndex: 0, x: 0, y: 0 } as ScreenObject
     return {
       id: "",
       type: "panel",
       x: 0,
       y: 0,
-      width: box.width,
-      height: Math.max(box.height, table.height),
+      width: Math.max(box.width, placed.width),
+      height: Math.max(box.height, placed.height),
       zIndex: 0,
       properties: { comparisonOperator: "==", comparisonValue: value },
-      children: [table],
+      children: [placed],
     } as ScreenObject
   })
   const topics: BausteinBuildResult["topics"] = [readTopicEntry(topic, "text", values[0] ?? "", reported)]
@@ -995,16 +989,6 @@ function switcherSlot(
 }
 
 /**
- * A block as a small table (docs/2026-10-02-layout-tables.md, tables Task
- * 8): always one row of two columns, so blocks put one below the other list
- * as a table (asked 2026-10-03). The name in the first column, `auto` - an
- * icon and the name, if it has one, as a table of their own in that cell -
- * and the control in the second, the rest of the width; several parts as a
- * small table of their own in that cell, one below the other. On `free` it
- * is placed as it is; dropped on a table's row line its row is merged into
- * that table (lib/table.ts mergedRows); into a cell, nested there.
- */
-/**
  * A block of one part as a row (docs/2026-10-09-snap-tables.md, module
  * snap-table-blocks): its icon, its name and its control, in that order and
  * each one object, placed as a row template is - into a table by role, or
@@ -1019,90 +1003,75 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
   })
 }
 
-export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex"> {
-  const count = built.labelCount ?? 0
-  const name = built.objects.slice(0, count)
-  const controls = built.objects.slice(count)
-  const inCell = <T extends { properties?: Record<string, any> }>(o: T, row: number, column: number): T => ({
-    ...o,
-    properties: { ...o.properties, cell: { row, column } },
-  })
-  const nameCell =
-    name.length > 1
-      ? (() => {
-          const box = groupOfPieces(name)
-          return {
-            ...box,
-            type: "table",
-            properties: { columns: [{ width: "auto" }, { width: "auto" }], rows: 1 },
-            children: (box.children ?? []).map((piece, column) => inCell(piece, 0, column)),
-          } as Omit<ScreenObject, "id" | "zIndex">
-        })()
-      : name[0]
-  // Several parts on one grid (docs/2026-10-04-block-grid.md): the column as
-  // wide as the widest part, and every part stretched across it, so their
-  // right edges meet.
-  const stack = (pieces: typeof controls, width: "auto" | { share: number } = "auto") => {
-    const box = groupOfPieces(pieces)
-    return {
-      ...box,
-      type: "table",
-      properties: { columns: [{ width, align: "stretch" }], rows: pieces.length },
-      children: (box.children ?? []).map((piece, row) => inCell(piece, row, 0)),
-    } as Omit<ScreenObject, "id" | "zIndex">
-  }
-  // Parts in two columns (a description's `column`, for a wide screen): a
-  // run of parts in columns 1 and 2 is one row with the two side by side,
-  // each a stack of its own, so a tall dial on one side leaves no gap
-  // between the rows of the other; a part in neither spans the width.
-  const columns = built.partColumns && built.partColumns.length === controls.length ? built.partColumns : undefined
-  const twoColumns = columns
-    ? (() => {
-        const rows: Omit<ScreenObject, "id" | "zIndex">[] = []
-        for (let i = 0; i < controls.length; ) {
-          if (columns[i] === 0) {
-            rows.push(controls[i++])
-            continue
-          }
-          // A run ends at a part across the width, or where its row changes.
-          const rowOf = (k: number) => built.partRows?.[k] ?? ""
-          let end = i
-          while (end < controls.length && columns[end] !== 0 && rowOf(end) === rowOf(i)) end++
-          const run = controls.slice(i, end).map((piece, k) => ({ piece, column: columns[i + k] }))
-          const pieces = [1, 2].map((c) => run.filter((r) => r.column === c).map((r) => r.piece)).filter((side) => side.length > 0)
-          // A side of buttons alone - «Nullen» beside its line - takes what
-          // its button needs; the others share the rest.
-          const buttonsOnly = pieces.map((side) => side.every((piece) => piece.type === "button"))
-          const widths = buttonsOnly.map((only) => (only && !buttonsOnly.every(Boolean) ? "auto" : { share: 50 }))
-          const sides = pieces.map((side, k) => stack(side, widths[k] === "auto" ? "auto" : { share: 100 }))
-          const box = groupOfPieces(sides)
-          // Two sides that each end in a dial or a switcher stand on one
-          // line at the bottom, so their dials match (asked 2026-10-05: the
-          // mode's dial and the timer's, one below a switch).
-          const endsInRing = pieces.length === 2 && pieces.every((side) => ["switcher", "dial", "gauge"].includes(side[side.length - 1].type))
-          rows.push({
-            ...box,
-            type: "table",
-            properties: { columns: widths.map((width) => ({ width, align: "stretch" })), rows: 1 },
-            children: (box.children ?? []).map((side, column) => ({ ...side, properties: { ...side.properties, cell: { row: 0, column, alignY: endsInRing ? "bottom" : "top" } } })),
-          } as Omit<ScreenObject, "id" | "zIndex">)
-          i = end
-        }
-        return stack(rows, { share: 100 })
-      })()
-    : undefined
-  const controlCell = twoColumns ?? (controls.length > 1 ? stack(controls) : controls[0])
-  // Above several parts the name stands at the top, level with the first,
-  // not centred on them all. On the cell, so it goes along when the block is
-  // merged into another table.
-  const named = nameCell ? inCell(nameCell, 0, 0) : undefined
-  const topName =
-    named && controls.length > 1 ? { ...named, properties: { ...named.properties, cell: { ...named.properties.cell, alignY: "top" } } } : named
-  const cells = [...(topName ? [topName] : []), ...(controlCell ? [inCell(controlCell, 0, 1)] : [])]
-  const box = groupOfPieces(cells)
+// What fills its cell's width in a block, so its parts end on one edge.
+const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher"])
+
+type Piece = Omit<ScreenObject, "id" | "zIndex">
+type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; alignY?: "top" | "bottom" }
+// `fills` false: a button beside a wider side - «Nullen» by its line - takes
+// only what it needs.
+const inCell = (piece: Piece, cell: Cell, fills = true): Piece => {
+  const { cell: _old, ...properties } = piece.properties ?? {}
+  const fill = fills && FILLS_ITS_CELL.has(piece.type) ? { fill: { width: true } } : {}
+  return { ...piece, properties: { ...properties, cell: { ...cell, ...fill } } }
+}
+
+/** `children`, each with its cell, as a table put together by snapping. */
+function snapTableOf(children: Piece[]): Piece {
+  const rows = Math.max(0, ...children.map((c) => c.properties!.cell.row + (c.properties!.cell.rowSpan ?? 1)))
+  const columns = Math.max(0, ...children.map((c) => c.properties!.cell.column + (c.properties!.cell.columnSpan ?? 1)))
+  const box = groupOfPieces(children)
   return {
     ...box,
     type: "table",
-    properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 },
+    properties: { grid: SNAP_GRID, columns: Array.from({ length: columns }, () => ({})), rows: Array.from({ length: rows }, () => ({})) },
   }
+}
+
+/**
+ * A block of several parts as a table of its own (docs/2026-10-09-snap-
+ * tables.md, module snap-table-blocks): the first row its icon, its name -
+ * at the top - and its first part, each further part a row below in the
+ * Control column, so its parts end on one edge. Parts a description puts in
+ * two columns stand in two Control columns: a run of them side by side, the
+ * last of the shorter side over the rows the other needs more, and two
+ * sides that each end in a dial or a switcher at the bottom, so their dials
+ * stand on one line; a part in neither spans both. It is placed as it is,
+ * never into another table.
+ */
+export function blockTable(built: BausteinBuildResult): Piece {
+  const count = built.labelCount ?? 0
+  const name = built.objects.slice(0, count)
+  const controls = built.objects.slice(count)
+  const cells: Piece[] = []
+  let column = 0
+  const top = controls.length > 1 ? ({ alignY: "top" } as const) : {}
+  if (name.length > 1) cells.push(inCell(name[0], { row: 0, column: column++, ...top }))
+  if (name.length > 0) cells.push(inCell(name[name.length - 1], { row: 0, column: column++, ...top }))
+  const first = column
+  const columns = built.partColumns && built.partColumns.length === controls.length && built.partColumns.includes(2) ? built.partColumns : undefined
+  let row = 0
+  for (let i = 0; i < controls.length; ) {
+    if (!columns || columns[i] === 0) {
+      cells.push(inCell(controls[i++], { row: row++, column: first, ...(columns ? { columnSpan: 2 } : {}) }))
+      continue
+    }
+    // A run ends at a part across the width, or where its row changes.
+    const rowOf = (k: number) => built.partRows?.[k] ?? ""
+    let end = i
+    while (end < controls.length && columns[end] !== 0 && rowOf(end) === rowOf(i)) end++
+    const sides = [1, 2].map((c) => controls.slice(i, end).filter((_, k) => columns[i + k] === c))
+    const rows = Math.max(...sides.map((side) => side.length))
+    const endsInRing = sides.every((side) => side.length > 0 && ["switcher", "dial", "gauge"].includes(side[side.length - 1].type))
+    sides.forEach((side, s) =>
+      side.forEach((piece, k) => {
+        const last = k === side.length - 1
+        const cell = { row: row + k, column: first + s, ...(last && rows - k > 1 ? { rowSpan: rows - k } : {}), ...(last && endsInRing ? ({ alignY: "bottom" } as const) : {}) }
+        cells.push(inCell(piece, cell, piece.type !== "button"))
+      }),
+    )
+    row += rows
+    i = end
+  }
+  return snapTableOf(cells)
 }

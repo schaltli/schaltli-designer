@@ -2135,18 +2135,37 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [project, currentScreen, setProject],
   )
 
-  // The block the Block tool holds, if it is of one part: its row, made when
-  // the screen is pressed and carried as a row template is (module
-  // snap-table-blocks). Null for one of several parts, which is still drawn.
+  // The block the Block tool holds, made when the screen is pressed and
+  // carried (module snap-table-blocks): of one part a row, placed as a row
+  // template is; of several a table of its own. Built as if dragged across
+  // most of the screen's width - what a bar or slider takes as its length.
   const blockRegisterRef = useRef<(() => void) | null>(null)
-  const armedBlockRow = useCallback((): Omit<ScreenObject, "id" | "zIndex">[] | null => {
+  const armedBlockCarry = useCallback(():
+    | { row: Omit<ScreenObject, "id" | "zIndex">[] }
+    | { table: Omit<ScreenObject, "id" | "zIndex"> }
+    | null => {
     blockRegisterRef.current = null
     if (!armedBlock) return null
-    const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width: 120, height: 40 })
+    const width = Math.round(Math.min(project.screenWidth, project.screenHeight * 2) * 0.6)
+    const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width, height: 40 })
+    blockRegisterRef.current = register
     const row = blockRow({ ...built, objects: stepped })
-    if (row) blockRegisterRef.current = register
-    return row
-  }, [armedBlock, buildArmed])
+    return row ? { row } : { table: blockTable({ ...built, objects: stepped }) }
+  }, [armedBlock, buildArmed, project.screenWidth, project.screenHeight])
+
+  // A block of several parts let go: a table of its own at `at`, in the
+  // space `parentId` names; the topics and icons it brings registered, the
+  // Block tool put down.
+  const placeBlockTable = useCallback(
+    (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string) => {
+      const register = blockRegisterRef.current
+      blockRegisterRef.current = null
+      register?.()
+      setArmedBlock(null)
+      addObjects([{ ...table, x: at.x, y: at.y }], parentId)
+    },
+    [addObjects],
+  )
 
   const startBaustein = useCallback(
     (
@@ -4379,7 +4398,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onSnapMoveOut={snapMoveOut}
             rowTemplate={rowTemplate}
             onInsertRow={insertRow}
-            onBlockRow={armedBlockRow}
+            onBlockCarry={armedBlockCarry}
+            onPlaceBlockTable={placeBlockTable}
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}

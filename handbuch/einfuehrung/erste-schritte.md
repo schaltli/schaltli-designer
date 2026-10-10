@@ -38,11 +38,11 @@ Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz
 
 <Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
-Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh oben auf dem Screen ein Rechteck auf, über die ganze Breite. Der Baustein wird eine kleine Tabelle: der Name in der linken Spalte, die Anzeige in der rechten. Mehr dazu unter [Tabellen](/objekte/anordnen#container).
+Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und dann oben auf den Screen. Der Baustein wird eine Tabelle mit einer Zeile: das Icon, der Name und die Anzeige nebeneinander. Mehr dazu unter [Zusammenstecken](/objekte/anordnen#zusammenstecken).
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz die Batterie, das Licht und den Leselicht-Dimmer darunter, jedes mit einem Klick auf das <span class="ui">+</span> unter der Tabelle. Fährst du über das <span class="ui">+</span>, wird die untere Linie der Tabelle dick, dort kommt der Baustein hin. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz die Batterie und das Licht darunter: Nach <span class="ui">Insert</span> hängt der Baustein am Mauszeiger, und trägst du ihn knapp unter die Tabelle, wird ihre untere Linie dick. Lässt du los, kommt er dort als neue Zeile hin, Name unter Name und Anzeige unter Anzeige. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Mit zwei Teilen ist er eine eigene Tabelle, die du mit einem Klick unter die erste setzt. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

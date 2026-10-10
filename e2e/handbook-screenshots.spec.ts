@@ -115,8 +115,8 @@ async function appendBlock(page: Page, entry: string, screen: { width: number; h
 
 // A block from the Block menu: the entry picked, its options as they come
 // (unless a look is named), Insert, and a click in the middle of `from` and
-// `to` - a block of one part lands there as a table of one row. A block of
-// several parts (`drawn`) is still drawn as the rectangle.
+// `to` - the block lands there, its middle at the click: a block of one part
+// as a table of one row, one of several parts as a table of its own.
 async function placeBlock(
   page: Page,
   entry: string,
@@ -124,7 +124,6 @@ async function placeBlock(
   to: [number, number],
   screen: { width: number; height: number } = SCREEN,
   look?: string,
-  drawn = false,
 ) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
@@ -133,15 +132,6 @@ async function placeBlock(
   if (look) await page.getByTestId(`baustein-look-${look}`).click()
   await page.getByTestId("baustein-insert").click()
   const { box } = await getMainCanvas(page)
-  if (drawn) {
-    const a = devicePoint(box, from[0], from[1], screen)
-    const b = devicePoint(box, to[0], to[1], screen)
-    await page.mouse.move(a.x, a.y)
-    await page.mouse.down()
-    await page.mouse.move(b.x, b.y, { steps: 8 })
-    await page.mouse.up()
-    return
-  }
   const middle = devicePoint(box, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2, screen)
   await page.mouse.click(middle.x, middle.y)
 }
@@ -281,11 +271,11 @@ test.describe("handbook: Erste Schritte", () => {
       })
       await page.mouse.up()
     }
-    // The dimmer is a block of several parts, a switch and a slider: drawn
-    // as a rectangle under the table, a table of its own.
+    // The dimmer is a block of several parts, a switch and a slider: a
+    // table of its own, clicked under the first.
     {
       const table = await snapTableRect(page)
-      await placeBlock(page, "Leselicht", [table.x, table.y + table.height + 16], [table.x + table.width, table.y + table.height + 150], SCREEN, undefined, true)
+      await placeBlock(page, "Leselicht", [table.x, table.y + table.height + 16], [table.x + table.width, table.y + table.height + 150])
     }
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.

@@ -213,8 +213,12 @@ export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): Snap
  * are, so the export dissolves it like any other. The table keeps its
  * place and is as large as its content.
  */
-export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale): ScreenObject {
+export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretchTo?: number): ScreenObject {
   const { gap, widths, heights, lefts, tops, sized, across } = measure(table, scale)
+  // Stretched to a width it is given (a switcher's panel, lib/layout.ts
+  // fitSwitcher): its last column takes what is left over.
+  const natural = widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
+  if (stretchTo !== undefined && widths.length > 0 && natural < stretchTo) widths[widths.length - 1] += stretchTo - natural
   const placed = sized.map(({ child, cell, size }) => {
     const room = across(widths, cell.column, cell.columnSpan!)
     const roomHeight = across(heights, cell.row, cell.rowSpan!)

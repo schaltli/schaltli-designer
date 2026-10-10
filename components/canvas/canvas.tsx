@@ -84,7 +84,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
+import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
@@ -310,8 +310,10 @@ export interface CanvasProps {
   rowTemplate?: RowTemplate
   /** A carried row let go: into a table at a row line, or a table of its own at `at` (in the space `parentId` names). */
   onInsertRow?: (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => void
-  /** The Block tool's block as a row, made now; null when it is not one (several parts: still drawn). */
-  onBlockRow?: () => Omit<ScreenObject, "id" | "zIndex">[] | null
+  /** The Block tool's block, made now: a row (one part) or a table of its own (several); null with none armed. */
+  onBlockCarry?: () => { row: Omit<ScreenObject, "id" | "zIndex">[] } | { table: Omit<ScreenObject, "id" | "zIndex"> } | null
+  /** A block of several parts let go: a table of its own, its top left corner at `at` (in the space `parentId` names). */
+  onPlaceBlockTable?: (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string) => void
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
@@ -770,7 +772,8 @@ export function Canvas({
   onSnapMoveOut,
   rowTemplate,
   onInsertRow,
-  onBlockRow,
+  onBlockCarry,
+  onPlaceBlockTable,
   onSetTableProperties,
   onSelectTableColumn,
   chosenTableColumn,
@@ -1156,6 +1159,8 @@ export function Canvas({
   // Row tool was pressed, and where letting go puts it - a table's row line,
   // with the columns it would add named.
   const rowPartsRef = useRef<Omit<ScreenObject, "id" | "zIndex">[] | null>(null)
+  // A block of several parts being carried: its table, which snaps nowhere.
+  const blockTableRef = useRef<Omit<ScreenObject, "id" | "zIndex"> | null>(null)
   const [rowDrop, setRowDrop] = useState<{ tableId: string; at: number; line: { x1: number; x2: number; y: number }; adds: string | null } | null>(null)
   // A span handle being dragged (Task 7).
   const spanDragRef = useRef<{ tableId: string; id: string; side: SnapSide } | null>(null)
@@ -3084,13 +3089,23 @@ export function Canvas({
         setTableDrop(null)
         // Placing by dragging (lib/placing.ts): the object at its default
         // size, its middle under the pointer, carried until let go - as one
-        // moved is. A line is still drawn, the old table's tool and a block
-        // of several parts still place as before.
+        // moved is. A line is still drawn, the old table's tool still places
+        // as before.
         // A row (module snap-table-rows): its parts made as their tools make
         // them, at their default sizes, and carried as the table of one row
         // they would make. A block of one part is such a row too, its parts
-        // made by the editor (module snap-table-blocks).
-        const blockParts = activeTool === "baustein" ? (onBlockRow?.() ?? null) : null
+        // made by the editor; a block of several parts is a table of its own,
+        // carried at its size (module snap-table-blocks).
+        const block = activeTool === "baustein" ? (onBlockCarry?.() ?? null) : null
+        blockTableRef.current = null
+        if (block && "table" in block) {
+          tablePlacementRef.current = null
+          blockTableRef.current = block.table
+          const [laid] = layoutObjects([{ ...block.table, id: "block", zIndex: 0 } as ScreenObject], layoutScale)
+          setDragState({ mode: "create", objectId: null, startPos: coords, startObjectPos: heldAt(coords, laid), creatingType: "row", placing: true })
+          return
+        }
+        const blockParts = block && "row" in block ? block.row : null
         if (activeTool === "row" || blockParts) {
           tablePlacementRef.current = null
           const parts =
@@ -3331,7 +3346,7 @@ export function Canvas({
       rowTemplate,
       sizedAtM,
       layoutScale,
-      onBlockRow,
+      onBlockCarry,
     ],
   )
 
@@ -3585,6 +3600,11 @@ export function Canvas({
           // (docs/2026-10-09-snap-tables.md). Among what stands where it is
           // placed - beside an open table too. A navigator goes onto its edge.
           const type = dragState.creatingType
+          // A block of several parts goes into no table.
+          if (type === "row" && blockTableRef.current) {
+            setRowDrop(null)
+            return
+          }
           if (type === "row") {
             const target = !previewMode && !(e.ctrlKey || e.metaKey) ? rowTargetAt(drawSpace.objects, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
             const table = target && drawSpace.objects.find((o) => o.id === target.tableId)
@@ -4467,9 +4487,21 @@ export function Canvas({
 
     // A row let go: into the table at the line shown, or a table of its own.
     if (dragState?.mode === "create" && dragState.creatingType === "row") {
+      const table = blockTableRef.current
+      blockTableRef.current = null
+      const r = dragState.startObjectPos
+      // A block of several parts: a table of its own where it was let go,
+      // over another table too - never into it.
+      if (table) {
+        if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
+        onPlaceBlockTable?.(table, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined)
+        onToolChange("select")
+        setRowDrop(null)
+        setDragState(null)
+        return
+      }
       const parts = rowPartsRef.current
       rowPartsRef.current = null
-      const r = dragState.startObjectPos
       if (parts && onInsertRow) {
         if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
         onInsertRow(parts, rowDrop && { tableId: rowDrop.tableId, at: rowDrop.at }, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined)
@@ -4584,6 +4616,7 @@ export function Canvas({
     onSetEditingContainer,
     rowDrop,
     onInsertRow,
+    onPlaceBlockTable,
     outDrag,
     drawSpace,
     onSetTableProperties,
@@ -4709,6 +4742,7 @@ export function Canvas({
         setSnapDrop(null)
         setRowDrop(null)
         rowPartsRef.current = null
+        blockTableRef.current = null
         return
       }
       if (e.key === "Escape" && dragState?.mode === "drag" && dragState.objectId) {

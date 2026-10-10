@@ -14,7 +14,7 @@ Ein Projekt ist fest an seinen Gerätetyp gebunden. Wähle deshalb gleich das Ge
 
 ## Einen Screen bauen
 
-Am schnellsten geht es mit den Bausteinen. In der Werkzeugleiste öffnet <span class="ui">Block</span> eine Auswahl dessen, was die Geräte auf deinem Broker anbieten. Wähle einen Eintrag, klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. Der Baustein bringt seine Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Bausteine](/designer/bausteine).
+Am schnellsten geht es mit den Bausteinen. In der Werkzeugleiste öffnet <span class="ui">Block</span> eine Auswahl dessen, was die Geräte auf deinem Broker anbieten. Wähle einen Eintrag, klick auf <span class="ui">Insert</span> und dann auf den Screen. Der Baustein bringt seine Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Bausteine](/designer/bausteine).
 
 ## Die Vorschau
 

@@ -5,9 +5,8 @@ import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
-import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
+import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockRow, blockTable } from "../lib/bausteine"
 import { isSnapTable, snapCellOf } from "../lib/snap-table"
-import { mergedRows } from "../lib/table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
 import { layoutObjects } from "../lib/layout"
@@ -77,6 +76,13 @@ test.beforeEach(async ({ page }) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const byCell = (table: any) =>
   Object.fromEntries((table.children ?? []).map((c: any) => [`${snapCellOf(c).row}/${snapCellOf(c).column}`, c.type]))
+// A block of several parts in one column: its parts top to bottom, in the
+// Control column, its last (docs/2026-10-09-snap-tables.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const partsOf = (block: any): any[] => {
+  const last = Math.max(...block.children.map((c: any) => snapCellOf(c).column))
+  return block.children.filter((c: any) => snapCellOf(c).column === last).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+}
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -330,6 +336,40 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // docs/2026-10-09-snap-tables.md: a block of several parts is a table of
+  // its own and is never inserted into another - carried onto one and let
+  // go, it lies there free.
+  test("a block of several parts carried onto a table goes into none: a table of its own where it was let go", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "ha-docs-fan-bedroom"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 70)
+      const table = await snapTableOf(page)
+      await pick(page, "Bedroom Fan")
+      await page.getByTestId("baustein-insert").click()
+      const { box, canvas } = await getMainCanvas(page)
+      const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
+      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height / 2, ROUND_FIXTURE_SCREEN)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 10 })
+      // Nothing shows where it would go: it goes nowhere.
+      expect(await canvas.getAttribute("data-row-drop")).toBeNull()
+      await page.mouse.up()
+      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
+      expect(tables).toHaveLength(2)
+      expect(byCell(tables.find((t: { id: string }) => t.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
+      const fan = tables.find((t: { id: string }) => t.id !== table.id)
+      expect(partsOf(fan).map((c: { type: string }) => c.type)).toContain("slider")
+      // Its middle where it was let go.
+      expect(Math.abs(fan.x + fan.width / 2 - (table.x + table.width / 2))).toBeLessThanOrEqual(2)
+    } finally {
+      await clear()
+    }
+  })
+
   test("an old table takes no block: clicked onto its row line, the block lies as a table of its own", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
@@ -376,17 +416,15 @@ test.describe("placing a catalog entry", () => {
       await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/on/set")
       await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
       await page.getByTestId("baustein-insert").click()
-      await drag(page, [40, 60], [320, 320])
+      await clickAt(page, 180, 180)
 
-      // The name, and beside it the five controls without a label each, in a
-      // small table of their own (one row per block, asked 2026-10-03).
-      const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(2)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="table "]')).toHaveCount(1)
-      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
-      const partsTable = block.children.find((c: { type: string }) => c.type === "table")
-      expect(partsTable.properties.cell).toEqual({ row: 0, column: 1 })
-      expect(partsTable.children.map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
+      // A table of its own (docs/2026-10-09-snap-tables.md): the name, and
+      // beside it the five controls without a label each, one below the
+      // other in the Control column.
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      expect(partsOf(block).map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
+      const name = block.children.find((c: { type: string }) => c.type === "text")
+      expect(name.properties.cell).toMatchObject({ row: 0, alignY: "top" })
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
       expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
     } finally {
@@ -420,12 +458,11 @@ test.describe("placing a catalog entry", () => {
       await expect(page.getByRole("dialog")).toContainText("Insert Garden pump")
       await expect(page.getByTestId("baustein-chosen")).toContainText("garden/pump/runtime/set")
       await page.getByTestId("baustein-insert").click()
-      await drag(page, [40, 60], [320, 320])
+      await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
-      // The control column; the name is a table of its own too, with its icon.
-      const parts = block.children.find((c: any) => c.properties.cell.column === 1)
-      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      // The Control column, after the icon and the name.
+      const rows = partsOf(block)
       expect(rows.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group", "switcher"])
       expect(rows[0].properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "Ein"])
       const switcher = rows[2]
@@ -476,11 +513,9 @@ test.describe("placing a catalog entry", () => {
       await supply.uncheck()
       await expect(supply).not.toBeChecked()
       await page.getByTestId("baustein-insert").click()
-      await drag(page, [40, 60], [320, 260])
+      await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
-      const parts = block.children.find((c: any) => c.properties.cell.column === 1)
-      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      const rows = partsOf((await savedScreen(page)).objects.find(isSnapTable))
       expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, asPlaceholders(c)])).toEqual([
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],
@@ -957,9 +992,10 @@ test.describe("a block from a catalog entry", () => {
   })
 
   // Asked 2026-10-05 for a wide screen: a part without a column spans the
-  // block, a run of parts in columns 1 and 2 stands side by side, each
-  // column a stack of its own, half the width each.
-  test("parts in two columns: one across the top, then the two side by side, each a stack of its own", () => {
+  // block, a run of parts in columns 1 and 2 stands side by side - two
+  // Control columns of the block's table (docs/2026-10-09-snap-tables.md),
+  // the last of the shorter side over the rows the other needs more.
+  test("parts in two columns: one across both, then the two side by side, the shorter side's last over the rest", () => {
     const entry: CatalogEntry = {
       id: "block wide",
       component: "block",
@@ -978,20 +1014,22 @@ test.describe("a block from a catalog entry", () => {
     let next = 0
     const withIds = (o: any): any => ({ ...o, id: o.id || `w${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
     const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm: 6 })
-    const cell: any = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
-    const rows = [...cell.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
-    expect(rows.map((r: any) => r.type)).toEqual(["button-group", "table"])
-    expect(rows[0].width).toBe(cell.width)
-    const [left, right] = [...rows[1].children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
-    expect(left.children.map((c: any) => c.type)).toEqual(["dial"])
-    expect(right.children.map((c: any) => asPlaceholders(c))).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
-    expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1)
+    expect(isSnapTable(laid)).toBe(true)
+    const cells = (t: any) => (t.children ?? []).map((c: any) => [c.type, snapCellOf(c).row, snapCellOf(c).column, snapCellOf(c).rowSpan, snapCellOf(c).columnSpan])
+    expect(cells(laid)).toEqual([
+      ["text", 0, 0, 1, 1],
+      ["button-group", 0, 1, 1, 2],
+      ["dial", 1, 1, 2, 1],
+      ["text", 1, 2, 1, 1],
+      ["text", 2, 2, 1, 1],
+    ])
+    expect(laid.children!.slice(3).map((c: any) => asPlaceholders(c))).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
     // A dial as a part is six lines of the block's font (120), put on its
     // track's grid - not a row's height.
-    expect(left.children[0].width).toBeGreaterThanOrEqual(90)
-    expect(left.children[0].width).toBeLessThanOrEqual(120)
-    // A new row starts another pair below; a side of a button alone takes
-    // only what the button needs.
+    const dial = laid.children!.find((c: any) => c.type === "dial")!
+    expect(dial.width).toBeGreaterThanOrEqual(90)
+    expect(dial.width).toBeLessThanOrEqual(120)
+    // A new row starts another pair below.
     const rowed: CatalogEntry = {
       ...entry,
       controls: [
@@ -1003,10 +1041,10 @@ test.describe("a block from a catalog entry", () => {
     const rowedParts = rowed.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : catalogLooks(c)[0].id }))
     const two = buildEntry({ entry: rowed, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, font: { id: "f", size: 20 }, options: { label: "Wide", look: "", icon: null, parts: rowedParts } })
     const [laidTwo] = layoutObjects([withIds(blockTable(two))], { pixelsPerMm: 6 })
-    const cellTwo: any = (laidTwo.children ?? []).find((c: any) => c.properties.cell.column === 1)
-    const rowsTwo = [...cellTwo.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
-    expect(rowsTwo.map((r: any) => r.type)).toEqual(["button-group", "table", "table"])
-    expect(rowsTwo[2].properties.columns.map((c: any) => c.width)).toEqual([{ share: 50 }, "auto"])
+    expect(cells(laidTwo).slice(5)).toEqual([
+      ["text", 3, 1, 1, 1],
+      ["button", 3, 2, 1, 1],
+    ])
 
     // Without a column anywhere: one column, as before.
     const one = buildEntry({ entry: { ...entry, controls: entry.controls.map(({ column: _c, ...c }) => c as typeof c) }, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, options: { label: "Wide", look: "", icon: null, parts } })
@@ -1035,81 +1073,40 @@ test.describe("a block from a catalog entry", () => {
     expect(hall[0].subtopics?.map((sub) => sub.path)).toEqual(["state", "brightness"])
   })
 
-  // Layout plan Task 10: a block placed into a stack, a row or a grid.
-  // Tables Task 8 (docs/2026-10-02-layout-tables.md): a block is a small
-  // table - its name and control in a row, each further part in a row below
-  // in the control's column; merged into a table at a row line, the target
-  // keeping its columns.
-  test.describe("a block is a small table", () => {
-    const tableOf = (label: string, extra: Partial<Parameters<typeof buildEntry>[0]["options"]> = {}, name = "z2m-switch-plug") =>
-      blockTable(buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } }))
-    const cellsOf = (t: { children?: Array<{ type: string; properties: Record<string, any> }> }) =>
-      (t.children ?? []).map((c) => [c.type, c.properties.cell.row, c.properties.cell.column])
+  // A block of one part is a row of its icon, name and control, placed as a
+  // row template is; one of several parts a table of its own: its icon and
+  // name in the first row, at the top, its parts one below the other in the
+  // Control column, each filling its width (docs/2026-10-09-snap-tables.md,
+  // module snap-table-blocks).
+  test.describe("a block is a row, or a table of its own", () => {
+    const build = (label: string, extra: Partial<Parameters<typeof buildEntry>[0]["options"]> = {}, name = "z2m-switch-plug") =>
+      buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } })
+    const types = (pieces: Array<{ type: string }> | null) => pieces?.map((p) => p.type)
 
-    test("its name and control in a row; with an icon the name is a table of its own", () => {
-      const plain = tableOf("Licht")
-      expect(plain.type).toBe("table")
-      expect(plain.properties.columns).toEqual([{ width: "auto" }, { width: { share: 100 } }])
-      expect(cellsOf(plain)).toEqual([
-        ["text", 0, 0],
-        ["button-group", 0, 1],
-      ])
-      const withIcon = tableOf("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })
-      expect(cellsOf(withIcon)).toEqual([
-        ["table", 0, 0],
-        ["button-group", 0, 1],
-      ])
-      expect(cellsOf(withIcon.children![0] as any)).toEqual([
-        ["icon", 0, 0],
-        ["text", 0, 1],
-      ])
+    test("one part: its name and control as a row; with an icon, the icon first", () => {
+      expect(types(blockRow(build("Licht")))).toEqual(["text", "button-group"])
+      expect(types(blockRow(build("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })))).toEqual(["icon", "text", "button-group"])
+      for (const piece of blockRow(build("Licht"))!) expect(piece.properties?.cell).toBeUndefined()
     })
 
-    // Every block one row of two columns (asked 2026-10-03), so blocks put
-    // one below the other list as a table: the name left, and right the
-    // control - several of them in a small table of their own, one below
-    // the other.
-    test("several parts: one row all the same, the parts in a small table in the control's cell", () => {
-      const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
-      expect(fan.properties.rows).toBe(1)
-      expect(cellsOf(fan)).toEqual([
-        ["text", 0, 0],
-        ["table", 0, 1],
-      ])
-      const parts = fan.children![1] as any
-      // One grid (docs/2026-10-04-block-grid.md): as wide as the widest part,
-      // every part stretched across it; the name at the top.
-      expect(parts.properties.columns).toEqual([{ width: "auto", align: "stretch" }])
-      expect((fan.children![0] as any).properties.cell).toEqual({ row: 0, column: 0, alignY: "top" })
-      expect(cellsOf(parts)).toEqual([
-        ["button-group", 0, 0],
-        ["slider", 1, 0],
-      ])
+    test("several parts: a table of its own, the name at the top, the parts below each other in the Control column, filling it", () => {
+      const fan = blockTable(build("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom"))
+      expect(isSnapTable(fan as any)).toBe(true)
+      expect(blockRow(build("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom"))).toBeNull()
+      const cells = (fan.children ?? []).map((c) => [c.type, c.properties!.cell])
+      expect(cells.slice(0, 1)).toEqual([["text", { row: 0, column: 0, alignY: "top" }]])
+      expect(cells.slice(1).map(([type, cell]: any) => [type, cell.row, cell.column, cell.fill])).toEqual(
+        cells.slice(1).map(([type]: any, i) => [type, i, 1, { width: true }]),
+      )
+      expect(cells.slice(1).map(([type]) => type)).toContain("slider")
     })
 
-    // Asked 2026-10-03: a button names itself, so a Restart block has no name;
-    // its button stays in the control column, the name cell empty.
-    test("a block that is its button alone: the button in the control column, with an icon too", () => {
+    // Asked 2026-10-03: a button names itself, so a Restart block has no
+    // name; with an icon too it is the button alone.
+    test("a block that is its button alone: a row of the button, with an icon too", () => {
       for (const icon of [null, { name: "mdi:restart", data: "<svg/>", size: 24 }]) {
-        const restart = tableOf("Restart", { icon }, "esphome-button-restart")
-        expect(cellsOf(restart)).toEqual([["button", 0, 1]])
-        expect(mergedRows(restart, 2).map((m) => [m.object.type, m.row, m.column])).toEqual([["button", 0, 1]])
-        expect(mergedRows(restart, 1).map((m) => [m.object.type, m.row, m.column])).toEqual([["button", 0, 0]])
+        expect(types(blockRow(build("Restart", { icon }, "esphome-button-restart")))).toEqual(["button"])
       }
-    })
-
-    test("merged into a table: one row of its two columns; into a single column the name and the parts one below the other", () => {
-      const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
-      const at = (n: number) => mergedRows(fan, n).map((m) => [m.object.type, m.row, m.column])
-      expect(at(2)).toEqual([
-        ["text", 0, 0],
-        ["table", 0, 1],
-      ])
-      expect(at(3)).toEqual(at(2))
-      expect(at(1)).toEqual([
-        ["text", 0, 0],
-        ["table", 1, 0],
-      ])
     })
   })
 })
@@ -1199,21 +1196,21 @@ test.describe("a block whose parts come and go with a mode", () => {
     const entry = maxxfan()
     return blockTable(buildEntry({ entry, rect: RECT, palette, options: { label: entry.label, look: "", icon: null, parts: everyPart(entry) } }))
   }
-  const controlCell = (table: any) => table.children.find((c: any) => c.properties.cell.column === 1)
+  // The block a table of its own (docs/2026-10-09-snap-tables.md): its
+  // parts one below the other in its Control column.
   // Ids as the editor gives them, so the layout can tell the pieces apart.
   let next = 0
   const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
 
   test("Mode, then one switcher on the mode with an auto and a fan_only panel and none for off, then Cover and Airflow", () => {
-    const parts = controlCell(block())
-    expect(parts.type).toBe("table")
-    expect(parts.children.map((c: any) => [c.type, c.properties.cell.row])).toEqual([
+    const parts = partsOf(block())
+    expect(parts.map((c: any) => [c.type, c.properties.cell.row])).toEqual([
       ["button-group", 0],
       ["switcher", 1],
       ["button-group", 2],
       ["button-group", 3],
     ])
-    const switcher = parts.children[1]
+    const switcher = parts[1]
     expect(switcher.properties.topic).toBe("schaltli/state/maxxfan/hvac_mode")
     expect(switcher.children.map((p: any) => [p.type, p.properties.comparisonOperator, p.properties.comparisonValue])).toEqual([
       ["panel", "==", "auto"],
@@ -1225,14 +1222,14 @@ test.describe("a block whose parts come and go with a mode", () => {
   })
 
   test("the description's words are on the buttons", () => {
-    const parts = controlCell(block())
+    const parts = partsOf(block())
     const words = (o: any) => o.properties.states.map((s: any) => [s.label, s.readValue])
-    expect(words(parts.children[0])).toEqual([
+    expect(words(parts[0])).toEqual([
       ["Aus", "off"],
       ["Hand", "fan_only"],
       ["Auto", "auto"],
     ])
-    expect(words(parts.children[2])).toEqual([
+    expect(words(parts[2])).toEqual([
       ["Zu", "closed"],
       ["Offen", "open"],
     ])
@@ -1258,28 +1255,24 @@ test.describe("a block whose parts come and go with a mode", () => {
   for (const pixelsPerMm of [4, 8.66]) {
     test(`on one grid at ${pixelsPerMm} px/mm: every part ends at the same right edge, the name at the top`, () => {
       const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
-      const parts = controlCell(laid)
-      const rights = new Set<number>(parts.children.map((c: any) => c.x + c.width))
+      const parts = partsOf(laid)
+      const rights = new Set<number>(parts.map((c: any) => c.x + c.width))
       expect(rights.size).toBe(1)
-      // Inside the switcher's panels too.
-      const switcher = parts.children.find((c: any) => c.type === "switcher")
+      // Inside the switcher's panels too, at the switcher's right edge.
+      const switcher = parts.find((c: any) => c.type === "switcher")
       for (const panel of switcher.children) for (const t of panel.children) {
-        expect(new Set(t.children.map((c: any) => c.x + c.width)).size).toBe(1)
+        expect(new Set(t.children.map((c: any) => c.x + c.width))).toEqual(new Set([switcher.width]))
       }
       const name = (laid.children ?? []).find((c: any) => c.properties.cell.column === 0)!
-      expect(name.y).toBe(parts.y)
-      // A slider's drawn width does not widen the grid: it all stays inside
-      // the block's rectangle.
-      expect(Math.max(...rights)).toBeLessThanOrEqual(parts.width)
-      expect(laid.properties.contentWidth).toBeLessThanOrEqual(laid.width)
+      expect(name.y).toBe(0)
+      expect(Math.max(...rights)).toBe(laid.width)
     })
   }
 
   for (const pixelsPerMm of [4, 6, 8.66]) {
     test(`laid out at ${pixelsPerMm} px/mm: each panel's slider spans the switcher, and no row runs into the next`, () => {
       const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
-      const parts = controlCell(laid)
-      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      const rows = partsOf(laid)
       for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height).toBeLessThanOrEqual(rows[i + 1].y)
       const switcher = rows[1]
       for (const panel of switcher.children) {
@@ -1289,7 +1282,6 @@ test.describe("a block whose parts come and go with a mode", () => {
         expect(slider.height).toBeGreaterThan(0)
         expect(table.y + table.height).toBeLessThanOrEqual(switcher.height)
       }
-      expect(parts.properties.overflow).toBeUndefined()
     })
   }
 })

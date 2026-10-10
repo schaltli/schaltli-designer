@@ -96,6 +96,13 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
   // A table as its columns need (lib/snap-table.ts, lib/table.ts).
   if (isSnapTable(obj)) return arrangeSnapTable(obj, scale).width
   if (obj.type === TABLE_TYPE) return tableNaturalWidth(obj, scale)
+  // A switcher as wide as the widest of its panels' content, so it stands in
+  // a table put together by snapping no wider than what it shows; one with
+  // nothing in its panels as wide as it is.
+  if (obj.type === "switcher") {
+    const content = (obj.children ?? []).flatMap((panel) => (panel.children ?? []).map((child) => Math.max(0, child.x) + naturalWidth(child, scale)))
+    return content.length > 0 ? Math.max(1, ...content) : obj.width
+  }
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
@@ -148,15 +155,28 @@ export function fit(child: ScreenObject, width: number, scale: LayoutScale): Scr
 
 // A switcher in a container: as tall as the tallest of its panels' content,
 // each panel laid out at the switcher's width.
+// A table put together by snapping in a panel is stretched to the
+// switcher's width, so what fills its cells spans the switcher (a block's
+// parts, docs/2026-10-09-snap-tables.md).
 function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
+  const stretched = (child: ScreenObject) => ({ ...arrangeSnapTable(child, scale, switcher.width), x: 0, y: 0 })
   const panels = (switcher.children ?? []).map((panel) => ({
     ...panel,
     children: (panel.children ?? []).map((child) =>
-      isContainerType(child.type) && child.type !== "free" ? { ...fit(child, switcher.width, scale), x: 0, y: 0 } : child,
+      isSnapTable(child)
+        ? stretched(layoutOne(child, scale))
+        : isContainerType(child.type) && child.type !== "free"
+          ? { ...fit(child, switcher.width, scale), x: 0, y: 0 }
+          : child,
     ),
   }))
   const height = Math.max(0, ...panels.flatMap((panel) => (panel.children ?? []).map((child) => child.y + child.height)))
-  return withFilledPanels({ ...switcher, height: height || switcher.height, children: panels }, scale)
+  const filled = withFilledPanels({ ...switcher, height: height || switcher.height, children: panels }, scale)
+  // Laid out again as panels, the tables in them are stretched once more.
+  return {
+    ...filled,
+    children: (filled.children ?? []).map((panel) => ({ ...panel, children: (panel.children ?? []).map((child) => (isSnapTable(child) ? stretched(child) : child)) })),
+  }
 }
 
 /**
