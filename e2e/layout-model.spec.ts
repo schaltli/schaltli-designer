@@ -307,25 +307,25 @@ test.describe("free screens: the migration", () => {
     ],
   })
 
-  test("a screen's root table becomes one table object; every object stays where it was", () => {
-    // What the screen's root was: a table on the master's content area, 2 mm
-    // in from its edge - where its objects stood before.
+  // The root table it becomes is an old table, and old tables dissolve on
+  // load (docs/2026-10-09-snap-tables.md, module old-table-removal): what it
+  // held lies free, where the root put it - its corner in the master's
+  // content area, 2 mm in.
+  test("a screen's old root: its objects free, each where the root put it, no table left", () => {
     const old = project().screens[1]
-    const root = { id: "root", type: "table", x: 40, y: 30, width: 300, height: 220, zIndex: 0, properties: { paddingMm: 2, ...old.layout!.properties }, children: old.objects } as ScreenObject
-    const before = absolute(layoutObjects([root], SCALE))
     const migrated = migrateProject(project() as any) as any
     const screen = migrated.screens[1]
     expect(screen.layout?.type ?? "free").toBe("free")
-    expect(screen.objects).toHaveLength(1)
-    const table = screen.objects[0]
-    expect(table.type).toBe("table")
-    expect(table.properties.columns).toEqual([{ width: "auto" }, { width: { share: 100 } }])
-    expect({ x: table.x, y: table.y }).toEqual({ x: 40 + PAD, y: 30 + PAD })
-    const after = absolute((layoutProject(migrated).screens[1].objects) as ScreenObject[])
-    expect(after).toEqual(before)
+    expect(screen.objects.map((o: ScreenObject) => o.type)).not.toContain("table")
+    for (const o of old.objects) {
+      const now = screen.objects.find((m: ScreenObject) => m.id === o.id)
+      expect({ x: now.x, y: now.y }, o.id).toEqual({ x: 40 + PAD + o.x, y: 30 + PAD + o.y })
+      expect(now.properties.cell).toBeUndefined()
+    }
   })
 
-  test("on a round screen without an area of its own: the table in the square inside the circle, 2 mm in", () => {
+  test("on a round screen without an area of its own: in the square inside the circle, 2 mm in", () => {
+    const text = { ...words("Licht", { id: "t" }), properties: { text: "Licht", cell: { row: 0, column: 0 } } }
     const round = {
       screenWidth: 360,
       screenHeight: 360,
@@ -333,12 +333,12 @@ test.describe("free screens: the migration", () => {
       fonts: [],
       screens: [
         { id: "m", isMaster: true, objects: [] },
-        { id: "s", masterScreenId: "m", layout: { type: "table", properties: { columns: [{ width: { share: 100 } }] } }, objects: [{ ...words("Licht", { id: "t" }), properties: { text: "Licht", cell: { row: 0, column: 0 } } }] },
+        { id: "s", masterScreenId: "m", layout: { type: "table", properties: { columns: [{ width: { share: 100 } }] } }, objects: [text] },
       ],
     }
     const migrated = migrateProject(round as any) as any
     // 360 / √2 = 254.6: the square from 53 to 307.
-    expect(migrated.screens[1].objects[0]).toMatchObject({ type: "table", x: 53 + PAD, y: 53 + PAD, width: 254 - 2 * PAD })
+    expect(migrated.screens[1].objects[0]).toMatchObject({ id: "t", x: 53 + PAD + text.x, y: 53 + PAD + text.y })
   })
 
   test("a master's content area is gone after loading", () => {

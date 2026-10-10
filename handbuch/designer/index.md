@@ -25,12 +25,12 @@ Die Werkzeuge sind in Gruppen geordnet:
 | <span class="ui">Operate</span> | <span class="ui">Slider</span>, <span class="ui">Dial</span>, <span class="ui">Switch</span>, <span class="ui">Button Group</span>, <span class="ui">Button</span> | etwas bedienen |
 | <span class="ui">Draw</span> | <span class="ui">Line</span>, <span class="ui">Live Line</span>, <span class="ui">Box</span> | Linien und Flächen |
 | <span class="ui">Arrange</span> | <span class="ui">Switcher</span> | Bereiche umschalten |
-| <span class="ui">Tables</span> | <span class="ui">Table</span> | eine [Tabelle](/objekte/anordnen#container) aus einer Vorlage, die ordnet, was du hineinlegst |
+| <span class="ui">Tables</span> | <span class="ui">Free</span>, <span class="ui">Row</span> | eine freie Fläche; mehrere Objekte als eine [Zeile](/objekte/anordnen#zusammenstecken) |
 | <span class="ui">Blocks</span> | <span class="ui">Block</span> | fertige [Bausteine](/designer/bausteine) |
 
-Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Hast du ein Werkzeug gewählt, sagt ein Hinweis oben auf der Zeichenfläche, wie du das Objekt setzt; <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. Das Werkzeug der Gruppe <span class="ui">Tables</span> gibt es immer, weil das Gerät keine Tabelle sieht, nur was darin steht. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
+Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Hast du ein Werkzeug gewählt, sagt ein Hinweis oben auf der Zeichenfläche, wie du das Objekt setzt; <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. <span class="ui">Free</span> gibt es immer, weil das Gerät keine freie Fläche sieht, nur was darin steht. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
 
-Arbeitest du in einer Tabelle, kommt am Ende eine weitere Gruppe dazu: die Befehle für Zeilen, Spalten und Zellen und der Pfad durch verschachtelte Tabellen, beschrieben unter [Container](/objekte/anordnen#container).
+Ein Werkzeug für Tabellen gibt es nicht: Eine Tabelle entsteht, sobald du zwei Objekte zusammensteckst, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken).
 
 ## Projekte
 

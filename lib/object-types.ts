@@ -19,7 +19,8 @@
 
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { placeholdersToLiveValues, type LiveValue } from "@/lib/live-value"
-import { migrateScreenToTables } from "@/lib/table"
+import type { ScreenObject } from "@/components/project-editor"
+import { dissolveOldTables, migrateScreenToTables } from "@/lib/table"
 import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 
@@ -379,5 +380,16 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
   }
   // Screens are always free (docs/2026-10-03-free-screens.md).
   migrateToFreeScreens(project)
+  // Old tables are no more (docs/2026-10-09-snap-tables.md, module
+  // old-table-removal): each, at any depth, becomes what it held, where it
+  // last stood - the old stacks and grids above too, once they are tables,
+  // so their objects keep the places those last gave them.
+  for (const screen of project.screens ?? []) {
+    const objects = screen.objects as ScreenObject[] | undefined
+    if (objects) {
+      const dissolved = dissolveOldTables(objects)
+      if (dissolved !== objects) screen.objects = dissolved as typeof screen.objects
+    }
+  }
   return project
 }

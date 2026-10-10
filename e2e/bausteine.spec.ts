@@ -370,7 +370,7 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("an old table takes no block: clicked onto its row line, the block lies as a table of its own", async ({ page }, testInfo) => {
+  test("a project with an old table opens without it; a block clicked where it stood lies as a table of its own", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page, await withTable(testInfo))
@@ -378,7 +378,9 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 150, 60)
       const objects = (await savedScreen(page)).objects
-      expect(objects.find((o: { id: string }) => o.id === "the-table").children).toEqual([])
+      // Old tables dissolve on load (docs/2026-10-09-snap-tables.md, module
+      // old-table-removal); this one held nothing.
+      expect(objects.find((o: { id: string }) => o.id === "the-table")).toBeUndefined()
       expect(byCell(objects.find(isSnapTable))).toEqual({ "0/0": "text", "0/1": "button-group" })
     } finally {
       await clear()

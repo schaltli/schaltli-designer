@@ -12,8 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { TABLE_SHAPES, type TableShapeId } from "@/lib/layout-templates"
-import { TableShapePicture } from "@/components/toolbar/table-shape-picture"
 import { cn } from "@/lib/utils"
 import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
 import type { CatalogEntry } from "@/lib/ha-discovery"
@@ -64,10 +62,6 @@ interface ToolbarProps {
   // the Block tool places it. Separate from onToolChange because the tool
   // needs to know which entry.
   onCatalogEntrySelect?: (entry: CatalogEntry) => void
-  // The Table tool's shapes (docs/2026-10-03-free-screens.md): which one a
-  // drawn table gets, and a shape picked in its menu - which arms the tool.
-  tableShape?: TableShapeId
-  onTableShapeSelect?: (shape: TableShapeId) => void
   // A row template picked in the Row menu, which arms the Row tool.
   onRowTemplateSelect?: (template: RowTemplate) => void
   supportsSoftwareButtons?: boolean
@@ -89,8 +83,6 @@ export function Toolbar({
   activeTool,
   onToolChange,
   onCatalogEntrySelect,
-  tableShape,
-  onTableShapeSelect,
   onRowTemplateSelect,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
@@ -155,16 +147,17 @@ export function Toolbar({
         tool("navigator", "Navigator", "A bar of every screen along an edge, on a master: a tap opens a screen"),
       ],
     },
-    // A table (docs/2026-10-02-layout-tables.md), the designer's alone:
-    // every device gets the objects inside it. A free area went from the
-    // tools on 2026-10-04, since a screen is free (docs/2026-10-03-free-
-    // screens.md), and came back on 2026-10-05: in a table's cell or a
-    // switcher's panel it is the one place things stand where they are put,
-    // and it may have a background of its own.
+    // Tables: no tool of their own - a table forms when two objects snap
+    // together (docs/2026-10-09-snap-tables.md, the Table tool gone with
+    // module old-table-removal); here the Row tool, rendered beside, and a
+    // free area. A free area went from the tools on 2026-10-04, since a
+    // screen is free (docs/2026-10-03-free-screens.md), and came back on
+    // 2026-10-05: in a table's cell or a switcher's panel it is the one
+    // place things stand where they are put, and it may have a background
+    // of its own.
     {
       label: "Tables",
       tools: [
-        tool("table", "Table", "A table from a template: what is put into it stands in its cells, as in Word"),
         tool("free", "Free", "An area where what is put into it stays where it is placed - in a table's cell too - with a background of its own"),
       ],
     },
@@ -226,57 +219,6 @@ export function Toolbar({
   const isHorizontal = orientation === "horizontal"
   const tooltipSide = isHorizontal ? "bottom" : "right"
 
-  // The Table tool: a menu of the shapes it draws, each with its picture,
-  // as the screen's Layout field offered them before screens became free.
-  const renderTableButton = (tool: ToolDef) => {
-    const Icon = tool.icon
-    const isActive = activeTool === tool.type
-    return (
-      <DropdownMenu key={tool.type}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant={isActive ? "default" : "ghost"}
-                size="sm"
-                data-testid="table-tool"
-                className={cn(isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0")}
-              >
-                <Icon className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
-                {isHorizontal && <span className="text-[10px] leading-tight text-center whitespace-nowrap">{tool.shortLabel}</span>}
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>
-            <div className="text-sm">
-              <div className="font-medium">{tool.label}</div>
-              <div className="text-muted-foreground text-xs">{tool.description}</div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="start">
-          <DropdownMenuLabel>Table template</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {TABLE_SHAPES.map((shape) => (
-            <DropdownMenuItem
-              key={shape.id}
-              data-testid={`table-shape-${shape.id}`}
-              aria-checked={tableShape === shape.id}
-              onSelect={() => onTableShapeSelect?.(shape.id)}
-              className="gap-3"
-            >
-              <TableShapePicture id={shape.id} />
-              <span className="flex flex-col">
-                <span className={cn(tableShape === shape.id && "font-medium")}>{shape.label}</span>
-                <span className="text-xs text-muted-foreground">{shape.description}</span>
-              </span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  }
-
   // The Row tool: a menu of rows - an icon, a label, a control - each carried
   // as one and put into a table by role. A row with a part the device does
   // not render is shown disabled, as a tool is.
@@ -326,7 +268,6 @@ export function Toolbar({
   }
 
   const renderToolButton = (tool: ToolDef) => {
-    if (tool.type === "table" && onTableShapeSelect) return renderTableButton(tool)
     const Icon = tool.icon
     const isActive = activeTool === tool.type
     // "select" is always available; other tools are disabled if the loaded

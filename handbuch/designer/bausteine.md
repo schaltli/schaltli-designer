@@ -80,7 +80,7 @@ Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B ru
 
 ## In einer Tabelle {#in-einem-container}
 
-Ein Baustein aus einem Teil kommt in eine Tabelle wie eine Zeile des Werkzeugs <span class="ui">Row</span>, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken). Trägst du ihn über oder unter eine Tabelle, zeigt eine dicke Linie, zwischen welche Zeilen er kommt. Beim Loslassen kommt das Icon zu den Icons, der Name zu den Namen und das Bedienelement zu den Bedienelementen. Hat der Baustein kein Icon, bleibt seine Zelle in der Icon-Spalte leer. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig. Ein Knopf wie «Restart» trägt seinen Namen selbst und kommt allein in die Spalte der Bedienelemente. Eine Tabelle des Werkzeugs <span class="ui">Table</span> nimmt keinen Baustein auf: Er bleibt eine eigene Tabelle.
+Ein Baustein aus einem Teil kommt in eine Tabelle wie eine Zeile des Werkzeugs <span class="ui">Row</span>, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken). Trägst du ihn über oder unter eine Tabelle, zeigt eine dicke Linie, zwischen welche Zeilen er kommt. Beim Loslassen kommt das Icon zu den Icons, der Name zu den Namen und das Bedienelement zu den Bedienelementen. Hat der Baustein kein Icon, bleibt seine Zelle in der Icon-Spalte leer. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig. Ein Knopf wie «Restart» trägt seinen Namen selbst und kommt allein in die Spalte der Bedienelemente.
 
 Ein Baustein aus mehreren Teilen kommt in keine Tabelle, siehe [Mehrere Teile](#mehrere-teile).
 

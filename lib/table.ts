@@ -12,6 +12,7 @@ import { fills, fit, measured, minimumWidth, naturalWidth, spacing, type LayoutS
 import { stepPx, type SizeStep } from "@/lib/size-scale"
 import { deleteObjectById, findObjectById, findParentOf, updateObjectById } from "@/lib/object-tree"
 import { isSnapTable } from "@/lib/snap-table"
+import { translateObject } from "@/lib/object-groups"
 
 export const TABLE_TYPE = "table"
 
@@ -393,6 +394,45 @@ export function migrateObjectsToTables(objects: ScreenObject[]): ScreenObject[] 
       children: converted.children,
     } as ScreenObject
   })
+}
+
+/**
+ * Every old table in `objects`, at any depth - in a panel, a free area, a
+ * group, another old table - replaced by what it holds, each where it last
+ * stood (docs/2026-10-09-snap-tables.md, module old-table-removal: no
+ * migration, the user 2026-10-09). What it held is free from then on, its
+ * old cell gone; stacking keeps its order, the table's objects where the
+ * table stood. A list without an old table comes back as it was.
+ */
+export function dissolveOldTables(objects: ScreenObject[]): ScreenObject[] {
+  let changed = false
+  // Each object with where it stacks: [its list's zIndex, then inside a
+  // dissolved table its own].
+  const out: Array<{ obj: ScreenObject; order: number[] }> = []
+  const take = (obj: ScreenObject, order: number[]) => {
+    if (obj.type === TABLE_TYPE && !isSnapTable(obj)) {
+      changed = true
+      for (const child of obj.children ?? []) {
+        const { cell: _cell, ...properties } = child.properties ?? {}
+        take(translateObject({ ...child, properties }, obj.x, obj.y), [...order, child.zIndex])
+      }
+      return
+    }
+    const children = obj.children ? dissolveOldTables(obj.children) : undefined
+    if (children !== obj.children) changed = true
+    out.push({ obj: children !== obj.children ? { ...obj, children } : obj, order })
+  }
+  for (const obj of objects) take(obj, [obj.zIndex])
+  if (!changed) return objects
+  const before = (a: number[], b: number[]) => {
+    for (let i = 0; i < Math.max(a.length, b.length); i++) if ((a[i] ?? -Infinity) !== (b[i] ?? -Infinity)) return (a[i] ?? -Infinity) - (b[i] ?? -Infinity)
+    return 0
+  }
+  const sorted = [...out].sort((a, b) => before(a.order, b.order))
+  // Numbered again from 0 in that order, so nothing that came out of a
+  // table lands behind or in front of where the table stood.
+  const zIndex = new Map(sorted.map((entry, i) => [entry, i]))
+  return out.map((entry) => (entry.obj.zIndex === zIndex.get(entry) ? entry.obj : { ...entry.obj, zIndex: zIndex.get(entry)! }))
 }
 
 /**
