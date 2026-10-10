@@ -422,6 +422,53 @@ test.describe("snap table: span", () => {
   })
 })
 
+// The selected table's column and row lines, as the canvas says.
+async function sizeLine(page: Page, kind: "column" | "row", index: number): Promise<{ x1: number; y1: number; x2: number; y2: number }> {
+  const { canvas } = await getMainCanvas(page)
+  await expect.poll(() => canvas.getAttribute("data-size-lines")).not.toBeNull()
+  const lines = JSON.parse((await canvas.getAttribute("data-size-lines"))!) as Array<{ kind: string; index: number; x1: number; y1: number; x2: number; y2: number }>
+  return lines.find((l) => l.kind === kind && l.index === index)!
+}
+async function ppmOf(page: Page): Promise<number> {
+  const { canvas } = await getMainCanvas(page)
+  return Number(await canvas.getAttribute("data-pixels-per-mm"))
+}
+
+test.describe("snap table: lines", () => {
+  test("a column dragged 10 mm wider than its content is set by hand; dragged back below it, automatic again", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    const ppm = await ppmOf(page)
+    const line = await sizeLine(page, "column", 0)
+    const y = (line.y1 + line.y2) / 2
+    await drag(page, { x: line.x1, y }, { x: line.x1 + 10 * ppm, y })
+    const wider = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const mm = wider.properties!.columns[0].mm
+    expect(typeof mm).toBe("number")
+    expect(wider.width).toBeGreaterThan(table.width + 8 * ppm)
+    // Back to the left of its content: automatic.
+    const set = await sizeLine(page, "column", 0)
+    await drag(page, { x: set.x1, y }, { x: table.x + 5, y })
+    const back = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(back.properties!.columns[0].mm).toBeUndefined()
+  })
+
+  test("a row dragged taller is set by hand; one Ctrl+Z takes it back", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    const ppm = await ppmOf(page)
+    const line = await sizeLine(page, "row", 0)
+    // Near its left end, away from where a column line crosses it.
+    const x = line.x1 + 10
+    await drag(page, { x, y: line.y1 }, { x, y: line.y1 + 8 * ppm })
+    await expect.poll(async () => typeof (await savedObjects(page)).find((o) => o.id === "grid")!.properties!.rows[0].mm).toBe("number")
+    await page.keyboard.press("ControlOrMeta+z")
+    expect((await savedObjects(page)).find((o) => o.id === "grid")!.properties!.rows[0].mm).toBeUndefined()
+  })
+})
+
 test.describe("snap table: selection", () => {
   test("a click selects the table, a double click the object in it, a click on another object of it stays inside", async ({ page }) => {
     const { zip, table } = await snapProject()
@@ -446,10 +493,12 @@ test.describe("snap table: selection", () => {
     await loadProject(page, zip)
     await click(page, middleOf(table, "pumpe"))
     await expect.poll(() => chip(page)).toBe("Table · 2×2")
-    // The table's bottom right corner, where a resize handle would sit.
+    // The table's bottom right corner, where a resize handle would sit: its
+    // last column's and row's lines meet there (Task 8), but no corner
+    // handle resizes the table as a whole.
     const corner = await at(page, { x: table.x + table.width, y: table.y + table.height })
     await page.mouse.move(corner.x, corner.y)
-    expect(await (await getMainCanvas(page)).canvas.evaluate((c) => (c as HTMLElement).style.cursor)).not.toContain("resize")
+    expect(await (await getMainCanvas(page)).canvas.evaluate((c) => (c as HTMLElement).style.cursor)).not.toMatch(/^(nw|ne|sw|se|nwse|nesw)-resize$/)
   })
 
   test("Esc goes one level up: object -> table -> nothing; Enter goes into the table", async ({ page }) => {

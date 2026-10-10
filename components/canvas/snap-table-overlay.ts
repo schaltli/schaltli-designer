@@ -161,6 +161,25 @@ export function drawSpanHandles(ctx: CanvasRenderingContext2D, handles: Array<{ 
   ctx.restore()
 }
 
+/**
+ * The column and row lines of a selected table: a size set by hand drawn
+ * solid, an automatic one faint and dashed - each to be dragged (Task 8).
+ */
+export function drawSizeLines(ctx: CanvasRenderingContext2D, lines: Array<{ x1: number; y1: number; x2: number; y2: number; byHand: boolean }>, color: string, zoom: number): void {
+  ctx.save()
+  ctx.strokeStyle = color
+  for (const l of lines) {
+    ctx.globalAlpha = l.byHand ? 1 : 0.5
+    ctx.lineWidth = (l.byHand ? 2 : 1.5) / zoom
+    ctx.setLineDash(l.byHand ? [] : [4 / zoom, 3 / zoom])
+    ctx.beginPath()
+    ctx.moveTo(l.x1, l.y1)
+    ctx.lineTo(l.x2, l.y2)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
 /** The chip above a selection's top left corner. */
 export function drawSnapChip(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, text: string, color: string, zoom: number): void {
   const size = 11 / zoom

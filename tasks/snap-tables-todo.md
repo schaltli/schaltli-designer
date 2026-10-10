@@ -329,9 +329,20 @@ dragging), below the content it turns automatic again; hand-set lines
 solid, automatic ones faint. One undo step. Handbook updated.
 
 **Acceptance criteria:**
-- [ ] A label column dragged 10 mm wider stays so when its text gets shorter.
-- [ ] Dragged back below its text, it is automatic again.
-- [ ] The width shows in mm while dragging.
+- [x] A label column dragged 10 mm wider stays so when its text gets shorter (the width set by hand in the canvas test; never lowered by content in Node, Task 1).
+- [x] Dragged back below its text, it is automatic again.
+- [x] The width shows in mm while dragging (beside the pointer, «· auto» below the content; seen, not asserted - it is drawn on the canvas only).
+
+Done 2026-10-10. A selected new table shows a line right of each column and
+below each row (`sizeLines`, `drawSizeLines`): solid when set by hand,
+dashed when automatic; col/row-resize cursor over them. Dragged, the size
+goes to millimetres (0.1 mm) when wider or taller than the content needs,
+else back to automatic (`setLineSize`); one gesture, one undo step. Found
+by a test: where a row line crosses a column line both were near - the
+nearer across now wins (`sizeLineAt`). The Task 4 test «no resize handle»
+now allows the last column's and row's lines at the table's corner. The
+canvas carries `data-size-lines`. Handbook: «Spalten breiter, Zeilen
+höher». Ran 134 specs: green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g lines`; typecheck.
 
