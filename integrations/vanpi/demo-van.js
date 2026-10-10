@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The van of demo.schaltli.com (docs/2026-10-09-demo-instance.md, decision 6).
 //
-// A conversion in progress, and stage one is light: three dimmers and two
-// relays. What answers the designer is the real VanPi bridge - the flow
+// A conversion in progress: stage one was light - three dimmers and two
+// relays -, stage two water - a fresh and a grey water tank, and a relay
+// that lets the grey water out. What answers the designer is the real VanPi bridge - the flow
 // buildBridgeFlow() installs into Node-RED on every Pekaway - run here
 // outside Node-RED, node by node and wired as the flow wires them, the way
 // e2e/vanpi-bridge.spec.ts runs it. Where that flow talks to Pekaway, a fake
@@ -16,8 +17,8 @@
 // schaltli/demo/time ("HH:MM"). Nothing in Pekaway's format reads them; the
 // designer's «Your van» does.
 //
-// It goes back to its seed - every light off - at 04:00 and after an hour
-// without a command.
+// It goes back to its seed - every light off, the tanks part full - at 04:00
+// and after an hour without a command.
 //
 //   node integrations/vanpi/demo-van.js [--broker mqtt://localhost:1883]
 //        [--day-seconds 600] [--idle-minutes 60]
@@ -26,7 +27,7 @@
 const mqtt = require("mqtt")
 const { buildBridgeFlow } = require("./build-flow")
 
-/** What the van has, as Pekaway would report it, all off. */
+/** What the van has, as Pekaway would report it, all off, the tanks part full. */
 function seed() {
   return {
     relay: {
@@ -34,6 +35,12 @@ function seed() {
       "Relay1 Name": "Lichterkette",
       Relay2: false,
       "Relay2 Name": "Aussenlicht",
+      Relay3: false,
+      "Relay3 Name": "Grauwasser ablassen",
+    },
+    level: {
+      level1: { state: 80, name: "Frischwasser" },
+      level2: { state: 35, name: "Grauwasser" },
     },
     dimmer: {
       "Dimmer Settings": true,
@@ -43,6 +50,12 @@ function seed() {
     },
   }
 }
+
+// Fresh water used: about 1 % a minute, so a visitor sees it move. An open
+// drain empties a full grey water tank in under a minute.
+const USE_PER_SECOND = 1 / 60
+const DRAIN_PER_SECOND = 2
+const round1 = (v) => Math.round(v * 10) / 10
 
 /** The fake Pekaway: its state, its answers, what its commands do. */
 function fakePekaway() {
@@ -56,7 +69,29 @@ function fakePekaway() {
     },
     /** The answer to pkw/stat/<kind>, or null for a kind the van does not have. */
     answer(kind) {
-      return kind in state ? JSON.stringify(state[kind]) : null
+      if (!(kind in state)) return null
+      // Pekaway reports a tank in whole percent.
+      if (kind === "level") {
+        const whole = {}
+        for (const [k, tank] of Object.entries(state.level)) whole[k] = { ...tank, state: Math.round(tank.state) }
+        return JSON.stringify(whole)
+      }
+      return JSON.stringify(state[kind])
+    },
+    /**
+     * Time passing: water is used - fresh water goes down, grey water up -,
+     * and an open drain lets the grey water out. Called every few seconds;
+     * `seconds` is how many have passed.
+     */
+    tick(seconds) {
+      const fresh = state.level.level1
+      const grey = state.level.level2
+      const used = Math.min(fresh.state, seconds * USE_PER_SECOND)
+      fresh.state = round1(fresh.state - used)
+      grey.state = round1(Math.min(100, grey.state + used * 0.8))
+      if (state.relay.Relay3) grey.state = round1(Math.max(0, grey.state - seconds * DRAIN_PER_SECOND))
+      // An empty fresh water tank is filled again at the next stop.
+      if (fresh.state <= 5) fresh.state = 100
     },
     /** A pkw/cmnd/... message; true when it changed something. */
     command(topic, payload) {
@@ -226,6 +261,7 @@ function startDemoVan({
     setInterval(() => {
       if (!client.connected) return
       const now = Date.now()
+      pekaway.tick(2)
       const clock = vanClock(now, daySeconds)
       client.publish("schaltli/demo/daylight", String(clock.daylight), { retain: true })
       client.publish("schaltli/demo/time", clock.time, { retain: true })

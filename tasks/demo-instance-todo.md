@@ -129,22 +129,28 @@ broker, pixels of the windows and the sky compared).
 
 **Scope:** M
 
-## Task 7: The start project «Camper»
+## Task 7: The start project «Camper», and stage two: water
 
-**Description:** decision 7, built in the designer against the demo van,
-saved to `deploy/demo/Camper.zip`.
+**Description:** decision 7, `deploy/demo/camper-project.ts`; the demo van's
+stage two (decision 6).
 
 **Acceptance criteria:**
-- [ ] One screen «Licht»: three dimmers, two relays, names as live values,
-      the theme switch; opens without warnings.
-- [ ] Every bound topic is one the demo van publishes.
-- [ ] In the preview against the demo van the lights answer, and the scene
-      follows.
+- [x] Licht: Innenlicht dial, Einstieg slider, Küche / Lichterkette /
+      Aussenlicht switches, names as live values; the page icon burns while
+      any light does (combined topic `licht_an`, live icon).
+- [x] Wasser: two tanks and «Grauwasser ablassen» («Zu»/«Offen»).
+- [x] The navigator on the master.
+- [x] Every bound topic is one the demo van publishes, every written one a
+      command the bridge takes, all declared.
+- [x] In the preview against the demo van the lights and the drain answer,
+      the tanks move, the scene follows (seen 2026-10-10, pictures to the user).
 
-**Verification:** a spec that opens `deploy/demo/Camper.zip` and checks
-its topics against the demo van's.
+Done 2026-10-10. The demo van grew stage two: two tanks and the drain relay.
 
-**Scope:** S
+**Verification:** `e2e/demo-camper.spec.ts` (topics, pages, written into a
+project store and read back); `e2e/demo-van.spec.ts` (the water).
+
+**Scope:** M
 
 ## Task 8: The phone start page
 

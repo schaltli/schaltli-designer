@@ -31,11 +31,13 @@ async function clearRetained(client: mqtt.MqttClient, topics: string[]) {
   await Promise.all(topics.map((t) => new Promise((r) => client.publish(t, "", { retain: true, qos: 1 }, r))))
 }
 
-test("the fake Pekaway has only the light, answers in Pekaway's format, and its commands change it", () => {
+test("the fake Pekaway has the light and the water, answers in Pekaway's format, and its commands change it", () => {
   const pekaway = fakePekaway()
   expect(JSON.parse(pekaway.answer("dimmer")!)).toMatchObject({ dimmer1: { state: 0, name: "Innenlicht" }, dimmer3: { name: "Einstieg" } })
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay1: false, "Relay2 Name": "Aussenlicht" })
-  for (const kind of ["batt", "level", "temp", "heater", "maxxfan", "mppt", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
+  expect(JSON.parse(pekaway.answer("level")!)).toEqual({ level1: { state: 80, name: "Frischwasser" }, level2: { state: 35, name: "Grauwasser" } })
+  expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay3: false, "Relay3 Name": "Grauwasser ablassen" })
+  for (const kind of ["batt", "temp", "heater", "maxxfan", "mppt", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
 
   expect(pekaway.command("pkw/cmnd/dimmer/2/POWER", "60")).toBe(true)
   expect(pekaway.command("pkw/cmnd/relay/1/POWER", "on")).toBe(true)
@@ -46,6 +48,15 @@ test("the fake Pekaway has only the light, answers in Pekaway's format, and its 
   pekaway.reset()
   expect(pekaway.state.dimmer.dimmer2.state).toBe(0)
   expect(pekaway.state.relay.Relay1).toBe(false)
+
+  // Water is used: fresh down, grey up; an open drain empties the grey tank.
+  pekaway.tick(60)
+  expect(pekaway.state.level.level1.state).toBe(79)
+  expect(pekaway.state.level.level2.state).toBeCloseTo(35.8)
+  expect(pekaway.command("pkw/cmnd/relay/3/POWER", "on")).toBe(true)
+  pekaway.tick(30)
+  expect(pekaway.state.level.level2.state).toBe(0)
+  expect(JSON.parse(pekaway.answer("level")!).level1.state).toBe(79)
 })
 
 test("the van's clock: night, dawn, noon, dusk, in a ten-minute day", () => {
@@ -72,18 +83,23 @@ test("through the real bridge: the lights are announced and published, switched 
     return (publish as any)(topic, ...rest)
   }
   try {
-    // Announced as blocks: three lights, two switches, and the bridge's own
-    // theme switch - nothing of what the van has not got.
+    // Announced as blocks: three lights, two tanks, three switches, and the
+    // bridge's own theme switch - nothing of what the van has not got.
     await expect.poll(() => [...seen.keys()].filter((t) => t.startsWith("homeassistant/")).sort(), { timeout: 15_000 }).toEqual([
       "homeassistant/light/schaltli-vanpi/dimmer_1/config",
       "homeassistant/light/schaltli-vanpi/dimmer_2/config",
       "homeassistant/light/schaltli-vanpi/dimmer_3/config",
+      "homeassistant/sensor/schaltli-vanpi/tank_1/config",
+      "homeassistant/sensor/schaltli-vanpi/tank_2/config",
       "homeassistant/switch/schaltli-vanpi/relay_1/config",
       "homeassistant/switch/schaltli-vanpi/relay_2/config",
+      "homeassistant/switch/schaltli-vanpi/relay_3/config",
       "homeassistant/switch/schaltli-vanpi/theme/config",
     ])
     await expect.poll(() => seen.get("schaltli/state/dimmer/1/name")).toBe("Innenlicht")
     await expect.poll(() => seen.get("schaltli/state/relay/2/name")).toBe("Aussenlicht")
+    await expect.poll(() => seen.get("schaltli/state/tank/1/name")).toBe("Frischwasser")
+    await expect.poll(() => seen.get("schaltli/state/tank/2/level")).toMatch(/^\d+$/)
     // (Nothing more to check for kinds it has not got: the announcements above
     // are exact, and the broker may hold retained states of other runs.)
 

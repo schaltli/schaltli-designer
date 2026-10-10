@@ -84,7 +84,7 @@ export function DemoScenePanel() {
       </div>
       <div data-testid="demo-scene" className="px-2 pt-2 text-foreground" dangerouslySetInnerHTML={{ __html: svg }} />
       <p className="px-3 pb-3 text-xs text-muted-foreground">
-        This van is a conversion in progress. So far: light. Next: solar?{" "}
+        This van is a conversion in progress. So far: light and water. Next: solar?{" "}
         <a href={DEMO_FORUM_URL} target="_blank" rel="noreferrer" className="underline">
           Say what comes next
         </a>

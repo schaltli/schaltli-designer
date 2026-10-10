@@ -13,7 +13,8 @@ Status: spec agreed 2026-10-09. Plan: tasks/demo-instance-plan.md.
 
 The demo van is **a conversion in progress** - a community project. Stage
 one is light: a few dimmers and relays, a few MQTT messages, a few blocks.
-Solar, tanks, the heater come later as further stages, each one a reason
+Stage two, water, followed on 2026-10-10: fresh and grey water and a valve
+for the grey. Solar, the battery, the heater come later as further stages, each one a reason
 for a new forum post, and the forum may say what goes in next.
 
 A Pekaway owner from the forum opens one link and, without installing
@@ -110,7 +111,12 @@ announcement.
      Pekaway's format, as recorded in the van; every other kind gets no
      answer, so the bridge announces and publishes nothing for it;
    - `pkw/cmnd/dimmer/<n>/POWER` and `pkw/cmnd/relay/<n>/POWER` change its
-     state.
+     state;
+   - stage two, water: `pkw/stat/level` with Frischwasser and Grauwasser in
+     whole percent, and a third relay «Grauwasser ablassen». Fresh water is
+     used at about 1 % a minute, grey water rises with it; an open valve
+     empties the grey tank in under a minute; an empty fresh tank is filled
+     again.
 
    Beside the bridge it keeps **the van's clock**: a day lasts ten minutes,
    published retained as `schaltli/demo/daylight` (0 night … 1 noon) every
@@ -120,12 +126,22 @@ announcement.
    without a command. A systemd unit restarts it on failure. Later stages
    add kinds to the fake Pekaway; the bridge already knows them all.
 
-7. **The start project «Camper»** for the 4.3B, in the repo as
-   `deploy/demo/Camper.zip`: one screen «Licht» with the three dimmers and
-   the two relays, from the VanPi blocks the demo van announces, their names
-   as live values from Pekaway's names; the theme switch. No navigator until
-   a second stage brings a second screen. The 4.3B's description from
-   `public/ddf/`. (#56's start project for real installs grows from it.)
+7. **The start project «Camper»** for the 4.3B, built by
+   `deploy/demo/camper-project.ts` from the device's own description, the
+   way New Project builds one. Two pages and a master with the navigator:
+   - **Licht:** Innenlicht on a dial, Einstieg on a slider, Küche,
+     Lichterkette and Aussenlicht as switches («Aus»/«An»), every name a live
+     value from Pekaway's names. The page's icon is a live icon on the
+     combined topic `licht_an` (any of the five on): a burning bulb, else an
+     unlit one - the project's own three icons.
+   - **Wasser:** Frischwasser and Grauwasser as tanks, and «Grauwasser
+     ablassen» («Zu»/«Offen») - named by what it does, not by the part
+     (2026-10-10).
+
+   Not kept as a file: the device's fonts make it 3 MB. e2e/demo-camper.spec.ts
+   with `DEMO_SEED_DIR` writes it into a project store in the designer's
+   format, which the server's setup copies over. (#56's start project for
+   real installs grows from it.)
 
 8. **«Your van» where the Projects panel is.** In demo mode the far-left
    column (`components/projects-panel.tsx`) shows a scene instead of the
@@ -139,8 +155,8 @@ announcement.
      their dimmers (`schaltli/state/dimmer/<n>/level`), the third dimmer the
      step light and the ground it lights, the relays the fairy light and the
      lamp above the sliding door; a legend with Pekaway's names;
-   - a line beneath: «This van is a conversion in progress. So far: light.
-     Next: solar?» with a link to the forum thread.
+   - a line beneath: «This van is a conversion in progress. So far: light
+     and water. Next: solar?» with a link to the forum thread.
 
    It listens to the broker like the preview, not to the preview: a light
    another visitor switches lights here too. The drawing is a plain flat
@@ -196,7 +212,7 @@ announcement.
 ## Later stages
 
 Solar (the yield following the clock, 150 W at noon, 0 at night), the
-battery, tanks, the heater with its timer popup, the MaxxFan turning on the
+battery, the heater with its timer popup, the MaxxFan turning on the
 roof - each a kind added to the fake Pekaway, a part of the scene, a screen
 in «Camper», and a forum post. Not specified yet.
 
