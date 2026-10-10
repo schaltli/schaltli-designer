@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { loadProject, getMainCanvas, objectTreeRow, devicePoint, createProject, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { loadProject, getMainCanvas, objectTreeRow, devicePoint, createProject, placingFreely, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { levelTrackLook } from "../lib/level-shape"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
@@ -712,8 +712,11 @@ test.describe("objects created from the toolbar", () => {
       const to = devicePoint(box, 240, 210)
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
-      await page.mouse.move(to.x, to.y, { steps: 5 })
-      await page.mouse.up()
+      // Freely: every tool draws in the same place, where the next would snap.
+      await placingFreely(page, async () => {
+        await page.mouse.move(to.x, to.y, { steps: 5 })
+        await page.mouse.up()
+      })
       await page.waitForTimeout(150)
       await page.keyboard.press("Escape")
     }

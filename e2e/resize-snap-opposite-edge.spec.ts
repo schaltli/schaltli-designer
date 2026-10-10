@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, openFrameSection } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, openFrameSection, placingFreely } from "./helpers"
 
 // Regression test for a bug reported 2026-07-26: with a snap grid enabled,
 // resizing a large object (e.g. a level indicator) by dragging one corner
@@ -33,8 +33,11 @@ test("resizing one corner with snap-to-grid keeps the opposite corner fixed", as
   const { box } = await getMainCanvas(page)
   await page.mouse.move(box.x + 200, box.y + 200)
   await page.mouse.down()
-  await page.mouse.move(box.x + 260, box.y + 260, { steps: 5 })
-  await page.mouse.up()
+  // Freely: it ends beside an object of the project, where it would snap.
+  await placingFreely(page, async () => {
+    await page.mouse.move(box.x + 260, box.y + 260, { steps: 5 })
+    await page.mouse.up()
+  })
 
   // Since the panel rebuild the four numbers live in the Frame section,
   // which starts closed (docs/2026-09-20-property-panel.md).

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, placingFreely } from "./helpers"
 
 // Combined topics in the designer (docs/2026-10-07-live-values.md, decisions
 // 10-15; tasks/live-values-todo.md, Task 12): made in Project Settings ›
@@ -57,8 +57,11 @@ test.describe("combined topics", () => {
     const b = devicePoint(box, 220, 224)
     await page.mouse.move(a.x, a.y)
     await page.mouse.down()
-    await page.mouse.move(b.x, b.y, { steps: 5 })
-    await page.mouse.up()
+    // Freely: drawn beside the project's objects, where it would snap.
+    await placingFreely(page, async () => {
+      await page.mouse.move(b.x, b.y, { steps: 5 })
+      await page.mouse.up()
+    })
     await page.keyboard.type("Frost: ")
     await page.keyboard.type("{")
     await expect(page.getByRole("group", { name: "Combined" })).toContainText("frost")

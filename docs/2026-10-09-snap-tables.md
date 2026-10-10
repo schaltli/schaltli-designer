@@ -152,6 +152,14 @@ x, y, width and height. The device contract does not change.
 
   Over an occupied cell the nearest of its four edges wins. Released
   elsewhere, the object lies free. Esc while dragging puts everything back.
+
+  **Snapping is on, Ctrl/⌘ held while dragging turns it off** (decided by
+  the user 2026-10-10, as Figma does for frames). Found at Task 5: on a
+  free screen every drag or drawn rectangle that ended within 5 mm of
+  another object made a table - seven existing tests that place objects
+  side by side on purpose did so; they now hold Ctrl (`placingFreely`,
+  e2e/helpers.ts). Ctrl at the press itself still adds to the selection,
+  so it is pressed once dragging.
 - **Selection, two levels.** A click on a table selects the table. A
   double click selects the object under the pointer. With an object in a
   table selected, a click on another object of the same table selects that

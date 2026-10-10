@@ -3,8 +3,10 @@ import type { ScreenObject } from "../components/project-editor"
 import { layoutProject, naturalWidth } from "../lib/layout"
 import { dissolveGroupsInProject } from "../lib/object-groups"
 import {
+  applySnapDrop,
   arrangeSnapTable,
   freeSideAt,
+  snapDropAt,
   insertSnapColumn,
   insertSnapRow,
   isSnapTable,
@@ -258,6 +260,58 @@ test.describe("snap table: editing", () => {
     expect(freeSideAt(o, { x: 145, y: 110 }, 25)).toBe("right")
     expect(freeSideAt(o, { x: 120, y: 125 }, 25)).toBe("bottom")
     expect(freeSideAt(o, { x: 120, y: 60 }, 25)).toBeNull()
+  })
+})
+
+test.describe("snap table: drops", () => {
+  const free = (id: string, x: number, y: number, extra: Partial<ScreenObject> = {}): ScreenObject => ({ id, type: "box", x, y, width: 40, height: 20, zIndex: ids++, properties: {}, ...extra })
+
+  test("three free objects dragged one next to the other become one table of one row", () => {
+    const a = free("a", 100, 100)
+    const b = free("b", 0, 200)
+    const c = free("c", 0, 250)
+    let objects = [a, b, c]
+    // b let go just right of a.
+    const first = snapDropAt(objects, "b", { x: 145, y: 110 }, 25, SCALE)
+    expect(first).toEqual({ kind: "pair", stillId: "a", side: "right" })
+    objects = applySnapDrop(objects, "b", first!, SCALE)
+    expect(objects.map((o) => o.type)).toEqual(["table", "box"])
+    const pair = objects[0]
+    expect(abs(pair, "a")).toEqual({ x: 100, y: 100 })
+    // c let go just right of the table.
+    const second = snapDropAt(objects, "c", { x: pair.x + pair.width + 5, y: pair.y + 10 }, 25, SCALE)
+    expect(second).toEqual({ kind: "table", tableId: pair.id, target: { kind: "column", at: 2, row: 0 } })
+    objects = applySnapDrop(objects, "c", second!, SCALE)
+    expect(objects).toHaveLength(1)
+    const row = objects[0]
+    expect(row.children!.map((o) => [o.id, snapCellOf(o).column, snapCellOf(o).row])).toEqual([
+      ["a", 0, 0],
+      ["b", 1, 0],
+      ["c", 2, 0],
+    ])
+    expect(abs(row, "a")).toEqual({ x: 100, y: 100 })
+  })
+
+  test("dropped on an empty cell it fills it; left of a row it adds a column, what stood there keeping its place", () => {
+    const table = grid3()
+    const g = snapTableGeometry(table, SCALE)
+    const label = free("label", 0, 0, { width: 30 })
+    const middle = { x: table.x + g.lefts[1] + 5, y: table.y + g.tops[1] + 5 }
+    const into = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", middle, 25, SCALE)!, SCALE)
+    expect(cellOfId(into[0], "label")).toMatchObject({ row: 1, column: 1 })
+    const left = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", { x: table.x - 5, y: table.y + 5 }, 25, SCALE)!, SCALE)
+    expect(cellOfId(left[0], "label")).toMatchObject({ row: 0, column: 0 })
+    expect(cellOfId(left[0], "r0c0")).toMatchObject({ row: 0, column: 1 })
+    expect(abs(left[0], "r0c0")).toEqual(abs(table, "r0c0"))
+  })
+
+  test("a group, a table and anything far away do not snap", () => {
+    const a = free("a", 100, 100)
+    const group = free("g", 0, 0, { type: "group", children: [] })
+    expect(snapDropAt([a, group], "g", { x: 145, y: 110 }, 25, SCALE)).toBeNull()
+    expect(snapDropAt([a, free("b", 0, 0)], "b", { x: 300, y: 300 }, 25, SCALE)).toBeNull()
+    const t = grid3()
+    expect(snapDropAt([a, t], t.id, { x: 145, y: 110 }, 25, SCALE)).toBeNull()
   })
 })
 

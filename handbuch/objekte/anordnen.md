@@ -1,5 +1,20 @@
 # Anordnen
 
+## Zusammenstecken {#zusammenstecken}
+
+Eine Tabelle baust du auch ohne Werkzeug. Ziehst du ein Objekt nahe an ein anderes heran, etwa einen Schalter rechts neben einen Text, zeigt eine Linie an dessen Rand, wo es hinkommt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen bündig nebeneinander.
+
+Ziehst du ein weiteres Objekt an diese Tabelle, zeigt sie, wohin es kommt:
+
+- Über einer leeren Zelle leuchtet die Zelle grün.
+- An einer Kante erscheint eine dicke Linie zwischen zwei Spalten oder Zeilen, kräftig dort, wo das Objekt hinkommt, blass über den Rest. Beim Loslassen entsteht dort eine neue Spalte oder Zeile. Was schon dastand, bleibt an seinem Platz.
+
+Mit einem neuen Objekt aus der Werkzeugleiste geht es genauso: Ziehst du sein Rechteck bis an ein anderes Objekt heran, landet es gleich in der Tabelle. Eingerastet wird etwa 5 mm um ein Objekt oder eine Tabelle herum, weiter weg bleibt das Objekt frei liegen. Willst du ein Objekt frei neben ein anderes legen, hältst du während des Ziehens <kbd>Strg</kbd> gedrückt (auf dem Mac <kbd>⌘</kbd>): Dann rastet nichts ein. Drück die Taste erst, wenn du schon ziehst, denn <kbd>Strg</kbd> beim Klick nimmt ein Objekt zur Auswahl hinzu. <kbd>Esc</kbd> während des Ziehens legt das Objekt an seinen Platz zurück, und <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt das Einrasten in einem Schritt zurück. Gruppen rasten nicht ein.
+
+Eine Spalte ist so breit wie ihr breitestes Objekt, eine Zeile so hoch wie ihr höchstes. So stehen alle Schalter einer Spalte untereinander. Die Tabelle ist so gross wie ihr Inhalt, darum hat sie keine Anfasser zum Vergrössern, und die Objekte darin auch nicht.
+
+**Auswählen.** Ein Klick auf die Tabelle wählt sie als Ganzes. Ihre Zellen zeigen sich dann gestrichelt, und ein Schild über der linken oberen Ecke nennt sie, etwa «Table · 3×2» für drei Spalten und zwei Zeilen. Ziehst du sie, verschiebst du sie mit allem darin. Ein Doppelklick wählt ein Objekt in der Tabelle, danach wählt ein Klick auf ein anderes Objekt derselben Tabelle dieses. <kbd>Esc</kbd> geht eine Stufe zurück, vom Objekt zur Tabelle und von dort zu nichts. <kbd>Enter</kbd> geht von der Tabelle zu ihrem ersten Objekt.
+
 ## Container {#container}
 
 Eine Tabelle ordnet, was du hineinlegst, in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle, so stehen Namen und Bedienelemente bündig untereinander. Du schiebst nichts auf den Pixel genau: Die Tabelle sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät.

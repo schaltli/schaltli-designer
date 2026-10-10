@@ -65,8 +65,8 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { layoutProject } from "@/lib/layout"
-import { firstInReadingOrder, isSnapTable } from "@/lib/snap-table"
+import { FALLBACK_SCALE, layoutProject } from "@/lib/layout"
+import { applySnapDrop, firstInReadingOrder, isSnapTable, type SnapDrop } from "@/lib/snap-table"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
@@ -1850,8 +1850,34 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     (
       object: Omit<ScreenObject, "id" | "zIndex">,
       parentId?: string,
-      at?: { table: TableDrop },
+      at?: { table: TableDrop } | { snap: SnapDrop },
     ) => {
+      // Drawn where a table put together by snapping takes it: added, then
+      // snapped there as if dragged (docs/2026-10-09-snap-tables.md).
+      if (at && "snap" in at) {
+        const id = `obj-${project.nextId}`
+        const newTableId = `obj-${project.nextId + 1}`
+        const drop = at.snap
+        setProject((prev) => {
+          const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+          const add = (list: ScreenObject[]) =>
+            applySnapDrop([...list, { ...object, id, zIndex: Math.max(0, ...list.map((o) => o.zIndex)) + 1 } as ScreenObject], id, drop, scale, newTableId)
+          return {
+            ...prev,
+            nextId: prev.nextId + (drop.kind === "pair" ? 2 : 1),
+            screens: prev.screens.map((screen) => {
+              if (screen.id !== currentScreenId) return screen
+              if (!parentId) return { ...screen, objects: add(screen.objects) }
+              const space = findObjectById(screen.objects, parentId)
+              return space ? { ...screen, objects: updateObjectById(screen.objects, parentId, { children: add(space.children ?? []) }) } : screen
+            }),
+          }
+        })
+        setEditingContainerId(drop.kind === "table" ? drop.tableId : newTableId)
+        setSelectedObjectIds([id])
+        setJustCreatedId(id)
+        return
+      }
       // Into a table's cell, a new row inserted first when it was a row line
       // (lib/table.ts, docs/2026-10-02-layout-tables.md).
       if (at && "table" in at) {
@@ -2387,6 +2413,34 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       }))
     },
     [currentScreenId, setProject],
+  )
+
+  // A dragged object let go near a table put together by snapping or a free
+  // object (docs/2026-10-09-snap-tables.md): into the table, or a new table
+  // with it. In the space being worked in - the screen, or the panel, group
+  // or free area open - and then that table is open with the object chosen.
+  const snapDrop = useCallback(
+    (movingId: string, drop: SnapDrop) => {
+      const newTableId = `obj-${project.nextId}`
+      const tableId = drop.kind === "table" ? drop.tableId : newTableId
+      setProject((prev) => {
+        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        return {
+          ...prev,
+          nextId: drop.kind === "pair" ? prev.nextId + 1 : prev.nextId,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            if (!editingContainerId) return { ...screen, objects: applySnapDrop(screen.objects, movingId, drop, scale, newTableId) }
+            const space = findObjectById(screen.objects, editingContainerId)
+            if (!space) return screen
+            return { ...screen, objects: updateObjectById(screen.objects, space.id, { children: applySnapDrop(space.children ?? [], movingId, drop, scale, newTableId) }) }
+          }),
+        }
+      })
+      setEditingContainerId(tableId)
+      setSelectedObjectIds([movingId])
+    },
+    [currentScreenId, editingContainerId, project.nextId, setProject],
   )
 
   const moveObject = useCallback(
@@ -4209,6 +4263,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onAddObject={addObject}
             onMoveObject={moveObject}
             onMoveToTable={moveToTable}
+            onSnapDrop={snapDrop}
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}

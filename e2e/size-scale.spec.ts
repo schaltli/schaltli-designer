@@ -34,7 +34,7 @@ import type { Typography } from "../lib/device-description"
 import { calculateTextObjectHeight } from "../lib/font-utils"
 import { BDFFont } from "../lib/bdffont"
 import type { Project, ProjectFont } from "../components/project-editor"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, placingFreely, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
 // A device description says how large its screen is in millimetres, what
@@ -954,8 +954,12 @@ test.describe("a level's size step", () => {
     const b = devicePoint(box, to[0], to[1], ROUND_FIXTURE_SCREEN)
     await page.mouse.move(a.x, a.y)
     await page.mouse.down()
-    await page.mouse.move(b.x, b.y, { steps: 8 })
-    await page.mouse.up()
+    // Freely: these objects are drawn and resized beside one another, where
+    // they would snap into a table.
+    await placingFreely(page, async () => {
+      await page.mouse.move(b.x, b.y, { steps: 8 })
+      await page.mouse.up()
+    })
   }
   async function draw(page: Page, tool: string, from: [number, number], to: [number, number]) {
     await page.getByRole("button", { name: tool, exact: true }).first().click()

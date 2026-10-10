@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, placingFreely } from "./helpers"
 
 // A text's values are chips (docs/2026-10-07-live-values.md, «Chips in a
 // text»; tasks/live-values-todo.md, Tasks 6 and 7): typed around, stepped
@@ -23,8 +23,11 @@ async function drawText(page: Page, x: number, y: number) {
   const to = devicePoint(box, x + 200, y + 24)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move(to.x, to.y, { steps: 5 })
-  await page.mouse.up()
+  // Freely: texts are drawn one under the other, where they would snap.
+  await placingFreely(page, async () => {
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+  })
   await expect(page.locator("#text")).toBeFocused()
 }
 

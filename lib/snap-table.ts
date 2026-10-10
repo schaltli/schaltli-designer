@@ -385,13 +385,13 @@ export function keepInPlace(before: ScreenObject, after: ScreenObject, scale: La
 }
 
 /** Two free objects as a table: `moving` at `side` of `still`, which keeps its place. */
-export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSide, scale: LayoutScale): ScreenObject {
+export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSide, scale: LayoutScale, id = `table-${still.id}`): ScreenObject {
   const along = side === "left" || side === "right"
   const first = side === "left" || side === "top" ? moving : still
   const second = first === moving ? still : moving
   const at = (obj: ScreenObject, i: number) => withCell({ ...obj, x: 0, y: 0 }, along ? { row: 0, column: i } : { row: i, column: 0 })
   const table: ScreenObject = {
-    id: `table-${still.id}`,
+    id,
     type: "table",
     x: still.x,
     y: still.y,
@@ -451,6 +451,68 @@ export function snapTargetAt(table: ScreenObject, point: { x: number; y: number 
   if (nearest === 1 - fx) return { kind: "column", at: cell.column + cell.columnSpan!, row }
   if (nearest === fy) return { kind: "row", at: cell.row, column }
   return { kind: "row", at: cell.row + cell.rowSpan!, column }
+}
+
+/** Where a dragged object snaps: beside a free object, or into a table. */
+export type SnapDrop = { kind: "pair"; stillId: string; side: SnapSide } | { kind: "table"; tableId: string; target: SnapTarget }
+
+/** What may stand in a cell: anything but a group, a table and the navigator. */
+export function canStandInCell(obj: ScreenObject): boolean {
+  return obj.type !== "group" && obj.type !== "table" && obj.type !== "navigator"
+}
+
+/**
+ * Where a drop at `point` would snap the object `movingId`, among the
+ * objects of one space (a screen's, a panel's, a free area's - all in the
+ * same coordinates as the point): the topmost table or free object within
+ * `zone` of it. Null when nothing is that near, or when the object may not
+ * stand in a cell.
+ */
+export function snapDropAt(objects: ScreenObject[], movingId: string, point: { x: number; y: number }, zone: number, scale: LayoutScale): SnapDrop | null {
+  const moving = objects.find((o) => o.id === movingId)
+  if (!moving || !canStandInCell(moving)) return null
+  const byTop = [...objects].sort((a, b) => b.zIndex - a.zIndex)
+  for (const obj of byTop) {
+    if (obj.id === movingId || obj.locked) continue
+    if (isSnapTable(obj)) {
+      const target = snapTargetAt(obj, point, zone, scale)
+      if (target) return { kind: "table", tableId: obj.id, target }
+    } else if (canStandInCell(obj)) {
+      const side = freeSideAt(obj, point, zone)
+      if (side) return { kind: "pair", stillId: obj.id, side }
+    }
+  }
+  return null
+}
+
+/**
+ * A drop applied to the objects of one space: the moving object leaves the
+ * list and stands in the table, or forms one with the object it was dropped
+ * beside. What was there keeps its place on the screen. The list as it was
+ * when the drop is not possible any more (the cell taken meanwhile).
+ */
+export function applySnapDrop(objects: ScreenObject[], movingId: string, drop: SnapDrop, scale: LayoutScale, newTableId?: string): ScreenObject[] {
+  const moving = objects.find((o) => o.id === movingId)
+  if (!moving) return objects
+  const rest = objects.filter((o) => o.id !== movingId)
+  if (drop.kind === "pair") {
+    const still = rest.find((o) => o.id === drop.stillId)
+    if (!still) return objects
+    const table = snapPair(still, moving, drop.side, scale, newTableId)
+    return rest.map((o) => (o.id === still.id ? table : o))
+  }
+  const table = rest.find((o) => o.id === drop.tableId)
+  if (!table) return objects
+  const laid = arrangeSnapTable(table, scale)
+  const t = drop.target
+  let next: ScreenObject
+  if (t.kind === "cell") {
+    if (occupancy(laid)[t.row]?.[t.column] !== null) return objects
+    next = placeInCell(laid, moving, t.row, t.column)
+  } else if (t.kind === "column") next = placeInCell(insertSnapColumn(laid, t.at), moving, t.row, t.at)
+  else next = placeInCell(insertSnapRow(laid, t.at), moving, t.at, t.column)
+  const kept = keepInPlace(laid, next, scale)
+  return rest.map((o) => (o.id === table.id ? kept : o))
 }
 
 /** The side of a free object a drop at a point goes to; null when the point is not within `zone` of it. */

@@ -153,10 +153,32 @@ free; Esc puts everything back. One undo step. Handbook: a new section on
 snapping in `handbuch/objekte/anordnen.md`.
 
 **Acceptance criteria:**
-- [ ] Three free switches dragged one next to the other become one table of one row.
-- [ ] A label dropped left of a table row inserts a column; dropped on an empty cell fills it.
-- [ ] Esc while dragging restores the project; one Ctrl+Z undoes a snap.
-- [ ] The handbook section exists and its quoted labels pass `e2e/handbook-labels.spec.ts`.
+- [x] Three free switches dragged one next to the other become one table of one row (tested with texts).
+- [x] A label dropped left of a table row inserts a column; dropped on an empty cell fills it (Node).
+- [x] Esc while dragging restores the project; one Ctrl+Z undoes a snap.
+- [x] The handbook section exists and its quoted labels pass `e2e/handbook-labels.spec.ts`.
+
+Done 2026-10-10. `snapDropAt`/`applySnapDrop` (lib/snap-table.ts) find
+and apply a drop in one space (screen, panel, group, free area); the canvas
+shows it while dragging (`drawSnapDrop`: green cell, insertion line strong
+along its row/column, a line along a free object's edge) and the editor
+applies it on release (`snapDrop`), opening the table with the object
+chosen. A new object drawn with a tool snaps the same way (`onAddObject`
+takes `{ snap }`). One free object at a time; not from inside a new table
+(Task 6); groups, tables, the navigator never stand in a cell. Esc while
+dragging puts the object back. Zone 5 mm (open question 5). Handbook:
+section «Zusammenstecken» in `objekte/anordnen.md`.
+
+The full suite then showed snapping on by default made tables of every
+drag ending near another object; the user decided (2026-10-10): snapping
+stays on, Ctrl/⌘ held while dragging turns it off. Seven tests that place
+side by side on purpose hold Ctrl now (`placingFreely`, e2e/helpers.ts).
+The worktree needed its own `.env.local` (`NEXT_PUBLIC_DEPLOY_ENABLED=true`
+only) - without it ~45 deploy, export and recovery tests failed - and
+`e2e/page-icon-export.spec.ts` reads `SCHALTLI_FIRMWARE_REPO` too. Full
+suite on port 3100: 1370 passed, 18 skipped, 3 failed - the Ctrl test's
+position check (fixed: the alignment guides place it), page-icon-export
+(fixed) and preview-performance `@alone` (green alone).
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g snapping e2e/handbook-labels.spec.ts`; typecheck.
 

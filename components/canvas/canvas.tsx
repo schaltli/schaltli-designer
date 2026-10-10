@@ -88,8 +88,14 @@ import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
-import { drawSnapChip, drawSnapTableCells, snapChipText } from "./snap-table-overlay"
-import { dimensions, isSnapTable, snapTableGeometry } from "@/lib/snap-table"
+import { drawSnapChip, drawSnapDrop, drawSnapTableCells, snapChipText } from "./snap-table-overlay"
+import { dimensions, isSnapTable, snapDropAt, snapTableGeometry, type SnapDrop } from "@/lib/snap-table"
+
+// How near a table or a free object a dragged object snaps
+// (docs/2026-10-09-snap-tables.md, open question 5: proposed).
+const SNAP_ZONE_MM = 5
+// The id a new object has while it is being drawn, before the editor gives it one.
+const NEW_OBJECT = "__new-object__"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -251,8 +257,9 @@ export interface CanvasProps {
   onAddObject: (
     object: Omit<ScreenObject, "id" | "zIndex">,
     parentId?: string,
-    // A table's cell or new row (lib/table.ts TableDrop).
-    at?: { table: TableDrop },
+    // A table's cell or new row (lib/table.ts TableDrop), or where a table
+    // put together by snapping takes it (lib/snap-table.ts SnapDrop).
+    at?: { table: TableDrop } | { snap: SnapDrop },
   ) => void
   /** A table's column chosen by the strip above it (null: the screen's root table). */
   onSelectTableColumn?: (tableId: string, index: number) => void
@@ -277,6 +284,8 @@ export interface CanvasProps {
   onSetTableProperties?: (tableId: string, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
   onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
+  /** A dragged object let go where it snaps (lib/snap-table.ts snapDropAt). */
+  onSnapDrop?: (movingId: string, drop: SnapDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
@@ -731,6 +740,7 @@ export function Canvas({
   onAddObject,
   onMoveObject,
   onMoveToTable,
+  onSnapDrop,
   onSetTableProperties,
   onSelectTableColumn,
   chosenTableColumn,
@@ -997,6 +1007,15 @@ export function Canvas({
           ? stepUpdates(drawn as ScreenObject, "m", textScale.pixelsPerMm, fonts ?? [])
           : undefined
       const object = atM ? { ...drawn, ...atM } : drawn
+      // Drawn where it snaps (handleMouseMove): into that table, or a table
+      // with its neighbour.
+      const snapTo = createSnapRef.current
+      createSnapRef.current = null
+      if (snapTo) {
+        const placed = editingContainer ? translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y) : object
+        onAddObject(placed, editingContainer?.id, { snap: snapTo })
+        return
+      }
       const inTable = tablePlacementRef.current
       if (inTable) {
         tablePlacementRef.current = null
@@ -1065,6 +1084,10 @@ export function Canvas({
   // object, sized by the table, instead of a rectangle being drawn;
   // tablePlacementRef carries it from the press to the object's making.
   const [tableDrop, setTableDrop] = useState<TableDrop | null>(null)
+  // Where the object being dragged snaps when let go (lib/snap-table.ts).
+  const [snapDrop, setSnapDrop] = useState<SnapDrop | null>(null)
+  // The same for an object being drawn, handed to addInteractionObject on release.
+  const createSnapRef = useRef<SnapDrop | null>(null)
   // The nested tables near the pointer while something is placed: theirs
   // is the «+» below that shows (lib/table.ts nestedTablesNear).
   const [nearTables, setNearTables] = useState<string[]>([])
@@ -1718,7 +1741,8 @@ export function Canvas({
       ctx.restore()
     }
 
-    if (snapChip) drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
+    if (snapChip && dragState?.mode !== "drag") drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
+    if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create")) drawSnapDrop(ctx, snapDrop, interactionObjects, layoutScale, LAYOUT_HINT_COLOR, zoom)
 
     // A table's drop: the empty cell lit up, or the row line drawn thick.
     if (tableDrop && (!dragState || dragState.mode === "drag")) {
@@ -1802,6 +1826,8 @@ export function Canvas({
     activeContainerIds,
     tableLines,
     snapChip,
+    snapDrop,
+    interactionObjects,
     layoutScale,
     snapGuides,
     activeSnapLines,
@@ -3287,6 +3313,14 @@ export function Canvas({
             ...dragState,
             startObjectPos: { x, y, width, height },
           })
+          // A new object drawn near a table put together by snapping or a
+          // free object snaps there when let go, as one dragged does
+          // (docs/2026-10-09-snap-tables.md); where, it shows while drawing.
+          const type = dragState.creatingType
+          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && !isSnapTable(editingContainer) && type !== "baustein" && type !== "navigator" && type !== "table" && type !== "background"
+          const drawn = { id: NEW_OBJECT, type, x, y, width, height, zIndex: 0 } as ScreenObject
+          const snapping = snaps ? snapDropAt([...interactionObjects, drawn], NEW_OBJECT, coords, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         }
       } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
         setDragState({
@@ -3312,6 +3346,17 @@ export function Canvas({
             : undefined
         const toCell = overTable && !("blocked" in overTable) ? overTable : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(toCell) ? current : toCell))
+        // Near a table put together by snapping or a free object: where it
+        // snaps, about 5 mm around (docs/2026-10-09-snap-tables.md). One
+        // free object at a time, never from inside such a table (taking an
+        // object out is its own gesture).
+        // Ctrl/⌘ held while dragging: placed freely, nothing snaps (decided
+        // 2026-10-10 - snapping is on by default, as in Figma).
+        const snapping =
+          draggedObject && !previewMode && onSnapDrop && !(e.ctrlKey || e.metaKey) && selectedObjects.length === 1 && !isSnapTable(editingContainer) && !toCell
+            ? snapDropAt(interactionObjects, draggedObject.id, coords, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
+            : null
+        setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
         // In a table an object stays put while it is dragged - the table
@@ -3780,9 +3825,16 @@ export function Canvas({
       const moving = selectedObjectIds.filter((id) => id === dragState.objectId || !findObjectById(screen.objects, id)?.locked)
       onMoveToTable(moving, tableDrop)
     }
-    if (dragState?.mode === "drag") setTableDrop(null)
+    // Let go where it snaps: into the table, or a table with its neighbour.
+    if (dragState?.mode === "drag" && dragState.objectId && snapDrop && onSnapDrop) onSnapDrop(dragState.objectId, snapDrop)
+    if (dragState?.mode === "drag") {
+      setTableDrop(null)
+      setSnapDrop(null)
+    }
 
     if (dragState?.mode === "create" && dragState.creatingType) {
+      createSnapRef.current = snapDrop
+      setSnapDrop(null)
       let { x, y, width, height } = dragState.startObjectPos
 
       const minSize = 5
@@ -4152,6 +4204,8 @@ export function Canvas({
     onMoveObject,
     tableShape,
     onMoveToTable,
+    onSnapDrop,
+    snapDrop,
     onSetTableProperties,
     columnDraft,
     tableDrop,
@@ -4257,6 +4311,23 @@ export function Canvas({
 
       if (handleSelectionKey(e)) return
 
+      // Esc while an object is dragged puts it back and snaps nothing
+      // (docs/2026-10-09-snap-tables.md); the editor's own Esc is not for this
+      // press.
+      // Ctrl/⌘ pressed mid-drag: nothing snaps from now on, the target shown goes at once.
+      if ((e.key === "Control" || e.key === "Meta") && (dragState?.mode === "drag" || dragState?.mode === "create")) {
+        setSnapDrop(null)
+        return
+      }
+      if (e.key === "Escape" && dragState?.mode === "drag" && dragState.objectId) {
+        e.preventDefault()
+        e.stopPropagation()
+        updateInteractionObject(dragState.objectId, { x: dragState.startObjectPos.x, y: dragState.startObjectPos.y })
+        setDragState(null)
+        setSnapDrop(null)
+        setTableDrop(null)
+        return
+      }
       if (e.key === "Escape") {
         // Inside a group, Escape leaves it and selects it - the editor does
         // that for the whole window (project-editor.tsx), since a group is
@@ -4279,6 +4350,8 @@ export function Canvas({
       finishPolyline,
       editingGroup,
       handleSelectionKey,
+      dragState,
+      updateInteractionObject,
     ],
   )
 

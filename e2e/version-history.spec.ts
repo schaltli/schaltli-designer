@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, saveProjectAs } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, placingFreely, saveProjectAs } from "./helpers"
 
 // Covers version-history-dialog.tsx and the versions of a saved project
 // (docs/2026-09-23-explicit-save.md, "Versions"). Since 2026-09-24 every
@@ -26,8 +26,11 @@ async function drawBox(page: Page) {
   const to = devicePoint(box, 180, 140)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move(to.x, to.y, { steps: 5 })
-  await page.mouse.up()
+  // Freely: drawn beside the project's objects, where it would snap.
+  await placingFreely(page, async () => {
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+  })
   await page.waitForTimeout(200)
 }
 

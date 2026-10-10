@@ -9,8 +9,87 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import type { LayoutScale } from "@/lib/layout"
 import { objectTypeLabel } from "@/lib/object-types"
-import { occupancy, snapCellOf, type SnapGeometry } from "@/lib/snap-table"
+import { occupancy, snapCellOf, snapTableGeometry, type SnapDrop, type SnapGeometry } from "@/lib/snap-table"
+
+/** An empty cell a drop goes into. */
+export const SNAP_CELL_COLOR = "#16a34a"
+
+/**
+ * Where a dragged object will go when let go (docs/2026-10-09-snap-tables.md):
+ * an empty cell lit green; a new column or row as a thick line between two,
+ * strong along the row or column the object will stand in and faint over
+ * the rest; beside a free object, a line along the edge it joins.
+ * `objects` are the space's objects in the canvas's coordinates.
+ */
+export function drawSnapDrop(ctx: CanvasRenderingContext2D, drop: SnapDrop, objects: ScreenObject[], scale: LayoutScale, color: string, zoom: number): void {
+  ctx.save()
+  ctx.lineCap = "round"
+  if (drop.kind === "pair") {
+    const still = objects.find((o) => o.id === drop.stillId)
+    if (still) {
+      const off = 3 / zoom
+      const [x1, y1, x2, y2] =
+        drop.side === "left"
+          ? [still.x - off, still.y, still.x - off, still.y + still.height]
+          : drop.side === "right"
+            ? [still.x + still.width + off, still.y, still.x + still.width + off, still.y + still.height]
+            : drop.side === "top"
+              ? [still.x, still.y - off, still.x + still.width, still.y - off]
+              : [still.x, still.y + still.height + off, still.x + still.width, still.y + still.height + off]
+      ctx.strokeStyle = color
+      ctx.lineWidth = 3 / zoom
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+    }
+    ctx.restore()
+    return
+  }
+  const table = objects.find((o) => o.id === drop.tableId)
+  if (!table) {
+    ctx.restore()
+    return
+  }
+  const g = snapTableGeometry(table, scale)
+  const t = drop.target
+  if (t.kind === "cell") {
+    const x = table.x + g.lefts[t.column]
+    const y = table.y + g.tops[t.row]
+    ctx.fillStyle = SNAP_CELL_COLOR
+    ctx.globalAlpha = 0.25
+    ctx.fillRect(x, y, g.widths[t.column], g.heights[t.row])
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = SNAP_CELL_COLOR
+    ctx.lineWidth = 2 / zoom
+    ctx.strokeRect(x, y, g.widths[t.column], g.heights[t.row])
+    ctx.restore()
+    return
+  }
+  const line = (x1: number, y1: number, x2: number, y2: number, width: number, alpha: number) => {
+    ctx.globalAlpha = alpha
+    ctx.strokeStyle = color
+    ctx.lineWidth = width / zoom
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+  }
+  if (t.kind === "column") {
+    const x = t.at === 0 ? table.x - g.gap / 2 : t.at >= g.widths.length ? table.x + table.width + g.gap / 2 : table.x + g.lefts[t.at] - g.gap / 2
+    line(x, table.y, x, table.y + table.height, 2, 0.35)
+    const row = Math.min(t.row, g.heights.length - 1)
+    line(x, table.y + g.tops[row], x, table.y + g.tops[row] + g.heights[row], 4, 1)
+  } else {
+    const y = t.at === 0 ? table.y - g.gap / 2 : t.at >= g.heights.length ? table.y + table.height + g.gap / 2 : table.y + g.tops[t.at] - g.gap / 2
+    line(table.x, y, table.x + table.width, y, 2, 0.35)
+    const column = Math.min(t.column, g.widths.length - 1)
+    line(table.x + g.lefts[column], y, table.x + g.lefts[column] + g.widths[column], y, 4, 1)
+  }
+  ctx.restore()
+}
 
 /**
  * The table's cells, dashed and faint: each object's cell or span, and each

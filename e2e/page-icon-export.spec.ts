@@ -27,7 +27,8 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // for is.
 async function declaredPageIconSize(): Promise<number> {
   const manifest = JSON.parse(
-    await readFile(path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source", "device.json"), "utf8"),
+    // The firmware beside this repo, or where SCHALTLI_FIRMWARE_REPO says (a worktree has none beside it).
+    await readFile(path.join(process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "schaltli-firmware"), "ddf-source", "device.json"), "utf8"),
   )
   const size = manifest.needsPageIconsInSize
   if (typeof size !== "number") throw new Error("the DDF no longer declares needsPageIconsInSize")

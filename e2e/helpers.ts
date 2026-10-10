@@ -276,6 +276,22 @@ export const ROUND_FIXTURE_SCREEN = { width: 360, height: 360 }
 // Coordinates outside the screen rect are legal and useful: a negative one
 // is a point that is reliably empty canvas, for tests that need to click
 // "nowhere" to deselect.
+/**
+ * Runs the moves of a drag or a drawn rectangle with Ctrl held, which places
+ * freely: nothing snaps into a table or makes one with a neighbour
+ * (docs/2026-10-09-snap-tables.md, decided 2026-10-10). Call it after
+ * mouse.down - Ctrl at the press itself adds to the selection - and let it
+ * include the mouse.up.
+ */
+export async function placingFreely<T>(page: Page, moves: () => Promise<T>): Promise<T> {
+  await page.keyboard.down("Control")
+  try {
+    return await moves()
+  } finally {
+    await page.keyboard.up("Control")
+  }
+}
+
 export function devicePoint(
   box: { x: number; y: number; width: number; height: number },
   x: number,

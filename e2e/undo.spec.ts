@@ -13,6 +13,7 @@ import {
   loadProject,
   objectTreeRow,
   openFrameSection,
+  placingFreely,
   saveProjectAs,
   waitForDeviceGate,
   waitForEditorReady,
@@ -172,8 +173,11 @@ test.describe("Undo and redo", () => {
 
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
-    await page.mouse.move(from.x + 80, from.y + 60, { steps: 15 })
-    await page.mouse.up()
+    // Freely: it ends up beside another object, where it would snap.
+    await placingFreely(page, async () => {
+      await page.mouse.move(from.x + 80, from.y + 60, { steps: 15 })
+      await page.mouse.up()
+    })
     await expect(x).toHaveValue("91")
     await expect(y).toHaveValue("69")
 
