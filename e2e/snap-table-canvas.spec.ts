@@ -6,7 +6,7 @@ import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutProject } from "../lib/layout"
 import { placedSize } from "../lib/placing"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, getSelectedHeader, loadProject, objectTreeRow, openAllTwisties, placingFreely, saveProjectAs } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, getSelectedHeader, loadProject, objectTreeRow, openAllTwisties, openFrameSection, placingFreely, saveProjectAs } from "./helpers"
 
 // Tables put together by snapping, on the canvas (docs/2026-10-09-snap-tables.md,
 // module snap-table-canvas). The combined project's first screen, 400 x 300,
@@ -614,6 +614,39 @@ test.describe("snap table: panel and tree", () => {
     const pumpe = grid.children!.find((c) => c.id === "pumpe")!
     expect(k.properties!.cell.fill).toEqual({ width: true })
     expect(k.width).toBe(pumpe.width)
+  })
+
+  // Found in the handbook pass (Task 17): the Frame hid the width of every
+  // object in a table, as the old table set it - a free area in a cell
+  // could no longer be made wider.
+  test("a box in a table keeps its own width, set under Frame; a text's comes from its words", async ({ page }) => {
+    const box: Obj = { id: "kasten", type: "box", x: 0, y: 0, width: 20, height: 10, zIndex: 4, properties: { cell: { row: 1, column: 1 } } }
+    const { zip, table } = await snapProject([])
+    const z = await JSZip.loadAsync(fs.readFileSync(zip))
+    const project = JSON.parse(await z.file("project.json")!.async("string"))
+    project.screens.find((s: Obj) => s.id === "screen-1").objects[0].children.push(box)
+    z.file("project.json", JSON.stringify(project))
+    fs.writeFileSync(zip, await z.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "bad")
+    await openFrameSection(page)
+    await expect(page.locator("#width")).toHaveCount(0)
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Escape")
+    const grid0 = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const k0 = grid0.children!.find((c) => c.id === "kasten")!
+    const middle = { x: grid0.x + k0.x + k0.width / 2, y: grid0.y + k0.y + k0.height / 2 }
+    await click(page, middle)
+    await doubleClick(page, middle)
+    await expect.poll(() => getSelectedHeader(page)).toContain("kasten")
+    await openFrameSection(page)
+    await page.locator("#width").fill("90")
+    await page.locator("#width").press("Enter")
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const k = grid.children!.find((c) => c.id === "kasten")!
+    expect(k.width).toBe(90)
+    // Its column grows with it.
+    expect(grid.width).toBeGreaterThan(grid0.width)
   })
 
   test("Auto sizes shows only with a size set by hand, and clears them", async ({ page }) => {

@@ -58,7 +58,7 @@ async function savedScreen(page: Page): Promise<Obj[]> {
   return project.screens.find((s: Obj) => s.id === "screen-1").objects
 }
 // The table put together by snapping the screen holds (tableProject).
-const savedTable = async (page: Page): Promise<Obj> => (await savedScreen(page)).find((o: Obj) => o.id === "outer")
+const savedTable = async (page: Page): Promise<Obj> => (await savedScreen(page)).find((o: Obj) => o.id === "outer")!
 
 async function clickAt(page: Page, x: number, y: number, dbl = false) {
   const { box } = await getMainCanvas(page)

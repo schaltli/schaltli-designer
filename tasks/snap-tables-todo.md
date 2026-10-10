@@ -544,8 +544,8 @@ describes the new table; screenshots renewed; drafts through
 `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] No page describes the Table tool, templates or nested tables.
-- [ ] `e2e/handbook-labels.spec.ts` and `npm run screenshots` green.
+- [x] No page describes the Table tool, templates or nested tables (only «Ältere Projekte» names them, as what opens dissolved).
+- [x] `e2e/handbook-labels.spec.ts` and `npm run screenshots` green (the homepage's 4v3b shot timed out once in the full run, passes alone).
 
 **Verification:** `npx playwright test e2e/handbook-labels.spec.ts`; `npm run screenshots`; `npm run dev --prefix handbuch` read through.
 

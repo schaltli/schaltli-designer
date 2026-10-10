@@ -153,17 +153,22 @@ function layoutFrameLock(
   if (!found) return null
   const placedBy = found.parent?.type
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
-  // In a table an object stands in its cell: x, y and width are the
-  // table's to work out, and not shown (docs/2026-10-09-snap-tables.md).
+  // In a table an object stands in its cell: x and y are the table's to
+  // work out, and not shown (docs/2026-10-09-snap-tables.md). Its width is
+  // its own - a free area's, a box's, a bar's set here, the column growing
+  // with it - unless what it shows sets it, or it fills its cell.
   if (placedBy === TABLE_TYPE) {
-    // A ring is the exception: its diameter is its own, up to the cell's
-    // width (lib/layout.ts fit) - hidden, a dial placed small stayed small
-    // (reported 2026-10-05 on the Autoterm block's dials, 64 px).
-    const ring = findObjectById(screen.objects ?? [], id)?.type
-    if (ring === "gauge" || ring === "dial") {
-      return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours, up to the cell's width." }
+    const obj = findObjectById(screen.objects ?? [], id)
+    // A ring's diameter is its own (lib/layout.ts fit) - hidden, a dial
+    // placed small stayed small (reported 2026-10-05, 64 px).
+    if (obj?.type === "gauge" || obj?.type === "dial") {
+      return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours." }
     }
-    return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell and gives it its width: see Cell." }
+    const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "button"
+    if (byContent || obj?.properties?.cell?.fill?.width) {
+      return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows, or from Fill: see Cell." }
+    }
+    return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its width and height are yours; its column grows with it." }
   }
   return {
     locked: ["x", "y", "width"],

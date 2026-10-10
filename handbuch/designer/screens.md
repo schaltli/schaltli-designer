@@ -45,7 +45,7 @@ Mit <span class="ui">Screen type</span> in den Eigenschaften machst du aus einem
 
 Was du auf einen Screen setzt, bleibt dort, wo du es hinsetzt. Willst du Namen und Bedienelemente bündig untereinander, steckst du sie zu einer [Tabelle](/objekte/anordnen#zusammenstecken) zusammen: Ziehst du ein Objekt an ein anderes heran, rasten die beiden ein. Ein [Baustein](/designer/bausteine) kommt gleich als Zeile, den nächsten trägst du unter die Tabelle.
 
-Projekte, in denen ein Screen noch selbst eine Tabelle war oder ein Master einen Inhaltsbereich hatte, öffnet der Designer so, dass alles bleibt, wo es war. Aus der Tabelle des Screens wird eine Tabelle auf dem Screen, an derselben Stelle. Den Inhaltsbereich gibt es nicht mehr.
+Projekte, in denen ein Screen noch selbst eine Tabelle war oder ein Master einen Inhaltsbereich hatte, öffnet der Designer so, dass alles bleibt, wo es war. Was die Tabelle des Screens anordnete, liegt danach frei an derselben Stelle. Den Inhaltsbereich gibt es nicht mehr.
 
 ## Die Eigenschaften eines Screens
 

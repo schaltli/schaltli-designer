@@ -76,7 +76,7 @@ Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen.
 
 Die Heizung der VanPi-Brücke hat zuoberst klein ihren Zustand, darunter die Betriebsart über die ganze Breite. Dann stehen nebeneinander der Regler der Betriebsart und der Timer, zuunterst der Verbrauch mit «Nullen» daneben. So passt sie auf einen Screen von 800 × 480.
 
-Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B rund 140 px. Seinen Durchmesser änderst du danach unter <span class="ui">Frame</span> › <span class="ui">Diameter</span>, höchstens bis zur Breite seiner Spalte.
+Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B rund 140 px. Seinen Durchmesser änderst du danach unter <span class="ui">Frame</span> › <span class="ui">Diameter</span>, seine Spalte richtet sich danach.
 
 ## In einer Tabelle {#in-einem-container}
 
