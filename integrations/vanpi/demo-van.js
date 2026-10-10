@@ -39,7 +39,7 @@ function seed() {
       "Dimmer Settings": true,
       dimmer1: { state: 0, name: "Innenlicht", autooff: 0, offtime: null },
       dimmer2: { state: 0, name: "Küche", autooff: 0, offtime: null },
-      dimmer3: { state: 0, name: "Vorzelt", autooff: 0, offtime: null },
+      dimmer3: { state: 0, name: "Einstieg", autooff: 0, offtime: null },
     },
   }
 }

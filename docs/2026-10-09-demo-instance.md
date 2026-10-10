@@ -105,7 +105,7 @@ announcement.
    one MQTT connection - the way e2e/vanpi-bridge.spec.ts already runs them.
    Where the flow talks to Pekaway, a fake Pekaway answers - for stage one
    only what a light needs:
-   - `pkw/stat/dimmer` with three dimmers (Innenlicht, Küche, Vorzelt) and
+   - `pkw/stat/dimmer` with three dimmers (Innenlicht, Küche, Einstieg) and
      `pkw/stat/relay` with two relays (Lichterkette, Aussenlicht), in
      Pekaway's format, as recorded in the van; every other kind gets no
      answer, so the bridge announces and publishes nothing for it;
@@ -130,12 +130,15 @@ announcement.
 8. **«Your van» where the Projects panel is.** In demo mode the far-left
    column (`components/projects-panel.tsx`) shows a scene instead of the
    project list, about 300 px wide, collapsible to a strip as today:
-   - an SVG drawing: sky, a small camper van side on, its windows;
+   - an SVG drawing (`integrations/vanpi/demo-scene.js`): sky, a Fiat Ducato
+     high-roof van side on, its windows, a fairy light along its side under
+     the roof, a step light under the sliding door;
    - day and night from `schaltli/demo/daylight`: the sky from blue through
      orange to dark blue, sun and moon, stars at night;
-   - a window per dimmer, lit warm in proportion to its level
-     (`schaltli/state/dimmer/<n>/level`), the relays as a fairy light and an
-     outside lamp;
+   - the living-room and the sliding-door window lit warm in proportion to
+     their dimmers (`schaltli/state/dimmer/<n>/level`), the third dimmer the
+     step light and the ground it lights, the relays the fairy light and the
+     lamp above the sliding door; a legend with Pekaway's names;
    - a line beneath: «This van is a conversion in progress. So far: light.
      Next: solar?» with a link to the forum thread.
 

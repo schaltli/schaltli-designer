@@ -106,13 +106,23 @@ what the van published retained.
 panel's place in demo mode.
 
 **Acceptance criteria:**
-- [ ] Demo mode: the left column shows the scene, collapsible; outside it
-      the project list as before.
-- [ ] A dimmer level on the broker lights its window in proportion; a relay
+- [x] Demo mode: the left column shows the scene, collapsible, in the
+      preview too; outside it the project list as before.
+- [x] A dimmer level on the broker lights its window in proportion; a relay
       lights the fairy light / the outside lamp.
-- [ ] `daylight` 0 gives night (dark sky, moon, stars), 1 noon, between
+- [x] `daylight` 0 gives night (dark sky, moon, stars), 1 noon, between
       dawn and dusk.
-- [ ] The line about the conversion in progress, linking the forum thread.
+- [x] The line about the conversion in progress, linking the forum (the
+      announcement's thread once it exists, Task 10).
+
+Done 2026-10-10. The drawing was agreed with the user on three drafts: a
+Fiat Ducato high-roof van after a reference picture, the fairy light along
+its side under the roof, no awning; the third dimmer is «Einstieg», a step
+light under the sliding door. Drawn in `integrations/vanpi/demo-scene.js`,
+beside the demo van - the designer's own code names nothing of a van
+(no-van-words) and only shows `sceneSvg()` (`components/demo-scene-panel.tsx`).
+The scene tests sit in `e2e/demo-van.spec.ts`, beside the van's: both use the
+same topics on the broker and must not run at once.
 
 **Verification:** `e2e/demo-scene.spec.ts` (values published on the local
 broker, pixels of the windows and the sky compared).

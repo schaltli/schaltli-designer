@@ -83,6 +83,7 @@ import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
+import { DemoScenePanel } from "./demo-scene-panel"
 import { ProjectList } from "./project-list"
 import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft } from "@/lib/project-draft"
 import { sameProjectName } from "@/lib/project-name"
@@ -4176,8 +4177,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
 
       <div className="flex-1 flex min-h-0">
-        {/* The demo has one project and saves none: no list (its place is
-            «Your van», docs/2026-10-09-demo-instance.md, decision 8). */}
+        {/* The demo has one project and saves none: no list - «Your van» in
+            its place, in the preview too, where it shows best
+            (docs/2026-10-09-demo-instance.md, decision 8). */}
+        {demo && <DemoScenePanel />}
         {!isPreviewMode && !demo && (
           <ProjectsPanel
             openName={save.savedName}

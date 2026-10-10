@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import { startDemoVan, fakePekaway, vanClock } from "../integrations/vanpi/demo-van"
+import { sceneSvg } from "../integrations/vanpi/demo-scene"
+import JSZip from "jszip"
+import fs from "fs"
+import { COMBINED_TEST_PROJECT } from "./helpers"
 
 // The van of demo.schaltli.com (docs/2026-10-09-demo-instance.md, decision
 // 6): the real VanPi bridge run outside Node-RED over a fake Pekaway that has
@@ -29,7 +33,7 @@ async function clearRetained(client: mqtt.MqttClient, topics: string[]) {
 
 test("the fake Pekaway has only the light, answers in Pekaway's format, and its commands change it", () => {
   const pekaway = fakePekaway()
-  expect(JSON.parse(pekaway.answer("dimmer")!)).toMatchObject({ dimmer1: { state: 0, name: "Innenlicht" }, dimmer3: { name: "Vorzelt" } })
+  expect(JSON.parse(pekaway.answer("dimmer")!)).toMatchObject({ dimmer1: { state: 0, name: "Innenlicht" }, dimmer3: { name: "Einstieg" } })
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay1: false, "Relay2 Name": "Aussenlicht" })
   for (const kind of ["batt", "level", "temp", "heater", "maxxfan", "mppt", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
 
@@ -65,7 +69,7 @@ test("through the real bridge: the lights are announced and published, switched 
   const publish = van.client.publish.bind(van.client)
   ;(van.client as any).publish = (topic: string, ...rest: any[]) => {
     if ((rest[1] ?? rest[0])?.retain) published.add(topic)
-    return publish(topic, ...rest)
+    return (publish as any)(topic, ...rest)
   }
   try {
     // Announced as blocks: three lights, two switches, and the bridge's own
@@ -99,6 +103,71 @@ test("through the real bridge: the lights are announced and published, switched 
     van.reset()
     await expect.poll(() => seen.get("schaltli/state/dimmer/2/power"), { timeout: 10_000 }).toBe("off")
     await expect.poll(() => seen.get("schaltli/state/relay/1/power")).toBe("off")
+  } finally {
+    await van.stop()
+    await clearRetained(client, [...published])
+    client.end(true)
+  }
+})
+
+// «Your van» (decision 8): the drawing from the values, and in the demo's
+// designer, following the van over the broker.
+const hexSum = (hex: string | null) => (hex ? [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0) : -1)
+const red = (hex: string | null) => (hex ? parseInt(hex.slice(1, 3), 16) : -1)
+
+test("the scene: a dark sky at night, a bright one at noon; a window lit by its level, a lamp by its switch", () => {
+  const part = (svg: string, name: string, attr: string) => new RegExp(`data-part="${name}"[^>]*?${attr}="([^"]+)"`).exec(svg)?.[1] ?? null
+  const night = sceneSvg({ "schaltli/demo/daylight": "0", "schaltli/demo/time": "23:00" })
+  const noon = sceneSvg({ "schaltli/demo/daylight": "1", "schaltli/demo/time": "12:00" })
+  expect(hexSum(part(night, "sky-top", "stop-color"))).toBeLessThan(150)
+  expect(hexSum(part(noon, "sky-top", "stop-color"))).toBeGreaterThan(300)
+
+  const off = sceneSvg({ "schaltli/demo/daylight": "0" })
+  const on = sceneSvg({ "schaltli/demo/daylight": "0", "schaltli/state/dimmer/1/level": "80", "schaltli/state/relay/2/power": "on" })
+  expect(red(part(off, "light-1", "fill"))).toBeLessThan(80)
+  expect(red(part(on, "light-1", "fill"))).toBeGreaterThan(200)
+  expect(part(on, "lamp-2", "fill")).toBe("#fff3c4")
+  expect(part(off, "lamp-2", "fill")).not.toBe("#fff3c4")
+  // The names Pekaway gives, in the legend.
+  expect(sceneSvg({ "schaltli/state/dimmer/2/name": "Galley" })).toContain("Galley: off")
+})
+
+test("in the demo's designer «Your van» follows the van: a light switched on the broker lights its window", async ({ page, request }) => {
+  test.setTimeout(90_000)
+  const START = process.env.SCHALTLI_DEMO_START?.trim() || "Demo"
+  if (!(await request.get(`/api/projects/${START}`)).ok()) {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    expect((await request.post("/api/projects", { data: { name: START, project: { ...project, name: START } } })).status()).toBe(201)
+  }
+  const { client } = await listen(["schaltli/demo/#"])
+  const van = startDemoVan({ broker: BROKER, daySeconds: 60, pollSeconds: 1 })
+  const published = new Set<string>()
+  const publish = van.client.publish.bind(van.client)
+  ;(van.client as any).publish = (topic: string, ...rest: any[]) => {
+    if ((rest[1] ?? rest[0])?.retain) published.add(topic)
+    return (publish as any)(topic, ...rest)
+  }
+  try {
+    await page.setExtraHTTPHeaders({ "x-schaltli-demo": "1" })
+    await page.goto("/")
+    const scene = page.getByTestId("demo-scene")
+    await expect(page.getByRole("complementary", { name: "Your van" })).toBeVisible()
+    const fill = (part: string) => scene.locator(`[data-part="${part}"]`).first().getAttribute("fill")
+
+    // The van's names arrive through the bridge.
+    await expect(scene).toContainText("Innenlicht", { timeout: 20_000 })
+    client.publish("schaltli/cmnd/dimmer/1", "80")
+    await expect.poll(async () => red(await fill("light-1")), { timeout: 15_000 }).toBeGreaterThan(200)
+    await expect(scene).toContainText("Innenlicht: 80 %")
+    client.publish("schaltli/cmnd/relay/2", "on")
+    await expect.poll(() => fill("lamp-2"), { timeout: 15_000 }).toBe("#fff3c4")
+
+    // Collapsible, as the project list is.
+    await page.getByRole("button", { name: "Hide your van" }).click()
+    await expect(page.getByRole("complementary", { name: "Your van" })).toHaveCount(0)
+    await page.getByRole("button", { name: "Show your van" }).click()
+    await expect(page.getByRole("complementary", { name: "Your van" })).toBeVisible()
   } finally {
     await van.stop()
     await clearRetained(client, [...published])
