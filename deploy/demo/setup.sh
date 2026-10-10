@@ -115,12 +115,13 @@ user demo-van
 topic readwrite #
 EOF
 rm -f /etc/mosquitto/schaltli-demo.passwd
-install -m 600 -o root -g root /dev/null /etc/mosquitto/schaltli-demo.passwd
+install -m 640 -o root -g mosquitto /dev/null /etc/mosquitto/schaltli-demo.passwd
 mosquitto_passwd -b /etc/mosquitto/schaltli-demo.passwd demo-van "$VAN_PASSWORD"
-# Read by Mosquitto as root before it drops to its own user, and it wants
-# them root's (2.0.21 warns, later versions refuse otherwise).
-chown root:root /etc/mosquitto/schaltli-demo.passwd /etc/mosquitto/schaltli-demo.acl
-chmod 600 /etc/mosquitto/schaltli-demo.passwd /etc/mosquitto/schaltli-demo.acl
+# Root's, as Mosquitto wants them (2.0.21 warns, later versions refuse
+# otherwise), and readable by its group: on Debian it runs as its own user
+# from the start, and root:root 600 kept it from starting (2026-10-10).
+chown root:mosquitto /etc/mosquitto/schaltli-demo.passwd /etc/mosquitto/schaltli-demo.acl
+chmod 640 /etc/mosquitto/schaltli-demo.passwd /etc/mosquitto/schaltli-demo.acl
 systemctl restart mosquitto
 
 # --- Caddy: HTTPS, /mqtt to the broker, the rest to the designer ---
