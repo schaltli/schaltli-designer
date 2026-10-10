@@ -4003,6 +4003,303 @@ export function Canvas({
     ],
   )
 
+  // The object a tool makes from a rectangle, with every default its type
+  // starts with - shared by drawing, placing by dragging and the row
+  // templates (docs/2026-10-09-snap-tables.md). Null for a tool that makes
+  // nothing this way (a block, the navigator: handleMouseUp).
+  const objectFor = (
+    type: string,
+    rect: { x: number; y: number; width: number; height: number },
+    startPos: { x: number; y: number },
+  ): Omit<ScreenObject, "id" | "zIndex"> | null => {
+    const { x, y, width, height } = rect
+    if (type === "live-icon") {
+      // MQTT Icon Fields must be square
+      const size = Math.max(Math.abs(width), Math.abs(height))
+      
+      const mqttIconFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "live-icon",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(size),
+        height: Math.round(size),
+        properties: {
+          topic: "", // Empty topic - user can set later in properties panel
+          valueIconPairs: [],
+          backgroundColor: "transparent",
+        },
+      }
+
+      return mqttIconFieldObject
+    }
+    if (isArcType(type)) {
+      // Square, like an icon: the ring is inscribed in its box.
+      const size = Math.max(Math.abs(width), Math.abs(height))
+      const smallestFont = findSmallestFont()
+      const arcLevelObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: type,
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(size),
+        height: Math.round(size),
+        properties: {
+          topic: undefined,
+          setpointTopic: undefined,
+          calibrationPoints: [
+            { value: 0, barSizePercent: 0 },
+            { value: 100, barSizePercent: 100 },
+          ],
+          // Half past seven round to half past four - the thermostat
+          // shape, 270 degrees with a symmetric gap at the bottom. The
+          // longest scale that still reads as a dial rather than a ring.
+          minAngle: 225,
+          maxAngle: 135,
+          direction: "cw",
+          thickness: LEVEL_DEFAULT_THICKNESS,
+          displayValue: "value",
+          // One colour, like the bar's: the track is this mixed halfway
+          // into what the ring stands on, the handle is this itself, and
+          // the ring has no background of its own
+          // (docs/2026-09-22-arc-look.md).
+          // Roles of the screen's theme (lib/control-palette.ts
+          // ROLE_PALETTE). The value sits on the ground inside the ring,
+          // not on the fill, so it takes the text colour.
+          fillColor: ROLE_PALETTE.fill,
+          textColor: ROLE_PALETTE.text,
+          // Display: the value stands alone in the ring.
+          ...(startStyled("display") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
+        },
+      }
+
+      return arcLevelObject
+    }
+    if (isLevelType(type)) {
+      const smallestFont = findSmallestFont()
+      const levelIndicatorObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: type,
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          topic: "", // Empty topic - user can set later in properties panel
+          direction: "left-to-right",
+          calibrationPoints: [
+            { value: 0, barSizePercent: 0 },
+            { value: 100, barSizePercent: 100 },
+          ],
+          displayValue: "value",
+          fillColor: ROLE_PALETTE.fill,
+          thickness: LEVEL_DEFAULT_THICKNESS,
+          textColor: ROLE_PALETTE.text,
+          ...(startStyled("label") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
+        },
+      }
+
+      return levelIndicatorObject
+    }
+    if (type === "button") {
+      const softwareButtonObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "button",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          text: "Button",
+          iconAssetId: null,
+          // Material's tonal button in the palette's colour; everything
+          // else about its look follows from those two
+          // (docs/2026-09-19-button-look.md).
+          buttonStyle: "tonal",
+          buttonColor: ROLE_PALETTE.fill,
+          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+          action: { type: "next-screen" },
+        },
+      }
+
+      return softwareButtonObject
+    }
+    if (isSwitchType(type)) {
+      // Same creation palette as every other control - this one is built
+      // here rather than in project-editor.tsx's switch.
+      const palette = ROLE_PALETTE
+      const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: type,
+        x: Math.round(x),
+        y: Math.round(y),
+        // Same floor the resize handles clamp to. Dragging out a tiny
+        // rectangle would otherwise create a Switch that the very next
+        // resize is forbidden to make. It starts with no states, so the
+        // width floor is the one-segment case.
+        width: Math.max(Math.round(Math.abs(width)), minSwitchWidth(0)),
+        height: Math.max(Math.round(Math.abs(height)), SWITCH_MIN_HEIGHT),
+        properties: {
+          topic: undefined,
+          writeTopic: "",
+          states: [],
+          // One colour; the container, the chosen state's pill and every
+          // label follow from it (docs/2026-09-20-switch-look.md).
+          switchStyle: "filled",
+          switchColor: palette.fill,
+          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+        },
+      }
+
+      return switchObject
+    }
+    if (type === "live-line") {
+      // A quick drag still creates a straight 2-point MqttDataLine in
+      // one gesture, same as the plain "line" case below - the too-
+      // short-drag branch (this function's very end) starts the same
+      // click-to-place polyline flow for both types instead.
+      const mqttDataLineObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "live-line",
+        x: Math.round(startPos.x),
+        y: Math.round(startPos.y),
+        width: Math.round(width),
+        height: Math.round(height),
+        properties: defaultMqttDataLineProperties([
+          { x: Math.round(startPos.x), y: Math.round(startPos.y) },
+          { x: Math.round(startPos.x + width), y: Math.round(startPos.y + height) },
+        ]),
+      }
+
+      return mqttDataLineObject
+    }
+    if (type === "switcher") {
+      // Starts with a single "Panel 1" child (comparisonValue "") so a
+      // freshly-drawn tab-control is immediately editable instead of
+      // rendering nothing until the user manually adds a panel.
+      const tabControlObject: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "switcher",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          topic: "",
+          comparisonOperator: "==",
+          comparisonValue: "",
+        },
+        children: [
+          {
+            id: `panel-${Date.now()}`,
+            type: "panel",
+            x: 0,
+            y: 0,
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            zIndex: 0,
+            properties: {
+              comparisonOperator: "==",
+              comparisonValue: "",
+            },
+            children: [],
+          },
+        ],
+      }
+
+      return tabControlObject
+    }
+    const textStyled = startStyled("label")
+    // Keyed by the tool, which is the type it makes.
+    // A layout container drawn as a rectangle: empty, its own defaults
+    // (lib/layout.ts) until its properties say otherwise.
+    const container = (type: ScreenObject["type"]): Omit<ScreenObject, "id" | "zIndex"> => ({
+      type,
+      x: Math.round(x),
+      y: Math.round(y),
+      width: Math.round(Math.abs(width)),
+      height: Math.round(Math.abs(height)),
+      properties: {},
+      children: [],
+    })
+    const defaultObjects: Record<
+      "text" | "icon" | "line" | "box" | "table" | "free",
+      Omit<ScreenObject, "id" | "zIndex">
+    > = {
+      // The shape chosen in the Table tool's menu, one row; «Name and
+      // control» without a choice (docs/2026-10-03-free-screens.md).
+      table: { ...container("table"), properties: { columns: shapeColumns(tableShape ?? DEFAULT_TABLE_SHAPE), rows: 1 } },
+      free: container("free"),
+      text: {
+        type: "text",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: (() => {
+          const f = fonts && fonts[0]
+          const fontSize = textStyled?.fontSize || f?.size || 16
+          return calculateTextObjectHeight(fontSize)
+        })(),
+        properties: {
+          text: "Label",
+          ...(textStyled ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined, fontSize: 14 }),
+          // Roles of the screen's theme (lib/themes.ts), never a hex. A
+          // label is text on the screen, not a box: no background and
+          // no border until someone asks for one (user, 2026-09-25).
+          color: ROLE_PALETTE.text,
+          textAlign: "left",
+          fontWeight: "normal",
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+        },
+      },
+      icon: {
+        type: "icon",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          assetId: selectedIconAssetId || null,
+          iconName: "default",
+          recolorations: [] as ColorRecoloration[],
+          backgroundColor: "transparent",
+        },
+      },
+      line: {
+        type: "line",
+        x: Math.round(startPos.x),
+        y: Math.round(startPos.y),
+        width: Math.round(width),
+        height: Math.round(height),
+        properties: {
+          color: ROLE_PALETTE.stroke,
+          strokeWidth: 2,
+          strokeStyle: "solid",
+          filletRadius: 0,
+          // Explicit points even for this plain single-drag line, not
+          // just the segmented-tool path below - keeps every line
+          // object's shape in one uniform place (getLinePoints() in
+          // render-line.ts) rather than two representations that
+          // happen to agree only for a fresh two-point line.
+          points: [
+            { x: Math.round(startPos.x), y: Math.round(startPos.y) },
+            { x: Math.round(startPos.x + width), y: Math.round(startPos.y + height) },
+          ],
+        },
+      },
+      box: {
+        type: "box",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          fillColor: ROLE_PALETTE.track,
+          strokeColor: ROLE_PALETTE.stroke,
+          strokeWidth: 1,
+          cornerRadius: 0,
+        },
+      },
+    }
+
+    const objectType = type as keyof typeof defaultObjects
+    return objectType in defaultObjects ? defaultObjects[objectType] : null
+  }
+
   const handleMouseUp = useCallback(() => {
     // Off the navigator: a press that did not move opens its entry's screen.
     const navigatorDrag = navigatorDragRef.current
@@ -4150,293 +4447,10 @@ export function Canvas({
             properties: { edge: "left", shows: "iconsAndText", fontId: findSmallestFont()?.id },
           })
           onToolChange("select")
-        } else if (dragState.creatingType === "live-icon") {
-          // MQTT Icon Fields must be square
-          const size = Math.max(Math.abs(width), Math.abs(height))
-          
-          const mqttIconFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "live-icon",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(size),
-            height: Math.round(size),
-            properties: {
-              topic: "", // Empty topic - user can set later in properties panel
-              valueIconPairs: [],
-              backgroundColor: "transparent",
-            },
-          }
-
-          addInteractionObject(mqttIconFieldObject)
-          onToolChange("select")
-        } else if (isArcType(dragState.creatingType)) {
-          // Square, like an icon: the ring is inscribed in its box.
-          const size = Math.max(Math.abs(width), Math.abs(height))
-          const smallestFont = findSmallestFont()
-          const arcLevelObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: dragState.creatingType,
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(size),
-            height: Math.round(size),
-            properties: {
-              topic: undefined,
-              setpointTopic: undefined,
-              calibrationPoints: [
-                { value: 0, barSizePercent: 0 },
-                { value: 100, barSizePercent: 100 },
-              ],
-              // Half past seven round to half past four - the thermostat
-              // shape, 270 degrees with a symmetric gap at the bottom. The
-              // longest scale that still reads as a dial rather than a ring.
-              minAngle: 225,
-              maxAngle: 135,
-              direction: "cw",
-              thickness: LEVEL_DEFAULT_THICKNESS,
-              displayValue: "value",
-              // One colour, like the bar's: the track is this mixed halfway
-              // into what the ring stands on, the handle is this itself, and
-              // the ring has no background of its own
-              // (docs/2026-09-22-arc-look.md).
-              // Roles of the screen's theme (lib/control-palette.ts
-              // ROLE_PALETTE). The value sits on the ground inside the ring,
-              // not on the fill, so it takes the text colour.
-              fillColor: ROLE_PALETTE.fill,
-              textColor: ROLE_PALETTE.text,
-              // Display: the value stands alone in the ring.
-              ...(startStyled("display") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
-            },
-          }
-
-          addInteractionObject(arcLevelObject)
-          onToolChange("select")
-        } else if (isLevelType(dragState.creatingType)) {
-          const smallestFont = findSmallestFont()
-          const levelIndicatorObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: dragState.creatingType,
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-            properties: {
-              topic: "", // Empty topic - user can set later in properties panel
-              direction: "left-to-right",
-              calibrationPoints: [
-                { value: 0, barSizePercent: 0 },
-                { value: 100, barSizePercent: 100 },
-              ],
-              displayValue: "value",
-              fillColor: ROLE_PALETTE.fill,
-              thickness: LEVEL_DEFAULT_THICKNESS,
-              textColor: ROLE_PALETTE.text,
-              ...(startStyled("label") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
-            },
-          }
-
-          addInteractionObject(levelIndicatorObject)
-          onToolChange("select")
-        } else if (dragState.creatingType === "button") {
-          const softwareButtonObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "button",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-            properties: {
-              text: "Button",
-              iconAssetId: null,
-              // Material's tonal button in the palette's colour; everything
-              // else about its look follows from those two
-              // (docs/2026-09-19-button-look.md).
-              buttonStyle: "tonal",
-              buttonColor: ROLE_PALETTE.fill,
-              ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
-              action: { type: "next-screen" },
-            },
-          }
-
-          addInteractionObject(softwareButtonObject)
-          onToolChange("select")
-        } else if (isSwitchType(dragState.creatingType)) {
-          // Same creation palette as every other control - this one is built
-          // here rather than in project-editor.tsx's switch.
-          const palette = ROLE_PALETTE
-          const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: dragState.creatingType,
-            x: Math.round(x),
-            y: Math.round(y),
-            // Same floor the resize handles clamp to. Dragging out a tiny
-            // rectangle would otherwise create a Switch that the very next
-            // resize is forbidden to make. It starts with no states, so the
-            // width floor is the one-segment case.
-            width: Math.max(Math.round(Math.abs(width)), minSwitchWidth(0)),
-            height: Math.max(Math.round(Math.abs(height)), SWITCH_MIN_HEIGHT),
-            properties: {
-              topic: undefined,
-              writeTopic: "",
-              states: [],
-              // One colour; the container, the chosen state's pill and every
-              // label follow from it (docs/2026-09-20-switch-look.md).
-              switchStyle: "filled",
-              switchColor: palette.fill,
-              ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
-            },
-          }
-
-          addInteractionObject(switchObject)
-          onToolChange("select")
-        } else if (dragState.creatingType === "live-line") {
-          // A quick drag still creates a straight 2-point MqttDataLine in
-          // one gesture, same as the plain "line" case below - the too-
-          // short-drag branch (this function's very end) starts the same
-          // click-to-place polyline flow for both types instead.
-          const mqttDataLineObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "live-line",
-            x: Math.round(dragState.startPos.x),
-            y: Math.round(dragState.startPos.y),
-            width: Math.round(width),
-            height: Math.round(height),
-            properties: defaultMqttDataLineProperties([
-              { x: Math.round(dragState.startPos.x), y: Math.round(dragState.startPos.y) },
-              { x: Math.round(dragState.startPos.x + width), y: Math.round(dragState.startPos.y + height) },
-            ]),
-          }
-
-          addInteractionObject(mqttDataLineObject)
-          onToolChange("select")
-        } else if (dragState.creatingType === "switcher") {
-          // Starts with a single "Panel 1" child (comparisonValue "") so a
-          // freshly-drawn tab-control is immediately editable instead of
-          // rendering nothing until the user manually adds a panel.
-          const tabControlObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "switcher",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-            properties: {
-              topic: "",
-              comparisonOperator: "==",
-              comparisonValue: "",
-            },
-            children: [
-              {
-                id: `panel-${Date.now()}`,
-                type: "panel",
-                x: 0,
-                y: 0,
-                width: Math.round(Math.abs(width)),
-                height: Math.round(Math.abs(height)),
-                zIndex: 0,
-                properties: {
-                  comparisonOperator: "==",
-                  comparisonValue: "",
-                },
-                children: [],
-              },
-            ],
-          }
-
-          addInteractionObject(tabControlObject)
-          onToolChange("select")
         } else {
-          const textStyled = startStyled("label")
-          // Keyed by the tool, which is the type it makes.
-          // A layout container drawn as a rectangle: empty, its own defaults
-          // (lib/layout.ts) until its properties say otherwise.
-          const container = (type: ScreenObject["type"]): Omit<ScreenObject, "id" | "zIndex"> => ({
-            type,
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-            properties: {},
-            children: [],
-          })
-          const defaultObjects: Record<
-            "text" | "icon" | "line" | "box" | "table" | "free",
-            Omit<ScreenObject, "id" | "zIndex">
-          > = {
-            // The shape chosen in the Table tool's menu, one row; «Name and
-            // control» without a choice (docs/2026-10-03-free-screens.md).
-            table: { ...container("table"), properties: { columns: shapeColumns(tableShape ?? DEFAULT_TABLE_SHAPE), rows: 1 } },
-            free: container("free"),
-            text: {
-              type: "text",
-              x: Math.round(x),
-              y: Math.round(y),
-              width: Math.round(Math.abs(width)),
-              height: (() => {
-                const f = fonts && fonts[0]
-                const fontSize = textStyled?.fontSize || f?.size || 16
-                return calculateTextObjectHeight(fontSize)
-              })(),
-              properties: {
-                text: "Label",
-                ...(textStyled ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined, fontSize: 14 }),
-                // Roles of the screen's theme (lib/themes.ts), never a hex. A
-                // label is text on the screen, not a box: no background and
-                // no border until someone asks for one (user, 2026-09-25).
-                color: ROLE_PALETTE.text,
-                textAlign: "left",
-                fontWeight: "normal",
-                backgroundColor: "transparent",
-                borderColor: "transparent",
-              },
-            },
-            icon: {
-              type: "icon",
-              x: Math.round(x),
-              y: Math.round(y),
-              width: Math.round(Math.abs(width)),
-              height: Math.round(Math.abs(height)),
-              properties: {
-                assetId: selectedIconAssetId || null,
-                iconName: "default",
-                recolorations: [] as ColorRecoloration[],
-                backgroundColor: "transparent",
-              },
-            },
-            line: {
-              type: "line",
-              x: Math.round(dragState.startPos.x),
-              y: Math.round(dragState.startPos.y),
-              width: Math.round(width),
-              height: Math.round(height),
-              properties: {
-                color: ROLE_PALETTE.stroke,
-                strokeWidth: 2,
-                strokeStyle: "solid",
-                filletRadius: 0,
-                // Explicit points even for this plain single-drag line, not
-                // just the segmented-tool path below - keeps every line
-                // object's shape in one uniform place (getLinePoints() in
-                // render-line.ts) rather than two representations that
-                // happen to agree only for a fresh two-point line.
-                points: [
-                  { x: Math.round(dragState.startPos.x), y: Math.round(dragState.startPos.y) },
-                  { x: Math.round(dragState.startPos.x + width), y: Math.round(dragState.startPos.y + height) },
-                ],
-              },
-            },
-            box: {
-              type: "box",
-              x: Math.round(x),
-              y: Math.round(y),
-              width: Math.round(Math.abs(width)),
-              height: Math.round(Math.abs(height)),
-              properties: {
-                fillColor: ROLE_PALETTE.track,
-                strokeColor: ROLE_PALETTE.stroke,
-                strokeWidth: 1,
-                cornerRadius: 0,
-              },
-            },
-          }
-
-          const objectType = dragState.creatingType as keyof typeof defaultObjects
-          if (objectType in defaultObjects) {
-            addInteractionObject(defaultObjects[objectType])
+          const made = objectFor(dragState.creatingType, { x, y, width, height }, dragState.startPos)
+          if (made) {
+            addInteractionObject(made)
             onToolChange("select")
           }
         }
