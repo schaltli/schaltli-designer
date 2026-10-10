@@ -178,12 +178,22 @@ Done 2026-10-10. No video yet: the live van stands in its place.
 (`ssh schaltli-demo 'bash -s' < deploy/demo/setup.sh`).
 
 **Acceptance criteria:**
-- [ ] https://demo.schaltli.com opens «Camper» with a valid certificate.
-- [ ] The preview and «Your van» are live against the demo van over
+- [x] https://demo.schaltli.com opens «Camper» with a valid certificate
+      (Let's Encrypt, by Caddy).
+- [x] The preview and «Your van» are live against the demo van over
       `wss://…/mqtt`.
-- [ ] From outside: a refused route is 403; a foreign MQTT client cannot
-      publish on `schaltli/state/#`; only 22, 80, 443 open.
-- [ ] Rerunning the script changes nothing; a reboot brings it all back.
+- [x] From outside: a refused route is 403; a foreign MQTT client cannot
+      publish on `schaltli/state/#` or announce blocks; 1883, 3000 and 9001
+      closed.
+- [x] Rerunning the script changes nothing; a reboot brings it all back.
+
+Done 2026-10-10. Learnt on the way: Infomaniak has a firewall of its own in
+front of the VPS (Manager › VPS › Firewall), which let only SSH through -
+TCP 80 and 443 opened there by the user; Caddy's own apt repository answers
+402, Debian's Caddy 2.6 is used and answers an oversized body with 502;
+Mosquitto on Debian runs as its own user from the start, so its password
+and ACL files are root:mosquitto 640 (mosquitto_passwd warns the group is
+not root, the broker itself does not).
 
 **Verification:** a check script (`deploy/demo/check.js`) run from the PC,
 kept for every later update.

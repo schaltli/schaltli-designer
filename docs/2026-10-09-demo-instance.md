@@ -7,7 +7,9 @@ up (Infomaniak VPS Lite, Debian 13, 2 vCPU, 4 GB, 179.237.127.7, firewall
 Caddy's own repository answers 402 now) and the A record for
 demo.schaltli.com was in place.
 
-Status: spec agreed 2026-10-09. Plan: tasks/demo-instance-plan.md.
+Status: spec agreed 2026-10-09. Plan: tasks/demo-instance-plan.md. Live at
+https://demo.schaltli.com since 2026-10-10 (deploy/demo/deploy.sh, checked
+by deploy/demo/check.js).
 
 ## Who and what for
 
