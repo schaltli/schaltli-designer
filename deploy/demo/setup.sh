@@ -115,7 +115,7 @@ user demo-van
 topic readwrite #
 EOF
 rm -f /etc/mosquitto/schaltli-demo.passwd
-touch /etc/mosquitto/schaltli-demo.passwd
+install -m 600 -o mosquitto -g mosquitto /dev/null /etc/mosquitto/schaltli-demo.passwd
 mosquitto_passwd -b /etc/mosquitto/schaltli-demo.passwd demo-van "$VAN_PASSWORD"
 chown mosquitto:mosquitto /etc/mosquitto/schaltli-demo.passwd /etc/mosquitto/schaltli-demo.acl
 chmod 600 /etc/mosquitto/schaltli-demo.passwd

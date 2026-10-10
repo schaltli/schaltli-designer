@@ -88,7 +88,9 @@ async function main() {
     check(res.status === 403, `${method} ${path} refused`, String(res.status))
   }
   const big = await fetch(`${base}/api/projects`, { method: "POST", headers: { "content-type": "application/json" }, body: "x".repeat(70 * 1024) })
-  check(big.status === 413, "a body above 64 KB refused at the door", String(big.status))
+  // 413 from a current Caddy; Caddy 2.6 (Debian 13) stops passing the body on
+  // at the limit and answers 502. Either way the designer never gets it.
+  check(big.status === 413 || big.status === 502, "a body above 64 KB refused at the door", String(big.status))
 
   // The broker, as a visitor.
   try {
