@@ -188,6 +188,19 @@ test.describe("the shape of a switch", () => {
     expect(switchStateIndexForTap(two, two.x + 200, 0)).toBe(1)
     expect(switchStateIndexForTap(two, two.x + 2, 1)).toBe(0)
 
+    // A button group of two too (#65): wherever it is hit, once a state is
+    // shown; before any value, the segment under the finger.
+    const group = switchObject({ type: "button-group", states: TWO })
+    const left = group.x + 2
+    const right = group.x + group.width - 2
+    expect(switchStateIndexForTap(group, left, 0)).toBe(1)
+    expect(switchStateIndexForTap(group, right, 1)).toBe(0)
+    expect(switchStateIndexForTap(group, left, -1)).toBe(0)
+    expect(switchStateIndexForTap(group, right, -1)).toBe(1)
+    // Three segments still take the one under the finger.
+    const threeGroup = switchObject({ type: "button-group", states: THREE })
+    expect(switchStateIndexForTap(threeGroup, threeGroup.x + 2, 0)).toBe(0)
+
     const three = switchObject({ type: "switch", states: THREE })
     expect(switchStateIndexForTap(three, switchKnob(three, 3, 2).cx, 0)).toBe(2)
     // Beside the track a tap advances, so a finger on the label does something.

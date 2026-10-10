@@ -222,6 +222,10 @@ export function switchStateIndexForTap(obj: ScreenObject, x: number, activeIndex
     return activeIndex < 0 ? 0 : (activeIndex + 1) % states.length
   }
 
+  // A button group of two toggles too, wherever it is hit, once a state is
+  // shown (#65, tester Arno: small switches, «Aus» and «An» hard to hit).
+  // Before any value the segment under the finger is what was meant.
+  if (states.length === 2 && activeIndex >= 0) return activeIndex === 0 ? 1 : 0
   return switchSegmentAt(obj, states.length, x)
 }
 

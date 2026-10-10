@@ -54,6 +54,8 @@ Mehrere Schaltflächen nebeneinander, von denen immer eine gewählt ist, etwa He
 
 **Am Gerät:** Ein Tippen auf eine Schaltfläche schickt ihren Wert. Die gemeldete hat eine gefüllte Fläche, die gewünschte bekommt einen Ring, bis die Anlage antwortet. Ohne Wert ist keine Schaltfläche markiert.
 
+Hat die Button Group genau zwei Schaltflächen, etwa «Aus» und «An», schaltet ein Tippen irgendwo darauf zum jeweils anderen Zustand um, sobald einer gemeldet ist. Du musst also nicht die richtige Hälfte treffen, und die Gruppe darf klein sein, auch wenn die Beschriftung dann nicht mehr ganz hineinpasst. Solange noch kein Zustand gemeldet ist, zählt die Schaltfläche unter dem Finger. Bei drei und mehr Schaltflächen zählt immer die getroffene.
+
 ## Button {#button}
 
 Eine Schaltfläche, die beim Antippen etwas tut.

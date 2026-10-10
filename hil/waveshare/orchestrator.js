@@ -626,6 +626,32 @@ async function main() {
       JSON.stringify(empfangen),
     )
 
+    // Zwei Zustaende, einer gemeldet: ein Tipp irgendwo schaltet um (#65,
+    // seit 2026-10-10 - kleine Schalter, «Aus» und «An» schwer zu treffen).
+    // AUS gemeldet, Tipp auf AUS: AN; AN gemeldet, Tipp auf AN: AUS.
+    const melde = async (wert) => {
+      await new Promise((resolve) => mqttClient.publish("hil-test/schalter", wert, { qos: 1 }, resolve))
+      await sleep(700)
+    }
+    await melde("0")
+    empfangen.length = 0
+    await touch(110, 203)
+    tapCheck(
+      "AUS gemeldet: ein Tipp auf AUS schaltet auf AN um",
+      empfangen.includes("hil-test/schalter/set=an"),
+      JSON.stringify(empfangen),
+    )
+    await melde("1")
+    empfangen.length = 0
+    await touch(250, 203)
+    tapCheck(
+      "AN gemeldet: ein Tipp auf AN schaltet auf AUS um",
+      empfangen.includes("hil-test/schalter/set=aus"),
+      JSON.stringify(empfangen),
+    )
+    // Zurueck auf «noch kein Wert», wie die Pruefungen danach es erwarten.
+    await melde("")
+
     empfangen.length = 0
     await touch(180, 263)
     tapCheck(
@@ -781,18 +807,20 @@ async function main() {
       await waitForTopicValuesApplied(gesperrt)
       await sleep(400)
 
+      // ZU ist gemeldet (LOCKED), also schaltet jeder Tipp auf AUF (#65) -
+      // links wie rechts. Dass ueberhaupt etwas ankommt, ist der Treffer.
       empfangen.length = 0
       await touch(130, 130)
       tapCheck(
-        "ein Tipp auf einen Switch IN einem Panel schickt dessen writeValue",
-        empfangen.includes("hil-test/doorman/set=01"),
+        "ein Tipp auf einen Switch IN einem Panel schickt dessen writeValue (links, ZU gemeldet: AUF)",
+        empfangen.includes("hil-test/doorman/set=00"),
         JSON.stringify(empfangen),
       )
 
       empfangen.length = 0
       await touch(230, 130)
       tapCheck(
-        "und das rechte Segment desselben verschachtelten Switch das andere",
+        "und rechts auf demselben verschachtelten Switch ebenso",
         empfangen.includes("hil-test/doorman/set=00"),
         JSON.stringify(empfangen),
       )

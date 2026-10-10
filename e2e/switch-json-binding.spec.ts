@@ -88,19 +88,22 @@ test.describe("Switch bound through a JSON path", () => {
     expect(extractJsonField(doormanTopic.examples[1], "locked")).toBe("false")
   })
 
-  test("a tap targets the segment under the finger, whatever the read path says", () => {
+  test("a tap toggles the two states the read path resolves, wherever it lands", () => {
     const obj = lockSwitch("pkw/tele/doorman#stateText") as any
     const active = getActiveSwitchStateIndex(obj, preview([doormanTopic]))
     expect(active).toBe(0)
 
-    // Segmented: the finger picks the destination, so the currently active
-    // state does not shift the answer. x is in screen coordinates - the object
-    // spans 80..280, so 130 is the left half and 230 the right.
-    expect(switchStateIndexForTap(obj, 130, active)).toBe(0)
+    // Two states, one of them shown: a tap anywhere is the other one (#65,
+    // since 2026-10-10 - the segment under the finger until then). x is in
+    // screen coordinates - the object spans 80..280.
+    expect(switchStateIndexForTap(obj, 130, active)).toBe(1)
     expect(switchStateIndexForTap(obj, 230, active)).toBe(1)
-    // The boundary belongs to the segment it starts, on both sides (integer
-    // division, matching the firmware's own dispatchTapAt).
-    expect(switchStateIndexForTap(obj, 180, active)).toBe(1)
-    expect(switchStateIndexForTap(obj, 179, active)).toBe(0)
+    expect(switchStateIndexForTap(obj, 230, 1)).toBe(0)
+    // Before any value the finger picks the segment, and the boundary
+    // belongs to the segment it starts, on both sides (integer division,
+    // matching the firmware's own dispatchTapAt).
+    expect(switchStateIndexForTap(obj, 130, -1)).toBe(0)
+    expect(switchStateIndexForTap(obj, 180, -1)).toBe(1)
+    expect(switchStateIndexForTap(obj, 179, -1)).toBe(0)
   })
 })
