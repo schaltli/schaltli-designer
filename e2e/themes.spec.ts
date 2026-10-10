@@ -470,7 +470,7 @@ test.describe("drawing and export from roles", () => {
     await expect(picker).toHaveText("Forest")
     await expect.poll(async () => hex(await centrePixel(page))).toBe(FOREST.light.accent.toLowerCase())
 
-    await page.getByRole("button", { name: "Undo" }).click()
+    await page.getByRole("button", { name: "Undo", exact: true }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
     await expect(picker).toHaveText("Inherited from Master (Slate)")
 
@@ -490,7 +490,7 @@ test.describe("drawing and export from roles", () => {
     const { file } = await themedProjectZip()
     await loadProject(page, file)
     await page.locator('[data-screen-id="theme-inherits"]').click()
-    const undo = page.getByRole("button", { name: "Undo" })
+    const undo = page.getByRole("button", { name: "Undo", exact: true })
     const undoBefore = await undo.isDisabled()
 
     // The footer's "Dark" switch, beside "Adornment".
