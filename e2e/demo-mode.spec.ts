@@ -184,10 +184,24 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByRole("button", { name: "Exit Preview" })).toHaveCount(0)
     await expect(backdrop).toHaveAttribute("data-backdrop", "felt")
     await expect(page.getByText("Manage Screens")).toHaveCount(0)
-    // Under the device.
-    const canvasBox = (await page.locator("canvas").last().boundingBox())!
-    const switchBox = (await modes.boundingBox())!
-    expect(switchBox.y).toBeGreaterThan(canvasBox.y + canvasBox.height / 2)
+    // Under the device: on a large screen halfway between its lower edge
+    // and the canvas's bottom; on a small one in a strip under the canvas.
+    const canvas = page.locator("canvas[data-device-bottom]")
+    const place = page.locator("[data-place]")
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await expect(place).toHaveAttribute("data-place", "float")
+    await expect
+      .poll(async () => {
+        const box = (await canvas.boundingBox())!
+        const bottom = box.y + Number(await canvas.getAttribute("data-device-bottom"))
+        const pill = (await modes.boundingBox())!
+        return Math.abs(pill.y + pill.height / 2 - (bottom + (box.y + box.height)) / 2)
+      })
+      .toBeLessThan(4)
+    await page.setViewportSize({ width: 1280, height: 480 })
+    await expect(place).toHaveAttribute("data-place", "strip")
+    const box = (await canvas.boundingBox())!
+    expect((await modes.boundingBox())!.y).toBeGreaterThanOrEqual(box.y + box.height)
 
     await designer.click()
     await expect(designer).toHaveAttribute("aria-pressed", "true")

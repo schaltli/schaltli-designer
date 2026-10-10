@@ -228,6 +228,9 @@ export interface CanvasProps {
   // What lies behind the device: the plain grey, or black felt - the demo's
   // preview, so it looks unlike the designer (2026-10-10).
   backdrop?: "plain" | "felt"
+  // Told where the device ends below and how tall the canvas is, both in CSS
+  // pixels, whenever either changes - for what is placed under the device.
+  onDeviceBottom?: (bottom: number, height: number) => void
   // `screen`'s own assigned master screen (already resolved by the caller
   // respecting isMaster/showMaster - see project-editor.tsx's
   // displayedScreenMaster), or undefined when none applies. Needed
@@ -720,6 +723,7 @@ export function Canvas({
   screen,
   masterObjects = [],
   backdrop = "plain",
+  onDeviceBottom,
   masterScreen,
   selectedObjectIds,
   onSelectObject,
@@ -1326,6 +1330,7 @@ export function Canvas({
   )
 
   const liveValueTest = useLiveValueTest()
+  const reportedDeviceBottomRef = useRef({ bottom: -1, height: -1 })
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -1563,6 +1568,10 @@ export function Canvas({
     // artwork's own id^="offscreen" covers ride along with it. Hiding the
     // adornment therefore honestly exposes the raw framebuffer again,
     // corners and all.
+    // Where the device ends below, in CSS pixels from the canvas's top: the
+    // screen's lower edge, or the adornment's where one is drawn
+    // (onDeviceBottom). The canvas's pixels are CSS pixels (see the resize).
+    let deviceBottom = (screenY + screenHeight) * zoom
     if (showAdornment && adornmentImage && adornmentDrawingArea) {
       ctx.save()
       try {
@@ -1573,6 +1582,16 @@ export function Canvas({
 
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImage, 0, 0)
+        const m = ctx.getTransform()
+        const { width: w, height: h } = adornmentImage
+        deviceBottom = Math.max(
+          ...[
+            [0, 0],
+            [w, 0],
+            [0, h],
+            [w, h],
+          ].map(([x, y]) => m.transformPoint(new DOMPoint(x, y)).y),
+        )
 
         // Belegt-status fill (gray/yellow/red - unbelegt/vererbt/lokal
         // definiert, see lib/hardware-button-actions.ts) for every hardware
@@ -1603,6 +1622,13 @@ export function Canvas({
         console.error("Error rendering adornment:", error)
       }
       ctx.restore()
+    }
+    // And for a test to read.
+    canvas.dataset.deviceBottom = String(Math.round(deviceBottom))
+    const reported = reportedDeviceBottomRef.current
+    if (onDeviceBottom && (reported.bottom !== deviceBottom || reported.height !== canvas.height)) {
+      reportedDeviceBottomRef.current = { bottom: deviceBottom, height: canvas.height }
+      onDeviceBottom(deviceBottom, canvas.height)
     }
 
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
@@ -1774,6 +1800,7 @@ export function Canvas({
     screenWidth,
     screenHeight,
     adornmentImage,
+    onDeviceBottom,
     adornmentSvgDoc,
     showAdornment,
     adornmentDrawingArea,

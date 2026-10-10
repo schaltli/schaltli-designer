@@ -83,7 +83,7 @@ import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
-import { DemoModeSwitch } from "./demo-mode-switch"
+import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
 import { DemoScenePanel } from "./demo-scene-panel"
 import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
@@ -3101,6 +3101,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // The demo opens in the preview: a visitor first sees the screens working,
   // and the red switch under the device (DemoModeSwitch) leads to the
   // designer (2026-10-10).
+  // Where the red switch goes: from where the canvas says the device ends,
+  // measured with the strip shown or not, the switch under the device or in
+  // the strip (demoSwitchFloat).
+  const [demoSwitchAt, setDemoSwitchAt] = useState<number | null>(null)
+  const demoSwitchAtRef = useRef<number | null>(null)
+  demoSwitchAtRef.current = demoSwitchAt
+  const onDeviceBottom = useCallback((bottom: number, height: number) => {
+    const at = demoSwitchFloat(bottom, height, demoSwitchAtRef.current === null)
+    setDemoSwitchAt(at === null ? null : Math.round(at))
+  }, [])
   const demoPreviewStartedRef = useRef(false)
   useEffect(() => {
     if (!demo || openingInitial || !projectOpen || demoPreviewStartedRef.current) return
@@ -4253,6 +4263,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-auto">
           <Canvas
             backdrop={demo && isPreviewMode ? "felt" : "plain"}
+            onDeviceBottom={demo ? onDeviceBottom : undefined}
             projectScreens={project.screens}
             screen={displayedScreen}
             popupUnderlay={popupUnderlay}
@@ -4331,8 +4342,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
+          {demo && demoSwitchAt !== null && (
+            <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={demoSwitchAt} />
+          )}
         </div>
-        {demo && <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} />}
+        {demo && demoSwitchAt === null && (
+          <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={null} />
+        )}
         </div>
 
         {/* Drag handle for the right panel - widened to a comfortable 4px
