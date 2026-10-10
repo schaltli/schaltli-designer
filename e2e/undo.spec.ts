@@ -202,8 +202,11 @@ test.describe("Undo and redo", () => {
     const start = devicePoint(box, 330, 200)
     await page.mouse.move(start.x, start.y)
     await page.mouse.down()
-    await page.mouse.move(start.x + 50, start.y + 60, { steps: 10 })
-    await page.mouse.up()
+    // Freely: its edge lies against an object of the project, where it would snap.
+    await placingFreely(page, async () => {
+      await page.mouse.move(start.x + 50, start.y + 60, { steps: 10 })
+      await page.mouse.up()
+    })
     await expect(rows).toHaveCount(count + 1)
 
     await openFrameSection(page)

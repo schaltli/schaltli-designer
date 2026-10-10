@@ -221,6 +221,36 @@ test.describe("snap table: snapping", () => {
     }
   })
 
+  test("with a table open, a box drawn far from it lies freely on the screen, not in the table", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    // The table open, an object in it chosen.
+    await click(page, middleOf(table, "pumpe"))
+    await doubleClick(page, middleOf(table, "pumpe"))
+    await expect.poll(() => editing(page)).toBe("grid")
+    await page.getByRole("button", { name: "Box", exact: true }).first().click()
+    await drag(page, { x: 250, y: 200 }, { x: 320, y: 260 })
+    const objects = await savedObjects(page)
+    const box = objects.find((o) => o.type === "box")!
+    expect(box).toMatchObject({ x: 250, y: 200 })
+    expect(box.properties?.cell).toBeUndefined()
+    expect(objects.find((o) => o.id === "grid")!.children!.map((c) => c.id).sort()).toEqual(["bad", "licht", "pumpe"])
+    expect(await editing(page)).toBeNull()
+  })
+
+  test("with a table open, a box drawn against its side snaps into it", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    await doubleClick(page, middleOf(table, "pumpe"))
+    await page.getByRole("button", { name: "Box", exact: true }).first().click()
+    // Its left edge 3 px right of the table, level with its first row.
+    await drag(page, { x: table.x + table.width + 3, y: table.y }, { x: table.x + table.width + 33, y: table.y + 15 })
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const box = grid.children!.find((c) => c.type === "box")!
+    expect(box.properties?.cell).toMatchObject({ row: 0, column: 2 })
+  })
+
   test("Esc while dragging puts the object back and makes no table", async ({ page }) => {
     await loadProject(page, await freeProject())
     await drag(page, { x: 130, y: 161 }, { x: 193, y: 71 }, () => page.keyboard.press("Escape"))

@@ -956,6 +956,20 @@ export function Canvas({
     ? (editingContainer.children ?? []).map((child) => translateObject(child, editingOrigin.x, editingOrigin.y))
     : screen.objects
 
+  // Where a new object drawn now goes, and what it can snap to there: the
+  // open panel, group or free area, or the screen. A table put together by
+  // snapping takes nothing but through a cell, so while one is open a new
+  // object goes where the table stands - and snaps into it or beside it
+  // (reported 2026-10-10: it went into the table's first cell instead,
+  // however far away it was drawn).
+  const drawSpace = useMemo(() => {
+    if (!isSnapTable(editingContainer)) return { id: editingContainer?.id ?? null, origin: editingOrigin, objects: interactionObjects }
+    const parent = findParentOf(screen.objects, editingContainer!.id)?.parent ?? null
+    const origin = parent ? childOrigin(screen.objects, parent.id) : { x: 0, y: 0 }
+    const list = parent ? (parent.children ?? []) : screen.objects
+    return { id: parent?.id ?? null, origin, objects: list.map((child) => translateObject(child, origin.x, origin.y)) }
+  }, [editingContainer, editingOrigin, interactionObjects, screen.objects])
+
   // What a finger can reach in preview: every group dissolved, so a button
   // inside one is pressed like any other (lib/object-groups.ts) - the
   // device never sees the group either.
@@ -1011,9 +1025,13 @@ export function Canvas({
       // with its neighbour.
       const snapTo = createSnapRef.current
       createSnapRef.current = null
-      if (snapTo) {
-        const placed = editingContainer ? translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y) : object
-        onAddObject(placed, editingContainer?.id, { snap: snapTo })
+      // In the space it is drawn in (drawSpace): out of an open table into
+      // the space the table stands in, which is open from now on.
+      const leavesTable = isSnapTable(editingContainer)
+      if (snapTo || leavesTable) {
+        const placed = drawSpace.id !== null ? translateObject(object as ScreenObject, -drawSpace.origin.x, -drawSpace.origin.y) : object
+        if (leavesTable) onSetEditingContainer(drawSpace.id)
+        onAddObject(placed, drawSpace.id ?? undefined, snapTo ? { snap: snapTo } : undefined)
         return
       }
       const inTable = tablePlacementRef.current
@@ -1029,7 +1047,7 @@ export function Canvas({
         onAddObject(object)
       }
     },
-    [editingContainer, editingOrigin.x, editingOrigin.y, onAddObject, textScale, fonts],
+    [editingContainer, editingOrigin.x, editingOrigin.y, onAddObject, textScale, fonts, drawSpace, onSetEditingContainer],
   )
 
   // Commits an in-progress segmented line (see polylineDraft) as a real
@@ -1742,7 +1760,7 @@ export function Canvas({
     }
 
     if (snapChip && dragState?.mode !== "drag") drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
-    if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create")) drawSnapDrop(ctx, snapDrop, interactionObjects, layoutScale, LAYOUT_HINT_COLOR, zoom)
+    if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create")) drawSnapDrop(ctx, snapDrop, drawSpace.objects, layoutScale, LAYOUT_HINT_COLOR, zoom)
 
     // A table's drop: the empty cell lit up, or the row line drawn thick.
     if (tableDrop && (!dragState || dragState.mode === "drag")) {
@@ -1828,6 +1846,7 @@ export function Canvas({
     snapChip,
     snapDrop,
     interactionObjects,
+    drawSpace,
     layoutScale,
     snapGuides,
     activeSnapLines,
@@ -3317,9 +3336,10 @@ export function Canvas({
           // free object snaps there when let go, as one dragged does
           // (docs/2026-10-09-snap-tables.md); where, it shows while drawing.
           const type = dragState.creatingType
-          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && !isSnapTable(editingContainer) && type !== "baustein" && type !== "navigator" && type !== "table" && type !== "background"
+          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && type !== "baustein" && type !== "navigator" && type !== "table" && type !== "background"
           const drawn = { id: NEW_OBJECT, type, x, y, width, height, zIndex: 0 } as ScreenObject
-          const snapping = snaps ? snapDropAt([...interactionObjects, drawn], NEW_OBJECT, drawn, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+          // Among what stands where it is drawn - beside an open table too.
+          const snapping = snaps ? snapDropAt([...drawSpace.objects, drawn], NEW_OBJECT, drawn, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
           setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         }
       } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
@@ -3734,6 +3754,7 @@ export function Canvas({
     [
       tableDropFor,
       sizedBySnapTable,
+      drawSpace,
       placedByLayout,
       textScale,
       previewMode,
