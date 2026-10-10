@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { readFirmwareRelease } from "@/lib/firmware-release"
 import { deviceFacingUrl } from "@/lib/server-lan-address"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/firmware/release - the firmware release that ships with this
 // designer, per device: build, size, sha256, system generation, whether the
@@ -10,6 +11,8 @@ import { deviceFacingUrl } from "@/lib/server-lan-address"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const release = await readFirmwareRelease()
   const devices = Object.fromEntries(
     Object.entries(release.devices).map(([deviceId, entry]) => [

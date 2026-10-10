@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
 import { projectStore, storeErrorResponse } from "../../store-response"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // { versionId, instanceId, deviceName } -> that version marked as deployed to
 // the device, and the device pointed at this project (by-instance).
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request, { params }: { params: Promise<{ name: string }> }) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const { name } = await params
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
   const { versionId, instanceId, deviceName } = body ?? {}

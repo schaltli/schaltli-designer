@@ -33,6 +33,7 @@ import { ExportDialog } from "./export-dialog"
 import { DeployDialog } from "./deploy-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
+import { DEMO_INSTALL_URL, useDemoMode } from "@/hooks/use-demo-mode"
 import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
@@ -81,6 +82,11 @@ import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
+import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
+import { DEMO_REFUSES, demoRefusalToast } from "./demo-refusal"
+import { DEMO_COUNTING_URL, trackDemo, useDemoTracking } from "@/hooks/use-demo-tracking"
+import { DemoScenePanel } from "./demo-scene-panel"
+import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
 import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft } from "@/lib/project-draft"
 import { sameProjectName } from "@/lib/project-name"
@@ -94,7 +100,7 @@ import {
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
-import { DEFAULT_THEME_ID, defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
@@ -943,9 +949,22 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const projectOpen = !!project.settings.deviceId
   const save = useProjectSave(project, history.amend, projectOpen)
 
+  // The demo (hooks/use-demo-mode.ts): null until the server has said.
+  const demo = useDemoMode()
+  // What the demo says to Save, Deploy and Version History, and counts.
+  const demoRefuses = useCallback(
+    (what: keyof typeof DEMO_REFUSES) => {
+      trackDemo("refused", what)
+      toast(demoRefusalToast(DEMO_REFUSES[what]))
+    },
+    [toast],
+  )
+
   // The draft in the browser (lib/project-draft.ts): the key it is kept
   // under - the saved name, or for a project without one a random key made
-  // when it was loaded.
+  // when it was loaded. The demo keeps none: nothing is saved there, and a
+  // draft from an earlier visit would open in place of the start project as
+  // it is now (2026-10-10).
   const [untitledDraftKey, setUntitledDraftKey] = useState(newUntitledDraftKey)
   const draftKey = save.savedName !== null ? draftKeyForName(save.savedName) : untitledDraftKey
   // Which Save dialog is open: the first save of an unnamed project, or a
@@ -1018,7 +1037,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // then). Gone once saved, or undone back to the saved state.
   const lastDraftWriteRef = useRef(0)
   useEffect(() => {
-    if (!projectOpen) return
+    if (!projectOpen || demo !== false) return
     if (!save.unsaved) {
       void deleteDraft(draftKey)
       return
@@ -1035,7 +1054,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       })
     }, wait)
     return () => clearTimeout(timer)
-  }, [projectOpen, save.unsaved, save.savedName, draftKey, project])
+  }, [projectOpen, demo, save.unsaved, save.savedName, draftKey, project])
 
   // A draft under a key the open project no longer has goes: after a first
   // save (untitled -> named), a rename, or leaving a project - which asked
@@ -1212,8 +1231,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         client.on("close", () => {
           if (gen === liveGenRef.current) setLiveStatus("lost")
         })
-        const topics = projectSubscriptionTopics(project)
-        if (topics.length > 0) client.subscribe(topics, { qos: 0 })
+        // And light or dark, which a colour device follows whatever its
+        // screens read.
+        const topics = [...new Set([...projectSubscriptionTopics(project), THEME_STATE_TOPIC])]
+        client.subscribe(topics, { qos: 0 })
         setLiveStatus("live")
       })
       .catch(() => {
@@ -1290,6 +1311,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // What is new is the answer that follows.
   const handlePreviewPublish = useCallback(
     (topic: string, payload: string) => {
+      trackDemo("tap", `${topic.replace(/^schaltli\/cmnd\//, "")}=${payload}`)
       // Live, a tap is what it is on a device: a publish, answered - or not -
       // by whatever listens on the broker. The mock engine stays out of it;
       // an answer it made up would look exactly like the van's.
@@ -1582,6 +1604,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
 
+  // The variant the canvas and the thumbnails show: in the preview, light or
+  // dark as the installation says (THEME_STATE_TOPIC), as a colour device
+  // shows it; without a word from it, and outside the preview, the Dark
+  // switch's - which stays a view and does not follow the topic
+  // (docs/2026-09-25-theme-topic.md).
+  const shownVariant: Variant =
+    (isPreviewMode &&
+      variantFromTopic(previewSource === "live" ? liveValues[THEME_STATE_TOPIC] : previewTopicValues[THEME_STATE_TOPIC])) ||
+    themeVariant
+
   // What the view reads, for the live preview to redraw at once (#58); and
   // when the view changes, everything the broker has given so far.
   useEffect(() => {
@@ -1841,6 +1873,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       parentId?: string,
       at?: { snap: SnapDrop },
     ) => {
+      trackDemo("insert", object.type)
       // Drawn where a table put together by snapping takes it: added, then
       // snapped there as if dragged (docs/2026-10-09-snap-tables.md).
       if (at && "snap" in at) {
@@ -1905,6 +1938,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const addObjects = useCallback(
     (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string) => {
       if (objects.length === 0) return
+      trackDemo("insert", objects.map((o) => o.type).join(","))
       const created: string[] = []
       setProject((prev) => {
         // Reset rather than append: React may run an updater twice, and the
@@ -2846,7 +2880,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const saved: Project = migrateProject(structuredClone(data.project))
       // This browser's draft of it, if there is one, is what opens - shown
       // unsaved against the newest saved version.
-      const draft = await getDraft(draftKeyForName(data.name))
+      const draft = demo === false ? await getDraft(draftKeyForName(data.name)) : undefined
       const opened: Project = draft
         ? { ...migrateProject(structuredClone(draft.project as Project)), name: data.name }
         : saved
@@ -2857,7 +2891,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
     },
-    [save.savedName, save.markSaved, confirmLeave, history.replace, toast],
+    [save.savedName, save.markSaved, confirmLeave, history.replace, toast, demo],
   )
 
   // Opens the draft of a project that was never saved, from the list.
@@ -2884,24 +2918,64 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // opens that project on mount. An unknown name lands on the start page with
   // «No project "…"». Until that first open has run, nothing else shows, so
   // the start page does not flash up first.
-  const [openingInitial, setOpeningInitial] = useState(!!initialName)
+  //
+  // The demo (hooks/use-demo-mode.ts) opens its start project on the start
+  // page's address too, so a visitor never sees the start page; until the
+  // server has said whether this is the demo, nothing shows. (`demo` is
+  // asked for further up, where the drafts need it.)
+  const [phonePage, openAnyway] = useDemoPhonePage()
+  // What visitors do, counted without cookie or address (lib/demo-events.ts).
+  useDemoTracking(demo, phonePage)
   useEffect(() => {
-    if (!initialName) return
+    if (demo && projectOpen) trackDemo("mode", isPreviewMode ? "preview" : "designer")
+  }, [demo, projectOpen, isPreviewMode])
+  const previewScreenName = isPreviewMode ? project.screens.find((s) => s.id === previewScreenId)?.name : undefined
+  useEffect(() => {
+    if (demo && previewScreenName) trackDemo("screen", previewScreenName)
+  }, [demo, previewScreenName])
+  const [openingInitial, setOpeningInitial] = useState(true)
+  const initialToOpen = initialName ?? (demo ? demo.start : undefined)
+  useEffect(() => {
+    if (demo === null) return
+    if (!initialToOpen) {
+      setOpeningInitial(false)
+      return
+    }
     let current = true
-    fetch(`/api/projects/${encodeURIComponent(initialName)}`)
+    fetch(`/api/projects/${encodeURIComponent(initialToOpen)}`)
       .then((res) => (res.ok ? res.json() : null))
       .catch(() => null)
       .then(async (data) => {
         if (!current) return
         if (data) await openSavedProject(data.name)
-        else setDeviceGateError(`No project "${initialName}"`)
+        else setDeviceGateError(`No project "${initialToOpen}"`)
         setOpeningInitial(false)
       })
     return () => {
       current = false
     }
-    // Once, for the address the page was loaded with.
+    // Once, for the address the page was loaded with, once demo or not is known.
+  }, [demo])
+
+  // The demo opens in the preview: a visitor first sees the screens working,
+  // and the red switch under the device (DemoModeSwitch) leads to the
+  // designer (2026-10-10).
+  // Where the red switch goes: from where the canvas says the device ends,
+  // measured with the strip shown or not, the switch under the device or in
+  // the strip (demoSwitchFloat).
+  const [demoSwitchAt, setDemoSwitchAt] = useState<number | null>(null)
+  const demoSwitchAtRef = useRef<number | null>(null)
+  demoSwitchAtRef.current = demoSwitchAt
+  const onDeviceBottom = useCallback((bottom: number, height: number) => {
+    const at = demoSwitchFloat(bottom, height, demoSwitchAtRef.current === null)
+    setDemoSwitchAt(at === null ? null : Math.round(at))
   }, [])
+  const demoPreviewStartedRef = useRef(false)
+  useEffect(() => {
+    if (!demo || openingInitial || !projectOpen || demoPreviewStartedRef.current) return
+    demoPreviewStartedRef.current = true
+    enterPreviewMode()
+  }, [demo, openingInitial, projectOpen, enterPreviewMode])
 
   // From then on the address follows the editor: the saved name while a named
   // project is open, the start page's address otherwise. Replaced, never
@@ -3036,6 +3110,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const downloadProject = useCallback(async () => {
     try {
       await downloadEditableProject(project)
+      trackDemo("download")
     } catch (error) {
       console.error("[v0] Error downloading project:", error)
     }
@@ -3359,7 +3434,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       input.style.display = "none"
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0]
-        if (file) processUploadedProjectFile(file)
+        if (file) {
+          trackDemo("upload")
+          processUploadedProjectFile(file)
+        }
       }
       document.body.appendChild(input)
       input.click()
@@ -3572,6 +3650,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "s") {
         event.preventDefault()
         if (!projectOpen) return
+        // The demo saves nothing (docs/2026-10-09-demo-instance.md).
+        if (demo) {
+          demoRefuses("save")
+          return
+        }
         if (event.shiftKey) handleSaveAs()
         else void handleSave()
         return
@@ -3674,7 +3757,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool, currentScreen.objects])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, demo, toast, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool, currentScreen.objects])
 
   // A button in the device's frame: the screen's panel, at that button's row
   // - so whatever was selected lets go.
@@ -3707,10 +3790,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
 
+  // The demo on a phone: its own page first (docs/2026-10-09-demo-instance.md,
+  // decision 9).
+  if (demo && phonePage) return <DemoPhoneStart onOpenAnyway={openAnyway} />
+
   if (openingInitial) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center text-sm text-muted-foreground">
-        Opening &quot;{initialName}&quot;...
+        {initialToOpen ? <>Opening &quot;{initialToOpen}&quot;...</> : null}
       </div>
     )
   }
@@ -3775,12 +3862,22 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <FilePlus2 className="w-4 h-4" />
                 New Project
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleSave()} className="flex items-center gap-2">
+              {/* The demo saves nothing (docs/2026-10-09-demo-instance.md,
+                  decision 3): Save, Save As, Deploy and Version History stay
+                  in the menu, so a visitor sees what the designer does, and
+                  say why not here and how to get it (2026-10-10). */}
+              <DropdownMenuItem
+                onClick={() => (demo ? demoRefuses("save") : void handleSave())}
+                className="flex items-center gap-2"
+              >
                 <Save className="w-4 h-4" />
                 Save
                 <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSaveAs} className="flex items-center gap-2">
+              <DropdownMenuItem
+                onClick={() => (demo ? demoRefuses("save") : handleSaveAs())}
+                className="flex items-center gap-2"
+              >
                 <SaveAll className="w-4 h-4" />
                 Save As...
                 <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
@@ -3804,7 +3901,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   self-update firmware path exists there yet" - which stopped
                   being true when the app learned to announce itself and to
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
-              {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
+              {demo && (
+                <DropdownMenuItem
+                  onClick={() => demoRefuses("deploy")}
+                  className="flex items-center gap-2"
+                >
+                  <Rocket className="w-4 h-4" />
+                  Deploy to Device
+                </DropdownMenuItem>
+              )}
+              {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && !demo && (
                 // Deploy only binds the project to the device it went to -
                 // a fact, not an edit, so it is no undo step and survives
                 // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
@@ -3832,12 +3938,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 Download Project
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+              {demo && (
+                <DropdownMenuItem
+                  onClick={() => demoRefuses("versions")}
+                  className="flex items-center gap-2"
+                >
                   <History className="w-4 h-4" />
                   Version History
                 </DropdownMenuItem>
-              </VersionHistoryDialog>
+              )}
+              {!demo && (
+                <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Version History
+                  </DropdownMenuItem>
+                </VersionHistoryDialog>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <SaveProjectDialog
@@ -3929,13 +4046,31 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </TooltipProvider>
         </div>
 
-        <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>
+        {/* The demo's notice (docs/2026-10-09-demo-instance.md, decision 3):
+            nothing is saved, and how to keep what was built. */}
+        {demo && (
+          <div data-testid="demo-notice" className="ml-auto pl-4 text-xs text-muted-foreground truncate">
+            Demo - nothing is saved. Download Project takes your screen with you.{" "}
+            <a href={DEMO_INSTALL_URL} target="_blank" rel="noreferrer" className="underline">
+              Install Schaltli
+            </a>
+            {" · "}
+            <a href={DEMO_COUNTING_URL} target="_blank" rel="noreferrer" className="underline">
+              Visits counted anonymously, no cookies
+            </a>
+          </div>
+        )}
+
+        <Button variant="ghost" size="sm" className={cn("h-8 px-3 gap-1.5 font-normal", !demo && "ml-auto")} asChild>
           <a href={HANDBOOK_URL} target="_blank" rel="noreferrer" data-testid="help-link">
             <CircleHelp className="w-4 h-4" />
             Help
           </a>
         </Button>
 
+        {/* The demo has the red switch under the device in its place
+            (DemoModeSwitch). */}
+        {!demo && (
         <Button
           variant={isPreviewMode ? "default" : "outline"}
           size="sm"
@@ -3954,6 +4089,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             </>
           )}
         </Button>
+        )}
       </div>
 
       <div className="mt-12 mb-8 flex-1 flex flex-col min-h-0">
@@ -3980,7 +4116,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
 
       <div className="flex-1 flex min-h-0">
-        {!isPreviewMode && (
+        {/* The demo has one project and saves none: no list - «Your van» in
+            its place, in the preview too, where it shows best
+            (docs/2026-10-09-demo-instance.md, decision 8). */}
+        {demo && <DemoScenePanel wide={isPreviewMode} />}
+        {!isPreviewMode && !demo && (
           <ProjectsPanel
             openName={save.savedName}
             openUnsaved={save.unsaved}
@@ -3993,9 +4133,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onNewProject={() => void newProject()}
           />
         )}
+        {/* In the demo's preview no screens list: the device's navigator
+            moves between them, and the editor's furniture gone is what tells
+            the preview from the designer (2026-10-10). */}
+        {!(demo && isPreviewMode) && (
         <ScreensPanel
           project={project}
-          variant={themeVariant}
+          variant={shownVariant}
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
@@ -4004,9 +4148,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
         />
+        )}
 
-        <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
+        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-auto">
           <Canvas
+            backdrop={demo && isPreviewMode ? "felt" : "plain"}
+            onDeviceBottom={demo ? onDeviceBottom : undefined}
             projectScreens={project.screens}
             screen={displayedScreen}
             popupUnderlay={popupUnderlay}
@@ -4064,7 +4212,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
             theme={themeFor(displayedScreen, project.screens)}
-            variant={themeVariant}
+            variant={shownVariant}
             editingContainerId={editingContainerId}
             onSetEditingContainer={setEditingContainerId}
             onAddPanel={addPanelToTabControl}
@@ -4080,8 +4228,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
+          {demo && demoSwitchAt !== null && (
+            <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={demoSwitchAt} />
+          )}
+        </div>
+        {demo && demoSwitchAt === null && (
+          <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={null} />
+        )}
         </div>
 
+        {/* The demo's preview has no panel on the right: «Your van» takes
+            its room (2026-10-10). */}
+        {!(demo && isPreviewMode) && (
+          <>
         {/* Drag handle for the right panel - widened to a comfortable 4px
             hit target (the visible border stays 1px) since a 1px-wide
             drag target is nearly unhittable with a mouse. */}
@@ -4206,6 +4365,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             </>
           )}
         </div>
+          </>
+        )}
       </div>
       </div>
 

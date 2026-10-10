@@ -3,6 +3,7 @@ import { readFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
 import { volatileDir } from "@/lib/volatile-dir"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // GET /api/deploy/[instanceId] - this is the URL the *device* fetches
 // (via a plain HTTP GET, no browser involved) after receiving its
@@ -13,7 +14,9 @@ export const dynamic = "force-dynamic"
 // RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
 const DEPLOYS_DIR = volatileDir("deploys")
 
-export async function GET(_request: Request, { params }: { params: { instanceId: string } }) {
+export async function GET(request: Request, { params }: { params: { instanceId: string } }) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const { instanceId } = params
   if (!isValidInstanceId(instanceId)) {
     return NextResponse.json({ error: "Invalid instanceId" }, { status: 400 })

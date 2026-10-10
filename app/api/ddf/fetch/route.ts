@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "fs/promises"
 import { join } from "path"
 import { parseDeviceDescriptionFile } from "@/lib/device-description"
 import { isValidDeviceId } from "@/lib/deploy-utils"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 /**
  * POST /api/ddf/fetch { deviceId?, ddfHash?, url } - two trigger paths:
@@ -52,6 +53,8 @@ function isBlockedHost(hostname: string): boolean {
 }
 
 export async function POST(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const body = await request.json().catch(() => null)
   // `deviceId` absent = manual import (path 2 above), present = the
   // hello-triggered auto-discovery path (path 1). `ddfHash` is optional on

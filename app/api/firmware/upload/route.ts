@@ -6,6 +6,7 @@ import { isValidInstanceId } from "@/lib/deploy-utils"
 import { imageDeviceId } from "@/lib/firmware-build"
 import { deviceFacingUrl } from "@/lib/server-lan-address"
 import { volatileDir } from "@/lib/volatile-dir"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // POST /api/firmware/upload - a firmware image from a file, for a development
 // build or a device no release of this designer carries
@@ -25,6 +26,8 @@ const UPLOADS_DIR = volatileDir("firmware-uploads")
 const MAX_BYTES = 6_553_600
 
 export async function POST(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const formData = await request.formData()
   const instanceId = formData.get("instanceId")
   const deviceId = formData.get("deviceId")

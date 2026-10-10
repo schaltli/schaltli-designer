@@ -5,6 +5,7 @@
 // start page (startup-device-gate.tsx), which offered it directly until
 // 2026-09-24.
 
+import { useDemoMode } from "@/hooks/use-demo-mode"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
@@ -155,6 +156,7 @@ export function DeviceChooser({
   // A double click on a card: choose it and go on.
   onOpen: (path: string) => void
 }) {
+  const demo = useDemoMode()
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -251,9 +253,13 @@ export function DeviceChooser({
           only way in at that point. Not gated behind
           NEXT_PUBLIC_DEPLOY_ENABLED - see ddf-url-import.tsx's own header
           comment for why. */}
-      <div className="mb-4">
-        <DdfUrlImport onDdfFetched={loadList} />
-      </div>
+      {/* Not in the demo, whose server fetches nothing by URL
+          (docs/2026-10-09-demo-instance.md, decision 2). */}
+      {!demo && (
+        <div className="mb-4">
+          <DdfUrlImport onDdfFetched={loadList} />
+        </div>
+      )}
 
       {listLoading ? (
         <p className="text-sm text-muted-foreground">Loading available devices...</p>

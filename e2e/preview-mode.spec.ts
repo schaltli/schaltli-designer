@@ -151,6 +151,40 @@ test.describe("preview drives the real round trip", () => {
     }
   })
 
+  // A master's objects are on every screen of the device, a switch there
+  // answers a tap like one of the screen's own (2026-10-10: the demo's
+  // light/dark switch on its master did nothing in the preview).
+  test("a Switch on the master answers a tap like one on the screen", async ({ page }) => {
+    const zipPath = await projectWithSwitchAndRule()
+    const zip = await JSZip.loadAsync(fs.readFileSync(zipPath))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const screen = project.screens[0]
+    // The fixture's Switch, saved under its old type name.
+    const sw = screen.objects.find((o: any) => o.id === "obj-switch-mode" || o.type === "button-group")
+    screen.objects = screen.objects.filter((o: any) => o !== sw)
+    project.screens.unshift({ id: "master-sw", name: "Master", isMaster: true, objects: [sw] })
+    screen.masterScreenId = "master-sw"
+    screen.showMaster = true
+    zip.file("project.json", JSON.stringify(project))
+    fs.writeFileSync(zipPath, await zip.generateAsync({ type: "nodebuffer" }))
+    try {
+      await loadProject(page, zipPath)
+      await page.locator(`[data-screen-id="${screen.id}"]`).click()
+      await enterSimulation(page)
+      const { box } = await getMainCanvas(page)
+      const tap = async (x: number, y: number) => {
+        const point = devicePoint(box, x, y, ROUND_FIXTURE_SCREEN)
+        await page.mouse.click(point.x, point.y)
+      }
+      await tap(200, 45)
+      await expect(modeValue(page)).toHaveValue("high")
+      await tap(40, 45)
+      await expect(modeValue(page)).toHaveValue("off")
+    } finally {
+      fs.unlinkSync(zipPath)
+    }
+  })
+
   test("a button's command gets its effect from the declared rule, not from a toast", async ({ page }) => {
     const zipPath = await projectWithSwitchAndRule()
     try {

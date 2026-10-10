@@ -6,7 +6,7 @@ import JSZip from "jszip"
 import { loadProject, getMainCanvas, objectTreeRow, devicePoint, createProject, placingFreely, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { levelTrackLook } from "../lib/level-shape"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
+import { THEME_STATE_TOPIC, THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
 import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
 import { applyColorDepth } from "../lib/color-depth"
@@ -345,7 +345,7 @@ test.describe("drawing and export from roles", () => {
   // accent colour over the middle of the screen, a screen that inherits the
   // master's theme, and one that overrides it with Amber. No colour in it is
   // a hex.
-  async function themedProjectZip(): Promise<{ file: string; project: any }> {
+  async function themedProjectZip(extra?: (project: any) => void): Promise<{ file: string; project: any }> {
     const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
     const box = {
@@ -365,6 +365,7 @@ test.describe("drawing and export from roles", () => {
       { id: "theme-inherits", name: "Inherits", masterScreenId: "theme-master", objects: [] },
       { id: "theme-amber", name: "Amber", masterScreenId: "theme-master", themeId: "amber", objects: [] },
     ]
+    extra?.(project)
     zip.file("project.json", JSON.stringify(project))
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "themes-")), "themed-project.zip")
     fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
@@ -512,6 +513,37 @@ test.describe("drawing and export from roles", () => {
 
     await dark.click()
     await expect(dark).toHaveAttribute("aria-checked", "false")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+  })
+
+  test("the preview shows light or dark as schaltli/state/theme says, as a device does; Dark stays a view", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip((project) =>
+      project.topics.push({ id: "t-theme", topic: THEME_STATE_TOPIC, type: "text", examples: ["light", "dark"] }),
+    )
+    await loadProject(page, file)
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    const dark = page.getByRole("switch", { name: "Dark" })
+
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+    // The installation says dark: the canvas follows, the Dark switch does not.
+    const value = page.locator("label", { hasText: THEME_STATE_TOPIC }).first().locator("xpath=../..").locator("input, textarea").first()
+    await value.fill("dark")
+    await value.press("Enter")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
+    await expect(dark).toHaveAttribute("aria-checked", "false")
+    await value.fill("light")
+    await value.press("Enter")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+    await value.fill("dark")
+    await value.press("Enter")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
+
+    // Out of the preview, the Dark switch's view again.
+    await page.getByRole("button", { name: "Exit Preview" }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
   })
 

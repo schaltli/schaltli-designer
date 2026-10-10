@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import mqtt from "mqtt"
+import { defaultBrokerUrl } from "@/lib/broker-url"
 import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 import { BLOCKS_PREFIX } from "@/lib/block-description"
 
@@ -62,18 +63,12 @@ function storeConfig(config: MqttConnectionConfig) {
   }
 }
 
-// The broker and the designer app always run on the same host in every
-// documented deployment (this dev server + hil/local-broker.js on
-// localhost, or a real Pekaway's nginx-fronted app + mosquitto on
-// schaltli.peka.way/a LAN IP - see README.md) - only the port differs
-// (mosquitto's added WebSocket listener, 9001). Deriving this from the
-// page's own host means every self-hosted instance works with zero setup,
-// instead of every user having to find and type their own LAN IP/hostname.
-// A previously-stored override (below) still takes precedence, for the
-// rare case app and broker really are on different hosts.
+// The page's own host decides (lib/broker-url.ts): ws://<host>:9001 over
+// http, wss://<host>/mqtt over https. A previously-stored override (below)
+// still takes precedence, for the rare case app and broker really are on
+// different hosts.
 function defaultWebsocketUrl(): string {
-  if (typeof window === "undefined") return "ws://localhost:9001"
-  return `ws://${window.location.hostname}:9001`
+  return defaultBrokerUrl(typeof window === "undefined" ? undefined : window.location)
 }
 
 /**

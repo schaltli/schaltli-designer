@@ -54,6 +54,8 @@ Auf den Geräten wechselt eine ganze Anlage auf einmal zwischen hell und dunkel,
 
 Knob, 4.3B und die Android-App wechseln sofort, sobald sich der Wert ändert, ohne neues Deploy. Dafür brauchen sie eine Firmware oder App ab dem 26. September 2026, ältere zeigen immer hell. Wie du ein Gerät aktualisierst, steht unter [Firmware-Updates](/geraete/firmware-updates).
 
+Die [Vorschau](/einfuehrung/ausprobieren#die-vorschau) macht es wie die Geräte. Steht auf `schaltli/state/theme` ein `light` oder `dark`, zeigt sie diese Variante, live vom Broker oder in der Simulation aus der Liste <span class="ui">MQTT Topic Values</span>. Der Schalter <span class="ui">Dark</span> bleibt dabei, wie er ist, und gilt wieder, sobald du die Vorschau verlässt.
+
 ## Graustufen und Schwarzweiss
 
 Der [PaperS3](/geraete/papers3) und E-Paper-Displays haben nur eine Variante, die helle, auf die Farben gerundet, die das Display zeigen kann. <span class="ui">Dark</span> ist dort ausgegraut. Zwei Themes, die gleich hell sind, sehen auf einem solchen Gerät gleich aus. In der Liste der Themes siehst du das schon beim Auswählen.

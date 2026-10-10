@@ -4,6 +4,7 @@ import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
 import { deviceFacingUrl } from "@/lib/server-lan-address"
 import { volatileDir } from "@/lib/volatile-dir"
+import { refuseInDemo } from "@/lib/demo-mode"
 
 // POST /api/deploy - stores a project zip so a device can download it over
 // plain HTTP GET (see app/api/deploy/[instanceId]/route.ts), as part of
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic"
 const DEPLOYS_DIR = volatileDir("deploys")
 
 export async function POST(request: Request) {
+  const refused = refuseInDemo(request)
+  if (refused) return refused
   const formData = await request.formData()
   const instanceId = formData.get("instanceId")
   const file = formData.get("file")

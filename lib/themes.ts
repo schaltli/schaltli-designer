@@ -39,6 +39,18 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number]
 export type Variant = "light" | "dark"
+
+/**
+ * Where an installation says light or dark (docs/2026-09-25-theme-topic.md):
+ * `light` or `dark`, retained; none means light. A colour device follows it,
+ * and so does the preview.
+ */
+export const THEME_STATE_TOPIC = "schaltli/state/theme"
+
+/** The variant a value on THEME_STATE_TOPIC asks for, or null for anything else. */
+export function variantFromTopic(value: string | undefined): Variant | null {
+  return value === "light" || value === "dark" ? value : null
+}
 export type RoleValues = Record<Role, string>
 
 /** What the property panel calls a role. Quoted by the handbook. */

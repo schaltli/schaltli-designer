@@ -1,5 +1,6 @@
 "use client"
 
+import { useDemoMode } from "@/hooks/use-demo-mode"
 import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -60,6 +61,9 @@ const PROCESSING_DELAY = 100
 const MAX_JSON_EXAMPLES = 10
 
 export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttDiscoveryDialogProps) {
+  // The demo's broker is the demo's own; nobody points it elsewhere
+  // (docs/2026-10-09-demo-instance.md, decision 3).
+  const demo = useDemoMode()
   const [step, setStep] = useState<"connection" | "discovery">("connection")
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [discoveredTopics, setDiscoveredTopics] = useState<DiscoveredTopic[]>([])
@@ -488,16 +492,18 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                         dialog connects by itself, so without this the fields
                         were reachable only when the broker was not
                         (2026-10-01). */}
-                    <Button
-                      onClick={() => {
-                        handleDisconnect()
-                        setStep("connection")
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      Connection settings
-                    </Button>
+                    {!demo && (
+                      <Button
+                        onClick={() => {
+                          handleDisconnect()
+                          setStep("connection")
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Connection settings
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
