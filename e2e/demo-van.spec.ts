@@ -37,6 +37,8 @@ test("the fake Pekaway has the light and the water, answers in Pekaway's format,
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay1: false, "Relay2 Name": "Aussenlicht" })
   expect(JSON.parse(pekaway.answer("level")!)).toEqual({ level1: { state: 80, name: "Frischwasser" }, level2: { state: 35, name: "Grauwasser" } })
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay3: false, "Relay3 Name": "Grauwasser ablassen" })
+  // The water pump is on from the start.
+  expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay4: true, "Relay4 Name": "Wasserpumpe" })
   for (const kind of ["batt", "temp", "heater", "maxxfan", "mppt", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
 
   expect(pekaway.command("pkw/cmnd/dimmer/2/POWER", "60")).toBe(true)
@@ -81,6 +83,17 @@ test("a shower empties fresh water into the grey, a canister fills the fresh, an
   for (let i = 0; i < 16; i++) p.tick(2)
   expect(p.scene.puddle).toBe(0)
 
+  // No shower without the water pump: none starts, and one running stops.
+  p.command("pkw/cmnd/relay/4/POWER", "off")
+  expect(p.startShower()).toBe(false)
+  p.command("pkw/cmnd/relay/4/POWER", "on")
+  expect(p.startShower()).toBe(true)
+  p.command("pkw/cmnd/relay/4/POWER", "off")
+  p.tick(2)
+  expect(p.scene.shower).toBe(0)
+  p.reset()
+  expect(p.state.relay.Relay4).toBe(true)
+
   // No shower without fresh water.
   p.state.level.level1.state = 0
   expect(p.startShower()).toBe(false)
@@ -110,7 +123,7 @@ test("through the real bridge: the lights are announced and published, switched 
     return (publish as any)(topic, ...rest)
   }
   try {
-    // Announced as blocks: three lights, two tanks, three switches, and the
+    // Announced as blocks: three lights, two tanks, four switches, and the
     // bridge's own theme switch - nothing of what the van has not got.
     await expect.poll(() => [...seen.keys()].filter((t) => t.startsWith("homeassistant/")).sort(), { timeout: 15_000 }).toEqual([
       "homeassistant/light/schaltli-vanpi/dimmer_1/config",
@@ -121,18 +134,24 @@ test("through the real bridge: the lights are announced and published, switched 
       "homeassistant/switch/schaltli-vanpi/relay_1/config",
       "homeassistant/switch/schaltli-vanpi/relay_2/config",
       "homeassistant/switch/schaltli-vanpi/relay_3/config",
+      "homeassistant/switch/schaltli-vanpi/relay_4/config",
       "homeassistant/switch/schaltli-vanpi/theme/config",
     ])
     await expect.poll(() => seen.get("schaltli/state/dimmer/1/name")).toBe("Innenlicht")
     await expect.poll(() => seen.get("schaltli/state/relay/2/name")).toBe("Aussenlicht")
     await expect.poll(() => seen.get("schaltli/state/tank/1/name")).toBe("Frischwasser")
     await expect.poll(() => seen.get("schaltli/state/tank/2/level")).toMatch(/^\d+$/)
+    await expect.poll(() => seen.get("schaltli/state/relay/4/power")).toBe("on")
+    // The van starts light.
+    await expect.poll(() => seen.get("schaltli/state/theme")).toBe("light")
     // (Nothing more to check for kinds it has not got: the announcements above
     // are exact, and the broker may hold retained states of other runs.)
 
     // A command from a screen: the bridge sends it to Pekaway, which switches.
     client.publish("schaltli/cmnd/dimmer/2", "60")
     client.publish("schaltli/cmnd/relay/1", "on")
+    client.publish("schaltli/cmnd/theme", "dark")
+    await expect.poll(() => seen.get("schaltli/state/theme")).toBe("dark")
     await expect.poll(() => seen.get("schaltli/state/dimmer/2/level")).toBe("60")
     await expect.poll(() => seen.get("schaltli/state/dimmer/2/power")).toBe("on")
     await expect.poll(() => seen.get("schaltli/state/relay/1/power")).toBe("on")
@@ -142,8 +161,10 @@ test("through the real bridge: the lights are announced and published, switched 
     await expect.poll(() => seen.get("schaltli/demo/time")).toMatch(/^\d\d:\d\d$/)
     expect(Number(seen.get("schaltli/demo/daylight"))).toBeGreaterThanOrEqual(0)
 
-    // A reset puts every light off, and the bridge reports it.
+    // A reset puts every light off and the van back to light, and the bridge
+    // reports it.
     van.reset()
+    await expect.poll(() => seen.get("schaltli/state/theme")).toBe("light")
     await expect.poll(() => seen.get("schaltli/state/dimmer/2/power"), { timeout: 10_000 }).toBe("off")
     await expect.poll(() => seen.get("schaltli/state/relay/1/power")).toBe("off")
   } finally {

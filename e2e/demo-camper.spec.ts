@@ -33,6 +33,8 @@ function vanTopics(): Set<string> {
     expect(answer, kind).not.toBeNull()
     for (const u of logic.flatten(kind, answer, {})) topics.add(u.topic)
   }
+  // The theme is the bridge's own; the van sets it light at the start.
+  topics.add("schaltli/state/theme")
   return topics
 }
 
@@ -57,9 +59,18 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   for (const c of project.combinedTopics) for (const cond of c.conditions) read.add(cond.source.path)
   expect(read.size).toBeGreaterThan(10)
   for (const t of read) expect(published.has(t), `${t} is not published by the demo van`).toBe(true)
-  // A command the bridge takes: it answers it with something to do.
+  // A command the bridge takes: it answers it with something to do, for every
+  // value a switch writes.
   const state = Object.fromEntries([...published].map((t) => [t, "off"]))
-  for (const t of written) expect(logic.command(t, "on", state), `${t} is not a command the bridge takes`).not.toBeNull()
+  const writes: [string, string][] = []
+  for (const screen of project.screens)
+    for (const o of screen.objects as any[]) {
+      const p = o.properties
+      if (p?.writeTopic && p.states) for (const st of p.states) writes.push([p.writeTopic, st.writeValue])
+      else if (p?.writeTopic) writes.push([p.writeTopic, "50"])
+    }
+  expect(new Set(writes.map(([t]) => t))).toEqual(written)
+  for (const [t, v] of writes) expect(logic.command(t, v, state), `${t} = ${v} is not a command the bridge takes`).not.toBeNull()
   // And every one is declared among the project's topics.
   const declared = new Set(project.topics.map((t) => t.topic))
   for (const t of [...read, ...written]) expect(declared.has(t), `${t} is not declared`).toBe(true)
@@ -69,10 +80,16 @@ test("Licht, Wasser, two pages to come, and the navigator; the page icons follow
   const project = await built()
   expect(project.settings.deviceId).toBe("waveshare-touch-lcd-4v3b")
   expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser", "MaxxFan", "Heizung"])
-  expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator"])
+  expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator", "switch"])
+  // Top right on the master: light or dark.
+  const theme = project.screens[0].objects[1] as any
+  expect(theme.x + theme.width).toBeGreaterThan(project.screenWidth - 40)
+  expect(theme.y).toBeLessThan(40)
+  expect(theme.properties).toMatchObject({ topic: "schaltli/state/theme", writeTopic: "schaltli/cmnd/theme" })
+  expect(theme.properties.states.map((s: any) => [s.label, s.writeValue])).toEqual([["Hell", "light"], ["Dunkel", "dark"]])
   const types = (i: number) => project.screens[i].objects.map((o) => o.type).filter((t) => t !== "text")
   expect(types(1)).toEqual(["dial", "slider", "switch", "switch", "switch"])
-  expect(types(2)).toEqual(["bar", "bar", "switch"])
+  expect(types(2)).toEqual(["bar", "bar", "switch", "switch"])
   const licht = project.screens[1] as any
   expect(licht.iconLive).toMatchObject({ source: { namespace: "combined", path: "licht_an" }, otherwise: { icon: "icon-bulb-off" } })
   expect(project.combinedTopics[0]).toMatchObject({ name: "licht_an", mode: "any" })
@@ -97,7 +114,10 @@ test("Licht, Wasser, two pages to come, and the navigator; the page icons follow
   expect(alert({ "schaltli/state/tank/1/level": "15", "schaltli/state/tank/2/level": "50" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "20", "schaltli/state/tank/2/level": "80" })).toBe("false")
   for (const i of [3, 4]) expect(JSON.stringify(project.screens[i].objects)).toContain("Coming soon")
-  const drain = project.screens[2].objects.find((o) => o.type === "switch") as any
+  const [pump, drain] = project.screens[2].objects.filter((o) => o.type === "switch") as any[]
+  expect(pump.properties.topic).toBe("schaltli/state/relay/4/power")
+  expect(pump.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
+  expect(drain.properties.topic).toBe("schaltli/state/relay/3/power")
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
 })
 

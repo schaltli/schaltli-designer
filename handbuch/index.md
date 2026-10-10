@@ -14,6 +14,10 @@ hero:
       text: Was ist Schaltli?
       link: /einfuehrung/
     - theme: alt
+      text: Demo im Browser
+      link: https://demo.schaltli.com
+      target: _blank
+    - theme: alt
       text: Ohne Gerät ausprobieren
       link: /einfuehrung/ausprobieren
     - theme: alt

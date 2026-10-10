@@ -4,6 +4,14 @@ Für die ersten Screens brauchst du kein Display. Der Designer bringt die Beschr
 
 Du brauchst nur den [installierten Designer](/installieren/pekaway), auf deinem Pekaway-System oder zum Ausprobieren auch [auf dem eigenen Rechner](/installieren/ohne-pekaway).
 
+## Die Demo im Browser {#demo}
+
+Ganz ohne Installation geht es auf [demo.schaltli.com](https://demo.schaltli.com). Dort läuft der Designer mit dem fertigen Projekt «Camper» für den Waveshare 4.3B, und hinter dem Projekt steht ein simulierter Van mit VanPi-Brücke. Links, wo sonst deine Projekte stehen, zeigt <span class="ui">Your van</span> diesen Van als Bild.
+
+Klick oben rechts auf <span class="ui">Preview</span> und schalte auf den Screens «Licht» und «Wasser»: Dimmst du das Innenlicht hoch, leuchtet im Bild das Fenster. Ein Klick auf die Dusche hinter der Tür verbraucht Frischwasser, aber nur, wenn die Wasserpumpe läuft. Ein Klick auf den Einfüllstutzen füllt den Tank mit dem Kanister wieder auf. Der Van gehört allen, die gerade in der Demo sind. Schaltet jemand anderes das Licht ein, siehst du es auch.
+
+Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>.
+
 ## Ein Projekt für ein Gerät, das du nicht hast
 
 Öffne den Designer und klick auf der Startseite <span class="ui">Welcome to Schaltli</span> auf <span class="ui">New Project...</span>. Der Dialog zeigt unter <span class="ui">Server DDFs</span> die Geräte, die der Designer kennt. Ob eines davon bei dir liegt, spielt keine Rolle. Klicke doppelt auf eines, etwa den Waveshare 4.3B, gib dem Projekt einen Namen und klick auf <span class="ui">Create Project</span>. Der Editor öffnet sich mit einem leeren Screen in der richtigen Grösse.

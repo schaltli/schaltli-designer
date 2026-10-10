@@ -98,7 +98,7 @@ import {
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
-import { DEFAULT_THEME_ID, defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
@@ -1215,8 +1215,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         client.on("close", () => {
           if (gen === liveGenRef.current) setLiveStatus("lost")
         })
-        const topics = projectSubscriptionTopics(project)
-        if (topics.length > 0) client.subscribe(topics, { qos: 0 })
+        // And light or dark, which a colour device follows whatever its
+        // screens read.
+        const topics = [...new Set([...projectSubscriptionTopics(project), THEME_STATE_TOPIC])]
+        client.subscribe(topics, { qos: 0 })
         setLiveStatus("live")
       })
       .catch(() => {
@@ -1584,6 +1586,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
+
+  // The variant the canvas and the thumbnails show: in the preview, light or
+  // dark as the installation says (THEME_STATE_TOPIC), as a colour device
+  // shows it; without a word from it, and outside the preview, the Dark
+  // switch's - which stays a view and does not follow the topic
+  // (docs/2026-09-25-theme-topic.md).
+  const shownVariant: Variant =
+    (isPreviewMode &&
+      variantFromTopic(previewSource === "live" ? liveValues[THEME_STATE_TOPIC] : previewTopicValues[THEME_STATE_TOPIC])) ||
+    themeVariant
 
   // What the view reads, for the live preview to redraw at once (#58); and
   // when the view changes, everything the broker has given so far.
@@ -4202,7 +4214,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
         <ScreensPanel
           project={project}
-          variant={themeVariant}
+          variant={shownVariant}
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
@@ -4275,7 +4287,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
             theme={themeFor(displayedScreen, project.screens)}
-            variant={themeVariant}
+            variant={shownVariant}
             editingContainerId={editingContainerId}
             onSetEditingContainer={setEditingContainerId}
             onAddPanel={addPanelToTabControl}

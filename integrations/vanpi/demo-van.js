@@ -2,10 +2,10 @@
 // The van of demo.schaltli.com (docs/2026-10-09-demo-instance.md, decision 6).
 //
 // A conversion in progress: stage one was light - three dimmers and two
-// relays -, stage two water - a fresh and a grey water tank, and a relay
-// that lets the grey water out. What answers the designer is the real VanPi bridge - the flow
-// buildBridgeFlow() installs into Node-RED on every Pekaway - run here
-// outside Node-RED, node by node and wired as the flow wires them, the way
+// relays -, stage two water - a fresh and a grey water tank, the water pump
+// and a relay that lets the grey water out. What answers the designer is the
+// real VanPi bridge - the flow buildBridgeFlow() installs into Node-RED on
+// every Pekaway - run here outside Node-RED, node by node and wired as the flow wires them, the way
 // e2e/vanpi-bridge.spec.ts runs it. Where that flow talks to Pekaway, a fake
 // Pekaway answers: `pkw/stat/<kind>` with `pkw/tele/<kind>` in Pekaway's own
 // format, and `pkw/cmnd/…` changes its state. It answers only for what the
@@ -22,8 +22,8 @@
 // schaltli/demo/time ("HH:MM"). Nothing in Pekaway's format reads them; the
 // designer's «Your van» does.
 //
-// It goes back to its seed - every light off, the tanks part full - at 04:00
-// and after an hour without a command.
+// It goes back to its seed - every light off, the pump on, the tanks part
+// full, the theme light - at 04:00 and after an hour without a command.
 //
 //   node integrations/vanpi/demo-van.js [--broker mqtt://localhost:1883]
 //        [--day-seconds 600] [--idle-minutes 60]
@@ -32,7 +32,8 @@
 const mqtt = require("mqtt")
 const { buildBridgeFlow } = require("./build-flow")
 
-/** What the van has, as Pekaway would report it, all off, the tanks part full. */
+/** What the van has, as Pekaway would report it: the lights off, the water
+ * pump on, the tanks part full. */
 function seed() {
   return {
     relay: {
@@ -42,6 +43,8 @@ function seed() {
       "Relay2 Name": "Aussenlicht",
       Relay3: false,
       "Relay3 Name": "Grauwasser ablassen",
+      Relay4: true,
+      "Relay4 Name": "Wasserpumpe",
     },
     level: {
       level1: { state: 80, name: "Frischwasser" },
@@ -89,9 +92,9 @@ function fakePekaway() {
       state = seed()
       scene = { shower: 0, refill: 0, puddle: 0 }
     },
-    /** A visitor's shower: false when there is no fresh water for one. */
+    /** A visitor's shower: false without the water pump or fresh water. */
     startShower() {
-      if (state.level.level1.state <= 0) return false
+      if (!state.relay.Relay4 || state.level.level1.state <= 0) return false
       scene.shower = SHOWER_SECONDS
       return true
     },
@@ -122,6 +125,8 @@ function fakePekaway() {
       const used = Math.min(fresh.state, seconds * USE_PER_SECOND)
       fresh.state = round1(fresh.state - used)
       grey.state = round1(Math.min(100, grey.state + used * 0.8))
+      // The shower stops with the pump.
+      if (!state.relay.Relay4) scene.shower = 0
       if (scene.shower > 0) {
         const t = Math.min(seconds, scene.shower)
         const water = Math.min(fresh.state, t * SHOWER_FRESH_PER_SECOND)
@@ -272,10 +277,18 @@ function startDemoVan({
     }
   }
 
+  // Light, as a visitor finds the van: the theme is the bridge's own, so it
+  // is put back with a command to the bridge - at the start and on a reset.
+  const lightTheme = () => client.publish("schaltli/cmnd/theme", "light")
+  let started = false
+
   const mqttIns = flow.nodes.filter((n) => n.type === "mqtt in")
   client.on("connect", () => {
     log(`connected to ${broker}`)
-    client.subscribe([...new Set(mqttIns.map((n) => n.topic)), "pkw/stat/+", "pkw/cmnd/#", "schaltli/cmnd/demo/#"])
+    client.subscribe([...new Set(mqttIns.map((n) => n.topic)), "pkw/stat/+", "pkw/cmnd/#", "schaltli/cmnd/demo/#"], () => {
+      if (!started) lightTheme()
+      started = true
+    })
   })
   client.on("error", (error) => log(`broker: ${error.message}`))
   client.on("message", (topic, payload, packet) => {
@@ -291,6 +304,8 @@ function startDemoVan({
       if (pekaway.startShower()) lastCommand = Date.now()
     } else if (topic === "schaltli/cmnd/demo/refill") {
       if (pekaway.startRefill()) lastCommand = Date.now()
+    } else if (topic === "schaltli/cmnd/theme" && text !== "light") {
+      lastCommand = Date.now()
     }
     for (const n of mqttIns) {
       if (matches(n.topic, topic)) for (const target of n.wires[0] ?? []) deliver(target, { topic, payload: text, retain: packet.retain })
@@ -304,6 +319,7 @@ function startDemoVan({
 
   function reset(why) {
     pekaway.reset()
+    lightTheme()
     lastCommand = Date.now()
     log(`reset (${why})`)
   }

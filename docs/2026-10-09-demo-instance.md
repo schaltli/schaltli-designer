@@ -119,11 +119,13 @@ announcement.
    - stage two, water: `pkw/stat/level` with Frischwasser and Grauwasser in
      whole percent, and a third relay «Grauwasser ablassen». Fresh water is
      used at about 1 % a minute, grey water rises with it; an open valve
-     empties the grey tank in under a minute;
+     empties the grey tank in under a minute; a fourth relay «Wasserpumpe»,
+     on from the seed (2026-10-10);
    - what a visitor does in the scene (2026-10-10): `schaltli/cmnd/demo/shower`
      - twelve seconds, some 15 % fresh water into 12 % grey - and
      `schaltli/cmnd/demo/refill` - a canister fills the fresh tank in ten
-     seconds; there is no filling of its own any more. What the scene shows
+     seconds; there is no filling of its own any more. No shower without the
+     pump: none starts while it is off, and one running stops with it. What the scene shows
      of it goes out retained as `schaltli/demo/shower`, `/refill` and
      `/puddle` (0..1: grows while the open drain runs, dries in half a
      minute).
@@ -132,19 +134,24 @@ announcement.
    published retained as `schaltli/demo/daylight` (0 night … 1 noon) every
    two seconds. Nothing in Pekaway's format; only the scene reads it.
 
-   It goes back to its seed (all lights off) at 04:00 and after 60 minutes
+   It goes back to its seed (all lights off, the pump on) and the theme to
+   light (a `schaltli/cmnd/theme` to the bridge, also once at the start) at 04:00 and after 60 minutes
    without a command. A systemd unit restarts it on failure. Later stages
    add kinds to the fake Pekaway; the bridge already knows them all.
 
 7. **The start project «Camper»** for the 4.3B, built by
    `deploy/demo/camper-project.ts` from the device's own description, the
-   way New Project builds one. Two pages and a master with the navigator:
+   way New Project builds one. Two pages and a master with the navigator
+   and, top right, a theme switch («Hell»/«Dunkel», sun and moon) on
+   `schaltli/state/theme` (2026-10-10) - the designer's preview follows that
+   topic as a colour device does, so the switch shows:
    - **Licht:** Innenlicht on a dial, Einstieg on a slider, Küche,
      Lichterkette and Aussenlicht as switches («Aus»/«An»), every name a live
      value from Pekaway's names. The page's icon is a live icon on the
      combined topic `licht_an` (any of the five on): a burning bulb, else an
      unlit one - the project's own three icons.
-   - **Wasser:** Frischwasser and Grauwasser as tanks, and «Grauwasser
+   - **Wasser:** Frischwasser and Grauwasser as tanks, «Wasserpumpe»
+     («Aus»/«An»), and «Grauwasser
      ablassen» («Zu»/«Offen») - named by what it does, not by the part
      (2026-10-10). The page's icon is a drop, with an exclamation mark while
      the grey water is above 80 % or the fresh below 20 % (combined topic

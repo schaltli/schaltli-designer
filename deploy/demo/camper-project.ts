@@ -10,13 +10,14 @@
 //   Licht   Innenlicht on a dial, Einstieg on a slider, Küche, Lichterkette
 //           and Aussenlicht as switches. The page's icon is a lit bulb while
 //           any of them burns (a combined topic), an unlit one otherwise.
-//   Wasser  fresh and grey water as tanks, and the switch that lets the grey
-//           water out. The page's icon is a drop with an exclamation mark
+//   Wasser  fresh and grey water as tanks, the water pump, and the switch
+//           that lets the grey water out. The page's icon is a drop with an exclamation mark
 //           while the grey water is above 80 % or the fresh below 20 %.
 //   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
 //           already so the navigator shows where the van is going.
 //
-// A master carries the navigator, so a tap switches between them.
+// A master carries the navigator, so a tap switches between them, and top
+// right the switch between light and dark.
 
 import { parseDeviceDescriptionFile, deviceDescriptionToProjectFields } from "@/lib/device-description"
 import { declaresTouch } from "@/lib/object-types"
@@ -29,8 +30,23 @@ const C = "schaltli/cmnd/"
 const svg = (body: string) =>
   `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
 
-// Three icons of its own, drawn here: a bulb unlit, a bulb burning, a drop.
+// Icons of its own, drawn here: the pages' bulbs, drops, fan and flame, and
+// the sun and the moon of the theme switch.
 const ASSETS = [
+  {
+    id: "icon-sun",
+    name: "Sun",
+    type: "icon",
+    data: svg(
+      '<circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>',
+    ),
+  },
+  {
+    id: "icon-moon",
+    name: "Moon",
+    type: "icon",
+    data: svg('<path fill="currentColor" d="M14.5 2.5a9.5 9.5 0 1 0 7 15.6A8 8 0 0 1 14.5 2.5z"/>'),
+  },
   {
     id: "icon-bulb-off",
     name: "Bulb off",
@@ -88,15 +104,18 @@ const TOPICS = [
     topic(`${S}dimmer/${n}/name`, "text", [["Innenlicht", "Küche", "Einstieg"][n - 1]]),
     topic(`${C}dimmer/${n}`, "text", ["on", "off", "50"]),
   ]),
-  ...[1, 2, 3].flatMap((n) => [
+  ...[1, 2, 3, 4].flatMap((n) => [
     topic(`${S}relay/${n}/power`, "text", ["off", "on"]),
-    topic(`${S}relay/${n}/name`, "text", [["Lichterkette", "Aussenlicht", "Grauwasser ablassen"][n - 1]]),
+    topic(`${S}relay/${n}/name`, "text", [["Lichterkette", "Aussenlicht", "Grauwasser ablassen", "Wasserpumpe"][n - 1]]),
     topic(`${C}relay/${n}`, "text", ["on", "off"]),
   ]),
   ...[1, 2].flatMap((n) => [
     topic(`${S}tank/${n}/level`, "numeric", n === 1 ? ["80", "40", "10"] : ["35", "70", "95"]),
     topic(`${S}tank/${n}/name`, "text", [["Frischwasser", "Grauwasser"][n - 1]]),
   ]),
+  // Light or dark for every device at once; the bridge keeps it.
+  topic(`${S}theme`, "text", ["light", "dark"]),
+  topic(`${C}theme`, "text", ["light", "dark"]),
 ]
 
 // Any light burning: the Licht page's icon reads it.
@@ -162,21 +181,30 @@ function title(text: string) {
   }
 }
 
-function onOff(x: number, y: number, read: string, write: string, labels: [string, string] = ["Aus", "An"]) {
+function onOff(
+  x: number,
+  y: number,
+  read: string,
+  write: string,
+  labels: [string, string] = ["Aus", "An"],
+  values: [string, string] = ["off", "on"],
+  size: [number, number] = [220, 60],
+  icons: [string, string] | null = null,
+) {
   return {
     id: id("switch"),
     type: "switch",
     x,
     y,
-    width: 220,
-    height: 60,
+    width: size[0],
+    height: size[1],
     zIndex: next,
     properties: {
       topic: read,
       writeTopic: write,
       states: [
-        { id: "off", label: labels[0], readValue: "off", writeValue: "off", showAsOn: false },
-        { id: "on", label: labels[1], readValue: "on", writeValue: "on", showAsOn: true },
+        { id: values[0], label: labels[0], readValue: values[0], writeValue: values[0], showAsOn: false, ...(icons ? { iconAssetId: icons[0] } : {}) },
+        { id: values[1], label: labels[1], readValue: values[1], writeValue: values[1], showAsOn: true, ...(icons ? { iconAssetId: icons[1] } : {}) },
       ],
       switchStyle: "filled",
       switchColor: "accent",
@@ -298,8 +326,10 @@ function waterScreen() {
       title("Wasser"),
       ...tank(140, 1, "accent"),
       ...tank(300, 2, "accentAlt"),
-      name(460, 178, 330, `${S}relay/3/name`),
-      onOff(460, 212, `${S}relay/3/power`, `${C}relay/3`, ["Zu", "Offen"]),
+      name(460, 96, 330, `${S}relay/4/name`),
+      onOff(460, 130, `${S}relay/4/power`, `${C}relay/4`),
+      name(460, 236, 330, `${S}relay/3/name`),
+      onOff(460, 270, `${S}relay/3/power`, `${C}relay/3`, ["Zu", "Offen"]),
     ],
   }
 }
@@ -348,6 +378,8 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
         zIndex: 100,
         properties: { edge: "left", shows: "iconsAndText", fontId: "font-helvR12" },
       },
+      // Top right on every page: light or dark, for every device at once.
+      onOff(fields.screenWidth - 196, 14, `${S}theme`, `${C}theme`, ["Hell", "Dunkel"], ["light", "dark"], [180, 48], ["icon-sun", "icon-moon"]),
     ],
   }
   return {
