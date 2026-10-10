@@ -677,21 +677,19 @@ const SPECIMENS = {
       const topic = c.topic("schalter", "string", ["0", "1"]);
       // A quarter and three quarters across: the middle of each of the two
       // segments, which is also the arithmetic the firmware does in reverse.
+      // Each with the state the group shows first (`state`): with none, the
+      // segment under the finger; with one, a group of two switches to the
+      // other wherever it is tapped (designer #65, 2026-10-10) - so a tap on
+      // «AN» while «AN» is shown asks for «AUS».
+      const left = c.wide.x + Math.round(c.wide.width / 4);
+      const right = c.wide.x + Math.round((c.wide.width * 3) / 4);
+      const y = c.wide.y + Math.round(c.wide.height / 2);
+      const tap = (what, x, shown, value) => ({ what, x, y, topic: `${topic}/set`, value, state: { topic, value: shown } });
       const taps = [
-        {
-          what: "segment 0",
-          x: c.wide.x + Math.round(c.wide.width / 4),
-          y: c.wide.y + Math.round(c.wide.height / 2),
-          topic: `${topic}/set`,
-          value: "aus",
-        },
-        {
-          what: "segment 1",
-          x: c.wide.x + Math.round((c.wide.width * 3) / 4),
-          y: c.wide.y + Math.round(c.wide.height / 2),
-          topic: `${topic}/set`,
-          value: "an",
-        },
+        tap("segment 0, nothing shown", left, "none", "aus"),
+        tap("segment 1, nothing shown", right, "none", "an"),
+        tap("segment 1, AN shown", right, "1", "aus"),
+        tap("segment 0, AUS shown", left, "0", "an"),
       ];
       return {
         taps,
@@ -851,6 +849,10 @@ const SPECIMENS = {
               shows: "iconsAndText",
               fontId: c.font("small"),
               backgroundColor: c.colors.border,
+              // The line towards the screen (contract 2.7, 2026-10-10), set
+              // here: unset, the export fills in the theme's «Outline», which
+              // the reference - drawn without a theme - would not.
+              borderColor: c.colors.accent,
               textColor: c.colors.bg,
               activeColor: c.colors.accent,
               activeTextColor: c.colors.fg,

@@ -311,6 +311,13 @@ async function tapAndExpect(tap, testInterface, mqttClient, timeoutMs = 15000) {
     );
   });
 
+  // What the object shows first, where it matters for what a tap asks for:
+  // a button group of two switches to the other state once one is shown.
+  if (tap.state) {
+    mqttClient.publish(tap.state.topic, tap.state.value, { qos: 1 });
+    await sleep(1500);
+  }
+
   // Down then up, because the firmware acts on release - a hold that becomes
   // something else must not also have fired what it was resting on.
   const press = async () => {
@@ -338,7 +345,9 @@ async function tapAndExpect(tap, testInterface, mqttClient, timeoutMs = 15000) {
   //
   // Pressing the same point twice is safe for both specimens here: the button
   // sends the same command again, and the Switch's segmented mode asks for
-  // the same segment again. Both are commands, not toggles.
+  // the same segment again - also a group of two that toggles: it toggles
+  // from the state reported, which no press changes. The expected value
+  // arrives with the first press either way.
   const failed = await press();
   if (failed) return failed;
   await sleep(400);
