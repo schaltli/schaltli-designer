@@ -3647,11 +3647,12 @@ export function Canvas({
         // Out of a table put together by snapping (Task 6): the object is
         // carried as an outline, and where it would snap is worked out
         // against the space the table stands in with the object already out
-        // of it - so its own row or column does not count. It stays in the
-        // table, drawn as before, until it is let go.
+        // of it, its cell empty, the table's columns and rows held at their
+        // sizes (liftOut's hold) - so a line or cell is where it is drawn. It
+        // stays in the table, drawn as before, until it is let go.
         if (draggedObject && onSnapMoveOut && isSnapTable(editingContainer) && selectedObjects.length === 1) {
           const rect = { x: dragState.startObjectPos.x + deltaX, y: dragState.startObjectPos.y + deltaY, width: draggedObject.width, height: draggedObject.height }
-          const lifted = liftOut(drawSpace.objects, editingContainer!.id, draggedObject.id, layoutScale)
+          const lifted = liftOut(drawSpace.objects, editingContainer!.id, draggedObject.id, layoutScale, true)
           const space = lifted.objects.map((o) => (o.id === draggedObject.id ? translateObject(o, Math.round(rect.x - o.x), Math.round(rect.y - o.y)) : o))
           setOutDrag({ tableId: editingContainer!.id, id: draggedObject.id, rect, space })
           const snapping = e.ctrlKey || e.metaKey ? null : snapDropAt(space, draggedObject.id, rect, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)

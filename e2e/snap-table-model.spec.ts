@@ -406,6 +406,45 @@ test.describe("snap table: drops", () => {
     expect(beside.find((o) => o.id === t.id)!.children!.some((o) => o.id === "r0c0")).toBe(false)
   })
 
+  test("dragged out, its table keeps the sizes it is drawn at: an empty cell beside it is where it looks", () => {
+    // Reported 2026-10-10: a tall button dragged right, out of its row, over
+    // the empty cell beside it - the row it left was worked out shrunk to the
+    // label's height, and a row line showed in the middle of the row drawn.
+    const t = arrangeSnapTable(
+      table(
+        [
+          { ...box(70, 50, { row: 0, column: 0 }), id: "tall" },
+          { ...box(30, 15, { row: 0, column: 2 }), id: "label" },
+          { ...box(60, 60, { row: 1, column: 0 }), id: "gauge" },
+          { ...box(30, 15, { row: 1, column: 1 }), id: "label2" },
+        ],
+        [{}, { mm: 8 }, {}],
+        [{}, {}],
+      ),
+      SCALE,
+    )
+    const g = snapTableGeometry(t, SCALE)
+    const before = abs(t, "tall")
+    const rect = { x: t.x + g.lefts[1] - 10, y: before.y, width: 70, height: 50 }
+    const { objects } = liftOut([t], t.id, "tall", SCALE, true)
+    const held = objects.find((o) => o.id === t.id)!
+    const drawnAt = ({ lefts, tops, widths, heights }: typeof g) => ({ lefts, tops, widths, heights })
+    expect(drawnAt(snapTableGeometry(held, SCALE))).toEqual(drawnAt(g))
+    expect(abs(held, "label")).toEqual(abs(t, "label"))
+    const space = objects.map((o) => (o.id === "tall" ? { ...o, ...rect } : o))
+    const drop = snapDropAt(space, "tall", rect, 25, SCALE)
+    expect(drop).toEqual({ kind: "table", tableId: t.id, target: { kind: "cell", row: 0, column: 1 } })
+    // Let go there: in that cell, the table's own sizes as they were set.
+    const out = moveOutOf([t], t.id, "tall", rect, drop, SCALE).find((o) => o.id === t.id)!
+    expect(snapCellOf(child(out, "tall"))).toMatchObject({ row: 0, column: 1 })
+    expect(snapColumnsOf(out)).toEqual([{}, { mm: 8 }, {}])
+    expect(snapRowsOf(out)).toEqual([{}, {}])
+    // Let go free: the table without it, tidied, its lines as set.
+    const free = moveOutOf([t], t.id, "tall", { x: 0, y: 300 }, null, SCALE).find((o) => o.id === t.id)!
+    expect(snapColumnsOf(free)).toEqual([{}, { mm: 8 }, {}])
+    expect(abs(free, "label")).toEqual(abs(t, "label"))
+  })
+
   test("beside a table, the new column goes to the row of the object's middle", () => {
     const t = grid3()
     const g = snapTableGeometry(t, SCALE)

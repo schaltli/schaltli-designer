@@ -53,6 +53,9 @@ export interface SnapFill {
 /** A column or row; `mm` is a size set by hand. */
 export interface SnapLine {
   mm?: number
+  // Only while an object is dragged out (heldOut): the line held at the
+  // size it had, `mm` being that size and `was` what it was set to before.
+  was?: number | null
 }
 /** What a column holds, from what its objects are. */
 export type SnapRole = "icon" | "label" | "control"
@@ -353,6 +356,33 @@ export function takeOutOf(table: ScreenObject, id: string): { table: ScreenObjec
 }
 
 /**
+ * An object taken out of a laid-out table of three or more while it is
+ * dragged: its cell left empty and every column and row held at the size it
+ * has, so the table is the one drawn and a place in it is where it looks
+ * (reported 2026-10-10: a tall button dragged out left its row as tall on
+ * the canvas, but its targets were worked out with the row shrunk).
+ * `released` undoes the holding once it is let go.
+ */
+function heldOut(table: ScreenObject, id: string, scale: LayoutScale): { table: ScreenObject; taken: ScreenObject; left?: ScreenObject } {
+  const taken = (table.children ?? []).find((child) => child.id === id)!
+  const g = snapTableGeometry(table, scale)
+  const hold = (lines: SnapLine[], sizes: number[]): SnapLine[] =>
+    sizes.map((size, i) => ({ mm: size / scale.pixelsPerMm, was: typeof lines[i]?.mm === "number" ? lines[i].mm! : null }))
+  const properties = { ...table.properties, columns: hold(snapColumnsOf(table), g.widths), rows: hold(snapRowsOf(table), g.heights) }
+  return { table: { ...table, properties, children: (table.children ?? []).filter((child) => child.id !== id) }, taken: freed(table, taken) }
+}
+
+const holds = (table: ScreenObject) => [...snapColumnsOf(table), ...snapRowsOf(table)].some((line) => "was" in line)
+
+/** A table held by heldOut as it is again: its lines as set before, emptied lines gone, what is in it where it stood. */
+export function released(table: ScreenObject, scale: LayoutScale): ScreenObject {
+  if (!isSnapTable(table) || !holds(table)) return table
+  const back = (lines: SnapLine[]): SnapLine[] => lines.map((line) => ("was" in line ? (typeof line.was === "number" ? { mm: line.was } : {}) : line))
+  const t = { ...table, properties: { ...table.properties, columns: back(snapColumnsOf(table)), rows: back(snapRowsOf(table)) } }
+  return keepInPlace(arrangeSnapTable(table, scale), tidied(t), scale)
+}
+
+/**
  * An object's span moved at one edge to the line `index` (a column for left
  * and right, a row for top and bottom), at least one cell, never past the
  * table's edge. Null when a cell it would take is occupied.
@@ -594,11 +624,11 @@ export function applySnapDrop(objects: ScreenObject[], movingId: string, drop: S
  * on the screen, as drawn and without its cell. The list as it was when
  * there is no such table or object.
  */
-export function liftOut(objects: ScreenObject[], tableId: string, objectId: string, scale: LayoutScale): { objects: ScreenObject[]; taken: ScreenObject | null } {
+export function liftOut(objects: ScreenObject[], tableId: string, objectId: string, scale: LayoutScale, hold = false): { objects: ScreenObject[]; taken: ScreenObject | null } {
   const table = objects.find((o) => o.id === tableId)
   if (!table || !isSnapTable(table) || !(table.children ?? []).some((c) => c.id === objectId)) return { objects, taken: null }
   const laid = arrangeSnapTable(table, scale)
-  const out = takeOutOf(laid, objectId)
+  const out = hold && (laid.children ?? []).length > 2 ? heldOut(laid, objectId, scale) : takeOutOf(laid, objectId)
   const replaced = out.table ? keepInPlace(laid, out.table, scale) : out.left
   const rest = objects.flatMap((o) => (o.id !== tableId ? [o] : replaced ? [replaced] : []))
   return { objects: [...rest, out.taken], taken: out.taken }
@@ -619,11 +649,13 @@ export function moveOutOf(
   scale: LayoutScale,
   newTableId?: string,
 ): ScreenObject[] {
-  const lifted = liftOut(objects, tableId, objectId, scale)
+  // Held as drawn while it was dragged (heldOut), so `drop` names a place in
+  // the table as it was shown; released once it is in.
+  const lifted = liftOut(objects, tableId, objectId, scale, true)
   if (!lifted.taken) return objects
   const moved = translateObject(lifted.taken, Math.round(to.x - lifted.taken.x), Math.round(to.y - lifted.taken.y))
   const list = lifted.objects.map((o) => (o.id === objectId ? moved : o))
-  return drop ? applySnapDrop(list, objectId, drop, scale, newTableId) : list
+  return (drop ? applySnapDrop(list, objectId, drop, scale, newTableId) : list).map((o) => released(o, scale))
 }
 
 // ---------------------------------------------------------------------------
