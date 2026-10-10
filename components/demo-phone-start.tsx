@@ -9,7 +9,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { DEMO_INSTALL_URL } from "@/hooks/use-demo-mode"
-import { useDemoSceneSvg } from "@/components/demo-scene-panel"
+import { useDemoScene } from "@/components/demo-scene-panel"
 
 const ANYWAY_KEY = "schaltli.demoOpenAnyway"
 
@@ -46,15 +46,16 @@ export function useDemoPhonePage(): [boolean | null, () => void] {
 }
 
 export function DemoPhoneStart({ onOpenAnyway }: { onOpenAnyway: () => void }) {
-  const svg = useDemoSceneSvg()
+  const { svg, onClick } = useDemoScene()
   return (
     <main data-testid="demo-phone-start" className="min-h-screen bg-background text-foreground flex flex-col items-center px-4 py-6">
       <div className="w-full max-w-md flex flex-col gap-4">
         <h1 className="text-2xl font-semibold">Schaltli</h1>
         <p className="text-base">Design the displays in your van yourself - without programming.</p>
-        <div className="rounded-lg overflow-hidden border border-border [&_svg]:w-full [&_svg]:h-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className="rounded-lg overflow-hidden border border-border [&_svg]:w-full [&_svg]:h-auto" onClick={onClick} dangerouslySetInnerHTML={{ __html: svg }} />
         <p className="text-sm text-muted-foreground">
-          This is the demo&apos;s van, live. On a computer you design its screens here and switch its lights from them.
+          This is the demo&apos;s van, live - tap the shower behind its door, or the filler under the rear window. On a
+          computer you design its screens here and switch its lights from them.
           The designer is made for a mouse and a large screen.
         </p>
         <div className="flex flex-col gap-2">

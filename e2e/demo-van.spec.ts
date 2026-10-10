@@ -59,6 +59,33 @@ test("the fake Pekaway has the light and the water, answers in Pekaway's format,
   expect(JSON.parse(pekaway.answer("level")!).level1.state).toBe(79)
 })
 
+test("a shower empties fresh water into the grey, a canister fills the fresh, an open drain leaves a puddle that dries", () => {
+  const p = fakePekaway()
+  expect(p.startShower()).toBe(true)
+  for (let i = 0; i < 7; i++) p.tick(2)
+  expect(p.state.level.level1.state).toBe(65)
+  expect(p.state.level.level2.state).toBe(47)
+  expect(p.scene.shower).toBe(0)
+
+  expect(p.startRefill()).toBe(true)
+  p.tick(2)
+  expect(p.scene.refill).toBeGreaterThan(0)
+  for (let i = 0; i < 5; i++) p.tick(2)
+  expect(p.state.level.level1.state).toBe(100)
+  expect(p.scene.refill).toBe(0)
+
+  p.command("pkw/cmnd/relay/3/POWER", "on")
+  for (let i = 0; i < 6; i++) p.tick(2)
+  expect(p.scene.puddle).toBeGreaterThan(0.9)
+  p.command("pkw/cmnd/relay/3/POWER", "off")
+  for (let i = 0; i < 16; i++) p.tick(2)
+  expect(p.scene.puddle).toBe(0)
+
+  // No shower without fresh water.
+  p.state.level.level1.state = 0
+  expect(p.startShower()).toBe(false)
+})
+
 test("the van's clock: night, dawn, noon, dusk, in a ten-minute day", () => {
   const day = 600
   const at = (fraction: number) => vanClock(fraction * day * 1000, day)
@@ -144,6 +171,23 @@ test("the scene: a dark sky at night, a bright one at noon; a window lit by its 
   expect(red(part(on, "light-1", "fill"))).toBeGreaterThan(200)
   expect(part(on, "lamp-2", "fill")).toBe("#fff3c4")
   expect(part(off, "lamp-2", "fill")).not.toBe("#fff3c4")
+  // What goes on around the van: the shower, the canister, the drain.
+  const has = (svg: string, name: string) => svg.includes(`data-part="${name}"`)
+  const quiet = sceneSvg({ "schaltli/state/tank/2/level": "50" })
+  for (const name of ["shower", "steam", "canister", "drain", "puddle"]) expect(has(quiet, name), name).toBe(false)
+  const busy = sceneSvg({
+    "schaltli/demo/shower": "on",
+    "schaltli/demo/refill": "on",
+    "schaltli/state/relay/3/power": "on",
+    "schaltli/state/tank/2/level": "50",
+    "schaltli/demo/puddle": "0.5",
+  })
+  for (const name of ["shower", "steam", "canister", "drain", "puddle"]) expect(has(busy, name), name).toBe(true)
+  // An empty grey tank runs no water, open or not; its puddle still dries.
+  expect(has(sceneSvg({ "schaltli/state/relay/3/power": "on", "schaltli/state/tank/2/level": "0", "schaltli/demo/puddle": "0.3" }), "drain")).toBe(false)
+  expect(quiet).toContain('data-action="shower"')
+  expect(quiet).toContain('data-action="refill"')
+  expect(quiet).toContain("Grauwasser: 50 %")
   // The names Pekaway gives, in the legend.
   expect(sceneSvg({ "schaltli/state/dimmer/2/name": "Galley" })).toContain("Galley: off")
 })
@@ -178,6 +222,15 @@ test("in the demo's designer «Your van» follows the van: a light switched on t
     await expect(scene).toContainText("Innenlicht: 80 %")
     client.publish("schaltli/cmnd/relay/2", "on")
     await expect.poll(() => fill("lamp-2"), { timeout: 15_000 }).toBe("#fff3c4")
+
+    // A click on the shower behind the door: the van showers, the scene shows it.
+    await scene.locator('[data-action="shower"] rect[fill="transparent"]').click()
+    await expect.poll(() => van.pekaway.scene.shower, { timeout: 5_000 }).toBeGreaterThan(0)
+    await expect(scene.locator('[data-part="steam"]')).toHaveCount(1, { timeout: 10_000 })
+    // And on the filler: the canister.
+    await scene.locator('[data-action="refill"] circle[fill="transparent"]').click()
+    await expect.poll(() => van.pekaway.scene.refill, { timeout: 5_000 }).toBeGreaterThan(0)
+    await expect(scene.locator('[data-part="canister"]')).toHaveCount(1, { timeout: 10_000 })
 
     // Collapsible, as the project list is.
     await page.getByRole("button", { name: "Hide your van" }).click()

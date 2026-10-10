@@ -119,8 +119,14 @@ announcement.
    - stage two, water: `pkw/stat/level` with Frischwasser and Grauwasser in
      whole percent, and a third relay «Grauwasser ablassen». Fresh water is
      used at about 1 % a minute, grey water rises with it; an open valve
-     empties the grey tank in under a minute; an empty fresh tank is filled
-     again.
+     empties the grey tank in under a minute;
+   - what a visitor does in the scene (2026-10-10): `schaltli/cmnd/demo/shower`
+     - twelve seconds, some 15 % fresh water into 12 % grey - and
+     `schaltli/cmnd/demo/refill` - a canister fills the fresh tank in ten
+     seconds; there is no filling of its own any more. What the scene shows
+     of it goes out retained as `schaltli/demo/shower`, `/refill` and
+     `/puddle` (0..1: grows while the open drain runs, dries in half a
+     minute).
 
    Beside the bridge it keeps **the van's clock**: a day lasts ten minutes,
    published retained as `schaltli/demo/daylight` (0 night … 1 noon) every
@@ -160,6 +166,11 @@ announcement.
      the roof, a step light under the sliding door;
    - day and night from `schaltli/demo/daylight`: the sky from blue through
      orange to dark blue, sun and moon, stars at night;
+   - the sliding door a little open on the shower, the fresh water filler
+     under the rear window - a click on either sends the demo van its command
+     (data-action in the drawing); while it showers, drops and steam; while it
+     refills, a red canister with its hose; under an open drain with grey
+     water in it, a stream and a puddle that dries afterwards;
    - the living-room and the sliding-door window lit warm in proportion to
      their dimmers (`schaltli/state/dimmer/<n>/level`), the third dimmer the
      step light and the ground it lights, the relays the fairy light and the

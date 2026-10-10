@@ -22,10 +22,25 @@ const SCENE_TOPICS = [
   "schaltli/state/relay/2/power",
   "schaltli/state/relay/1/name",
   "schaltli/state/relay/2/name",
+  "schaltli/state/relay/3/power",
+  "schaltli/state/tank/1/level",
+  "schaltli/state/tank/2/level",
+  "schaltli/state/tank/1/name",
+  "schaltli/state/tank/2/name",
+  "schaltli/demo/shower",
+  "schaltli/demo/refill",
+  "schaltli/demo/puddle",
 ]
 
+/**
+ * What a visitor can do in the scene: a click on a part with
+ * data-action="<name>" publishes payload "start" on COMMAND_PREFIX + name.
+ * The demo van carries it out (integrations/vanpi/demo-van.js).
+ */
+const COMMAND_PREFIX = "schaltli/cmnd/demo/"
+
 const W = 300
-const H = 330
+const H = 340
 
 function clamp01(v) {
   return Math.max(0, Math.min(1, v))
@@ -69,6 +84,14 @@ function sceneState(values) {
       on: values[`schaltli/state/relay/${n}/power`] === "on",
       name: values[`schaltli/state/relay/${n}/name`] || ["Lichterkette", "Aussenlicht"][n - 1],
     })),
+    tanks: [1, 2].map((n) => ({
+      level: values[`schaltli/state/tank/${n}/level`] === undefined ? null : clamp01(num(`schaltli/state/tank/${n}/level`) / 100),
+      name: values[`schaltli/state/tank/${n}/name`] || ["Frischwasser", "Grauwasser"][n - 1],
+    })),
+    draining: values["schaltli/state/relay/3/power"] === "on",
+    shower: values["schaltli/demo/shower"] === "on",
+    refill: values["schaltli/demo/refill"] === "on",
+    puddle: clamp01(num("schaltli/demo/puddle")),
   }
 }
 
@@ -143,11 +166,13 @@ function sceneSvg(values = {}) {
   const legend = [
     ...s.lights.map((l) => [l.name, l.level > 0 ? `${Math.round(l.level * 100)} %` : "off", l.level > 0]),
     ...s.lamps.map((l) => [l.name, l.on ? "on" : "off", l.on]),
+    ...s.tanks.filter((t) => t.level !== null).map((t) => [t.name, `${Math.round(t.level * 100)} %`, "water"]),
   ]
     .map(([name, value, on], i) => {
       const y = 262 + Math.floor(i / 2) * 20
       const x = i % 2 ? 158 : 12
-      return `<circle cx="${x + 5}" cy="${y - 4}" r="4" fill="${on ? "#ffc947" : "#9aa5b1"}"/>` +
+      const dot = on === "water" ? "#4d96ff" : on ? "#ffc947" : "#9aa5b1"
+      return `<circle cx="${x + 5}" cy="${y - 4}" r="4" fill="${dot}"/>` +
         `<text x="${x + 14}" y="${y}" font-size="11" fill="currentColor">${escapeXml(name)}: ${value}</text>`
     })
     .join("")
@@ -199,15 +224,44 @@ ${stars > 0 ? `<circle cx="${moon.x}" cy="${moon.y}" r="10" fill="#f4f1de" opaci
   ${bulbs}
   <!-- its windows, lit from inside -->
   ${inside.level > 0 ? `<circle cx="118" cy="110" r="110" fill="url(#${id}-glow)" opacity="${(0.25 + 0.75 * night) * inside.level}"/>` : ""}
-  ${kitchen.level > 0 ? `<circle cx="306" cy="108" r="90" fill="url(#${id}-glow)" opacity="${(0.25 + 0.75 * night) * kitchen.level}"/>` : ""}
+  ${kitchen.level > 0 ? `<circle cx="292" cy="108" r="90" fill="url(#${id}-glow)" opacity="${(0.25 + 0.75 * night) * kitchen.level}"/>` : ""}
   <rect data-part="light-1" x="62" y="84" width="112" height="52" rx="10" fill="${windowFill(inside.level)}"/>
-  <rect data-part="light-2" x="250" y="80" width="112" height="56" rx="10" fill="${windowFill(kitchen.level)}"/>
+  <rect data-part="light-2" x="240" y="80" width="104" height="56" rx="10" fill="${windowFill(kitchen.level)}"/>
+  <!-- the sliding door a little open: the shower behind it. A click takes a shower -->
+  <g data-action="shower" style="cursor:pointer">
+    <title>Take a shower</title>
+    <rect x="344" y="64" width="44" height="152" fill="${mix("#4a6072", "#1c2a35", night)}"/>
+    <path d="M344 94 h44 M344 124 h44 M344 154 h44 M344 184 h44 M366 64 v152" stroke="${mix("#5d7487", "#243543", night)}" stroke-width="2"/>
+    <rect x="352" y="72" width="26" height="6" rx="3" fill="#c0c6cc"/>
+    <rect x="363" y="66" width="4" height="9" fill="#c0c6cc"/>
+    ${s.shower ? [354, 359, 364, 369, 374].map((x, i) => `<line data-part="shower" x1="${x}" y1="${82 + (i % 2) * 5}" x2="${x - 3}" y2="${160 + (i % 3) * 16}" stroke="#9fd3ff" stroke-width="2.5" stroke-dasharray="7 6"/>`).join("") : ""}
+    <line x1="344" y1="62" x2="344" y2="216" stroke="#2b2f38" stroke-width="2"/>
+    <line x1="388" y1="62" x2="388" y2="216" stroke="#9aa0a6" stroke-width="4"/>
+    ${s.shower ? `<g data-part="steam" fill="#fff"><circle cx="398" cy="112" r="16" opacity="0.55"/><circle cx="410" cy="90" r="13" opacity="0.4"/><circle cx="402" cy="70" r="10" opacity="0.25"/></g>` : ""}
+    <rect x="340" y="62" width="52" height="158" fill="transparent"/>
+  </g>
+  <!-- the fresh water filler, under the rear window. A click brings a canister -->
+  <g data-action="refill" style="cursor:pointer">
+    <title>Fill up the fresh water</title>
+    <circle cx="150" cy="178" r="9" fill="#d3d6da" stroke="#8d99ae" stroke-width="3"/>
+    <circle cx="150" cy="178" r="3" fill="#4d96ff"/>
+    <circle cx="150" cy="178" r="20" fill="transparent"/>
+  </g>
+  ${s.refill ? `<g data-part="canister">
+    <path d="M-30 214 Q 40 150 141 178" fill="none" stroke="#2b2d42" stroke-width="5"/>
+    <rect x="-62" y="210" width="40" height="64" rx="6" fill="#d62828"/>
+    <rect x="-54" y="200" width="18" height="12" rx="3" fill="#a61e1e"/>
+    <rect x="-58" y="226" width="32" height="5" rx="2" fill="#a61e1e"/>
+  </g>` : ""}
   <!-- the lamp above the sliding door -->
   ${outside.on ? `<circle cx="306" cy="62" r="70" fill="url(#${id}-glow)" opacity="${0.35 + 0.65 * night}"/>` : ""}
   <rect data-part="lamp-2" x="292" y="56" width="28" height="9" rx="4" fill="${outside.on ? "#fff3c4" : mix("#9aa0a6", "#555", night)}"/>
   <!-- the step light under the sliding door, and the ground it lights -->
   ${step.level > 0 ? `<ellipse cx="306" cy="262" rx="${80 + 50 * step.level}" ry="16" fill="url(#${id}-pool)" opacity="${(0.35 + 0.65 * night) * step.level}"/>` : ""}
   <rect data-part="light-3" x="270" y="226" width="72" height="5" rx="2" fill="${step.level > 0 ? "#fff0b8" : mix("#9aa0a6", "#4a4e59", night)}"/>
+  <!-- the grey water running out of an open drain, and its puddle -->
+  ${s.puddle > 0 ? `<ellipse data-part="puddle" cx="330" cy="278" rx="${20 + 110 * s.puddle}" ry="${5 + 7 * s.puddle}" fill="#7fb8e0" opacity="${0.35 + 0.4 * s.puddle}"/>` : ""}
+  ${s.draining && s.tanks[1].level !== null && s.tanks[1].level > 0 ? `<path data-part="drain" d="M326 234 q -6 12 2 22 q 6 10 -2 22" fill="none" stroke="#6fb7e8" stroke-width="10" stroke-linecap="round" opacity="0.9"/>` : ""}
   <!-- wheels -->
   <circle cx="130" cy="236" r="38" fill="#2b2d42"/><circle cx="130" cy="236" r="22" fill="#9aa0a6"/><circle cx="130" cy="236" r="7" fill="#5c6370"/>
   <circle cx="470" cy="236" r="38" fill="#2b2d42"/><circle cx="470" cy="236" r="22" fill="#9aa0a6"/><circle cx="470" cy="236" r="7" fill="#5c6370"/>
@@ -218,4 +272,4 @@ ${stars > 0 ? `<circle cx="${moon.x}" cy="${moon.y}" r="10" fill="#f4f1de" opaci
 </svg>`
 }
 
-module.exports = { SCENE_TOPICS, sceneSvg, sceneState }
+module.exports = { SCENE_TOPICS, COMMAND_PREFIX, sceneSvg, sceneState }

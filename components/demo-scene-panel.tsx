@@ -8,7 +8,8 @@
 // listens to the broker, not to the preview: what another visitor switches
 // lights here too, as in a real van.
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
+import type { MqttClient } from "mqtt"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
@@ -19,16 +20,23 @@ const COLLAPSED_KEY = "schaltli.demoScenePanelCollapsed"
 /** The forum thread the demo is announced in, where the next stage is asked for. */
 export const DEMO_FORUM_URL = "https://forum.pekaway.de/"
 
-/** The scene drawn from the broker's live values, as an SVG string. */
-export function useDemoSceneSvg(): string {
+/**
+ * The scene drawn from the broker's live values, as an SVG string, and what
+ * a click on it does: a part marked data-action="<name>" sends that command
+ * to the demo van (scene.COMMAND_PREFIX + name) - the shower behind the
+ * sliding door, the canister at the filler.
+ */
+export function useDemoScene(): { svg: string; onClick: (event: MouseEvent<HTMLElement>) => void } {
   const [values, setValues] = useState<Record<string, string>>({})
   const { connect, disconnect } = useMqttConnection("schaltli-demo-scene")
+  const clientRef = useRef<MqttClient | null>(null)
 
   useEffect(() => {
     let current = true
     connect()
       .then((client) => {
         if (!current) return
+        clientRef.current = client
         client.on("message", (topic, payload) => {
           if (!current) return
           const value = payload.toString()
@@ -41,16 +49,23 @@ export function useDemoSceneSvg(): string {
       })
     return () => {
       current = false
+      clientRef.current = null
       disconnect()
     }
   }, [connect, disconnect])
 
-  return useMemo(() => scene.sceneSvg(values), [values])
+  const svg = useMemo(() => scene.sceneSvg(values), [values])
+  const onClick = (event: MouseEvent<HTMLElement>) => {
+    const part = (event.target as Element).closest?.("[data-action]")
+    const action = part?.getAttribute("data-action")
+    if (action && clientRef.current) clientRef.current.publish(scene.COMMAND_PREFIX + action, "start")
+  }
+  return { svg, onClick }
 }
 
 export function DemoScenePanel() {
   const [collapsed, setCollapsed] = useState(false)
-  const svg = useDemoSceneSvg()
+  const { svg, onClick } = useDemoScene()
 
   useEffect(() => {
     try {
@@ -87,7 +102,8 @@ export function DemoScenePanel() {
           <PanelLeftClose className="w-4 h-4" />
         </Button>
       </div>
-      <div data-testid="demo-scene" className="px-2 pt-2 text-foreground" dangerouslySetInnerHTML={{ __html: svg }} />
+      <div data-testid="demo-scene" className="px-2 pt-2 text-foreground" onClick={onClick} dangerouslySetInnerHTML={{ __html: svg }} />
+      <p className="px-3 text-xs text-muted-foreground">Tap the shower behind the door, or the filler under the rear window.</p>
       <p className="px-3 pb-3 text-xs text-muted-foreground">
         This van is a conversion in progress. So far: light and water. Next: solar?{" "}
         <a href={DEMO_FORUM_URL} target="_blank" rel="noreferrer" className="underline">

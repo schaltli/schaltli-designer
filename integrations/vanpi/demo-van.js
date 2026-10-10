@@ -12,6 +12,11 @@
 // van has so far, so the bridge announces and publishes only that; a later
 // stage adds a kind here and the bridge already knows it.
 //
+// What a visitor does in the scene comes as schaltli/cmnd/demo/shower and
+// .../refill - a shower empties fresh water into the grey, a canister fills
+// the fresh tank - and what the scene shows of it goes out as
+// schaltli/demo/shower, /refill and /puddle (the drain's, 0..1).
+//
 // Beside the bridge it keeps the van's clock: a day lasts ten minutes,
 // published retained as schaltli/demo/daylight (0 at night, 1 at noon) and
 // schaltli/demo/time ("HH:MM"). Nothing in Pekaway's format reads them; the
@@ -55,17 +60,45 @@ function seed() {
 // drain empties a full grey water tank in under a minute.
 const USE_PER_SECOND = 1 / 60
 const DRAIN_PER_SECOND = 2
+// What a visitor does in the scene (schaltli/cmnd/demo/...): a shower of
+// twelve seconds takes some 15 % of the fresh water and puts 12 % into the
+// grey; a canister fills the fresh tank in ten seconds. The puddle under an
+// open drain grows while water runs and soaks away in half a minute after.
+const SHOWER_SECONDS = 12
+const SHOWER_FRESH_PER_SECOND = 1.25
+const SHOWER_GREY_PER_SECOND = 1
+const REFILL_SECONDS = 10
+const PUDDLE_GROWS_PER_SECOND = 0.08
+const PUDDLE_DRIES_PER_SECOND = 1 / 30
 const round1 = (v) => Math.round(v * 10) / 10
 
 /** The fake Pekaway: its state, its answers, what its commands do. */
 function fakePekaway() {
   let state = seed()
+  // What is going on around the van, for the scene: seconds of shower and of
+  // refilling left, and the puddle under the drain (0..1). Not Pekaway's.
+  let scene = { shower: 0, refill: 0, puddle: 0 }
   return {
     get state() {
       return state
     },
+    get scene() {
+      return scene
+    },
     reset() {
       state = seed()
+      scene = { shower: 0, refill: 0, puddle: 0 }
+    },
+    /** A visitor's shower: false when there is no fresh water for one. */
+    startShower() {
+      if (state.level.level1.state <= 0) return false
+      scene.shower = SHOWER_SECONDS
+      return true
+    },
+    /** A visitor's canister at the filler. */
+    startRefill() {
+      scene.refill = REFILL_SECONDS
+      return true
     },
     /** The answer to pkw/stat/<kind>, or null for a kind the van does not have. */
     answer(kind) {
@@ -89,9 +122,24 @@ function fakePekaway() {
       const used = Math.min(fresh.state, seconds * USE_PER_SECOND)
       fresh.state = round1(fresh.state - used)
       grey.state = round1(Math.min(100, grey.state + used * 0.8))
+      if (scene.shower > 0) {
+        const t = Math.min(seconds, scene.shower)
+        const water = Math.min(fresh.state, t * SHOWER_FRESH_PER_SECOND)
+        fresh.state = round1(fresh.state - water)
+        grey.state = round1(Math.min(100, grey.state + water * (SHOWER_GREY_PER_SECOND / SHOWER_FRESH_PER_SECOND)))
+        scene.shower = fresh.state > 0 ? Math.max(0, scene.shower - seconds) : 0
+      }
+      if (scene.refill > 0) {
+        const t = Math.min(seconds, scene.refill)
+        fresh.state = round1(fresh.state + (100 - fresh.state) * (t / scene.refill))
+        scene.refill = Math.max(0, scene.refill - seconds)
+      }
+      const draining = state.relay.Relay3 && grey.state > 0
       if (state.relay.Relay3) grey.state = round1(Math.max(0, grey.state - seconds * DRAIN_PER_SECOND))
-      // An empty fresh water tank is filled again at the next stop.
-      if (fresh.state <= 5) fresh.state = 100
+      scene.puddle = draining
+        ? Math.min(1, scene.puddle + seconds * PUDDLE_GROWS_PER_SECOND)
+        : Math.max(0, scene.puddle - seconds * PUDDLE_DRIES_PER_SECOND)
+      scene.puddle = Math.round(scene.puddle * 100) / 100
     },
     /** A pkw/cmnd/... message; true when it changed something. */
     command(topic, payload) {
@@ -227,7 +275,7 @@ function startDemoVan({
   const mqttIns = flow.nodes.filter((n) => n.type === "mqtt in")
   client.on("connect", () => {
     log(`connected to ${broker}`)
-    client.subscribe([...new Set(mqttIns.map((n) => n.topic)), "pkw/stat/+", "pkw/cmnd/#"])
+    client.subscribe([...new Set(mqttIns.map((n) => n.topic)), "pkw/stat/+", "pkw/cmnd/#", "schaltli/cmnd/demo/#"])
   })
   client.on("error", (error) => log(`broker: ${error.message}`))
   client.on("message", (topic, payload, packet) => {
@@ -239,6 +287,10 @@ function startDemoVan({
       if (answer !== null) client.publish(`pkw/tele/${kind}`, answer)
     } else if (matches("pkw/cmnd/#", topic)) {
       if (pekaway.command(topic, text)) lastCommand = Date.now()
+    } else if (topic === "schaltli/cmnd/demo/shower") {
+      if (pekaway.startShower()) lastCommand = Date.now()
+    } else if (topic === "schaltli/cmnd/demo/refill") {
+      if (pekaway.startRefill()) lastCommand = Date.now()
     }
     for (const n of mqttIns) {
       if (matches(n.topic, topic)) for (const target of n.wires[0] ?? []) deliver(target, { topic, payload: text, retain: packet.retain })
@@ -265,6 +317,9 @@ function startDemoVan({
       const clock = vanClock(now, daySeconds)
       client.publish("schaltli/demo/daylight", String(clock.daylight), { retain: true })
       client.publish("schaltli/demo/time", clock.time, { retain: true })
+      client.publish("schaltli/demo/shower", pekaway.scene.shower > 0 ? "on" : "off", { retain: true })
+      client.publish("schaltli/demo/refill", pekaway.scene.refill > 0 ? "on" : "off", { retain: true })
+      client.publish("schaltli/demo/puddle", String(pekaway.scene.puddle), { retain: true })
       const today = new Date(now).toDateString()
       if (new Date(now).getHours() === 4 && lastResetDay !== today) {
         lastResetDay = today
