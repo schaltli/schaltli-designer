@@ -240,6 +240,10 @@ result). Instead:
   as their labels at M. Box, free area, bar and slider are made larger or
   smaller afterwards at their handles, as today.
 - **Lines and polylines are still drawn**: their points are the object.
+  A line drawn always lies free - in the space being worked in, or where an
+  open table stands - and never snaps while it is drawn, not even against a
+  table. Once drawn it is moved into a cell like any object, its points
+  with it (the user, 2026-10-10).
 - **Blocks** (module `snap-table-blocks`) and **row templates** (module
   `snap-table-rows`) arrive the same way: held at the pointer, snapped as
   a row or placed free.

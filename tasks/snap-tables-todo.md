@@ -206,7 +206,8 @@ the Table tool keep working until module old-table-removal.
 - [ ] Pressed and let go with its edge against a free text: they are a table.
 - [ ] Esc before release: no object, nothing to undo.
 - [ ] One Ctrl+Z after placing removes the object.
-- [ ] A line is still drawn from point to point.
+- [ ] A line is still drawn from point to point, and lies free even when drawn against a table or with a table open.
+- [ ] A drawn line dragged onto an empty cell goes into it.
 
 **Verification:** `npx playwright test e2e/place-by-dragging.spec.ts e2e/snap-table-canvas.spec.ts`; typecheck.
 
