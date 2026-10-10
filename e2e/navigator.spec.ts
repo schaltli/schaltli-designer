@@ -6,6 +6,7 @@ import path from "path"
 import { loadProject, getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
+import { THEMES, applyTheme, resolveRole } from "../lib/themes"
 
 // The navigator (docs/2026-10-08-navigator.md, tasks/navigator-todo.md):
 // a bar along one edge with every screen, placed on a master. This file
@@ -135,8 +136,9 @@ const GROUND = "#202020"
 const INK = "#c0c0c0"
 const ACCENT = "#4060ff"
 const ON_ACCENT = "#ffffff"
+const LINE = "#ff8000"
 
-function drawProject(liveIcon: boolean): any {
+function drawProject(liveIcon: boolean, nav: Record<string, unknown> = {}): any {
   const navigator = {
     id: "nav",
     type: "navigator",
@@ -146,6 +148,7 @@ function drawProject(liveIcon: boolean): any {
     height: 480,
     zIndex: 9,
     properties: { edge: "left", shows: "icons", backgroundColor: GROUND, textColor: INK, activeColor: ACCENT, activeTextColor: ON_ACCENT },
+    ...nav,
   }
   return {
     name: "nav-draw",
@@ -199,6 +202,34 @@ test.describe("the navigator, drawn", () => {
     expect(at(32, 240)).toBe(INK)
     // Beside the strip the screen itself.
     expect(at(100, 240)).toBe("#000000")
+  })
+
+  // On «Surface», as the screen, the strip read as one button, not a bar
+  // (2026-10-10, mockup C): a line towards the screen, 2 px, over the entries.
+  test("a line in its border colour along the edge towards the screen", async ({ page }) => {
+    const props = { edge: "left", shows: "icons", backgroundColor: GROUND, borderColor: LINE, textColor: INK, activeColor: ACCENT, activeTextColor: ON_ACCENT }
+    const left = await pixels(page, drawProject(false, { properties: props }))
+    expect(left(62, 20)).toBe(LINE)
+    expect(left(63, 240)).toBe(LINE)
+    expect(left(61, 240)).toBe(GROUND)
+    expect(left(0, 240)).toBe(GROUND)
+    expect(left(64, 240)).toBe("#000000")
+
+    const bottom = await pixels(page, drawProject(false, { x: 0, y: 416, width: 800, height: 64, properties: { ...props, edge: "bottom" } }))
+    expect(bottom(400, 416)).toBe(LINE)
+    expect(bottom(400, 417)).toBe(LINE)
+    expect(bottom(500, 418)).toBe(GROUND)
+    expect(bottom(400, 415)).toBe("#000000")
+  })
+
+  test("by default its ground is the theme's «Panel» and the line «Outline»", () => {
+    for (const theme of THEMES) {
+      for (const variant of ["light", "dark"] as const) {
+        const [nav] = applyTheme([{ type: "navigator", properties: { edge: "left" } as Record<string, any> }], theme, variant, "24bit")
+        expect(nav.properties.backgroundColor, theme.id).toBe(resolveRole(theme, "panel", variant, "24bit"))
+        expect(nav.properties.borderColor, theme.id).toBe(resolveRole(theme, "outline", variant, "24bit"))
+      }
+    }
   })
 
   test("a hidden screen has no entry; a live screen icon follows its value", async ({ page }) => {

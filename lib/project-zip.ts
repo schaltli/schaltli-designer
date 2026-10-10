@@ -550,6 +550,8 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       entryLength: layout.entryLength,
       backgroundColor: nav.properties.backgroundColor,
       ...(withDark && nav.properties.backgroundColorDark ? { backgroundColorDark: nav.properties.backgroundColorDark } : {}),
+      ...(nav.properties.borderColor ? { borderColor: nav.properties.borderColor } : {}),
+      ...(withDark && nav.properties.borderColorDark ? { borderColorDark: nav.properties.borderColorDark } : {}),
       entries: navigatorScreens(project.screens).map((screen) => ({
         screenId: screen.id,
         normal: entryObjects(screen, false),

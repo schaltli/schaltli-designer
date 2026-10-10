@@ -24,6 +24,21 @@ export interface Rect {
   height: number
 }
 
+/**
+ * The line along the strip's inner edge, towards the screen, in px: drawn
+ * over the strip's last pixels, in its «Outline» (`borderColor`).
+ */
+export const NAVIGATOR_DIVIDER = 2
+
+/** The divider's rectangle: the strip's `NAVIGATOR_DIVIDER` pixels on the screen's side. */
+export function dividerRect(edge: Edge, strip: Rect): Rect {
+  const d = NAVIGATOR_DIVIDER
+  if (edge === "left") return { x: strip.x + strip.width - d, y: strip.y, width: d, height: strip.height }
+  if (edge === "right") return { x: strip.x, y: strip.y, width: d, height: strip.height }
+  if (edge === "top") return { x: strip.x, y: strip.y + strip.height - d, width: strip.width, height: d }
+  return { x: strip.x, y: strip.y, width: strip.width, height: d }
+}
+
 /** How thick the strip is, and the shortest an entry may be, per «Shows». */
 export const NAVIGATOR_SIZES: Record<Shows, { thickness: number; minEntry: number }> = {
   icons: { thickness: 64, minEntry: 64 },

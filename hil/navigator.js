@@ -88,6 +88,8 @@ function navigatorProject(ddf) {
       shows: "iconsAndText",
       fontId: font.id,
       backgroundColor: "#202020",
+      // The line towards the screen (contract 2.7, 2026-10-10).
+      borderColor: "#ff8000",
       textColor: "#c0c0c0",
       activeColor: "#4060ff",
       activeTextColor: "#ffffff",
@@ -278,12 +280,15 @@ async function main() {
     // the canvas was right while the glass kept the old strip (2026-10-08).
     const shows = async (name, screenId, scroll, alsoGlass = false) => {
       const want = await expected(screenId, values, scroll)
+      let canvas
       for (const what of alsoGlass && !eink ? ["snapshot.bmp", "panel.bmp"] : ["snapshot.bmp"]) {
         const actual = await fetchBmp(what, name)
+        if (what === "snapshot.bmp") canvas = actual
         const { dimensionMismatch, diffPixels } = comparePixels(actual, want)
         const where = what === "panel.bmp" ? " (glass)" : ""
         check(`${name}${where}: ${screenId}${scroll !== undefined ? `, scrolled ${scroll}` : ""}`, !dimensionMismatch && diffPixels === 0, dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`)
       }
+      return canvas
     }
     const stripPixels = (img) => {
       const out = []
@@ -319,7 +324,14 @@ async function main() {
     const showsOpen = (name, alsoGlass = false) => shows(name, S(listed[open]), scroll >= 0 ? scroll : undefined, alsoGlass)
     const entryAtY = (y) => Math.floor((y + effective()) / ENTRY)
 
-    await showsOpen("starts on the first screen not hidden")
+    const first = await showsOpen("starts on the first screen not hidden")
+    // The strip's last 2 px towards the screen are the line, not its ground
+    // - 0 px against the designer holds it only if the designer draws it.
+    const mid = Math.round(sh / 2)
+    check(
+      "a line 2 px wide along the strip's edge towards the screen",
+      first.getPixelColor(78, mid) === first.getPixelColor(79, mid) && first.getPixelColor(78, mid) !== first.getPixelColor(77, mid) && first.getPixelColor(80, mid) !== first.getPixelColor(79, mid),
+    )
 
     await tap(40, 2 * ENTRY + ENTRY / 2)
     goTo(2)

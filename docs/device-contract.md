@@ -818,7 +818,8 @@ the screens slide beneath it.
     "edge": "left",
     "thickness": 80,
     "entryLength": 96,
-    "backgroundColor": "#fffbfe", "backgroundColorDark": "#1c1b1f",
+    "backgroundColor": "#e5e5e5", "backgroundColorDark": "#2b2930",
+    "borderColor": "#cccccc", "borderColorDark": "#49454f",
     "entries": [
       { "screenId": "s-licht",
         "normal": [ { "type": "icon", "x": 24, "y": 22, "width": 32, "height": 32, "path": "assets/…", "properties": { … } },
@@ -832,7 +833,10 @@ the screens slide beneath it.
 - **Strip:** `edge` is `top`, `bottom`, `left` or `right`; the navigator
   fills that edge of the screen, `thickness` deep. It is opaque:
   `backgroundColor` (`XDark` as in 2.3) covers whatever the screen has
-  there.
+  there. `borderColor` (optional, `XDark` likewise; added 2026-10-10) is a
+  line 2 px wide along the strip's inner edge, towards the screen, inside
+  the strip and over its entries - so the strip reads as a bar. Without the
+  key there is none.
 - **Entries:** one per screen listed, in order. Each is `entryLength`
   along the edge and `thickness` across; entry *i* starts at
   *i* × `entryLength` − scroll from the strip's start. The open screen's

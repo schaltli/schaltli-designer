@@ -4,8 +4,9 @@
  * The navigator (docs/2026-10-08-navigator.md): a bar along one edge of the
  * master with an entry per screen. It is not placed by hand - «Edge» and
  * «Shows» put it where it goes and size it (lib/navigator.ts) - so there is
- * no position here. Its colours are the theme's: «Surface» and «Text», the
- * open screen's entry «Accent» and «Text on accent».
+ * no position here. Its colours are the theme's: «Panel» with a line in
+ * «Outline» towards the screen, «Text», the open screen's entry «Accent» and
+ * «Text on accent».
  */
 
 import type { ProjectFont, ScreenObject } from "../project-editor"

@@ -518,7 +518,9 @@ export function resolveColor(value: string, theme: Theme, variant: Variant, colo
 const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   text: { backgroundColor: "surface", borderColor: "outline" },
   box: { fillColor: "panel", strokeColor: "text" },
-  navigator: { backgroundColor: "surface", textColor: "text", activeColor: "accent", activeTextColor: "onAccent" },
+  // «Panel» and a line in «Outline» towards the screen: on «Surface», as
+  // the screen, it read as one button, not as a bar (2026-10-10, mockup C).
+  navigator: { backgroundColor: "panel", borderColor: "outline", textColor: "text", activeColor: "accent", activeTextColor: "onAccent" },
   line: { color: "text" },
   "live-line": { color: "text" },
   bar: { fillColor: "accent", textColor: "text", trackColor: "track", trackEdgeColor: "trackEdge" },

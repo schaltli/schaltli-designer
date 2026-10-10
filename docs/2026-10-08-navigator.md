@@ -80,7 +80,9 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
    export copies a master's objects into every screen. A navigator copied
    so could not stay put while swiping, so it is written once, at the top
    of project.json, and each screen says whether it shows it.
-10. **Opaque.** The navigator has its own ground («Surface»). A background
+10. **Opaque.** The navigator has its own ground («Panel», with a 2 px line
+    in «Outline» towards the screen - on «Surface», as the screen, it read
+    as one button, not as a bar; changed 2026-10-10). A background
     image may lie under it on a screen, but the navigator covers it, also
     while swiping and scrolling.
 11. **The strip is hatched in the designer.** On every screen using that

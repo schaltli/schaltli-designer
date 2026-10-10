@@ -68,7 +68,7 @@ Ein Klick auf den Master setzt ihn an den linken Rand. Verschieben oder in der G
 - <span class="ui">Shows</span>: <span class="ui">Icons</span> oder <span class="ui">Icons and text</span>. Das Icon ist das Icon des Screens, der Text sein Name. Mit Text wird die Leiste breiter.
 - <span class="ui">Font</span>: die Schrift der Namen, nur bei <span class="ui">Icons and text</span>.
 
-Die Farben kommen aus dem Theme: der Grund aus «Surface», Icons und Namen aus «Text», der offene Eintrag aus «Accent» und «Text on accent».
+Die Farben kommen aus dem Theme: der Grund aus «Panel», eine Linie zum Screen hin aus «Outline», Icons und Namen aus «Text», der offene Eintrag aus «Accent» und «Text on accent». So hebt sich die Leiste vom Screen ab.
 
 **Die Einträge:** einer pro Screen, in der Reihenfolge der Screen-Liste. Master, Popups und Screens mit <span class="ui">Hide screen</span> fehlen. Einen neuen Screen nimmt der Navigator von selbst auf. Passen alle Einträge hin, teilen sie sich die Kante. Sonst scrollst du den Navigator mit einem Wisch entlang der Leiste, und der letzte sichtbare Eintrag ist angeschnitten, damit man sieht, dass es weitergeht. Nach jedem Screenwechsel scrollt er so weit, dass der offene Eintrag zu sehen ist. Ein Wisch auf dem Navigator scrollt nur und blättert nie, ein Wisch daneben blättert wie bisher.
 

@@ -60,6 +60,10 @@ test.describe("the navigator in the device export", () => {
     expect(nav).toMatchObject({ id: "nav", edge: "left", thickness: 80, entryLength: 240 })
     expect(nav.backgroundColor).toMatch(/^#[0-9a-f]{6}$/i)
     expect(nav.backgroundColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+    // The line towards the screen, «Outline», light and dark.
+    expect(nav.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(nav.borderColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(nav.borderColor).not.toBe(nav.backgroundColor)
     // The hidden screen has no entry.
     expect(nav.entries.map((e: any) => e.screenId)).toEqual(["a", "c"])
     for (const entry of nav.entries) {

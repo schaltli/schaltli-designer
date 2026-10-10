@@ -30,7 +30,8 @@ import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { clampScroll, entryRect, layoutInStrip, navigatorScreens, scrollToShow } from "@/lib/navigator"
+import { applyColorDepth } from "@/lib/color-depth"
+import { clampScroll, dividerRect, entryRect, layoutInStrip, navigatorScreens, scrollToShow } from "@/lib/navigator"
 import { entryLook, navigatorEntryObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
@@ -369,7 +370,8 @@ export interface NavigatorContext {
 /**
  * A navigator: its ground over the strip, and each entry's objects
  * (lib/navigator-entries.ts) at the entry's place, clipped to the strip -
- * the last visible entry cut off where they do not all fit.
+ * the last visible entry cut off where they do not all fit - and over them
+ * the divider towards the screen.
  */
 export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject, options: RenderScreenObjectsOptions): void {
   const strip = { x: obj.x, y: obj.y, width: obj.width, height: obj.height }
@@ -394,6 +396,15 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
       renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...options, nested: true, navigator: undefined })
       ctx.restore()
     })
+  }
+  if (obj.properties.borderColor && obj.properties.borderColor !== "transparent") {
+    const line = dividerRect(obj.properties.edge ?? "left", strip)
+    // In the device's colours, as the export hands them over: on grey
+    // e-paper the line came out orange beside the board's grey (2026-10-10).
+    // The ground is left as it was: the entries' icons are baked against it
+    // unquantized, and their edges matched the board's only so.
+    ctx.fillStyle = applyColorDepth(obj.properties.borderColor, options.colorDepth)
+    ctx.fillRect(line.x, line.y, line.width, line.height)
   }
   ctx.restore()
 }
