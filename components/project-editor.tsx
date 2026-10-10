@@ -4251,7 +4251,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         {/* The demo has one project and saves none: no list - «Your van» in
             its place, in the preview too, where it shows best
             (docs/2026-10-09-demo-instance.md, decision 8). */}
-        {demo && <DemoScenePanel />}
+        {demo && <DemoScenePanel wide={isPreviewMode} />}
         {!isPreviewMode && !demo && (
           <ProjectsPanel
             openName={save.savedName}
@@ -4374,6 +4374,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
         </div>
 
+        {/* The demo's preview has no panel on the right: «Your van» takes
+            its room (2026-10-10). */}
+        {!(demo && isPreviewMode) && (
+          <>
         {/* Drag handle for the right panel - widened to a comfortable 4px
             hit target (the visible border stays 1px) since a 1px-wide
             drag target is nearly unhittable with a mouse. */}
@@ -4502,6 +4506,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             </>
           )}
         </div>
+          </>
+        )}
       </div>
       </div>
 

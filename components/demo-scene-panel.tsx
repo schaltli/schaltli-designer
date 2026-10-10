@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import type { MqttClient } from "mqtt"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import * as scene from "@/integrations/vanpi/demo-scene"
 
@@ -63,7 +64,9 @@ export function useDemoScene(): { svg: string; onClick: (event: MouseEvent<HTMLE
   return { svg, onClick }
 }
 
-export function DemoScenePanel() {
+// Twice as wide in the preview, where the demo shows no panel on the right
+// (2026-10-10); the drawing grows with it.
+export function DemoScenePanel({ wide = false }: { wide?: boolean }) {
   const [collapsed, setCollapsed] = useState(false)
   const { svg, onClick } = useDemoScene()
 
@@ -95,16 +98,28 @@ export function DemoScenePanel() {
   }
 
   return (
-    <aside aria-label="Your van" className="w-[316px] shrink-0 border-r border-border bg-card flex flex-col min-h-0 overflow-y-auto">
+    <aside
+      aria-label="Your van"
+      data-wide={wide}
+      className={cn(
+        "shrink-0 border-r border-border bg-card flex flex-col min-h-0 overflow-y-auto",
+        wide ? "w-[632px]" : "w-[316px]",
+      )}
+    >
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <h2 className="text-sm font-medium text-foreground">Your van</h2>
         <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Hide your van" onClick={() => toggle(true)}>
           <PanelLeftClose className="w-4 h-4" />
         </Button>
       </div>
-      <div data-testid="demo-scene" className="px-2 pt-2 text-foreground" onClick={onClick} dangerouslySetInnerHTML={{ __html: svg }} />
-      <p className="px-3 text-xs text-muted-foreground">Tap the shower behind the door, or the filler under the rear window.</p>
-      <p className="px-3 pb-3 text-xs text-muted-foreground">
+      <div
+        data-testid="demo-scene"
+        className="px-2 pt-2 text-foreground [&>svg]:h-auto [&>svg]:w-full"
+        onClick={onClick}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      <p className={cn("px-3 text-muted-foreground", wide ? "text-sm" : "text-xs")}>Tap the shower behind the door, or the filler under the rear window.</p>
+      <p className={cn("px-3 pb-3 text-muted-foreground", wide ? "text-sm" : "text-xs")}>
         This van is a conversion in progress. So far: light and water. Next: solar?{" "}
         <a href={DEMO_FORUM_URL} target="_blank" rel="noreferrer" className="underline">
           Say what comes next

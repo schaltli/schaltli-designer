@@ -184,6 +184,10 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByRole("button", { name: "Exit Preview" })).toHaveCount(0)
     await expect(backdrop).toHaveAttribute("data-backdrop", "felt")
     await expect(page.getByText("Manage Screens")).toHaveCount(0)
+    // No panel on the right; «Your van» twice as wide in its place.
+    const van = page.getByRole("complementary", { name: "Your van" })
+    await expect(page.getByText("MQTT Topic Values")).toHaveCount(0)
+    await expect.poll(async () => Math.round((await van.boundingBox())!.width)).toBe(632)
     // Under the device: on a large screen halfway between its lower edge
     // and the canvas's bottom; on a small one in a strip under the canvas.
     const canvas = page.locator("canvas[data-device-bottom]")
@@ -208,6 +212,7 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveCount(1)
     await expect(backdrop).toHaveAttribute("data-backdrop", "plain")
     await expect(page.getByText("Manage Screens")).toBeVisible()
+    await expect.poll(async () => Math.round((await van.boundingBox())!.width)).toBe(316)
 
     await preview.click()
     await expect(preview).toHaveAttribute("aria-pressed", "true")
