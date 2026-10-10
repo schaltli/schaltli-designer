@@ -15,7 +15,7 @@ Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ank
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten: das Gerät als Überschrift, darunter jedes Ding mit seinem eigenen Namen. Home Assistant nennt den Fühler «Cabin Temperature» des Geräts «van-sensors» «van-sensors Cabin Temperature», das Menü nur «Cabin Temperature». Hat ein Gerät nur ein Ding mit dem Namen des Geräts, steht es ohne Überschrift da.
 2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
 3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, wo es mehr als eine Form gibt, und unter <span class="ui">Icon</span> ein Icon. Ein Eintrag mit mehreren Teilen kommt ganz, siehe [Mehrere Teile](#mehrere-teile). Teilt eine Beschreibung ihn in Abschnitte, wählst du unter <span class="ui">Sections</span> ab, was du nicht brauchst, siehe [Abschnitte](#abschnitte).
-4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. In einer Tabelle zeigt stattdessen eine leuchtende Zelle oder eine dicke Linie, wo der Baustein hinkommt, und ein Klick setzt ihn dort ab, siehe [In einer Tabelle](#in-einem-container). Sucht der Designer noch nach dem Icon, zeigt der Knopf <span class="ui">Waiting for icon…</span> und setzt den Baustein ab, sobald das Icon da ist. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
+4. Klick auf <span class="ui">Insert</span>. Ein Baustein aus einem Teil hängt nach dem Druck auf den Screen als Zeile am Mauszeiger. Du trägst ihn an seinen Platz oder in eine Tabelle, siehe [In einer Tabelle](#in-einem-container). Einen Baustein aus mehreren Teilen ziehst du als Rechteck auf. Sucht der Designer noch nach dem Icon, zeigt der Knopf <span class="ui">Waiting for icon…</span> und setzt den Baustein ab, sobald das Icon da ist. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
 
 Als Icon schlägt der Dialog vor, was das Gerät in seiner Ankündigung nennt. Nennt es keines, sucht er eines zum Namen. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
 
@@ -38,7 +38,7 @@ Was der Designer nicht setzen kann, steht ausgegraut im Menü, mit dem Grund, et
 
 Eine Form, die dein Gerät nicht darstellen kann, ist im Dialog ausgegraut. Fährst du mit der Maus darüber, steht dort der Grund. Die Form <span class="ui">Number</span> zeigt den Wert als [Chip in einem Text](/objekte/anzeigen#platzhalter).
 
-Jeder Baustein ist eine kleine [Tabelle](/objekte/anordnen#container): der Name in der ersten Spalte, das Bedienelement in der zweiten. Auf einem freien Screen kommt er als diese Tabelle, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
+Ein Baustein aus einem Teil ist eine Zeile: das Icon, der Name und das Bedienelement, jedes ein eigenes Objekt. Lässt du ihn frei los oder klickst nur, wird er zu einer [Tabelle](/objekte/anordnen#zusammenstecken) mit einer Zeile, und du verschiebst Text und Bedienelement gemeinsam. Einen Baustein aus mehreren Teilen setzt der Designer als kleine Tabelle, den Namen in der ersten Spalte, die Teile in der zweiten. Willst du nur ein Objekt darin ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 
@@ -78,13 +78,15 @@ Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B ru
 
 ## In einer Tabelle {#in-einem-container}
 
-In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
+Ein Baustein aus einem Teil kommt in eine Tabelle wie eine Zeile des Werkzeugs <span class="ui">Row</span>, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken). Trägst du ihn über oder unter eine Tabelle, zeigt eine dicke Linie, zwischen welche Zeilen er kommt. Beim Loslassen kommt das Icon zu den Icons, der Name zu den Namen und das Bedienelement zu den Bedienelementen. Hat der Baustein kein Icon, bleibt seine Zelle in der Icon-Spalte leer. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig. Ein Knopf wie «Restart» trägt seinen Namen selbst und kommt allein in die Spalte der Bedienelemente. Eine Tabelle des Werkzeugs <span class="ui">Table</span> nimmt einen solchen Baustein nicht auf: Er bleibt eine eigene Tabelle.
+
+Einen Baustein aus mehreren Teilen setzt du in eine Tabelle des Werkzeugs <span class="ui">Table</span>, ohne ein Rechteck aufzuziehen. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
 
 - **Auf eine Linie zwischen zwei Zeilen**, dort erscheint eine dicke Linie: Der Baustein verschmilzt mit der Tabelle. Sein Name kommt in deren erste Spalte, sein Bedienelement in die zweite, mehrere Teile zusammen untereinander in dieser Zelle. Die Tabelle behält dabei ihre Spalten. Hat sie mehr, bleiben die übrigen Zellen leer. Hat sie nur eine, stehen Name und Bedienelemente untereinander. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig.
 - **Auf das <span class="ui">+</span> unter der Tabelle**: wie auf einer Linie, nur in einer neuen Zeile am Ende. Darüber wird die untere Linie der Tabelle dick.
 - **In eine leere Zelle**, die aufleuchtet und ein <span class="ui">+</span> zeigt: Der Baustein kommt als eigene kleine Tabelle in diese Zelle. So stehen zwei Bausteine nebeneinander, etwa in den zwei Spalten von <span class="ui">Two columns</span>.
 
-Ein Icon steht mit dem Namen in derselben Zelle. Ein Knopf, etwa «Restart», trägt seinen Namen selbst: Bei ihm bleibt die linke Zelle leer, und der Knopf steht rechts bei den anderen Bedienelementen.
+Ein Icon steht dort mit dem Namen in derselben Zelle.
 
 ## Was im Projekt landet
 

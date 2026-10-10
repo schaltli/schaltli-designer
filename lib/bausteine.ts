@@ -1004,6 +1004,21 @@ function switcherSlot(
  * is placed as it is; dropped on a table's row line its row is merged into
  * that table (lib/table.ts mergedRows); into a cell, nested there.
  */
+/**
+ * A block of one part as a row (docs/2026-10-09-snap-tables.md, module
+ * snap-table-blocks): its icon, its name and its control, in that order and
+ * each one object, placed as a row template is - into a table by role, or
+ * a table of one row. Null for a block of several parts.
+ */
+export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex">[] | null {
+  const controls = built.objects.slice(built.labelCount ?? 0)
+  if (controls.length !== 1) return null
+  return built.objects.map(({ properties, ...piece }) => {
+    const { cell: _cell, ...rest } = properties ?? {}
+    return { ...piece, properties: rest }
+  })
+}
+
 export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex"> {
   const count = built.labelCount ?? 0
   const name = built.objects.slice(0, count)

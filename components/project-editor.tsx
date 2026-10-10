@@ -9,7 +9,7 @@ import { buildMockEngine } from "@/lib/mock-engine"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, blockTable, buildEntry, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, blockRow, blockTable, buildEntry, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -2060,15 +2060,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId, setProject],
   )
 
-  const startBaustein = useCallback(
+  // An armed block built for `rect`: its objects as placed - styled, at M
+  // where the device gives a scale - and `register`, which adds the topics
+  // and icons it brings to the project.
+  const buildArmed = useCallback(
     (
+      armed: NonNullable<typeof armedBlock>,
       rect: { x: number; y: number; width: number; height: number },
-      parentId?: string,
-      at?: { table: TableDrop },
-    ) => {
-      const armed = armedBlock
-      setArmedBlock(null)
-      if (!armed) return
+    ): { built: BausteinBuildResult; stepped: Omit<ScreenObject, "id" | "zIndex">[]; register: () => void } => {
       const { entry, values, options } = armed
 
       // The Label style's font, on a device with a scale.
@@ -2094,7 +2093,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         reported: values,
       })
 
-      setProject((prev) => {
+      const register = () => setProject((prev) => {
         const missing = built.topics.filter((topic) => !prev.topics.some((t) => t.topic === topic.topic))
         // Icons the block draws, once each, however often it is placed.
         const missingAssets = (built.assets ?? []).filter((asset) => !prev.assets.some((a) => a.id === asset.id))
@@ -2131,6 +2130,35 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             return stepKindOf(piece.type) ? { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep ?? "m", scale.pixelsPerMm, project.fonts) } : own
           })
         : pieces
+      return { built, stepped, register }
+    },
+    [project, currentScreen, setProject],
+  )
+
+  // The block the Block tool holds, if it is of one part: its row, made when
+  // the screen is pressed and carried as a row template is (module
+  // snap-table-blocks). Null for one of several parts, which is still drawn.
+  const blockRegisterRef = useRef<(() => void) | null>(null)
+  const armedBlockRow = useCallback((): Omit<ScreenObject, "id" | "zIndex">[] | null => {
+    blockRegisterRef.current = null
+    if (!armedBlock) return null
+    const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width: 120, height: 40 })
+    const row = blockRow({ ...built, objects: stepped })
+    if (row) blockRegisterRef.current = register
+    return row
+  }, [armedBlock, buildArmed])
+
+  const startBaustein = useCallback(
+    (
+      rect: { x: number; y: number; width: number; height: number },
+      parentId?: string,
+      at?: { table: TableDrop },
+    ) => {
+      const armed = armedBlock
+      setArmedBlock(null)
+      if (!armed) return
+      const { built, stepped, register } = buildArmed(armed, rect)
+      register()
       // Into a table (tables Task 8): on a row line merged into the table's
       // rows, into an empty cell nested there as a small table.
       if (at && "table" in at) {
@@ -2141,17 +2169,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // selected (docs/2026-10-02-layout-tables.md).
       addObjects([blockTable({ ...built, objects: stepped })], parentId)
     },
-    [
-      addObjects,
-      armedBlock,
-      project.settings,
-      project.screens,
-      currentScreen,
-      project.assets,
-      project.fonts,
-      project.screenWidth,
-      project.screenHeight,
-    ],
+    [addObjects, armedBlock, buildArmed, placeBlockInTable],
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing
@@ -2457,6 +2475,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // when none. That table is open afterwards, the row's first part chosen.
   const insertRow = useCallback(
     (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => {
+      // A block's row (armedBlockRow): the topics and icons it brings, and
+      // the Block tool put down.
+      const register = activeTool === "baustein" ? blockRegisterRef.current : null
+      blockRegisterRef.current = null
+      if (register) {
+        register()
+        setArmedBlock(null)
+      }
       const ids = parts.map((_, i) => `obj-${project.nextId + i}`)
       const newTableId = `obj-${project.nextId + parts.length}`
       setProject((prev) => {
@@ -2482,7 +2508,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setEditingContainerId(target ? target.tableId : newTableId)
       setSelectedObjectIds(ids.slice(0, 1))
     },
-    [currentScreenId, project.nextId, setProject],
+    [currentScreenId, project.nextId, setProject, activeTool],
   )
 
   // An object dragged out of a table put together by snapping and let go
@@ -4353,6 +4379,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onSnapMoveOut={snapMoveOut}
             rowTemplate={rowTemplate}
             onInsertRow={insertRow}
+            onBlockRow={armedBlockRow}
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}

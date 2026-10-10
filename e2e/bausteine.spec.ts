@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
+import { isSnapTable, snapCellOf } from "../lib/snap-table"
 import { mergedRows } from "../lib/table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
@@ -71,6 +72,11 @@ async function mockIconServices(
 test.beforeEach(async ({ page }) => {
   await mockIconServices(page)
 })
+
+// A table put together by snapping, as the type standing in each cell, «row/column».
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const byCell = (table: any) =>
+  Object.fromEntries((table.children ?? []).map((c: any) => [`${snapCellOf(c).row}/${snapCellOf(c).column}`, c.type]))
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -182,7 +188,7 @@ test.describe("placing a catalog entry", () => {
     return found
   }
 
-  test("a switch entry: a label and its buttons in a small table of their own, its topics declared with the broker's value first", async ({ page }, testInfo) => {
+  test("a switch entry: its name and its buttons as a table of one row, its topics declared with the broker's value first", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -194,14 +200,14 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await drag(page)
 
-      // Selected as a whole: a small table (docs/2026-10-02-layout-tables.md),
-      // with the label and the switch in its cells.
-      await expect(page.locator("h3").first()).toContainText("Table")
-      const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(2)
-      // A switch is always buttons, «An» and «Aus» (decided 2026-10-01).
-      await expect(inside.nth(0)).toHaveAttribute("title", /^(text|button-group) /)
-      await expect(inside.nth(1)).toHaveAttribute("title", /^(text|button-group) /)
+      // A block of one part is a row (docs/2026-10-09-snap-tables.md, module
+      // snap-table-blocks): let go away from any table, a table of its own,
+      // open, its name chosen. A switch is always buttons, «An» and «Aus»
+      // (decided 2026-10-01).
+      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
+      expect(tables).toHaveLength(1)
+      expect(byCell(tables[0])).toEqual({ "0/0": "text", "0/1": "button-group" })
+      await expect(page.locator("h3").first()).toContainText("Text")
 
       const topics = await topicsInSettings(page, ["zigbee2mqtt/Kitchen plug", "zigbee2mqtt/Kitchen plug/set"])
       expect(topics["zigbee2mqtt/Kitchen plug"]).toEqual({ type: "json", examples: '{"state":"OFF"}' })
@@ -229,8 +235,8 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  // Tables Task 8: a block clicked onto a table's row line is merged into
-  // its rows; into an empty cell it is nested there.
+  // An old table (docs/2026-10-02-layout-tables.md), which takes no block
+  // any more (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
   async function withTable(testInfo: { outputPath: (name: string) => string }): Promise<string> {
     const zip = await JSZip.loadAsync(await readFile(SWITCH_TEST_PROJECT))
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
@@ -258,86 +264,43 @@ test.describe("placing a catalog entry", () => {
     await page.mouse.move(p.x + 1, p.y + 1)
     await page.mouse.click(p.x + 1, p.y + 1)
   }
-  const WIDE = { width: 800, height: 480 }
-  const WIDE_DEVICE_ID = "e2e-bausteine-4v3b"
   async function savedScreen(page: Page) {
     await page.getByRole("button", { name: "File" }).click()
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
     return JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string")).screens[0]
   }
-  async function savedTable(page: Page) {
-    await page.getByRole("button", { name: "File" }).click()
-    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
-    const saved = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
-    return saved.screens[0].objects.find((o: { id: string }) => o.id === "the-table")
+  // The one table put together by snapping on the screen.
+  const snapTableOf = async (page: Page) => (await savedScreen(page)).objects.find(isSnapTable)
+  // The armed block carried from low on the screen to just under `table`,
+  // and let go there: in as a row.
+  async function carryUnder(page: Page, table: { x: number; y: number; width: number; height: number }) {
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 10 })
+    await page.mouse.up()
   }
 
-  test("onto a table's row line: its name and control merged into the table's columns", async ({ page }, testInfo) => {
+  // The checkpoint of the old tables (docs/2026-10-02-layout-tables.md), on
+  // the new: three blocks one under the other stand as one table, names on
+  // one edge and switches on another.
+  test("three switch blocks dropped one under the other: one table, names and switches flush", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
-      await openOnRoundDevice(page, await withTable(testInfo))
-      await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
-      await clickAt(page, 150, 60)
-      const table = await savedTable(page)
-      expect(table.children.map((c: { type: string; properties: { cell: { row: number; column: number } } }) => [c.type, c.properties.cell.row, c.properties.cell.column])).toEqual([
-        ["text", 0, 0],
-        ["button-group", 0, 1],
-      ])
-    } finally {
-      await clear()
-    }
-  })
-
-  test("into an empty cell: nested there as a small table", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
-    try {
-      await openOnRoundDevice(page, await withTable(testInfo))
-      await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
-      await clickAt(page, 200, 75)
-      const table = await savedTable(page)
-      expect(table.children).toHaveLength(1)
-      expect(table.children[0].type).toBe("table")
-      expect(table.children[0].properties.cell).toEqual({ row: 0, column: 1 })
-    } finally {
-      await clear()
-    }
-  })
-
-  // Checkpoint C (docs/2026-10-02-layout-tables.md, success criteria): three
-  // blocks into «Name and control» stand as three rows, names on one edge
-  // and controls on another.
-  test("three blocks into a name-and-control table: three rows, names and controls each on one edge", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
-    try {
-      await openOnRoundDevice(page, await withTable(testInfo))
+      await openOnRoundDevice(page)
       for (let i = 0; i < 3; i++) {
         await pick(page, "Kitchen plug")
         await page.getByTestId("baustein-insert").click()
-        if (i === 0) {
-          // The first onto the table's top line: merged into its one row.
-          await clickAt(page, 150, 60)
-        } else {
-          // Then on the «+» below the table (table-overlay.ts PLUS, 9 px at
-          // zoom 1, a third of that below the last row, under the middle of
-          // its rows): a new row at its end.
-          const kids = (await savedTable(page)).children as { x: number; y: number; width: number; height: number }[]
-          const right = Math.max(...kids.map((c) => c.x + c.width))
-          const bottom = Math.max(...kids.map((c) => c.y + c.height))
-          await clickAt(page, 60 + right / 2, 60 + bottom + 12)
-        }
+        if (i === 0) await clickAt(page, 180, 100)
+        else await carryUnder(page, await snapTableOf(page))
       }
-      const children = (await savedTable(page)).children as { type: string; x: number; properties: { cell: { row: number; column: number } } }[]
-      expect(children.map((c) => [c.type, c.properties.cell.row, c.properties.cell.column]).sort()).toEqual([
-        ["button-group", 0, 1],
-        ["button-group", 1, 1],
-        ["button-group", 2, 1],
-        ["text", 0, 0],
-        ["text", 1, 0],
-        ["text", 2, 0],
-      ])
-      const edges = (type: string) => new Set(children.filter((c) => c.type === type).map((c) => c.x))
+      const objects = (await savedScreen(page)).objects
+      const tables = objects.filter(isSnapTable)
+      expect(tables).toHaveLength(1)
+      expect(byCell(tables[0])).toEqual({ "0/0": "text", "0/1": "button-group", "1/0": "text", "1/1": "button-group", "2/0": "text", "2/1": "button-group" })
+      const edges = (type: string) => new Set(tables[0].children.filter((c: { type: string }) => c.type === type).map((c: { x: number }) => c.x))
       expect(edges("text").size).toBe(1)
       expect(edges("button-group").size).toBe(1)
     } finally {
@@ -345,38 +308,38 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  // On the 4.3B - on the Knob two blocks are wider than its screen, and the
-  // first one's column takes all it needs (a share column is never narrower
-  // than a table in it can be).
-  test("two blocks into the cells of «Two columns» stand there whole, side by side", async ({ page }, testInfo) => {
+  // Seen 2026-10-10: with the first block's table still open, a block of
+  // several parts went into it as a child without a cell and broke it.
+  test("a block of several parts drawn while a table is open lies beside it, the table untouched", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "ha-docs-fan-bedroom"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 70)
+      const table = await snapTableOf(page)
+      await pick(page, "Bedroom Fan")
+      await page.getByTestId("baustein-insert").click()
+      await drag(page, [60, 140], [300, 320])
+      const objects = (await savedScreen(page)).objects
+      expect(byCell(objects.find((o: { id: string }) => o.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
+      // The fan a table of its own on the screen, beside it.
+      expect(objects.filter((o: { type: string }) => o.type === "table")).toHaveLength(2)
+    } finally {
+      await clear()
+    }
+  })
+
+  test("an old table takes no block: clicked onto its row line, the block lies as a table of its own", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
-      const zip = await withTable(testInfo)
-      const loaded = await JSZip.loadAsync(await readFile(zip))
-      const project = JSON.parse(await loaded.file("project.json")!.async("string"))
-      const seeded = await seedWaveshare4v3bDdf(WIDE_DEVICE_ID)
-      test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
-      project.settings.deviceId = WIDE_DEVICE_ID
-      project.screenWidth = WIDE.width
-      project.screenHeight = WIDE.height
-      Object.assign(project.screens[0].objects.find((o: { id: string }) => o.id === "the-table"), { x: 50, width: 700 })
-      project.screens[0].objects.find((o: { id: string }) => o.id === "the-table").properties.columns = [{ width: { share: 50 } }, { width: { share: 50 } }]
-      loaded.file("project.json", JSON.stringify(project))
-      await writeFile(zip, await loaded.generateAsync({ type: "nodebuffer" }))
-      await loadProject(page, zip)
-      for (const x of [150, 550]) {
-        await pick(page, "Kitchen plug")
-        await page.getByTestId("baustein-insert").click()
-        const { box } = await getMainCanvas(page)
-        const p = devicePoint(box, x, 75, WIDE)
-        await page.mouse.move(p.x, p.y)
-        await page.mouse.move(p.x + 1, p.y + 1)
-        await page.mouse.click(p.x + 1, p.y + 1)
-      }
-      const children = (await savedTable(page)).children as { type: string; children: { type: string }[]; properties: { cell: unknown } }[]
-      expect(children.map((c) => c.type)).toEqual(["table", "table"])
-      expect(children.map((c) => c.properties.cell)).toEqual(expect.arrayContaining([{ row: 0, column: 0 }, { row: 0, column: 1 }]))
-      for (const block of children) expect(block.children.map((c) => c.type).sort()).toEqual(["button-group", "text"])
+      await openOnRoundDevice(page, await withTable(testInfo))
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 150, 60)
+      const objects = (await savedScreen(page)).objects
+      expect(objects.find((o: { id: string }) => o.id === "the-table").children).toEqual([])
+      expect(byCell(objects.find(isSnapTable))).toEqual({ "0/0": "text", "0/1": "button-group" })
     } finally {
       await clear()
     }
@@ -591,9 +554,8 @@ test.describe("placing a catalog entry", () => {
   })
 
   // Reported 2026-10-03: a block on a free screen, then the same block
-  // twice through the «+» below it - the first came out smaller. On a free
-  // area it kept the size of the rectangle, into a table it went to M.
-  test("a block on a free area is as large as the same block put into a table: both at M", async ({ page }, testInfo) => {
+  // under it - the first came out smaller. Both at M, a row each.
+  test("a block let go free is as large as the same block put into its table: both at M", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
@@ -604,11 +566,9 @@ test.describe("placing a catalog entry", () => {
       }
       await place()
       await drag(page)
-      const blockOf = async () => (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
-      const first = await blockOf()
       await place()
-      await clickTablePlus(page, first.id, ROUND_FIXTURE_SCREEN)
-      const table = await blockOf()
+      await carryUnder(page, await snapTableOf(page))
+      const table = await snapTableOf(page)
       const rows = [0, 1].map((row) =>
         table.children.filter((c: { properties: { cell: { row: number } } }) => c.properties.cell.row === row),
       )
@@ -623,34 +583,34 @@ test.describe("placing a catalog entry", () => {
   })
 
   // Reported 2026-10-03, same setup with the icon: the third block's label
-  // was missing - the appended blocks went into the first one's name table,
-  // whose «+» lay where the block's own table has its «+».
-  test("three blocks with an icon, appended through the «+»: three rows, each its own name and control", async ({ page }, testInfo) => {
+  // was missing. Now each block is a row of the one table, its icon, name
+  // and slider in the columns of their kind - and one without an icon
+  // leaves the icon cell empty.
+  test("blocks with an icon, one under the other: a row each, icon, name and slider in their columns; one without an icon leaves its cell empty", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
-      const place = async () => {
+      const place = async (icon: boolean) => {
         await pick(page, "Local temperature calibration")
+        if (!icon) await page.getByRole("button", { name: "None", exact: true }).click()
         await page.getByTestId("baustein-insert").click()
       }
-      await place()
+      await place(true)
       await drag(page)
-      const blockOf = async () => (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
-      const first = await blockOf()
-      for (let i = 0; i < 2; i++) {
-        await place()
-        await clickTablePlus(page, first.id, ROUND_FIXTURE_SCREEN)
-      }
-      const table = await blockOf()
-      type Piece = { type: string; properties: { cell: { row: number; column: number } }; children?: { type: string }[] }
-      const rows = [0, 1, 2].map((row) => (table.children as Piece[]).filter((c) => c.properties.cell.row === row))
-      for (const row of rows) {
-        expect(row.map((c) => [c.type, c.properties.cell.column])).toEqual([
-          ["table", 0],
-          ["slider", 1],
-        ])
-        expect(row[0].children!.map((c) => c.type).sort()).toEqual(["icon", "text"])
-      }
+      await place(true)
+      await carryUnder(page, await snapTableOf(page))
+      await place(false)
+      await carryUnder(page, await snapTableOf(page))
+      expect(byCell(await snapTableOf(page))).toEqual({
+        "0/0": "icon",
+        "0/1": "text",
+        "0/2": "slider",
+        "1/0": "icon",
+        "1/1": "text",
+        "1/2": "slider",
+        "2/1": "text",
+        "2/2": "slider",
+      })
     } finally {
       await clear()
     }

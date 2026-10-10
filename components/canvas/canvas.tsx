@@ -310,6 +310,8 @@ export interface CanvasProps {
   rowTemplate?: RowTemplate
   /** A carried row let go: into a table at a row line, or a table of its own at `at` (in the space `parentId` names). */
   onInsertRow?: (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => void
+  /** The Block tool's block as a row, made now; null when it is not one (several parts: still drawn). */
+  onBlockRow?: () => Omit<ScreenObject, "id" | "zIndex">[] | null
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
@@ -768,6 +770,7 @@ export function Canvas({
   onSnapMoveOut,
   rowTemplate,
   onInsertRow,
+  onBlockRow,
   onSetTableProperties,
   onSelectTableColumn,
   chosenTableColumn,
@@ -1327,6 +1330,13 @@ export function Canvas({
     walk(screen.objects, 0, 0, false)
     return out
   }, [screen.objects, textScale, fonts])
+
+  // Where each table put together by snapping stands, in the space new
+  // objects go to - drawn, not elements, so a test can carry a row under one.
+  const snapTableRects = useMemo(
+    () => JSON.stringify(drawSpace.objects.filter(isSnapTable).map(({ id, x, y, width, height }) => ({ id, x, y, width, height }))),
+    [drawSpace],
+  )
 
   const tablePluses = useMemo(
     () =>
@@ -3075,17 +3085,21 @@ export function Canvas({
         // Placing by dragging (lib/placing.ts): the object at its default
         // size, its middle under the pointer, carried until let go - as one
         // moved is. A line is still drawn, the old table's tool and a block
-        // still place as before.
+        // of several parts still place as before.
         // A row (module snap-table-rows): its parts made as their tools make
         // them, at their default sizes, and carried as the table of one row
-        // they would make.
-        if (activeTool === "row") {
+        // they would make. A block of one part is such a row too, its parts
+        // made by the editor (module snap-table-blocks).
+        const blockParts = activeTool === "baustein" ? (onBlockRow?.() ?? null) : null
+        if (activeTool === "row" || blockParts) {
           tablePlacementRef.current = null
-          const parts = ROW_TEMPLATES[rowTemplate ?? "icon-label-switch"].map((type) => {
-            const size = placedSize(type, layoutScale.pixelsPerMm) ?? { width: 40, height: 20 }
-            const made = objectFor(type, { x: 0, y: 0, ...size }, { x: 0, y: 0 })
-            return made ? sizedAtM(made) : null
-          })
+          const parts =
+            blockParts ??
+            ROW_TEMPLATES[rowTemplate ?? "icon-label-switch"].map((type) => {
+              const size = placedSize(type, layoutScale.pixelsPerMm) ?? { width: 40, height: 20 }
+              const made = objectFor(type, { x: 0, y: 0, ...size }, { x: 0, y: 0 })
+              return made ? sizedAtM(made) : null
+            })
           if (parts.some((part) => !part)) return
           rowPartsRef.current = parts as Omit<ScreenObject, "id" | "zIndex">[]
           const row = rowAsTable(parts.map((part, i) => ({ ...part, id: `row-${i}`, zIndex: i }) as ScreenObject), { x: 0, y: 0 }, layoutScale, "row")
@@ -3317,6 +3331,7 @@ export function Canvas({
       rowTemplate,
       sizedAtM,
       layoutScale,
+      onBlockRow,
     ],
   )
 
@@ -4508,11 +4523,15 @@ export function Canvas({
             // Into a table: merged at a row line, nested in an empty cell.
             tablePlacementRef.current = null
             onInsertBaustein?.(rect, undefined, { table: inTable })
-          } else if (editingContainer) {
-            onInsertBaustein?.(
-              { ...rect, x: rect.x - editingOrigin.x, y: rect.y - editingOrigin.y },
-              editingContainer.id,
-            )
+          } else if (drawSpace.id !== null || isSnapTable(editingContainer)) {
+            // In the space it is drawn in (drawSpace): beside an open table
+            // put together by snapping, never into it as a child without a
+            // cell (seen 2026-10-10: a block of several parts dragged with
+            // one open broke its layout); that space is open afterwards.
+            if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
+            const placed = { ...rect, x: rect.x - drawSpace.origin.x, y: rect.y - drawSpace.origin.y }
+            if (drawSpace.id !== null) onInsertBaustein?.(placed, drawSpace.id)
+            else onInsertBaustein?.(placed)
           } else {
             onInsertBaustein?.(rect)
           }
@@ -4562,6 +4581,7 @@ export function Canvas({
     onSnapDrop,
     snapDrop,
     onSnapMoveOut,
+    onSetEditingContainer,
     rowDrop,
     onInsertRow,
     outDrag,
@@ -4913,6 +4933,7 @@ export function Canvas({
         // The empty cell picked, for the same reason.
         data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
         data-snap-chip={snapChip?.text}
+        data-snap-tables={snapTableRects}
         data-row-drop={rowDrop ? JSON.stringify({ tableId: rowDrop.tableId, at: rowDrop.at, adds: rowDrop.adds }) : undefined}
         data-pixels-per-mm={layoutScale.pixelsPerMm}
         data-span-handles={spanHandles ? JSON.stringify(spanHandles.handles) : undefined}

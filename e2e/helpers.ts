@@ -431,6 +431,37 @@ export async function clickTablePlus(page: Page, table: string | null, screen?: 
   await page.mouse.click(p.x + 1, p.y + 1)
 }
 
+/** Where a table put together by snapping stands on the screen (the canvas's data-snap-tables); the first when no id is given. */
+export async function snapTableRect(page: Page, table: string | null = null): Promise<{ id: string; x: number; y: number; width: number; height: number }> {
+  const { canvas } = await getMainCanvas(page)
+  const rects = JSON.parse((await canvas.getAttribute("data-snap-tables")) ?? "[]") as { id: string; x: number; y: number; width: number; height: number }[]
+  const rect = table === null ? rects[0] : rects.find((r) => r.id === table)
+  if (!rect) throw new Error(`no table put together by snapping: ${table ?? "(the first)"}`)
+  return rect
+}
+
+/**
+ * A row - the Row tool's, or a block of one part - pressed at `from` and
+ * carried to just under a table put together by snapping, then let go: in
+ * as its last row (docs/2026-10-09-snap-tables.md, module snap-table-rows).
+ * The tool or block armed before.
+ */
+export async function carryUnderSnapTable(
+  page: Page,
+  from: { x: number; y: number },
+  table: string | null = null,
+  screen: { width: number; height: number } = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): Promise<void> {
+  const rect = await snapTableRect(page, table)
+  const { box } = await getMainCanvas(page)
+  const a = devicePoint(box, from.x, from.y, screen)
+  const b = devicePoint(box, rect.x + rect.width / 2, rect.y + rect.height + 4, screen)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  await page.mouse.move(b.x, b.y, { steps: 10 })
+  await page.mouse.up()
+}
+
 /**
  * A project deleted through the API, once more if the connection was reset:
  * Node's server closes a keep-alive connection idle for 5 s, and a delete

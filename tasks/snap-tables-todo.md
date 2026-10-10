@@ -443,9 +443,9 @@ new table by roles, or free as a table of one row. Old tables no longer
 receive blocks.
 
 **Acceptance criteria:**
-- [ ] Three switch blocks dropped one under the other stand as one table, names and switches flush.
-- [ ] A block without icon lands with its icon cell empty.
-- [ ] The visible outcomes `e2e/bausteine.spec.ts` checks today (names on top, right edges flush) hold for the new build; the spec rewritten where it tested nesting.
+- [x] Three switch blocks dropped one under the other stand as one table, names and switches flush.
+- [x] A block without icon lands with its icon cell empty.
+- [x] The visible outcomes `e2e/bausteine.spec.ts` checks today (names on top, right edges flush) hold for the new build; the spec rewritten where it tested nesting.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts`; typecheck.
 

@@ -7,7 +7,7 @@ import { TOPIC_PREFIX } from "../lib/topic-prefix"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
-import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, deleteProject } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, carryUnderSnapTable, snapTableRect, deleteProject } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -103,17 +103,20 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
   return dir
 }
 
-// A block onto the «+» below the screen's table: a new row at its end.
+// A block carried under the screen's table and let go: a new row at its end
+// (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
 async function appendBlock(page: Page, entry: string, screen: { width: number; height: number } = SCREEN) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
   await expect(page.getByTestId("baustein-value").first()).toBeVisible()
   await page.getByTestId("baustein-insert").click()
-  await clickTablePlus(page, null, screen)
+  await carryUnderSnapTable(page, { x: screen.width / 2, y: screen.height - 40 }, null, screen)
 }
 
 // A block from the Block menu: the entry picked, its options as they come
-// (unless a look is named), Insert, the rectangle dragged.
+// (unless a look is named), Insert, and a click in the middle of `from` and
+// `to` - a block of one part lands there as a table of one row. A block of
+// several parts (`drawn`) is still drawn as the rectangle.
 async function placeBlock(
   page: Page,
   entry: string,
@@ -121,6 +124,7 @@ async function placeBlock(
   to: [number, number],
   screen: { width: number; height: number } = SCREEN,
   look?: string,
+  drawn = false,
 ) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
@@ -129,12 +133,17 @@ async function placeBlock(
   if (look) await page.getByTestId(`baustein-look-${look}`).click()
   await page.getByTestId("baustein-insert").click()
   const { box } = await getMainCanvas(page)
-  const a = devicePoint(box, from[0], from[1], screen)
-  const b = devicePoint(box, to[0], to[1], screen)
-  await page.mouse.move(a.x, a.y)
-  await page.mouse.down()
-  await page.mouse.move(b.x, b.y, { steps: 8 })
-  await page.mouse.up()
+  if (drawn) {
+    const a = devicePoint(box, from[0], from[1], screen)
+    const b = devicePoint(box, to[0], to[1], screen)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move(b.x, b.y, { steps: 8 })
+    await page.mouse.up()
+    return
+  }
+  const middle = devicePoint(box, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2, screen)
+  await page.mouse.click(middle.x, middle.y)
 }
 
 // A block suggests an icon from Iconify when an entry is picked
@@ -240,40 +249,44 @@ test.describe("handbook: Erste Schritte", () => {
     await page.getByTestId("baustein-insert").click()
     await expect(page.getByRole("dialog")).toHaveCount(0)
     // A new screen is free (docs/2026-10-03-free-screens.md): the first
-    // block is drawn as a rectangle and is a small table of its own, its
-    // name on the left, its control on the right; the «+» below it appends
-    // the next.
+    // block, clicked, is a table of one row, its name on the left, its
+    // control on the right; a block carried under it is its next row
+    // (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
     {
       const { box } = await getMainCanvas(page)
-      const from = devicePoint(box, 30, 30, SCREEN)
-      const to = devicePoint(box, 770, 110, SCREEN)
-      await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
-      await page.mouse.move(to.x, to.y, { steps: 8 })
-      await page.mouse.up()
+      const at = devicePoint(box, SCREEN.width / 2, 70, SCREEN)
+      await page.mouse.click(at.x, at.y)
     }
 
     await appendBlock(page, "Batterie")
-    // For the containers page: the next block over the «+» before the
-    // click - the table's bottom line thick, a «+» in every empty cell.
+    // For the arranging page: the next block carried under the table before
+    // it is let go - the table's bottom line thick where it goes.
     {
       await page.getByRole("button", { name: "Block", exact: true }).click()
       await page.getByRole("menuitem", { name: "Licht", exact: true }).click()
       await expect(page.getByTestId("baustein-value").first()).toBeVisible()
       await page.getByTestId("baustein-insert").click()
       const { canvas, box } = await getMainCanvas(page)
-      const p = await tablePlusPoint(page, null, SCREEN)
-      await page.mouse.move(p.x, p.y)
-      await page.mouse.move(p.x + 1, p.y + 1)
+      const table = await snapTableRect(page)
+      const from = devicePoint(box, SCREEN.width / 2, SCREEN.height - 40, SCREEN)
+      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, SCREEN)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 10 })
+      await expect(canvas).toHaveAttribute("data-row-drop", /"at":2/)
       const corner = devicePoint(box, -20, -20, SCREEN)
       await page.screenshot({
         path: path.join(dir, "layout-linie.png"),
         clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
       })
-      await page.mouse.click(p.x + 1, p.y + 1)
-      expect(canvas).toBeTruthy()
+      await page.mouse.up()
     }
-    await appendBlock(page, "Leselicht")
+    // The dimmer is a block of several parts, a switch and a slider: drawn
+    // as a rectangle under the table, a table of its own.
+    {
+      const table = await snapTableRect(page)
+      await placeBlock(page, "Leselicht", [table.x, table.y + table.height + 16], [table.x + table.width, table.y + table.height + 150], SCREEN, undefined, true)
+    }
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)
