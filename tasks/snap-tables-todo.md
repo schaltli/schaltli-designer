@@ -117,8 +117,25 @@ would select. The chip names the selection («Table · 3×4», «Switch · M ·
 2×1»). Old tables behave as before.
 
 **Acceptance criteria:**
-- [ ] Each rule above, in the running designer, on a new table made in the test's project.
-- [ ] Old tables in the same project keep today's behaviour (`e2e/table-editing.spec.ts` green).
+- [x] Each rule above, in the running designer, on a new table made in the test's project - except Ctrl/⌘-click (see below).
+- [x] Old tables in the same project keep today's behaviour (`e2e/table-editing.spec.ts` green).
+
+Done 2026-10-09. The new table uses the group's two-level selection
+(`editingContainerId`): `isOldTable` (lib/table.ts) keeps the old table's
+cell click, lines, «+», span-by-resize, ribbon path, tree drops and
+TableProperties to old tables; Esc leaves a new table as a group
+(`leaveEditedGroup`); Enter goes to the first object in reading order;
+hover outlines were already there. `snap-table-overlay.ts` draws the cells
+dashed while the table is selected or open, and the chip
+(«Table · 2×2», «Text»; also `data-snap-chip` on the canvas). Found in a
+screenshot: the generic resize handles showed on such a table and its
+objects and did nothing - removed (`sizedBySnapTable`). **Not built:**
+Ctrl/⌘-click selecting the object at once - Ctrl/⌘-click already adds to
+the selection in the designer; left for the user. No handbook change: a new
+table cannot be made in the UI before Task 5, whose handbook section covers
+selection too. Ran 197 specs on port 3100 (snap-table-*, table-*, layout-*,
+free-area, bausteine, group, object-tree-*, property-panel,
+tab-control-copy-paste): green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g selection`; typecheck.
 

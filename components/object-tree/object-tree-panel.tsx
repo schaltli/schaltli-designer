@@ -27,7 +27,7 @@ import {
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
-import { TABLE_TYPE, cellOf, type TableDrop } from "@/lib/table"
+import { cellOf, isOldTable, type TableDrop } from "@/lib/table"
 import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
@@ -210,9 +210,11 @@ export function ObjectTreePanel({
     [dragging],
   )
 
-  // Whether `parentId` is a table (the screen never is).
+  // Whether `parentId` is a table that takes drops in the tree (the screen
+  // never is; one put together by snapping takes them on the canvas only,
+  // docs/2026-10-09-snap-tables.md).
   const isTable = useCallback(
-    (parentId: string | null): parentId is string => parentId !== null && findObjectById(objects, parentId)?.type === TABLE_TYPE,
+    (parentId: string | null): parentId is string => parentId !== null && isOldTable(findObjectById(objects, parentId)),
     [objects],
   )
   // A drop in a table, as cells: into it, its free row; before or after a

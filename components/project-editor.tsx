@@ -66,7 +66,8 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { layoutProject } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
+import { firstInReadingOrder, isSnapTable } from "@/lib/snap-table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
 import { cn } from "@/lib/utils"
@@ -2246,9 +2247,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const id = selectedObjectIds[0]
     const obj = findObjectById(objects, id)
     if (!obj) return null
-    if (obj.type === TABLE_TYPE) return { tableId: id, cell: null, objectId: null as string | null, path: tablePath(objects, id) }
+    // The ribbon's Table group serves the old table only; one put together
+    // by snapping has none (docs/2026-10-09-snap-tables.md).
+    if (isOldTable(obj)) return { tableId: id, cell: null, objectId: null as string | null, path: tablePath(objects, id) }
     const parent = findParentOf(objects, id)?.parent ?? null
-    if (!parent || parent.type !== TABLE_TYPE) return null
+    if (!isOldTable(parent)) return null
     const cell = cellOf(obj)
     return {
       tableId: parent.id,
@@ -3723,7 +3726,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // click beside the group does on the canvas.
   const leaveEditedGroup = useCallback(() => {
     const group = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
-    if (!group || !isGroup(group)) return false
+    // A table put together by snapping is left as a group is
+    // (docs/2026-10-09-snap-tables.md): its object -> the table -> nothing.
+    if (!group || !(isGroup(group) || isSnapTable(group))) return false
     setEditingContainerId(containerOf(currentScreen.objects, group.id))
     setSelectedObjectIds([group.id])
     return true
@@ -3797,6 +3802,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           else leaveEditedGroup()
         }
       }
+      // Enter goes into a table put together by snapping, one level down:
+      // its first object, row by row (docs/2026-10-09-snap-tables.md).
+      else if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        const target = event.target as HTMLElement | null
+        const onControl = !!target?.closest?.("button, a, [role='button'], [role='menuitem']")
+        if (!isInputFocused() && !onControl && !isPreviewMode && !dialogOpen() && selectedObjectIds.length === 1) {
+          const table = findObjectById(currentScreen.objects, selectedObjectIds[0])
+          const first = isSnapTable(table) ? firstInReadingOrder(table!.children ?? []) : undefined
+          if (first) {
+            event.preventDefault()
+            setEditingContainerId(table!.id)
+            setSelectedObjectIds([first.id])
+          }
+        }
+      }
       // CTRL+Z undoes, CTRL+Y and CTRL+SHIFT+Z redo (docs/2026-09-23-undo.md).
       // Left to the browser inside an input, so a text field keeps its own
       // undo, and off in preview, where the project is read-only.
@@ -3824,7 +3844,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool, currentScreen.objects])
 
   // A button in the device's frame: the screen's panel, at that button's row
   // - so whatever was selected lets go.

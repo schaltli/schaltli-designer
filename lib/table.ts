@@ -11,8 +11,19 @@ import type { ScreenObject } from "@/components/project-editor"
 import { fills, fit, measured, minimumWidth, naturalWidth, spacing, type LayoutScale } from "@/lib/layout"
 import { stepPx, type SizeStep } from "@/lib/size-scale"
 import { deleteObjectById, findObjectById, findParentOf, updateObjectById } from "@/lib/object-tree"
+import { isSnapTable } from "@/lib/snap-table"
 
 export const TABLE_TYPE = "table"
+
+/**
+ * A table of the kind this file handles - not one put together by snapping
+ * (lib/snap-table.ts), which shares the type until module old-table-removal
+ * (docs/2026-10-09-snap-tables.md). Every rule here that finds tables on a
+ * screen - a click into a cell, the lines, the «+», a drop - asks this.
+ */
+export function isOldTable(obj: ScreenObject | null | undefined): obj is ScreenObject {
+  return obj?.type === TABLE_TYPE && !isSnapTable(obj)
+}
 
 /** The spacing between cells, fixed (the user, 2026-10-02). */
 export const TABLE_GAP_MM = 1.5
@@ -140,7 +151,7 @@ function stretchedNaturalWidth(obj: ScreenObject, scale: LayoutScale): number | 
       .filter((w): w is number => w !== undefined)
     return inner.length > 0 ? Math.max(...inner) : undefined
   }
-  if (obj.type === TABLE_TYPE) {
+  if (isOldTable(obj)) {
     const inner = (obj.children ?? []).map((child) => stretchedNaturalWidth(child, scale)).filter((w): w is number => w !== undefined)
     return inner.length > 0 ? Math.max(...inner) : undefined
   }
@@ -498,8 +509,8 @@ function tablesOn(
     for (const obj of list) {
       const x = obj.type === "panel" ? ox : ox + obj.x
       const y = obj.type === "panel" ? oy : oy + obj.y
-      if (obj.type === TABLE_TYPE) out.push({ id: obj.id, origin: { x, y }, table: obj, nested: inTable })
-      if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
+      if (isOldTable(obj)) out.push({ id: obj.id, origin: { x, y }, table: obj, nested: inTable })
+      if (obj.children) walk(obj.children, x, y, inTable || isOldTable(obj))
     }
   }
   walk(objects, 0, 0, false)
@@ -953,7 +964,7 @@ export function splitCell(children: ScreenObject[], id: string): ScreenObject[] 
 export function tablePath(objects: ScreenObject[], id: string): string[] {
   const walk = (list: ScreenObject[], trail: string[]): string[] | null => {
     for (const obj of list) {
-      const here = obj.type === TABLE_TYPE ? [...trail, obj.id] : trail
+      const here = isOldTable(obj) ? [...trail, obj.id] : trail
       if (obj.id === id) return here
       const found = obj.children ? walk(obj.children, here) : null
       if (found) return found

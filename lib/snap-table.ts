@@ -56,7 +56,7 @@ export interface SnapLine {
 /** What a column holds, from what its objects are. */
 export type SnapRole = "icon" | "label" | "control"
 
-export function isSnapTable(obj: ScreenObject | undefined): boolean {
+export function isSnapTable(obj: ScreenObject | null | undefined): boolean {
   return obj?.type === "table" && obj.properties?.grid === SNAP_GRID
 }
 
@@ -76,6 +76,16 @@ export function snapCellOf(obj: ScreenObject): SnapCell {
     columnSpan: Math.max(1, Number(cell.columnSpan) || 1),
   }
 }
+
+/** A table's objects row by row, left to right: the order Enter, the object list and a reader take. */
+export function inReadingOrder(children: ScreenObject[]): ScreenObject[] {
+  return [...children].sort((a, b) => {
+    const ca = snapCellOf(a)
+    const cb = snapCellOf(b)
+    return ca.row - cb.row || ca.column - cb.column
+  })
+}
+export const firstInReadingOrder = (children: ScreenObject[]): ScreenObject | undefined => inReadingOrder(children)[0]
 
 export function snapColumnsOf(table: ScreenObject): SnapLine[] {
   return Array.isArray(table.properties?.columns) ? table.properties!.columns : []

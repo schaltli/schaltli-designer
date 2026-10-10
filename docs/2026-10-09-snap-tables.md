@@ -155,9 +155,14 @@ x, y, width and height. The device contract does not change.
 - **Selection, two levels.** A click on a table selects the table. A
   double click selects the object under the pointer. With an object in a
   table selected, a click on another object of the same table selects that
-  object. Ctrl/⌘-click selects the object at once. Esc: object → table →
-  nothing. Enter: table → its first object. Hovering outlines what a click
-  would select.
+  object. Esc: object → table → nothing. Enter: table → its first object.
+  Hovering outlines what a click would select. It is the group's selection
+  (`editingContainerId`), which a table put together by snapping shares.
+  *Not built (Task 4, 2026-10-09):* «Ctrl/⌘-click selects the object at
+  once» - in the designer Ctrl/⌘-click already adds to the selection;
+  pending the user's decision.
+- **No resize handle** on such a table or on an object in it: the table is
+  as large as its content, the cell decides an object's size.
 - **Moving.** Dragging a selected table moves it whole. Dragging a selected
   object in a table takes it out (its cell stays empty, see Removing) and
   snaps it as above; it loses its span.

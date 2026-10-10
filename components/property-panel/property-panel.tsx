@@ -22,7 +22,7 @@ import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
 import { CellProperties, FreeProperties, TableColumnProperties, TableProperties } from "./table-properties"
-import { TABLE_TYPE, type TableColumn } from "@/lib/table"
+import { TABLE_TYPE, isOldTable, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
 import { isPopup, type ScreenType } from "@/lib/popup"
@@ -302,7 +302,7 @@ export function PropertyPanel({
               {tableColumn && (
                 <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
               )}
-              {selectedObject.type === TABLE_TYPE && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {isOldTable(selectedObject) && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
               {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 

@@ -85,9 +85,11 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
+import { drawSnapChip, drawSnapTableCells, snapChipText } from "./snap-table-overlay"
+import { dimensions, isSnapTable, snapTableGeometry } from "@/lib/snap-table"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -1117,6 +1119,42 @@ export function Canvas({
     return [...ids]
   }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, chosenCell, screen.objects])
 
+  const layoutScale = useMemo(() => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }), [textScale, fonts])
+
+  // What a table put together by snapping sizes: the table itself (as large
+  // as its content) and each object in it (its cell decides). No resize
+  // handle on them - one would promise a resize the layout undoes
+  // (docs/2026-10-09-snap-tables.md: never a handle that does nothing).
+  const sizedBySnapTable = useMemo(() => {
+    const ids = new Set<string>()
+    const walk = (list: ScreenObject[]) => {
+      for (const obj of list) {
+        if (isSnapTable(obj)) {
+          ids.add(obj.id)
+          for (const child of obj.children ?? []) ids.add(child.id)
+        }
+        if (obj.children) walk(obj.children)
+      }
+    }
+    walk(screen.objects)
+    return ids
+  }, [screen.objects])
+
+  // The chip naming the one selected thing when it is a table put together
+  // by snapping or stands in one: «Table · 3×4», «Switch · M · 2×1»
+  // (docs/2026-10-09-snap-tables.md). Also on the canvas element for tests.
+  const snapChip = useMemo(() => {
+    if (previewMode || selectedObjectIds.length !== 1) return null
+    const id = selectedObjectIds[0]
+    const obj = findObjectById(screen.objects, id)
+    if (!obj) return null
+    const parent = findParentOf(screen.objects, id)?.parent ?? null
+    if (!isSnapTable(obj) && !isSnapTable(parent)) return null
+    const base = parent ? childOrigin(screen.objects, parent.id) : { x: 0, y: 0 }
+    const text = isSnapTable(obj) ? snapChipText(obj, null, dimensions(obj)) : snapChipText(obj, parent)
+    return { text, at: { x: base.x + obj.x, y: base.y + obj.y } }
+  }, [previewMode, selectedObjectIds, screen.objects])
+
   // The tables on the screen with where their lines go (lib/table.ts
   // tableGeometry), for the overlay.
   const tableLines = useMemo(() => {
@@ -1128,11 +1166,12 @@ export function Canvas({
       for (const obj of list) {
         const x = obj.type === "panel" ? ox : ox + obj.x
         const y = obj.type === "panel" ? oy : oy + obj.y
-        if (obj.type === TABLE_TYPE) {
+        // A table put together by snapping draws itself (snap-table-overlay.ts).
+        if (isOldTable(obj)) {
           const geometry = tableGeometry(obj, scale)
           out.push({ id: obj.id, nested: inTable, lines: { origin: { x, y }, width: obj.width, height: obj.height, geometry, empty: emptyCells(obj, geometry) } })
         }
-        if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
+        if (obj.children) walk(obj.children, x, y, inTable || isOldTable(obj))
       }
     }
     walk(screen.objects, 0, 0, false)
@@ -1157,7 +1196,7 @@ export function Canvas({
   const spanInTable = useCallback(
     (id: string, handle: string, point: { x: number; y: number }): boolean => {
       const parent = findParentOf(screen.objects, id)?.parent
-      if (!parent || parent.type !== TABLE_TYPE) return false
+      if (!isOldTable(parent)) return false
       const lines = tableLines.find((t) => t.id === parent.id)?.lines
       const object = findObjectById(screen.objects, id)
       const cell = object?.properties?.cell as { row: number; column: number; rowSpan?: number; columnSpan?: number } | undefined
@@ -1655,6 +1694,12 @@ export function Canvas({
       const container = findObjectById(screen.objects, id)
       if (!container) continue
       const origin = childOrigin(screen.objects, id)
+      // A table put together by snapping: its cells, dashed, while it is
+      // selected or open (docs/2026-10-09-snap-tables.md).
+      if (isSnapTable(container)) {
+        if (!previewMode) drawSnapTableCells(ctx, origin, container, snapTableGeometry(container, layoutScale), LAYOUT_HINT_COLOR, zoom)
+        continue
+      }
       const edge = { x: origin.x, y: origin.y, width: container.width, height: container.height }
       ctx.save()
       ctx.strokeStyle = LAYOUT_HINT_COLOR
@@ -1672,6 +1717,8 @@ export function Canvas({
       ctx.setLineDash([])
       ctx.restore()
     }
+
+    if (snapChip) drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
 
     // A table's drop: the empty cell lit up, or the row line drawn thick.
     if (tableDrop && (!dragState || dragState.mode === "drag")) {
@@ -1754,6 +1801,8 @@ export function Canvas({
     chosenCell,
     activeContainerIds,
     tableLines,
+    snapChip,
+    layoutScale,
     snapGuides,
     activeSnapLines,
     zoom,
@@ -2312,7 +2361,7 @@ export function Canvas({
     // Draw selection handles (moved outside of renderers for consistency).
     // Not on a locked object: the outline says it is selected, and a handle
     // would promise a resize the canvas refuses.
-    if (isSelected && !staysPut(obj) && obj.type !== "group") {
+    if (isSelected && !staysPut(obj) && obj.type !== "group" && !sizedBySnapTable.has(obj.id)) {
       if (isLineType(obj.type)) {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
@@ -2924,7 +2973,7 @@ export function Canvas({
               return
             }
           } else {
-            const resizeHandle = staysPut(clickedObject) ? null : findResizeHandle(clickedObject, coords.x, coords.y)
+            const resizeHandle = staysPut(clickedObject) || sizedBySnapTable.has(clickedObject.id) ? null : findResizeHandle(clickedObject, coords.x, coords.y)
             if (resizeHandle) {
               setDragState({
                 mode: "resize",
@@ -2996,6 +3045,7 @@ export function Canvas({
     },
     [
       tableDropFor,
+      sizedBySnapTable,
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
@@ -3161,7 +3211,7 @@ export function Canvas({
               canvas.style.cursor = "move"
             }
           } else {
-            const resizeHandle = findResizeHandle(hoveredObject, coords.x, coords.y)
+            const resizeHandle = sizedBySnapTable.has(hoveredObject.id) ? null : findResizeHandle(hoveredObject, coords.x, coords.y)
             if (
               !resizeHandle &&
               isArcType(hoveredObject.type) &&
@@ -3631,6 +3681,7 @@ export function Canvas({
     },
     [
       tableDropFor,
+      sizedBySnapTable,
       placedByLayout,
       textScale,
       previewMode,
@@ -4212,7 +4263,8 @@ export function Canvas({
         // entered from the object list too, where the canvas has no keys.
         // In a table it clears the selection and the cell picked, as it did
         // when the screen was the table (docs/2026-10-03-free-screens.md).
-        if (!editingGroup || editingGroup.type === TABLE_TYPE) onSelectObject(null)
+        // A table put together by snapping is left as a group is.
+        if (!editingGroup || isOldTable(editingGroup)) onSelectObject(null)
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault()
         onSelectAll()
@@ -4412,6 +4464,8 @@ export function Canvas({
         data-table-pluses={tablePluses}
         // The empty cell picked, for the same reason.
         data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
+        data-snap-chip={snapChip?.text}
+        data-editing-container={editingContainerId ?? undefined}
         style={{
           imageRendering: "pixelated",
           WebkitFontSmoothing: "none",
