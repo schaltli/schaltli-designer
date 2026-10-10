@@ -15,7 +15,8 @@
 #   - the start project, from /tmp/schaltli-demo-seed.tar.gz if deploy.sh
 #     uploaded one (a project store made on the PC, e2e/demo-camper.spec.ts);
 #   - /etc/schaltli-demo.env: demo mode on, the start project's name, the
-#     demo van's broker password (made once, kept);
+#     demo van's broker password and the stats page's key (both made once,
+#     kept);
 #   - Mosquitto on 127.0.0.1 only, 1883 and 9001 (websockets): anonymous
 #     visitors read schaltli/# and homeassistant/# and write schaltli/cmnd/#
 #     and nothing else; the demo van has an account that may do all;
@@ -104,6 +105,10 @@ chmod 644 "$GEO_DIR"/* 2>/dev/null || true
 VAN_PASSWORD=""
 [ -f "$ENV_FILE" ] && VAN_PASSWORD="$(sed -n 's/^DEMO_VAN_PASSWORD=//p' "$ENV_FILE")"
 [ -n "$VAN_PASSWORD" ] || VAN_PASSWORD="$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)"
+# The key in the stats page's address (app/stats/[key]), made once too.
+REPORT_KEY=""
+[ -f "$ENV_FILE" ] && REPORT_KEY="$(sed -n 's/^DEMO_REPORT_KEY=//p' "$ENV_FILE")"
+[ -n "$REPORT_KEY" ] || REPORT_KEY="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
 umask 077
 cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
@@ -114,6 +119,7 @@ DEMO_GEO_DB=$GEO_DIR/city.mmdb
 DEMO_BIG_CITIES=$GEO_DIR/big-cities.txt
 DEMO_VAN_USER=demo-van
 DEMO_VAN_PASSWORD=$VAN_PASSWORD
+DEMO_REPORT_KEY=$REPORT_KEY
 EOF
 umask 022
 chmod 640 "$ENV_FILE"
@@ -225,6 +231,7 @@ for i in $(seq 1 30); do
   sleep 1
 done
 log "Done: https://$DOMAIN/ - $(curl -fs http://127.0.0.1:3000/api/version || echo 'designer not answering yet')"
+log "Stats: https://$DOMAIN/stats/$REPORT_KEY"
 }
 
 main "$@"

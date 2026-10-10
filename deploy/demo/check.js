@@ -70,6 +70,7 @@ async function main() {
   check(version?.demo?.start === "Camper", "demo mode, start project «Camper»", JSON.stringify(version.demo ?? version.error))
   check((await fetch(`${base}/`)).ok, "the page answers")
   check((await fetch(`${base}/api/projects/Camper`)).ok, "the start project is there")
+  check((await fetch(`${base}/stats/not-the-key-not-the-key-not-the-key`)).status === 404, "the stats page wants its key")
 
   // What the demo does not do.
   const refused = [

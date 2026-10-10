@@ -128,7 +128,7 @@ function render(s, days) {
   return out.join("\n")
 }
 
-module.exports = { readEvents, summarize, render }
+module.exports = { readEvents, summarize, render, top, median, duration, pct }
 
 if (require.main === module) {
   const arg = (name, fallback) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : fallback)

@@ -6,6 +6,7 @@ import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas } from "./helpers"
 import { DEMO_HEADER } from "../lib/demo-mode"
 import { browserOf, eventLine, pruneEvents, referrerHost, withinLimits } from "../lib/demo-events"
 import { foldName, placeOf } from "../lib/demo-geo"
+import { DEV_REPORT_KEY, demoReportKeyMatches } from "../lib/demo-report-key"
 const { summarize, render } = require("../deploy/demo/report.js")
 
 // What the demo counts of its visitors (docs/2026-10-10-demo-tracking.md):
@@ -164,6 +165,28 @@ test.describe("in the browser", () => {
     expect(sent).toBe(false)
     expect(await page.evaluate(() => sessionStorage.getItem("schaltli.demoVisit"))).toBeNull()
   })
+})
+
+// The stats as a page at an address with a key (DEMO_REPORT_KEY on the
+// server; outside production the tests' fixed key): never without the key,
+// never outside the demo, never indexed.
+test("the stats page opens only in the demo and only with its key; it is not indexed and sends no referrer", async ({ request, page }) => {
+  const url = `/stats/${DEV_REPORT_KEY}`
+  expect((await request.get(url, { headers: DEMO })).status()).toBe(200)
+  expect((await request.get(`/stats/${DEV_REPORT_KEY}x`, { headers: DEMO })).status()).toBe(404)
+  expect((await request.get("/stats/short", { headers: DEMO })).status()).toBe(404)
+  expect((await request.get(url)).status()).toBe(404)
+  expect(demoReportKeyMatches(DEV_REPORT_KEY)).toBe(true)
+  expect(demoReportKeyMatches("")).toBe(false)
+
+  await page.setExtraHTTPHeaders(DEMO)
+  await page.goto(`${url}?days=30`)
+  await expect(page.getByRole("heading", { name: "Demo stats" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "30 days" })).toHaveAttribute("aria-current", "page")
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/)
+  await expect(page.locator('meta[name="referrer"]')).toHaveAttribute("content", "no-referrer")
+  // The visits this suite made today are in it.
+  await expect(page.getByTestId("stats-per-day")).toContainText(new Date().toISOString().slice(0, 10))
 })
 
 test("the report sums visits up: how many, how long, what they did, where from", () => {

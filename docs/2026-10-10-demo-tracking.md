@@ -32,6 +32,7 @@ Who visits demo.schaltli.com, and for how long. Roughly where visitors come from
   - per day;
   - places, referring sites, browsers;
   - screens, switches, scene, inserts and refusals.
+- **The same report as a page** is `/stats/<DEMO_REPORT_KEY>` (`app/stats/[key]/page.tsx`), with the periods today, 7 days and 30 days. The key is 32 random characters in `/etc/schaltli-demo.env`. `setup.sh` makes it once, keeps it, and prints the address at the end. A wrong key gets 404, and so does any request outside the demo. The page is not indexed and sends no referrer. Anyone who has the link sees the page, so the link is not passed on. Outside production the tests' fixed key works too.
 - **The notice** sits in the demo's notice line and on its phone page: «Visits counted anonymously, no cookies». It links to the handbook (`einfuehrung/ausprobieren#demo-zaehlt`).
 
 ## Not done
