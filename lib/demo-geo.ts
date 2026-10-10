@@ -7,7 +7,8 @@ import { Reader, type CityResponse } from "mmdb-lib"
 // "IP Geolocation by DB-IP", CC BY 4.0) - and kept as country and region,
 // with the city only where it is large enough that a visit there points at
 // no one (DEMO_BIG_CITIES: GeoNames' places of 50 000 people or more, one
-// "CC<tab>name" a line). The address itself is never kept.
+// "cc<tab>name" a line, the name folded by foldName). The address itself is
+// never kept.
 //
 // Without either file - in development, in the tests - there is no place.
 
@@ -23,6 +24,14 @@ interface GeoRecord {
   city?: { names?: { en?: string } }
 }
 
+/**
+ * A place name as both lists are compared in: lower case, without accents -
+ * DB-IP says "Zurich", GeoNames "Zürich" and "Zuerich" (2026-10-10).
+ */
+export function foldName(name: string): string {
+  return name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim()
+}
+
 /** The place from a looked-up record: the city only if it is a big one. */
 export function placeOf(record: GeoRecord | null, bigCities: Set<string>): DemoPlace | null {
   const country = record?.country?.iso_code
@@ -31,7 +40,7 @@ export function placeOf(record: GeoRecord | null, bigCities: Set<string>): DemoP
   const region = record?.subdivisions?.[0]?.names?.en
   if (region) place.region = region
   const city = record?.city?.names?.en
-  if (city && bigCities.has(`${country}\t${city}`.toLowerCase())) place.city = city
+  if (city && bigCities.has(`${country.toLowerCase()}\t${foldName(city)}`)) place.city = city
   return place
 }
 

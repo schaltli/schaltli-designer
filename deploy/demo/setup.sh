@@ -90,7 +90,8 @@ if [ ! -f "$GEO_DIR/city.mmdb" ] || [ -n "$(find "$GEO_DIR/city.mmdb" -mtime +32
     rm -f "$GEO_DIR/city.mmdb.new"
   done
 fi
-if [ ! -f "$GEO_DIR/big-cities.txt" ] || [ -n "$(find "$GEO_DIR/big-cities.txt" -mtime +32)" ]; then
+# Again after a month, and when the script that makes the list changed.
+if [ ! -f "$GEO_DIR/big-cities.txt" ] || [ -n "$(find "$GEO_DIR/big-cities.txt" -mtime +32)" ] || [ "$DIR/deploy/demo/big-cities.js" -nt "$GEO_DIR/big-cities.txt" ]; then
   log "Fetching GeoNames' cities"
   if curl -fsSL -o "$GEO_DIR/cities15000.zip" https://download.geonames.org/export/dump/cities15000.zip; then
     node "$DIR/deploy/demo/big-cities.js" "$GEO_DIR/cities15000.zip" > "$GEO_DIR/big-cities.txt.new" && mv "$GEO_DIR/big-cities.txt.new" "$GEO_DIR/big-cities.txt"

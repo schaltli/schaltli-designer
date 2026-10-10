@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas } from "./helpers"
 import { DEMO_HEADER } from "../lib/demo-mode"
 import { browserOf, eventLine, pruneEvents, referrerHost, withinLimits } from "../lib/demo-events"
-import { placeOf } from "../lib/demo-geo"
+import { foldName, placeOf } from "../lib/demo-geo"
 const { summarize, render } = require("../deploy/demo/report.js")
 
 // What the demo counts of its visitors (docs/2026-10-10-demo-tracking.md):
@@ -58,7 +58,11 @@ test("an event is checked: a visit id, a known type, a short detail - and the ad
 })
 
 test("a place is country and region; the city only where it is big", () => {
-  const big = new Set(["ch\tzurich"])
+  // As deploy/demo/big-cities.js writes it: folded, so DB-IP's "Zurich" and
+  // GeoNames' "Zürich" meet.
+  const big = new Set([`ch\t${foldName("Zürich")}`])
+  expect(foldName(" Genève ")).toBe("geneve")
+  expect(placeOf({ country: { iso_code: "CH" }, city: { names: { en: "Zürich" } } }, big)).toEqual({ country: "CH", city: "Zürich" })
   const record = (city: string) => ({ country: { iso_code: "CH" }, subdivisions: [{ names: { en: "Zurich" } }], city: { names: { en: city } } })
   expect(placeOf(record("Zurich"), big)).toEqual({ country: "CH", region: "Zurich", city: "Zurich" })
   expect(placeOf(record("Wila"), big)).toEqual({ country: "CH", region: "Zurich" })
