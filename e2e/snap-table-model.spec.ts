@@ -221,6 +221,25 @@ test.describe("snap table: editing", () => {
     expect(cellOfId(resizeSpan(t, "s", "right", 7)!, "s").columnSpan).toBe(1)
   })
 
+  // The spec's success criterion (docs/2026-10-09-snap-tables.md): a button
+  // grows over three empty cells to its left and, with Fill Width, is as
+  // wide as all it spans.
+  test("a button grown over three empty cells to its left with ⇤ fills them all with Fill Width", () => {
+    const heads = [0, 1, 2, 3].map((c) => ({ ...box(40 + 10 * c, 20, { row: 0, column: c }), id: `h${c}` }))
+    const button: ScreenObject = { ...box(30, 20, { row: 1, column: 3 }), id: "btn", type: "button", properties: { text: "Weiter", cell: { row: 1, column: 3 } } }
+    const t = arrangeSnapTable(table([...heads, button], [{}, {}, {}, {}], [{}, {}]), SCALE)
+    const grown = resizeSpan(t, "btn", "left", 0)!
+    expect(cellOfId(grown, "btn")).toMatchObject({ column: 0, columnSpan: 4 })
+    const filled = arrangeSnapTable(
+      { ...grown, children: grown.children!.map((c) => (c.id === "btn" ? { ...c, properties: { ...c.properties, cell: { ...c.properties!.cell, fill: { width: true } } } } : c)) },
+      SCALE,
+    )
+    const g = snapTableGeometry(filled, SCALE)
+    const b = child(filled, "btn")
+    expect(b.x).toBe(g.lefts[0])
+    expect(b.width).toBe(g.lefts[3] + g.widths[3] - g.lefts[0])
+  })
+
   test("a span handle dragged to a point reaches the column or row under it", () => {
     const t = grid3()
     const g = snapTableGeometry(t, SCALE)

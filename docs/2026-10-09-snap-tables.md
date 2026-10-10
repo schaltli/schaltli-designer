@@ -375,24 +375,24 @@ export function insertColumn(table: ScreenObject, at: number): void {
 
 ## Success criteria
 
-- [ ] Three free switches dragged one onto the next stand as one table, in
+- [x] Three free switches dragged one onto the next stand as one table, in
       a row or a column, without opening any menu.
-- [ ] «Label · Switch» dragged under a row «Icon · Label · Switch» puts its
+- [x] «Label · Switch» dragged under a row «Icon · Label · Switch» puts its
       switch under the other switches, the icon cell empty.
-- [ ] A click on a table selects it, a double click an object in it, Esc
+- [x] A click on a table selects it, a double click an object in it, Esc
       goes back up; a selected table moves whole by dragging.
-- [ ] A switch dragged out of a table leaves an empty cell; the last switch
+- [x] A switch dragged out of a table leaves an empty cell; the last switch
       of a row dragged out removes the row.
-- [ ] A button grows over three empty cells to its left with ⇤ and, with
+- [x] A button grows over three empty cells to its left with ⇤ and, with
       Fill Width, is as wide as the three.
-- [ ] A label column dragged 10 mm wider stays so when its text gets
+- [x] A label column dragged 10 mm wider stays so when its text gets
       shorter, and is automatic again when dragged back below its text.
-- [ ] A project saved with old (nested) tables opens with every object
+- [x] A project saved with old (nested) tables opens with every object
       where it was, and no table.
-- [ ] A one-part block lands as a row of a table, a several-part block as a
+- [x] A one-part block lands as a row of a table, a several-part block as a
       table of its own.
-- [ ] The Knob and the 4.3B show a screen of new tables as the preview does.
-- [ ] No «Table» tool and no table template in the toolbar; the handbook
+- [x] The Knob and the 4.3B show a screen of new tables as the preview does.
+- [x] No «Table» tool and no table template in the toolbar; the handbook
       describes snapping and quotes only labels that exist.
 
 ## Not doing

@@ -554,4 +554,4 @@ describes the new table; screenshots renewed; drafts through
 **Files likely touched:** the pages above, `e2e/handbook-screenshots.spec.ts`
 
 ## Checkpoint D: complete
-- [ ] `npm run test:all` green; the spec's success criteria ticked.
+- [x] `npm run test:all` (2026-10-10): every table suite green - e2e 1335 passed, knob-layout and 4v3b-layout 3/3 at 0 px, conformance 52/52. Red only under load and green alone: one e2e deploy test, the Knob's smoke test (setup portal), the PaperS3 navigator. Skipped: the e-paper (desupported), Android (no device, repo not beside the worktree), firmware uploads (checkout build differs from the boards). The spec's success criteria ticked; the last two got tests of their own (snap-table-model: a button over three cells with Fill; snap-table-canvas: no Table tool).

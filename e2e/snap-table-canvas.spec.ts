@@ -616,6 +616,20 @@ test.describe("snap table: panel and tree", () => {
     expect(k.width).toBe(pumpe.width)
   })
 
+  // The spec's success criterion: a table forms by snapping, so the toolbar
+  // has no Table tool and no table template (module old-table-removal).
+  test("the toolbar has no Table tool and no table template; Tables offers Free and Row", async ({ page }) => {
+    const { zip } = await snapProject([])
+    await loadProject(page, zip)
+    await expect(page.getByRole("button", { name: "Free", exact: true })).toBeVisible()
+    await expect(page.getByTestId("row-tool")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Table", exact: true })).toHaveCount(0)
+    await expect(page.getByTestId("table-tool")).toHaveCount(0)
+    await page.getByTestId("row-tool").click()
+    await expect(page.getByText("Table template")).toHaveCount(0)
+    await expect(page.getByText("Row template")).toBeVisible()
+  })
+
   // Found in the handbook pass (Task 17): the Frame hid the width of every
   // object in a table, as the old table set it - a free area in a cell
   // could no longer be made wider.
