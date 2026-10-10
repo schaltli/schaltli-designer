@@ -5,12 +5,12 @@ import path from "path"
 import JSZip from "jszip"
 import { canDropAsChildOf } from "../lib/object-tree"
 import { placedSize } from "../lib/placing"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady, tablePlusOnScreen } from "./helpers"
-import { seedRoundFixtureDdf } from "./ddf-seed"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
 
-// Layout containers on the canvas (docs/2026-10-02-layout.md, module
-// layout-canvas): the Layout tools, a container's properties, and the frame
-// of an object a container places, shown locked.
+// Containers on the canvas (docs/2026-10-02-layout.md, as amended by
+// docs/2026-10-09-snap-tables.md): an object outside one keeps its frame, a
+// new one is put down where it is let go, and which container takes what.
+// The old grid in the fixture dissolves on load (lib/table.ts).
 
 type Obj = Record<string, any>
 
@@ -67,20 +67,6 @@ async function screenOne(page: Page): Promise<Obj[]> {
   return (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects
 }
 
-async function clickAt(page: Page, x: number, y: number) {
-  const { box } = await getMainCanvas(page)
-  const p = devicePoint(box, x, y)
-  await page.mouse.move(p.x, p.y)
-  await page.mouse.move(p.x + 1, p.y + 1)
-  await page.mouse.click(p.x + 1, p.y + 1)
-}
-
-async function frame(page: Page): Promise<Record<"x" | "y" | "width" | "height", number>> {
-  await openFrameSection(page)
-  const value = async (id: string) => Number(await page.locator(`#${id}`).inputValue())
-  return { x: await value("x"), y: await value("y"), width: await value("width"), height: await value("height") }
-}
-
 test.describe("layout containers on the canvas", () => {
   test("an object outside a container keeps its frame editable", async ({ page }) => {
     await loadProject(page, await fixtureProject())
@@ -91,32 +77,7 @@ test.describe("layout containers on the canvas", () => {
   })
 })
 
-test.describe("placing into a container at the insertion line", () => {
-  // A stack holding two names, under the grid of the fixture's screen.
-  async function withStack(): Promise<string> {
-    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
-    const project = JSON.parse(await zip.file("project.json")!.async("string"))
-    project.screens.find((s: Obj) => s.id === "screen-1").objects = [
-      ...FIXTURE,
-      { id: "the-stack", type: "vertical-stack", x: 200, y: 20, width: 180, height: 200, zIndex: 9, properties: {}, children: [text("top", "Oben", 10), text("bottom", "Unten", 11)] },
-    ]
-    zip.file("project.json", JSON.stringify(project))
-    const out = path.join(os.tmpdir(), `layout-stack-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
-    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-    return out
-  }
-  test("a box clicked into a grid lands in reading order", async ({ page }) => {
-    await loadProject(page, await fixtureProject())
-    const grid = (await screenOne(page)).find((o: Obj) => o.id === "the-grid")!
-    const last = grid.children[2] // «Frischwasserpumpe», row 2, column 1
-    await page.getByRole("button", { name: "Box", exact: true }).first().click()
-    // Right of it, in row 2: after it, at the end.
-    await clickAt(page, 20 + last.x + last.width + 10, 20 + last.y + 5)
-    const after = (await screenOne(page)).find((o: Obj) => o.id === "the-grid")!
-    expect(after.children.map((c: Obj) => c.id).slice(0, 3)).toEqual(["name-1", "a-box", "name-2"])
-    expect(after.children[3].type).toBe("box")
-  })
-
+test.describe("placing", () => {
   // Since placing by dragging (docs/2026-10-09-snap-tables.md) nothing is
   // drawn as a rectangle: the box comes at its default size, carried at its
   // middle to where it is let go.
@@ -130,7 +91,8 @@ test.describe("placing into a container at the insertion line", () => {
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 6 })
     await page.mouse.up()
-    const drawn = (await screenOne(page)).filter((o: Obj) => o.type === "box")
+    // The fixture grid's box lies free since it dissolved: the new one is the other.
+    const drawn = (await screenOne(page)).filter((o: Obj) => o.type === "box" && o.id !== "a-box")
     expect(drawn).toHaveLength(1)
     const size = placedSize("box", Number(await canvas.getAttribute("data-pixels-per-mm")))!
     expect(drawn[0]).toMatchObject({ width: size.width, height: size.height })
@@ -139,147 +101,20 @@ test.describe("placing into a container at the insertion line", () => {
   })
 })
 
-test.describe("moving within and between containers", () => {
-  async function withStack(): Promise<string> {
-    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
-    const project = JSON.parse(await zip.file("project.json")!.async("string"))
-    project.screens.find((s: Obj) => s.id === "screen-1").objects = [
-      { ...FIXTURE[0], width: 160 },
-      FIXTURE[1],
-      { id: "the-stack", type: "vertical-stack", x: 200, y: 20, width: 180, height: 200, zIndex: 9, properties: {}, children: [text("top", "Oben", 10), text("bottom", "Unten", 11)] },
-    ]
-    zip.file("project.json", JSON.stringify(project))
-    const out = path.join(os.tmpdir(), `layout-move-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
-    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-    return out
-  }
-  async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
-    const { box } = await getMainCanvas(page)
-    const a = devicePoint(box, from.x, from.y)
-    const b = devicePoint(box, to.x, to.y)
-    await page.mouse.move(a.x, a.y)
-    await page.mouse.down()
-    await page.mouse.move(b.x, b.y, { steps: 10 })
-    await page.mouse.up()
-  }
-  const order = (objects: Obj[], id: string) => objects.find((o) => o.id === id)!.children.map((c: Obj) => c.id)
-
-  test("an object dragged within a stack changes its place in it", async ({ page }) => {
-    await loadProject(page, await withStack())
-    const stack = (await screenOne(page)).find((o) => o.id === "the-stack")!
-    const [top, bottom] = stack.children
-    // Into the stack (as a click in the tree does), then «Oben» dragged below «Unten».
-    await objectTreeRow(page, "top").click()
-    // Let go on the «+» below it: a new row at its end (no free row since Checkpoint C).
-    await drag(page, { x: 200 + top.x + 5, y: 20 + top.y + 5 }, await tablePlusOnScreen(page, "the-stack"))
-    expect(order(await screenOne(page), "the-stack")).toEqual(["bottom", "top"])
-  })
-
-  test("an object on the screen dragged into a grid lands at the line", async ({ page }) => {
-    await loadProject(page, await withStack())
-    const grid = (await screenOne(page)).find((o) => o.id === "the-grid")!
-    const lastName = grid.children.find((c: Obj) => c.id === "name-2")
-    // «Frei» from the bottom of the screen onto the «+» below the grid: after everything.
-    expect(lastName).toBeTruthy()
-    await drag(page, { x: 35, y: 255 }, await tablePlusOnScreen(page, "the-grid"))
-    const after = await screenOne(page)
-    expect(after.find((o) => o.id === "loose")).toBeUndefined()
-    expect(order(after, "the-grid")).toEqual(["name-1", "a-box", "name-2", "loose"])
-  })
-
-  test("the object tree moves an object into a container", async ({ page }) => {
-    await loadProject(page, await withStack())
-    const target = objectTreeRow(page, "the-stack")
-    const height = (await target.boundingBox())!.height
-    await objectTreeRow(page, "loose").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
-    const after = await screenOne(page)
-    expect(after.find((o) => o.id === "loose")).toBeUndefined()
-    expect(order(after, "the-stack")).toContain("loose")
-  })
-
-  // Reported 2026-10-02: with two labels selected, only one went into the
-  // stack - on the canvas none at all.
-  async function stackAndTwoLabels(): Promise<string> {
-    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
-    const project = JSON.parse(await zip.file("project.json")!.async("string"))
-    project.screens.find((s: Obj) => s.id === "screen-1").objects = [
-      { id: "the-stack", type: "vertical-stack", x: 200, y: 20, width: 180, height: 200, zIndex: 1, properties: {}, children: [text("inside", "Drin", 2)] },
-      { ...text("label-a", "Erstes", 3), x: 20, y: 40, width: 100 },
-      { ...text("label-b", "Zweites", 4), x: 20, y: 120, width: 100 },
-    ]
-    zip.file("project.json", JSON.stringify(project))
-    const out = path.join(os.tmpdir(), `layout-multi-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
-    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-    return out
-  }
-  async function selectBoth(page: Page) {
-    await objectTreeRow(page, "label-a").click()
-    await objectTreeRow(page, "label-b").click({ modifiers: ["Control"] })
-  }
-
-  test("two selected labels dragged on the canvas both go into the stack, in their order", async ({ page }) => {
-    await loadProject(page, await stackAndTwoLabels())
-    await selectBoth(page)
-    const inside = (await screenOne(page)).find((o) => o.id === "the-stack")!.children[0]
-    // «Erstes» taken, let go on the «+» below «Drin».
-    expect(inside).toBeTruthy()
-    await drag(page, { x: 25, y: 45 }, await tablePlusOnScreen(page, "the-stack"))
-    const after = await screenOne(page)
-    expect(after.map((o) => o.id)).toEqual(["the-stack"])
-    expect(order(after, "the-stack")).toEqual(["inside", "label-a", "label-b"])
-  })
-
-  test("two selected labels dragged in the object tree both go into the stack", async ({ page }) => {
-    await loadProject(page, await stackAndTwoLabels())
-    await selectBoth(page)
-    const target = objectTreeRow(page, "the-stack")
-    const height = (await target.boundingBox())!.height
-    await objectTreeRow(page, "label-b").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
-    const after = await screenOne(page)
-    expect(after.map((o) => o.id)).toEqual(["the-stack"])
-    expect(order(after, "the-stack")).toEqual(["inside", "label-a", "label-b"])
-  })
-
-  // Reported 2026-10-02: a double click selected only the stack.
-  test("a double click into a stack selects what is under the pointer; a click beside leaves it", async ({ page }) => {
-    await loadProject(page, await stackAndTwoLabels())
-    const inside = (await screenOne(page)).find((o) => o.id === "the-stack")!.children[0]
-    const { box } = await getMainCanvas(page)
-    const on = devicePoint(box, 200 + inside.x + 4, 20 + inside.y + Math.round(inside.height / 2))
-    await page.mouse.dblclick(on.x, on.y)
-    await expect(page.locator("h3").first()).toContainText("inside")
-    // Beside it, on a loose label: out of the stack, that label selected.
-    await clickAt(page, 25, 45)
-    await expect(page.locator("h3").first()).toContainText("label-a")
-  })
-
-  test("a container shows how it arranges only while it is active", async ({ page }) => {
-    await loadProject(page, await stackAndTwoLabels())
-    const { canvas, box } = await getMainCanvas(page)
-    const at = devicePoint(box, 200, 20)
-    const clip = { x: at.x - 2, y: at.y - 2, width: 184, height: 60 }
-    const picture = () => page.screenshot({ clip })
-    // A loose label selected: the stack is not active, nothing drawn on it.
-    await objectTreeRow(page, "label-a").click()
-    const quiet = await picture()
-    // The stack selected - and the label inside it: its edge and its places show.
-    await objectTreeRow(page, "the-stack").click()
-    const active = await picture()
-    expect(active.equals(quiet)).toBe(false)
-    await objectTreeRow(page, "inside").click()
-    expect((await picture()).equals(quiet)).toBe(false)
-    expect(canvas).toBeTruthy()
-  })
-  test("a container takes anything a screen takes, a panel not (lib/object-tree.ts)", () => {
+test.describe("what a container takes", () => {
+  test("a free area takes anything a screen takes, a panel not; a table put together by snapping takes nothing here (lib/object-tree.ts)", () => {
     const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
     const objects = [
       { id: "sw", type: "switcher", x: 0, y: 0, width: 10, height: 10, zIndex: 0, properties: {}, children: [panel] },
-      { id: "st", type: "table", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: {}, children: [] },
+      { id: "fr", type: "free", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: {}, children: [] },
       { id: "t", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 2, properties: {} },
+      { id: "snap", type: "table", x: 0, y: 0, width: 10, height: 10, zIndex: 3, properties: { grid: 1, columns: [{}], rows: [{}] }, children: [] },
     ] as never
-    expect(canDropAsChildOf(objects, "t", "st")).toBe(true)
-    expect(canDropAsChildOf(objects, "sw", "st")).toBe(true)
-    expect(canDropAsChildOf(objects, "p", "st")).toBe(false)
+    expect(canDropAsChildOf(objects, "t", "fr")).toBe(true)
+    expect(canDropAsChildOf(objects, "sw", "fr")).toBe(true)
+    expect(canDropAsChildOf(objects, "p", "fr")).toBe(false)
+    // Into a table only through a cell, on the canvas (docs/2026-10-09-snap-tables.md).
+    expect(canDropAsChildOf(objects, "t", "snap")).toBe(false)
   })
 })
 

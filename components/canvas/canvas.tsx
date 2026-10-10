@@ -85,9 +85,7 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
-import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
-import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
+import { TABLE_TYPE } from "@/lib/table"
 import { drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
 import { dimensions, isSnapTable, liftOut, planRow, resizeSpan, rowAsTable, rowTargetAt, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, ROW_TEMPLATES, type RowTemplate, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
@@ -114,8 +112,7 @@ const sizeLineAt = (lines: SizeLine[], p: { x: number; y: number }, tolerance: n
   const across = (l: SizeLine) => (l.kind === "column" ? Math.abs(p.x - l.x1) : Math.abs(p.y - l.y1))
   return lines.filter((l) => nearSizeLine(l, p, tolerance)).sort((a, b) => across(a) - across(b))[0]
 }
-import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
-import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
+import type { MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
   ARC_MIN_SPAN_DEGREES,
@@ -128,10 +125,6 @@ import {
   arcSpanDelta,
 } from "./renderers/render-arc-level"
 
-// The rectangle an object placed by a click into a table is made in
-// (lib/table.ts): only a start - the table sets its place and width at
-// once, the size step its height.
-const CLICK_PLACED_SIZE = { width: 120, height: 40 }
 
 // Maps a point from the adornment SVG's own (global, 0..viewBox) coordinate
 // space into a given element's *local* space - i.e. undoes every
@@ -275,33 +268,9 @@ export interface CanvasProps {
   onAddObject: (
     object: Omit<ScreenObject, "id" | "zIndex">,
     parentId?: string,
-    // A table's cell or new row (lib/table.ts TableDrop), or where a table
-    // put together by snapping takes it (lib/snap-table.ts SnapDrop).
-    at?: { table: TableDrop } | { snap: SnapDrop },
+    // Where a table put together by snapping takes it (lib/snap-table.ts SnapDrop).
+    at?: { snap: SnapDrop },
   ) => void
-  /** A table's column chosen by the strip above it (null: the screen's root table). */
-  onSelectTableColumn?: (tableId: string, index: number) => void
-  /** The column chosen, to show it filled in the strip. */
-  chosenTableColumn?: { tableId: string; index: number } | null
-  /**
-   * The empty cell picked by a click (docs/2026-10-03-table-editing.md),
-   * outlined; null when an object is selected or nothing in a table is.
-   */
-  chosenCell?: { tableId: string; row: number; column: number } | null
-  /** A click picked an empty cell (null: none any more). */
-  onSelectCell?: (cell: { tableId: string; row: number; column: number } | null) => void
-  /** Which table commands can act on the cell in context; null outside a table. */
-  tableCommandsEnabled?: Record<TableCommand, boolean> | null
-  /** The shape the Table tool draws (lib/layout-templates.ts); «Name and control» without one. */
-  tableShape?: TableShapeId
-  /** A table command from the context menu (components/toolbar/table-group.tsx). */
-  onTableCommand?: (command: TableCommand) => void
-  /** A row or a column inserted at a line, by the «+» at its end. */
-  onInsertTableLine?: (tableId: string, kind: "row" | "column", index: number) => void
-  /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
-  onSetTableProperties?: (tableId: string, updates: Record<string, unknown>) => void
-  /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
-  onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
   /** A dragged object let go where it snaps (lib/snap-table.ts snapDropAt). */
   onSnapDrop?: (movingId: string, drop: SnapDrop) => void
   /** An object dragged out of a table put together by snapping, let go at `to` (the table's space) and snapped or free. */
@@ -445,17 +414,6 @@ export interface CanvasProps {
   // marker, a measurement as the fill, and mixing the two is the bug this
   // separation exists to prevent (docs/2026-09-17-settable-level.md, 6c).
   askedValues?: Record<string, string> | null
-  // The building-block tool (lib/bausteine.ts) drags a rectangle like every
-  // other tool, but places nothing itself: which instance the block is for is
-  // a question, and the editor asks it (components/baustein-dialog.tsx) before
-  // any object exists. The rectangle arrives here in the coordinates the
-  // objects will use, with the panel they belong to when one is open for
-  // editing.
-  onInsertBaustein?: (
-    rect: { x: number; y: number; width: number; height: number },
-    parentId?: string,
-    at?: { table: TableDrop },
-  ) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -767,22 +725,12 @@ export function Canvas({
   activeTool,
   onAddObject,
   onMoveObject,
-  onMoveToTable,
   onSnapDrop,
   onSnapMoveOut,
   rowTemplate,
   onInsertRow,
   onBlockCarry,
   onPlaceBlockTable,
-  onSetTableProperties,
-  onSelectTableColumn,
-  chosenTableColumn,
-  chosenCell,
-  onSelectCell,
-  tableCommandsEnabled,
-  onTableCommand,
-  tableShape,
-  onInsertTableLine,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -833,7 +781,6 @@ export function Canvas({
   onPreviewSetLevel,
   liveValues = null,
   askedValues = null,
-  onInsertBaustein,
 }: CanvasProps) {
   // A screen with no local backgroundColor of its
   // own inherits its assigned master's, same shape as button-action
@@ -1081,12 +1028,6 @@ export function Canvas({
         onAddObject(placed, drawSpace.id ?? undefined, snapTo ? { snap: snapTo } : undefined)
         return
       }
-      const inTable = tablePlacementRef.current
-      if (inTable) {
-        tablePlacementRef.current = null
-        onAddObject(object, undefined, { table: inTable })
-        return
-      }
       if (editingContainer) {
         const placed = translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y)
         onAddObject(placed, editingContainer.id)
@@ -1144,11 +1085,6 @@ export function Canvas({
   const [polylineDraft, setPolylineDraft] = useState<LinePoint[] | null>(null)
   const [polylineCursor, setPolylineCursor] = useState<LinePoint | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
-  // With a tool over a table (docs/2026-10-02-layout-tables.md): the empty
-  // cell that lights up or the row line drawn thick - where a click puts the
-  // object, sized by the table, instead of a rectangle being drawn;
-  // tablePlacementRef carries it from the press to the object's making.
-  const [tableDrop, setTableDrop] = useState<TableDrop | null>(null)
   // Where the object being dragged snaps when let go (lib/snap-table.ts).
   const [snapDrop, setSnapDrop] = useState<SnapDrop | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
@@ -1171,30 +1107,6 @@ export function Canvas({
   // it is carried, and the space it would land in with it already out of
   // the table - what the snap target is worked out and drawn against.
   const [outDrag, setOutDrag] = useState<{ tableId: string; id: string; rect: SnapRect; space: ScreenObject[] } | null>(null)
-  // The nested tables near the pointer while something is placed: theirs
-  // is the «+» below that shows (lib/table.ts nestedTablesNear).
-  const [nearTables, setNearTables] = useState<string[]>([])
-  // The nested tables near the pointer with the select tool: theirs are the
-  // strip, the «+» and the handles that show, the others' would lie over
-  // the table holding them (table-overlay.ts nearTableHandles).
-  const [nearHandles, setNearHandles] = useState<string[]>([])
-  // Whose handles show only near the pointer: a nested table's - they lie
-  // over the table holding it.
-  const handlesOnlyNear = (table: { id: string; nested: boolean }) => table.nested
-  // The table whose handle shows, as in Word: the innermost under the
-  // pointer with the select tool - never the screen's own, which does not
-  // move (docs/2026-10-03-table-editing.md).
-  const [handleTable, setHandleTable] = useState<string | null>(null)
-  const tablePlacementRef = useRef<TableDrop | null>(null)
-  // A column line being dragged on the active table (Task 6): which, from
-  // where, and the columns as they were; the draft is what the drag makes,
-  // shown while it moves and kept when it is let go.
-  const columnDragRef = useRef<{ tableId: string; index: number; startX: number; columns: TableColumn[]; widths: number[] } | null>(null)
-  const [columnDraft, setColumnDraft] = useState<{ x: number; y: number; bottom: number; label: string; columns: TableColumn[] } | null>(null)
-  useEffect(() => {
-    setTableDrop(null)
-    setNearTables([])
-  }, [activeTool])
   // Whether a table places this object.
   const placedByLayout = useCallback(
     (id: string): boolean => {
@@ -1219,11 +1131,8 @@ export function Canvas({
       add(findParentOf(screen.objects, id)?.parent?.id)
     }
     add(editingContainerId)
-    // The empty cell picked: its table is the one worked on.
-    if (chosenCell && selectedObjectIds.length === 0) add(chosenCell.tableId)
-    if (tableDrop) add(tableDrop.tableId)
     return [...ids]
-  }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, chosenCell, screen.objects])
+  }, [previewMode, selectedObjectIds, editingContainerId, screen.objects])
 
   const layoutScale = useMemo(() => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }), [textScale, fonts])
 
@@ -1313,93 +1222,11 @@ export function Canvas({
     return { tableId: table.id, lines }
   }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
 
-  // The tables on the screen with where their lines go (lib/table.ts
-  // tableGeometry), for the overlay.
-  const tableLines = useMemo(() => {
-    const scale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
-    // `nested`: inside another table - its «+» below shows only near it
-    // (lib/table.ts nestedTablesNear).
-    const out: Array<{ id: string; lines: TableLines; nested: boolean }> = []
-    const walk = (list: ScreenObject[], ox: number, oy: number, inTable: boolean) => {
-      for (const obj of list) {
-        const x = obj.type === "panel" ? ox : ox + obj.x
-        const y = obj.type === "panel" ? oy : oy + obj.y
-        // A table put together by snapping draws itself (snap-table-overlay.ts).
-        if (isOldTable(obj)) {
-          const geometry = tableGeometry(obj, scale)
-          out.push({ id: obj.id, nested: inTable, lines: { origin: { x, y }, width: obj.width, height: obj.height, geometry, empty: emptyCells(obj, geometry) } })
-        }
-        if (obj.children) walk(obj.children, x, y, inTable || isOldTable(obj))
-      }
-    }
-    walk(screen.objects, 0, 0, false)
-    return out
-  }, [screen.objects, textScale, fonts])
-
   // Where each table put together by snapping stands, in the space new
   // objects go to - drawn, not elements, so a test can carry a row under one.
   const snapTableRects = useMemo(
     () => JSON.stringify(drawSpace.objects.filter(isSnapTable).map(({ id, x, y, width, height }) => ({ id, x, y, width, height }))),
     [drawSpace],
-  )
-
-  const tablePluses = useMemo(
-    () =>
-      JSON.stringify(
-        tableLines.map((table) => {
-          const place = addRowPlus(table.lines.origin, table.lines.geometry, PLUS / zoom)
-          return { table: table.id, x: place.x, y: place.y }
-        }),
-      ),
-    [tableLines, zoom],
-  )
-
-
-  // An object in a table resized by its right or bottom edge: the cells it
-  // spans follow the pointer across the column and row lines (the spec:
-  // cells merged as in Word). True when it handled the move.
-  const spanInTable = useCallback(
-    (id: string, handle: string, point: { x: number; y: number }): boolean => {
-      const parent = findParentOf(screen.objects, id)?.parent
-      if (!isOldTable(parent)) return false
-      const lines = tableLines.find((t) => t.id === parent.id)?.lines
-      const object = findObjectById(screen.objects, id)
-      const cell = object?.properties?.cell as { row: number; column: number; rowSpan?: number; columnSpan?: number } | undefined
-      if (!lines || !object || !cell) return true
-      const g = lines.geometry
-      const columnAt = Math.max(0, g.lefts.filter((left) => lines.origin.x + left <= point.x).length - 1)
-      const rowAt = Math.max(0, g.tops.filter((top) => lines.origin.y + top <= point.y).length - 1)
-      const right = handle === "ne" || handle === "se" || handle === "baseline-right" || handle === "e"
-      const down = handle === "sw" || handle === "se" || handle === "s"
-      const next = { ...cell }
-      if (right) next.columnSpan = Math.max(1, columnAt - cell.column + 1)
-      if (down) next.rowSpan = Math.max(1, rowAt - cell.row + 1)
-      if (next.columnSpan === 1) delete next.columnSpan
-      if (next.rowSpan === 1) delete next.rowSpan
-      if (JSON.stringify(next) !== JSON.stringify(cell)) onUpdateObject(id, { properties: { ...object.properties, cell: next } })
-      return true
-    },
-    [screen.objects, tableLines, onUpdateObject],
-  )
-
-  // What a click with a tool means for a table under the pointer: a cell, a
-  // new row, or nothing (an occupied cell) - an armed block's too (Task 8).
-  const tableDropFor = useCallback(
-    (point: { x: number; y: number }): TableDrop | { blocked: true } | undefined => {
-      if (previewMode || activeTool === "select" || activeTool === "background") return undefined
-      if (isLineType(activeTool)) return undefined
-      // A free area open for editing takes what is drawn into it where it is
-      // drawn - even in a table's cell, which would otherwise count as taken.
-      if (editingContainer?.type === "free") return undefined
-      return tableDropAt(
-        screen.objects,
-        point,
-        { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
-        4 / zoom,
-        PLUS / zoom,
-      )
-    },
-    [previewMode, activeTool, screen.objects, textScale, fonts, zoom, editingContainer?.type],
   )
 
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
@@ -1804,58 +1631,7 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
-    // Every table's lines (components/canvas/table-overlay.ts); the active
-    // one's strong. While something is being placed - a tool or a block
-    // armed, objects dragged - every table shows its «+»: in each empty
-    // cell, and below it for a new row (Checkpoint C).
-    if (!previewMode) {
-      const inserting =
-        dragState?.mode === "drag" || (!dragState && activeTool !== "select" && activeTool !== "background" && !isLineType(activeTool))
-      for (const table of tableLines) {
-        const active = activeContainerIds.includes(table.id)
-        drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
-        if (inserting) drawInsertPluses(ctx, table.lines, LAYOUT_HINT_COLOR, zoom, !table.nested || nearTables.includes(table.id))
-        else if (active && !dragState && (!handlesOnlyNear(table) || nearHandles.includes(table.id))) {
-          drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
-          const chosen = chosenTableColumn && chosenTableColumn.tableId === table.id ? chosenTableColumn.index : null
-          drawColumnStrip(ctx, table.lines, chosen, LAYOUT_HINT_COLOR, zoom)
-        }
-      }
-      // The empty cell picked, outlined (docs/2026-10-03-table-editing.md).
-      if (chosenCell && selectedObjectIds.length === 0) {
-        const table = tableLines.find((t) => t.id === chosenCell.tableId)
-        const g = table?.lines.geometry
-        const { row, column } = chosenCell
-        if (table && g && row < g.heights.length && column < g.widths.length) {
-          ctx.save()
-          ctx.strokeStyle = LAYOUT_HINT_COLOR
-          ctx.lineWidth = 2 / zoom
-          ctx.strokeRect(table.lines.origin.x + g.lefts[column], table.lines.origin.y + g.tops[row], g.widths[column], g.heights[row])
-          ctx.restore()
-        }
-      }
-      // The table's handle, on the innermost table under the pointer.
-      if (handleTable && activeTool === "select" && !dragState) {
-        const table = tableLines.find((t) => t.id === handleTable)
-        if (table) drawTableMoveHandle(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
-      }
-      if (columnDraft) {
-        ctx.save()
-        ctx.strokeStyle = LAYOUT_HINT_COLOR
-        ctx.lineWidth = 2 / zoom
-        ctx.beginPath()
-        // Down every row (a 40 px stub at the top before Checkpoint C).
-        ctx.moveTo(columnDraft.x, columnDraft.y)
-        ctx.lineTo(columnDraft.x, columnDraft.bottom)
-        ctx.stroke()
-        ctx.restore()
-        drawShareLabel(ctx, columnDraft.x, columnDraft.y, columnDraft.label, LAYOUT_HINT_COLOR, zoom)
-      }
-    }
-
     for (const id of activeContainerIds) {
-      // A table shows itself by its lines, above.
-      if (tableLines.some((t) => t.id === id)) continue
       const container = findObjectById(screen.objects, id)
       if (!container) continue
       const origin = childOrigin(screen.objects, id)
@@ -1906,30 +1682,7 @@ export function Canvas({
       if (rowDrop.adds) drawSnapChip(ctx, { x: rowDrop.line.x1, y: rowDrop.line.y - 2 / zoom }, rowDrop.adds, LAYOUT_HINT_COLOR, zoom)
     }
 
-    // A table's drop: the empty cell lit up, or the row line drawn thick.
-    if (tableDrop && (!dragState || dragState.mode === "drag")) {
-      ctx.save()
-      ctx.strokeStyle = LAYOUT_HINT_COLOR
-      ctx.fillStyle = LAYOUT_HINT_COLOR
-      if (tableDrop.rect) {
-        const { x, y, width, height } = tableDrop.rect
-        ctx.globalAlpha = 0.18
-        ctx.fillRect(x, y, width, height)
-        ctx.globalAlpha = 1
-        ctx.lineWidth = 1.5 / zoom
-        ctx.strokeRect(x, y, width, height)
-      } else if (tableDrop.line) {
-        ctx.lineWidth = 3 / zoom
-        ctx.lineCap = "round"
-        ctx.beginPath()
-        ctx.moveTo(tableDrop.line.x1, tableDrop.line.y1)
-        ctx.lineTo(tableDrop.line.x2, tableDrop.line.y2)
-        ctx.stroke()
-      }
-      ctx.restore()
-    }
-
-    if (dragState?.mode === "create" && dragState.creatingType && !tablePlacementRef.current) {
+    if (dragState?.mode === "create" && dragState.creatingType) {
       const { x, y, width, height } = dragState.startObjectPos
       if (width !== 0 || height !== 0) {
         if (dragState.creatingType && isLineType(dragState.creatingType)) {
@@ -1978,16 +1731,8 @@ export function Canvas({
     resolvedBackgroundColor,
     selectedObjectIds,
     hoveredObjectId,
-    tableDrop,
-    nearTables,
-    nearHandles,
-    handleTable,
     activeTool,
-    columnDraft,
-    chosenTableColumn,
-    chosenCell,
     activeContainerIds,
-    tableLines,
     snapChip,
     spanHandles,
     sizeLines,
@@ -2996,28 +2741,6 @@ export function Canvas({
         return
       }
 
-      // The table's handle, as in Word: a click selects the table, a drag
-      // moves it - to an empty cell, a row line, a «+» - like any object
-      // (docs/2026-10-03-table-editing.md).
-      if (activeTool === "select" && !previewMode && handleTable) {
-        const table = tableLines.find((t) => t.id === handleTable)
-        const object = table ? findObjectById(screen.objects, handleTable) : null
-        if (table && object && onTableMoveHandle(table.lines, coords, zoom)) {
-          onSelectObject(object.id)
-          // The table holding it opened, so the drag finds the table among
-          // the objects it works on - as a click into a cell does.
-          onSetEditingContainer?.(findParentOf(screen.objects, object.id)?.parent?.id ?? null)
-          onSelectCell?.(null)
-          setDragState({
-            mode: "select",
-            objectId: object.id,
-            startPos: coords,
-            startObjectPos: { x: table.lines.origin.x, y: table.lines.origin.y, width: object.width, height: object.height },
-          })
-          return
-        }
-      }
-
       // A span handle of the object chosen in a table put together by
       // snapping (Task 7): dragged, its span grows or shrinks.
       if (activeTool === "select" && spanHandles) {
@@ -3037,37 +2760,6 @@ export function Canvas({
         }
       }
 
-      // An active table's handles: a column line to drag, «+» for a row or
-      // a column (docs/2026-10-02-layout-tables.md).
-      if (activeTool === "select" && !previewMode && onSetTableProperties) {
-        for (const table of tableLines) {
-          if (!activeContainerIds.includes(table.id)) continue
-          if (handlesOnlyNear(table) && !nearTableHandles(table.lines, coords, zoom)) continue
-          // The strip above a column: that column's properties.
-          const stripColumn = columnStripAt(table.lines, coords, zoom)
-          if (stripColumn !== null && onSelectTableColumn) {
-            onSelectTableColumn(table.id, stripColumn)
-            return
-          }
-          const handle = tableHandleAt(table.lines, coords, zoom)
-          if (!handle) continue
-          const tableId = table.id
-          const object = findObjectById(screen.objects, tableId)
-          const columns = object ? columnsOf(object) : DEFAULT_TABLE_COLUMNS
-          const rows = object?.properties?.rows as number | undefined
-          if (handle.kind === "insert-row" || handle.kind === "insert-column") {
-            onInsertTableLine?.(tableId, handle.kind === "insert-row" ? "row" : "column", handle.index)
-          } else if (handle.kind === "add-row") {
-            onSetTableProperties(tableId, { rows: Math.max(rows ?? 0, table.lines.geometry.heights.length) + 1 })
-          } else if (handle.kind === "add-column") {
-            onSetTableProperties(tableId, { columns: [...columns, { width: "auto" }] })
-          } else {
-            columnDragRef.current = { tableId: table.id, index: handle.index, startX: coords.x, columns, widths: table.lines.geometry.widths }
-          }
-          return
-        }
-      }
-
       if ((activeTool === "line" || activeTool === "live-line") && polylineDraft !== null) {
         // Continuing an already-started segmented line - every click after
         // the first adds a vertex here instead of starting a new drag; a
@@ -3081,16 +2773,9 @@ export function Canvas({
       }
 
       if (activeTool !== "select") {
-        // Over a table: a click into an empty cell or on a row line places it
-        // there; an occupied cell takes nothing.
-        const drop = tableDropFor(coords)
-        if (drop && "blocked" in drop) return
-        tablePlacementRef.current = drop ?? null
-        setTableDrop(null)
         // Placing by dragging (lib/placing.ts): the object at its default
         // size, its middle under the pointer, carried until let go - as one
-        // moved is. A line is still drawn, the old table's tool still places
-        // as before.
+        // moved is. A line is still drawn.
         // A row (module snap-table-rows): its parts made as their tools make
         // them, at their default sizes, and carried as the table of one row
         // they would make. A block of one part is such a row too, its parts
@@ -3099,7 +2784,6 @@ export function Canvas({
         const block = activeTool === "baustein" ? (onBlockCarry?.() ?? null) : null
         blockTableRef.current = null
         if (block && "table" in block) {
-          tablePlacementRef.current = null
           blockTableRef.current = block.table
           const [laid] = layoutObjects([{ ...block.table, id: "block", zIndex: 0 } as ScreenObject], layoutScale)
           setDragState({ mode: "create", objectId: null, startPos: coords, startObjectPos: heldAt(coords, laid), creatingType: "row", placing: true })
@@ -3107,7 +2791,6 @@ export function Canvas({
         }
         const blockParts = block && "row" in block ? block.row : null
         if (activeTool === "row" || blockParts) {
-          tablePlacementRef.current = null
           const parts =
             blockParts ??
             ROW_TEMPLATES[rowTemplate ?? "icon-label-switch"].map((type) => {
@@ -3121,7 +2804,9 @@ export function Canvas({
           setDragState({ mode: "create", objectId: null, startPos: coords, startObjectPos: heldAt(coords, row), creatingType: "row", placing: true })
           return
         }
-        const size = drop ? null : placedSize(activeTool, layoutScale.pixelsPerMm)
+        // The Block tool with no block armed places nothing.
+        if (activeTool === "baustein") return
+        const size = placedSize(activeTool, layoutScale.pixelsPerMm)
         if (size) {
           setDragState({ mode: "create", objectId: null, startPos: coords, startObjectPos: heldAt(coords, size), creatingType: activeTool, placing: true })
           return
@@ -3131,9 +2816,7 @@ export function Canvas({
           mode: "create",
           objectId: null,
           startPos: coords,
-          startObjectPos: drop
-            ? { x: coords.x, y: coords.y, width: CLICK_PLACED_SIZE.width, height: CLICK_PLACED_SIZE.height }
-            : { x: coords.x, y: coords.y, width: 0, height: 0 },
+          startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
           creatingType: activeTool,
         })
         return
@@ -3161,31 +2844,6 @@ export function Canvas({
               arcSpan: arcSpanDegrees(only),
               arcLastAngle: arcAngleAtPoint(only, coords.x, coords.y),
             })
-            return
-          }
-        }
-      }
-
-      // In a table a click takes what stands in the cell under the pointer,
-      // however deep, or the empty cell itself - as the cursor in Word
-      // (docs/2026-10-03-table-editing.md). What is already selected keeps
-      // the press, so a table picked in the path is moved by dragging it.
-      if (activeTool === "select" && !isCtrlOrCmd && !isShift && onSelectCell) {
-        const atPoint = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
-        if (!(atPoint && selectedObjectIds.includes(atPoint.id))) {
-          const inCell = cellAt(screen.objects, coords, {
-            pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm,
-            fonts,
-          })
-          if (inCell) {
-            onSetEditingContainer?.(inCell.tableId)
-            if (inCell.objectId) {
-              onSelectObjects([inCell.objectId])
-              onSelectCell(null)
-            } else {
-              onSelectObjects([])
-              onSelectCell({ tableId: inCell.tableId, row: inCell.row, column: inCell.column })
-            }
             return
           }
         }
@@ -3298,7 +2956,6 @@ export function Canvas({
       }
     },
     [
-      tableDropFor,
       sizedBySnapTable,
       layoutScale,
       spanHandles,
@@ -3333,14 +2990,8 @@ export function Canvas({
       screenShape,
       popupCloseRadius,
       polylineDraft,
-      tableLines,
       activeContainerIds,
-      onSetTableProperties,
-      onSelectTableColumn,
-      onSelectCell,
       onSetEditingContainer,
-      onInsertTableLine,
-      handleTable,
       textScale,
       fonts,
       rowTemplate,
@@ -3453,34 +3104,7 @@ export function Canvas({
         return
       }
 
-      const columnDrag = columnDragRef.current
-      if (columnDrag) {
-        const table = tableLines.find((t) => t.id === columnDrag.tableId)
-        if (table) {
-          const columns = dragColumnLine(columnDrag.columns, columnDrag.widths, columnDrag.index, coords.x - columnDrag.startX)
-          const share = (c: TableColumn) => (typeof c.width === "object" && "share" in c.width ? c.width.share : undefined)
-          const pair = [columns[columnDrag.index - 1], columns[columnDrag.index]].map(share)
-          const g = table.lines.geometry
-          const lineX = table.lines.origin.x + g.lefts[columnDrag.index] - g.gap / 2 + (coords.x - columnDrag.startX)
-          setColumnDraft({ x: lineX, y: table.lines.origin.y + g.padding, bottom: table.lines.origin.y + rowsBottom(g), label: `${pair[0]}% | ${pair[1]}%`, columns })
-        }
-        return
-      }
-
       if (!dragState) {
-        // Over a table, its cell or row line.
-        const drop = tableDropFor(coords)
-        const nextDrop = drop && !("blocked" in drop) ? drop : null
-        setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
-        const handlesNear = activeTool === "select" ? tableLines.filter((t) => handlesOnlyNear(t) && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
-        const handleOf =
-          activeTool === "select" && !previewMode
-            ? ([...tableLines].reverse().find((t) => nearTableHandles(t.lines, coords, zoom))?.id ?? null)
-            : null
-        setHandleTable((current) => (current === handleOf ? current : handleOf))
-        setNearHandles((current) => (current.join() === handlesNear.join() ? current : handlesNear))
-        const near = activeTool !== "select" ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
-        setNearTables((current) => (current.join() === near.join() ? current : near))
         // Outside the box but on a selected arc's scale handle: the same
         // check the press makes, so the cursor agrees with what a click
         // would do out there.
@@ -3578,9 +3202,7 @@ export function Canvas({
         return
       }
 
-      if (dragState.mode === "create" && dragState.creatingType && tablePlacementRef.current) {
-        // A click placement: the container sizes it, not the drag.
-      } else if (dragState.mode === "create" && dragState.creatingType) {
+      if (dragState.mode === "create" && dragState.creatingType) {
         if (isLineType(dragState.creatingType)) {
           setDragState({
             ...dragState,
@@ -3646,19 +3268,6 @@ export function Canvas({
         const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !staysPut(obj))
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
-        // Over a table: the empty cell or the row line where letting go
-        // puts them, worked out without them, so their own cells are free.
-        const without = selectedObjects.reduce((list, obj) => deleteObjectById(list, obj.id), screen.objects)
-        // The «+» below a table where it is drawn - with them still in it -
-        // the cells and row lines without them.
-        const dropScale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
-        const overTable =
-          draggedObject && !previewMode
-            ? (tablePlusAt(screen.objects, coords, dropScale, PLUS / zoom, 4 / zoom, selectedObjects.map((obj) => obj.id)) ??
-              tableDropAt(without, coords, dropScale, 4 / zoom))
-            : undefined
-        const toCell = overTable && !("blocked" in overTable) ? overTable : null
-        setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(toCell) ? current : toCell))
         // Near a table put together by snapping or a free object: where it
         // snaps, about 5 mm around (docs/2026-10-09-snap-tables.md). One
         // free object at a time, never from inside such a table (taking an
@@ -3666,7 +3275,7 @@ export function Canvas({
         // Ctrl/⌘ held while dragging: placed freely, nothing snaps (decided
         // 2026-10-10 - snapping is on by default, as in Figma).
         const snapping =
-          draggedObject && !previewMode && onSnapDrop && !(e.ctrlKey || e.metaKey) && selectedObjects.length === 1 && !isSnapTable(editingContainer) && !toCell
+          draggedObject && !previewMode && onSnapDrop && !(e.ctrlKey || e.metaKey) && selectedObjects.length === 1 && !isSnapTable(editingContainer)
             ? snapDropAt(
                 interactionObjects,
                 draggedObject.id,
@@ -3677,8 +3286,6 @@ export function Canvas({
               )
             : null
         setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
-        const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
-        setNearTables((current) => (current.join() === near.join() ? current : near))
         // Out of a table put together by snapping (Task 6): the object is
         // carried as an outline, and where it would snap is worked out
         // against the space the table stands in with the object already out
@@ -3830,8 +3437,6 @@ export function Canvas({
           height: Math.max(...ys) - minY,
           properties: { ...(lineObject?.properties ?? {}), points: newPoints },
         })
-      } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle && spanInTable(dragState.objectId, dragState.resizeHandle, coords)) {
-        // In a table, the right or bottom edge sets how many cells it spans.
       } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle) {
         const { x, y, width, height } = dragState.startObjectPos
         const handle = dragState.resizeHandle
@@ -4060,7 +3665,6 @@ export function Canvas({
       }
     },
     [
-      tableDropFor,
       sizedBySnapTable,
       drawSpace,
       onSnapMoveOut,
@@ -4099,8 +3703,6 @@ export function Canvas({
       polylineDraft,
       previewObjects,
       textScale,
-      tableLines,
-      spanInTable,
     ],
   )
 
@@ -4317,12 +3919,9 @@ export function Canvas({
       children: [],
     })
     const defaultObjects: Record<
-      "text" | "icon" | "line" | "box" | "table" | "free",
+      "text" | "icon" | "line" | "box" | "free",
       Omit<ScreenObject, "id" | "zIndex">
     > = {
-      // The shape chosen in the Table tool's menu, one row; «Name and
-      // control» without a choice (docs/2026-10-03-free-screens.md).
-      table: { ...container("table"), properties: { columns: shapeColumns(tableShape ?? DEFAULT_TABLE_SHAPE), rows: 1 } },
       free: container("free"),
       text: {
         type: "text",
@@ -4435,16 +4034,6 @@ export function Canvas({
       return
     }
 
-    if (columnDragRef.current) {
-      const { tableId } = columnDragRef.current
-      columnDragRef.current = null
-      if (columnDraft && onSetTableProperties) {
-        onSetTableProperties(tableId, { columns: columnDraft.columns })
-      }
-      setColumnDraft(null)
-      return
-    }
-
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
 
@@ -4467,12 +4056,6 @@ export function Canvas({
       }
     }
 
-    // A drag let go over a table's empty cell or row line: the selection
-    // moves there, keeping its cells relative to each other.
-    if (dragState?.mode === "drag" && dragState.objectId && tableDrop && onMoveToTable) {
-      const moving = selectedObjectIds.filter((id) => id === dragState.objectId || !findObjectById(screen.objects, id)?.locked)
-      onMoveToTable(moving, tableDrop)
-    }
     // Let go out of a table put together by snapping: out, and free or snapped.
     if (dragState?.mode === "drag" && outDrag && onSnapMoveOut) {
       onSnapMoveOut(outDrag.tableId, outDrag.id, { x: outDrag.rect.x - drawSpace.origin.x, y: outDrag.rect.y - drawSpace.origin.y }, snapDrop)
@@ -4480,7 +4063,6 @@ export function Canvas({
     // Let go where it snaps: into the table, or a table with its neighbour.
     else if (dragState?.mode === "drag" && dragState.objectId && snapDrop && onSnapDrop) onSnapDrop(dragState.objectId, snapDrop)
     if (dragState?.mode === "drag") {
-      setTableDrop(null)
       setSnapDrop(null)
       setOutDrag(null)
     }
@@ -4523,13 +4105,6 @@ export function Canvas({
 
       const minSize = 5
       let isValidSize = false
-      // A click with the Table tool, no rectangle: the table from there to
-      // the screen's right edge, its rows giving its height (asked
-      // 2026-10-04 - that a rectangle had to follow was not clear).
-      if (dragState.creatingType === "table" && Math.abs(width) <= minSize && Math.abs(height) <= minSize) {
-        width = Math.max(4 * minSize, screenWidth - x)
-        height = 40
-      }
       // The navigator goes on its edge whatever was drawn (lib/navigator.ts).
       if (dragState.creatingType === "navigator") {
         ;({ x, y, width, height } = navigatorStrip("left", "iconsAndText", screenWidth, screenHeight))
@@ -4543,32 +4118,7 @@ export function Canvas({
       }
 
       if (isValidSize) {
-        if (dragState.creatingType === "baustein") {
-          const rect = {
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-          }
-          const inTable = tablePlacementRef.current
-          if (inTable) {
-            // Into a table: merged at a row line, nested in an empty cell.
-            tablePlacementRef.current = null
-            onInsertBaustein?.(rect, undefined, { table: inTable })
-          } else if (drawSpace.id !== null || isSnapTable(editingContainer)) {
-            // In the space it is drawn in (drawSpace): beside an open table
-            // put together by snapping, never into it as a child without a
-            // cell (seen 2026-10-10: a block of several parts dragged with
-            // one open broke its layout); that space is open afterwards.
-            if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
-            const placed = { ...rect, x: rect.x - drawSpace.origin.x, y: rect.y - drawSpace.origin.y }
-            if (drawSpace.id !== null) onInsertBaustein?.(placed, drawSpace.id)
-            else onInsertBaustein?.(placed)
-          } else {
-            onInsertBaustein?.(rect)
-          }
-          onToolChange("select")
-        } else if (dragState.creatingType === "navigator") {
+        if (dragState.creatingType === "navigator") {
           addInteractionObject({
             type: "navigator",
             x,
@@ -4598,8 +4148,6 @@ export function Canvas({
     }
 
     setDragState(null)
-    // A click placement not made (the press went elsewhere) is not carried on.
-    tablePlacementRef.current = null
     placedMiddleRef.current = null
     setActiveSnapLines([])
     const canvas = canvasRef.current
@@ -4608,8 +4156,6 @@ export function Canvas({
     }
   }, [
     onMoveObject,
-    tableShape,
-    onMoveToTable,
     onSnapDrop,
     snapDrop,
     onSnapMoveOut,
@@ -4619,9 +4165,6 @@ export function Canvas({
     onPlaceBlockTable,
     outDrag,
     drawSpace,
-    onSetTableProperties,
-    columnDraft,
-    tableDrop,
     selectedObjectIds,
     dragState,
     zoom,
@@ -4633,8 +4176,7 @@ export function Canvas({
     editingOrigin.y,
     interactionObjects,
     addInteractionObject,
-    onInsertBaustein,
-    onPreviewSetLevel,
+      onPreviewSetLevel,
     onSelectObjects,
     onAddObject,
     onToolChange,
@@ -4752,7 +4294,6 @@ export function Canvas({
         if (!outDrag) updateInteractionObject(dragState.objectId, { x: dragState.startObjectPos.x, y: dragState.startObjectPos.y })
         setDragState(null)
         setSnapDrop(null)
-        setTableDrop(null)
         setOutDrag(null)
         return
       }
@@ -4760,10 +4301,8 @@ export function Canvas({
         // Inside a group, Escape leaves it and selects it - the editor does
         // that for the whole window (project-editor.tsx), since a group is
         // entered from the object list too, where the canvas has no keys.
-        // In a table it clears the selection and the cell picked, as it did
-        // when the screen was the table (docs/2026-10-03-free-screens.md).
         // A table put together by snapping is left as a group is.
-        if (!editingGroup || isOldTable(editingGroup)) onSelectObject(null)
+        if (!editingGroup) onSelectObject(null)
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault()
         onSelectAll()
@@ -4857,33 +4396,13 @@ export function Canvas({
     finishPolyline(points)
   }, [previewMode, polylineDraft, zoom, finishPolyline, activeTool, enterGroupAt])
 
-  // In a table, a right-click takes the cell under the pointer first - its
-  // object, or the empty cell - and the menu offers the table's commands
-  // for it on top (docs/2026-10-03-table-editing.md).
-  const [contextMenuInTable, setContextMenuInTable] = useState(false)
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       if (previewMode) return
-      const coords = getCanvasCoordinates(e.clientX, e.clientY)
-      const inCell =
-        activeTool === "select" && onSelectCell && onTableCommand
-          ? cellAt(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })
-          : undefined
-      if (inCell) {
-        onSetEditingContainer?.(inCell.tableId)
-        if (inCell.objectId) {
-          onSelectObjects([inCell.objectId])
-          onSelectCell?.(null)
-        } else {
-          onSelectObjects([])
-          onSelectCell?.({ tableId: inCell.tableId, row: inCell.row, column: inCell.column })
-        }
-      }
-      setContextMenuInTable(!!inCell)
       setContextMenuPosition({ x: e.clientX, y: e.clientY })
     },
-    [previewMode, getCanvasCoordinates, activeTool, onSelectCell, onTableCommand, screen.objects, textScale, fonts, onSetEditingContainer, onSelectObjects],
+    [previewMode],
   )
 
   const handleCloseContextMenu = useCallback(() => {
@@ -4961,11 +4480,6 @@ export function Canvas({
       <canvas
         ref={canvasRef}
         className="w-full h-full"
-        // Where each table's «+» below it stands on the screen - it is drawn,
-        // not an element - so a test can click it on any device's scale.
-        data-table-pluses={tablePluses}
-        // The empty cell picked, for the same reason.
-        data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
         data-snap-chip={snapChip?.text}
         data-snap-tables={snapTableRects}
         data-row-drop={rowDrop ? JSON.stringify({ tableId: rowDrop.tableId, at: rowDrop.at, adds: rowDrop.adds }) : undefined}
@@ -5001,29 +4515,6 @@ export function Canvas({
               top: contextMenuPosition.y,
             }}
           >
-            {contextMenuInTable && tableCommandsEnabled && onTableCommand ? (
-              <div role="group" aria-label="Table" data-testid="table-context-menu">
-                {TABLE_COMMANDS.map(({ group, commands }, i) => (
-                  <div key={group}>
-                    {i > 0 && <div className="my-1 h-px bg-border" />}
-                    {commands.map(({ command, label }) => (
-                      <button
-                        key={command}
-                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!tableCommandsEnabled[command]}
-                        onClick={() => {
-                          onTableCommand(command)
-                          handleCloseContextMenu()
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-                <div className="my-1 h-px bg-border" />
-              </div>
-            ) : null}
             <button
               className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleCopyFromMenu}

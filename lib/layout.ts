@@ -15,13 +15,11 @@
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
-import { sortChildrenByZIndex } from "@/lib/object-order"
-import { TABLE_TYPE, arrangeTable, tableMinimumWidth, tableNaturalWidth } from "@/lib/table"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 
-// A table (lib/table.ts, docs/2026-10-02-layout-tables.md) and a free area.
-// The stacks, the grid and the spacer of layout Tasks 1-12 are gone; a file
-// that has them is read as tables (lib/table.ts migrateScreenToTables).
+// A table put together by snapping (lib/snap-table.ts) and a free area. The
+// stacks, the grid and the spacer of layout Tasks 1-12 and the old tables
+// are gone; a file that has them opens with them dissolved (lib/table.ts).
 export const CONTAINER_TYPES = ["free", "table"] as const
 
 /** What only the designer knows: the containers. A device never declares or draws them. */
@@ -34,18 +32,6 @@ export type ContainerType = (typeof CONTAINER_TYPES)[number]
 export function isContainerType(type: string | undefined): type is ContainerType {
   return (CONTAINER_TYPES as readonly string[]).includes(type ?? "")
 }
-
-/**
- * Spacing in millimetres, so that it grows with a device's pixel density as
- * the size steps do. Tried on the Knob and the 4.3B at Checkpoint B
- * (2026-10-02, the user): a container keeps no distance of its own from
- * its edge - nested, each would indent its content again, and on the
- * Knob's 32 mm square that is room it does not have. 1.5 mm between
- * objects. (The screen's own 2 mm went with its layout,
- * docs/2026-10-03-free-screens.md.)
- */
-export const DEFAULT_CONTAINER_PADDING_MM = 0
-export const DEFAULT_GAP_MM = 1.5
 
 /**
  * What a layout needs to know of the device. Without millimetres in its
@@ -61,31 +47,6 @@ export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 // What a ring is drawn with when it has no track thickness of its own.
 const FALLBACK_RING_THICKNESS = 10
 
-function px(mm: number, scale: LayoutScale): number {
-  return Math.round(mm * scale.pixelsPerMm)
-}
-
-export function spacing(container: ScreenObject, scale: LayoutScale): { padding: number; gap: number } {
-  const props = container.properties ?? {}
-  return {
-    padding: px(typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_CONTAINER_PADDING_MM, scale),
-    gap: px(typeof props.gapMm === "number" ? props.gapMm : DEFAULT_GAP_MM, scale),
-  }
-}
-
-/**
- * What takes all the width it is given: a bar or slider (a length has no
- * natural size), and what is structure - a container, a switcher. Everything
- * else is only as wide as it needs (decided with the user 2026-10-02):
- * placed at the start of its cell or stack, not stretched.
- */
-export function fills(obj: ScreenObject): boolean {
-  // A table put together by snapping is as large as its content, always
-  // (docs/2026-10-09-snap-tables.md).
-  if (isSnapTable(obj)) return false
-  return obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || isContainerType(obj.type)
-}
-
 /**
  * How wide an object needs to be: a text as wide as its words, in its font
  * (decided with the user 2026-10-02, not as wide as it was drawn); a switch,
@@ -93,9 +54,8 @@ export function fills(obj: ScreenObject): boolean {
  * else as wide as it is.
  */
 export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
-  // A table as its columns need (lib/snap-table.ts, lib/table.ts).
+  // A table as its columns need (lib/snap-table.ts).
   if (isSnapTable(obj)) return arrangeSnapTable(obj, scale).width
-  if (obj.type === TABLE_TYPE) return tableNaturalWidth(obj, scale)
   // A switcher as wide as the widest of its panels' content, so it stands in
   // a table put together by snapping no wider than what it shows; one with
   // nothing in its panels as wide as it is.
@@ -115,18 +75,6 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
 }
 
 /**
- * How narrow an object can be: a switch, button group or button no narrower
- * than its labels need - one too wide for its room sticks out and its
- * container says so, rather than its labels being cut (the user,
- * Checkpoint B). Anything else can be as narrow as it is given.
- */
-export function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
-  if (isSnapTable(obj)) return arrangeSnapTable(obj, scale).width
-  if (obj.type === TABLE_TYPE) return tableMinimumWidth(obj, scale)
-  return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
-}
-
-/**
  * A child given a width by its container, with the height that follows: a
  * ring keeps its diameter, but never more than the room (on the grid of its
  * track, as the size scale puts it - snapDiameter, rounded down here, so it
@@ -143,14 +91,7 @@ export function fit(child: ScreenObject, width: number, scale: LayoutScale): Scr
   if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)
   // A group keeps the box around its pieces (normalizeGroups).
   if (child.type === "group") return layoutOne(child, scale)
-  const laid = layoutOne({ ...child, width }, scale)
-  if (laid.type === TABLE_TYPE) {
-    // Grown to its content, it is too small only if it is too narrow.
-    const { overflow: _measuredAtOldHeight, ...properties } = laid.properties ?? {}
-    if ((properties.contentWidth ?? 0) > width) properties.overflow = true
-    return { ...laid, height: properties.contentHeight ?? laid.height, properties }
-  }
-  return laid
+  return layoutOne({ ...child, width }, scale)
 }
 
 // A switcher in a container: as tall as the tallest of its panels' content,
@@ -180,20 +121,6 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
 }
 
 /**
- * Writes what a container's content takes, and whether it is more than the
- * container has. A container inside another grows to its content; the
- * outermost keeps its size, and content that does not fit is drawn as it
- * falls and cut where the screen ends - marked here, never shrunk.
- */
-export function measured(container: ScreenObject, children: ScreenObject[], contentWidth: number, contentHeight: number): ScreenObject {
-  const overflow = contentHeight > container.height || contentWidth > container.width
-  const properties: Record<string, any> = { ...container.properties, contentHeight, contentWidth }
-  if (overflow) properties.overflow = true
-  else delete properties.overflow
-  return { ...container, children, properties }
-}
-
-/**
  * Every container in `objects` laid out, at any depth - in a group, in a
  * switcher's panel, in another container. Objects outside a container, and
  * those in `free`, keep their own geometry.
@@ -207,18 +134,6 @@ function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
   // A table put together by snapping: what it holds laid out first (a
   // switcher's panels, a free area's tables), then placed in its cells.
   if (isSnapTable(obj)) return arrangeSnapTable({ ...obj, children: layoutObjects(obj.children ?? [], scale) }, scale)
-  // A table even when empty: its rows still take room. It ends with its
-  // last row wherever it stands - a free-standing one kept the height it
-  // was drawn with, and its frame ended in the middle of appended rows
-  // (reported 2026-10-03) - so only its width can be too small.
-  if (obj.type === TABLE_TYPE) {
-    const laid = arrangeTable(obj, scale)
-    const height = laid.properties?.contentHeight ?? laid.height
-    const properties: Record<string, any> = { ...laid.properties }
-    if ((properties.contentWidth ?? 0) > laid.width) properties.overflow = true
-    else delete properties.overflow
-    return { ...laid, height, properties }
-  }
   if (!obj.children || obj.children.length === 0) return obj
   return { ...obj, children: layoutObjects(obj.children, scale) }
 }

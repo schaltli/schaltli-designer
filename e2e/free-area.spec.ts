@@ -27,7 +27,7 @@ async function tableProject(extra: Obj[] = []): Promise<string> {
       width: 384,
       height: 284,
       zIndex: 1,
-      properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 },
+      properties: { grid: 1, columns: [{}, {}], rows: [{}, {}] },
       children: [
         {
           id: "links",
@@ -49,14 +49,16 @@ async function tableProject(extra: Obj[] = []): Promise<string> {
   return out
 }
 
-async function savedTable(page: Page): Promise<Obj> {
+async function savedScreen(page: Page): Promise<Obj[]> {
   await page.getByRole("button", { name: "File" }).click()
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
   const chunks: Buffer[] = []
   for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
   const project = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
-  return project.screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "outer")
+  return project.screens.find((s: Obj) => s.id === "screen-1").objects
 }
+// The table put together by snapping the screen holds (tableProject).
+const savedTable = async (page: Page): Promise<Obj> => (await savedScreen(page)).find((o: Obj) => o.id === "outer")
 
 async function clickAt(page: Page, x: number, y: number, dbl = false) {
   const { box } = await getMainCanvas(page)
@@ -75,15 +77,15 @@ async function dragOn(page: Page, from: [number, number], to: [number, number]) 
   await page.mouse.up()
 }
 
-test("the Free tool places an area into an empty cell, with a box's look in its properties", async ({ page }) => {
+test("the Free tool places an area where it is clicked, with a box's look in its properties", async ({ page }) => {
   await loadProject(page, await tableProject())
   await page.getByRole("button", { name: "Free", exact: true }).first().click()
-  // Row 0, column 1 of the table: empty.
-  await clickAt(page, 300, 20)
-  const table = await savedTable(page)
-  const free = (table.children as Obj[]).find((o) => o.type === "free")!
+  // Below the table, far from it: free on the screen.
+  await clickAt(page, 300, 240)
+  const objects = await savedScreen(page)
+  const free = objects.find((o) => o.type === "free")!
   expect(free).toBeTruthy()
-  expect(free.properties.cell).toEqual({ row: 0, column: 1 })
+  expect(free.properties.cell).toBeUndefined()
   // Its properties: the look of a Box.
   await objectTreeRow(page, free.id).click()
   for (const id of ["#strokeWidth", "#cornerRadius"]) await expect(page.locator(id)).toBeVisible()

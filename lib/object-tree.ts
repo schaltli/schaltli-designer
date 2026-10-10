@@ -10,6 +10,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
+import { isSnapTable } from "@/lib/snap-table"
 
 export function findObjectById(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
@@ -168,7 +169,10 @@ export function canDropAsChildOf(objects: ScreenObject[], draggedId: string, new
   if (newParentId === null) return true
   const parent = findObjectById(objects, newParentId)
   if (parent?.type === "group") return dragged.type !== "switcher"
-  // A layout container takes anything a screen takes (docs/2026-10-02-layout.md).
+  // A table put together by snapping takes an object through a cell only,
+  // on the canvas (docs/2026-10-09-snap-tables.md); a free area takes
+  // anything a screen takes (docs/2026-10-02-layout.md).
+  if (parent && isSnapTable(parent)) return false
   if (parent && isContainerType(parent.type)) return true
   return parent?.type === "panel"
 }

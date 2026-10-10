@@ -67,9 +67,7 @@ import {
 } from "@/lib/object-groups"
 import { FALLBACK_SCALE, layoutProject } from "@/lib/layout"
 import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
-import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
-import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
+
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -908,12 +906,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [isResizingRightPanel])
   const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row">("select")
-  // The shape the Table tool draws (docs/2026-10-03-free-screens.md).
-  const [tableShape, setTableShape] = useState<TableShapeId>(DEFAULT_TABLE_SHAPE)
-  const selectTableShape = useCallback((shape: TableShapeId) => {
-    setTableShape(shape)
-    setActiveTool("table")
-  }, [])
   // The row the Row tool carries (docs/2026-10-09-snap-tables.md, module
   // snap-table-rows).
   const [rowTemplate, setRowTemplate] = useState<RowTemplate>("icon-label-switch")
@@ -1663,7 +1655,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     if (id === null) {
       setSelectedObjectIds([])
-      setChosenCell(null)
       setFocusedHardwareButton(null)
       return
     }
@@ -1689,15 +1680,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const onSelectObjects = useCallback((ids: string[]) => {
     setSelectedObjectIds(ids)
   }, [])
-
-  // The empty cell a click picked (docs/2026-10-03-table-editing.md): the
-  // cell in context while nothing is selected. Selecting an object, Esc, a
-  // click outside every table or another screen leave it.
-  const [chosenCell, setChosenCell] = useState<{ tableId: string; row: number; column: number } | null>(null)
-  useEffect(() => {
-    if (selectedObjectIds.length > 0) setChosenCell(null)
-  }, [selectedObjectIds])
-  useEffect(() => setChosenCell(null), [currentScreenId])
 
   // A text or level label that names a topic the project does not declare
   // gets it declared - as a block does with its own - so the device, which
@@ -1857,7 +1839,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     (
       object: Omit<ScreenObject, "id" | "zIndex">,
       parentId?: string,
-      at?: { table: TableDrop } | { snap: SnapDrop },
+      at?: { snap: SnapDrop },
     ) => {
       // Drawn where a table put together by snapping takes it: added, then
       // snapped there as if dragged (docs/2026-10-09-snap-tables.md).
@@ -1881,43 +1863,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           }
         })
         setEditingContainerId(drop.kind === "table" ? drop.tableId : newTableId)
-        setSelectedObjectIds([id])
-        setJustCreatedId(id)
-        return
-      }
-      // Into a table's cell, a new row inserted first when it was a row line
-      // (lib/table.ts, docs/2026-10-02-layout-tables.md).
-      if (at && "table" in at) {
-        const drop = at.table
-        const id = `obj-${project.nextId}`
-        setProject((prev) => ({
-          ...prev,
-          nextId: prev.nextId + 1,
-          screens: prev.screens.map((screen) => {
-            if (screen.id !== currentScreenId) return screen
-            const into = (children: ScreenObject[]): ScreenObject[] => {
-              const moved = drop.insertRow ? insertRowAt(children, drop.row) : children
-              const placed = {
-                ...object,
-                id,
-                zIndex: Math.max(0, ...moved.map((o) => o.zIndex)) + 1,
-                properties: { ...object.properties, cell: { row: drop.row, column: drop.column } },
-              } as ScreenObject
-              return [...moved, placed]
-            }
-            const rows = (properties: Record<string, any> | undefined, before: ScreenObject[], after: ScreenObject[]) => ({
-              ...properties,
-              rows: rowsAfterInsert(properties?.rows, before, drop.row, drop.insertRow ? 1 : 0, after),
-            })
-            const table = findObjectById(screen.objects, drop.tableId)
-            if (!table) return screen
-            const after = into(table.children ?? [])
-            return {
-              ...screen,
-              objects: updateObjectById(screen.objects, drop.tableId, { children: after, properties: rows(table.properties, table.children ?? [], after) }),
-            }
-          }),
-        }))
         setSelectedObjectIds([id])
         setJustCreatedId(id)
         return
@@ -2013,53 +1958,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // topics they bind to where the project does not have them yet - an object
   // bound to a topic the project never declares is one the device never
   // subscribes to - with what the broker holds as the first example.
-  // A block's table put into a table: merged at a row line - its cells into
-  // the target's columns (lib/table.ts mergedRows), as many rows inserted as
-  // it needs - or nested in an empty cell. Fresh ids at every depth; what it
-  // brought ends up selected.
-  const placeBlockInTable = useCallback(
-    (block: Omit<ScreenObject, "id" | "zIndex">, drop: TableDrop) => {
-      const created: string[] = []
-      setProject((prev) => {
-        created.length = 0
-        const screen = prev.screens.find((s) => s.id === currentScreenId)
-        if (!screen) return prev
-        let nextId = prev.nextId
-        const fresh = (object: Omit<ScreenObject, "id" | "zIndex">, zIndex: number, cell: { row: number; column: number }) => {
-          const made = withFreshIds({ ...object, id: "", zIndex, properties: { ...object.properties, cell } } as ScreenObject, nextId)
-          nextId = made.nextId
-          created.push(made.object.id)
-          return made.object
-        }
-        const targetChildren = findObjectById(screen.objects, drop.tableId)?.children ?? []
-        const targetColumns = columnsOf(findObjectById(screen.objects, drop.tableId)!).length
-        let z = Math.max(0, ...targetChildren.map((o) => o.zIndex))
-        let children = targetChildren
-        let added = 0
-        if (drop.insertRow) {
-          const rows = mergedRows(block, targetColumns)
-          added = Math.max(...rows.map((r) => r.row)) + 1
-          for (let i = 0; i < added; i++) children = insertRowAt(children, drop.row)
-          children = [...children, ...rows.map((r) => fresh(r.object, ++z, { row: drop.row + r.row, column: r.column }))]
-        } else {
-          children = [...children, fresh(block, ++z, { row: drop.row, column: drop.column })]
-        }
-        const grow = (properties: Record<string, any> | undefined) => ({
-          ...properties,
-          rows: rowsAfterInsert(properties?.rows, targetChildren, drop.row, added, children),
-        })
-        const screens = prev.screens.map((s) => {
-          if (s.id !== currentScreenId) return s
-          const table = findObjectById(s.objects, drop.tableId)!
-          return { ...s, objects: updateObjectById(s.objects, drop.tableId, { children, properties: grow(table.properties) }) }
-        })
-        return { ...prev, nextId, screens }
-      })
-      setSelectedObjectIds(created)
-    },
-    [currentScreenId, setProject],
-  )
-
   // An armed block built for `rect`: its objects as placed - styled, at M
   // where the device gives a scale - and `register`, which adds the topics
   // and icons it brings to the project.
@@ -2167,30 +2065,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [addObjects],
   )
 
-  const startBaustein = useCallback(
-    (
-      rect: { x: number; y: number; width: number; height: number },
-      parentId?: string,
-      at?: { table: TableDrop },
-    ) => {
-      const armed = armedBlock
-      setArmedBlock(null)
-      if (!armed) return
-      const { built, stepped, register } = buildArmed(armed, rect)
-      register()
-      // Into a table (tables Task 8): on a row line merged into the table's
-      // rows, into an empty cell nested there as a small table.
-      if (at && "table" in at) {
-        placeBlockInTable(blockTable({ ...built, objects: stepped }), at.table)
-        return
-      }
-      // On a free screen or area: a small table of its own, what ends up
-      // selected (docs/2026-10-02-layout-tables.md).
-      addObjects([blockTable({ ...built, objects: stepped })], parentId)
-    },
-    [addObjects, armedBlock, buildArmed, placeBlockInTable],
-  )
-
   // Adds a new panel to a tab-control and immediately opens it for editing
   // (sets editingContainerId + selects the new panel) - a plain addObject()
   // call can't do the "select what you just created" part here, since it
@@ -2241,222 +2115,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setSelectedObjectIds((prev) => prev.filter((id) => id !== objectId))
     },
     [currentScreenId],
-  )
-
-  // Backs the object tree's drag-and-drop (reparent + z-order). The tree
-  // already validated the drop against canDropAsChildOf before calling this
-  // - this just performs the move. Moving something out of the panel
-  // currently open for editing (or moving the tab-control/panel being
-  // edited itself) would leave editingContainerId pointing at a now-stale
-  // relationship, so clear it defensively; the user can re-open editing via
-  // the tab strip if they're still working on that panel.
-  // A table's own properties - its columns, its rows. One undo step each.
-  const setTableProperties = useCallback(
-    (tableId: string, updates: Record<string, unknown>) => {
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => {
-          if (screen.id !== currentScreenId) return screen
-          const table = findObjectById(screen.objects, tableId)
-          return table ? { ...screen, objects: updateObjectById(screen.objects, tableId, { properties: { ...table.properties, ...updates } }) } : screen
-        }),
-      }))
-    },
-    [currentScreenId, setProject],
-  )
-
-  // A table's column chosen by the strip above it on the canvas: the table
-  // selected, the column shown in the property panel for as long as that
-  // selection stands.
-  const [tableColumnChoice, setTableColumnChoice] = useState<{ tableId: string; index: number; selection: string } | null>(null)
-  const selectTableColumn = useCallback((tableId: string, index: number) => {
-    const selection = [tableId]
-    setSelectedObjectIds(selection)
-    setTableColumnChoice({ tableId, index, selection: selection.join(",") })
-  }, [])
-  const tableColumn = useMemo(() => {
-    if (!tableColumnChoice || tableColumnChoice.selection !== selectedObjectIds.join(",")) return null
-    const table = findObjectById(currentScreen.objects, tableColumnChoice.tableId)
-    const columns = table ? columnsOf(table) : []
-    return tableColumnChoice.index < columns.length ? { columns, index: tableColumnChoice.index } : null
-  }, [tableColumnChoice, selectedObjectIds, currentScreen])
-  const setTableColumns = useCallback(
-    (columns: TableColumn[]) => {
-      if (tableColumnChoice) setTableProperties(tableColumnChoice.tableId, { columns })
-    },
-    [tableColumnChoice, setTableProperties],
-  )
-  // The chosen column removed; its objects go to the first empty cells.
-  const removeTableColumn = useCallback(() => {
-    if (!tableColumnChoice) return
-    const { tableId, index } = tableColumnChoice
-    setProject((prev) => ({
-      ...prev,
-      screens: prev.screens.map((screen) => {
-        if (screen.id !== currentScreenId) return screen
-        const table = findObjectById(screen.objects, tableId)
-        if (!table) return screen
-        const out = removeColumn(columnsOf(table), table.children ?? [], index)
-        return { ...screen, objects: updateObjectById(screen.objects, tableId, { children: out.children, properties: { ...table.properties, columns: out.columns } }) }
-      }),
-    }))
-    setTableColumnChoice(null)
-  }, [tableColumnChoice, currentScreenId, setProject])
-
-  // Where the Table group works (docs/2026-10-03-table-editing.md): the
-  // table in context, the cell in it and the object standing there - an
-  // empty cell picked, an object in a table selected, or a table selected.
-  const tableContext = useMemo(() => {
-    const objects = currentScreen.objects
-    if (selectedObjectIds.length === 0 && chosenCell) {
-      if (!findObjectById(objects, chosenCell.tableId)) return null
-      const cell = { row: chosenCell.row, column: chosenCell.column }
-      return { tableId: chosenCell.tableId, cell, objectId: null as string | null, path: tablePath(objects, chosenCell.tableId) }
-    }
-    if (selectedObjectIds.length !== 1) return null
-    const id = selectedObjectIds[0]
-    const obj = findObjectById(objects, id)
-    if (!obj) return null
-    // The ribbon's Table group serves the old table only; one put together
-    // by snapping has none (docs/2026-10-09-snap-tables.md).
-    if (isOldTable(obj)) return { tableId: id, cell: null, objectId: null as string | null, path: tablePath(objects, id) }
-    const parent = findParentOf(objects, id)?.parent ?? null
-    if (!isOldTable(parent)) return null
-    const cell = cellOf(obj)
-    return {
-      tableId: parent.id,
-      cell: cell ? { row: cell.row, column: cell.column } : null,
-      objectId: id as string | null,
-      path: tablePath(objects, id),
-    }
-  }, [currentScreen, selectedObjectIds, chosenCell])
-
-  // A table's columns, rows and objects.
-  const tableParts = useCallback((screen: ProjectScreen, tableId: string) => {
-    const table = findObjectById(screen.objects, tableId)
-    if (!table) return null
-    const children = table.children ?? []
-    return { columns: columnsOf(table), rows: Math.max((table.properties?.rows as number | undefined) ?? 1, usedRows(children)), children }
-  }, [])
-
-  // What a command makes of a table; null where it cannot do anything.
-  const applyTableCommand = useCallback(
-    (
-      parts: { columns: TableColumn[]; rows: number; children: ScreenObject[] },
-      command: TableCommand,
-      context: { cell: { row: number; column: number } | null; objectId: string | null },
-    ): { columns: TableColumn[]; rows: number; children: ScreenObject[] } | null => {
-      const { columns, rows, children } = parts
-      // Without a cell, the last row and the last column.
-      const standing = context.objectId ? children.find((child) => child.id === context.objectId) : undefined
-      const span = standing ? cellOf(standing) : undefined
-      const row = context.cell?.row ?? rows - 1
-      const column = context.cell?.column ?? columns.length - 1
-      const rowsDown = span?.rowSpan ?? 1
-      const columnsRight = span?.columnSpan ?? 1
-      switch (command) {
-        case "row-above":
-          return { columns, rows: rows + 1, children: insertRowAt(children, row) }
-        case "row-below":
-          return { columns, rows: rows + 1, children: insertRowAt(children, row + rowsDown) }
-        case "delete-row": {
-          if (rows <= 1) return null
-          const out = deleteRow(children, rows, row)
-          return { columns, rows: out.rows, children: out.children }
-        }
-        case "column-left": {
-          const out = insertColumnAt(columns, children, column)
-          return { columns: out.columns, rows, children: out.children }
-        }
-        case "column-right": {
-          const out = insertColumnAt(columns, children, column + columnsRight)
-          return { columns: out.columns, rows, children: out.children }
-        }
-        case "delete-column": {
-          if (columns.length <= 1) return null
-          const out = removeColumn(columns, children, column)
-          return { columns: out.columns, rows, children: out.children }
-        }
-        case "merge-right":
-        case "merge-down": {
-          if (!context.objectId) return null
-          const out = mergeCell(children, context.objectId, command === "merge-right" ? "right" : "down", columns.length, rows)
-          return out ? { columns, rows, children: out } : null
-        }
-        case "split":
-          if (!context.objectId || !span || (rowsDown === 1 && columnsRight === 1)) return null
-          return { columns, rows, children: splitCell(children, context.objectId) }
-      }
-    },
-    [],
-  )
-
-  const tableCommandsEnabled = useMemo(() => {
-    const all: TableCommand[] = ["row-above", "row-below", "delete-row", "column-left", "column-right", "delete-column", "merge-right", "merge-down", "split"]
-    const parts = tableContext ? tableParts(currentScreen, tableContext.tableId) : null
-    return Object.fromEntries(all.map((command) => [command, !!(parts && tableContext && applyTableCommand(parts, command, tableContext))])) as Record<TableCommand, boolean>
-  }, [tableContext, currentScreen, tableParts, applyTableCommand])
-
-  // One command, one undo step.
-  const runTableCommand = useCallback(
-    (command: TableCommand) => {
-      if (!tableContext) return
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => {
-          if (screen.id !== currentScreenId) return screen
-          const parts = tableParts(screen, tableContext.tableId)
-          const out = parts && applyTableCommand(parts, command, tableContext)
-          if (!out) return screen
-          const table = findObjectById(screen.objects, tableContext.tableId)!
-          return {
-            ...screen,
-            objects: updateObjectById(screen.objects, tableContext.tableId, { children: out.children, properties: { ...table.properties, columns: out.columns, rows: out.rows } }),
-          }
-        }),
-      }))
-    },
-    [tableContext, currentScreenId, setProject, tableParts, applyTableCommand],
-  )
-
-  // A row or a column inserted at a line by the «+» at its end: one undo step.
-  const insertTableLine = useCallback(
-    (tableId: string, kind: "row" | "column", index: number) => {
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => {
-          if (screen.id !== currentScreenId) return screen
-          const parts = tableParts(screen, tableId)
-          if (!parts) return screen
-          const out =
-            kind === "row"
-              ? { columns: parts.columns, rows: parts.rows + 1, children: insertRowAt(parts.children, index) }
-              : { rows: parts.rows, ...insertColumnAt(parts.columns, parts.children, index) }
-          const table = findObjectById(screen.objects, tableId)!
-          return { ...screen, objects: updateObjectById(screen.objects, tableId, { children: out.children, properties: { ...table.properties, columns: out.columns, rows: out.rows } }) }
-        }),
-      }))
-    },
-    [currentScreenId, setProject, tableParts],
-  )
-
-  // A level of the path picked: that table selected.
-  const selectTableLevel = useCallback((tableId: string) => onSelectObject(tableId), [onSelectObject])
-
-  // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
-  // cell someone else holds refuses them, and nothing moves.
-  const moveToTable = useCallback(
-    (objectIds: readonly string[], drop: TableDrop) => {
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => {
-          if (screen.id !== currentScreenId) return screen
-          const moved = moveIntoTable(screen.objects, objectIds, drop)
-          return moved ? { ...screen, objects: moved.objects } : screen
-        }),
-      }))
-    },
-    [currentScreenId, setProject],
   )
 
   // A dragged object let go near a table put together by snapping or a free
@@ -2559,6 +2217,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreen.objects, currentScreenId, project.nextId, setProject],
   )
 
+  // Backs the object tree's drag-and-drop (reparent + z-order). The tree
+  // already validated the drop against canDropAsChildOf before calling this
+  // - this just performs the move. Moving something out of the panel
+  // currently open for editing (or moving the tab-control/panel being
+  // edited itself) would leave editingContainerId pointing at a now-stale
+  // relationship, so clear it defensively; the user can re-open editing via
+  // the tab strip if they're still working on that panel.
   const moveObject = useCallback(
     // One object or several - a selection dragged on the canvas or in the
     // object tree moves as a whole, in the order it stood in.
@@ -2573,12 +2238,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // space. A panel only ever reorders within its own switcher.
           let objects = screen.objects
           const movable = movedTogether(objects, ids).filter((id) => canDropAsChildOf(screen.objects, id, newParentId))
-          // Out of a table into something else, an object's cell means
-          // nothing any more (lib/table.ts).
-          const intoTable = newParentId !== null && findObjectById(objects, newParentId)?.type === TABLE_TYPE
+          // Out of a table, an object's cell means nothing any more: no
+          // table takes a drop here (lib/object-tree.ts canDropAsChildOf).
           for (const objectId of movable) {
             const found = findObjectById(objects, objectId)
-            if (found?.properties?.cell && !intoTable) {
+            if (found?.properties?.cell) {
               const { cell: _cell, ...properties } = found.properties
               objects = updateObjectById(objects, objectId, { properties })
             }
@@ -3774,20 +3438,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       ? (findObjectById(currentScreen.objects, targetParentId)?.children ?? [])
       : currentScreen.objects
     const origin = childOrigin(currentScreen.objects, targetParentId)
-    // An old table open keeps the old rule: a pasted object's cell goes with it.
-    const intoOldTable = isOldTable(openContainer)
     const pastedIds: string[] = []
-    // In a table, as in Word (asked 2026-10-03): an empty cell picked takes
-    // the copy; over an object in a table it goes into a new row below it.
-    // Several copied from one table keep their cells relative to each other
-    // (lib/table.ts moveIntoTable). Where they do not fit, pasted as before.
-    const intoTable: TableDrop | null = (() => {
-      if (!tableContext?.cell) return null
-      if (!tableContext.objectId) return { tableId: tableContext.tableId, row: tableContext.cell.row, column: tableContext.cell.column, insertRow: false }
-      const standing = findObjectById(currentScreen.objects, tableContext.objectId)
-      const below = tableContext.cell.row + ((standing && cellOf(standing)?.rowSpan) ?? 1)
-      return { tableId: tableContext.tableId, row: below, column: tableContext.cell.column, insertRow: true }
-    })()
 
     setProject((prev) => {
       let currentNextId = prev.nextId
@@ -3806,12 +3457,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const shift = obj.type === "panel" ? { x: 20, y: 20 } : { x: 20 - origin.x, y: 20 - origin.y }
         const moved = translateObject(fresh.object, shift.x, shift.y)
         // Copied out of a table, an object pastes free: its cell means
-        // nothing where it lands (an old table's cell paste aside). What a
-        // copied table holds keeps its cells.
+        // nothing where it lands. What a copied table holds keeps its cells.
         const { cell: _cell, ...uncelled } = moved.properties ?? {}
         const newObject: ScreenObject = {
           ...moved,
-          ...(intoTable || intoOldTable || !moved.properties?.cell ? {} : { properties: uncelled }),
+          ...(!moved.properties?.cell ? {} : { properties: uncelled }),
           zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + pastedObjects.length + 1,
         }
         pastedObjects.push(newObject)
@@ -3823,10 +3473,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         nextId: currentNextId, // Update nextId after creating all pasted objects
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
-          if (intoTable) {
-            const placed = moveIntoTable([...screen.objects, ...pastedObjects], pastedIds, intoTable)
-            if (placed) return { ...screen, objects: placed.objects }
-          }
           if (targetParentId) {
             let newObjects = screen.objects
             for (const obj of pastedObjects) {
@@ -3841,7 +3487,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     if (leavesTable) setEditingContainerId(targetParentId)
     // Select the pasted objects
     setSelectedObjectIds([...pastedIds])
-  }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject, tableContext])
+  }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject])
 
   // Ctrl+G: the selection becomes one group, in the place of its frontmost
   // object, and the group is what is selected afterwards. One setProject, so
@@ -4034,7 +3680,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // - so whatever was selected lets go.
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedObjectIds([])
-    setChosenCell(null)
     setFocusedHardwareButton({ id: button.id, key: Date.now() })
   }, [])
 
@@ -4331,15 +3976,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               supportedObjectTypes={project.settings.supportedObjectTypes}
               navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
             />
-            {tableContext && (
-              <TableGroup
-                path={tableContext.path}
-                cell={tableContext.cell}
-                enabled={tableCommandsEnabled}
-                onSelectLevel={selectTableLevel}
-                onCommand={runTableCommand}
-              />
-            )}
           </div>
         )}
 
@@ -4388,24 +4024,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onZoomChange={setCanvasZoom}
             onOffsetChange={setCanvasOffset}
             activeTool={activeTool}
-            tableShape={tableShape}
             onAddObject={addObject}
             onMoveObject={moveObject}
-            onMoveToTable={moveToTable}
             onSnapDrop={snapDrop}
             onSnapMoveOut={snapMoveOut}
             rowTemplate={rowTemplate}
             onInsertRow={insertRow}
             onBlockCarry={armedBlockCarry}
             onPlaceBlockTable={placeBlockTable}
-            onSetTableProperties={setTableProperties}
-            onSelectTableColumn={selectTableColumn}
-            chosenTableColumn={tableColumnChoice}
-            chosenCell={chosenCell}
-            onSelectCell={setChosenCell}
-            tableCommandsEnabled={tableContext ? tableCommandsEnabled : null}
-            onTableCommand={runTableCommand}
-            onInsertTableLine={insertTableLine}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}
@@ -4447,7 +4073,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             canGroup={canGroupSelection}
             canUngroup={canUngroupSelection}
             previewMode={isPreviewMode}
-            onInsertBaustein={startBaustein}
             onPreviewButtonAction={handlePreviewButtonAction}
             onPreviewPublish={handlePreviewPublish}
             onPreviewAsk={handlePreviewAsk}
@@ -4512,7 +4137,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   selectedObjectIds={selectedObjectIds}
                   onSelectObject={onSelectObject}
                   onMoveObject={moveObject}
-            onMoveToTable={moveToTable}
                   onSetEditingContainer={setEditingContainerId}
                   onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
                 />
@@ -4544,9 +4168,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
                     onSetScreenTypography={setCurrentScreenTypography}
-                    tableColumn={tableColumn}
-                    onSetTableColumns={setTableColumns}
-                    onRemoveTableColumn={removeTableColumn}
                     typographies={project.settings.typographies}
                     projectAssets={project.assets}
                     onAddAsset={addAsset}

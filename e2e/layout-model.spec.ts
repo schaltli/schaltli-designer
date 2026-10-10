@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, naturalWidth, isContainerType, layoutProject } from "../lib/layout"
-import { TABLE_GAP_MM } from "../lib/table"
+import { SNAP_GAP_MM as TABLE_GAP_MM } from "../lib/snap-table"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
@@ -13,10 +13,10 @@ import fs from "node:fs"
 import path from "node:path"
 
 // The layout pass on its own, no browser (docs/2026-10-02-layout.md, as
-// amended by docs/2026-10-02-layout-tables.md): what it leaves alone, what
-// takes its height from the width it gets, containers drawn and dissolved,
-// old projects, a master's content area. The table's own rules are
-// e2e/table-model.spec.ts's.
+// amended by docs/2026-10-09-snap-tables.md): what it leaves alone, what
+// takes its height from what it holds, containers drawn and dissolved, old
+// projects, a master's content area. The table's own rules are
+// e2e/snap-table-model.spec.ts's.
 
 const SCALE = { pixelsPerMm: 5 }
 // A screen's table kept 2 mm from its edge (lib/free-screens.ts).
@@ -30,13 +30,13 @@ function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): Sc
   return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, zIndex: ids, ...fields, properties: { ...padded, ...fields.properties } }
 }
 
-/** A table of one column, its children one per row - what a stack was. */
+/** A table put together by snapping, of one column, its children one per row. */
 function column(fields: Partial<ScreenObject>, children: ScreenObject[]): ScreenObject {
-  return obj("table", {
-    ...fields,
-    properties: { columns: [{ width: { share: 100 } }], ...fields.properties },
+  return {
+    ...obj("table", fields),
+    properties: { grid: 1, columns: [{}], rows: children.map(() => ({})) },
     children: children.map((c, row) => ({ ...c, properties: { ...c.properties, cell: { row, column: 0 } } })),
-  })
+  }
 }
 
 /** A text with words, so it has a width of its own. */
@@ -59,12 +59,13 @@ test.describe("layout: what it leaves alone", () => {
     expect(laid.children![0]).toEqual(placed)
   })
 
-  test("objects outside a container are untouched, and a stack deep inside a group is laid out", () => {
+  test("objects outside a container are untouched, and a table deep inside a group is laid out", () => {
     const loose = obj("text", { x: 7, y: 8 })
-    const deep = column({ width: 100 }, [obj("bar")])
+    const deep = column({ width: 100 }, [obj("bar", { x: 30, y: 30 })])
     const [same, group] = layoutObjects([loose, obj("group", { children: [deep] })], SCALE)
     expect(same).toEqual(loose)
-    expect(group.children![0].children![0]).toMatchObject({ x: PAD, y: PAD, width: 100 - 2 * PAD })
+    expect(group.children![0].children![0]).toMatchObject({ x: 0, y: 0, width: 50 })
+    expect(group.children![0].width).toBe(50)
   })
 
   test("no device has to draw a container: they are left out of the types a project uses", () => {
@@ -92,34 +93,31 @@ test.describe("layout: what it leaves alone", () => {
 })
 
 test.describe("layout: what takes its height from the width it gets", () => {
-  test("a ring keeps its diameter, never more than the room, on its track's grid", () => {
-    const room = 200 - 2 * PAD
+  test("a ring keeps its diameter in a table, on its track's grid", () => {
     const place = (diameter: number) =>
-      layoutObjects([column({ width: 200 }, [obj("dial", { width: diameter, height: diameter, properties: { thickness: 12 } })])], SCALE)[0].children![0]
+      layoutObjects([column({}, [obj("dial", { width: diameter, height: diameter, properties: { thickness: 12 } })])], SCALE)[0].children![0]
     expect(place(96)).toMatchObject({ width: 96, height: 96 })
-    const big = place(500)
-    expect(big.width).toBe(big.height)
-    expect(big.width % 24).toBe(0)
-    expect(big.width).toBeLessThanOrEqual(room)
-    expect(big.width).toBeGreaterThan(room - 24)
+    const odd = place(100)
+    expect(odd.width).toBe(odd.height)
+    expect(odd.width).toBe(96)
   })
 
-  test("a switcher as tall as its tallest panel, every panel at its width", () => {
-    const short = obj("panel", { children: [column({}, [obj("text", { height: 20 })])] })
-    const tall = obj("panel", { children: [column({}, [obj("text", { height: 20 }), obj("text", { height: 50 })])] })
+  test("a switcher as tall as its tallest panel, as wide as its widest, every panel and the table in it at its width", () => {
+    const short = obj("panel", { children: [column({}, [obj("box", { width: 40, height: 20 })])] })
+    const tall = obj("panel", { children: [column({}, [obj("box", { width: 30, height: 20 }), obj("box", { width: 30, height: 50 })])] })
     const switcher = obj("switcher", { height: 5, children: [short, tall] })
-    const [laid] = layoutObjects([column({ width: 200 }, [switcher])], SCALE)
+    const [laid] = layoutObjects([column({}, [switcher])], SCALE)
     const placed = laid.children![0]
-    expect(placed.width).toBe(200 - 2 * PAD)
-    expect(placed.height).toBe(2 * PAD + 20 + GAP + 50)
+    expect(placed.width).toBe(40)
+    expect(placed.height).toBe(20 + GAP + 50)
     for (const panel of placed.children!) expect(panel).toMatchObject({ x: 0, y: 0, width: placed.width, height: placed.height })
     expect(placed.children![1].children![0].width).toBe(placed.width)
   })
 
-  test("a free container in a stack: the stack's width, its own height", () => {
+  test("a free area in a table: its own size, what it holds where it was put", () => {
     const area = obj("free", { width: 10, height: 120, children: [obj("box", { x: 5, y: 5 })] })
-    const [laid] = layoutObjects([column({ width: 200 }, [area])], SCALE)
-    expect(laid.children![0]).toMatchObject({ width: 200 - 2 * PAD, height: 120 })
+    const [laid] = layoutObjects([column({}, [area])], SCALE)
+    expect(laid.children![0]).toMatchObject({ width: 10, height: 120 })
     expect(laid.children![0].children![0]).toMatchObject({ x: 5, y: 5 })
   })
 })
@@ -157,7 +155,7 @@ test.describe("layout: drawn and dissolved", () => {
     const { ctx, rects } = recordingContext()
     renderScreenObjects(ctx, [root], { fonts: [], projectAssets: [], topics: [], getPreviewValueFromTopic: () => "" } as never)
     expect(rects.length).toBeGreaterThan(0)
-    expect(rects[0]).toEqual({ x: 50 + PAD, y: 40 + PAD })
+    expect(rects[0]).toEqual({ x: 50, y: 40 })
   })
 
   test("dissolved for a device: no container left, every object where it was drawn, its stacking number its own", () => {
@@ -168,7 +166,7 @@ test.describe("layout: drawn and dissolved", () => {
     const screen = layoutObjects([
       obj("free", { x: 0, y: 0, width: 400, height: 300, children: [
         text,
-        column({ x: 10, y: 20, width: 200, height: 200 }, [toggle, obj("table", { children: [deep] })]),
+        column({ x: 10, y: 20, width: 200, height: 200 }, [toggle, column({}, [deep])]),
         obj("switcher", { x: 220, y: 30, width: 150, height: 100, children: [
           obj("panel", { children: [column({ width: 150, height: 100 }, [inPanel])] }),
         ] }),
@@ -188,10 +186,11 @@ test.describe("layout: drawn and dissolved", () => {
     const types = (list: ScreenObject[]): string[] => list.flatMap((o) => [o.type, ...types(o.children ?? [])])
     expect(types(flat).filter((t) => ["table", "free"].includes(t))).toEqual([])
     for (const [id, at] of Object.entries(expected)) expect(flat.find((o) => o.id === id)).toMatchObject(at)
-    // The switcher stays, its panel's stack dissolved into the panel, relative to the switcher.
+    // The switcher stays, its panel's table dissolved into the panel, relative to the switcher.
+    const panelTable = root.children![2].children![0].children![0]
     const switcher = flat.find((o) => o.type === "switcher")!
     expect(switcher).toMatchObject({ x: 220, y: 30 })
-    expect(switcher.children![0].children![0]).toMatchObject({ id: inPanel.id, x: PAD, y: PAD, zIndex: 2 })
+    expect(switcher.children![0].children![0]).toMatchObject({ id: inPanel.id, x: panelTable.x + panelTable.children![0].x, y: panelTable.y + panelTable.children![0].y, zIndex: 2 })
   })
 
   test("a screen wrapped in a free root dissolves to exactly what it was; one without containers to the same array", () => {

@@ -2,15 +2,16 @@
  * Screens are always free (docs/2026-10-03-free-screens.md): what a project
  * saved before that keeps of a screen's own layout, made objects.
  *
- * A screen whose root was a table gets one table object instead, where the
- * root laid its objects out - in its master's content area, the root's
- * padding in - with the root's columns and rows, so nothing moves. Then a
+ * A screen whose root laid out its objects - a table, a stack, a row, a
+ * grid - gets one old table object instead, where the root laid them out -
+ * in its master's content area, the root's padding in - which the load
+ * then dissolves (lib/table.ts dissolveOldTables), so nothing moves. Then a
  * screen's `layout` and a master's `contentArea` go: they no longer place
- * anything. Run on load (lib/object-types.ts migrateProject), after the
- * stacks and grids became tables; idempotent.
+ * anything. Run on load (lib/object-types.ts migrateProject); idempotent.
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { isOldRoot } from "@/lib/table"
 
 interface Area {
   x: number
@@ -70,7 +71,7 @@ export function migrateToFreeScreens(project: {
   const settings = (project.settings ?? {}) as { pixelsPerMm?: number; screenShape?: "rect" | "round" }
   const pixelsPerMm = settings.pixelsPerMm ?? FALLBACK_PIXELS_PER_MM
   for (const screen of screens) {
-    if (screen.layout?.type !== "table") continue
+    if (!screen.layout || !isOldRoot(screen.layout.type)) continue
     const area = rootArea(screen, screens, project.screenWidth ?? 0, project.screenHeight ?? 0, settings.screenShape)
     const { paddingMm, ...properties } = screen.layout.properties ?? {}
     const pad = Math.round((typeof paddingMm === "number" ? paddingMm : ROOT_PADDING_MM) * pixelsPerMm)

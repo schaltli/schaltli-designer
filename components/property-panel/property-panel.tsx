@@ -21,10 +21,10 @@ import { MultiSelectionProperties } from "./multi-selection-properties"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
-import { CellProperties, FreeProperties, TableColumnProperties, TableProperties } from "./table-properties"
+import { FreeProperties } from "./free-properties"
 import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties"
 import { isSnapTable } from "@/lib/snap-table"
-import { TABLE_TYPE, isOldTable, type TableColumn } from "@/lib/table"
+import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
 import { isPopup, type ScreenType } from "@/lib/popup"
@@ -56,10 +56,6 @@ function findParentTabControl(objects: ScreenObject[], panelId: string): ScreenO
 }
 
 interface PropertyPanelProps {
-  /** A table's column chosen on the canvas (the strip above it), with its table's columns. */
-  tableColumn?: { columns: TableColumn[]; index: number } | null
-  onSetTableColumns?: (columns: TableColumn[]) => void
-  onRemoveTableColumn?: () => void
   selectedObject: ScreenObject | null
   selectedObjects: ScreenObject[]
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
@@ -137,12 +133,6 @@ interface PropertyPanelProps {
   onUngroup?: () => void
 }
 
-// Whether the object stands in an old table's cell.
-function inTable(screen: { objects?: any[] } | undefined, id: string): boolean {
-  if (!screen) return false
-  return isOldTable(findParentOf(screen.objects ?? [], id)?.parent)
-}
-
 // Whether it stands in a table put together by snapping (docs/2026-10-09-snap-tables.md).
 function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
@@ -150,9 +140,9 @@ function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boole
 }
 
 /**
- * What a table sets for the object being shown (lib/table.ts): its place
- * and its width, when the object stands in a table's cell. Hidden in its
- * frame.
+ * What a table sets for the object being shown (lib/snap-table.ts): its
+ * place and its width, when the object stands in a table's cell. Hidden in
+ * its frame.
  */
 function layoutFrameLock(
   screen: { objects?: any[] } | undefined,
@@ -164,7 +154,7 @@ function layoutFrameLock(
   const placedBy = found.parent?.type
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x, y and width are the
-  // table's to work out, and not shown (docs/2026-10-02-layout-tables.md).
+  // table's to work out, and not shown (docs/2026-10-09-snap-tables.md).
   if (placedBy === TABLE_TYPE) {
     // A ring is the exception: its diameter is its own, up to the cell's
     // width (lib/layout.ts fit) - hidden, a dial placed small stayed small
@@ -200,9 +190,6 @@ export function PropertyPanel({
   onSetScreenTheme,
   typographies,
   onSetScreenTypography,
-  tableColumn,
-  onSetTableColumns,
-  onRemoveTableColumn,
   projectAssets,
   onAddAsset,
   topics,
@@ -307,13 +294,8 @@ export function PropertyPanel({
             />
           ) : selectedObject ? (
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
-              {tableColumn && (
-                <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
-              )}
-              {isOldTable(selectedObject) && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
-              {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 
@@ -514,9 +496,6 @@ export function PropertyPanel({
               Screen <span className="text-xs font-normal text-muted-foreground">{currentScreen?.name}</span>
             </h3>
           </div>
-          {tableColumn && (
-            <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
-          )}
           <ScreenProperties
             currentScreen={currentScreen}
             onUpdateScreenColors={onUpdateScreenColors}

@@ -27,8 +27,7 @@ import {
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
-import { cellOf, isOldTable, type TableDrop } from "@/lib/table"
-import { isSnapTable } from "@/lib/snap-table"
+import { isSnapTable, snapCellOf } from "@/lib/snap-table"
 import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
@@ -45,8 +44,6 @@ interface ObjectTreePanelProps {
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
-  /** Objects to a table's cell or a new row (lib/table.ts). */
-  onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
   // Opens a panel or a group for editing on the canvas (null: none) - see
   // project-editor.tsx's editingContainerId.
   onSetEditingContainer: (containerId: string | null) => void
@@ -97,7 +94,6 @@ export function ObjectTreePanel({
   selectedObjectIds,
   onSelectObject,
   onMoveObject,
-  onMoveToTable,
   onSetEditingContainer,
   onToggleLocked,
 }: ObjectTreePanelProps) {
@@ -211,41 +207,13 @@ export function ObjectTreePanel({
     [dragging],
   )
 
-  // Whether `parentId` is a table that takes drops in the tree (the screen
-  // never is; one put together by snapping takes them on the canvas only,
-  // docs/2026-10-09-snap-tables.md).
-  const isTable = useCallback(
-    (parentId: string | null): parentId is string => parentId !== null && isOldTable(findObjectById(objects, parentId)),
-    [objects],
-  )
-  // A drop in a table, as cells: into it, its free row; before or after a
-  // row of it, a new row there (lib/table.ts moveIntoTable).
-  const tableDropFor = useCallback(
-    (target: DropTarget): TableDrop | null => {
-      if (!isTable(target.parentId)) return null
-      const tableId = target.parentId
-      const children = findObjectById(objects, tableId)?.children ?? []
-      if (target.zone === "into") {
-        const used = Math.max(0, ...children.map((c) => (cellOf(c) ? cellOf(c)!.row + (cellOf(c)!.rowSpan ?? 1) : 0)))
-        return { tableId, row: used, column: 0, insertRow: false }
-      }
-      const sibling = findObjectById(children, target.hoveredId)
-      const cell = sibling ? cellOf(sibling) : undefined
-      if (!cell) return null
-      return { tableId, row: target.zone === "before" ? cell.row : cell.row + (cell.rowSpan ?? 1), column: cell.column, insertRow: true }
-    },
-    [isTable, objects],
-  )
-
   const commitDrop = useCallback(() => {
     if (dragging && dropTarget?.valid) {
-      const inTable = onMoveToTable ? tableDropFor(dropTarget) : null
-      if (inTable) onMoveToTable!(draggedIds, inTable)
-      else onMoveObject(draggedIds, dropTarget.parentId, dropTarget.anchor)
+      onMoveObject(draggedIds, dropTarget.parentId, dropTarget.anchor)
     }
     setDraggedIds([])
     setDropTarget(null)
-  }, [dragging, draggedIds, dropTarget, onMoveObject, onMoveToTable, tableDropFor])
+  }, [dragging, draggedIds, dropTarget, onMoveObject])
 
   const handleDragEnd = useCallback(() => {
     setDraggedIds([])
@@ -270,12 +238,11 @@ export function ObjectTreePanel({
     // the top as on the screen (lib/layout.ts layoutOrder); everything else
     // front first.
     const ascending = sortChildrenByZIndex(children)
-    // A table's row by row, left to right, as it stands.
+    // A table's row by row, left to right, as it stands
+    // (docs/2026-10-09-snap-tables.md); it takes no drops here.
     const byCell = (a: ScreenObject, b: ScreenObject) =>
-      (cellOf(a)?.row ?? 0) - (cellOf(b)?.row ?? 0) || (cellOf(a)?.column ?? 0) - (cellOf(b)?.column ?? 0)
-    // A table put together by snapping too (docs/2026-10-09-snap-tables.md),
-    // though it takes no drops here.
-    const inCells = isTable(parentId) || (parentId !== null && isSnapTable(findObjectById(objects, parentId)))
+      snapCellOf(a).row - snapCellOf(b).row || snapCellOf(a).column - snapCellOf(b).column
+    const inCells = parentId !== null && isSnapTable(findObjectById(objects, parentId))
     const displayed = inCells ? [...children].sort(byCell) : laysOut(parentId) ? ascending : [...ascending].reverse()
     return displayed.map((child) => renderRow(child, depth, parentId))
   }
