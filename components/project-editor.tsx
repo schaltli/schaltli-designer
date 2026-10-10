@@ -85,6 +85,7 @@ import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
 import { DEMO_REFUSES, demoRefusalToast } from "./demo-refusal"
+import { DEMO_COUNTING_URL, trackDemo, useDemoTracking } from "@/hooks/use-demo-tracking"
 import { DemoScenePanel } from "./demo-scene-panel"
 import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
@@ -950,6 +951,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // The demo (hooks/use-demo-mode.ts): null until the server has said.
   const demo = useDemoMode()
+  // What the demo says to Save, Deploy and Version History, and counts.
+  const demoRefuses = useCallback(
+    (what: keyof typeof DEMO_REFUSES) => {
+      trackDemo("refused", what)
+      toast(demoRefusalToast(DEMO_REFUSES[what]))
+    },
+    [toast],
+  )
 
   // The draft in the browser (lib/project-draft.ts): the key it is kept
   // under - the saved name, or for a project without one a random key made
@@ -1302,6 +1311,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // What is new is the answer that follows.
   const handlePreviewPublish = useCallback(
     (topic: string, payload: string) => {
+      trackDemo("tap", `${topic.replace(/^schaltli\/cmnd\//, "")}=${payload}`)
       // Live, a tap is what it is on a device: a publish, answered - or not -
       // by whatever listens on the broker. The mock engine stays out of it;
       // an answer it made up would look exactly like the van's.
@@ -1873,6 +1883,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       parentId?: string,
       at?: { table: TableDrop },
     ) => {
+      trackDemo("insert", object.type)
       // Into a table's cell, a new row inserted first when it was a row line
       // (lib/table.ts, docs/2026-10-02-layout-tables.md).
       if (at && "table" in at) {
@@ -1948,6 +1959,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const addObjects = useCallback(
     (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string) => {
       if (objects.length === 0) return
+      trackDemo("insert", objects.map((o) => o.type).join(","))
       const created: string[] = []
       setProject((prev) => {
         // Reset rather than append: React may run an updater twice, and the
@@ -3075,6 +3087,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // server has said whether this is the demo, nothing shows. (`demo` is
   // asked for further up, where the drafts need it.)
   const [phonePage, openAnyway] = useDemoPhonePage()
+  // What visitors do, counted without cookie or address (lib/demo-events.ts).
+  useDemoTracking(demo, phonePage)
+  useEffect(() => {
+    if (demo && projectOpen) trackDemo("mode", isPreviewMode ? "preview" : "designer")
+  }, [demo, projectOpen, isPreviewMode])
+  const previewScreenName = isPreviewMode ? project.screens.find((s) => s.id === previewScreenId)?.name : undefined
+  useEffect(() => {
+    if (demo && previewScreenName) trackDemo("screen", previewScreenName)
+  }, [demo, previewScreenName])
   const [openingInitial, setOpeningInitial] = useState(true)
   const initialToOpen = initialName ?? (demo ? demo.start : undefined)
   useEffect(() => {
@@ -3252,6 +3273,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const downloadProject = useCallback(async () => {
     try {
       await downloadEditableProject(project)
+      trackDemo("download")
     } catch (error) {
       console.error("[v0] Error downloading project:", error)
     }
@@ -3575,7 +3597,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       input.style.display = "none"
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0]
-        if (file) processUploadedProjectFile(file)
+        if (file) {
+          trackDemo("upload")
+          processUploadedProjectFile(file)
+        }
       }
       document.body.appendChild(input)
       input.click()
@@ -3792,7 +3817,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         if (!projectOpen) return
         // The demo saves nothing (docs/2026-10-09-demo-instance.md).
         if (demo) {
-          toast(demoRefusalToast(DEMO_REFUSES.save))
+          demoRefuses("save")
           return
         }
         if (event.shiftKey) handleSaveAs()
@@ -3993,7 +4018,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   in the menu, so a visitor sees what the designer does, and
                   say why not here and how to get it (2026-10-10). */}
               <DropdownMenuItem
-                onClick={() => (demo ? toast(demoRefusalToast(DEMO_REFUSES.save)) : void handleSave())}
+                onClick={() => (demo ? demoRefuses("save") : void handleSave())}
                 className="flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
@@ -4001,7 +4026,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => (demo ? toast(demoRefusalToast(DEMO_REFUSES.save)) : handleSaveAs())}
+                onClick={() => (demo ? demoRefuses("save") : handleSaveAs())}
                 className="flex items-center gap-2"
               >
                 <SaveAll className="w-4 h-4" />
@@ -4029,7 +4054,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
               {demo && (
                 <DropdownMenuItem
-                  onClick={() => toast(demoRefusalToast(DEMO_REFUSES.deploy))}
+                  onClick={() => demoRefuses("deploy")}
                   className="flex items-center gap-2"
                 >
                   <Rocket className="w-4 h-4" />
@@ -4066,7 +4091,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               <DropdownMenuSeparator />
               {demo && (
                 <DropdownMenuItem
-                  onClick={() => toast(demoRefusalToast(DEMO_REFUSES.versions))}
+                  onClick={() => demoRefuses("versions")}
                   className="flex items-center gap-2"
                 >
                   <History className="w-4 h-4" />
@@ -4179,6 +4204,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             Demo - nothing is saved. Download Project takes your screen with you.{" "}
             <a href={DEMO_INSTALL_URL} target="_blank" rel="noreferrer" className="underline">
               Install Schaltli
+            </a>
+            {" · "}
+            <a href={DEMO_COUNTING_URL} target="_blank" rel="noreferrer" className="underline">
+              Visits counted anonymously, no cookies
             </a>
           </div>
         )}

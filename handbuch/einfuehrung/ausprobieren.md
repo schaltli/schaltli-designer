@@ -14,6 +14,18 @@ Der rote Schalter unter dem Gerät wechselt zwischen <span class="ui">Preview</s
 
 Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>. <span class="ui">Save</span>, <span class="ui">Deploy to Device</span> und <span class="ui">Version History</span> stehen zwar im Menü, aber ein Klick darauf meldet nur, dass das erst dein eigenes Schaltli kann, und verlinkt die Installation.
 
+### Was die Demo zählt {#demo-zaehlt}
+
+Die Demo zählt mit, wie sie genutzt wird. Sie setzt dafür kein Cookie und speichert deine IP-Adresse nicht. Ein Besuch ist eine zufällige Nummer, die nur so lange gilt, wie der Browser-Tab offen ist.
+
+Gespeichert wird pro Besuch:
+
+- woher du ungefähr kommst: Land und Region, die Stadt nur, wenn sie über 50 000 Einwohner hat. Der Server liest das aus deiner IP-Adresse und vergisst die Adresse gleich wieder;
+- von welcher Website du kommst, nur ihr Name, und ob du einen Browser auf dem Handy, dem Tablet oder dem Computer benutzt;
+- wie lange du bleibst und was du tust: welche Screens du öffnest, was du schaltest, was du einfügst und ob du ein Projekt herunterlädst.
+
+Die Daten bleiben auf dem Server der Demo und werden nach 30 Tagen gelöscht. Die Ortsangaben stammen aus der Datenbank von [DB-IP](https://db-ip.com).
+
 ## Ein Projekt für ein Gerät, das du nicht hast
 
 Öffne den Designer und klick auf der Startseite <span class="ui">Welcome to Schaltli</span> auf <span class="ui">New Project...</span>. Der Dialog zeigt unter <span class="ui">Server DDFs</span> die Geräte, die der Designer kennt. Ob eines davon bei dir liegt, spielt keine Rolle. Klicke doppelt auf eines, etwa den Waveshare 4.3B, gib dem Projekt einen Namen und klick auf <span class="ui">Create Project</span>. Der Editor öffnet sich mit einem leeren Screen in der richtigen Grösse.

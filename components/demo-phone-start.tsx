@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { DEMO_INSTALL_URL } from "@/hooks/use-demo-mode"
 import { useDemoScene } from "@/components/demo-scene-panel"
+import { DEMO_COUNTING_URL, trackDemo } from "@/hooks/use-demo-tracking"
 
 const ANYWAY_KEY = "schaltli.demoOpenAnyway"
 
@@ -35,6 +36,7 @@ export function useDemoPhonePage(): [boolean | null, () => void] {
     setPhone(!anyway && (small || !!touchOnly))
   }, [])
   const openAnyway = () => {
+    trackDemo("mode", "designer from the phone page")
     try {
       window.sessionStorage.setItem(ANYWAY_KEY, "1")
     } catch {
@@ -73,6 +75,9 @@ export function DemoPhoneStart({ onOpenAnyway }: { onOpenAnyway: () => void }) {
             Open the designer anyway
           </Button>
         </div>
+        <a href={DEMO_COUNTING_URL} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground underline">
+          Visits counted anonymously, no cookies
+        </a>
       </div>
     </main>
   )

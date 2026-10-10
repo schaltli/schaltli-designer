@@ -226,7 +226,8 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByTestId("project-title")).toHaveText(START)
     let sent = false
     page.on("request", (req) => {
-      if (req.method() !== "GET" && req.url().includes("/api/")) sent = true
+      // Nothing but the demo's count of it (lib/demo-events.ts).
+      if (req.method() !== "GET" && req.url().includes("/api/") && !req.url().includes("/api/demo/event")) sent = true
     })
     const file = page.getByRole("button", { name: "File" })
     await file.click()

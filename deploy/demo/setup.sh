@@ -22,7 +22,10 @@
 #   - Caddy for demo.schaltli.com: HTTPS by itself, /mqtt to Mosquitto's
 #     websockets, everything else to the designer, bodies above 64 KB refused;
 #   - two systemd units, the designer (at most 1 GB of memory) and the demo
-#     van, restarted on failure.
+#     van, restarted on failure;
+#   - for counting visits (docs/2026-10-10-demo-tracking.md): DB-IP's free
+#     city database and GeoNames' places of 50 000 people or more, in
+#     /var/lib/schaltli-demo-geo, fetched again after a month.
 
 set -euo pipefail
 
@@ -74,6 +77,28 @@ if [ -f "$SEED" ]; then
   rm -f "$SEED"
 fi
 
+# --- where visitors are, roughly: DB-IP Lite and GeoNames, monthly ---
+GEO_DIR=/var/lib/schaltli-demo-geo
+mkdir -p "$GEO_DIR"
+if [ ! -f "$GEO_DIR/city.mmdb" ] || [ -n "$(find "$GEO_DIR/city.mmdb" -mtime +32)" ]; then
+  log "Fetching DB-IP's city database"
+  for month in "$(date +%Y-%m)" "$(date -d '-1 month' +%Y-%m)"; do
+    if curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$month.mmdb.gz" | gunzip > "$GEO_DIR/city.mmdb.new"; then
+      mv "$GEO_DIR/city.mmdb.new" "$GEO_DIR/city.mmdb"
+      break
+    fi
+    rm -f "$GEO_DIR/city.mmdb.new"
+  done
+fi
+if [ ! -f "$GEO_DIR/big-cities.txt" ] || [ -n "$(find "$GEO_DIR/big-cities.txt" -mtime +32)" ]; then
+  log "Fetching GeoNames' cities"
+  if curl -fsSL -o "$GEO_DIR/cities15000.zip" https://download.geonames.org/export/dump/cities15000.zip; then
+    node "$DIR/deploy/demo/big-cities.js" "$GEO_DIR/cities15000.zip" > "$GEO_DIR/big-cities.txt.new" && mv "$GEO_DIR/big-cities.txt.new" "$GEO_DIR/big-cities.txt"
+    rm -f "$GEO_DIR/cities15000.zip"
+  fi
+fi
+chmod 644 "$GEO_DIR"/* 2>/dev/null || true
+
 # --- the environment, with the van's broker password made once ---
 VAN_PASSWORD=""
 [ -f "$ENV_FILE" ] && VAN_PASSWORD="$(sed -n 's/^DEMO_VAN_PASSWORD=//p' "$ENV_FILE")"
@@ -84,6 +109,8 @@ NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 SCHALTLI_DEMO=1
 SCHALTLI_DEMO_START=Camper
+DEMO_GEO_DB=$GEO_DIR/city.mmdb
+DEMO_BIG_CITIES=$GEO_DIR/big-cities.txt
 DEMO_VAN_USER=demo-van
 DEMO_VAN_PASSWORD=$VAN_PASSWORD
 EOF

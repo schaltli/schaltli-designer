@@ -13,6 +13,7 @@ import type { MqttClient } from "mqtt"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { trackDemo } from "@/hooks/use-demo-tracking"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import * as scene from "@/integrations/vanpi/demo-scene"
 
@@ -59,7 +60,10 @@ export function useDemoScene(): { svg: string; onClick: (event: MouseEvent<HTMLE
   const onClick = (event: MouseEvent<HTMLElement>) => {
     const part = (event.target as Element).closest?.("[data-action]")
     const action = part?.getAttribute("data-action")
-    if (action && clientRef.current) clientRef.current.publish(scene.COMMAND_PREFIX + action, "start")
+    if (action && clientRef.current) {
+      clientRef.current.publish(scene.COMMAND_PREFIX + action, "start")
+      trackDemo("scene", action)
+    }
   }
   return { svg, onClick }
 }

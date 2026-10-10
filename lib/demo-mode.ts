@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 // The demo mode of demo.schaltli.com (docs/2026-10-09-demo-instance.md,
 // decision 2): the designer open to anyone, saving nothing and acting on
 // nothing outside itself. What passes is reading the start project and what
-// the designer needs to draw it; everything else is answered 403.
+// the designer needs to draw it, and the demo's own count of what visitors
+// do; everything else is answered 403.
 //
 // Decided per request and checked twice: in middleware.ts over /api/*, and
 // again at the top of every route handler through refuseInDemo() - so the
@@ -34,6 +35,9 @@ const ALLOWED: { method: string; path: RegExp }[] = [
   { method: "GET", path: /^\/api\/ddf\/data\/[^/]+$/ },
   { method: "GET", path: /^\/api\/fonts\/list$/ },
   { method: "GET", path: /^\/api\/version$/ },
+  // What a visitor does, counted without cookie or address
+  // (lib/demo-events.ts).
+  { method: "POST", path: /^\/api\/demo\/event$/ },
 ]
 
 /** Whether the demo lets this method on this path through. */
