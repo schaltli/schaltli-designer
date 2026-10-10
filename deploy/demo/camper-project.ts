@@ -11,7 +11,10 @@
 //           and Aussenlicht as switches. The page's icon is a lit bulb while
 //           any of them burns (a combined topic), an unlit one otherwise.
 //   Wasser  fresh and grey water as tanks, and the switch that lets the grey
-//           water out.
+//           water out. The page's icon is a drop with an exclamation mark
+//           while the grey water is above 80 % or the fresh below 20 %.
+//   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
+//           already so the navigator shows where the van is going.
 //
 // A master carries the navigator, so a tap switches between them.
 
@@ -50,6 +53,30 @@ const ASSETS = [
     type: "icon",
     data: svg('<path fill="currentColor" d="M12 2.5S5.5 10 5.5 14.5a6.5 6.5 0 0 0 13 0C18.5 10 12 2.5 12 2.5z"/>'),
   },
+  {
+    id: "icon-drop-alert",
+    name: "Drop, attention",
+    type: "icon",
+    data: svg(
+      '<path fill="currentColor" d="M10 2.5S3.5 10 3.5 14.5a6.5 6.5 0 0 0 13 0C16.5 10 10 2.5 10 2.5z"/><path fill="currentColor" d="M19.2 3h2.6l-.4 11h-1.8zM19.3 16.5h2.4V19h-2.4z"/>',
+    ),
+  },
+  {
+    id: "icon-fan",
+    name: "Fan",
+    type: "icon",
+    data: svg(
+      '<circle cx="12" cy="12" r="2" fill="currentColor"/><path fill="currentColor" d="M12 10C11 6 12 2.5 15 2.5s3 3.5-1 7.5zM14 12c4-1 7.5 0 7.5 3s-3.5 3-7.5-1zM12 14c1 4 0 7.5-3 7.5s-3-3.5 1-7.5zM10 12c-4 1-7.5 0-7.5-3s3.5-3 7.5 1z"/>',
+    ),
+  },
+  {
+    id: "icon-flame",
+    name: "Flame",
+    type: "icon",
+    data: svg(
+      '<path fill="currentColor" d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 1.5-5 3-6.5 0 2 1 3.5 2.5 3.5C11 8 10.5 5 12 2z"/>',
+    ),
+  },
 ]
 
 const topic = (t: string, type: "numeric" | "text", examples: string[]) => ({ id: `t-${t.replace(/[^a-z0-9]+/gi, "-")}`, topic: t, type, examples })
@@ -81,6 +108,16 @@ const COMBINED = [
     conditions: [
       ...[1, 2, 3].map((n) => ({ source: { namespace: "topic", path: `${S}dimmer/${n}/power` }, op: "yes" })),
       ...[1, 2].map((n) => ({ source: { namespace: "topic", path: `${S}relay/${n}/power` }, op: "yes" })),
+    ],
+  },
+  // The water wants attention: grey nearly full, or fresh nearly empty.
+  {
+    id: "ct-water-alert",
+    name: "wasser_achtung",
+    mode: "any",
+    conditions: [
+      { source: { namespace: "topic", path: `${S}tank/2/level` }, op: ">", operand: "80" },
+      { source: { namespace: "topic", path: `${S}tank/1/level` }, op: "<", operand: "20" },
     ],
   },
 ]
@@ -251,13 +288,41 @@ function waterScreen() {
     id: "screen-wasser",
     name: "Wasser",
     masterScreenId: "master-1",
-    iconAssetId: "icon-drop",
+    iconLive: {
+      id: "lv-wasser-icon",
+      source: { namespace: "combined", path: "wasser_achtung" },
+      rules: [{ op: "yes", result: { kind: "icon", icon: "icon-drop-alert" } }],
+      otherwise: { kind: "icon", icon: "icon-drop" },
+    },
     objects: [
       title("Wasser"),
       ...tank(140, 1, "accent"),
       ...tank(300, 2, "accentAlt"),
       name(460, 178, 330, `${S}relay/3/name`),
       onOff(460, 212, `${S}relay/3/power`, `${C}relay/3`, ["Zu", "Offen"]),
+    ],
+  }
+}
+
+// A page of a stage still to come: its title and «Coming soon».
+function comingSoon(id: string, pageName: string, icon: string) {
+  return {
+    id,
+    name: pageName,
+    masterScreenId: "master-1",
+    iconAssetId: icon,
+    objects: [
+      title(pageName),
+      {
+        id: `obj-soon-${id}`,
+        type: "text",
+        x: 124,
+        y: 200,
+        width: 660,
+        height: 60,
+        zIndex: 2,
+        properties: { text: "Coming soon", fontId: "font-fur42", color: "textMuted", textAlign: "center", backgroundColor: "transparent", borderColor: "transparent" },
+      },
     ],
   }
 }
@@ -289,7 +354,7 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
     name: "Camper",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master, lightScreen(), waterScreen()],
+    screens: [master, lightScreen(), waterScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,

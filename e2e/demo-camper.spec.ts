@@ -5,6 +5,7 @@ import { buildCamperProject } from "../deploy/demo/camper-project"
 import { fakePekaway } from "../integrations/vanpi/demo-van"
 import { createBridgeLogic } from "../integrations/vanpi/bridge-logic"
 import { createProjectStore } from "../lib/project-store"
+import { computeCombined } from "../lib/combined-topics"
 
 // The start project of demo.schaltli.com (docs/2026-10-09-demo-instance.md,
 // decision 7), built by deploy/demo/camper-project.ts from the 4.3B's
@@ -64,10 +65,10 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   for (const t of [...read, ...written]) expect(declared.has(t), `${t} is not declared`).toBe(true)
 })
 
-test("two pages and the navigator; the Licht page's icon burns while any light does", async () => {
+test("Licht, Wasser, two pages to come, and the navigator; the page icons follow the van", async () => {
   const project = await built()
   expect(project.settings.deviceId).toBe("waveshare-touch-lcd-4v3b")
-  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser"])
+  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser", "MaxxFan", "Heizung"])
   expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator"])
   const types = (i: number) => project.screens[i].objects.map((o) => o.type).filter((t) => t !== "text")
   expect(types(1)).toEqual(["dial", "slider", "switch", "switch", "switch"])
@@ -76,6 +77,26 @@ test("two pages and the navigator; the Licht page's icon burns while any light d
   expect(licht.iconLive).toMatchObject({ source: { namespace: "combined", path: "licht_an" }, otherwise: { icon: "icon-bulb-off" } })
   expect(project.combinedTopics[0]).toMatchObject({ name: "licht_an", mode: "any" })
   expect(project.combinedTopics[0].conditions).toHaveLength(5)
+  // Wasser: a drop, with an exclamation mark while grey > 80 % or fresh < 20 %.
+  const wasser = project.screens[2] as any
+  expect(wasser.iconLive).toMatchObject({ source: { namespace: "combined", path: "wasser_achtung" }, otherwise: { icon: "icon-drop" } })
+  expect(wasser.iconLive.rules[0].result.icon).toBe("icon-drop-alert")
+  expect(project.combinedTopics[1]).toMatchObject({
+    name: "wasser_achtung",
+    mode: "any",
+    conditions: [
+      { source: { path: "schaltli/state/tank/2/level" }, op: ">", operand: "80" },
+      { source: { path: "schaltli/state/tank/1/level" }, op: "<", operand: "20" },
+    ],
+  })
+  // Computed as the designer and the devices compute it.
+  const alert = (tanks: Record<string, string>) =>
+    computeCombined(project.combinedTopics as any, (p) => tanks[p]).get("wasser_achtung")
+  expect(alert({ "schaltli/state/tank/1/level": "60", "schaltli/state/tank/2/level": "50" })).toBe("false")
+  expect(alert({ "schaltli/state/tank/1/level": "60", "schaltli/state/tank/2/level": "85" })).toBe("true")
+  expect(alert({ "schaltli/state/tank/1/level": "15", "schaltli/state/tank/2/level": "50" })).toBe("true")
+  expect(alert({ "schaltli/state/tank/1/level": "20", "schaltli/state/tank/2/level": "80" })).toBe("false")
+  for (const i of [3, 4]) expect(JSON.stringify(project.screens[i].objects)).toContain("Coming soon")
   const drain = project.screens[2].objects.find((o) => o.type === "switch") as any
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
 })

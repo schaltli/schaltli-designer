@@ -138,7 +138,9 @@ stage two (decision 6).
 - [x] Licht: Innenlicht dial, Einstieg slider, Küche / Lichterkette /
       Aussenlicht switches, names as live values; the page icon burns while
       any light does (combined topic `licht_an`, live icon).
-- [x] Wasser: two tanks and «Grauwasser ablassen» («Zu»/«Offen»).
+- [x] Wasser: two tanks and «Grauwasser ablassen» («Zu»/«Offen»); its
+      icon a drop with «!» while grey > 80 % or fresh < 20 %.
+- [x] MaxxFan and Heizung pages, «Coming soon».
 - [x] The navigator on the master.
 - [x] Every bound topic is one the demo van publishes, every written one a
       command the bridge takes, all declared.

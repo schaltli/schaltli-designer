@@ -136,7 +136,12 @@ announcement.
      unlit one - the project's own three icons.
    - **Wasser:** Frischwasser and Grauwasser as tanks, and «Grauwasser
      ablassen» («Zu»/«Offen») - named by what it does, not by the part
-     (2026-10-10).
+     (2026-10-10). The page's icon is a drop, with an exclamation mark while
+     the grey water is above 80 % or the fresh below 20 % (combined topic
+     `wasser_achtung`).
+   - **MaxxFan** and **Heizung**: «Coming soon», with a fan and a flame - the
+     stages to come, there already so the navigator is full and shows where
+     the van is going.
 
    Not kept as a file: the device's fonts make it 3 MB. e2e/demo-camper.spec.ts
    with `DEMO_SEED_DIR` writes it into a project store in the designer's
