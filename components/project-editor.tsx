@@ -84,6 +84,7 @@ import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoScenePanel } from "./demo-scene-panel"
+import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
 import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft } from "@/lib/project-draft"
 import { sameProjectName } from "@/lib/project-name"
@@ -3054,6 +3055,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // page's address too, so a visitor never sees the start page; until the
   // server has said whether this is the demo, nothing shows.
   const demo = useDemoMode()
+  const [phonePage, openAnyway] = useDemoPhonePage()
   const [openingInitial, setOpeningInitial] = useState(true)
   const initialToOpen = initialName ?? (demo ? demo.start : undefined)
   useEffect(() => {
@@ -3874,6 +3876,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId],
   )
 
+
+  // The demo on a phone: its own page first (docs/2026-10-09-demo-instance.md,
+  // decision 9).
+  if (demo && phonePage) return <DemoPhoneStart onOpenAnyway={openAnyway} />
 
   if (openingInitial) {
     return (

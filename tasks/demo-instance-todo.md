@@ -159,9 +159,13 @@ project store and read back); `e2e/demo-van.spec.ts` (the water).
 **Description:** decision 9.
 
 **Acceptance criteria:**
-- [ ] Below 900 px or touch-only: the start page; «Open anyway» opens the
-      project.
-- [ ] Desktop: straight into the project.
+- [x] Below 900 px or touch-only: the start page - the van live, what
+      Schaltli is, «Install Schaltli», «Read the handbook»; «Open the designer
+      anyway» opens the project and holds for the session.
+- [x] Desktop: straight into the project; a phone outside the demo gets the
+      designer as always.
+
+Done 2026-10-10. No video yet: the live van stands in its place.
 
 **Verification:** `e2e/demo-mode.spec.ts` with a phone viewport.
 

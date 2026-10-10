@@ -161,4 +161,30 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByRole("button", { name: "Start Discovery" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Connection settings" })).toHaveCount(0)
   })
+
+  // Decision 9: a phone gets its own page first - the van, the way on.
+  test("on a phone the demo opens its own page; «Open the designer anyway» opens the project", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto("/")
+    const start = page.getByTestId("demo-phone-start")
+    await expect(start).toBeVisible()
+    await expect(start.locator("svg").first()).toBeVisible()
+    await expect(start.getByRole("link", { name: "Install Schaltli" })).toHaveAttribute("href", "https://schaltli.com/installieren/pekaway.html")
+    await expect(start.getByRole("link", { name: "Read the handbook" })).toBeVisible()
+    await start.getByRole("button", { name: "Open the designer anyway" }).click()
+    await expect(page.getByTestId("project-title")).toHaveText(START)
+    // Chosen for this session: a reload goes straight to the designer.
+    await page.reload()
+    await expect(page.getByTestId("project-title")).toHaveText(START)
+    await expect(page.getByTestId("demo-phone-start")).toHaveCount(0)
+  })
+
+  test("a phone outside the demo gets the designer as always", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    const phone = await context.newPage()
+    await phone.goto("/")
+    await expect(phone.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible()
+    await expect(phone.getByTestId("demo-phone-start")).toHaveCount(0)
+    await context.close()
+  })
 })

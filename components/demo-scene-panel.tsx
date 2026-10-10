@@ -19,18 +19,10 @@ const COLLAPSED_KEY = "schaltli.demoScenePanelCollapsed"
 /** The forum thread the demo is announced in, where the next stage is asked for. */
 export const DEMO_FORUM_URL = "https://forum.pekaway.de/"
 
-export function DemoScenePanel() {
-  const [collapsed, setCollapsed] = useState(false)
+/** The scene drawn from the broker's live values, as an SVG string. */
+export function useDemoSceneSvg(): string {
   const [values, setValues] = useState<Record<string, string>>({})
   const { connect, disconnect } = useMqttConnection("schaltli-demo-scene")
-
-  useEffect(() => {
-    try {
-      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "true")
-    } catch {
-      // No storage: open, the default.
-    }
-  }, [])
 
   useEffect(() => {
     let current = true
@@ -53,7 +45,20 @@ export function DemoScenePanel() {
     }
   }, [connect, disconnect])
 
-  const svg = useMemo(() => scene.sceneSvg(values), [values])
+  return useMemo(() => scene.sceneSvg(values), [values])
+}
+
+export function DemoScenePanel() {
+  const [collapsed, setCollapsed] = useState(false)
+  const svg = useDemoSceneSvg()
+
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "true")
+    } catch {
+      // No storage: open, the default.
+    }
+  }, [])
 
   const toggle = (next: boolean) => {
     setCollapsed(next)

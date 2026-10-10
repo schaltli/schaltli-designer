@@ -168,8 +168,11 @@ announcement.
    illustration; a better one can replace it, the logic stays.
 
 9. **Phones get a start page.** Below 900 px width or on a touch-only
-   device, `/` shows «Schaltli is made for a computer» with a short video
-   (once recorded), a link to the handbook and «Open anyway».
+   device the demo shows its own page first (`components/demo-phone-start.tsx`):
+   the van live from the scene, a line on what Schaltli is and that the
+   designer wants a computer, «Install Schaltli», «Read the handbook», and
+   «Open the designer anyway», remembered for the session. A video can take
+   the van's place once recorded.
 
 10. **The server is set up by a script, over SSH.** `deploy/demo/setup.sh`,
    idempotent, run from the PC with `ssh schaltli-demo 'bash -s'`: clone or
