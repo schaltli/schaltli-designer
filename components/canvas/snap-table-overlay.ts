@@ -11,7 +11,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import type { LayoutScale } from "@/lib/layout"
 import { objectTypeLabel } from "@/lib/object-types"
-import { occupancy, snapCellOf, snapTableGeometry, type SnapDrop, type SnapGeometry } from "@/lib/snap-table"
+import { occupancy, snapCellOf, snapTableGeometry, type SnapDrop, type SnapGeometry, type SnapSide } from "@/lib/snap-table"
 
 /** An empty cell a drop goes into. */
 export const SNAP_CELL_COLOR = "#16a34a"
@@ -136,6 +136,29 @@ export function snapChipText(obj: ScreenObject, parent: ScreenObject | null, siz
     if (cell.rowSpan! > 1 || cell.columnSpan! > 1) parts.push(`${cell.columnSpan}×${cell.rowSpan}`)
   }
   return parts.join(" · ")
+}
+
+const SPAN_ARROWS: Record<SnapSide, string> = { left: "⇤", right: "⇥", top: "⤒", bottom: "⤓" }
+
+/**
+ * The span handles of an object in a table: a small square at the middle
+ * of each edge of its span, with the arrow of the way it grows.
+ */
+export function drawSpanHandles(ctx: CanvasRenderingContext2D, handles: Array<{ side: SnapSide; x: number; y: number }>, color: string, zoom: number): void {
+  const size = 13 / zoom
+  ctx.save()
+  ctx.font = `600 ${10 / zoom}px system-ui, sans-serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  for (const h of handles) {
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.roundRect(h.x - size / 2, h.y - size / 2, size, size, 2.5 / zoom)
+    ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText(SPAN_ARROWS[h.side], h.x, h.y + 0.5 / zoom)
+  }
+  ctx.restore()
 }
 
 /** The chip above a selection's top left corner. */

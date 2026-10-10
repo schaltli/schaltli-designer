@@ -626,6 +626,16 @@ export function moveOutOf(
   return drop ? applySnapDrop(list, objectId, drop, scale, newTableId) : list
 }
 
+/**
+ * The column (for a left or right span handle) or row (top, bottom) under a
+ * point, for a laid-out table whose x and y are in the point's space - where
+ * a span handle dragged there takes the span's edge (resizeSpan).
+ */
+export function spanIndexAt(table: ScreenObject, side: SnapSide, point: { x: number; y: number }, scale: LayoutScale): number {
+  const g = snapTableGeometry(table, scale)
+  return side === "left" || side === "right" ? lineAt(g.lefts, g.gap, point.x - table.x) : lineAt(g.tops, g.gap, point.y - table.y)
+}
+
 /** The side of a free object a drop at a point goes to; null when the point is not within `zone` of it. */
 export function freeSideAt(obj: ScreenObject, point: { x: number; y: number }, zone: number): SnapSide | null {
   if (point.x < obj.x - zone || point.y < obj.y - zone || point.x > obj.x + obj.width + zone || point.y > obj.y + obj.height + zone) return null

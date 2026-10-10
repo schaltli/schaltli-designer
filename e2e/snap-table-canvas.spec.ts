@@ -354,6 +354,74 @@ test.describe("snap table: moving", () => {
   })
 })
 
+// Where the chosen object's span handles are, as the canvas says.
+async function spanHandle(page: Page, side: "left" | "right" | "top" | "bottom"): Promise<{ x: number; y: number }> {
+  const { canvas } = await getMainCanvas(page)
+  await expect.poll(() => canvas.getAttribute("data-span-handles")).not.toBeNull()
+  const handles = JSON.parse((await canvas.getAttribute("data-span-handles"))!) as Array<{ side: string; x: number; y: number }>
+  return handles.find((h) => h.side === side)!
+}
+async function cellOfSaved(page: Page, id: string): Promise<Obj> {
+  const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+  return grid.children!.find((c) => c.id === id)!.properties!.cell
+}
+async function chooseInTable(page: Page, table: ScreenObject, id: string) {
+  await click(page, middleOf(table, id))
+  await doubleClick(page, middleOf(table, id))
+  await expect.poll(() => getSelectedHeader(page)).toContain(id)
+}
+
+test.describe("snap table: span", () => {
+  test("⇥ grows a span over an empty cell to the right, and back", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "bad")
+    const right = await spanHandle(page, "right")
+    await drag(page, right, { x: right.x + 40, y: right.y })
+    expect(await cellOfSaved(page, "bad")).toMatchObject({ row: 1, column: 0, columnSpan: 2 })
+    // Back into the first column: past the line between the two.
+    const grown = await spanHandle(page, "right")
+    await drag(page, grown, { x: table.x + 20, y: grown.y })
+    expect((await cellOfSaved(page, "bad")).columnSpan).toBeUndefined()
+  })
+
+  test("a span is refused over an occupied cell: nothing changes", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "licht")
+    const right = await spanHandle(page, "right")
+    await drag(page, right, { x: right.x + 40, y: right.y })
+    const cell = await cellOfSaved(page, "licht")
+    expect(cell).toMatchObject({ row: 0, column: 0 })
+    expect(cell.columnSpan).toBeUndefined()
+  })
+
+  test("⤓ grows down over the empty cell; ⤒ dragged down takes the top edge with it", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "pumpe")
+    const bottom = await spanHandle(page, "bottom")
+    await drag(page, bottom, { x: bottom.x, y: bottom.y + 25 })
+    expect(await cellOfSaved(page, "pumpe")).toMatchObject({ row: 0, column: 1, rowSpan: 2 })
+    const top = await spanHandle(page, "top")
+    await drag(page, top, { x: top.x, y: top.y + 40 })
+    const cell = await cellOfSaved(page, "pumpe")
+    expect(cell).toMatchObject({ row: 1, column: 1 })
+    expect(cell.rowSpan).toBeUndefined()
+  })
+
+  test("one Ctrl+Z takes a span drag back whole", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "bad")
+    const right = await spanHandle(page, "right")
+    await drag(page, right, { x: right.x + 40, y: right.y })
+    await expect.poll(async () => (await cellOfSaved(page, "bad")).columnSpan).toBe(2)
+    await page.keyboard.press("ControlOrMeta+z")
+    expect((await cellOfSaved(page, "bad")).columnSpan).toBeUndefined()
+  })
+})
+
 test.describe("snap table: selection", () => {
   test("a click selects the table, a double click the object in it, a click on another object of it stays inside", async ({ page }) => {
     const { zip, table } = await snapProject()

@@ -301,9 +301,19 @@ grows or shrinks its span over empty cells; refused over occupied ones and
 at the table's edge with a short message. One undo step. Handbook updated.
 
 **Acceptance criteria:**
-- [ ] A button grows over two empty cells to its left with ⇤ and back with ⇥.
-- [ ] A span over an occupied cell is refused; the object stays as it was.
-- [ ] The handbook describes the four handles.
+- [x] A button grows over two empty cells to its left with ⇤ and back with ⇥ (canvas: ⇥ and back, ⤓, ⤒; ⇤ over empty cells in Node - the test table has none to the left).
+- [x] A span over an occupied cell is refused; the object stays as it was.
+- [x] The handbook describes the four handles.
+
+Done 2026-10-10. The canvas draws ⇤ ⇥ ⤒ ⤓ at the middle of the chosen
+object's span edges (`spanHandles`, `drawSpanHandles`), takes a press on
+one before anything else, and on each move sets the span to the line under
+the pointer through `resizeSpan`/`spanIndexAt` - one gesture, one undo
+step. Cursor ew/ns-resize over them. The canvas carries
+`data-span-handles` for tests. Found in a screenshot: a text in such a
+table still showed its own renderer's baseline handles - removed. **Not
+built:** the spec's message at the table's edge (the designer has no
+message line there); the span simply stops. Ran 132 specs: green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g span`; typecheck.
 

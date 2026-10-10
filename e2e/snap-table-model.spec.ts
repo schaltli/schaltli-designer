@@ -9,6 +9,7 @@ import {
   liftOut,
   moveOutOf,
   snapDropAt,
+  spanIndexAt,
   insertSnapColumn,
   insertSnapRow,
   isSnapTable,
@@ -218,6 +219,17 @@ test.describe("snap table: editing", () => {
     expect(cellOfId(resizeSpan(t, "s", "bottom", 1)!, "s")).toMatchObject({ row: 0, rowSpan: 2 })
     // Never past the table's edge.
     expect(cellOfId(resizeSpan(t, "s", "right", 7)!, "s").columnSpan).toBe(1)
+  })
+
+  test("a span handle dragged to a point reaches the column or row under it", () => {
+    const t = grid3()
+    const g = snapTableGeometry(t, SCALE)
+    const inColumn = (c: number) => ({ x: t.x + g.lefts[c] + 2, y: t.y + 5 })
+    expect(spanIndexAt(t, "right", inColumn(2), SCALE)).toBe(2)
+    expect(spanIndexAt(t, "left", inColumn(0), SCALE)).toBe(0)
+    expect(spanIndexAt(t, "bottom", { x: t.x, y: t.y + g.tops[2] + 2 }, SCALE)).toBe(2)
+    // Beyond the table, its last line.
+    expect(spanIndexAt(t, "right", { x: t.x + t.width + 50, y: t.y }, SCALE)).toBe(2)
   })
 
   test("after inserting a column at the left, every other object keeps its place on the screen", () => {

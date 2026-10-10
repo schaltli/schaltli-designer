@@ -88,15 +88,17 @@ import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
-import { drawSnapChip, drawSnapDrop, drawSnapTableCells, snapChipText } from "./snap-table-overlay"
+import { drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
-import { dimensions, isSnapTable, liftOut, snapDropAt, snapTableGeometry, type SnapDrop, type SnapRect } from "@/lib/snap-table"
+import { dimensions, isSnapTable, liftOut, resizeSpan, snapCellOf, snapDropAt, snapTableGeometry, spanIndexAt, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
 
 // How near a table or a free object a dragged object snaps
 // (docs/2026-10-09-snap-tables.md, open question 5: proposed).
 const SNAP_ZONE_MM = 5
 // The id a new object has while it is being drawn, before the editor gives it one.
 const NEW_OBJECT = "__new-object__"
+// How near a span handle a press takes it, in screen pixels.
+const SPAN_HANDLE_HIT = 9
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -1121,6 +1123,8 @@ export function Canvas({
   const createSnapRef = useRef<SnapDrop | null>(null)
   // Where a carried new object was let go, its middle (placing by dragging).
   const placedMiddleRef = useRef<{ x: number; y: number } | null>(null)
+  // A span handle being dragged (Task 7).
+  const spanDragRef = useRef<{ tableId: string; id: string; side: SnapSide } | null>(null)
   // An object being dragged out of a table put together by snapping: where
   // it is carried, and the space it would land in with it already out of
   // the table - what the snap target is worked out and drawn against.
@@ -1214,6 +1218,34 @@ export function Canvas({
     const text = isSnapTable(obj) ? snapChipText(obj, null, dimensions(obj)) : snapChipText(obj, parent)
     return { text, at: { x: base.x + obj.x, y: base.y + obj.y } }
   }, [previewMode, selectedObjectIds, screen.objects])
+
+  // The four span handles of the one object chosen in a table put together
+  // by snapping, at the middle of its span's edges (Task 7), in the canvas's
+  // coordinates; and the table, at its place there.
+  const spanHandles = useMemo(() => {
+    if (previewMode || selectedObjectIds.length !== 1) return null
+    const id = selectedObjectIds[0]
+    const obj = findObjectById(screen.objects, id)
+    const parent = findParentOf(screen.objects, id)?.parent ?? null
+    if (!obj || !parent || !isSnapTable(parent)) return null
+    const origin = childOrigin(screen.objects, parent.id)
+    const g = snapTableGeometry(parent, layoutScale)
+    const c = snapCellOf(obj)
+    const lastColumn = c.column + c.columnSpan! - 1
+    const lastRow = c.row + c.rowSpan! - 1
+    if (lastRow >= g.heights.length || lastColumn >= g.widths.length) return null
+    const x = origin.x + g.lefts[c.column]
+    const y = origin.y + g.tops[c.row]
+    const w = g.lefts[lastColumn] + g.widths[lastColumn] - g.lefts[c.column]
+    const h = g.tops[lastRow] + g.heights[lastRow] - g.tops[c.row]
+    const handles: Array<{ side: SnapSide; x: number; y: number }> = [
+      { side: "left", x, y: y + h / 2 },
+      { side: "right", x: x + w, y: y + h / 2 },
+      { side: "top", x: x + w / 2, y },
+      { side: "bottom", x: x + w / 2, y: y + h },
+    ]
+    return { tableId: parent.id, id, handles }
+  }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
 
   // The tables on the screen with where their lines go (lib/table.ts
   // tableGeometry), for the overlay.
@@ -1779,6 +1811,7 @@ export function Canvas({
     }
 
     if (snapChip && dragState?.mode !== "drag") drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
+    if (spanHandles && !dragState) drawSpanHandles(ctx, spanHandles.handles, LAYOUT_HINT_COLOR, zoom)
     // An object carried out of a table: its outline at the pointer.
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
     if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create"))
@@ -1866,6 +1899,7 @@ export function Canvas({
     activeContainerIds,
     tableLines,
     snapChip,
+    spanHandles,
     snapDrop,
     outDrag,
     interactionObjects,
@@ -2144,7 +2178,9 @@ export function Canvas({
         break
 
       case "text":
-        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
+        // Its baseline handles are its own renderer's; a text in a table put
+        // together by snapping has none - its cell decides its size.
+        renderLabel(ctx, obj, fonts, isSelected && !sizedBySnapTable.has(obj.id), zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
         break
 
       case "live-icon":
@@ -2890,6 +2926,16 @@ export function Canvas({
         }
       }
 
+      // A span handle of the object chosen in a table put together by
+      // snapping (Task 7): dragged, its span grows or shrinks.
+      if (activeTool === "select" && spanHandles) {
+        const hit = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)
+        if (hit) {
+          spanDragRef.current = { tableId: spanHandles.tableId, id: spanHandles.id, side: hit.side }
+          return
+        }
+      }
+
       // An active table's handles: a column line to drag, «+» for a row or
       // a column (docs/2026-10-02-layout-tables.md).
       if (activeTool === "select" && !previewMode && onSetTableProperties) {
@@ -3124,6 +3170,7 @@ export function Canvas({
       tableDropFor,
       sizedBySnapTable,
       layoutScale,
+      spanHandles,
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
@@ -3225,6 +3272,25 @@ export function Canvas({
         setPolylineCursor(coords)
       }
 
+      // A span handle dragged (Task 7): the span's edge follows the pointer
+      // across the lines, over empty cells only (lib/snap-table.ts
+      // resizeSpan); every step one more update of the same gesture.
+      const span = spanDragRef.current
+      if (span) {
+        const parent = findObjectById(screen.objects, span.tableId)
+        if (parent && isSnapTable(parent)) {
+          const origin = childOrigin(screen.objects, parent.id)
+          const table = { ...parent, x: origin.x, y: origin.y }
+          const next = resizeSpan(table, span.id, span.side, spanIndexAt(table, span.side, coords, layoutScale))
+          const before = (parent.children ?? []).find((c) => c.id === span.id)
+          const after = next?.children?.find((c) => c.id === span.id)
+          if (before && after && JSON.stringify(before.properties?.cell) !== JSON.stringify(after.properties?.cell)) {
+            onUpdateObject(span.id, { properties: after.properties })
+          }
+        }
+        return
+      }
+
       const columnDrag = columnDragRef.current
       if (columnDrag) {
         const table = tableLines.find((t) => t.id === columnDrag.tableId)
@@ -3280,6 +3346,10 @@ export function Canvas({
 
         if (activeTool !== "select" && activeTool !== "background") {
           canvas.style.cursor = "crosshair"
+        } else if (spanHandles && spanHandles.handles.some((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)) {
+          // Over a span handle: the way it grows.
+          const h = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)!
+          canvas.style.cursor = h.side === "left" || h.side === "right" ? "ew-resize" : "ns-resize"
         } else if (hoveredObject && selectedObjectIds.includes(hoveredObject.id)) {
           if (isLineType(hoveredObject.type)) {
             const lineHandle = findLineHandle(hoveredObject, coords.x, coords.y)
@@ -3807,6 +3877,9 @@ export function Canvas({
       sizedBySnapTable,
       drawSpace,
       onSnapMoveOut,
+      spanHandles,
+      layoutScale,
+      onUpdateObject,
       placedByLayout,
       textScale,
       previewMode,
@@ -3864,6 +3937,11 @@ export function Canvas({
       const value = levelDragRef.current.value
       levelDragRef.current = null
       if (dragged) onPreviewSetLevel?.(dragged, value, true)
+      return
+    }
+
+    if (spanDragRef.current) {
+      spanDragRef.current = null
       return
     }
 
@@ -4645,6 +4723,7 @@ export function Canvas({
         data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
         data-snap-chip={snapChip?.text}
         data-pixels-per-mm={layoutScale.pixelsPerMm}
+        data-span-handles={spanHandles ? JSON.stringify(spanHandles.handles) : undefined}
         data-editing-container={editingContainerId ?? undefined}
         style={{
           imageRendering: "pixelated",
