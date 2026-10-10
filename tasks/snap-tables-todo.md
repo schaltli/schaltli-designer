@@ -186,6 +186,54 @@ position check (fixed: the alignment guides place it), page-icon-export
 
 **Files likely touched:** `components/canvas/canvas.tsx`, `components/canvas/snap-table-overlay.ts`, `components/project-editor.tsx` (drop actions), `handbuch/objekte/anordnen.md`, `e2e/snap-table-canvas.spec.ts`
 
+## Module `place-by-dragging` (added 2026-10-10)
+
+## Task P1: A tool makes its object at the pointer, held as a dragged one
+
+**Description:** With a tool other than line/polyline, a press on the
+canvas makes the object at its default size (spec: «Placing by dragging»),
+its middle under the pointer, selected and in the drag that moving uses:
+it follows the pointer, snaps by its edges, Ctrl/⌘ places freely, release
+puts it down, Esc removes it again. A click without moving puts it down
+there. One undo step. Drawing a rectangle goes for these tools, and with it
+`createSnapRef` and the draw space for new objects; an open table is left
+for the space it stands in when a tool is used. Lines and polylines are
+drawn as today. The old table's click placement (`tablePlacementRef`) and
+the Table tool keep working until module old-table-removal.
+
+**Acceptance criteria:**
+- [ ] A switch: press, move, release - it lies where it was let go, at M, its middle where the pointer was.
+- [ ] Pressed and let go with its edge against a free text: they are a table.
+- [ ] Esc before release: no object, nothing to undo.
+- [ ] One Ctrl+Z after placing removes the object.
+- [ ] A line is still drawn from point to point.
+
+**Verification:** `npx playwright test e2e/place-by-dragging.spec.ts e2e/snap-table-canvas.spec.ts`; typecheck.
+
+**Dependencies:** Task 5 · **Scope:** L
+
+**Files likely touched:** `components/canvas/canvas.tsx`, `components/project-editor.tsx` (`addObject`), `lib/` (default sizes), `e2e/place-by-dragging.spec.ts` (new), `e2e/helpers.ts`
+
+## Task P2: Default sizes, tests and handbook
+
+**Description:** The default size of each type (spec, proposed values),
+checked per tool. Every existing test that draws a rectangle with such a
+tool is changed to the new gesture (a helper `placeWith(page, tool, at)` in
+`e2e/helpers.ts`), keeping what it tests; tests about the size a rectangle
+gave go or are rewritten for the default size and the handles. Handbook:
+every page that says to draw a rectangle for an object.
+
+**Acceptance criteria:**
+- [ ] Each tool's new object has the default size the spec names.
+- [ ] Full `npm run test:e2e` green.
+- [ ] No handbook page tells to draw a rectangle except for a line; `e2e/handbook-labels.spec.ts` green.
+
+**Verification:** full `npm run test:e2e` on the worktree's server; `npm run screenshots`.
+
+**Dependencies:** Task P1 · **Scope:** L (split by spec file group if it grows)
+
+**Files likely touched:** many `e2e/*.spec.ts`, `e2e/helpers.ts`, `handbuch/**`
+
 ## Task 6: Moving and dragging out
 
 **Description:** A selected table is moved whole by dragging. A selected

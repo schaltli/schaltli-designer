@@ -19,11 +19,13 @@ width and height as today.
 | `snap-table-model` | The flat table: cells with spans, column widths and row heights by hand, Align, Fill, column roles; inserting and tidying rows and columns; layout | designer (`lib/`) | - |
 | `snap-table-canvas` | Snapping with an insertion line, two-level selection, dragging out, the four span handles, column and row lines; tables inside switcher panels and free areas | designer (canvas) | `snap-table-model` |
 | `snap-table-panel` | Property panel (Size, Align, Fill, «Auto sizes»), object tree; the Table tool and its templates go | designer (panel, toolbar, tree) | `snap-table-model` |
-| `snap-table-rows` | Row templates in the toolbar; a row's parts placed into columns by role | designer | `snap-table-model`, `snap-table-canvas` |
+| `place-by-dragging` | A tool makes its object at its default size, held at its middle like a dragged one: placed freely or snapped by the same mechanics; lines still drawn (added 2026-10-10) | designer (canvas, toolbar) | `snap-table-canvas` (Task 5) |
+| `snap-table-rows` | Row templates in the toolbar; a row's parts placed into columns by role | designer | `snap-table-model`, `snap-table-canvas`, `place-by-dragging` |
 | `snap-table-blocks` | Blocks built as a row or as a table of their own instead of nested tables; switcher panels free | designer (`lib/bausteine.ts`) | `snap-table-rows` |
 | `old-table-removal` | Old tables dissolved on load; the Table tool, old table code, overlay, ribbon, templates and their tests removed; HIL fixture rebuilt; last pass over the handbook | designer, `hil/`, `handbuch/` | all above |
 
-Build order: `snap-table-model` → `snap-table-canvas`, `snap-table-panel`
+Build order: `snap-table-model` → `snap-table-canvas` (Tasks 4-5) →
+`place-by-dragging` → `snap-table-canvas` (Tasks 6-9), `snap-table-panel`
 → `snap-table-rows` → `snap-table-blocks` → `old-table-removal`.
 
 Until `old-table-removal`, old and new tables live side by side, told apart
@@ -214,6 +216,38 @@ shown only when larger than 1×1).
   today; drops into a table in the tree go.
 - **Toolbar:** the «Tables» group with Table and Table template goes; Free
   stays where it is.
+
+### Placing by dragging (`place-by-dragging`)
+
+Decided with the user 2026-10-10, after Task 5. Drawing a rectangle sets a
+size most objects do not have - a control's comes from its size step, a
+text's from its words, a block's from its parts - and it ends with the
+mouse button up, so a new object cannot be carried to its place as a
+moved one is (the open table taking a drawn box into its first cell was one
+result). Instead:
+
+- **A tool held, a press on the canvas makes the object** at its default
+  size, its middle under the pointer, and from then on it is dragged as an
+  existing object is: it follows the pointer, snaps by its edges (into a
+  table, beside a free object or a table), Ctrl/⌘ places it freely,
+  release puts it down, Esc takes it away again - no object is left. One
+  undo step for the whole gesture. A click without moving puts it down
+  where it was pressed.
+- **Default sizes** (proposed): a control with a size step at M (as
+  `stepUpdates` makes it today); a text its words in the starting style; an
+  icon, a gauge and a dial at M; a bar or slider 30 mm long; a box
+  20 × 10 mm; a free area 30 × 20 mm; a button group and a switcher as wide
+  as their labels at M. Box, free area, bar and slider are made larger or
+  smaller afterwards at their handles, as today.
+- **Lines and polylines are still drawn**: their points are the object.
+- **Blocks** (module `snap-table-blocks`) and **row templates** (module
+  `snap-table-rows`) arrive the same way: held at the pointer, snapped as
+  a row or placed free.
+- What goes away: drawing a rectangle for every other tool, and the extra
+  paths Task 5 built for it (`createSnapRef`, the draw space for new
+  objects); an object drawn while a table is open is no longer a case.
+- **Not now:** dragging straight from a toolbar button onto the canvas
+  (later, its own step).
 
 ### Rows (`snap-table-rows`)
 
