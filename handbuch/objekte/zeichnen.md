@@ -4,7 +4,7 @@ Linien und Flächen, um einen Screen zu gliedern, und eine Linie, die einen Ener
 
 ## Line {#line}
 
-Eine Linie durch beliebig viele Punkte. Mit der Maus gezogen entsteht eine gerade Linie; mit Klicks setzt du Punkt für Punkt, siehe [Objekte platzieren](/designer/objekte#ein-objekt-setzen).
+Eine Linie durch beliebig viele Punkte. Mit der Maus gezogen entsteht eine gerade Linie; mit Klicks setzt du Punkt für Punkt, siehe [Objekte platzieren](/designer/objekte#ein-objekt-setzen). Anders als die übrigen Objekte zeichnest du eine Linie, und sie rastet dabei nie in eine Tabelle ein. In eine Zelle kommt sie erst, wenn du sie danach dorthin verschiebst.
 
 - <span class="ui">Stroke width</span>: die Strichstärke, 1 bis 10 Pixel.
 - <span class="ui">Stroke style</span>: durchgezogen, gestrichelt oder gepunktet. Die Geräte zeichnen derzeit nur durchgezogene Linien.

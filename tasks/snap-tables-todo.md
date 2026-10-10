@@ -238,9 +238,23 @@ gave go or are rewritten for the default size and the handles. Handbook:
 every page that says to draw a rectangle for an object.
 
 **Acceptance criteria:**
-- [ ] Each tool's new object has the default size the spec names.
-- [ ] Full `npm run test:e2e` green.
-- [ ] No handbook page tells to draw a rectangle except for a line; `e2e/handbook-labels.spec.ts` green.
+- [x] Each tool's new object has the default size the spec names.
+- [x] Full `npm run test:e2e` green (but for the timing test below).
+- [x] No handbook page tells to draw a rectangle except for a line; `e2e/handbook-labels.spec.ts` green. (Blocks and the old table's tool still draw one until their modules.)
+
+Done 2026-10-10. Found by the suite: the creation code gives some objects
+another size than they were carried at - a slider its track's height, a
+text its font's - keeping their top edge, so they did not stand centred
+where let go; a carried object is now moved back onto that middle
+(`placedMiddleRef`), the navigator excepted. Five specs that expected a
+drawn rectangle's size or place were changed for the new gesture
+(free-area, layout-canvas, hardware-button-adjust-level, two in
+software-button-look). Handbook: designer/objekte.md («Ein Objekt setzen»
+with the default sizes), objekte/anordnen.md (Zusammenstecken, Free),
+objekte/anzeigen.md (Bar), objekte/zeichnen.md (Line). Full suite on port
+3100: 1386 passed, 18 skipped, 1 failed - preview-performance `@alone`, a
+1000 ms timing test at 10x CPU, which failed once alone too and passed on
+the next run alone: flaky on this machine, not touched by this work.
 
 **Verification:** full `npm run test:e2e` on the worktree's server; `npm run screenshots`.
 

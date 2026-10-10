@@ -4,13 +4,15 @@ Alles, was ein Screen zeigt, ist ein Objekt: ein Text, eine Tankanzeige, ein Sch
 
 ## Ein Objekt setzen
 
-Wähle ein Werkzeug in der Werkzeugleiste und zieh auf dem Screen ein Rechteck auf. Das Objekt entsteht in dieser Grösse, ist gleich ausgewählt, und das Werkzeug springt zurück auf <span class="ui">Select</span>. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
+Wähle ein Werkzeug in der Werkzeugleiste und drück auf dem Screen die Maustaste. Das Objekt erscheint in seiner Grundgrösse und hängt mit seiner Mitte am Mauszeiger. Trag es dorthin, wo es hin soll, und lass los. Ein Klick ohne Bewegung legt es gleich dort ab, wo du geklickt hast. Unterwegs rastet es an Tabellen und anderen Objekten ein, genau wie beim Verschieben, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). <kbd>Esc</kbd> vor dem Loslassen nimmt es wieder weg. Danach ist das Objekt ausgewählt, und das Werkzeug springt zurück auf <span class="ui">Select</span>.
+
+Die Grundgrösse: Bedienelemente beginnen in der Grösse <span class="ui">M</span>, ein Bar oder Slider ist 30 mm lang, eine Box 20 × 10 mm, eine Free-Fläche 30 × 20 mm, ein Gauge oder Dial 20 mm gross. Eine Box, eine Free-Fläche, einen Bar oder Slider machst du danach an ihren Anfassern grösser oder kleiner. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
 
 Einige Werkzeuge verhalten sich anders:
 
 - <span class="ui">Icon</span>, <span class="ui">Live Icon</span>, <span class="ui">Gauge</span> und <span class="ui">Dial</span> sind immer quadratisch.
-- Mit <span class="ui">Icon</span> kannst du auch einfach klicken. Dann öffnet sich die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast.
-- <span class="ui">Line</span> und <span class="ui">Live Line</span> ziehen mit der Maus eine gerade Linie. Klickst du stattdessen, setzt jeder weitere Klick einen Punkt. <kbd>Enter</kbd> oder ein Doppelklick beenden die Linie, <kbd>Esc</kbd> bricht ab, <kbd>Backspace</kbd> nimmt den letzten Punkt zurück.
+- Mit <span class="ui">Icon</span> öffnet ein Klick die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast.
+- <span class="ui">Line</span> und <span class="ui">Live Line</span> zeichnest du weiterhin: Mit gedrückter Maustaste ziehst du eine gerade Linie. Eine gezeichnete Linie rastet nie ein, sie liegt danach frei, und du verschiebst sie wie jedes Objekt in eine Tabelle. Klickst du stattdessen, setzt jeder weitere Klick einen Punkt. <kbd>Enter</kbd> oder ein Doppelklick beenden die Linie, <kbd>Esc</kbd> bricht ab, <kbd>Backspace</kbd> nimmt den letzten Punkt zurück.
 - <span class="ui">Switcher</span> legt einen Bereich mit einem ersten Panel an. Darüber erscheinen Reiter, einer pro Panel, und <span class="ui">+</span> fügt ein Panel hinzu. Ein Klick auf einen Reiter öffnet dieses Panel zum Bearbeiten, neue Objekte landen dann darin.
 
 Schneller geht es oft mit den [Bausteinen](/designer/bausteine): Sie setzen fertige Objekte, die schon an die richtigen Werte gebunden sind.

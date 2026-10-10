@@ -52,8 +52,10 @@ async function closePanel(page: Page) {
 async function drawSlider(page: Page): Promise<string> {
   await page.getByRole("button", { name: "Slider", exact: true }).first().click()
   const { box } = await getMainCanvas(page)
+  // Carried at its middle to 180,180, where the test clicks it later
+  // (placing by dragging, docs/2026-10-09-snap-tables.md).
   const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
-  const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+  const to = devicePoint(box, 180, 180, ROUND_FIXTURE_SCREEN)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   await page.mouse.move(to.x, to.y, { steps: 5 })

@@ -93,6 +93,15 @@ test.describe("placing by dragging", () => {
     expect(Math.abs(placed.y + placed.height / 2 - 220)).toBeLessThanOrEqual(2)
   })
 
+  test("a bar, made thinner than it was carried, still has its middle where it was let go", async ({ page }) => {
+    await loadProject(page, await oneTextProject())
+    await tool(page, "Bar")
+    await carry(page, { x: 200, y: 150 }, { x: 250, y: 220 })
+    const bar = (await savedObjects(page)).find((o) => o.type === "bar")!
+    expect(Math.abs(bar.x + bar.width / 2 - 250)).toBeLessThanOrEqual(1)
+    expect(Math.abs(bar.y + bar.height / 2 - 220)).toBeLessThanOrEqual(1)
+  })
+
   test("a click without moving puts it down where it was pressed", async ({ page }) => {
     await loadProject(page, await oneTextProject())
     await tool(page, "Box")

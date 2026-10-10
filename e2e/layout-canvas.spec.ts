@@ -4,6 +4,7 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import { canDropAsChildOf } from "../lib/object-tree"
+import { placedSize } from "../lib/placing"
 import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady, tablePlusOnScreen } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
@@ -116,19 +117,25 @@ test.describe("placing into a container at the insertion line", () => {
     expect(after.children[3].type).toBe("box")
   })
 
-  test("outside any stack, row or grid a rectangle is drawn, as before", async ({ page }) => {
+  // Since placing by dragging (docs/2026-10-09-snap-tables.md) nothing is
+  // drawn as a rectangle: the box comes at its default size, carried at its
+  // middle to where it is let go.
+  test("outside any table a new object is put down at its default size where it is let go", async ({ page }) => {
     await loadProject(page, await fixtureProject())
     await page.getByRole("button", { name: "Box", exact: true }).first().click()
-    const { box } = await getMainCanvas(page)
+    const { box, canvas } = await getMainCanvas(page)
     const from = devicePoint(box, 340, 240)
-    const to = devicePoint(box, 390, 290)
+    const to = devicePoint(box, 360, 260)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 6 })
     await page.mouse.up()
     const drawn = (await screenOne(page)).filter((o: Obj) => o.type === "box")
     expect(drawn).toHaveLength(1)
-    expect(drawn[0]).toMatchObject({ x: 340, y: 240, width: 50, height: 50 })
+    const size = placedSize("box", Number(await canvas.getAttribute("data-pixels-per-mm")))!
+    expect(drawn[0]).toMatchObject({ width: size.width, height: size.height })
+    expect(Math.abs(drawn[0].x + drawn[0].width / 2 - 360)).toBeLessThanOrEqual(1)
+    expect(Math.abs(drawn[0].y + drawn[0].height / 2 - 260)).toBeLessThanOrEqual(1)
   })
 })
 

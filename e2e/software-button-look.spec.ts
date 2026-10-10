@@ -4,6 +4,7 @@ import path from "path"
 import JSZip from "jszip"
 import { buttonContentLayout, buttonCornerRadius, buttonLook } from "../components/canvas/renderers/render-software-button"
 import { fontMetricsOf } from "../lib/level-shape"
+import { placedSize } from "../lib/placing"
 import {
   createProject,
   chooseDevice,
@@ -310,6 +311,12 @@ test.describe("what a button draws", () => {
   })
 })
 
+// The size a new button starts at on this device (lib/placing.ts).
+async function buttonSize(page: Page): Promise<{ width: number; height: number }> {
+  const { canvas } = await getMainCanvas(page)
+  return placedSize("button", Number(await canvas.getAttribute("data-pixels-per-mm")))!
+}
+
 test.describe("the button in the property panel", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
@@ -329,8 +336,11 @@ test.describe("the button in the property panel", () => {
     const { box } = await getMainCanvas(page)
     await page.getByRole("button", { name: "Button", exact: true }).first().click()
     await page.waitForTimeout(150)
-    const from = devicePoint(box, 60, 60, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, 200, 110, ROUND_FIXTURE_SCREEN)
+    // Carried at its middle so that its top left corner lands at 60,60
+    // (placing by dragging, docs/2026-10-09-snap-tables.md).
+    const size = await buttonSize(page)
+    const from = devicePoint(box, 200, 200, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 60 + size.width / 2, 60 + size.height / 2, ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 5 })
@@ -347,7 +357,7 @@ test.describe("the button in the property panel", () => {
 
     // Switching the style repaints the button.
     // Inside the pill, above the label.
-    const centre = devicePoint(box, 130, 64, ROUND_FIXTURE_SCREEN)
+    const centre = devicePoint(box, 60 + size.width / 2, 64, ROUND_FIXTURE_SCREEN)
     const colourAtCentre = () =>
       page.evaluate(([px, py]) => {
         const canvas = Array.from(document.querySelectorAll("canvas")).sort(
@@ -377,8 +387,10 @@ test.describe("the button in the property panel", () => {
     let { box } = await getMainCanvas(page)
     await page.getByRole("button", { name: "Button", exact: true }).first().click()
     await page.waitForTimeout(150)
-    const from = devicePoint(box, 60, 60, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, 200, 110, ROUND_FIXTURE_SCREEN)
+    // Its top left corner at 60,60, carried there at its middle.
+    const size = await buttonSize(page)
+    const from = devicePoint(box, 200, 200, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 60 + size.width / 2, 60 + size.height / 2, ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 5 })
@@ -394,7 +406,7 @@ test.describe("the button in the property panel", () => {
     // Five in from the button's corner: outside the pill at rest (radius 25),
     // inside the pressed shape (radius 10).
     const corner = devicePoint(box, 65, 65, ROUND_FIXTURE_SCREEN)
-    const centre = devicePoint(box, 130, 85, ROUND_FIXTURE_SCREEN)
+    const centre = devicePoint(box, 60 + size.width / 2, 60 + size.height / 2, ROUND_FIXTURE_SCREEN)
     const colourAt = (pt: { x: number; y: number }) =>
       page.evaluate(([px, py]) => {
         const canvas = Array.from(document.querySelectorAll("canvas")).sort(

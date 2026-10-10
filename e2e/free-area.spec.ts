@@ -116,9 +116,11 @@ test("what is drawn into a free area in a cell stays where it is put", async ({ 
   const placed = (after.children as Obj[]).find((o) => o.id === "area")!
   expect(placed.children).toHaveLength(1)
   const text = placed.children[0]
-  // Where it was drawn, relative to the area: the table does not move it.
-  expect(Math.abs(text.x - 30)).toBeLessThanOrEqual(2)
-  expect(Math.abs(text.y - 40)).toBeLessThanOrEqual(2)
+  // Where it was let go, relative to the area - carried at its middle
+  // (docs/2026-10-09-snap-tables.md, placing by dragging): the table does not move it.
+  expect(Math.abs(text.x + text.width / 2 - 110)).toBeLessThanOrEqual(2)
+  expect(text.y).toBeLessThan(60)
+  expect(text.y + text.height).toBeGreaterThan(40)
 })
 
 test("a double click opens the table, a second the free area in its cell", async ({ page }) => {

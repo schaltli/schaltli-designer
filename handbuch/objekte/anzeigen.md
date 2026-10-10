@@ -129,7 +129,7 @@ Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er an
 - <span class="ui">Size</span>: wie dick der Balken ist, in vier Stufen, <span class="ui">XS</span>, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (1.15, 1.7, 2.9 und 4.6 mm, auf dem 4.3B 10, 15, 25 und 40 Pixel). Bar, Slider, Gauge und Dial haben dieselben Stufen, ihre Balken und Ringe sind also gleich dick. Beim Slider steht der Anfasser über den Balken hinaus. Ein neuer Bar beginnt in <span class="ui">M</span>. Passt die Dicke zu keiner Stufe, etwa bei einem Balken aus der Zeit vor den Stufen, steht «Custom» mit der Dicke in Pixeln da, und «Snap to …» setzt ihn auf die nächste Stufe. Auf älteren Geräten fehlt das Feld.
 - <span class="ui">Thickness</span>: wie dick der Balken ist, in Pixeln. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte. Tippst du hier eine Zahl ein, gilt keine Stufe mehr.
 
-Hat ein Bar eine Stufe, ziehst du ihn auf dem Screen nur noch in der Länge. Dicker oder dünner wird er über <span class="ui">Size</span>.
+Ein neuer Bar ist 30 mm lang. Hat er eine Stufe, änderst du an seinen Anfassern nur noch die Länge. Dicker oder dünner wird er über <span class="ui">Size</span>.
 
 <Screenshot narrow name="feld-size" alt="Unter Shape die Felder Size, Direction, Thickness und Setpoint topic eines Sliders" />
 - <span class="ui">Setpoint topic</span>: ein Sollwert, den die Anlage meldet. Ein kleines Dreieck unter dem Balken zeigt auf ihn, bei einem senkrechten Balken steht es rechts daneben. Einen Anfasser wie der Slider hat der Bar nicht: Verschieben lässt er sich nicht.

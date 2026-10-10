@@ -1021,7 +1021,16 @@ export function Canvas({
         textScale && stepKindOf(drawn.type)
           ? stepUpdates(drawn as ScreenObject, "m", textScale.pixelsPerMm, fonts ?? [])
           : undefined
-      const object = atM ? { ...drawn, ...atM } : drawn
+      const sized = atM ? { ...drawn, ...atM } : drawn
+      // Carried at its middle (placing by dragging): the creation code may
+      // give it another size than it was carried at - a slider its track's
+      // height, a text its font's - so its middle is put back where it was
+      // let go.
+      const middle = placedMiddleRef.current
+      placedMiddleRef.current = null
+      const object = middle
+        ? translateObject(sized as ScreenObject, Math.round(middle.x - (sized.x + sized.width / 2)), Math.round(middle.y - (sized.y + sized.height / 2)))
+        : sized
       // Drawn where it snaps (handleMouseMove): into that table, or a table
       // with its neighbour.
       const snapTo = createSnapRef.current
@@ -1107,6 +1116,8 @@ export function Canvas({
   const [snapDrop, setSnapDrop] = useState<SnapDrop | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
   const createSnapRef = useRef<SnapDrop | null>(null)
+  // Where a carried new object was let go, its middle (placing by dragging).
+  const placedMiddleRef = useRef<{ x: number; y: number } | null>(null)
   // The nested tables near the pointer while something is placed: theirs
   // is the «+» below that shows (lib/table.ts nestedTablesNear).
   const [nearTables, setNearTables] = useState<string[]>([])
@@ -3878,6 +3889,11 @@ export function Canvas({
     if (dragState?.mode === "create" && dragState.creatingType) {
       createSnapRef.current = snapDrop
       setSnapDrop(null)
+      // A navigator goes onto its edge, wherever it was let go.
+      if (dragState.placing && dragState.creatingType !== "navigator") {
+        const r = dragState.startObjectPos
+        placedMiddleRef.current = { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+      }
       let { x, y, width, height } = dragState.startObjectPos
 
       const minSize = 5
@@ -4238,6 +4254,7 @@ export function Canvas({
     setDragState(null)
     // A click placement not made (the press went elsewhere) is not carried on.
     tablePlacementRef.current = null
+    placedMiddleRef.current = null
     setActiveSnapLines([])
     const canvas = canvasRef.current
     if (canvas) {
