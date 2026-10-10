@@ -946,9 +946,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const projectOpen = !!project.settings.deviceId
   const save = useProjectSave(project, history.amend, projectOpen)
 
+  // The demo (hooks/use-demo-mode.ts): null until the server has said.
+  const demo = useDemoMode()
+
   // The draft in the browser (lib/project-draft.ts): the key it is kept
   // under - the saved name, or for a project without one a random key made
-  // when it was loaded.
+  // when it was loaded. The demo keeps none: nothing is saved there, and a
+  // draft from an earlier visit would open in place of the start project as
+  // it is now (2026-10-10).
   const [untitledDraftKey, setUntitledDraftKey] = useState(newUntitledDraftKey)
   const draftKey = save.savedName !== null ? draftKeyForName(save.savedName) : untitledDraftKey
   // Which Save dialog is open: the first save of an unnamed project, or a
@@ -1021,7 +1026,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // then). Gone once saved, or undone back to the saved state.
   const lastDraftWriteRef = useRef(0)
   useEffect(() => {
-    if (!projectOpen) return
+    if (!projectOpen || demo !== false) return
     if (!save.unsaved) {
       void deleteDraft(draftKey)
       return
@@ -1038,7 +1043,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       })
     }, wait)
     return () => clearTimeout(timer)
-  }, [projectOpen, save.unsaved, save.savedName, draftKey, project])
+  }, [projectOpen, demo, save.unsaved, save.savedName, draftKey, project])
 
   // A draft under a key the open project no longer has goes: after a first
   // save (untitled -> named), a rename, or leaving a project - which asked
@@ -3024,7 +3029,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const saved: Project = migrateProject(structuredClone(data.project))
       // This browser's draft of it, if there is one, is what opens - shown
       // unsaved against the newest saved version.
-      const draft = await getDraft(draftKeyForName(data.name))
+      const draft = demo === false ? await getDraft(draftKeyForName(data.name)) : undefined
       const opened: Project = draft
         ? { ...migrateProject(structuredClone(draft.project as Project)), name: data.name }
         : saved
@@ -3035,7 +3040,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
     },
-    [save.savedName, save.markSaved, confirmLeave, history.replace, toast],
+    [save.savedName, save.markSaved, confirmLeave, history.replace, toast, demo],
   )
 
   // Opens the draft of a project that was never saved, from the list.
@@ -3065,8 +3070,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   //
   // The demo (hooks/use-demo-mode.ts) opens its start project on the start
   // page's address too, so a visitor never sees the start page; until the
-  // server has said whether this is the demo, nothing shows.
-  const demo = useDemoMode()
+  // server has said whether this is the demo, nothing shows. (`demo` is
+  // asked for further up, where the drafts need it.)
   const [phonePage, openAnyway] = useDemoPhonePage()
   const [openingInitial, setOpeningInitial] = useState(true)
   const initialToOpen = initialName ?? (demo ? demo.start : undefined)

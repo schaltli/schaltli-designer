@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
 import fs from "fs"
-import { COMBINED_TEST_PROJECT } from "./helpers"
+import { COMBINED_TEST_PROJECT, createScreen } from "./helpers"
 import { DEMO_HEADER, allowedInDemo } from "../lib/demo-mode"
 import { POST as createProject } from "../app/api/projects/route"
 import { DELETE as deleteProject } from "../app/api/projects/[name]/route"
@@ -126,6 +126,46 @@ test.describe("the demo in the browser", () => {
       "https://schaltli.com/installieren/pekaway.html",
     )
     await expect(page.getByRole("complementary", { name: "Projects panel" })).toHaveCount(0)
+  })
+
+  // No draft in the browser (2026-10-10): one from an earlier visit opened
+  // in place of the start project as the server has it now, and an edit
+  // kept one, though the demo saves nothing.
+  test("the start project opens as the server has it, never a draft, and an edit keeps none", async ({ page }) => {
+    const drafts = (op: "all" | "put", draft?: unknown) =>
+      page.evaluate(
+        ([op, draft]) =>
+          new Promise<string[]>((resolve) => {
+            const open = indexedDB.open("schaltli", 1)
+            open.onupgradeneeded = () => open.result.createObjectStore("drafts", { keyPath: "key" })
+            open.onsuccess = () => {
+              const store = open.result.transaction("drafts", "readwrite").objectStore("drafts")
+              const request = op === "put" ? store.put(draft) : store.getAll()
+              request.onsuccess = () => {
+                resolve(op === "put" ? [] : (request.result as unknown[]).map((d) => JSON.stringify(d)))
+                open.result.close()
+              }
+            }
+          }),
+        [op, draft] as const,
+      )
+    await page.goto("/")
+    await expect(page.getByTestId("project-title")).toHaveText(START)
+    const project = (await (await page.request.get(`/api/projects/${START}`)).json()).project
+    project.screens.push({ id: "screen-earlier", name: "From an earlier visit", masterScreenId: project.screens.find((s: any) => s.isMaster)?.id, objects: [] })
+    await drafts("put", { key: `name:${START.toLowerCase()}`, name: START, deviceName: null, updatedAt: new Date().toISOString(), project })
+
+    await page.reload()
+    await expect(page.getByTestId("project-title")).toHaveText(START)
+    await expect(page.getByText("From an earlier visit", { exact: true })).toHaveCount(0)
+
+    await createScreen(page, "Not kept", false)
+    await page.waitForTimeout(2000)
+    // The one put there is left as it was: nothing written over it.
+    const kept = await drafts("all")
+    expect(kept).toHaveLength(1)
+    expect(kept[0]).toContain("From an earlier visit")
+    expect(kept[0]).not.toContain("Not kept")
   })
 
   test("File offers what keeps a screen, nothing that saves or deploys", async ({ page }) => {
