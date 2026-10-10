@@ -87,7 +87,9 @@ announcement.
      without saving it), Export Project, the preview, Discover MQTT Topics;
    - a notice under the top bar: «Demo - nothing is saved. Download Project
      takes your screen with you.» with a link to the handbook's install page;
-   - the leave warning stays: it tells a visitor their work goes.
+   - the leave warning stays: it tells a visitor their work goes;
+   - in English, as the whole designer is, though the forum's visitors read
+     German - the phone page too (decided 2026-10-10).
 
 4. **On an https page the broker is `wss://<host>/mqtt`.**
    `defaultWebsocketUrl()` keeps `ws://<host>:9001` on http (every Pekaway

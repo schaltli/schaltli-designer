@@ -16,8 +16,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 REF="${1:-$(git rev-parse HEAD)}"
-SSH="${SSH:-ssh}"
-SCP="${SCP:-scp}"
+# On Windows, Windows' own OpenSSH: Git's ssh does not talk to the Windows
+# ssh-agent that holds the key.
+WIN_SSH=/c/Windows/System32/OpenSSH
+if [ -x "$WIN_SSH/ssh.exe" ]; then
+  SSH="${SSH:-$WIN_SSH/ssh.exe}"
+  SCP="${SCP:-$WIN_SSH/scp.exe}"
+else
+  SSH="${SSH:-ssh}"
+  SCP="${SCP:-scp}"
+fi
 HOST=schaltli-demo
 
 git merge-base --is-ancestor "$REF" origin/main 2>/dev/null || git ls-remote --exit-code origin "$REF" >/dev/null || {
