@@ -587,6 +587,45 @@ export function applySnapDrop(objects: ScreenObject[], movingId: string, drop: S
   return rest.map((o) => (o.id === table.id ? kept : o))
 }
 
+/**
+ * An object taken out of a table among the objects of one space: the table
+ * keeps what stood there in its place (keepInPlace), or dissolves into its
+ * last object; the object comes out at the end of the list, where it stood
+ * on the screen, as drawn and without its cell. The list as it was when
+ * there is no such table or object.
+ */
+export function liftOut(objects: ScreenObject[], tableId: string, objectId: string, scale: LayoutScale): { objects: ScreenObject[]; taken: ScreenObject | null } {
+  const table = objects.find((o) => o.id === tableId)
+  if (!table || !isSnapTable(table) || !(table.children ?? []).some((c) => c.id === objectId)) return { objects, taken: null }
+  const laid = arrangeSnapTable(table, scale)
+  const out = takeOutOf(laid, objectId)
+  const replaced = out.table ? keepInPlace(laid, out.table, scale) : out.left
+  const rest = objects.flatMap((o) => (o.id !== tableId ? [o] : replaced ? [replaced] : []))
+  return { objects: [...rest, out.taken], taken: out.taken }
+}
+
+/**
+ * An object dragged out of a table and let go: out of it (liftOut), moved
+ * so its top left corner is at `to`, then snapped where `drop` says - into
+ * a table or beside an object - or left lying free. In one space, in its
+ * coordinates.
+ */
+export function moveOutOf(
+  objects: ScreenObject[],
+  tableId: string,
+  objectId: string,
+  to: { x: number; y: number },
+  drop: SnapDrop | null,
+  scale: LayoutScale,
+  newTableId?: string,
+): ScreenObject[] {
+  const lifted = liftOut(objects, tableId, objectId, scale)
+  if (!lifted.taken) return objects
+  const moved = translateObject(lifted.taken, Math.round(to.x - lifted.taken.x), Math.round(to.y - lifted.taken.y))
+  const list = lifted.objects.map((o) => (o.id === objectId ? moved : o))
+  return drop ? applySnapDrop(list, objectId, drop, scale, newTableId) : list
+}
+
 /** The side of a free object a drop at a point goes to; null when the point is not within `zone` of it. */
 export function freeSideAt(obj: ScreenObject, point: { x: number; y: number }, zone: number): SnapSide | null {
   if (point.x < obj.x - zone || point.y < obj.y - zone || point.x > obj.x + obj.width + zone || point.y > obj.y + obj.height + zone) return null

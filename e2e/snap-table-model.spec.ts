@@ -6,6 +6,8 @@ import {
   applySnapDrop,
   arrangeSnapTable,
   freeSideAt,
+  liftOut,
+  moveOutOf,
   snapDropAt,
   insertSnapColumn,
   insertSnapRow,
@@ -357,6 +359,39 @@ test.describe("snap table: drops", () => {
     const out = takeOutOf(table, "line").taken
     expect(out.properties!.points[0]).toEqual({ x: table.x + placed.properties!.points[0].x, y: table.y + placed.properties!.points[0].y })
     expect(out.x).toBe(out.properties!.points[0].x)
+  })
+
+  test("lifted out of a table, an object comes out where it stood; what stays keeps its place", () => {
+    const t = grid3()
+    const { objects, taken } = liftOut([t], t.id, "r0c0", SCALE)
+    expect(taken).toMatchObject({ id: "r0c0", ...abs(t, "r0c0") })
+    expect(taken!.properties?.cell).toBeUndefined()
+    const left = objects.find((o) => o.id === t.id)!
+    expect(left.children!.some((c) => c.id === "r0c0")).toBe(false)
+    expect(abs(left, "r0c1")).toEqual(abs(t, "r0c1"))
+    expect(abs(left, "r2c2")).toEqual(abs(t, "r2c2"))
+  })
+
+  test("lifted out of a table of two, the table dissolves into the other object", () => {
+    const pair = snapPair(free("a", 100, 100), free("b", 0, 0), "right", SCALE)
+    const { objects } = liftOut([pair], pair.id, "b", SCALE)
+    expect(objects.map((o) => [o.id, o.type])).toEqual([
+      ["a", "box"],
+      ["b", "box"],
+    ])
+    expect(objects[0]).toMatchObject({ x: 100, y: 100 })
+  })
+
+  test("dragged out and let go: free where it was let go, or snapped where the drop says", () => {
+    const t = grid3()
+    const c = free("c", 300, 300)
+    const freeOut = moveOutOf([t, c], t.id, "r0c0", { x: 20, y: 30 }, null, SCALE)
+    expect(freeOut.find((o) => o.id === "r0c0")).toMatchObject({ x: 20, y: 30 })
+    expect(freeOut.find((o) => o.id === "r0c0")!.properties?.cell).toBeUndefined()
+    const beside = moveOutOf([t, c], t.id, "r0c0", { x: 343, y: 300 }, { kind: "pair", stillId: "c", side: "right" }, SCALE, "new")
+    const pair = beside.find((o) => o.id === "new")!
+    expect(pair.children!.map((o) => o.id)).toEqual(["c", "r0c0"])
+    expect(beside.find((o) => o.id === t.id)!.children!.some((o) => o.id === "r0c0")).toBe(false)
   })
 
   test("beside a table, the new column goes to the row of the object's middle", () => {

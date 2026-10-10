@@ -280,6 +280,80 @@ test.describe("snap table: snapping", () => {
   })
 })
 
+test.describe("snap table: moving", () => {
+  test("a selected table is moved whole by dragging it", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    await drag(page, middleOf(table, "pumpe"), { x: middleOf(table, "pumpe").x + 40, y: middleOf(table, "pumpe").y + 30 })
+    const moved = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect([moved.x, moved.y]).toEqual([table.x + 40, table.y + 30])
+    expect(moved.children!.map((c) => [c.id, c.x, c.y])).toEqual(table.children!.map((c) => [c.id, c.x, c.y]))
+  })
+
+  test("an object dragged out of a table lies free where it was let go; its row, now empty, goes", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "bad"))
+    await doubleClick(page, middleOf(table, "bad"))
+    await expect.poll(() => getSelectedHeader(page)).toContain("bad")
+    const from = middleOf(table, "bad")
+    await drag(page, from, { x: 300, y: 240 })
+    const objects = await savedObjects(page)
+    const bad = objects.find((o) => o.id === "bad")!
+    expect(bad.properties?.cell).toBeUndefined()
+    const before = table.children!.find((c) => c.id === "bad")!
+    expect(bad.x).toBe(Math.round(table.x + before.x + 300 - from.x))
+    const grid = objects.find((o) => o.id === "grid")!
+    expect(grid.children!.map((c) => c.id).sort()).toEqual(["licht", "pumpe"])
+    expect(grid.properties?.rows).toHaveLength(1)
+    // What stayed is where it stood.
+    const licht = grid.children!.find((c) => c.id === "licht")!
+    const lichtBefore = table.children!.find((c) => c.id === "licht")!
+    expect([grid.x + licht.x, grid.y + licht.y]).toEqual([table.x + lichtBefore.x, table.y + lichtBefore.y])
+  })
+
+  test("one of two dragged out leaves two free objects and no table", async ({ page }) => {
+    await loadProject(page, await freeProject())
+    // «Pumpe» snapped right of «Licht»: a table of two, open, «Pumpe» chosen.
+    await drag(page, { x: 130, y: 161 }, { x: 193, y: 71 })
+    await expect.poll(() => editing(page)).not.toBeNull()
+    const pair = (await savedObjects(page)).find((o) => o.type === "table")!
+    const pumpe = pair.children!.find((c) => c.id === "b")!
+    await drag(page, { x: pair.x + pumpe.x + 10, y: pair.y + pumpe.y + 10 }, { x: 250, y: 250 })
+    const objects = await savedObjects(page)
+    expect(objects.some((o) => o.type === "table")).toBe(false)
+    expect(objects.find((o) => o.id === "a")).toMatchObject({ x: 100, y: 60 })
+    expect(objects.find((o) => o.id === "b")!.properties?.cell).toBeUndefined()
+  })
+
+  test("with Esc while dragging out, the object stays in its cell", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "bad"))
+    await doubleClick(page, middleOf(table, "bad"))
+    await drag(page, middleOf(table, "bad"), { x: 300, y: 240 }, () => page.keyboard.press("Escape"))
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(grid.children!.find((c) => c.id === "bad")!.properties?.cell).toMatchObject({ row: 1, column: 0 })
+  })
+
+  test("an object copied out of a table pastes free, beside the table, not into it", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    await click(page, middleOf(table, "pumpe"))
+    await doubleClick(page, middleOf(table, "pumpe"))
+    await expect.poll(() => getSelectedHeader(page)).toContain("pumpe")
+    await page.keyboard.press("ControlOrMeta+c")
+    await page.keyboard.press("ControlOrMeta+v")
+    const objects = await savedObjects(page)
+    const copies = objects.filter((o) => o.type === "text")
+    expect(copies).toHaveLength(1)
+    expect(copies[0].properties?.cell).toBeUndefined()
+    expect(objects.find((o) => o.id === "grid")!.children!.map((c) => c.id).sort()).toEqual(["bad", "licht", "pumpe"])
+    expect(await editing(page)).toBeNull()
+  })
+})
+
 test.describe("snap table: selection", () => {
   test("a click selects the table, a double click the object in it, a click on another object of it stays inside", async ({ page }) => {
     const { zip, table } = await snapProject()

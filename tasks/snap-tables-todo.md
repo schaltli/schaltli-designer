@@ -271,10 +271,22 @@ losing its span. Copy/paste: a table pastes as a table, an object from a
 table as a free object.
 
 **Acceptance criteria:**
-- [ ] Dragging a selected table moves all its objects; nothing else changes.
-- [ ] Dragging a switch out of a 3×3 table leaves a gap; the last one of a row removes the row.
-- [ ] Dragging one of two objects out leaves two free objects and no table.
-- [ ] Copy/paste as above.
+- [x] Dragging a selected table moves all its objects; nothing else changes.
+- [x] Dragging a switch out of a 3×3 table leaves a gap; the last one of a row removes the row (tested with texts in a 2×2 table; the gap case in Node).
+- [x] Dragging one of two objects out leaves two free objects and no table.
+- [x] Copy/paste as above (an object copied out of a table; a copied table pastes as a table through the existing paste).
+
+Done 2026-10-10. `liftOut`/`moveOutOf` (lib/snap-table.ts) take an object
+out of a table in one space, the rest kept in place; the canvas carries an
+outline while an object in an open table is dragged, works out the snap
+target against the space with the object already out, and the editor
+applies it on release (`snapMoveOut`); Esc leaves it in its cell. Paste:
+with a new table open the copy goes where the table stands, and an object
+copied out of a table pastes without its cell (an old table keeps the old
+rule). Moving a table whole already worked (it is dragged as a group is);
+now tested. Handbook: «Herausnehmen» and pasting in objekte/anordnen.md.
+Ran 134 specs (snap-table-*, place-by-dragging, tab-control-copy-paste,
+table-*, group, free-area, undo, handbook-labels): green.
 
 **Verification:** `npx playwright test e2e/snap-table-canvas.spec.ts -g moving`; typecheck.
 

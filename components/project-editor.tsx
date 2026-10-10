@@ -66,7 +66,7 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { FALLBACK_SCALE, layoutProject } from "@/lib/layout"
-import { applySnapDrop, firstInReadingOrder, isSnapTable, type SnapDrop } from "@/lib/snap-table"
+import { applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, isOldTable, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
@@ -2443,6 +2443,35 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId, editingContainerId, project.nextId, setProject],
   )
 
+  // An object dragged out of a table put together by snapping and let go
+  // (docs/2026-10-09-snap-tables.md, Task 6): out of the table, its top left
+  // corner at `to` in the space the table stands in, then snapped where
+  // `drop` says or left free. That space is open afterwards, or the table
+  // it snapped into; the object stays chosen.
+  const snapMoveOut = useCallback(
+    (tableId: string, objectId: string, to: { x: number; y: number }, drop: SnapDrop | null) => {
+      const newTableId = `obj-${project.nextId}`
+      const parentId = findParentOf(currentScreen.objects, tableId)?.parent?.id ?? null
+      setProject((prev) => {
+        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        const move = (list: ScreenObject[]) => moveOutOf(list, tableId, objectId, to, drop, scale, newTableId)
+        return {
+          ...prev,
+          nextId: drop?.kind === "pair" ? prev.nextId + 1 : prev.nextId,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            if (!parentId) return { ...screen, objects: move(screen.objects) }
+            const space = findObjectById(screen.objects, parentId)
+            return space ? { ...screen, objects: updateObjectById(screen.objects, parentId, { children: move(space.children ?? []) }) } : screen
+          }),
+        }
+      })
+      setEditingContainerId(drop ? (drop.kind === "table" ? drop.tableId : newTableId) : parentId)
+      setSelectedObjectIds([objectId])
+    },
+    [currentScreen.objects, currentScreenId, project.nextId, setProject],
+  )
+
   const moveObject = useCallback(
     // One object or several - a selection dragged on the canvas or in the
     // object tree moves as a whole, in the order it stood in.
@@ -3646,13 +3675,20 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // tab-control entirely instead of where the user was actually working
     // (2026-07-26 finding). What a group cannot hold (a switcher) goes to
     // the screen instead.
-    const openContainer = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    // A table put together by snapping takes nothing but through a cell: with
+    // one open, the copy goes where the table stands, and that is open
+    // afterwards (docs/2026-10-09-snap-tables.md, Task 6).
+    const openRaw = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    const leavesTable = isSnapTable(openRaw)
+    const openContainer = leavesTable ? (findParentOf(currentScreen.objects, openRaw!.id)?.parent ?? null) : openRaw
     const fitsOpenContainer = !isGroup(openContainer) || clipboard.every((obj) => obj.type !== "switcher" && obj.type !== "panel")
     const targetParentId = openContainer && fitsOpenContainer ? openContainer.id : null
     const siblings = targetParentId
       ? (findObjectById(currentScreen.objects, targetParentId)?.children ?? [])
       : currentScreen.objects
     const origin = childOrigin(currentScreen.objects, targetParentId)
+    // An old table open keeps the old rule: a pasted object's cell goes with it.
+    const intoOldTable = isOldTable(openContainer)
     const pastedIds: string[] = []
     // In a table, as in Word (asked 2026-10-03): an empty cell picked takes
     // the copy; over an object in a table it goes into a new row below it.
@@ -3681,8 +3717,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         // 20 pixels right and down of the original, in the space of where
         // it lands.
         const shift = obj.type === "panel" ? { x: 20, y: 20 } : { x: 20 - origin.x, y: 20 - origin.y }
+        const moved = translateObject(fresh.object, shift.x, shift.y)
+        // Copied out of a table, an object pastes free: its cell means
+        // nothing where it lands (an old table's cell paste aside). What a
+        // copied table holds keeps its cells.
+        const { cell: _cell, ...uncelled } = moved.properties ?? {}
         const newObject: ScreenObject = {
-          ...translateObject(fresh.object, shift.x, shift.y),
+          ...moved,
+          ...(intoTable || intoOldTable || !moved.properties?.cell ? {} : { properties: uncelled }),
           zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + pastedObjects.length + 1,
         }
         pastedObjects.push(newObject)
@@ -3709,6 +3751,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         }),
       }
     })
+    if (leavesTable) setEditingContainerId(targetParentId)
     // Select the pasted objects
     setSelectedObjectIds([...pastedIds])
   }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject, tableContext])
@@ -4264,6 +4307,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMoveObject={moveObject}
             onMoveToTable={moveToTable}
             onSnapDrop={snapDrop}
+            onSnapMoveOut={snapMoveOut}
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}

@@ -15,6 +15,10 @@ Eine Spalte ist so breit wie ihr breitestes Objekt, eine Zeile so hoch wie ihr h
 
 **Auswählen.** Ein Klick auf die Tabelle wählt sie als Ganzes. Ihre Zellen zeigen sich dann gestrichelt, und ein Schild über der linken oberen Ecke nennt sie, etwa «Table · 3×2» für drei Spalten und zwei Zeilen. Ziehst du sie, verschiebst du sie mit allem darin. Ein Doppelklick wählt ein Objekt in der Tabelle, danach wählt ein Klick auf ein anderes Objekt derselben Tabelle dieses. <kbd>Esc</kbd> geht eine Stufe zurück, vom Objekt zur Tabelle und von dort zu nichts. <kbd>Enter</kbd> geht von der Tabelle zu ihrem ersten Objekt.
 
+**Herausnehmen.** Hast du ein Objekt in der Tabelle gewählt, ziehst du es heraus. Ein Umriss hängt am Mauszeiger, und wie beim Hineinziehen zeigt eine Linie oder eine grüne Zelle, wo es einrastet. Lässt du es weit weg von allem los, liegt es frei. Seine Zelle bleibt leer. Eine Zeile oder Spalte, in der danach nichts mehr steht, verschwindet, und was in der Tabelle bleibt, behält seinen Platz. Steht nur noch ein Objekt in der Tabelle, löst sie sich auf. <kbd>Esc</kbd> während des Ziehens lässt das Objekt in seiner Zelle.
+
+Kopierst du ein Objekt aus einer Tabelle und fügst es ein, liegt die Kopie frei neben der Tabelle, nicht in ihr. In eine Zelle kommt sie, wenn du sie dorthin ziehst.
+
 ## Container {#container}
 
 Eine Tabelle ordnet, was du hineinlegst, in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle, so stehen Namen und Bedienelemente bündig untereinander. Du schiebst nichts auf den Pixel genau: Die Tabelle sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät.
