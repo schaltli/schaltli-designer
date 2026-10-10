@@ -26,11 +26,13 @@ const text = (id: string, words: string, zIndex: number, cell: Obj): Obj => ({
   properties: { text: words, color: "#000000", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent", cell },
 })
 
-async function snapProject(): Promise<{ zip: string; table: ScreenObject }> {
+// `others`: free objects beside the table on the same screen.
+async function snapProject(others: Obj[] = []): Promise<{ zip: string; table: ScreenObject }> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const one = project.screens.find((s: Obj) => s.id === "screen-1")
   one.objects = [
+    ...others,
     {
       id: "grid",
       type: "table",
@@ -47,7 +49,7 @@ async function snapProject(): Promise<{ zip: string; table: ScreenObject }> {
   zip.file("project.json", JSON.stringify(laid))
   const out = path.join(os.tmpdir(), `snap-table-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
   fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-  return { zip: out, table: laid.screens.find((s: Obj) => s.id === "screen-1").objects[0] }
+  return { zip: out, table: laid.screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "grid") }
 }
 
 // The middle of an object in the table, in screen pixels.
@@ -195,6 +197,28 @@ test.describe("snap table: snapping", () => {
     expect(moved.properties?.cell).toBeUndefined()
     expect([moved.x, moved.y]).not.toEqual([100, 150])
     expect(moved.y).toBeLessThan(100)
+  })
+
+  test("a line dragged into an empty cell lands in that cell, its points with it", async ({ page }) => {
+    // A line drawn right to left, as its negative width says; its points say where it is.
+    const line = { id: "strich", type: "line", x: 290, y: 220, width: -40, height: 0, zIndex: 9, properties: { points: [{ x: 290, y: 220 }, { x: 250, y: 220 }], strokeColor: "#000000", strokeWidth: 2 } }
+    const { zip, table } = await snapProject([line])
+    await loadProject(page, zip)
+    // Its middle onto the empty cell: row 1 (where «Bad» stands), column 1 (where «Pumpe» stands).
+    const bad = table.children!.find((c) => c.id === "bad")!
+    const pumpe = table.children!.find((c) => c.id === "pumpe")!
+    await click(page, { x: 270, y: 220 })
+    await drag(page, { x: 270, y: 220 }, { x: table.x + pumpe.x + 25, y: table.y + bad.y + bad.height / 2 })
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    const placed = grid.children!.find((c) => c.id === "strich")!
+    expect(placed.properties?.cell).toMatchObject({ row: 1, column: 1 })
+    // In the table's space and inside it, not where it stood on the screen.
+    for (const p of placed.properties!.points) {
+      expect(p.x).toBeGreaterThanOrEqual(0)
+      expect(p.x).toBeLessThanOrEqual(grid.width)
+      expect(p.y).toBeGreaterThanOrEqual(0)
+      expect(p.y).toBeLessThanOrEqual(grid.height)
+    }
   })
 
   test("Esc while dragging puts the object back and makes no table", async ({ page }) => {

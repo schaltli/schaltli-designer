@@ -335,6 +335,30 @@ test.describe("snap table: drops", () => {
     expect(snapDropAt([a, free("c", 0, 0)], "c", at(110, 123), 25, SCALE)).toEqual({ kind: "pair", stillId: "a", side: "bottom" })
   })
 
+  test("a line goes into its cell with its points, and comes out with them where it stands", () => {
+    const t = grid3()
+    const g = snapTableGeometry(t, SCALE)
+    // Drawn right to left on the screen: its width is negative, its points say where it is.
+    const line: ScreenObject = { id: "line", type: "line", x: 340, y: 300, width: -40, height: 0, zIndex: 50, properties: { points: [{ x: 340, y: 300 }, { x: 300, y: 300 }] } }
+    const into = applySnapDrop([t, line], "line", { kind: "table", tableId: t.id, target: { kind: "cell", row: 1, column: 1 } }, SCALE)
+    const table = into[0]
+    const placed = child(table, "line")
+    const xs = placed.properties!.points.map((p: { x: number }) => p.x)
+    const ys = placed.properties!.points.map((p: { y: number }) => p.y)
+    // Inside its cell, in the table's space, 40 wide as drawn.
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(g.lefts[1])
+    expect(Math.max(...xs)).toBeLessThanOrEqual(g.lefts[1] + g.widths[1])
+    expect(Math.max(...xs) - Math.min(...xs)).toBe(40)
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(g.tops[1])
+    expect(Math.max(...ys)).toBeLessThanOrEqual(g.tops[1] + g.heights[1])
+    // Its x and its points still agree.
+    expect(placed.properties!.points[0].x).toBe(placed.x)
+    // Out again: the points on the screen, where the line stood in the table.
+    const out = takeOutOf(table, "line").taken
+    expect(out.properties!.points[0]).toEqual({ x: table.x + placed.properties!.points[0].x, y: table.y + placed.properties!.points[0].y })
+    expect(out.x).toBe(out.properties!.points[0].x)
+  })
+
   test("beside a table, the new column goes to the row of the object's middle", () => {
     const t = grid3()
     const g = snapTableGeometry(t, SCALE)

@@ -17,6 +17,7 @@
 
 import type { ScreenObject } from "@/components/project-editor"
 import { fit, naturalWidth, type LayoutScale } from "@/lib/layout"
+import { objectBounds, translateObject } from "@/lib/object-groups"
 
 /** What marks a table as this kind. */
 export const SNAP_GRID = 1
@@ -145,11 +146,20 @@ function drawn(child: ScreenObject): ScreenObject {
   }
 }
 
+// A line keeps its points beside its x and y (properties.points, in the
+// same space): it is moved, never placed by x and y alone, and its size is
+// what its points cover - drawn right to left, its width is negative.
+const hasPoints = (obj: ScreenObject) => Array.isArray(obj.properties?.points) && obj.properties!.points.length > 0
+
 // Each object at its natural size: a control as wide as its labels, a text
-// as its words, anything else as it is drawn; a switcher or a ring with the
-// height that width gives it.
+// as its words, a line as its points, anything else as it is drawn; a
+// switcher or a ring with the height that width gives it.
 function natural(child: ScreenObject, scale: LayoutScale): ScreenObject {
   const own = drawn(child)
+  if (hasPoints(own)) {
+    const b = objectBounds(own)
+    return { ...own, width: b.maxX - b.minX, height: b.maxY - b.minY }
+  }
   return fit(own, naturalWidth(own, scale), scale)
 }
 
@@ -220,7 +230,14 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale): Scree
     if (fill.width) placedCell.drawnWidth = own.width
     if (fill.height) placedCell.drawnHeight = own.height
     const properties = { ...sizedChild.properties, cell: placedCell }
-    return { ...sizedChild, width, height, properties, x: lefts[cell.column] + dx, y: tops[cell.row] + dy }
+    const left = lefts[cell.column] + dx
+    const top = tops[cell.row] + dy
+    // A line moved there whole, its points with it (translateObject).
+    if (hasPoints(child)) {
+      const b = objectBounds(child)
+      return translateObject({ ...child, properties: { ...child.properties, cell: placedCell } }, left - b.minX, top - b.minY)
+    }
+    return { ...sizedChild, width, height, properties, x: left, y: top }
   })
   const total = (sizes: number[]) => (sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap : 0)
   return { ...table, width: total(widths), height: total(heights), children: placed }
@@ -317,7 +334,8 @@ function tidied(table: ScreenObject): ScreenObject {
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
   const { cell: _cell, ...properties } = child.properties ?? {}
   const own = drawn(child)
-  return { ...child, x: table.x + child.x, y: table.y + child.y, width: own.width, height: own.height, properties }
+  // Moved into the table's space with its points, if it has any.
+  return translateObject({ ...child, width: own.width, height: own.height, properties }, table.x, table.y)
 }
 
 /**
@@ -389,7 +407,8 @@ export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSi
   const along = side === "left" || side === "right"
   const first = side === "left" || side === "top" ? moving : still
   const second = first === moving ? still : moving
-  const at = (obj: ScreenObject, i: number) => withCell({ ...obj, x: 0, y: 0 }, along ? { row: 0, column: i } : { row: i, column: 0 })
+  // Where they stood: the layout moves each into its cell, a line with its points.
+  const at = (obj: ScreenObject, i: number) => withCell(obj, along ? { row: 0, column: i } : { row: i, column: 0 })
   const table: ScreenObject = {
     id,
     type: "table",
