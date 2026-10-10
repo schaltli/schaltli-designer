@@ -56,6 +56,7 @@ import {
   getActivePanel,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { FELT_BACKDROP } from "@/lib/backdrops"
 import {
   insideFence,
   isPopup,
@@ -221,8 +222,12 @@ export interface CanvasProps {
   // by the "Show master" toggle by the caller), or undefined/empty when
   // none applies. Drawn merged with screen.objects (see
   // mergeMasterAndScreenObjects) but deliberately excluded from every
-  // hit-testing/selection path below - visible, not editable, from here.
+  // editing hit test and selection below - visible, not editable, from here.
+  // The preview takes taps on them, as the device does (previewObjects).
   masterObjects?: ScreenObject[]
+  // What lies behind the device: the plain grey, or black felt - the demo's
+  // preview, so it looks unlike the designer (2026-10-10).
+  backdrop?: "plain" | "felt"
   // `screen`'s own assigned master screen (already resolved by the caller
   // respecting isMaster/showMaster - see project-editor.tsx's
   // displayedScreenMaster), or undefined when none applies. Needed
@@ -714,6 +719,7 @@ function resizedOnStep(
 export function Canvas({
   screen,
   masterObjects = [],
+  backdrop = "plain",
   masterScreen,
   selectedObjectIds,
   onSelectObject,
@@ -4392,7 +4398,8 @@ export function Canvas({
     <div
       ref={containerRef}
       className="w-full h-full relative"
-      style={{ backgroundColor: "rgb(var(--canvas-container-bg))" }}
+      style={backdrop === "felt" ? FELT_BACKDROP : { backgroundColor: "rgb(var(--canvas-container-bg))" }}
+      data-backdrop={backdrop}
       tabIndex={0}
       // Where a finished text field hands the keyboard back to
       // (property-panel/fields/finish-field.ts).

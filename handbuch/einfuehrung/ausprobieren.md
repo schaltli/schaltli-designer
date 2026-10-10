@@ -8,7 +8,9 @@ Du brauchst nur den [installierten Designer](/installieren/pekaway), auf deinem 
 
 Ganz ohne Installation geht es auf [demo.schaltli.com](https://demo.schaltli.com). Dort läuft der Designer mit dem fertigen Projekt «Camper» für den Waveshare 4.3B, und hinter dem Projekt steht ein simulierter Van mit VanPi-Brücke. Links, wo sonst deine Projekte stehen, zeigt <span class="ui">Your van</span> diesen Van als Bild.
 
-Klick oben rechts auf <span class="ui">Preview</span> und schalte auf den Screens «Licht» und «Wasser»: Dimmst du das Innenlicht hoch, leuchtet im Bild das Fenster. Ein Klick auf die Dusche hinter der Tür verbraucht Frischwasser, aber nur, wenn die Wasserpumpe läuft. Ein Klick auf den Einfüllstutzen füllt den Tank mit dem Kanister wieder auf. Der Van gehört allen, die gerade in der Demo sind. Schaltet jemand anderes das Licht ein, siehst du es auch.
+Die Demo öffnet in der Vorschau. Das Gerät liegt auf schwarzem Filz und reagiert wie das Display im Van. Schalte auf den Screens «Licht» und «Wasser»: Dimmst du das Innenlicht hoch, leuchtet im Bild das Fenster. Ein Klick auf die Dusche hinter der Tür verbraucht Frischwasser, aber nur, wenn die Wasserpumpe läuft. Ein Klick auf den Einfüllstutzen füllt den Tank mit dem Kanister wieder auf. Der Van gehört allen, die gerade in der Demo sind. Schaltet jemand anderes das Licht ein, siehst du es auch.
+
+Der rote Schalter unter dem Gerät wechselt zwischen <span class="ui">Preview</span> und <span class="ui">Designer</span>. Im Designer stehen die Screens und die Werkzeuge bereit, und du baust am Projekt weiter.
 
 Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>.
 

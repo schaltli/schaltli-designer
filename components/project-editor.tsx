@@ -83,6 +83,7 @@ import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
+import { DemoModeSwitch } from "./demo-mode-switch"
 import { DemoScenePanel } from "./demo-scene-panel"
 import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
@@ -3097,6 +3098,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // Once, for the address the page was loaded with, once demo or not is known.
   }, [demo])
 
+  // The demo opens in the preview: a visitor first sees the screens working,
+  // and the red switch under the device (DemoModeSwitch) leads to the
+  // designer (2026-10-10).
+  const demoPreviewStartedRef = useRef(false)
+  useEffect(() => {
+    if (!demo || openingInitial || !projectOpen || demoPreviewStartedRef.current) return
+    demoPreviewStartedRef.current = true
+    enterPreviewMode()
+  }, [demo, openingInitial, projectOpen, enterPreviewMode])
+
   // From then on the address follows the editor: the saved name while a named
   // project is open, the start page's address otherwise. Replaced, never
   // pushed - no navigation, so undo and unsaved changes stay; and no history
@@ -4146,6 +4157,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </a>
         </Button>
 
+        {/* The demo has the red switch under the device in its place
+            (DemoModeSwitch). */}
+        {!demo && (
         <Button
           variant={isPreviewMode ? "default" : "outline"}
           size="sm"
@@ -4164,6 +4178,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             </>
           )}
         </Button>
+        )}
       </div>
 
       <div className="mt-12 mb-8 flex-1 flex flex-col min-h-0">
@@ -4217,6 +4232,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onNewProject={() => void newProject()}
           />
         )}
+        {/* In the demo's preview no screens list: the device's navigator
+            moves between them, and the editor's furniture gone is what tells
+            the preview from the designer (2026-10-10). */}
+        {!(demo && isPreviewMode) && (
         <ScreensPanel
           project={project}
           variant={shownVariant}
@@ -4228,9 +4247,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
         />
+        )}
 
-        <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
+        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-auto">
           <Canvas
+            backdrop={demo && isPreviewMode ? "felt" : "plain"}
             projectScreens={project.screens}
             screen={displayedScreen}
             popupUnderlay={popupUnderlay}
@@ -4309,6 +4331,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
+        </div>
+        {demo && <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} />}
         </div>
 
         {/* Drag handle for the right panel - widened to a comfortable 4px

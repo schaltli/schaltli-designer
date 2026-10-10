@@ -159,6 +159,7 @@ test.describe("the demo in the browser", () => {
     await expect(page.getByTestId("project-title")).toHaveText(START)
     await expect(page.getByText("From an earlier visit", { exact: true })).toHaveCount(0)
 
+    await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
     await createScreen(page, "Not kept", false)
     await page.waitForTimeout(2000)
     // The one put there is left as it was: nothing written over it.
@@ -166,6 +167,37 @@ test.describe("the demo in the browser", () => {
     expect(kept).toHaveLength(1)
     expect(kept[0]).toContain("From an earlier visit")
     expect(kept[0]).not.toContain("Not kept")
+  })
+
+  // Preview or designer, plain to see (2026-10-10): it opens in the preview,
+  // on black felt and without the screens list; the red switch under the
+  // device goes to the designer and back.
+  test("it opens in the preview, on felt and without the screens list; the red switch goes to the designer and back", async ({ page }) => {
+    await page.goto("/")
+    await expect(page.getByTestId("project-title")).toHaveText(START)
+    const modes = page.getByTestId("demo-mode-switch")
+    const preview = modes.getByRole("button", { name: "Preview" })
+    const designer = modes.getByRole("button", { name: "Designer" })
+    const backdrop = page.locator("[data-backdrop]")
+    await expect(preview).toHaveAttribute("aria-pressed", "true")
+    // In place of the toolbar's Preview button, not beside it.
+    await expect(page.getByRole("button", { name: "Exit Preview" })).toHaveCount(0)
+    await expect(backdrop).toHaveAttribute("data-backdrop", "felt")
+    await expect(page.getByText("Manage Screens")).toHaveCount(0)
+    // Under the device.
+    const canvasBox = (await page.locator("canvas").last().boundingBox())!
+    const switchBox = (await modes.boundingBox())!
+    expect(switchBox.y).toBeGreaterThan(canvasBox.y + canvasBox.height / 2)
+
+    await designer.click()
+    await expect(designer).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveCount(1)
+    await expect(backdrop).toHaveAttribute("data-backdrop", "plain")
+    await expect(page.getByText("Manage Screens")).toBeVisible()
+
+    await preview.click()
+    await expect(preview).toHaveAttribute("aria-pressed", "true")
+    await expect(backdrop).toHaveAttribute("data-backdrop", "felt")
   })
 
   test("File offers what keeps a screen, nothing that saves or deploys", async ({ page }) => {
