@@ -137,18 +137,19 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
 test.describe("snap table: snapping", () => {
   test("three free texts dragged one next to the other become one table of one row", async ({ page }) => {
     await loadProject(page, await freeProject())
-    // «Pumpe» let go just right of «Licht» (100,60, 60 wide).
-    await drag(page, { x: 130, y: 161 }, { x: 163, y: 71 })
+    // «Pumpe» (held at its middle, 30 px in) let go with its left edge 3 px
+    // right of «Licht» (100,60, 60 wide) - the edges decide, not the pointer.
+    await drag(page, { x: 130, y: 161 }, { x: 193, y: 71 })
     await expect.poll(() => editing(page)).not.toBeNull()
     const first = await savedObjects(page)
     const pair = first.find((o) => o.type === "table")!
     expect(pair.properties?.grid).toBe(1)
     expect(pair.children!.map((o) => o.id)).toEqual(["a", "b"])
 
-    // «Bad» let go just right of the table.
+    // «Bad» (held 15 px in from its left) let go with its left edge 4 px right of the table.
     await page.keyboard.press("Escape")
     await page.keyboard.press("Escape")
-    await drag(page, { x: 115, y: 231 }, { x: pair.x + pair.width + 4, y: pair.y + pair.height / 2 })
+    await drag(page, { x: 115, y: 231 }, { x: pair.x + pair.width + 4 + 15, y: pair.y + 11 })
     const row = (await savedObjects(page)).find((o) => o.type === "table")!
     const cells = row.children!.map((o) => [o.id, o.properties?.cell?.column, o.properties?.cell?.row])
     expect(cells).toEqual([
@@ -179,7 +180,7 @@ test.describe("snap table: snapping", () => {
   test("with Ctrl held while dragging, an object lies freely where it is let go", async ({ page }) => {
     await loadProject(page, await freeProject())
     const a = await at(page, { x: 130, y: 161 })
-    const b = await at(page, { x: 163, y: 71 })
+    const b = await at(page, { x: 193, y: 71 })
     await page.mouse.move(a.x, a.y)
     await page.mouse.down()
     await placingFreely(page, async () => {
@@ -198,7 +199,7 @@ test.describe("snap table: snapping", () => {
 
   test("Esc while dragging puts the object back and makes no table", async ({ page }) => {
     await loadProject(page, await freeProject())
-    await drag(page, { x: 130, y: 161 }, { x: 163, y: 71 }, () => page.keyboard.press("Escape"))
+    await drag(page, { x: 130, y: 161 }, { x: 193, y: 71 }, () => page.keyboard.press("Escape"))
     const objects = await savedObjects(page)
     expect(objects.some((o) => o.type === "table")).toBe(false)
     expect(objects.find((o) => o.id === "b")).toMatchObject({ x: 100, y: 150 })
@@ -206,7 +207,7 @@ test.describe("snap table: snapping", () => {
 
   test("one undo takes a snap back whole", async ({ page }) => {
     await loadProject(page, await freeProject())
-    await drag(page, { x: 130, y: 161 }, { x: 163, y: 71 })
+    await drag(page, { x: 130, y: 161 }, { x: 193, y: 71 })
     await expect.poll(() => editing(page)).not.toBeNull()
     await page.keyboard.press("ControlOrMeta+z")
     const objects = await savedObjects(page)

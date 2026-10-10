@@ -461,28 +461,81 @@ export function canStandInCell(obj: ScreenObject): boolean {
   return obj.type !== "group" && obj.type !== "table" && obj.type !== "navigator"
 }
 
+export interface SnapRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /**
- * Where a drop at `point` would snap the object `movingId`, among the
- * objects of one space (a screen's, a panel's, a free area's - all in the
- * same coordinates as the point): the topmost table or free object within
- * `zone` of it. Null when nothing is that near, or when the object may not
- * stand in a cell.
+ * The side of `target` an object at `rect` lies against, by their edges:
+ * an edge of the object within `zone` of the facing edge of the target -
+ * apart or overlapping by up to `zone` - while the two overlap across it
+ * (side by side at the same height, or one above the other in line). The
+ * nearest such pair of edges; null when none is that near.
  */
-export function snapDropAt(objects: ScreenObject[], movingId: string, point: { x: number; y: number }, zone: number, scale: LayoutScale): SnapDrop | null {
+export function sideByEdges(target: SnapRect, rect: SnapRect, zone: number): { side: SnapSide; gap: number } | null {
+  const acrossY = Math.min(target.y + target.height, rect.y + rect.height) - Math.max(target.y, rect.y) > 0
+  const acrossX = Math.min(target.x + target.width, rect.x + rect.width) - Math.max(target.x, rect.x) > 0
+  const candidates: Array<[SnapSide, number, boolean]> = [
+    ["right", rect.x - (target.x + target.width), acrossY],
+    ["left", target.x - (rect.x + rect.width), acrossY],
+    ["bottom", rect.y - (target.y + target.height), acrossX],
+    ["top", target.y - (rect.y + rect.height), acrossX],
+  ]
+  let best: { side: SnapSide; gap: number } | null = null
+  for (const [side, gap, across] of candidates) {
+    if (!across || gap < -zone || gap > zone) continue
+    if (!best || Math.abs(gap) < Math.abs(best.gap)) best = { side, gap }
+  }
+  return best
+}
+
+/**
+ * Where the object `movingId`, standing at `rect`, snaps when let go, among
+ * the objects of one space (a screen's, a panel's, a free area's - all in
+ * the same coordinates): by its edges, not by where it was held (asked
+ * 2026-10-10). With its middle over a table it goes into the cell there, or
+ * at the nearest edge of the object standing there; beside a table or a
+ * free object, at the side its edge lies against (sideByEdges), a new
+ * column or row in the row or column of its middle. The nearest wins. Null
+ * when nothing is that near, or when the object may not stand in a cell.
+ */
+export function snapDropAt(objects: ScreenObject[], movingId: string, rect: SnapRect, zone: number, scale: LayoutScale): SnapDrop | null {
   const moving = objects.find((o) => o.id === movingId)
   if (!moving || !canStandInCell(moving)) return null
-  const byTop = [...objects].sort((a, b) => b.zIndex - a.zIndex)
-  for (const obj of byTop) {
+  const middle = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+  let best: { drop: SnapDrop; gap: number } | null = null
+  const consider = (drop: SnapDrop, gap: number) => {
+    if (!best || gap < best.gap) best = { drop, gap }
+  }
+  for (const obj of [...objects].sort((a, b) => b.zIndex - a.zIndex)) {
     if (obj.id === movingId || obj.locked) continue
     if (isSnapTable(obj)) {
-      const target = snapTargetAt(obj, point, zone, scale)
-      if (target) return { kind: "table", tableId: obj.id, target }
+      const inside = middle.x >= obj.x && middle.x < obj.x + obj.width && middle.y >= obj.y && middle.y < obj.y + obj.height
+      if (inside) {
+        const target = snapTargetAt(obj, middle, 0, scale)
+        if (target) consider({ kind: "table", tableId: obj.id, target }, -1)
+        continue
+      }
+      const edge = sideByEdges(obj, rect, zone)
+      if (!edge) continue
+      const g = snapTableGeometry(obj, scale)
+      const row = lineAt(g.tops, g.gap, middle.y - obj.y)
+      const column = lineAt(g.lefts, g.gap, middle.x - obj.x)
+      const target: SnapTarget =
+        edge.side === "left" ? { kind: "column", at: 0, row }
+        : edge.side === "right" ? { kind: "column", at: g.widths.length, row }
+        : edge.side === "top" ? { kind: "row", at: 0, column }
+        : { kind: "row", at: g.heights.length, column }
+      consider({ kind: "table", tableId: obj.id, target }, Math.abs(edge.gap))
     } else if (canStandInCell(obj)) {
-      const side = freeSideAt(obj, point, zone)
-      if (side) return { kind: "pair", stillId: obj.id, side }
+      const edge = sideByEdges(obj, rect, zone)
+      if (edge) consider({ kind: "pair", stillId: obj.id, side: edge.side }, Math.abs(edge.gap))
     }
   }
-  return null
+  return (best as { drop: SnapDrop } | null)?.drop ?? null
 }
 
 /**

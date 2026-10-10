@@ -3319,7 +3319,7 @@ export function Canvas({
           const type = dragState.creatingType
           const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && !isSnapTable(editingContainer) && type !== "baustein" && type !== "navigator" && type !== "table" && type !== "background"
           const drawn = { id: NEW_OBJECT, type, x, y, width, height, zIndex: 0 } as ScreenObject
-          const snapping = snaps ? snapDropAt([...interactionObjects, drawn], NEW_OBJECT, coords, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+          const snapping = snaps ? snapDropAt([...interactionObjects, drawn], NEW_OBJECT, drawn, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
           setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         }
       } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
@@ -3354,7 +3354,14 @@ export function Canvas({
         // 2026-10-10 - snapping is on by default, as in Figma).
         const snapping =
           draggedObject && !previewMode && onSnapDrop && !(e.ctrlKey || e.metaKey) && selectedObjects.length === 1 && !isSnapTable(editingContainer) && !toCell
-            ? snapDropAt(interactionObjects, draggedObject.id, coords, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
+            ? snapDropAt(
+                interactionObjects,
+                draggedObject.id,
+                // Where the object stands now, by its edges (asked 2026-10-10).
+                { x: dragState.startObjectPos.x + deltaX, y: dragState.startObjectPos.y + deltaY, width: draggedObject.width, height: draggedObject.height },
+                SNAP_ZONE_MM * layoutScale.pixelsPerMm,
+                layoutScale,
+              )
             : null
         setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
         const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []

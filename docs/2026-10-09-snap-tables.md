@@ -142,7 +142,14 @@ x, y, width and height. The device contract does not change.
 ### On the canvas (`snap-table-canvas`)
 
 - **Snapping.** Dragging an object (from the toolbar or the canvas) to
-  within about 5 mm of a table or a free object shows where it will go:
+  within about 5 mm of a table or a free object shows where it will go.
+  *By the object's edges, not the pointer* (asked by the user 2026-10-10):
+  an edge of the dragged object within 5 mm of the facing edge of the other
+  (apart or overlapping), the two overlapping across it - side by side at
+  the same height or one above the other in line; the nearest pair of
+  edges wins. With the object's middle over a table, the cell under the
+  middle decides; a new column or row at a table's side goes into the row
+  or column of the object's middle (`sideByEdges`, `snapDropAt`).
   - over an empty cell: the cell lit green - it goes there;
   - near a cell's or the table's edge: a thick line between two columns or
     rows, strong along the row or column the object will be in, faint over

@@ -266,20 +266,23 @@ test.describe("snap table: editing", () => {
 test.describe("snap table: drops", () => {
   const free = (id: string, x: number, y: number, extra: Partial<ScreenObject> = {}): ScreenObject => ({ id, type: "box", x, y, width: 40, height: 20, zIndex: ids++, properties: {}, ...extra })
 
+  // Where a 40×20 object stands when let go.
+  const at = (x: number, y: number, width = 40, height = 20) => ({ x, y, width, height })
+
   test("three free objects dragged one next to the other become one table of one row", () => {
     const a = free("a", 100, 100)
     const b = free("b", 0, 200)
     const c = free("c", 0, 250)
     let objects = [a, b, c]
-    // b let go just right of a.
-    const first = snapDropAt(objects, "b", { x: 145, y: 110 }, 25, SCALE)
+    // b let go with its left edge 3 px right of a's right edge (140).
+    const first = snapDropAt(objects, "b", at(143, 104), 25, SCALE)
     expect(first).toEqual({ kind: "pair", stillId: "a", side: "right" })
     objects = applySnapDrop(objects, "b", first!, SCALE)
     expect(objects.map((o) => o.type)).toEqual(["table", "box"])
     const pair = objects[0]
     expect(abs(pair, "a")).toEqual({ x: 100, y: 100 })
-    // c let go just right of the table.
-    const second = snapDropAt(objects, "c", { x: pair.x + pair.width + 5, y: pair.y + 10 }, 25, SCALE)
+    // c let go with its left edge just right of the table.
+    const second = snapDropAt(objects, "c", at(pair.x + pair.width + 5, pair.y), 25, SCALE)
     expect(second).toEqual({ kind: "table", tableId: pair.id, target: { kind: "column", at: 2, row: 0 } })
     objects = applySnapDrop(objects, "c", second!, SCALE)
     expect(objects).toHaveLength(1)
@@ -296,10 +299,13 @@ test.describe("snap table: drops", () => {
     const table = grid3()
     const g = snapTableGeometry(table, SCALE)
     const label = free("label", 0, 0, { width: 30 })
-    const middle = { x: table.x + g.lefts[1] + 5, y: table.y + g.tops[1] + 5 }
-    const into = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", middle, 25, SCALE)!, SCALE)
+    // Its middle over the empty cell.
+    const over = at(table.x + g.lefts[1] + 5, table.y + g.tops[1], 30)
+    const into = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", over, 25, SCALE)!, SCALE)
     expect(cellOfId(into[0], "label")).toMatchObject({ row: 1, column: 1 })
-    const left = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", { x: table.x - 5, y: table.y + 5 }, 25, SCALE)!, SCALE)
+    // Its right edge 4 px short of the table's left edge, level with row 0.
+    const beside = at(table.x - 34, table.y, 30)
+    const left = applySnapDrop([table, label], "label", snapDropAt([table, label], "label", beside, 25, SCALE)!, SCALE)
     expect(cellOfId(left[0], "label")).toMatchObject({ row: 0, column: 0 })
     expect(cellOfId(left[0], "r0c0")).toMatchObject({ row: 0, column: 1 })
     expect(abs(left[0], "r0c0")).toEqual(abs(table, "r0c0"))
@@ -308,10 +314,33 @@ test.describe("snap table: drops", () => {
   test("a group, a table and anything far away do not snap", () => {
     const a = free("a", 100, 100)
     const group = free("g", 0, 0, { type: "group", children: [] })
-    expect(snapDropAt([a, group], "g", { x: 145, y: 110 }, 25, SCALE)).toBeNull()
-    expect(snapDropAt([a, free("b", 0, 0)], "b", { x: 300, y: 300 }, 25, SCALE)).toBeNull()
+    expect(snapDropAt([a, group], "g", at(143, 104), 25, SCALE)).toBeNull()
+    expect(snapDropAt([a, free("b", 0, 0)], "b", at(300, 300), 25, SCALE)).toBeNull()
     const t = grid3()
-    expect(snapDropAt([a, t], t.id, { x: 145, y: 110 }, 25, SCALE)).toBeNull()
+    expect(snapDropAt([a, t], t.id, at(143, 104), 25, SCALE)).toBeNull()
+  })
+
+  test("the edges decide, not where the object was held: near and level, it snaps; apart or out of line, not", () => {
+    const a = free("a", 100, 100)
+    const b = free("b", 0, 200, { width: 200 })
+    // A wide object whose left edge lies 4 px right of a: its middle is far away, it snaps all the same.
+    expect(snapDropAt([a, b], "b", at(144, 102, 200), 25, SCALE)).toEqual({ kind: "pair", stillId: "a", side: "right" })
+    // Overlapping a's edge by a little counts too.
+    expect(snapDropAt([a, b], "b", at(130, 102, 200), 25, SCALE)).toEqual({ kind: "pair", stillId: "a", side: "right" })
+    // 30 px apart: beyond the zone.
+    expect(snapDropAt([a, b], "b", at(170, 102, 200), 25, SCALE)).toBeNull()
+    // Near in x, but wholly above a: not side by side.
+    expect(snapDropAt([a, b], "b", at(144, 50, 200), 25, SCALE)).toBeNull()
+    // Below a, in line with it.
+    expect(snapDropAt([a, free("c", 0, 0)], "c", at(110, 123), 25, SCALE)).toEqual({ kind: "pair", stillId: "a", side: "bottom" })
+  })
+
+  test("beside a table, the new column goes to the row of the object's middle", () => {
+    const t = grid3()
+    const g = snapTableGeometry(t, SCALE)
+    const c = free("c", 0, 0)
+    const drop = snapDropAt([t, c], "c", at(t.x + t.width + 3, t.y + g.tops[2]), 25, SCALE)
+    expect(drop).toEqual({ kind: "table", tableId: t.id, target: { kind: "column", at: 3, row: 2 } })
   })
 })
 
