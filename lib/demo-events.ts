@@ -24,6 +24,7 @@ export const DEMO_EVENT_TYPES = [
   "insert", // an object placed in the designer: its type
   "download", // Download Project
   "upload", // Upload Project
+  "copy", // a screen copied out, to paste elsewhere: screen:<name>
   "refused", // a menu item the demo does not do: save, deploy, versions
 ] as const
 export type DemoEventType = (typeof DEMO_EVENT_TYPES)[number]

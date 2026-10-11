@@ -87,6 +87,8 @@ import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
 import { DEMO_REFUSES, demoRefusalToast } from "./demo-refusal"
 import { DEMO_COUNTING_URL, trackDemo, useDemoTracking } from "@/hooks/use-demo-tracking"
+import { mergeNeeds, packClipboard, pastedObjects as objectsFromClipboard, pasteScreen, unpackClipboard, type ClipboardPayload } from "@/lib/clipboard-transfer"
+import { copyText } from "@/lib/copy-text"
 import { DemoScenePanel } from "./demo-scene-panel"
 import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
@@ -1086,6 +1088,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // nothing writes to the server while editing. Saving is explicit, see
   // useProjectSave below.
   const [clipboard, setClipboard] = useState<ScreenObject[]>([]) // Added clipboard state for copy/paste functionality
+  // This tab's copies on the system's clipboard carry it, so a paste can
+  // tell its own copy from one made elsewhere (lib/clipboard-transfer.ts).
+  const clipboardToken = useRef(Math.random().toString(36).slice(2))
+  // The text the last copy of objects put up, for the browser's own copy
+  // event that follows Ctrl+C (see the copy listener below).
+  const lastCopyText = useRef<{ text: string; at: number } | null>(null)
   // The hardware button last clicked in the device's frame, and a key that
   // changes with every click: the screen's panel brings that button's row
   // into view (screen-properties.tsx). It used to open a panel of its own.
@@ -3495,15 +3503,20 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // whatever container is open when it is pasted. A panel stays as it
     // is: it only ever fills its switcher.
     if (selectedObjects.length > 0) {
-      setClipboard(
-        selectedObjects.map((obj) => {
-          if (obj.type === "panel") return obj
-          const origin = childOrigin(currentScreen.objects, findParentOf(currentScreen.objects, obj.id)?.parent?.id ?? null)
-          return translateObject(obj, origin.x, origin.y)
-        }),
-      )
+      const copied = selectedObjects.map((obj) => {
+        if (obj.type === "panel") return obj
+        const origin = childOrigin(currentScreen.objects, findParentOf(currentScreen.objects, obj.id)?.parent?.id ?? null)
+        return translateObject(obj, origin.x, origin.y)
+      })
+      setClipboard(copied)
+      // And onto the system's clipboard, with what the objects need, for a
+      // paste in another tab or designer (2026-10-11). From a key, the
+      // browser's own copy event that follows takes it; from the menu, this.
+      const text = packClipboard(project, { objects: copied }, clipboardToken.current)
+      lastCopyText.current = { text, at: Date.now() }
+      copyText(text)
     }
-  }, [selectedObjects, currentScreen.objects])
+  }, [selectedObjects, currentScreen.objects, project])
 
   // Cut: copied, then gone from the screen - in one step, so one undo brings
   // all of it back (reported 2026-10-03: Ctrl+X did nothing).
@@ -3528,8 +3541,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setSelectedObjectIds(allObjectIds)
   }, [currentScreen.objects, editingContainerId])
 
-  const handlePaste = useCallback(() => {
-    if (clipboard.length === 0) return
+  // `foreign`: a copy from another tab or designer, off the system's
+  // clipboard - what it needs comes into the project with it, and it lands
+  // where it was on the screen it came from.
+  const handlePaste = useCallback((foreign?: ClipboardPayload) => {
+    const source = foreign ? (foreign.objects ?? []) : clipboard
+    if (source.length === 0) return
 
     // Paste targets whatever panel or group is currently open for editing
     // (if any), not always the screen's top level - otherwise duplicating a
@@ -3544,7 +3561,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const openRaw = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
     const leavesTable = isSnapTable(openRaw)
     const openContainer = leavesTable ? (findParentOf(currentScreen.objects, openRaw!.id)?.parent ?? null) : openRaw
-    const fitsOpenContainer = !isGroup(openContainer) || clipboard.every((obj) => obj.type !== "switcher" && obj.type !== "panel")
+    const fitsOpenContainer = !isGroup(openContainer) || source.every((obj) => obj.type !== "switcher" && obj.type !== "panel")
     const targetParentId = openContainer && fitsOpenContainer ? openContainer.id : null
     const siblings = targetParentId
       ? (findObjectById(currentScreen.objects, targetParentId)?.children ?? [])
@@ -3552,12 +3569,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const origin = childOrigin(currentScreen.objects, targetParentId)
     const pastedIds: string[] = []
 
-    setProject((prev) => {
+    setProject((before) => {
+      let prev = before
+      let objects = source
+      if (foreign) {
+        const merged = mergeNeeds(before, foreign)
+        prev = merged.project
+        objects = objectsFromClipboard(foreign, merged.rename)
+      }
       let currentNextId = prev.nextId
       pastedIds.length = 0
       const pastedObjects: ScreenObject[] = []
 
-      clipboard.forEach((obj) => {
+      objects.forEach((obj) => {
         // A new id for the object and for everything inside it - a pasted
         // switcher's panels and a pasted group's children too. Only the
         // object itself got one until 2026-09-29, so a copy and its original
@@ -3566,7 +3590,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         currentNextId = fresh.nextId
         // 20 pixels right and down of the original, in the space of where
         // it lands.
-        const shift = obj.type === "panel" ? { x: 20, y: 20 } : { x: 20 - origin.x, y: 20 - origin.y }
+        const offset = foreign ? 0 : 20
+        const shift = obj.type === "panel" ? { x: offset, y: offset } : { x: offset - origin.x, y: offset - origin.y }
         const moved = translateObject(fresh.object, shift.x, shift.y)
         // Copied out of a table, an object pastes free: its cell means
         // nothing where it lands. What a copied table holds keeps its cells.
@@ -3599,7 +3624,109 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     if (leavesTable) setEditingContainerId(targetParentId)
     // Select the pasted objects
     setSelectedObjectIds([...pastedIds])
+    if (foreign) madeFor(foreign)
   }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject])
+
+  // A copy made for a screen of another size is pasted as it is; say so.
+  const madeFor = useCallback(
+    (payload: ClipboardPayload) => {
+      if (payload.screenWidth === project.screenWidth && payload.screenHeight === project.screenHeight) return
+      toast({
+        title: "Made for another screen",
+        description: `It was made for ${payload.screenWidth} × ${payload.screenHeight}, this screen is ${project.screenWidth} × ${project.screenHeight}. Move and size it to fit.`,
+      })
+    },
+    [project.screenWidth, project.screenHeight, toast],
+  )
+
+  // A screen onto the system's clipboard, with everything it needs, to paste
+  // with Ctrl+V into this project or another (2026-10-11): the demo's pages
+  // into a van's own project.
+  const handleCopyScreen = useCallback(
+    (screenId: string) => {
+      const screen = project.screens.find((s) => s.id === screenId)
+      if (!screen) return
+      if (!copyText(packClipboard(project, { screen }, clipboardToken.current))) {
+        toast({ title: "Not copied", description: "The browser did not let the screen onto the clipboard.", variant: "destructive" })
+        return
+      }
+      if (demo) trackDemo("copy", `screen:${screen.name}`)
+      toast({ title: `«${screen.name}» copied`, description: "Paste it with Ctrl+V, into this project or another designer's." })
+    },
+    [project, toast, demo],
+  )
+
+  // A copied screen pasted: after the one open, and opened.
+  const handlePasteScreen = useCallback(
+    (payload: ClipboardPayload) => {
+      const { project: next, screen } = pasteScreen(project, payload, currentScreenId)
+      setProject(next)
+      setSelectedObjectIds([])
+      setEditingContainerId(null)
+      setCurrentScreenId(screen.id)
+      madeFor(payload)
+    },
+    [project, currentScreenId, setProject, madeFor],
+  )
+
+  // The browser's copy and cut events after Ctrl+C and Ctrl+X: the objects
+  // copied by that same key onto the system's clipboard, unless a field has
+  // the focus.
+  useEffect(() => {
+    const onCopy = (event: ClipboardEvent) => {
+      const active = document.activeElement
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement ||
+        (active as HTMLElement | null)?.isContentEditable
+      )
+        return
+      const last = lastCopyText.current
+      if (!last || Date.now() - last.at > 1000 || !event.clipboardData) return
+      event.clipboardData.setData("text/plain", last.text)
+      event.preventDefault()
+    }
+    document.addEventListener("copy", onCopy)
+    document.addEventListener("cut", onCopy)
+    return () => {
+      document.removeEventListener("copy", onCopy)
+      document.removeEventListener("cut", onCopy)
+    }
+  }, [])
+
+  // Ctrl+V: the system's clipboard decides. A screen copied anywhere becomes
+  // a new screen; objects copied in another tab come with what they need;
+  // this tab's own copy, or any other text, pastes what this tab copied. The
+  // browser's own paste event, not the key: it carries the clipboard on any
+  // page, plain http included, without asking.
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (isPreviewMode || !projectOpen) return
+      const active = document.activeElement
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement ||
+        (active as HTMLElement | null)?.isContentEditable
+      )
+        return
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
+      const payload = unpackClipboard(event.clipboardData?.getData("text/plain"))
+      if (payload?.screen) {
+        event.preventDefault()
+        handlePasteScreen(payload)
+      } else if (payload?.objects && payload.token !== clipboardToken.current) {
+        event.preventDefault()
+        handlePaste(payload)
+      } else if (clipboard.length > 0) {
+        event.preventDefault()
+        handlePaste()
+      }
+    }
+    document.addEventListener("paste", onPaste)
+    return () => document.removeEventListener("paste", onPaste)
+  }, [isPreviewMode, projectOpen, clipboard, handlePaste, handlePasteScreen])
 
   // Ctrl+G: the selection becomes one group, in the place of its frontmost
   // object, and the group is what is selected afterwards. One setProject, so
@@ -3694,27 +3821,25 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         return
       }
       // Check for CTRL+C or CMD+C (Mac)
-      if ((event.ctrlKey || event.metaKey) && event.key === "c") {
+      // Not prevented: the browser's copy or cut event that follows puts
+      // the copy onto the system's clipboard (the listener below). Chrome
+      // starts no copy of its own while the key's is under way.
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
         // Only trigger if we have selected objects and not in an input field
         if (selectedObjectIds.length > 0 && !isInputFocused()) {
-          event.preventDefault()
           handleCopy()
         }
       }
       // CTRL+X or CMD+X (Mac): cut
-      else if ((event.ctrlKey || event.metaKey) && event.key === "x") {
+      else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "x") {
         if (selectedObjectIds.length > 0 && !isInputFocused()) {
-          event.preventDefault()
           handleCut()
         }
       }
-      // Check for CTRL+V or CMD+V (Mac)
+      // CTRL+V or CMD+V (Mac): left to the browser, whose paste event
+      // carries the system's clipboard - see the paste listener above.
       else if ((event.ctrlKey || event.metaKey) && event.key === "v") {
-        // Only trigger if we have clipboard data and not in an input field
-        if (clipboard.length > 0 && !isInputFocused()) {
-          event.preventDefault()
-          handlePaste()
-        }
+        // Nothing here.
       }
       // Check for CTRL+A or CMD+A (Mac)
       else if ((event.ctrlKey || event.metaKey) && event.key === "a") {
@@ -4159,6 +4284,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
+          onCopyScreen={handleCopyScreen}
           onOpenProjectSettings={handleOpenProjectSettings}
           previewMode={isPreviewMode}
           onAddAsset={addAsset}
@@ -4210,7 +4336,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
             onCut={handleCut}
-            onPaste={handlePaste}
+            onPaste={() => handlePaste()}
             onSelectAll={handleSelectAll}
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}

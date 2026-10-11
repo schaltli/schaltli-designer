@@ -8,7 +8,20 @@ Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</s
 
 Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern.
 
-Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage, <kbd>Strg</kbd>+<kbd>Z</kbd> holt den Screen zurück. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
+Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span>, <span class="ui">Copy</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage, <kbd>Strg</kbd>+<kbd>Z</kbd> holt den Screen zurück. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
+
+## Einen Screen in ein anderes Projekt übernehmen {#kopieren}
+
+<span class="ui">Copy</span> im Menü eines Vorschaubilds legt den Screen in die Zwischenablage, und zwar mit allem, was er braucht: Icons und Bilder, Schriften, Topics und Combined Topics. Öffne dann das andere Projekt, auch in einem anderen Browser-Tab oder einem anderen Designer, klick auf den Screen und drück <kbd>Strg</kbd>+<kbd>V</kbd>. Der Screen kommt als neuer Screen nach dem offenen hinzu.
+
+So übernimmst du etwa die Screens der [Demo](/einfuehrung/ausprobieren#demo) in dein eigenes Projekt. Sie lesen nur Topics der [VanPi-Brücke](/betrieb/vanpi-bruecke), und die hat jedes Pekaway-System, auf dem Schaltli installiert ist.
+
+Beim Einfügen gilt:
+
+- Der Screen bekommt den ersten Master des Projekts und dessen Theme. Er sieht also aus wie deine anderen Screens.
+- Gibt es seinen Namen schon, bekommt er eine Zahl dazu, etwa «Energie 2».
+- Was das Projekt schon hat, wird nicht verdoppelt. Ein Icon oder ein Combined Topic, das unter demselben Namen etwas anderes ist, kommt mit einem neuen Namen dazu, etwa `licht_an_2`. Dein eigenes bleibt, wie es ist.
+- Wurde der Screen für ein Gerät mit anderer Grösse gebaut, meldet der Designer das. Verschieben und anpassen musst du die Objekte dann selbst.
 
 <span class="ui">Manage Screens</span> unten in der Liste zeigt alle Screens mit ihren Einstellungen in einer Tabelle.
 

@@ -8,11 +8,11 @@ Du brauchst nur den [installierten Designer](/installieren/pekaway), auf deinem 
 
 Ganz ohne Installation geht es auf [demo.schaltli.com](https://demo.schaltli.com). Dort läuft der Designer mit dem fertigen Projekt «Camper» für den Waveshare 4.3B, und hinter dem Projekt steht ein simulierter Van mit VanPi-Brücke. Links, wo sonst deine Projekte stehen, zeigt <span class="ui">Your van</span> diesen Van als Bild.
 
-Die Demo öffnet in der Vorschau. Das Gerät liegt auf schwarzem Filz und reagiert wie das Display im Van. Schalte auf den Screens «Licht» und «Wasser»: Dimmst du das Innenlicht hoch, leuchtet im Bild das Fenster. Ein Klick auf die Dusche hinter der Tür verbraucht Frischwasser, aber nur, wenn die Wasserpumpe läuft. Ein Klick auf den Einfüllstutzen füllt den Tank mit dem Kanister wieder auf. Der Van gehört allen, die gerade in der Demo sind. Schaltet jemand anderes das Licht ein, siehst du es auch.
+Die Demo öffnet in der Vorschau. Das Gerät liegt auf schwarzem Filz und reagiert wie das Display im Van. Schalte auf den Screens «Licht» und «Wasser»: Dimmst du das Innenlicht hoch, leuchtet im Bild das Fenster. Ein Klick auf die Dusche hinter der Tür verbraucht Frischwasser, aber nur, wenn die Wasserpumpe läuft. Ein Klick auf den Einfüllstutzen füllt den Tank mit dem Kanister wieder auf. Der Screen «Energie» zeigt die Batterie und das Solarpanel des Vans: Tagsüber lädt die Sonne die Batterie, nachts und mit jedem Licht, das brennt, wird sie entladen. Ein Tag dauert in der Demo zehn Minuten. Der Van gehört allen, die gerade in der Demo sind. Schaltet jemand anderes das Licht ein, siehst du es auch.
 
 Der rote Schalter unter dem Gerät wechselt zwischen <span class="ui">Preview</span> und <span class="ui">Designer</span>. Im Designer stehen die Screens und die Werkzeuge bereit, und du baust am Projekt weiter.
 
-Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>. <span class="ui">Save</span>, <span class="ui">Deploy to Device</span> und <span class="ui">Version History</span> stehen zwar im Menü, aber ein Klick darauf meldet nur, dass das erst dein eigenes Schaltli kann, und verlinkt die Installation.
+Gespeichert wird in der Demo nichts. Was du gebaut hast, nimmst du mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei mit und öffnest es später im eigenen Designer mit <span class="ui">Upload Project</span>. Einen einzelnen Screen, etwa «Energie», übernimmst du mit <span class="ui">Copy</span> und <kbd>Strg</kbd>+<kbd>V</kbd> in dein eigenes Projekt, siehe [Einen Screen übernehmen](/designer/screens#kopieren). Die Screens der Demo lesen nur, was die VanPi-Brücke liefert, und funktionieren deshalb auf jedem Pekaway-System. <span class="ui">Save</span>, <span class="ui">Deploy to Device</span> und <span class="ui">Version History</span> stehen zwar im Menü, aber ein Klick darauf meldet nur, dass das erst dein eigenes Schaltli kann, und verlinkt die Installation.
 
 ### Was die Demo zählt {#demo-zaehlt}
 
@@ -22,7 +22,7 @@ Gespeichert wird pro Besuch:
 
 - woher du ungefähr kommst: Land und Region, die Stadt nur, wenn sie über 50 000 Einwohner hat. Der Server liest das aus deiner IP-Adresse und vergisst die Adresse gleich wieder;
 - von welcher Website du kommst, nur ihr Name, und ob du einen Browser auf dem Handy, dem Tablet oder dem Computer benutzt;
-- wie lange du bleibst und was du tust: welche Screens du öffnest, was du schaltest, was du einfügst und ob du ein Projekt herunterlädst.
+- wie lange du bleibst und was du tust: welche Screens du öffnest, was du schaltest, was du einfügst, welche Screens du kopierst und ob du ein Projekt herunterlädst.
 
 Die Daten bleiben auf dem Server der Demo und werden nach 30 Tagen gelöscht. Die Ortsangaben stammen aus der Datenbank von [DB-IP](https://db-ip.com).
 

@@ -72,6 +72,7 @@ function summarize(events) {
     scene: new Map(),
     screens: new Map(),
     refused: new Map(),
+    copied: new Map(),
   }
   for (const v of visits) {
     const day = s.days.get(v.day) ?? { visits: 0, seconds: [], designer: 0, downloads: 0 }
@@ -89,6 +90,7 @@ function summarize(events) {
       if (e.type === "scene") count(s.scene, e.detail)
       if (e.type === "screen") count(s.screens, e.detail)
       if (e.type === "refused") count(s.refused, e.detail)
+      if (e.type === "copy") count(s.copied, String(e.detail ?? "").replace(/^screen:/, ""))
     }
   }
   return s
@@ -124,6 +126,7 @@ function render(s, days) {
   list("In the drawing of the van", s.scene, 5)
   list("Inserted in the designer", s.inserts, 15)
   list("Asked for what the demo does not do", s.refused, 5)
+  list("Screens copied out", s.copied, 10)
   out.push("", "IP Geolocation by DB-IP (https://db-ip.com)")
   return out.join("\n")
 }

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, PictureInPicture2, Search, X, Loader2 } from "lucide-react"
+import { Plus, MoreVertical, Copy, CopyPlus, Trash2, Settings, LayoutTemplate, PictureInPicture2, Search, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
@@ -33,6 +33,9 @@ interface ScreensPanelProps {
   currentScreenId: string
   onScreenChange: (screenId: string) => void
   onProjectUpdate: (project: Project) => void
+  // «Copy»: the screen onto the system's clipboard, to paste with Ctrl+V
+  // here or into another designer (lib/clipboard-transfer.ts).
+  onCopyScreen?: (screenId: string) => void
   onOpenProjectSettings?: (tab: string) => void
   // Preview mode simulates runtime behavior - the project itself must stay
   // read-only while it's active, so adding a new screen is disabled.
@@ -67,6 +70,7 @@ export function ScreensPanel({
   currentScreenId,
   onScreenChange,
   onProjectUpdate,
+  onCopyScreen,
   onOpenProjectSettings,
   previewMode = false,
   onAddAsset,
@@ -487,6 +491,7 @@ export function ScreensPanel({
             <Button
               size="sm"
               variant="secondary"
+              aria-label={`Actions for ${screen.name}`}
               className="absolute top-0.5 right-0.5 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow"
               onClick={(e) => e.stopPropagation()}
             >
@@ -495,9 +500,15 @@ export function ScreensPanel({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => duplicateScreen(screen.id)}>
-              <Copy className="mr-2 h-3.5 w-3.5" />
+              <CopyPlus className="mr-2 h-3.5 w-3.5" />
               Duplicate
             </DropdownMenuItem>
+            {onCopyScreen && (
+              <DropdownMenuItem onClick={() => onCopyScreen(screen.id)}>
+                <Copy className="mr-2 h-3.5 w-3.5" />
+                Copy
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => deleteScreen(screen.id)}
               disabled={project.screens.length <= 1}

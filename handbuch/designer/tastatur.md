@@ -9,7 +9,7 @@ Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> sta
 | <kbd>Strg</kbd>+<kbd>Z</kbd> | letzte Änderung zurücknehmen |
 | <kbd>Strg</kbd>+<kbd>Y</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | zurückgenommene Änderung wiederherstellen |
 | <kbd>Strg</kbd>+<kbd>C</kbd> | ausgewählte Objekte kopieren |
-| <kbd>Strg</kbd>+<kbd>V</kbd> | einfügen, 20 Pixel versetzt |
+| <kbd>Strg</kbd>+<kbd>V</kbd> | einfügen, 20 Pixel versetzt; aus einem anderen Tab oder Designer an derselben Stelle; ein [kopierter Screen](/designer/screens#kopieren) als neuer Screen |
 | <kbd>Strg</kbd>+<kbd>A</kbd> | alle Objekte des Screens auswählen, in einer Gruppe oder einem offenen Panel nur deren Objekte |
 | <kbd>Strg</kbd>+<kbd>G</kbd> | ausgewählte Objekte [gruppieren](/objekte/anordnen#gruppe) |
 | <kbd>Strg</kbd>+<kbd>U</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | ausgewählte Gruppe auflösen |
