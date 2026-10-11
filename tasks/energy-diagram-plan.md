@@ -139,7 +139,8 @@ logarithmic), the storage's ring, grey for 0 W.
 **Description:** `dotSeconds(watts)`; `dotsAt(path, phase)`: the dots'
 places along a line for a phase, direction by giving or taking, spacing
 as in the target picture; `wavePalette(colour, background)` and
-`waveShade(x, phase)`: the 8 shades and which one a column has.
+`waveColour(x, phase)`: the 8 soft shades and the blended colour a column
+has; `WAVE_SECONDS` (4 s), the same for every band.
 **Acceptance:** [ ] the same places for the same phase in every call; reversed for a taker
 **Verification:** same spec file. **Dependencies:** L2, L3. **Files:** `lib/energy-diagram.ts`. **Scope:** S.
 

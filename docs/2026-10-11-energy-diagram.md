@@ -113,13 +113,17 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     from a giver towards the bus and from the bus to a taker, faster with
     more watts (`dotSeconds`); still where nothing flows. In the Sankey a
     **wave** runs through each band instead (the user, 2026-10-11, after
-    the C64's colour cycling): a palette of 8 shades of the band's colour,
-    repeated every 40 px along x, moved right by one shade per step at the
-    same pace. A shade depends only on a pixel's x, so every column of a
-    band is one colour, and a device redraws a step as one vertical stroke
-    per column - no shape recomputed, nothing erased. A diagram property
-    switches motion off. The pace is the same in the designer's preview
-    and on a device; on a device the wave moves in whole shades.
+    the C64's colour cycling): soft and subtle - 8 shades a little either
+    side of the band's colour (towards the background by 0.42 ± 0.16),
+    blended into one another, one period every 48 px along x. All waves
+    run at **one calm pace**, a period every 4 s, whatever the band's
+    watts: the width already says how much flows (the user, 2026-10-11:
+    «ruhig langsam und dezent»; hard palette steps tried and dropped). A
+    shade depends only on a pixel's x, so every column of a band is one
+    colour, and a device redraws a step as one vertical stroke per column -
+    no shape recomputed, nothing erased. A diagram property switches
+    motion off. The pace is the same in the designer's preview and on a
+    device.
 11. **Node lines** are live text exactly as a text object's (`text` with
     `{live:<id>}`, `liveValues` with rules, format, No value yet). The
     first line defaults to the watts, `{live:w} W`, whole watts. A node's
