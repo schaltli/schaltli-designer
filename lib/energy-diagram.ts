@@ -66,3 +66,137 @@ export function resolveEnergy(nodes: readonly EnergyNode[], values: Readonly<Rec
   if (rest) rest.watts = Math.max(0, given - taken)
   return out
 }
+
+export interface Size {
+  width: number
+  height: number
+}
+export interface Point {
+  x: number
+  y: number
+}
+export interface Box extends Point, Size {}
+
+// The Sankey's columns and spacing, in px of the diagram (spec decision 8;
+// the target picture at 676 x 396).
+export const SANKEY_LABEL_W = 170
+export const SANKEY_BAR_W = 12
+export const SANKEY_BUS_W = 16
+export const SANKEY_GAP = 14
+export const SANKEY_MIN_BAND = 3
+export const SANKEY_SLOT_MIN = 66
+/** How far a band runs under a bar, and under the bus, so no notch shows. */
+export const SANKEY_UNDER_BAR = 4
+export const SANKEY_UNDER_BUS = 2
+/** Straight pieces a band's curved edge is drawn as - the same on every device. */
+export const SANKEY_SEGMENTS = 24
+
+export interface SankeyBar extends Box {
+  id: string
+  side: "left" | "right"
+}
+export interface SankeySlot {
+  id: string
+  side: "left" | "right"
+  y: number
+  height: number
+}
+export interface SankeyBand {
+  id: string
+  /** The outline: SEGMENTS + 1 points along the top, the same back along the bottom. */
+  polygon: Point[]
+}
+export interface SankeyLayout {
+  bars: SankeyBar[]
+  slots: SankeySlot[]
+  bands: SankeyBand[]
+  bus: Box
+}
+
+/** A cubic from (x0, y0) to (x1, y1), its control points at the horizontal middle, as SEGMENTS + 1 points. */
+function bandEdge(x0: number, y0: number, x1: number, y1: number): Point[] {
+  const mx = (x0 + x1) / 2
+  const pts: Point[] = []
+  for (let i = 0; i <= SANKEY_SEGMENTS; i++) {
+    const t = i / SANKEY_SEGMENTS
+    const u = 1 - t
+    pts.push({
+      x: u * u * u * x0 + 3 * u * u * t * mx + 3 * u * t * t * mx + t * t * t * x1,
+      y: u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y1 + t * t * t * y1,
+    })
+  }
+  return pts
+}
+
+const order = (a: ResolvedNode, b: ResolvedNode) => a.y - b.y || a.x - b.x
+
+/**
+ * The Sankey in a diagram of `size` (spec decision 8): givers left and
+ * takers right, each side ordered by y then x, a node with 0 W left out;
+ * a band as wide as the room for bands times its watts over `fullScale`,
+ * all of them filling the room from the full scale on, never thinner than
+ * 3 px; each node a slot of at least 66 px for its label, the slots centred
+ * and 14 px apart - when the slots do not fit, the bands shrink, not the
+ * slots; the bus in the middle as thick as the total; bands from just
+ * under their bar to just under the bus, stacked at the bus in order.
+ */
+export function sankeyLayout(nodes: readonly ResolvedNode[], size: Size, fullScale: number): SankeyLayout {
+  const left = nodes.filter((n) => n.gives && n.watts > 0).sort(order)
+  const right = nodes.filter((n) => !n.gives && n.watts > 0).sort(order)
+  const total = Math.max(
+    left.reduce((a, n) => a + n.watts, 0),
+    right.reduce((a, n) => a + n.watts, 0),
+  )
+  const room = size.height - SANKEY_GAP * 4
+  const leftBarX = SANKEY_LABEL_W
+  const rightBarX = size.width - SANKEY_LABEL_W - SANKEY_BAR_W
+  const busX = Math.round(size.width / 2 - SANKEY_BUS_W / 2)
+  if (total <= 0) return { bars: [], slots: [], bands: [], bus: { x: busX, y: size.height / 2, width: SANKEY_BUS_W, height: 0 } }
+
+  let scale = (room * Math.min(1, total / Math.max(1, fullScale))) / total
+  const band = (w: number) => Math.max(SANKEY_MIN_BAND, w * scale)
+  const fits = (list: ResolvedNode[]) => list.reduce((a, n) => a + Math.max(SANKEY_SLOT_MIN, band(n.watts)), 0) + SANKEY_GAP * Math.max(0, list.length - 1)
+  for (let i = 0; i < 40 && Math.max(fits(left), fits(right)) > size.height && scale * total > SANKEY_MIN_BAND; i++) scale *= 0.92
+
+  const bars: SankeyBar[] = []
+  const slots: SankeySlot[] = []
+  const place = (list: ResolvedNode[], side: "left" | "right") => {
+    let y = (size.height - fits(list)) / 2
+    for (const n of list) {
+      const h = band(n.watts)
+      const slot = Math.max(SANKEY_SLOT_MIN, h)
+      slots.push({ id: n.id, side, y, height: slot })
+      bars.push({ id: n.id, side, x: side === "left" ? leftBarX : rightBarX, y: y + (slot - h) / 2, width: SANKEY_BAR_W, height: h })
+      y += slot + SANKEY_GAP
+    }
+  }
+  place(left, "left")
+  place(right, "right")
+
+  const busH = Math.max(SANKEY_MIN_BAND, total * scale)
+  const bus: Box = { x: busX, y: (size.height - busH) / 2, width: SANKEY_BUS_W, height: busH }
+  const bands: SankeyBand[] = []
+  const stack = (list: ResolvedNode[], side: "left" | "right") => {
+    let by = bus.y
+    for (const n of list) {
+      const bar = bars.find((b) => b.id === n.id)!
+      const h = n.watts * scale
+      const bh = Math.max(1.5, h)
+      let top: Point[], bottom: Point[]
+      if (side === "left") {
+        const x0 = leftBarX + SANKEY_BAR_W - SANKEY_UNDER_BAR, x1 = busX + SANKEY_UNDER_BUS
+        top = bandEdge(x0, bar.y, x1, by)
+        bottom = bandEdge(x0, bar.y + bar.height, x1, by + bh)
+      } else {
+        const x0 = busX + SANKEY_BUS_W - SANKEY_UNDER_BUS, x1 = rightBarX + SANKEY_UNDER_BAR
+        top = bandEdge(x0, by, x1, bar.y)
+        bottom = bandEdge(x0, by + bh, x1, bar.y + bar.height)
+      }
+      bands.push({ id: n.id, polygon: [...top, ...bottom.reverse()] })
+      by += h
+    }
+  }
+  stack(left, "left")
+  stack(right, "right")
+  return { bars, slots, bands, bus }
+}

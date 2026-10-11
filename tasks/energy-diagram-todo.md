@@ -28,7 +28,7 @@ Meanwhile energy-layout (L1-L5) goes on; it does not depend on this.
 
 ## energy-layout
 - [x] L1 Types and the rest
-- [ ] L2 Sankey layout
+- [x] L2 Sankey layout
 - [ ] L3 Flow layout
 - [ ] L4 Dots and waves
 - [ ] L5 Test vectors for the devices

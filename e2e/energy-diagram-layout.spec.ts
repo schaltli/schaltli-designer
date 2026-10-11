@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { resolveEnergy, type EnergyNode } from "../lib/energy-diagram"
+import { resolveEnergy, sankeyLayout, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -72,5 +72,91 @@ test.describe("resolve (L1)", () => {
 
   test("the storage carries its charge", () => {
     expect(byId(resolveEnergy(NODES, { battery: { watts: 10, charge: 82 } })).battery.charge).toBe(82)
+  })
+})
+
+// The target picture's diagram: 676 x 396 px (x 116-792, y 74-470 on the 4.3B).
+const BOX = { width: 676, height: 396 }
+
+test.describe("Sankey (L2)", () => {
+  // Drive, full scale 1000 W: 534 W through the bus is 53.4 % of the 340 px
+  // for bands, 181.56 px; 0.34 px a watt.
+  const drive = () => sankeyLayout(resolveEnergy(NODES, watts(SITUATIONS.drive)), BOX, 1000)
+
+  test("givers left, takers right, ordered by y then x; nothing for a node with 0 W", () => {
+    const l = drive()
+    expect(l.bars.map((b) => [b.id, b.side])).toEqual([
+      ["solar", "left"],
+      ["engine", "left"],
+      ["battery", "right"],
+      ["load", "right"],
+    ])
+    // Night: the battery gives, so it stands on the left.
+    const night = sankeyLayout(resolveEnergy(NODES, watts(SITUATIONS.night)), BOX, 1000)
+    expect(night.bars.map((b) => [b.id, b.side])).toEqual([
+      ["battery", "left"],
+      ["load", "right"],
+    ])
+  })
+
+  test("widths are linear in watts against the full scale; the bus carries the total", () => {
+    const l = drive()
+    const bar = (id: string) => l.bars.find((b) => b.id === id)!
+    expect(bar("solar").height).toBeCloseTo(40.8, 2)
+    expect(bar("engine").height).toBeCloseTo(140.76, 2)
+    expect(bar("battery").height).toBeCloseTo(151.64, 2)
+    expect(bar("load").height).toBeCloseTo(29.92, 2)
+    expect(l.bus.height).toBeCloseTo(181.56, 2)
+    expect(l.bus.y).toBeCloseTo((396 - 181.56) / 2, 2)
+    // Above the full scale the bands fill the room, never more.
+    const big = sankeyLayout(resolveEnergy(NODES, { engine: { watts: 2000 }, battery: { watts: 2000 } }), BOX, 1000)
+    expect(big.bus.height).toBeCloseTo(340, 2)
+    // A thread is still 3 px.
+    const tiny = sankeyLayout(resolveEnergy(NODES, { shore: { watts: 1 }, battery: { watts: 1 } }), BOX, 1000)
+    expect(tiny.bars.every((b) => b.height === 3)).toBe(true)
+  })
+
+  test("each node keeps a slot of 66 px for its label, the slots centred, 14 px apart", () => {
+    const l = drive()
+    const slot = (id: string) => l.slots.find((s) => s.id === id)!
+    // Left: 66 (solar's slot, its band thinner) + 14 + 140.76 = 220.76, from (396 - 220.76) / 2.
+    expect(slot("solar").y).toBeCloseTo(87.62, 2)
+    expect(slot("solar").height).toBe(66)
+    expect(slot("engine").y).toBeCloseTo(87.62 + 66 + 14, 2)
+    expect(slot("engine").height).toBeCloseTo(140.76, 2)
+    // A bar in the middle of its slot.
+    const solar = l.bars.find((b) => b.id === "solar")!
+    expect(solar.y).toBeCloseTo(87.62 + (66 - 40.8) / 2, 2)
+  })
+
+  test("bars and bus in their columns; bands run under them, so no notch shows", () => {
+    const l = drive()
+    expect(l.bars.find((b) => b.side === "left")!.x).toBe(170)
+    expect(l.bars.find((b) => b.side === "right")!.x).toBe(676 - 170 - 12)
+    expect(l.bus.x).toBe(330)
+    expect(l.bus.width).toBe(16)
+    const solarBand = l.bands.find((b) => b.id === "solar")!
+    const xs = solarBand.polygon.map((p) => p.x)
+    expect(Math.min(...xs)).toBeCloseTo(170 + 12 - 4, 3)
+    expect(Math.max(...xs)).toBeCloseTo(330 + 2, 3)
+    // 25 points along the top, 25 back along the bottom.
+    expect(solarBand.polygon).toHaveLength(50)
+    // The bus end of the left bands stacks from the bus's top.
+    expect(solarBand.polygon[24].y).toBeCloseTo(l.bus.y, 2)
+    const loadBand = l.bands.find((b) => b.id === "load")!
+    expect(Math.max(...loadBand.polygon.map((p) => p.x))).toBeCloseTo(676 - 170 - 12 + 4, 3)
+  })
+
+  test("labels that do not fit shrink the bands, not the slots", () => {
+    // Eight givers of 1000 W each: 8 slots of 66 and 7 gaps are 626 px, more than 396.
+    const many: EnergyNode[] = [
+      { id: "bus", role: "bus", name: "", x: 0, y: 0 },
+      ...Array.from({ length: 8 }, (_, i) => ({ id: `s${i}`, role: "source" as const, name: "", x: 0, y: i })),
+      { id: "rest", role: "rest", name: "", x: 0, y: 0 },
+    ]
+    const l = sankeyLayout(resolveEnergy(many, Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`s${i}`, { watts: 1000 }]))), BOX, 1000)
+    const left = l.slots.filter((s) => s.side === "left")
+    expect(left).toHaveLength(8)
+    expect(left.every((s) => s.height === 66)).toBe(true)
   })
 })
