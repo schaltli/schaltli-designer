@@ -3,7 +3,7 @@
 Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 
 ## Before anything is built
-- [ ] The user approves the target picture (artifact, spec «Target picture»)
+- [x] The user approves the target picture (artifact, spec «Target picture») - 2026-10-11, version 7
 
 ## energy-spike
 - [ ] S1 Tap latency on the 4.3B today, measured (baseline)
