@@ -6,8 +6,11 @@ four situations: https://claude.ai/artifact/Fe7crSShAaeheK9UidGtcN.
 Builds on live values (`docs/2026-10-07-live-values.md`, generation 1.4)
 and popups (`docs/2026-10-06-popup-screens.md`, generation 1.3).
 
-Status: specified. Step 1, the firmware spike, comes before everything
-else (decision 14).
+Status: specified, modules and assumptions approved by the user on
+2026-10-11. The target picture, with motion, the user approves before
+anything is built: https://claude.ai/artifact/RcPpfG1xFaarXN4VbuUKf3 (see «Target picture»).
+Step 1, the firmware spike, comes before everything else (decision 14).
+Plan: `tasks/energy-diagram-plan.md`.
 
 ## Objective
 
@@ -26,6 +29,37 @@ summed outside Schaltli.
 Users: whoever builds a panel for a van in the designer - for the demo's
 page «Energie» and for the author's van first -, and whoever looks at that
 panel in the van.
+
+## Modules
+
+Built and checked one by one, in this order; each has its tasks in
+`tasks/energy-diagram-plan.md`.
+
+| Module | Responsibility | Depends on |
+|---|---|---|
+| `energy-spike` | 4.3B: running dots and one filled band; frame rate, touch latency, pixel diff measured; kept as a HIL test | - |
+| `energy-layout` | `lib/energy-diagram.ts`: both modes' layout, the rest, signs, the dots' pace; pure functions, the reference for every renderer | - |
+| `energy-designer` | the object in the designer: insert, nodes list, dragging in Flow, preview with motion, theme roles, copy and paste | `energy-layout` |
+| `energy-contract` | export, contract §2.8, generation 1.7, baked icons, `supportedObjectTypes` | `energy-designer` |
+| `energy-firmware` | the 4.3B draws both modes, motion if the spike allows it, a tap runs the action, HIL | `energy-contract`, `energy-spike` |
+| `energy-android` | the Android app draws and moves, the orchestrator's HIL | `energy-contract` |
+| `energy-demo` | the demo's page «Energie» rebuilt from the object | `energy-designer`, `energy-firmware` |
+
+Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
+→ `energy-contract` → `energy-firmware` and `energy-android` side by side
+→ `energy-demo`.
+
+## Assumptions (approved 2026-10-11)
+
+1. One value per node, in watts. Amps alone are turned into watts where
+   they come from (the bridge, a flow), not by the object.
+2. One bus and at most one storage per diagram; two batteries or a 230 V
+   net beside the 12 V one are not in the first version.
+3. At most 8 nodes besides the bus.
+4. Motion in the designer and on Android in any case; on the 4.3B only if
+   the spike shows it costs touch no more than success criterion 3 allows.
+5. The rest counts only this diagram's nodes.
+6. A tap offers every action a button has, not only «Open popup».
 
 ## Capability map
 
@@ -184,6 +218,38 @@ the designer and every device compute them the same.
   (`lib/asset-export.ts`), generation (`lib/system-generation.ts`) and the
   DDF's `supportedObjectTypes`.
 
+## Target picture
+
+https://claude.ai/artifact/RcPpfG1xFaarXN4VbuUKf3 - an artifact the user
+approves before building: the page «Energie» on the
+4.3B's 800 × 480 with the master's navigator and light/dark switch, the
+diagram in both modes, the dots running at the device's pace (and as the
+4.3B would step them), three live lines per node, a tap opening a popup,
+light and dark. Where the built thing and the picture differ, the picture
+is right unless the spec says otherwise.
+
+## Code style
+
+As the rest of `lib/`: pure functions with the numbers every renderer
+shares, English identifiers, a comment saying why with the date it was
+decided, German only in the handbook and in the user's own labels.
+
+```ts
+/**
+ * How long a dot takes from one end of a band or line to the other, in
+ * seconds: quicker with more watts, never quicker than 0.35 s (decision
+ * 10, 2026-10-11). The same number for the designer, the 4.3B and Android.
+ */
+export function dotSeconds(watts: number): number {
+  return Math.max(0.35, 2.4 - Math.log10(Math.abs(watts) + 1) * 0.75)
+}
+```
+
+The firmware's `EnergyDiagram.cpp` and Android's
+`EnergyDiagramLayout.kt` mirror `lib/energy-diagram.ts` function by
+function, with its name in a comment, as `NavigatorLayout` mirrors
+`lib/navigator.ts`.
+
 ## Tech stack
 
 Designer: Next.js, canvas renderer as for every object. Firmware:
@@ -235,8 +301,13 @@ the 4.3B's loop. Android: Kotlin, a custom view as `NavigatorStripView`.
   the engine or the battery.
 - In the author's van, the diagram shows the charger feeding the fridge
   while the battery idles (the case measured on 2026-10-11).
-- The 4.3B moves the dots without a touch getting slower than today
-  (measured in the spike), or draws still by decision 14.
+- On the 4.3B, with the diagram moving (five lines, dots running): the
+  dots advance at least 8 times a second, and a tap's latency - from
+  `/api/touch` to the redrawn feedback, measured as in the spike - is at
+  most 20 % above the same tap on the same screen without motion. If not,
+  the 4.3B draws still by decision 14.
+- The target picture (`Target picture` below) and the designer's preview
+  show the same layout and pace for the mockup's four situations.
 - HIL parity for a still frame within the usual threshold on the 4.3B;
   the Android orchestrator passes.
 
