@@ -27,7 +27,7 @@ Flow's dots are fine (x1.16). Choices:
 Meanwhile energy-layout (L1-L5) goes on; it does not depend on this.
 
 ## energy-layout
-- [ ] L1 Types and the rest
+- [x] L1 Types and the rest
 - [ ] L2 Sankey layout
 - [ ] L3 Flow layout
 - [ ] L4 Dots and waves
