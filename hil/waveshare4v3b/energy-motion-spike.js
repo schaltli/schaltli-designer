@@ -13,12 +13,13 @@
 // looked for, which is why the board keeps the clock.
 //
 //   --baseline   taps with nothing moving: today's number
+//   --no-wave    the dots alone, no Sankey band
 //   (default)    the baseline, then the same taps with the spike's motion
 //                running (?set=energyspike=<lines>), and its steps per
 //                second; passes when steps/s >= 8 and the median tap is at
 //                most 1.2 x the baseline's
 //
-// Run: node hil/waveshare4v3b/energy-motion-spike.js --device <ip> [--baseline] [--lines 5]
+// Run: node hil/waveshare4v3b/energy-motion-spike.js --device <ip> [--baseline] [--lines 5] [--no-wave]
 // Needs the dev server (test-render builds the zip). Exit 0 pass, 1 fail,
 // 2 the board is not reachable (skipped, loudly).
 
@@ -42,11 +43,12 @@ const MIN_STEPS = 8
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function parseArgs(argv) {
-  const args = { device: null, baseline: false, lines: 5 }
+  const args = { device: null, baseline: false, lines: 5, wave: true }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     if (argv[i] === "--baseline") args.baseline = true
     if (argv[i] === "--lines") args.lines = Number(argv[++i])
+    if (argv[i] === "--no-wave") args.wave = false
   }
   return args
 }
@@ -173,7 +175,7 @@ async function main() {
   check("every tap measured, nothing moving", still.taps === TAPS, `${still.taps} of ${TAPS}`)
 
   if (!args.baseline) {
-    const started = (await get(`${base}/api/debug?set=energyspike=${args.lines}`)).body
+    const started = (await get(`${base}/api/debug?set=energyspike=${args.lines}${args.wave ? "" : ",nowave"}`)).body
     if (!/energy spike/i.test(started)) {
       check("the spike's motion starts", false, "the firmware has no ?set=energyspike yet")
     } else {

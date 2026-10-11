@@ -165,6 +165,25 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     Android. If the spike shows motion costs the 4.3B its touch or its
     other redraws, the 4.3B draws the diagram still and only Android moves
     (decided then, not now).
+
+    **Spike result, 2026-10-11** (`hil/waveshare4v3b/energy-motion-spike.js`,
+    firmware `?set=energyspike`, five lines with 34 dots, one band of some
+    80 000 px; a tap's latency measured by the board from the sample to the
+    press feedback on the glass, 20 taps, medians):
+
+    | | still | moving | factor | steps/s | blit a step |
+    |---|---|---|---|---|---|
+    | dots and the Sankey's wave | 73 ms | 121 ms | 1.66 | 8.6 | 21.2 ms |
+    | dots alone (Flow) | 73.5 ms | 84.9 ms | 1.16 | 8.7 | 6.8 ms |
+
+    The dots pass; the wave does not. Why: the 4.3B has three framebuffers
+    and every rectangle changed must be copied into each of them; whichever
+    present comes next pays for what its buffer missed - the press feedback
+    of a tap included. The band's rectangle is large, so every present
+    after a wave step carries some 14-20 ms of it. Moving the wave only
+    every other step made a tap slower, not quicker (measured), for that
+    reason. **Open, for the user**: what the 4.3B does with the Sankey's
+    wave.
 15. **Devices**: the 4.3B and the Android app. The PaperS3 and the Knob do
     not list the type in their `supportedObjectTypes`; the designer then
     refuses it there, as for any unsupported type.
