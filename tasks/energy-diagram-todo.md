@@ -16,6 +16,6 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [ ] L1 Types and the rest
 - [ ] L2 Sankey layout
 - [ ] L3 Flow layout
-- [ ] L4 Dots
+- [ ] L4 Dots and waves
 - [ ] L5 Test vectors for the devices
 - [ ] Checkpoint: the four situations from the core, beside the target picture

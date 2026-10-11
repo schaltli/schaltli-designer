@@ -76,10 +76,12 @@ S4). Used for one Sankey band in the spike.
 
 ### S3 - Firmware: the spike's motion loop
 **Description:** behind `?set=energyspike=<n>`: a still screen with n
-lines to a bus and one band, then on a timer each line's dot advances
-and only the rectangles of the dots' old and new places are redrawn
-(`renderRegion`). Counts steps per second and the time each step takes,
-reported on `/api/debug`.
+lines to a bus and one Sankey band, then on a timer each line's dot
+advances - only the rectangles of the dots' old and new places redrawn
+(`renderRegion`) - and the band's wave moves one shade: each of the
+band's columns refilled as one vertical stroke in its next palette colour
+(spec decision 10). Counts steps per second and the time each step takes,
+dots and wave separately, reported on `/api/debug`.
 **Acceptance:**
 - [ ] runs with n = 1..8, stops on `energyspike=0`
 - [ ] `/api/debug` shows steps/s and ms per step
@@ -92,8 +94,8 @@ reported on `/api/debug`.
 lines; it also takes a snapshot with motion off and compares the band
 with the designer's polygon (test-render) by the usual threshold.
 **Acceptance:**
-- [ ] steps/s ≥ 8 and tap latency ≤ 1.2 × baseline - or a clear number
-      showing why not
+- [ ] steps/s ≥ 8 and tap latency ≤ 1.2 × baseline, for the dots and for
+      the wave - or a clear number showing why not
 - [ ] band diff within the HIL threshold
 - [ ] the result and the decision (move or stay still on the 4.3B)
       written into the spec's decision 14
@@ -133,10 +135,11 @@ logarithmic), the storage's ring, grey for 0 W.
 **Acceptance:** [ ] matches the target picture for its four situations
 **Verification:** same spec file. **Dependencies:** L1. **Files:** `lib/energy-diagram.ts`. **Scope:** S.
 
-### L4 - Dots
-**Description:** `dotSeconds(watts)`, and `dotsAt(path, phase)`: the dots'
-places along a band's centre or a line for a phase, direction by giving
-or taking; spacing as in the target picture.
+### L4 - Dots and waves
+**Description:** `dotSeconds(watts)`; `dotsAt(path, phase)`: the dots'
+places along a line for a phase, direction by giving or taking, spacing
+as in the target picture; `wavePalette(colour, background)` and
+`waveShade(x, phase)`: the 8 shades and which one a column has.
 **Acceptance:** [ ] the same places for the same phase in every call; reversed for a taker
 **Verification:** same spec file. **Dependencies:** L2, L3. **Files:** `lib/energy-diagram.ts`. **Scope:** S.
 

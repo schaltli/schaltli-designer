@@ -109,11 +109,17 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    from each node to the bus, its width growing with the logarithm of its
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
    storage's charge is a ring round its circle.
-10. **Motion**: dots run along each band or line that carries watts, from a
-    giver towards the bus and from the bus to a taker, faster with more
-    watts (the mockup's `pace`); still where nothing flows. A diagram
-    property switches motion off. The pace is the same in the designer's
-    preview and on a device.
+10. **Motion**: in the Flow, dots run along each line that carries watts,
+    from a giver towards the bus and from the bus to a taker, faster with
+    more watts (`dotSeconds`); still where nothing flows. In the Sankey a
+    **wave** runs through each band instead (the user, 2026-10-11, after
+    the C64's colour cycling): a palette of 8 shades of the band's colour,
+    repeated every 40 px along x, moved right by one shade per step at the
+    same pace. A shade depends only on a pixel's x, so every column of a
+    band is one colour, and a device redraws a step as one vertical stroke
+    per column - no shape recomputed, nothing erased. A diagram property
+    switches motion off. The pace is the same in the designer's preview
+    and on a device; on a device the wave moves in whole shades.
 11. **Node lines** are live text exactly as a text object's (`text` with
     `{live:<id>}`, `liveValues` with rules, format, No value yet). The
     first line defaults to the watts, `{live:w} W`, whole watts. A node's
