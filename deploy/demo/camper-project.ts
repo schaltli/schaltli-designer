@@ -13,11 +13,14 @@
 //   Wasser  fresh and grey water as tanks, the water pump, and the switch
 //           that lets the grey water out. The page's icon is a drop with an exclamation mark
 //           while the grey water is above 80 % or the fresh below 20 %.
-//   Energie the battery on Pekaway's shunt and the solar charger: what flows
-//           from the sun to the battery and from the battery to what draws,
-//           the charge, volts, amps and watts. Only what Pekaway reports and
-//           the bridge passes on, so the page fits any VanPi; the page's
-//           icon is an empty battery below 20 %.
+//   Energie what flows into the battery - the sun, the mains charger, the
+//           DC-DC charger off the engine - and out of it to what draws, the
+//           charge, volts, amps and watts; an arrow only while something
+//           flows. The battery is Pekaway's shunt through the bridge; the
+//           rest comes as in the author's van (vanpi-custom: its BLE bridge's
+//           ble/charger/... and ble/orion/..., its Node-RED tab's
+//           van/energy/...), so the page goes into his project as it is.
+//           The page's icon is an empty battery below 20 %.
 //   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
 //           already so the navigator shows where the van is going.
 //
@@ -107,6 +110,18 @@ const ASSETS = [
     data: svg('<path fill="currentColor" d="M8 2h2v5H8zM14 2h2v5h-2zM5 7.5h14V11a7 7 0 0 1-6 6.9V22h-2v-4.1A7 7 0 0 1 5 11z"/>'),
   },
   {
+    id: "icon-engine",
+    name: "Engine",
+    type: "icon",
+    data: svg('<path fill="currentColor" d="M7 4h7v2h-2v2h3l2 2h2V8h3v9h-3v-2h-2v3h-4l-2 2H8l-2-2H4v-3H2V9h2v3h1V8h4V6H7z"/>'),
+  },
+  {
+    id: "icon-load",
+    name: "Bolt",
+    type: "icon",
+    data: svg('<path fill="currentColor" d="M14 1.5 4.5 13.5H11l-1.5 9 9.5-12.5h-6.5z"/>'),
+  },
+  {
     id: "icon-fan",
     name: "Fan",
     type: "icon",
@@ -125,6 +140,13 @@ const ASSETS = [
 ]
 
 const topic = (t: string, type: "numeric" | "text", examples: string[]) => ({ id: `t-${t.replace(/[^a-z0-9]+/gi, "-")}`, topic: t, type, examples })
+
+// A topic whose payload is {"value": ...}, read through its field "value".
+const jsonTopic = (t: string, type: "numeric" | "text", values: string[]) => ({
+  ...topic(t, "text", values.map((v) => JSON.stringify({ value: type === "numeric" ? Number(v) : v }))),
+  type: "json" as const,
+  subtopics: [{ id: `${topic(t, "text", []).id}-value`, path: "value", type }],
+})
 
 const TOPICS = [
   ...[1, 2, 3].flatMap((n) => [
@@ -147,7 +169,14 @@ const TOPICS = [
   topic(`${S}battery/voltage`, "numeric", ["13.12", "13.39", "12.48"]),
   topic(`${S}battery/current`, "numeric", ["20.79", "-2.13", "0.00"]),
   topic(`${S}battery/power`, "numeric", ["278", "-28", "0"]),
-  topic(`${S}mppt/pv_watts`, "numeric", ["280", "120", "0"]),
+  // As the author's van has them beside Pekaway (vanpi-custom): the chargers
+  // from its BLE bridge as {"value": ...}, the sun and what draws from its
+  // Node-RED tab Energie.
+  ...["charger", "orion"].flatMap((d) => [
+    jsonTopic(`ble/${d}/watts`, "numeric", d === "charger" ? ["394", "0"] : ["620", "0"]),
+  ]),
+  topic("van/energy/solar_watts", "numeric", ["150", "60", "0"]),
+  topic("van/energy/consumers_watts", "numeric", ["6", "92", "180"]),
   // Light or dark for every device at once; the bridge keeps it.
   topic(`${S}theme`, "text", ["light", "dark"]),
   topic(`${C}theme`, "text", ["light", "dark"]),
@@ -457,13 +486,50 @@ function signed(lvId: string, path: string, places: number, unit: string) {
   return { ...withUnit(lvId, path, places, unit), rules: [{ op: ">", operand: "0", result: { kind: "text", parts: ["+", VALUE, unit] } }] }
 }
 
-// Energy, from what Pekaway reports and the bridge passes on: down the left
-// the way it flows - sun, battery, what draws -, on the right the battery's
-// numbers. Built to be copied whole into a VanPi's own project.
+// Energy: across the top what comes in - the sun, the mains, the engine -,
+// each with its watts and an arrow down to the battery while it brings any;
+// the battery's charge in the middle, what draws below it, with an arrow
+// while the battery gives. On the right the battery's numbers.
 function energyScreen() {
-  const cx = 246
-  const right = 470
-  const row = (y: number, name: string, lv: unknown) => [label(right, y, 140, name), live(right + 140, y, 170, 30, "{live:v}", [lv], { textAlign: "right" })]
+  const cx = 297
+  const right = 500
+  const row = (y: number, name: string, lv: unknown) => [label(right, y, 144, name), live(right + 144, y, 140, 30, "{live:v}", [lv], { textAlign: "right" })]
+  // A source: its icon, its name, its watts, the arrow under it while it
+  // brings something, and the dotted path from there to the battery.
+  const source = (x: number, name: string, iconId: string, watts: string, to: { x: number; y: number }) => {
+    const lv = `lv${next}`
+    return [
+      icon(x - 18, 64, 36, iconId),
+      label(x - 67, 102, 134, name, { textAlign: "center", color: "textMuted" }),
+      live(x - 67, 126, 134, 28, "{live:w}", [withUnit("w", watts, 0, " W")], { fontId: "font-helvB18", textAlign: "center" }),
+      {
+        id: id("arrow"),
+        type: "icon",
+        x: x - 14,
+        y: 156,
+        width: 28,
+        height: 28,
+        zIndex: next,
+        properties: {
+          iconColor: "accent",
+          liveIconId: lv,
+          // By its watts, not by whether it says it charges: a charger in
+          // float says so and gives nothing.
+          liveValues: [{ id: lv, source: { namespace: "topic", path: watts }, rules: [{ op: ">", operand: "0", result: { kind: "icon", icon: "icon-arrow-down" } }] }],
+        },
+      },
+      {
+        id: id("path"),
+        type: "line",
+        x: Math.min(x, to.x),
+        y: 186,
+        width: Math.max(4, Math.abs(to.x - x)),
+        height: to.y - 186,
+        zIndex: next,
+        properties: { points: [{ x, y: 186 }, to], color: "outline", strokeWidth: 3, strokeStyle: "dotted" },
+      },
+    ]
+  }
   return {
     id: "screen-energie",
     name: "Energie",
@@ -476,19 +542,17 @@ function energyScreen() {
     },
     objects: [
       title("Energie"),
-      // The sun and what it brings.
-      icon(cx - 24, 70, 48, "icon-sun"),
-      label(cx + 36, 66, 130, "Solar"),
-      live(cx + 36, 92, 130, 32, "{live:pv}", [withUnit("pv", `${S}mppt/pv_watts`, 0, " W")], { fontId: "font-helvB18" }),
-      ...flow(cx, 124, 180, `${S}mppt/pv_watts`, ">", "0"),
+      ...source(cx - 132, "Solar", "icon-sun", "van/energy/solar_watts", { x: cx - 52, y: 226 }),
+      ...source(cx, "Landstrom", "icon-plug", "ble/charger/watts#value", { x: cx, y: 206 }),
+      ...source(cx + 132, "Ladebooster", "icon-engine", "ble/orion/watts#value", { x: cx + 52, y: 226 }),
       // The battery's charge.
       {
         id: id("battery"),
         type: "gauge",
-        x: cx - 80,
-        y: 182,
-        width: 160,
-        height: 160,
+        x: cx - 70,
+        y: 206,
+        width: 140,
+        height: 140,
         zIndex: next,
         properties: {
           topic: `${S}battery/soc`,
@@ -496,20 +560,21 @@ function energyScreen() {
           minAngle: 225,
           maxAngle: 135,
           direction: "cw",
-          thickness: 18,
+          thickness: 16,
           displayValue: "percentage",
           fillColor: "accent",
           textColor: "text",
           fontId: "font-helvB24",
         },
       },
-      ...flow(cx, 330, 404, `${S}battery/current`, "<", "0"),
-      // What draws: Pekaway does not know how much.
-      icon(cx - 20, 408, 40, "icon-plug"),
-      label(cx + 36, 414, 160, "Verbraucher"),
+      ...flow(cx, 336, 402, `${S}battery/current`, "<", "0"),
+      // What draws, as the author's Node-RED tab works it out.
+      icon(cx - 58, 410, 36, "icon-load"),
+      label(cx - 14, 404, 180, "Verbraucher"),
+      live(cx - 14, 430, 180, 28, "{live:w}", [withUnit("w", "van/energy/consumers_watts", 0, " W")], { fontId: "font-helvB18" }),
       // The battery's numbers.
-      label(right, 70, 310, "Batterie"),
-      live(right, 98, 310, 40, "{live:state}", [
+      label(right, 70, 284, "Batterie"),
+      live(right, 98, 284, 40, "{live:state}", [
         {
           id: "state",
           source: { namespace: "topic", path: `${S}battery/current` },

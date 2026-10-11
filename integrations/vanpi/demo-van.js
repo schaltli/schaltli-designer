@@ -4,7 +4,8 @@
 // A conversion in progress: stage one was light - three dimmers and two
 // relays -, stage two water - a fresh and a grey water tank, the water pump
 // and a relay that lets the grey water out -, stage three energy - a
-// battery on Pekaway's shunt and a solar charger (2026-10-11). What answers the designer is the
+// battery on Pekaway's shunt, a solar charger, a mains charger behind a blue
+// socket and a DC-DC charger off the engine (2026-10-11). What answers the designer is the
 // real VanPi bridge - the flow buildBridgeFlow() installs into Node-RED on
 // every Pekaway - run here outside Node-RED, node by node and wired as the flow wires them, the way
 // e2e/vanpi-bridge.spec.ts runs it. Where that flow talks to Pekaway, a fake
@@ -13,10 +14,19 @@
 // van has so far, so the bridge announces and publishes only that; a later
 // stage adds a kind here and the bridge already knows it.
 //
-// What a visitor does in the scene comes as schaltli/cmnd/demo/shower and
-// .../refill - a shower empties fresh water into the grey, a canister fills
-// the fresh tank - and what the scene shows of it goes out as
-// schaltli/demo/shower, /refill and /puddle (the drain's, 0..1).
+// What a visitor does in the scene comes as schaltli/cmnd/demo/shower,
+// .../refill, .../shore and .../engine - a shower empties fresh water into
+// the grey, a canister fills the fresh tank, the cable goes into the blue
+// socket or out of it, the engine starts or stops - and what the scene shows
+// of it goes out as schaltli/demo/shower, /refill, /puddle (the drain's,
+// 0..1), /shore and /engine.
+//
+// The mains charger and the DC-DC charger are no Pekaway's: they come as the
+// author's van has them (vanpi-custom's ble-mqtt-bridge, Victron Instant
+// Readout), ble/charger/<value> and ble/orion/<value> as {"value": ...}, and
+// what his Node-RED tab Energie works out, van/energy/solar_watts and
+// van/energy/consumers_watts - so the demo's page Energie goes into his
+// project as it is.
 //
 // Beside the bridge it keeps the van's clock: a day lasts ten minutes,
 // published retained as schaltli/demo/daylight (0 at night, 1 at noon) and
@@ -89,8 +99,20 @@ const BATTERY_WH = 1280
 const BATTERY_TIME = 20
 // The solar panels' most, at noon of the van's day, and what the charger
 // sees of them while the sun is up.
-const SOLAR_PEAK_WATTS = 280
+const SOLAR_PEAK_WATTS = 150
 const SOLAR_VOLTS = 18.6
+// The mains charger (a Blue Smart IP22 12/30) and the DC-DC charger off the
+// engine (an Orion XS 12/12-50A): their most, in amps.
+const SHORE_AMPS = 30
+const BOOSTER_AMPS = 50
+// What the battery takes at most, in amps: all of it up to 70 %, then less
+// and less until nothing at 100 %.
+const ACCEPT_AMPS = 80
+const acceptAmps = (soc) => ACCEPT_AMPS * Math.max(0, Math.min(1, (100 - soc) / 30))
+// The engine stops by itself after this many seconds.
+const ENGINE_SECONDS = 300
+// A charger's state, in Victron's words.
+const chargeState = (soc) => (soc < 70 ? "bulk" : soc < 100 ? "absorption" : "float")
 // What draws: Pekaway and the router always, each light by its brightness,
 // the water pump while it runs - a shower.
 const BASE_WATTS = 6
@@ -104,13 +126,17 @@ function volts(soc, amps) {
 }
 
 /** The fake Pekaway: its state, its answers, what its commands do. */
-function fakePekaway() {
+function fakePekaway({ soc: startSoc = SEED_SOC } = {}) {
   let state = seed()
-  // The battery's charge, finer than Pekaway's whole percent.
-  let soc = SEED_SOC
+  // The battery's charge, finer than Pekaway's whole percent; another start
+  // than the seed's for the tests only.
+  let soc = startSoc
   // What is going on around the van, for the scene: seconds of shower and of
   // refilling left, and the puddle under the drain (0..1). Not Pekaway's.
-  let scene = { shower: 0, refill: 0, puddle: 0 }
+  let scene = { shower: 0, refill: 0, puddle: 0, shore: false, engine: 0 }
+  // What the chargers did on the last tick, in watts and amps, for
+  // energy() - not Pekaway's: the author's ble/... and van/energy/...
+  let flows = { solar: 0, shore: 0, booster: 0, load: 0, voltage: 0 }
   return {
     get state() {
       return state
@@ -121,7 +147,8 @@ function fakePekaway() {
     reset() {
       state = seed()
       soc = SEED_SOC
-      scene = { shower: 0, refill: 0, puddle: 0 }
+      scene = { shower: 0, refill: 0, puddle: 0, shore: false, engine: 0 }
+      flows = { solar: 0, shore: 0, booster: 0, load: 0, voltage: 0 }
     },
     /** A visitor's shower: false without the water pump or fresh water. */
     startShower() {
@@ -133,6 +160,52 @@ function fakePekaway() {
     startRefill() {
       scene.refill = REFILL_SECONDS
       return true
+    },
+    /** The cable into the blue socket, or out of it. */
+    toggleShore() {
+      scene.shore = !scene.shore
+      return true
+    },
+    /** The engine started, or stopped. */
+    toggleEngine() {
+      scene.engine = scene.engine > 0 ? 0 : ENGINE_SECONDS
+      return true
+    },
+    /**
+     * What the author's van publishes beside Pekaway, as [topic, value]:
+     * the two chargers as his ble-mqtt-bridge does - silent ones
+     * not_available - and his Node-RED tab's sun and consumers.
+     */
+    energy() {
+      const v = flows.voltage
+      const amps = (w) => (v > 0 ? Math.round((w / v) * 10) / 10 : 0)
+      const charger = scene.shore
+        ? [
+            ["state", chargeState(soc)],
+            ["charging", "on"],
+            ["out_volts", Math.round(v * 100) / 100],
+            ["out_amps", amps(flows.shore)],
+            ["watts", Math.round(flows.shore)],
+          ]
+        : [["state", "not_available"], ["charging", "off"], ["out_amps", 0], ["watts", 0]]
+      const running = scene.engine > 0
+      const orion = [
+        // Running but the battery full: on and idle, nothing goes in.
+        ["state", running ? (flows.booster > 0 ? chargeState(soc) : "float") : "off"],
+        ["charging", running && flows.booster > 0 ? "on" : "off"],
+        ["in_volts", running ? 14.2 : 12.8],
+        ["in_amps", running ? amps(flows.booster * 1.05) : 0],
+        ["out_volts", Math.round(v * 100) / 100],
+        ["out_amps", amps(flows.booster)],
+        ["watts", Math.round(flows.booster)],
+        ["off_reason", running ? "none" : "engine_shutdown"],
+      ]
+      return [
+        ...charger.map(([k, x]) => [`ble/charger/${k}`, JSON.stringify({ value: x })]),
+        ...orion.map(([k, x]) => [`ble/orion/${k}`, JSON.stringify({ value: x })]),
+        ["van/energy/solar_watts", String(Math.round(flows.solar))],
+        ["van/energy/consumers_watts", String(Math.round(flows.load))],
+      ]
     },
     /** The answer to pkw/stat/<kind>, or null for a kind the van does not have. */
     answer(kind) {
@@ -177,16 +250,29 @@ function fakePekaway() {
         : Math.max(0, scene.puddle - seconds * PUDDLE_DRIES_PER_SECOND)
       scene.puddle = Math.round(scene.puddle * 100) / 100
 
-      // Energy: the sun in, the van's draw out, the battery the difference.
-      // A full battery takes no more, so the charger gives only what is drawn.
+      // Energy: what the van draws, and what covers it and fills the
+      // battery - the sun first, then the engine and the mains together - as
+      // far as the battery still takes; the battery is the difference. The
+      // DC-DC charger stops at 100 %; the mains charger and the sun keep
+      // covering what is drawn.
       let load = BASE_WATTS
       for (const [key, watts] of Object.entries(DIMMER_WATTS)) load += (watts * (state.dimmer[key]?.state ?? 0)) / 100
       for (const [key, watts] of Object.entries(RELAY_WATTS)) if (state.relay[key]) load += watts
       if (scene.shower > 0) load += PUMP_WATTS
-      let solar = SOLAR_PEAK_WATTS * Math.max(0, Math.min(1, daylight))
-      if (soc >= 100) solar = Math.min(solar, load)
-      const net = solar - load
+      if (scene.engine > 0) scene.engine = Math.max(0, scene.engine - seconds)
+      const v = volts(soc, 0)
+      const wanted = load + acceptAmps(soc) * v
+      const solar = Math.min(SOLAR_PEAK_WATTS * Math.max(0, Math.min(1, daylight)), wanted)
+      // The two chargers share what is left, each by its size, as two
+      // chargers on one battery do.
+      const boosterMax = scene.engine > 0 && soc < 100 ? BOOSTER_AMPS * v : 0
+      const shoreMax = scene.shore ? SHORE_AMPS * v : 0
+      const share = boosterMax + shoreMax > 0 ? Math.min(1, Math.max(0, wanted - solar) / (boosterMax + shoreMax)) : 0
+      const booster = boosterMax * share
+      const shore = shoreMax * share
+      const net = solar + booster + shore - load
       soc = Math.max(0, Math.min(100, soc + ((net * seconds * BATTERY_TIME) / 3600 / BATTERY_WH) * 100))
+      flows = { solar, shore, booster, load, voltage: volts(soc, net / v) }
       const v0 = volts(soc, 0)
       const amps = net / v0
       state.batt = { AMPS: amps.toFixed(2), SoC: String(Math.round(soc)), Voltage: volts(soc, amps).toFixed(2) }
@@ -355,6 +441,10 @@ function startDemoVan({
       if (pekaway.startShower()) lastCommand = Date.now()
     } else if (topic === "schaltli/cmnd/demo/refill") {
       if (pekaway.startRefill()) lastCommand = Date.now()
+    } else if (topic === "schaltli/cmnd/demo/shore") {
+      if (pekaway.toggleShore()) lastCommand = Date.now()
+    } else if (topic === "schaltli/cmnd/demo/engine") {
+      if (pekaway.toggleEngine()) lastCommand = Date.now()
     } else if (topic === "schaltli/cmnd/theme" && text !== "light") {
       lastCommand = Date.now()
     }
@@ -387,6 +477,9 @@ function startDemoVan({
       client.publish("schaltli/demo/shower", pekaway.scene.shower > 0 ? "on" : "off", { retain: true })
       client.publish("schaltli/demo/refill", pekaway.scene.refill > 0 ? "on" : "off", { retain: true })
       client.publish("schaltli/demo/puddle", String(pekaway.scene.puddle), { retain: true })
+      client.publish("schaltli/demo/shore", pekaway.scene.shore ? "on" : "off", { retain: true })
+      client.publish("schaltli/demo/engine", pekaway.scene.engine > 0 ? "on" : "off", { retain: true })
+      for (const [topic, value] of pekaway.energy()) client.publish(topic, value, { retain: true })
       const today = new Date(now).toDateString()
       if (new Date(now).getHours() === 4 && lastResetDay !== today) {
         lastResetDay = today

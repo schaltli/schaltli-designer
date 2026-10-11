@@ -37,6 +37,12 @@ function vanTopics(): Set<string> {
   }
   // The theme is the bridge's own; the van sets it light at the start.
   topics.add("schaltli/state/theme")
+  // Beside Pekaway, as the author's van has them: the chargers and the
+  // Node-RED tab Energie (a JSON field read through "#value").
+  for (const [topic, value] of pekaway.energy()) {
+    topics.add(topic)
+    if (value.startsWith("{")) topics.add(`${topic}#value`)
+  }
   return topics
 }
 
@@ -123,10 +129,11 @@ test("Licht, Wasser, Energie, two pages to come, and the navigator; the page ico
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
 })
 
-// Energie (2026-10-11): only what Pekaway reports and the bridge passes on -
-// the shunt, the solar charger, the battery's watts -, so the page can be
-// copied into any VanPi's project.
-test("Energie: the sun, the battery and what draws, an arrow only while something flows, the battery's numbers", async () => {
+// Energie (2026-10-11): the sun, the mains and the engine into the battery,
+// the battery to what draws. The battery is Pekaway's through the bridge, the
+// rest as the author's van has it (vanpi-custom), so the page goes into his
+// project as it is.
+test("Energie: three sources and what draws round the battery, an arrow only while watts flow, the battery's numbers", async () => {
   const project = await built()
   const energie = project.screens[3] as any
   expect(energie.name).toBe("Energie")
@@ -135,12 +142,18 @@ test("Energie: the sun, the battery and what draws, an arrow only while somethin
     if ((key === "topic" || key === "path") && typeof v === "string") read.add(v)
   })
   expect([...read].sort()).toEqual([
+    "ble/charger/watts#value",
+    "ble/orion/watts#value",
     "schaltli/state/battery/current",
     "schaltli/state/battery/power",
     "schaltli/state/battery/soc",
     "schaltli/state/battery/voltage",
-    "schaltli/state/mppt/pv_watts",
+    "van/energy/consumers_watts",
+    "van/energy/solar_watts",
   ])
+  // The chargers' topics are declared as JSON with their field "value".
+  const charger = project.topics.find((t: any) => t.topic === "ble/charger/watts") as any
+  expect(charger).toMatchObject({ type: "json", subtopics: [{ path: "value", type: "numeric" }] })
   // Nothing on it writes: it only shows.
   expect(JSON.stringify(energie)).not.toContain("writeTopic")
   // The page's icon: an empty battery below 20 %.
@@ -148,22 +161,34 @@ test("Energie: the sun, the battery and what draws, an arrow only while somethin
   expect(energie.iconLive.rules).toEqual([{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }])
 
   // The arrows: a live icon each, with no Otherwise, so nothing shows while
-  // nothing flows - the sun's while it brings watts, the battery's while it gives.
+  // nothing flows - a source's while it brings watts (not while it says it
+  // charges: a charger in float says so and gives nothing), the battery's
+  // while it gives.
   const arrows = energie.objects.filter((o: any) => o.properties.liveIconId)
-  expect(arrows.map((o: any) => [o.properties.liveValues[0].source.path, o.properties.liveValues[0].rules[0].op])).toEqual([
-    ["schaltli/state/mppt/pv_watts", ">"],
-    ["schaltli/state/battery/current", "<"],
+  expect(arrows.map((o: any) => [o.properties.liveValues[0].source.path, o.properties.liveValues[0].rules[0].op, o.properties.liveValues[0].rules[0].operand])).toEqual([
+    ["van/energy/solar_watts", ">", "0"],
+    ["ble/charger/watts#value", ">", "0"],
+    ["ble/orion/watts#value", ">", "0"],
+    ["schaltli/state/battery/current", "<", "0"],
   ])
   for (const a of arrows) expect(a.properties.liveValues[0].otherwise).toBeUndefined()
   expect(energie.objects.filter((o: any) => o.type === "gauge")).toHaveLength(1)
   // A line's points are the screen's, not its box's: each path runs inside its own box.
-  for (const line of energie.objects.filter((o: any) => o.type === "line")) {
+  const lines = energie.objects.filter((o: any) => o.type === "line")
+  expect(lines).toHaveLength(4)
+  for (const line of lines) {
     for (const p of line.properties.points) {
       expect(p.x).toBeGreaterThanOrEqual(line.x)
       expect(p.x).toBeLessThanOrEqual(line.x + line.width)
       expect(p.y).toBeGreaterThanOrEqual(line.y)
       expect(p.y).toBeLessThanOrEqual(line.y + line.height)
     }
+  }
+  // Nothing reaches past the screen, or under the light/dark switch top right.
+  for (const o of energie.objects) {
+    expect(o.x + o.width, o.id).toBeLessThanOrEqual(project.screenWidth)
+    expect(o.y + o.height, o.id).toBeLessThanOrEqual(project.screenHeight)
+    if (o.x + o.width > project.screenWidth - 196) expect(o.y, o.id).toBeGreaterThanOrEqual(62)
   }
 
   // Every icon it uses is in the project.
@@ -172,7 +197,8 @@ test("Energie: the sun, the battery and what draws, an arrow only while somethin
     if ((key === "assetId" || key === "icon") && typeof v === "string") expect(assets.has(v), v).toBe(true)
   })
 
-  // The texts, as the designer and the devices resolve them.
+  // The texts, as the designer and the devices resolve them (a JSON field
+  // given as its value).
   const texts = energie.objects.filter((o: any) => o.type === "text" && o.properties.liveValues)
   const shown = (values: Record<string, string>) =>
     texts.map((o: any) => {
@@ -181,24 +207,21 @@ test("Energie: the sun, the battery and what draws, an arrow only while somethin
       return (result as any)?.kind === "text" ? (result as any).parts.map((p: any) => (typeof p === "string" ? p : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS))).join("") : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS)
     })
   const S = "schaltli/state/"
-  expect(shown({ [`${S}mppt/pv_watts`]: "280", [`${S}battery/current`]: "20.79", [`${S}battery/soc`]: "78", [`${S}battery/voltage`]: "13.39", [`${S}battery/power`]: "278" })).toEqual([
-    "280 W",
-    "Lädt",
-    "78 %",
-    "13.39 V",
-    "+20.8 A",
-    "+278 W",
-  ])
-  expect(shown({ [`${S}mppt/pv_watts`]: "0", [`${S}battery/current`]: "-2.13", [`${S}battery/soc`]: "15", [`${S}battery/voltage`]: "12.48", [`${S}battery/power`]: "-28" })).toEqual([
-    "0 W",
-    "Entlädt",
-    "15 %",
-    "12.48 V",
-    "-2.1 A",
-    "-28 W",
-  ])
-  expect(shown({ [`${S}battery/current`]: "0.00" })[1]).toBe("Ruht")
-  expect(shown({})).toEqual(["–", "–", "–", "–", "–", "–"])
+  expect(
+    shown({
+      "van/energy/solar_watts": "0",
+      "ble/charger/watts#value": "241",
+      "ble/orion/watts#value": "414",
+      "van/energy/consumers_watts": "16",
+      [`${S}battery/current`]: "49.1",
+      [`${S}battery/soc`]: "82",
+      [`${S}battery/voltage`]: "13.65",
+      [`${S}battery/power`]: "670",
+    }),
+  ).toEqual(["0 W", "241 W", "414 W", "16 W", "Lädt", "82 %", "13.65 V", "+49.1 A", "+670 W"])
+  expect(shown({ [`${S}battery/current`]: "-2.13", [`${S}battery/power`]: "-28" }).slice(4)).toEqual(["Entlädt", "–", "–", "-2.1 A", "-28 W"])
+  expect(shown({ [`${S}battery/current`]: "0.00" })[4]).toBe("Ruht")
+  expect(shown({})).toEqual(["–", "–", "–", "–", "–", "–", "–", "–", "–"])
 })
 
 test("written into a project store, «Camper» reads back as built", async ({}, testInfo) => {

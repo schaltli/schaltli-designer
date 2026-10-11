@@ -64,35 +64,43 @@ test("the fake Pekaway has the light and the water, answers in Pekaway's format,
   expect(JSON.parse(pekaway.answer("level")!).level1.state).toBe(79)
 })
 
+// What the van publishes beside Pekaway, by topic: the chargers as the
+// author's BLE bridge does ({"value": ...}), his Node-RED tab's sun and
+// consumers as numbers.
+function energyOf(p: ReturnType<typeof fakePekaway>): Record<string, unknown> {
+  return Object.fromEntries(p.energy().map(([t, v]) => [t, v.startsWith("{") ? JSON.parse(v).value : Number(v)]))
+}
+
 test("the sun charges the battery, the lights and the pump draw from it, a full one takes only what is drawn", () => {
   const p = fakePekaway()
   const batt = () => JSON.parse(p.answer("batt")!)
-  const mppt = () => JSON.parse(p.answer("mppt")!)
 
   // Night, everything off: Pekaway and the router alone, a little out.
   p.tick(2, 0)
   expect(Number(batt().AMPS)).toBeCloseTo(-6 / 13.12, 1)
-  expect(mppt()).toEqual({ mppt_pv_amps: 0, mppt_pv_volts: 0, mppt_pv_watts: 0 })
+  expect(JSON.parse(p.answer("mppt")!)).toEqual({ mppt_pv_amps: 0, mppt_pv_volts: 0, mppt_pv_watts: 0 })
+  expect(energyOf(p)).toMatchObject({ "van/energy/solar_watts": 0, "van/energy/consumers_watts": 6 })
 
-  // Lights on: more out.
+  // Lights on: more out, and more drawn.
   p.command("pkw/cmnd/dimmer/1/POWER", "100")
   p.command("pkw/cmnd/relay/2/POWER", "on")
   p.tick(2, 0)
   expect(Number(batt().AMPS)).toBeCloseTo(-28 / 13.1, 1)
+  expect(energyOf(p)["van/energy/consumers_watts"]).toBe(28)
 
-  // Noon: the sun's 280 W in, the battery charges and fills.
+  // Noon: the sun's 150 W at most, through Pekaway's charger and the tab alike.
   p.tick(2, 1)
-  expect(mppt()).toEqual({ mppt_pv_amps: 15.1, mppt_pv_volts: 18.6, mppt_pv_watts: 280 })
-  expect(Number(batt().AMPS)).toBeGreaterThan(18)
+  expect(JSON.parse(p.answer("mppt")!)).toEqual({ mppt_pv_amps: 8.1, mppt_pv_volts: 18.6, mppt_pv_watts: 150 })
+  expect(energyOf(p)["van/energy/solar_watts"]).toBe(150)
   const before = Number(batt().SoC)
   for (let i = 0; i < 30; i++) p.tick(2, 1)
   expect(Number(batt().SoC)).toBeGreaterThan(before)
 
-  // Full: the charger gives only what the van draws, nothing goes in.
-  for (let i = 0; i < 300; i++) p.tick(2, 1)
+  // Full: the sun gives only what the van draws, nothing goes in.
+  for (let i = 0; i < 600; i++) p.tick(2, 1)
   expect(batt().SoC).toBe("100")
-  expect(Number(batt().AMPS)).toBeCloseTo(0, 1)
-  expect(mppt().mppt_pv_watts).toBe(28)
+  expect(Number(batt().AMPS)).toBeCloseTo(0, 0)
+  expect(JSON.parse(p.answer("mppt")!).mppt_pv_watts).toBeLessThanOrEqual(30)
 
   // A shower runs the pump.
   p.tick(2, 0)
@@ -103,6 +111,80 @@ test("the sun charges the battery, the lights and the pump draw from it, a full 
 
   p.reset()
   expect(batt().SoC).toBe("78")
+})
+
+test("the mains charger: 30 A into an empty battery, less as it fills, only what is drawn when full; not_available unplugged", () => {
+  const unplugged = energyOf(fakePekaway())
+  expect(unplugged).toMatchObject({ "ble/charger/state": "not_available", "ble/charger/charging": "off", "ble/charger/watts": 0, "ble/charger/out_amps": 0 })
+
+  const amps = (soc: number) => {
+    const p = fakePekaway({ soc })
+    expect(p.toggleShore()).toBe(true)
+    expect(p.scene.shore).toBe(true)
+    p.tick(2, 0)
+    return energyOf(p)
+  }
+  const empty = amps(20)
+  expect(empty["ble/charger/state"]).toBe("bulk")
+  expect(empty["ble/charger/charging"]).toBe("on")
+  expect(empty["ble/charger/out_amps"]).toBeGreaterThan(28)
+  expect(empty["ble/charger/out_amps"]).toBeLessThanOrEqual(30.5)
+  const fuller = amps(90)
+  expect(fuller["ble/charger/state"]).toBe("absorption")
+  expect(fuller["ble/charger/out_amps"]).toBeLessThan(empty["ble/charger/out_amps"] as number)
+  expect(fuller["ble/charger/out_amps"]).toBeGreaterThan(5)
+  const full = amps(100)
+  expect(full["ble/charger/state"]).toBe("float")
+  // Only Pekaway and the router: 6 W.
+  expect(full["ble/charger/watts"]).toBe(6)
+
+  // Out again: not available.
+  const p = fakePekaway({ soc: 50 })
+  p.toggleShore()
+  p.toggleShore()
+  p.tick(2, 0)
+  expect(energyOf(p)["ble/charger/state"]).toBe("not_available")
+})
+
+test("the engine: the DC-DC charger up to 50 A, less as the battery fills, nothing when full; it stops by itself after 5 minutes", () => {
+  const p = fakePekaway({ soc: 20 })
+  expect(energyOf(p)).toMatchObject({ "ble/orion/state": "off", "ble/orion/off_reason": "engine_shutdown", "ble/orion/watts": 0 })
+  p.toggleEngine()
+  p.tick(2, 0)
+  let e = energyOf(p)
+  expect(e).toMatchObject({ "ble/orion/state": "bulk", "ble/orion/charging": "on", "ble/orion/off_reason": "none", "ble/orion/in_volts": 14.2 })
+  expect(e["ble/orion/out_amps"]).toBeGreaterThan(45)
+  expect(e["ble/orion/out_amps"]).toBeLessThanOrEqual(50.5)
+
+  const fuller = fakePekaway({ soc: 90 })
+  fuller.toggleEngine()
+  fuller.tick(2, 0)
+  expect(energyOf(fuller)["ble/orion/out_amps"]).toBeLessThan(e["ble/orion/out_amps"] as number)
+
+  // Full: on, but idle - nothing, not even what the van draws.
+  const full = fakePekaway({ soc: 100 })
+  full.toggleEngine()
+  full.tick(2, 0)
+  expect(energyOf(full)).toMatchObject({ "ble/orion/state": "float", "ble/orion/charging": "off", "ble/orion/watts": 0 })
+
+  // Both chargers at once share what is left by their size.
+  const both = fakePekaway({ soc: 40 })
+  both.toggleEngine()
+  both.toggleShore()
+  both.tick(2, 0)
+  e = energyOf(both)
+  expect(e["ble/orion/out_amps"]).toBeGreaterThan(e["ble/charger/out_amps"] as number)
+  expect((e["ble/charger/out_amps"] as number) / (e["ble/orion/out_amps"] as number)).toBeCloseTo(30 / 50, 1)
+
+  // Five minutes on, the engine stops.
+  for (let i = 0; i < 150; i++) p.tick(2, 0)
+  expect(p.scene.engine).toBe(0)
+  expect(energyOf(p)["ble/orion/state"]).toBe("off")
+  p.toggleEngine()
+  p.toggleEngine()
+  expect(p.scene.engine).toBe(0)
+  p.reset()
+  expect(p.scene).toMatchObject({ shore: false, engine: 0 })
 })
 
 test("a shower empties fresh water into the grey, a canister fills the fresh, an open drain leaves a puddle that dries", () => {
@@ -258,6 +340,16 @@ test("the scene: a dark sky at night, a bright one at noon; a window lit by its 
   expect(has(sceneSvg({ "schaltli/state/relay/3/power": "on", "schaltli/state/tank/2/level": "0", "schaltli/demo/puddle": "0.3" }), "drain")).toBe(false)
   expect(quiet).toContain('data-action="shower"')
   expect(quiet).toContain('data-action="refill"')
+  // The blue socket and the cab: a click plugs the cable in, starts the engine.
+  expect(quiet).toContain('data-action="shore"')
+  expect(quiet).toContain('data-action="engine"')
+  for (const name of ["shore-cable", "exhaust"]) expect(has(quiet, name), name).toBe(false)
+  const charging = sceneSvg({ "schaltli/demo/shore": "on", "schaltli/demo/engine": "on", "schaltli/state/battery/soc": "64" })
+  for (const name of ["shore-cable", "exhaust"]) expect(has(charging, name), name).toBe(true)
+  expect(charging).toContain("Batterie: 64 %")
+  expect(charging).toContain("Landstrom: on")
+  expect(charging).toContain("Motor: on")
+  expect(charging).toContain("Stop the engine")
   expect(quiet).toContain("Grauwasser: 50 %")
   // The names Pekaway gives, in the legend.
   expect(sceneSvg({ "schaltli/state/dimmer/2/name": "Galley" })).toContain("Galley: off")

@@ -30,6 +30,9 @@ const SCENE_TOPICS = [
   "schaltli/demo/shower",
   "schaltli/demo/refill",
   "schaltli/demo/puddle",
+  "schaltli/demo/shore",
+  "schaltli/demo/engine",
+  "schaltli/state/battery/soc",
 ]
 
 /**
@@ -92,6 +95,9 @@ function sceneState(values) {
     shower: values["schaltli/demo/shower"] === "on",
     refill: values["schaltli/demo/refill"] === "on",
     puddle: clamp01(num("schaltli/demo/puddle")),
+    shore: values["schaltli/demo/shore"] === "on",
+    engine: values["schaltli/demo/engine"] === "on",
+    soc: values["schaltli/state/battery/soc"] === undefined ? null : clamp01(num("schaltli/state/battery/soc") / 100),
   }
 }
 
@@ -167,11 +173,14 @@ function sceneSvg(values = {}) {
     ...s.lights.map((l) => [l.name, l.level > 0 ? `${Math.round(l.level * 100)} %` : "off", l.level > 0]),
     ...s.lamps.map((l) => [l.name, l.on ? "on" : "off", l.on]),
     ...s.tanks.filter((t) => t.level !== null).map((t) => [t.name, `${Math.round(t.level * 100)} %`, "water"]),
+    ...(s.soc !== null ? [["Batterie", `${Math.round(s.soc * 100)} %`, "energy"]] : []),
+    ["Landstrom", s.shore ? "on" : "off", s.shore ? "energy" : false],
+    ["Motor", s.engine ? "on" : "off", s.engine ? "energy" : false],
   ]
     .map(([name, value, on], i) => {
       const y = 262 + Math.floor(i / 2) * 20
       const x = i % 2 ? 158 : 12
-      const dot = on === "water" ? "#4d96ff" : on ? "#ffc947" : "#9aa5b1"
+      const dot = on === "water" ? "#4d96ff" : on === "energy" ? "#6bcb77" : on ? "#ffc947" : "#9aa5b1"
       return `<circle cx="${x + 5}" cy="${y - 4}" r="4" fill="${dot}"/>` +
         `<text x="${x + 14}" y="${y}" font-size="11" fill="currentColor">${escapeXml(name)}: ${value}</text>`
     })
@@ -197,9 +206,14 @@ ${stars > 0 ? `<circle cx="${moon.x}" cy="${moon.y}" r="10" fill="#f4f1de" opaci
   <rect x="44" y="38" width="380" height="12" rx="5" fill="#3b3f4a"/>
   <rect x="210" y="24" width="64" height="16" rx="8" fill="#e9ecef"/>
   <path d="M20 232 L20 74 Q20 52 42 52 L400 52 Q430 52 448 72 L520 148 Q526 155 538 158 L558 164 Q568 168 568 180 L568 232 Z" fill="#f7f7f5"/>
-  <!-- cab door glass and windscreen -->
-  <path d="M398 74 L432 74 Q438 74 442 79 L500 142 L398 142 Z" fill="${glass}"/>
-  <path d="M450 74 L522 150 L530 154 L458 72 Z" fill="${mix("#cfe8f7", "#2b3d52", night)}"/>
+  <!-- cab door glass and windscreen. A click starts the engine, or stops it -->
+  <g data-action="engine" style="cursor:pointer">
+    <title>${s.engine ? "Stop the engine" : "Start the engine"}</title>
+    <path data-part="cab" d="M398 74 L432 74 Q438 74 442 79 L500 142 L398 142 Z" fill="${glass}"/>
+    <path d="M450 74 L522 150 L530 154 L458 72 Z" fill="${mix("#cfe8f7", "#2b3d52", night)}"/>
+    ${s.engine ? `<circle cx="428" cy="122" r="7" fill="#2b2f38"/><path d="M420 122 a8 8 0 0 1 16 0" fill="none" stroke="#2b2f38" stroke-width="3"/>` : ""}
+    <rect x="396" y="70" width="140" height="80" fill="transparent"/>
+  </g>
   <!-- panel lines: rear doors, sliding door, cab door -->
   <line x1="36" y1="60" x2="36" y2="214" stroke="#d3d6da" stroke-width="2.5"/>
   <line x1="226" y1="56" x2="226" y2="216" stroke="#d3d6da" stroke-width="2.5"/>
@@ -240,6 +254,22 @@ ${stars > 0 ? `<circle cx="${moon.x}" cy="${moon.y}" r="10" fill="#f4f1de" opaci
     ${s.shower ? `<g data-part="steam" fill="#fff"><circle cx="398" cy="112" r="16" opacity="0.55"/><circle cx="410" cy="90" r="13" opacity="0.4"/><circle cx="402" cy="70" r="10" opacity="0.25"/></g>` : ""}
     <rect x="340" y="62" width="52" height="158" fill="transparent"/>
   </g>
+  <!-- the blue mains socket under the rear window; plugged in, its cable runs
+       down to the ground and off to the left, to the pitch's post. A click
+       puts the cable in, or takes it out -->
+  <g data-action="shore" style="cursor:pointer">
+    <title>${s.shore ? "Unplug the mains cable" : "Plug in the mains cable"}</title>
+    <rect data-part="socket" x="72" y="166" width="24" height="24" rx="5" fill="#1f6fd1" stroke="#0d3f7f" stroke-width="2"/>
+    ${s.shore
+      ? `<path data-part="shore-cable" d="M84 190 C 84 246, 20 272, -70 268" fill="none" stroke="#1f6fd1" stroke-width="6" stroke-linecap="round"/>
+         <rect x="77" y="176" width="14" height="18" rx="3" fill="#0d3f7f"/>`
+      : `<circle cx="84" cy="178" r="6" fill="#0d3f7f"/><rect x="72" y="164" width="24" height="7" rx="3" fill="#1858a8"/>`}
+    <rect x="60" y="154" width="48" height="48" fill="transparent"/>
+  </g>
+  <!-- the engine's exhaust behind the rear bumper while it runs -->
+  ${s.engine ? `<g data-part="exhaust" fill="#9aa0a6">
+    <circle cx="2" cy="228" r="12" opacity="0.8"/><circle cx="-22" cy="212" r="18" opacity="0.6"/><circle cx="-50" cy="190" r="24" opacity="0.4"/>
+  </g>` : ""}
   <!-- the fresh water filler, under the rear window. A click brings a canister -->
   <g data-action="refill" style="cursor:pointer">
     <title>Fill up the fresh water</title>

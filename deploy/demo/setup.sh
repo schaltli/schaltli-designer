@@ -142,6 +142,11 @@ cat > /etc/mosquitto/schaltli-demo.acl <<'EOF'
 # Anonymous visitors: read the van, send it commands, nothing else.
 topic read schaltli/#
 topic read homeassistant/#
+# The chargers and the energy sums as the author's van has them beside
+# Pekaway (integrations/vanpi/demo-van.js), for the page Energie.
+topic read ble/charger/#
+topic read ble/orion/#
+topic read van/energy/#
 topic write schaltli/cmnd/#
 
 # The demo van: the bridge and the fake Pekaway.

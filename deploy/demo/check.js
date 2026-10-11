@@ -112,6 +112,15 @@ async function main() {
     visitor.publish("homeassistant/sensor/check/config", "{}", { retain: true })
     const announced = await waitFor(watcher, "homeassistant/sensor/check/config", () => true, 3000)
     check(announced === null, "a visitor cannot announce blocks")
+
+    // The page Energie: the chargers and the sums beside Pekaway, readable,
+    // not writable.
+    const consumers = await waitFor(watcher, "van/energy/consumers_watts", (v) => /^\d+$/.test(v), 8000)
+    const charger = await waitFor(watcher, "ble/charger/watts", (v) => v.startsWith("{"), 8000)
+    check(consumers !== null && charger !== null, "the van's energy arrives", `${consumers ?? "-"} W drawn, charger ${charger ?? "-"}`)
+    visitor.publish("ble/charger/watts", '{"value": 9999}', { retain: true })
+    const forgedCharger = await waitFor(watcher, "ble/charger/watts", (v) => v.includes("9999"), 3000)
+    check(forgedCharger === null, "a visitor cannot write the van's energy")
     visitor.end(true)
     watcher.end(true)
   } catch (error) {
