@@ -113,14 +113,18 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    linear - a band is as wide as the room for bands times its watts ÷
    full scale, so a width means the same watts in every situation, and
    everything is full from the full scale on. **Full scale** is a property
-   in watts, default 1000 W: what flows at most on an ordinary day (the
-   DC-DC charger and the sun), not the largest device's rating - a 2500 W
-   inverter running fills the diagram, which is honest enough. Worked
-   through for the author's van on the 4.3B (340 px of room): rest 9 W →
-   3 px (the minimum), light 20 W → 7 px, fridge and light 92 W → 31 px,
-   mains charger 400 W → 136 px, DC-DC charger and sun 820 W → 279 px. A
-   quiet evening is a thread - which is what it says. Lowering the full
-   scale makes it thicker (600 W: the fridge 52 px). Tried and dropped: the
+   in watts, default 1000 W: the most that should still be told apart.
+   With an inverter for an induction hob it is the inverter's rating, so
+   the fridge is a thread and the hob fills the diagram (the user: «dann
+   sieht man, dass der Kühlschrank kaum was nimmt, aber wenn der
+   Induktionsherd läuft, die Post abgeht»); a full scale below it would
+   show the hob and the DC-DC charger alike. Worked through for the
+   author's van on the 4.3B (340 px of room), at 2500 W: fridge and light
+   92 W → 13 px, mains charger 400 W → 54 px, DC-DC charger and sun 820 W
+   → 112 px, induction hob 2000 W → 272 px; at the default 1000 W: rest
+   9 W → 3 px (the minimum), fridge and light 92 W → 31 px, DC-DC charger
+   and sun 820 W → 279 px. A quiet evening is a thread - which is what it
+   says. Tried and dropped: the
    square root of the total (thicker evenings, but a width no longer means
    the same watts), and filling the room whatever flows (92 W looked like
    670 W).
