@@ -111,7 +111,7 @@ Ganz aus schaltet die App das Display dabei nicht. Ein ausgeschaltetes Display b
 - Schliess das Handy im Van an ein Ladegerät an, nicht an einen Computer. Am Computer fragt manches Handy nach jedem Start, ob es nur laden oder Daten übertragen soll, und diese Frage steht dann vor Schaltli.
 - Ohne die Einstellung als Startbildschirm startet die App nach einem Neustart des Handys nicht von selbst. Öffne sie dann einmal von Hand.
 - Wird die App neu installiert, bekommt das Handy eine neue Kennung. Im Designer ist es dann ein neues Gerät, und du überträgst dein Projekt noch einmal.
-- Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer.
+- Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer. Gemessen wird ab der Lage, in der das Gerät von Haus aus steht. Bei einem Handy ist das hochkant, bei den meisten Tablets quer. Bei einem solchen Tablet heisst 0° also quer. Bis Version 0.8.0 kam auf diesen Tablets alles verdreht an.
 
 ## Tipp: LineageOS für sehr alte Handys
 
