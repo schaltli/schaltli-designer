@@ -114,6 +114,20 @@ test.describe("VanPi bridge logic", () => {
     expect(bms).toEqual({ "schaltli/state/bms/cell/2": "3.31" })
   })
 
+  // Pekaway's global "ttgo" in each wording it has (flows Monit and VE.Direct,
+  // VanPi_Ctrl v2.0.10) as minutes; "none" while there is no time to go.
+  test("Pekaway's time to go, however worded, becomes minutes", () => {
+    const ttg = (t: unknown) => logic.timeToGo(t)[0]?.value
+    expect(ttg("2 weeks, 1 day, 3 hours, 5 minutes")).toBe("21785")
+    expect(ttg("1 day, 4 hours, 15 minutes")).toBe("1695")
+    expect(ttg("1 hour")).toBe("60")
+    expect(ttg("45 minutes")).toBe("45")
+    expect(ttg("TTG: 3h 20m")).toBe("200")
+    expect(ttg("Restlaufzeit: 12:30")).toBe("750")
+    for (const none of ["charging", "not using power", "", "0", "wait", null, "Time to full: 1h"]) expect(ttg(none), String(none)).toBe("none")
+    expect(logic.timeToGo(undefined)).toEqual([])
+  })
+
   test("odd messages give nothing instead of stopping the bridge", () => {
     expect(logic.flatten("batt", "not json")).toEqual([])
     expect(logic.flatten("doorman", '{"locked":true}')).toEqual([])
@@ -1074,7 +1088,8 @@ test.describe("VanPi bridge flow", () => {
 
   // Runs a function node's On Start and body the way Node-RED does: code
   // with msg, node, context and flow in scope.
-  function nodeRedFunction(node: { initialize: string; func: string }, flowContext: Map<string, unknown>) {
+  function nodeRedFunction(node: { initialize: string; func: string }, flowContext: Map<string, unknown>, globals: Record<string, unknown> = {}) {
+    const globalApi = { get: (k: string) => globals[k], set: (k: string, v: unknown) => (globals[k] = v) }
     const own = new Map<string, unknown>()
     const context = { get: (k: string) => own.get(k), set: (k: string, v: unknown) => own.set(k, v) }
     const flowApi = { get: (k: string) => flowContext.get(k), set: (k: string, v: unknown) => flowContext.set(k, v) }
@@ -1082,9 +1097,9 @@ test.describe("VanPi bridge flow", () => {
     // What the node sends later, from a timer, rather than returns.
     const sent: unknown[] = []
     const nodeApi = { status: (s: unknown) => status.push(s), send: (m: unknown) => sent.push(m), warn: () => {}, error: () => {} }
-    new Function("context", "flow", "node", node.initialize)(context, flowApi, nodeApi)
-    const body = new Function("msg", "context", "flow", "node", node.func)
-    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi), status, sent }
+    new Function("context", "flow", "node", "global", node.initialize)(context, flowApi, nodeApi, globalApi)
+    const body = new Function("msg", "context", "flow", "node", "global", node.func)
+    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi, globalApi), status, sent }
   }
 
   test("its function nodes do on Node-RED's terms what the logic promises", async () => {
@@ -1104,6 +1119,17 @@ test.describe("VanPi bridge flow", () => {
     expect(announced.every((m: { retain: boolean }) => m.retain)).toBe(true)
     // The same answer again publishes nothing.
     expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
+
+    // With the battery's answer, the time to go from Pekaway's global, in minutes.
+    const globals: Record<string, unknown> = { ttgo: "1 day, 4 hours, 15 minutes" }
+    const battery = nodeRedFunction(byId["sbb-values"], new Map(), globals)
+    expect(battery.run({ topic: "pkw/tele/batt", payload: RECORDED.batt })[0]).toContainEqual({ topic: "schaltli/state/battery/time_to_go", payload: "1695", retain: true })
+    globals.ttgo = "charging"
+    expect(battery.run({ topic: "pkw/tele/batt", payload: RECORDED.batt })[0]).toEqual([{ topic: "schaltli/state/battery/time_to_go", payload: "none", retain: true }])
+    // A Pekaway without the global yet: nothing about it.
+    const bare = nodeRedFunction(byId["sbb-values"], new Map())
+    const bareOut = bare.run({ topic: "pkw/tele/batt", payload: RECORDED.batt })[0].map((m: { topic: string }) => m.topic)
+    expect(bareOut).not.toContain("schaltli/state/battery/time_to_go")
 
     const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
     // A relay is shown off at once and held (2026-10-09); Pekaway is asked

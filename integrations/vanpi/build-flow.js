@@ -127,6 +127,8 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
 const kind = String(msg.topic).split("/")[2];
 // A dimmer level just commanded outlives an answer that is still behind it.
 let answer = logic.held(logic.flatten(kind, msg.payload, flow.get("schaltliState") || {}), flow.get("schaltliHolds") || {}, Date.now());
+// How long the battery lasts: Pekaway's global, the one it publishes nowhere.
+if (kind === "batt") answer = answer.concat(logic.timeToGo(global.get("ttgo")));
 if (kind === "heater") {
   // The minutes left of a timer, counted here where the van does not say.
   const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());

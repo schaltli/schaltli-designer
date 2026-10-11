@@ -37,6 +37,36 @@ function createBridgeLogic() {
     return value === true || value === "true" || value === "on" || value === 1 ? "on" : "off"
   }
 
+  // How long the battery lasts, from Pekaway's global "ttgo" (2026-10-11).
+  // Not part of Pekaway's MQTT API - the one internal variable this bridge
+  // reads, because Pekaway works it out from three sources and publishes it
+  // nowhere: a Victron shunt's own time ("2 weeks, 1 day, 3 hours, 5
+  // minutes"), Pekaway's from current and capacity ("1 day, 4 hours, 15
+  // minutes"), a CAN BMS's ("<label>: <text>"). Whatever the wording, out
+  // goes battery/time_to_go in whole minutes, or "none" while there is no
+  // time to go: charging, idle, not known, or a CAN BMS telling the time to
+  // full.
+  function timeToGo(ttgo) {
+    if (ttgo === undefined) return []
+    var s = String(ttgo === null ? "" : ttgo).trim().toLowerCase()
+    var minutes = null
+    if (s.indexOf("full") < 0 && s.indexOf("charg") < 0) {
+      var units = { w: 10080, week: 10080, weeks: 10080, d: 1440, day: 1440, days: 1440, h: 60, hr: 60, hrs: 60, hour: 60, hours: 60, m: 1, min: 1, mins: 1, minute: 1, minutes: 1 }
+      var re = /(\d+(?:[.,]\d+)?)\s*(weeks?|w|days?|d|hours?|hrs?|hr|h|minutes?|mins?|min|m)\b/g
+      var found = false
+      var total = 0
+      var part
+      while ((part = re.exec(s)) !== null) {
+        found = true
+        total += parseFloat(part[1].replace(",", ".")) * units[part[2]]
+      }
+      var clock = /^(?:[^:]*:\s*)?(\d+):(\d\d)$/.exec(s)
+      if (found) minutes = Math.round(total)
+      else if (clock) minutes = parseInt(clock[1], 10) * 60 + parseInt(clock[2], 10)
+    }
+    return [{ topic: PREFIX + "battery/time_to_go", value: minutes !== null && minutes > 0 ? String(minutes) : "none" }]
+  }
+
   // The answers this bridge asks for, in the order it asks.
   var REQUESTS = ["batt", "level", "temp", "relay", "dimmer", "heater", "mppt", "bms", "maxxfan"]
 
@@ -1306,6 +1336,7 @@ function createBridgeLogic() {
   }
 
   return {
+    timeToGo: timeToGo,
     PREFIX: PREFIX,
     REQUESTS: REQUESTS,
     HOLD_MS: HOLD_MS,

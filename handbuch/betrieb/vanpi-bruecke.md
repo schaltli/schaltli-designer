@@ -17,6 +17,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/tank/<n>/level`, `…/name` | Füllstand in Prozent und Name des Tanks |
 | `schaltli/state/battery/voltage`, `…/current`, `…/soc` | Spannung, Strom, Ladezustand in Prozent |
 | `schaltli/state/battery/power` | Leistung in ganzen Watt, positiv beim Laden, negativ beim Entladen; Pekaway meldet das nicht, die Brücke rechnet Spannung mal Strom |
+| `schaltli/state/battery/time_to_go` | wie lange die Batterie noch reicht, in ganzen Minuten; `none` beim Laden, im Leerlauf oder wenn Pekaway es nicht weiss. Pekaway rechnet die Restzeit selbst oder übernimmt sie vom Victron-Shunt oder BMS, legt sie aber nicht auf MQTT; die Brücke liest sie aus Pekaways Node-RED |
 | `schaltli/state/bms/voltage`, `…/current`, `…/soc`, `…/capacity`, `…/cell/<n>` | Werte des Batteriemanagements, bis 16 Zellen |
 | `schaltli/state/temp/<n>/value`, `…/name` | Temperaturfühler |
 | `schaltli/state/relay/<n>/power`, `…/name` | Relais 1 bis 8, `on` oder `off` |

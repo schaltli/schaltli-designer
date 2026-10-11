@@ -161,6 +161,33 @@ function fakePekaway({ soc: startSoc = SEED_SOC } = {}) {
       scene.refill = REFILL_SECONDS
       return true
     },
+    /**
+     * How long the battery lasts, as Pekaway words it in its global "ttgo"
+     * when it works it out itself (flow Monit, "format values (wdhm)"):
+     * capacity left over the current, in days, hours and quarter hours.
+     */
+    ttgo() {
+      const amps = Number(state.batt.AMPS)
+      if (amps > 0) return "charging"
+      if (amps === 0) return "not using power"
+      const hoursLeft = ((BATTERY_WH / 12.8) * (soc / 100)) / -amps
+      let days = Math.floor(hoursLeft / 24)
+      let hours = Math.floor(hoursLeft % 24)
+      let minutes = Math.round(Math.round(((hoursLeft % 24) - hours) * 60) / 15) * 15
+      if (minutes === 60) {
+        hours += 1
+        minutes = 0
+        if (hours === 24) {
+          days += 1
+          hours = 0
+        }
+      }
+      const parts = []
+      if (days > 0) parts.push(`${days} ${days === 1 ? "day" : "days"}`)
+      if (hours > 0) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`)
+      if (minutes > 0) parts.push(`${minutes} minutes`)
+      return parts.join(", ")
+    },
     /** The cable into the blue socket, or out of it. */
     toggleShore() {
       scene.shore = !scene.shore
@@ -359,8 +386,12 @@ function startDemoVan({
     reconnectPeriod: 2000,
   })
 
+  // Node-RED's global context, as far as the bridge reads it: Pekaway's
+  // time to go, in Pekaway's words.
+  const globalApi = { get: (k) => (k === "ttgo" ? pekaway.ttgo() : undefined), set: () => {} }
+
   // Node-RED's function node, as far as this flow uses it: initialize once,
-  // then the body per message, with context, flow context and node.send.
+  // then the body per message, with context, flow context, global and node.send.
   const functions = {}
   for (const n of flow.nodes.filter((n) => n.type === "function")) {
     const own = new Map()
@@ -372,9 +403,9 @@ function startDemoVan({
       error: (e) => log(`[${n.id}] ${e}`),
       send: (out) => route(n.id, out),
     }
-    if (n.initialize) new Function("context", "flow", "node", n.initialize)(context, flowApi, nodeApi)
-    const body = new Function("msg", "context", "flow", "node", n.func)
-    functions[n.id] = (msg) => body(msg, context, flowApi, nodeApi)
+    if (n.initialize) new Function("context", "flow", "node", "global", n.initialize)(context, flowApi, nodeApi, globalApi)
+    const body = new Function("msg", "context", "flow", "node", "global", n.func)
+    functions[n.id] = (msg) => body(msg, context, flowApi, nodeApi, globalApi)
   }
 
   // A node's output to the nodes its wires lead to. An output is a message,
