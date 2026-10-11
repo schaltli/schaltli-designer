@@ -189,8 +189,8 @@ export function themeSwitchAt(navigator: ScreenObject): ThemeSwitchAt {
   return at === "near" || at === "far" ? at : "none"
 }
 
-/** How tall the switch is in its place; its width is its track's. */
-const THEME_SWITCH_HEIGHT = 32
+/** How tall the switch is in its place (its track two thirds of it); its width is its track's. */
+const THEME_SWITCH_HEIGHT = 30
 
 /**
  * The switch's objects in its place, `width` by `height`: one switch,

@@ -313,8 +313,10 @@ async function main() {
     // as shows the open entry" (-1) until a finger moves it, then follows
     // every screen change only as far as shows the new entry.
     const listed = Array.from({ length: 11 }, (_, i) => i + 2)
-    // The entries' part: the strip less the switch's place at its end.
-    const LEN = sh - 64
+    // The entries' part: the strip less the switch's place at its end
+    // (lib/navigator.ts themeSwitchLength, a left strip).
+    const SWITCH = 40
+    const LEN = sh - SWITCH
     const ENTRY = listed.length * 88 <= LEN ? Math.floor(LEN / listed.length) : 88
     const maxScroll = Math.max(0, listed.length * ENTRY - LEN)
     const clamp = (v) => Math.min(Math.max(0, v), maxScroll)
@@ -422,11 +424,11 @@ async function main() {
     await new Promise((resolve) => client.subscribe(THEME_CMND, { qos: 1 }, resolve))
     const switchPixels = (img) => {
       const out = []
-      for (let y = sh - 64; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
+      for (let y = sh - SWITCH; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
       return out.join(",")
     }
     const sun = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, light"))
-    await tap(40, sh - 32)
+    await tap(40, sh - SWITCH / 2)
     await settle()
     check("a tap on the switch while light asks for dark", asked.includes("dark"), JSON.stringify(asked))
     await publish(THEME_STATE, "dark")
@@ -435,7 +437,7 @@ async function main() {
     const moon = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, dark"))
     check("... and while dark shows the other icon", moon !== sun)
     asked.length = 0
-    await tap(40, sh - 32)
+    await tap(40, sh - SWITCH / 2)
     await settle()
     check("a tap on it while dark asks for light", asked.includes("light"), JSON.stringify(asked))
     await publish(THEME_STATE, "")

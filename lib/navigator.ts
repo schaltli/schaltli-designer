@@ -47,8 +47,15 @@ export function dividerRect(edge: Edge, strip: Rect): Rect {
  */
 export type ThemeSwitchAt = "none" | "near" | "far"
 
-/** How long the switch's place is along the strip, in px. */
-export const THEME_SWITCH_LENGTH = 64
+/**
+ * How long the switch's place is along the strip, in px: on a left or right
+ * strip the switch's height and a little, on a top or bottom one its track's
+ * width and a little. 64 took the entries too much room (the user,
+ * 2026-10-11).
+ */
+export function themeSwitchLength(edge: Edge): number {
+  return edge === "top" || edge === "bottom" ? 56 : 40
+}
 
 /** A navigator's strip split: the whole bar, the entries' part laid out, and the switch's place. */
 export interface NavigatorBar {
@@ -61,7 +68,7 @@ export interface NavigatorBar {
 export function barLayout(edge: Edge, shows: Shows, bar: Rect, count: number, at: ThemeSwitchAt = "none"): NavigatorBar {
   if (at !== "near" && at !== "far") return { bar, layout: layoutInStrip(edge, shows, bar, count) }
   const horizontal = edge === "top" || edge === "bottom"
-  const l = Math.min(THEME_SWITCH_LENGTH, horizontal ? bar.width : bar.height)
+  const l = Math.min(themeSwitchLength(edge), horizontal ? bar.width : bar.height)
   const near = at === "near"
   const themeSwitch = horizontal
     ? { x: near ? bar.x : bar.x + bar.width - l, y: bar.y, width: l, height: bar.height }

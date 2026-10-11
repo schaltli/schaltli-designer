@@ -838,7 +838,7 @@ the screens slide beneath it.
   the strip and over its entries - so the strip reads as a bar. Without the
   key there is none.
 - **Light/dark switch** (optional, generation 1.6, 2026-10-11):
-  `"themeSwitch": { "at": "near" | "far", "length": 64, "objects": [ … ] }`.
+  `"themeSwitch": { "at": "near" | "far", "length": 40, "objects": [ … ] }`.
   Its place is `length` long along the strip, the full `thickness` across,
   cut off at the strip's start (`near`: top of a left or right strip, left of
   a top or bottom one) or its end (`far`). It does not scroll; the entries

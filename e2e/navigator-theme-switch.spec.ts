@@ -1,7 +1,10 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
 import { Jimp } from "jimp"
-import { barLayout, THEME_SWITCH_LENGTH, NAVIGATOR_DIVIDER } from "../lib/navigator"
+import { barLayout, themeSwitchLength, NAVIGATOR_DIVIDER } from "../lib/navigator"
+
+const THEME_SWITCH_LENGTH = themeSwitchLength("left")
+const ALONG_BOTTOM = themeSwitchLength("bottom")
 import { entryLook, navigatorEntryObjects } from "../lib/navigator-entries"
 import { THEMES, applyTheme, resolveRole } from "../lib/themes"
 
@@ -50,8 +53,11 @@ test.describe("the navigator's bar", () => {
 
     const bottom = { x: 0, y: 400, width: 800, height: 80 }
     const far = barLayout("bottom", "iconsAndText", bottom, 4, "far")
-    expect(far.themeSwitch).toEqual({ x: 800 - THEME_SWITCH_LENGTH, y: 400, width: THEME_SWITCH_LENGTH, height: 80 })
-    expect(far.layout.strip).toEqual({ x: 0, y: 400, width: 800 - THEME_SWITCH_LENGTH, height: 80 })
+    expect(far.themeSwitch).toEqual({ x: 800 - ALONG_BOTTOM, y: 400, width: ALONG_BOTTOM, height: 80 })
+    expect(far.layout.strip).toEqual({ x: 0, y: 400, width: 800 - ALONG_BOTTOM, height: 80 })
+    // Narrow: a little more than the switch itself (the user, 2026-10-11).
+    expect(THEME_SWITCH_LENGTH).toBeLessThanOrEqual(40)
+    expect(ALONG_BOTTOM).toBeLessThanOrEqual(56)
   })
 
   test("the open entry's box keeps 4 px from the line as from the other side", () => {
