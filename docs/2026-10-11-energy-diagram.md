@@ -128,7 +128,12 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    square root of the total (thicker evenings, but a width no longer means
    the same watts), and filling the room whatever flows (92 W looked like
    670 W).
-9. **Flow**: each node a circle at its own x/y, the bus too; a straight line
+9. **Flow**: each node a circle at its own x/y, the bus too; its name and
+   lines under the circle, centred - or beside it on the right, left-aligned,
+   when its line leaves the circle downwards, steeper than 60° below the
+   level, and would run through them (the user, 2026-10-11: the target
+   picture's Landstrom, straight above the bus, had its line through its
+   label); a straight line
    from each node to the bus, its width growing with the logarithm of its
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
    storage's charge is a ring round its circle.

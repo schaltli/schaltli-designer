@@ -207,6 +207,10 @@ export const FLOW_BUS_R = 14
 /** The gap between a circle and where its line starts. */
 export const FLOW_LINE_GAP = 4
 export const FLOW_RING_GAP = 7
+/** Between a circle and a label beside it. */
+export const FLOW_LABEL_GAP = 10
+/** A line leaving a circle steeper than this below the level (60°) would cross a label under it. */
+const LABEL_BESIDE_BELOW = Math.cos(Math.PI / 6)
 
 /** A line's width for its watts: 3 px still, up to 12 px, by the logarithm. */
 export function lineWidth(watts: number): number {
@@ -219,6 +223,8 @@ export interface FlowNode extends Point {
   r: number
   live: boolean
   ring?: { r: number; fraction: number }
+  /** Where its name's baseline starts; the live lines follow below it. */
+  label: { x: number; y: number; align: "middle" | "start" }
 }
 export interface FlowLine {
   id: string
@@ -239,7 +245,8 @@ export interface FlowLayout {
  * The Flow (spec decision 9): each node a circle at its own x/y, the bus at
  * the bus node's; a straight line from a circle's edge (and a gap) to the
  * bus's edge, as wide as `lineWidth` of its watts, live while it carries
- * any. The storage's ring is as full as its charge.
+ * any. The storage's ring is as full as its charge. A node's label goes
+ * under its circle, or beside it when its line leaves downwards.
  */
 export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly ResolvedNode[]): FlowLayout {
   const busNode = nodes.find((n) => n.role === "bus")
@@ -248,16 +255,25 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
   const lines: FlowLine[] = []
   for (const n of resolved) {
     const live = n.watts > 0
-    const node: FlowNode = { id: n.id, x: n.x, y: n.y, r: FLOW_NODE_R, live }
-    if (n.role === "storage") {
+    const dx = bus.x - n.x, dy = bus.y - n.y
+    const len = Math.hypot(dx, dy)
+    const ux = len > 0 ? dx / len : 0, uy = len > 0 ? dy / len : 0
+    const ringed = n.role === "storage"
+    // The label under the circle, centred - beside it, to the right, when
+    // the line leaves downwards and would run through it (the user,
+    // 2026-10-11, after the target picture's Landstrom).
+    const outer = FLOW_NODE_R + (ringed ? FLOW_RING_GAP : 0)
+    const label: FlowNode["label"] =
+      uy > LABEL_BESIDE_BELOW
+        ? { x: n.x + outer + FLOW_LABEL_GAP, y: n.y - FLOW_NODE_R + 8, align: "start" }
+        : { x: n.x, y: n.y + FLOW_NODE_R + (ringed ? 26 : 20), align: "middle" }
+    const node: FlowNode = { id: n.id, x: n.x, y: n.y, r: FLOW_NODE_R, live, label }
+    if (ringed) {
       const fraction = typeof n.charge === "number" ? Math.max(0, Math.min(1, n.charge / 100)) : 0
       node.ring = { r: FLOW_NODE_R + FLOW_RING_GAP, fraction }
     }
     out.push(node)
-    const dx = bus.x - n.x, dy = bus.y - n.y
-    const len = Math.hypot(dx, dy)
     if (len <= FLOW_NODE_R + FLOW_LINE_GAP + FLOW_BUS_R) continue
-    const ux = dx / len, uy = dy / len
     lines.push({
       id: n.id,
       x0: n.x + ux * (FLOW_NODE_R + FLOW_LINE_GAP),

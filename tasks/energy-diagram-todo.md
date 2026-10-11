@@ -34,4 +34,4 @@ Meanwhile energy-layout (L1-L5) goes on; it does not depend on this.
 - [x] L5 Test vectors for the devices - lib/energy-diagram/vectors.json, worked out by hand
 - [ ] Checkpoint: the four situations from the core, beside the target picture
   - drawn 2026-10-11 from lib/energy-diagram.ts alone: https://claude.ai/artifact/XGY37K5UZjn7AAzSyvisan - matches the target picture
-  - found: in the Flow, the line of a node straight above the bus (Landstrom) runs down through its own label - in the target picture too; needs the user's call (label beside the circle when its line leaves downward?)
+  - found: in the Flow, the line of a node straight above the bus (Landstrom) ran down through its own label - decided by the user 2026-10-11: beside the circle when the line leaves downwards (core, vectors, spec decision 9, target picture v8)

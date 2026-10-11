@@ -87,6 +87,11 @@
       "expected": { "x0": 338, "y0": 88, "x1": 338, "y1": 172, "width": 3, "live": false }
     }
   ],
+  "flowLabels": [
+    { "name": "straight above the bus: beside the circle", "id": "shore", "expected": { "x": 380, "y": 28, "align": "start" } },
+    { "name": "its line leaves at about 31 degrees: under the circle", "id": "solar", "expected": { "x": 114, "y": 104, "align": "middle" } },
+    { "name": "the storage under its ring", "id": "battery", "expected": { "x": 202, "y": 360, "align": "middle" } }
+  ],
   "dotSeconds": [
     { "watts": 0, "expected": 2.4 },
     { "watts": 120, "expected": 0.84 },

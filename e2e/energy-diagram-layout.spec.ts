@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { FLOW_BUS_R, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotSeconds, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_BUS_R, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotSeconds, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -269,6 +269,11 @@ test.describe("shared vectors (L5)", () => {
       expect(line.live).toBe(c.expected.live)
     })
   }
+  for (const c of vectors.flowLabels) {
+    test(`flow label: ${c.name}`, () => {
+      expect(flowLayout(nodes, resolveEnergy(nodes, {})).nodes.find((n) => n.id === c.id)!.label).toEqual(c.expected)
+    })
+  }
   test("dot seconds, dots and waves", () => {
     for (const c of vectors.dotSeconds) near(dotSeconds(c.watts), c.expected)
     for (const c of vectors.dots) {
@@ -279,5 +284,18 @@ test.describe("shared vectors (L5)", () => {
       near(waveMix(c.x, c.phase), c.mix)
       expect(waveColour(c.band as [number, number, number], c.ground as [number, number, number], c.x, c.phase)).toEqual(c.colour)
     }
+  })
+})
+
+test.describe("Flow labels (decided 2026-10-11)", () => {
+  test("under the circle, centred - beside it, left-aligned, when its line leaves downwards", () => {
+    const l = flowLayout(NODES, resolveEnergy(NODES, {}))
+    const label = (id: string) => l.nodes.find((n) => n.id === id)!.label
+    // Landstrom sits straight above the bus: its line leaves downwards.
+    expect(label("shore")).toEqual({ x: 338 + FLOW_NODE_R + FLOW_LABEL_GAP, y: 52 - FLOW_NODE_R + 8, align: "start" })
+    // The sun's line leaves at about 31° below the level: under the circle.
+    expect(label("solar")).toEqual({ x: 114, y: 52 + FLOW_NODE_R + 20, align: "middle" })
+    // The battery's ring takes room: its label 6 px further down.
+    expect(label("battery")).toEqual({ x: 202, y: 302 + FLOW_NODE_R + 26, align: "middle" })
   })
 })
