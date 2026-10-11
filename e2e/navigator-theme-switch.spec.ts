@@ -116,6 +116,8 @@ test.describe("the light/dark switch, drawn and exported", () => {
     const sw = nav.themeSwitch.objects.find((o: any) => o.type === "switch")
     expect(sw.properties).toMatchObject({ topic: "schaltli/state/theme", writeTopic: "schaltli/cmnd/theme" })
     expect(sw.properties.states.map((st: any) => st.readValue)).toEqual(["light", "dark"])
+    // Both count as on, so the knob carries the sun as well as the moon.
+    expect(sw.properties.states.map((st: any) => st.showAsOn)).toEqual([true, true])
     // The sun and the moon on the knob, baked, light and dark.
     for (const st of sw.properties.states) {
       expect(zip.file(st.path), st.path).not.toBeNull()

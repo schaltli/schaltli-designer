@@ -199,8 +199,12 @@ const THEME_SWITCH_HEIGHT = 30
  */
 export function themeSwitchObjects(width: number, height: number, look: EntryLook): ScreenObject[] {
   const h = Math.min(THEME_SWITCH_HEIGHT, height - 2 * GAP)
+  // Both «on»: light and dark are two choices, not on and off, and a switch
+  // shows a state's icon on its knob only while that state counts as on -
+  // with light «off» the sun never showed and the switch did not say what
+  // it was for (the user, 2026-10-11).
   const states = [
-    { id: "sun", label: "", readValue: "light", writeValue: "light", showAsOn: false, iconAssetId: THEME_SWITCH_SUN },
+    { id: "sun", label: "", readValue: "light", writeValue: "light", showAsOn: true, iconAssetId: THEME_SWITCH_SUN },
     { id: "moon", label: "", readValue: "dark", writeValue: "dark", showAsOn: true, iconAssetId: THEME_SWITCH_MOON },
   ]
   const base = { id: "theme-switch", type: "switch", x: 0, y: 0, width: 1000, height: h, zIndex: 1, properties: { states } } as ScreenObject

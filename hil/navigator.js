@@ -427,7 +427,23 @@ async function main() {
       for (let y = sh - SWITCH; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
       return out.join(",")
     }
-    const sun = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, light"))
+    // Nothing said yet: the track alone. Then light, as a bridge keeps it:
+    // the knob on the left with the sun - so the place is not what it was,
+    // and its left half differs from its right.
+    const nothing = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, nothing said"))
+    await publish(THEME_STATE, "light")
+    await settle()
+    await sleep(eink ? 3000 : 1500)
+    const lightImg = await fetchBmp("snapshot.bmp", "theme switch, light")
+    const sun = switchPixels(lightImg)
+    check("light said: the switch shows it", sun !== nothing)
+    const half = (from, to) => {
+      const out = []
+      for (let y = sh - SWITCH + 6; y < sh - 6; y++) for (let x = from; x < to; x++) out.push(lightImg.getPixelColor(x, y))
+      return out
+    }
+    const distinct = (px) => new Set(px).size
+    check("... its knob, with the sun, on the left", distinct(half(14, 40)) > distinct(half(40, 66)) + 2, `${distinct(half(14, 40))} vs ${distinct(half(40, 66))} colours`)
     await tap(40, sh - SWITCH / 2)
     await settle()
     check("a tap on the switch while light asks for dark", asked.includes("dark"), JSON.stringify(asked))
