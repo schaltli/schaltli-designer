@@ -6,7 +6,7 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] The user approves the target picture (artifact, spec «Target picture») - 2026-10-11, version 7
 
 ## energy-spike
-- [ ] S1 Tap latency on the 4.3B today, measured (baseline)
+- [x] S1 Tap latency on the 4.3B today, measured (baseline) - 2026-10-11: 20 taps, median 77 ms, p90 80.6 ms, worst 81 ms (firmware fw-2026.10.11.2 + tap latency, schaltli-firmware 4.3B commit)
 - [ ] S2 Polygon fill in the firmware
 - [ ] S3 The spike's motion loop behind `?set=energyspike=<n>`
 - [ ] S4 Measured with motion; band pixel diff; decision 14 written
