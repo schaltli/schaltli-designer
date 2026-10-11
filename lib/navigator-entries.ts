@@ -20,7 +20,8 @@ import {
   type Shows,
   type ThemeSwitchAt,
 } from "@/lib/navigator"
-import { COLOR_KEYS, THEME_STATE_TOPIC } from "@/lib/themes"
+import { COLOR_KEYS, THEME_COMMAND_TOPIC, THEME_STATE_TOPIC } from "@/lib/themes"
+import { switchTrack } from "@/lib/switch-shape"
 
 /** The icon's side, and the gaps around it and between it and the name. */
 export const ENTRY_ICON = 32
@@ -137,10 +138,11 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
 
 // ------------------------------------------------------- the light/dark switch
 //
-// A place on the strip that does not scroll (2026-10-11): a sun while the
-// installation is light, a moon while it is dark - a live icon on
-// THEME_STATE_TOPIC, which every device of 1.4 draws already. A tap asks for
-// the other through THEME_COMMAND_TOPIC.
+// A place on the strip that does not scroll (2026-10-11): a switch reading
+// THEME_STATE_TOPIC, its knob on the left with a sun while the installation
+// is light, on the right with a moon while it is dark - an ordinary switch,
+// which every device draws already. A tap asks THEME_COMMAND_TOPIC for the
+// other. (First a sun or moon icon; the user wanted it to read as a switch.)
 
 const themeSvg = (body: string) =>
   `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`) : Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
@@ -187,9 +189,38 @@ export function themeSwitchAt(navigator: ScreenObject): ThemeSwitchAt {
   return at === "near" || at === "far" ? at : "none"
 }
 
-/** The switch's objects in its place, `width` by `height`: its icon centred, in the entries' ink. */
+/** How tall the switch is in its place; its width is its track's. */
+const THEME_SWITCH_HEIGHT = 32
+
+/**
+ * The switch's objects in its place, `width` by `height`: one switch,
+ * centred, in the colour the open entry stands out in - the accent on
+ * «Panel», the screen's ground on «Accent».
+ */
 export function themeSwitchObjects(width: number, height: number, look: EntryLook): ScreenObject[] {
-  return navigatorEntryObjects(THEME_SWITCH_ENTRY, width, height, { ...look, shows: "icons" }, false)
+  const h = Math.min(THEME_SWITCH_HEIGHT, height - 2 * GAP)
+  const states = [
+    { id: "sun", label: "", readValue: "light", writeValue: "light", showAsOn: false, iconAssetId: THEME_SWITCH_SUN },
+    { id: "moon", label: "", readValue: "dark", writeValue: "dark", showAsOn: true, iconAssetId: THEME_SWITCH_MOON },
+  ]
+  const base = { id: "theme-switch", type: "switch", x: 0, y: 0, width: 1000, height: h, zIndex: 1, properties: { states } } as ScreenObject
+  const w = Math.min(width - 2 * GAP, switchTrack(base, 2).w)
+  return [
+    {
+      ...base,
+      x: Math.floor((width - w) / 2),
+      y: Math.floor((height - h) / 2),
+      width: w,
+      properties: {
+        topic: THEME_STATE_TOPIC,
+        writeTopic: THEME_COMMAND_TOPIC,
+        states,
+        switchStyle: "filled",
+        switchColor: look.activeColor,
+        fontId: look.fontId,
+      },
+    } as ScreenObject,
+  ]
 }
 
 /**

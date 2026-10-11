@@ -569,6 +569,38 @@ test.describe("snap table: in a switcher panel and a free area", () => {
   })
 })
 
+// The user, 2026-10-11: in a TTF font a column of four numbers came out
+// twice as wide as they are - TTF text was measured at 0.7 em a character.
+// In the browser it is measured as it is drawn.
+test("TTF text is measured as drawn: a loaded font, one without data; one still loading errs wide", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const fira = fs.readFileSync(path.join(__dirname, "..", "public", "fonts", "FiraSans-Regular.ttf")).toString("base64")
+  const result = await page.evaluate(async (data) => {
+    const measure = (family: string) => {
+      const ctx = document.createElement("canvas").getContext("2d")!
+      ctx.font = `normal 24px "${family}"`
+      return Math.ceil(ctx.measureText("Level 99.0").width)
+    }
+    const w = (window as any).__textWidthForTest
+    // Loaded under its family by something else (a device's description).
+    const face = new FontFace("FiraSansE2E", `url(data:font/ttf;base64,${data})`)
+    await face.load()
+    document.fonts.add(face)
+    const loaded = w("Level 99.0", { id: "f", name: "Fira", internalName: "FiraSansE2E", size: 24, format: "ttf" })
+    // No data in the project: whatever the browser draws under the name.
+    const noData = w("Level 99.0", { id: "r", name: "Roboto", internalName: "RobotoNotHere", size: 24, format: "ttf" })
+    // Data of its own, not loaded yet: wide, never cut.
+    const loading = w("Level 99.0", { id: "l", name: "Late", internalName: "LateFontE2E", size: 24, format: "ttf", data: `data:font/ttf;base64,${data}` })
+    return { loaded, fira: measure("FiraSansE2E"), noData, fallback: measure("RobotoNotHere"), loading }
+  }, fira)
+  expect(result.loaded).toBe(result.fira)
+  expect(result.noData).toBe(result.fallback)
+  expect(result.loading).toBe(Math.ceil("Level 99.0".length * 24 * 0.7))
+  // And far below what 0.7 em a character made of it.
+  expect(result.loaded).toBeLessThan(result.loading - 20)
+})
+
 test.describe("snap table: panel and tree", () => {
   // A text spans its cell (2026-10-11): Align is its own alignment there.
   test("Align right on a text aligns it right across its cell; one Ctrl+Z takes it back", async ({ page }) => {

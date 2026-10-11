@@ -118,9 +118,10 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
 
 19. **Light/dark switch** (added 2026-10-11). «Theme switch» None, Near or
     Far: a place at the strip's start or end, 64 px along it, that does not
-    scroll; a sun while schaltli/state/theme is light (or says nothing), a
-    moon while dark - a live icon - and a tap asks schaltli/cmnd/theme for
-    the other. Generation 1.6, `NAVIGATOR_THEME_SWITCH_GENERATION`.
+    scroll; a switch reading schaltli/state/theme, its knob left while light,
+    right with a moon while dark (first a sun/moon icon; the user wanted it
+    to read as a switch), and a tap asks schaltli/cmnd/theme for the other.
+    In the preview a click turns the view too, as the Dark switch does. Generation 1.6, `NAVIGATOR_THEME_SWITCH_GENERATION`.
 20. **Even distance to the line** (2026-10-11). The open entry's box keeps
     4 px from the line as from the other side; it stood 2 px from it.
 

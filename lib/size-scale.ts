@@ -8,6 +8,7 @@
 // every device's result without touching a device description. This file
 // only computes; it knows nothing of React or of objects.
 
+import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/components/project-editor"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { STANDARD_TYPOGRAPHY, type TextStyle, type Typography } from "@/lib/device-description"
@@ -128,14 +129,55 @@ export function stepSizeOf(object: ScreenObject): number | undefined {
 // Parsed once per font: measuring a label parses the whole BDF.
 const measuredFonts = new Map<string, BDFFont>()
 
+// A canvas to measure TTF text on, made once, in a browser only.
+let measureContext: CanvasRenderingContext2D | null | undefined
+
+/** What the layout listens for: a TTF font it measured wide has loaded (lib/ttf-font-registry.ts). */
+export const TTF_FONT_LOADED_EVENT = "schaltli:ttf-font-loaded"
+
+/**
+ * How wide `text` is in a TTF font, measured as render-text-box.ts draws it
+ * - its family, size and weight on a canvas; undefined outside a browser,
+ * and until the font has loaded: the browser would measure its fallback,
+ * which can be narrower and cut the text. Its loading is started then, and
+ * TTF_FONT_LOADED_EVENT asks for the layout again once it is there. The 0.7
+ * em per character below was about twice a digit's width (2026-10-11: a
+ * table column of four numbers came out double).
+ */
+function ttfWidth(text: string, font: ProjectFont, weight: string): number | undefined {
+  if (typeof document === "undefined") return undefined
+  // Loaded by the registry from the font's own data, or by anything else
+  // under its family; a font without data in the project (a phone's Roboto
+  // in «holl», 2026-10-11) is never loaded and drawn in what the browser
+  // finds under that name - measured in the same.
+  const family = font.internalName ?? font.name
+  const loaded =
+    !font.data ||
+    isTtfFontLoaded(font) ||
+    [...(document.fonts as unknown as Iterable<FontFace>)].some((f) => f.family.replace(/["']/g, "") === family && f.status === "loaded")
+  if (!loaded) {
+    ensureTtfFontRegistered(font, () => window.dispatchEvent(new Event(TTF_FONT_LOADED_EVENT)))
+    return undefined
+  }
+  if (measureContext === undefined) measureContext = document.createElement("canvas").getContext("2d")
+  if (!measureContext) return undefined
+  measureContext.font = `${weight} ${font.size ?? 14}px "${font.internalName ?? font.name}"`
+  return Math.ceil(measureContext.measureText(text).width)
+}
+
 /**
  * How wide `text` is in the object's font: the BDF's own advance widths
- * where the project has its bitmap, else a width per character wider than
- * any bundled font's (as lib/bausteine.ts measureBlockText falls back to) -
- * a control sized from it errs wide, never cuts its label.
+ * where the project has its bitmap, a TTF measured in the browser, else a
+ * width per character wider than any bundled font's (as lib/bausteine.ts
+ * measureBlockText falls back to) - a control sized from it errs wide,
+ * never cuts its label.
  */
-export function textWidthIn(text: string, font: ProjectFont | undefined): number {
+export function textWidthIn(text: string, font: ProjectFont | undefined, weight = "normal"): number {
   if (!text) return 0
+  if (font?.format === "ttf") {
+    const measured = ttfWidth(text, font, weight)
+    if (measured !== undefined) return measured
+  }
   if (font?.data && font.format !== "ttf") {
     const key = `${font.id}:${font.data.length}`
     let bdf = measuredFonts.get(key)

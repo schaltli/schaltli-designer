@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
 import { Jimp } from "jimp"
 import { barLayout, THEME_SWITCH_LENGTH, NAVIGATOR_DIVIDER } from "../lib/navigator"
-import { entryLook, navigatorEntryObjects, THEME_SWITCH_ENTRY } from "../lib/navigator-entries"
+import { entryLook, navigatorEntryObjects } from "../lib/navigator-entries"
 import { THEMES, applyTheme, resolveRole } from "../lib/themes"
 
 // The navigator's options of 2026-10-11: «Background» Panel or Accent, and a
@@ -82,7 +82,7 @@ test.describe("the navigator's bar", () => {
 test.describe("the light/dark switch, drawn and exported", () => {
   test.beforeEach(async ({ page }) => ready(page))
 
-  test("drawn at Near: a sun while light, a moon while dark; the entries start below it", async ({ page }) => {
+  test("drawn at Near as a switch: knob left while light, right while dark; the entries start below it", async ({ page }) => {
     const p = project({ themeSwitch: "near", backgroundColor: "#202020", textColor: "#c0c0c0", activeColor: "#4060ff", activeTextColor: "#ffffff" })
     const at = async (overrides: Record<string, string>) => {
       const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: { ...p, screens: [{ ...p.screens[1], objects: p.screens[0].objects }, p.screens[2]] }, screenIndex: 0, topicOverrides: overrides })
@@ -91,12 +91,10 @@ test.describe("the light/dark switch, drawn and exported", () => {
     }
     const light = await at({ "schaltli/state/theme": "light" })
     const dark = await at({ "schaltli/state/theme": "dark" })
-    // The sun's centre disc is inked; the moon leaves the middle-right of
-    // its box empty where the sun's disc is. Something differs in the place.
+    // The knob moves from one end of the track to the other.
     let differs = 0
-    for (let y = 16; y < 48; y++) for (let x = 24; x < 56; x++) if (light(x, y) !== dark(x, y)) differs++
-    expect(differs).toBeGreaterThan(20)
-    expect(light(40, 32)).toBe("#c0c0c0")
+    for (let y = 0; y < THEME_SWITCH_LENGTH; y++) for (let x = 0; x < 78; x++) if (light(x, y) !== dark(x, y)) differs++
+    expect(differs).toBeGreaterThan(100)
     // The first entry, open, starts below the switch: its accent box.
     expect(light(10, THEME_SWITCH_LENGTH + 10)).toBe("#4060ff")
     expect(light(10, 10)).toBe("#202020")
@@ -109,19 +107,23 @@ test.describe("the light/dark switch, drawn and exported", () => {
     const nav = JSON.parse(await zip.file("project.json")!.async("string")).navigators[0]
     expect(nav.themeSwitch).toMatchObject({ at: "far", length: THEME_SWITCH_LENGTH })
     expect(nav.entryLength).toBe(Math.floor((480 - THEME_SWITCH_LENGTH) / 2))
-    const icon = nav.themeSwitch.objects.find((o: any) => o.type === "icon")
-    expect(icon).toBeTruthy()
-    const live = icon.properties.liveValues[0]
-    expect(live.source).toEqual(THEME_SWITCH_ENTRY.iconLive!.source)
-    for (const result of [live.rules[0].result, live.otherwise]) expect(zip.file(result.path), result.path).not.toBeNull()
+    const sw = nav.themeSwitch.objects.find((o: any) => o.type === "switch")
+    expect(sw.properties).toMatchObject({ topic: "schaltli/state/theme", writeTopic: "schaltli/cmnd/theme" })
+    expect(sw.properties.states.map((st: any) => st.readValue)).toEqual(["light", "dark"])
+    // The sun and the moon on the knob, baked, light and dark.
+    for (const st of sw.properties.states) {
+      expect(zip.file(st.path), st.path).not.toBeNull()
+      expect(zip.file(st.pathDark), st.pathDark).not.toBeNull()
+    }
+    expect(JSON.parse(await zip.file("project.json")!.async("string")).topics.some((t: any) => t.topic === "schaltli/state/theme")).toBe(true)
 
     const androidBase64: string = await page.evaluate((proj) => (window as any).__buildAndroidZipForTest(proj), p)
     const androidZip = await JSZip.loadAsync(Buffer.from(androidBase64, "base64"))
     const androidNav = JSON.parse(await androidZip.file("project.json")!.async("string")).navigators[0]
     expect(androidNav.themeSwitch).toMatchObject({ at: "far", length: THEME_SWITCH_LENGTH })
     expect(androidNav.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
-    const androidLive = androidNav.themeSwitch.objects.find((o: any) => o.type === "icon").properties.liveValues[0]
-    for (const result of [androidLive.rules[0].result, androidLive.otherwise]) expect(androidZip.file(result.path), result.path).not.toBeNull()
+    const androidSwitch = androidNav.themeSwitch.objects.find((o: any) => o.type === "switch")
+    expect(androidSwitch.properties.topic).toBe("schaltli/state/theme")
   })
 
   test("without a switch the export has none, and «Accent» exports no line", async ({ page }) => {

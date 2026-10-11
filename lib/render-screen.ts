@@ -407,7 +407,14 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
     if (themeSwitch) {
       ctx.save()
       ctx.translate(themeSwitch.x, themeSwitch.y)
-      renderScreenObjects(ctx, themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), { ...withIcons, nested: true, navigator: undefined })
+      // On the strip's ground, which its colours follow - as a device and
+      // the bake (lib/asset-export.ts) take it.
+      renderScreenObjects(ctx, themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), {
+        ...withIcons,
+        nested: true,
+        navigator: undefined,
+        screenBackgroundColor: obj.properties.backgroundColor ?? "#ffffff",
+      })
       ctx.restore()
     }
   }

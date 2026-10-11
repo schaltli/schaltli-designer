@@ -356,12 +356,19 @@ export class AssetExporter {
 
     // The navigators' entries (docs/2026-10-08-navigator.md): their icons,
     // normal and on the accent, light and at 24 bit dark.
-    const navigatorLight = await this.bakeNavigators(project, 'light')
+    const navigatorSwitchesLight: SwitchStateIconExport[] = []
+    const navigatorLight = await this.bakeNavigators(project, 'light', navigatorSwitchesLight)
     iconUsages.push(...navigatorLight)
+    switchStateIcons.push(...navigatorSwitchesLight)
     if (this.options.colorDepth === '24bit') {
-      const lightFiles = new Map(navigatorLight.map((b) => [b.filename, b.data] as [string, Uint8Array]))
-      const navigatorDark = await this.bakeNavigators(project, 'dark')
+      const lightFiles = new Map([
+        ...navigatorLight.map((b) => [b.filename, b.data] as [string, Uint8Array]),
+        ...navigatorSwitchesLight.map((b) => [b.normalFilename, b.normalData] as [string, Uint8Array]),
+      ])
+      const navigatorSwitchesDark: SwitchStateIconExport[] = []
+      const navigatorDark = await this.bakeNavigators(project, 'dark', navigatorSwitchesDark)
       dark.iconUsages.push(...navigatorDark.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
+      dark.switchStateIcons.push(...navigatorSwitchesDark.map((b) => ({ ...b, normalFilename: darkName(b.normalFilename, b.normalData, lightFiles) })))
     }
 
     console.log(`[AssetExport] Total icon objects found: ${iconUsageCount}, successfully exported: ${iconUsages.length}`)
@@ -383,7 +390,7 @@ export class AssetExporter {
    * navigator's colour, and for the open entry its accent box), keyed by
    * entryKey (lib/navigator-entries.ts) as a screen of its own.
    */
-  private async bakeNavigators(project: any, variant: 'light' | 'dark'): Promise<IconUsageExport[]> {
+  private async bakeNavigators(project: any, variant: 'light' | 'dark', switchOut: SwitchStateIconExport[] = []): Promise<IconUsageExport[]> {
     const out: IconUsageExport[] = []
     for (const { master, navigator } of navigatorsOf(project)) {
       const themed = applyTheme([navigator], themeFor(master, project.screens), variant, this.options.colorDepth)[0]
@@ -413,6 +420,18 @@ export class AssetExporter {
           ctx.fillStyle = themed.properties.backgroundColor ?? '#ffffff'
           ctx.fillRect(0, 0, width, height)
           for (const box of objects.filter((o) => o.type === 'box')) renderBox({ ctx, obj: box, zoom: 1, colorDepth: this.options.colorDepth })
+          // The light/dark switch's sun and moon, baked as any switch's are,
+          // on the strip's ground and under the item's key.
+          for (const sw of objects.filter((o) => o.type === 'switch')) {
+            const place = { id: itemKey, backgroundColor: themed.properties.backgroundColor ?? '#ffffff' }
+            for (let stateIndex = 0; stateIndex < (sw.properties.states ?? []).length; stateIndex++) {
+              const state = sw.properties.states[stateIndex]
+              const asset = state.iconAssetId && project.assets.find((a: any) => a.id === state.iconAssetId)
+              if (!asset) continue
+              const baked = await this.exportSwitchStateIcon(asset, undefined, sw, stateIndex, project, place)
+              if (baked) switchOut.push(baked)
+            }
+          }
           const icon = objects.find((o) => o.type === 'icon')
           if (!icon) continue
           const key = { id: itemKey, name: screen.name, objects: [] }

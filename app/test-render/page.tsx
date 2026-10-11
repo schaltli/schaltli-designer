@@ -1,6 +1,7 @@
 "use client"
 
 import { everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
+import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
@@ -686,6 +687,9 @@ export default function TestRenderPage() {
         },
       })
     }
+
+    // How wide a text is in a font, as the layout measures it (lib/size-scale.ts).
+    ;(window as any).__textWidthForTest = (text: string, font: any, weight?: string): number => textWidthIn(text, font, weight)
 
     ;(window as any).__buildDeviceZipForTest = async (project: any): Promise<string> => {
       const blob = await buildDeviceProjectZip(project)

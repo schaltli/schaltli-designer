@@ -15,7 +15,8 @@
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
-import { resolveLiveText, textOf, type LiveValue, type Source } from "@/lib/live-value"
+import { formatValue, liveTextSegments, type LiveValue, type Result } from "@/lib/live-value"
+import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 
@@ -48,7 +49,7 @@ export interface LayoutScale {
    * values by what they show - not by their `{live:...}` reference, which
    * clipped «Lichterkette» on the demo (2026-10-11).
    */
-  topics?: readonly { topic: string; examples?: readonly string[] }[]
+  topics?: readonly { topic: string; type?: string; examples?: readonly string[] }[]
   separators?: Separators
 }
 export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
@@ -75,7 +76,7 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
-    return Math.max(1, textWidthIn(shownText(obj, scale, font), font))
+    return Math.max(1, textWidthIn(shownText(obj, scale, font), font, obj.properties?.fontWeight || "normal"))
   }
   if (obj.type === "switch" || obj.type === "button-group" || obj.type === "button") {
     return Math.max(1, controlMinWidth(obj, obj.height, fonts))
@@ -84,30 +85,69 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
 }
 
 /**
- * A text as wide as the designer can know it reads: each live value at its
- * topic's longest example, formatted and through its rules; one with no
- * example as it reads without a value.
+ * The values a live value's source can be thought to bring: a topic's
+ * examples (a JSON field read out of each), and «99» for a numeric topic -
+ * what comes over MQTT later cannot be known; a combined topic's yes and no.
+ */
+function candidateValues(lv: LiveValue, scale: LayoutScale): string[] {
+  const source = lv.source
+  if (source.namespace === "combined") return ["true", "false"]
+  if (source.namespace !== "topic") return []
+  const { topic, path } = splitTopicPath(source.path)
+  const known = scale.topics?.find((t) => t.topic === topic)
+  const examples = (known?.examples ?? []).map((e) => (path ? extractJsonField(e, path) : e)).filter((e): e is string => typeof e === "string")
+  return known?.type === "numeric" ? [...examples, "99"] : examples
+}
+
+/**
+ * Everything a live value can show, as text: each rule's and Otherwise's
+ * and No value yet's text, the value written into it in its format for each
+ * value it can be thought to bring; where Otherwise is left to the value,
+ * the value itself.
+ */
+function possibleTexts(lv: LiveValue, scale: LayoutScale): string[] {
+  const separators = scale.separators ?? DEFAULT_SEPARATORS
+  const values = candidateValues(lv, scale).map((v) => formatValue(v, lv.format, separators))
+  const of = (result: Result | undefined, withValue: boolean): string[] => {
+    if (!result) return withValue ? values : []
+    if (result.kind !== "text") return []
+    const needsValue = result.parts.some((p) => typeof p !== "string")
+    const fill = (value: string) => result.parts.map((p) => (typeof p === "string" ? p : value)).join("")
+    return needsValue ? (values.length > 0 ? values.map(fill) : [fill("")]) : [fill("")]
+  }
+  return [...lv.rules.flatMap((rule) => of(rule.result, false)), ...of(lv.otherwise, true), ...of(lv.noValueYet, false)]
+}
+
+/**
+ * A text as wide as it can be thought to read (2026-10-11): each live value
+ * at the widest of what it can show - every rule's text, Otherwise, No value
+ * yet, with a topic's examples, «99» for a number, a combined topic's yes
+ * and no. Not by its `{live:...}` reference, which clipped «Lichterkette» on
+ * the demo.
  */
 function shownText(obj: ScreenObject, scale: LayoutScale, font: ProjectFont | undefined): string {
   const text = String(obj.properties?.text ?? "")
   const liveValues: LiveValue[] | undefined = obj.properties?.liveValues
   if (!liveValues?.length) return text
-  const separators = scale.separators ?? DEFAULT_SEPARATORS
-  const longest = new Map<Source, string | undefined>()
-  for (const lv of liveValues) {
-    const examples = lv.source.namespace === "topic" ? (scale.topics?.find((t) => t.topic === lv.source.path)?.examples ?? []) : []
-    let best: string | undefined
-    let bestWidth = -1
-    for (const example of examples) {
-      const width = textWidthIn(textOf(lv, example, separators), font)
-      if (width > bestWidth) {
-        best = example
-        bestWidth = width
+  let out = ""
+  for (const segment of liveTextSegments(text, liveValues)) {
+    if (segment.kind === "text") {
+      out += segment.text.replace(/\{\{/g, "{").replace(/\}\}/g, "}")
+      continue
+    }
+    const lv = liveValues.find((l) => l.id === segment.id)!
+    let widest = ""
+    let widestWidth = -1
+    for (const candidate of possibleTexts(lv, scale)) {
+      const width = textWidthIn(candidate, font)
+      if (width > widestWidth) {
+        widest = candidate
+        widestWidth = width
       }
     }
-    longest.set(lv.source, best)
+    out += widest
   }
-  return resolveLiveText(text, liveValues, (source) => longest.get(source), separators)
+  return out
 }
 
 /**

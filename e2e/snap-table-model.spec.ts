@@ -168,6 +168,42 @@ test.describe("snap table: layout", () => {
     expect(naturalWidth(text, SCALE)).toBeLessThan(naturalWidth(plain("{live:lv1}"), SCALE))
   })
 
+  // The user, 2026-10-11: the least width a text needs, whatever its live
+  // values show - a number without an example as 99, a rule's own text, a
+  // combined topic's yes and no.
+  test("a live text is as wide as the widest it can show: rules, Otherwise, No value yet, 99 for a number", () => {
+    const live = (lv: Record<string, unknown>, around = "{live:lv1}"): ScreenObject => ({
+      id: "t",
+      type: "text",
+      x: 0,
+      y: 0,
+      width: 30,
+      height: 18,
+      zIndex: 0,
+      properties: { text: around, liveValues: [{ id: "lv1", rules: [], ...lv }] },
+    })
+    const plain = (words: string): ScreenObject => ({ ...live({}), properties: { text: words } })
+    const w = (o: ScreenObject, scale: any = SCALE) => naturalWidth(o, scale)
+    // A rule's text wider than the values.
+    const heater = { source: { namespace: "topic", path: "van/heater" }, rules: [{ op: "==", operand: "1", result: { kind: "text", parts: ["Heizung läuft"] } }], otherwise: { kind: "text", parts: ["Aus"] } }
+    expect(w(live(heater))).toBe(w(plain("Heizung läuft")))
+    // No value yet counts too.
+    expect(w(live({ ...heater, noValueYet: { kind: "text", parts: ["Warte auf die Heizung"] } }))).toBe(w(plain("Warte auf die Heizung")))
+    // A number without an example: 99, in the value's format, around the text.
+    const temperature = { source: { namespace: "topic", path: "van/temp" }, format: { kind: "number", decimals: 1, grouped: false } }
+    const numeric = { ...SCALE, topics: [{ topic: "van/temp", type: "numeric", examples: [] }] }
+    expect(w(live(temperature, "Innen {live:lv1} °C"), numeric)).toBe(w(plain("Innen 99.0 °C"), numeric))
+    // A larger example wins over 99.
+    const big = { ...SCALE, topics: [{ topic: "van/temp", type: "numeric", examples: ["1234"] }] }
+    expect(w(live(temperature), big)).toBe(w(plain("1234.0"), big))
+    // A JSON field read out of the topic's examples.
+    const json = { ...SCALE, topics: [{ topic: "van/bms", type: "json", examples: ['{"name":"Lithiumbatterie"}'] }] }
+    expect(w(live({ source: { namespace: "topic", path: "van/bms#name" } }), json)).toBe(w(plain("Lithiumbatterie"), json))
+    // A combined topic: what its rules make of yes and no.
+    const anyLight = { source: { namespace: "combined", path: "licht_an" }, rules: [{ op: "yes", result: { kind: "text", parts: ["Licht brennt"] } }], otherwise: { kind: "text", parts: ["Alles dunkel"] } }
+    expect(w(live(anyLight))).toBe(Math.max(w(plain("Licht brennt")), w(plain("Alles dunkel"))))
+  })
+
   test("roles: icons are Icon, texts Label, everything else Control", () => {
     const of = (type: string) => roleOf({ id: "x", type, x: 0, y: 0, width: 1, height: 1, zIndex: 0 } as ScreenObject)
     expect(of("icon")).toBe("icon")

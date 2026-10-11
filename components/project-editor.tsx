@@ -67,6 +67,8 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { layoutProject, layoutScaleOf } from "@/lib/layout"
+import { withThemeSwitchAssets } from "@/lib/navigator-entries"
+import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
 import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
@@ -100,7 +102,7 @@ import {
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
-import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
@@ -796,6 +798,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setProjectState((prev) => layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action)))
   }, [])
 
+  // A TTF font the layout measured wide until it had loaded is there now:
+  // laid out again with its real widths (lib/size-scale.ts).
+  useEffect(() => {
+    const relayout = () => setProjectState((prev) => layoutProject(prev))
+    window.addEventListener(TTF_FONT_LOADED_EVENT, relayout)
+    // A device's font loaded from its description, not by the registry.
+    document.fonts.addEventListener("loadingdone", relayout)
+    return () => {
+      window.removeEventListener(TTF_FONT_LOADED_EVENT, relayout)
+      document.fonts.removeEventListener("loadingdone", relayout)
+    }
+  }, [])
+
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
   // The container whose children the canvas is working on - a switcher's
@@ -1312,6 +1327,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const handlePreviewPublish = useCallback(
     (topic: string, payload: string) => {
       trackDemo("tap", `${topic.replace(/^schaltli\/cmnd\//, "")}=${payload}`)
+      // The navigator's light/dark switch turns the preview's own view too,
+      // as the Dark switch below does: without a bridge on the broker
+      // nothing would answer, and the click did nothing (2026-10-11). A
+      // bridge's answer on THEME_STATE_TOPIC still wins (shownVariant).
+      const asked = variantFromTopic(payload)
+      if (topic === THEME_COMMAND_TOPIC && asked) setThemeVariant(asked)
       // Live, a tap is what it is on a device: a publish, answered - or not -
       // by whatever listens on the broker. The mock engine stays out of it;
       // an answer it made up would look exactly like the van's.
@@ -1614,6 +1635,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       variantFromTopic(previewSource === "live" ? liveValues[THEME_STATE_TOPIC] : previewTopicValues[THEME_STATE_TOPIC])) ||
     themeVariant
 
+  // Live, the light/dark switch shows the variant the view is in where the
+  // broker has said nothing of it.
+  const liveValuesWithTheme = useMemo(
+    () => (liveValues[THEME_STATE_TOPIC] ? liveValues : { ...liveValues, [THEME_STATE_TOPIC]: shownVariant }),
+    [liveValues, shownVariant],
+  )
+
   // What the view reads, for the live preview to redraw at once (#58); and
   // when the view changes, everything the broker has given so far.
   useEffect(() => {
@@ -1632,13 +1660,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // here is enough to make an edited value show up everywhere without any of
   // them needing to know preview mode exists.
   const previewTopics = useMemo(() => {
-    if (!isPreviewMode || Object.keys(previewTopicValues).length === 0) return project.topics
-    return project.topics.map((topic) =>
+    // The navigator's light/dark switch reads schaltli/state/theme, which a
+    // project need not have among its topics (lib/navigator-entries.ts).
+    const topics = withThemeSwitchAssets(project).topics as Topic[]
+    if (!isPreviewMode || Object.keys(previewTopicValues).length === 0) return topics
+    return topics.map((topic) =>
       topic.topic in previewTopicValues
         ? { ...topic, examples: [previewTopicValues[topic.topic], ...topic.examples.slice(1)] }
         : topic,
     )
-  }, [isPreviewMode, previewTopicValues, project.topics])
+  }, [isPreviewMode, previewTopicValues, project])
 
   const selectedObject = useMemo(() => {
     if (!selectedObjectIds.length) return null
@@ -4228,7 +4259,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onPreviewPublish={handlePreviewPublish}
             onPreviewAsk={handlePreviewAsk}
             onPreviewSetLevel={handlePreviewSetLevel}
-            liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
+            liveValues={isPreviewMode && previewSource === "live" ? liveValuesWithTheme : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
           {demo && demoSwitchAt !== null && (

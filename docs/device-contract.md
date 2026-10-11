@@ -843,8 +843,10 @@ the screens slide beneath it.
   cut off at the strip's start (`near`: top of a left or right strip, left of
   a top or bottom one) or its end (`far`). It does not scroll; the entries
   are laid out and scroll in what is left (`entryLength` is already of that
-  part). `objects` are ordinary objects relative to the place - a live icon
-  on `schaltli/state/theme`, sun or moon - drawn clipped to it. A tap on the
+  part). `objects` are ordinary objects relative to the place - a switch
+  reading `schaltli/state/theme` (states `light`, `dark`; a sun and a moon
+  for the knob) - drawn clipped to it, its colours worked out against the
+  strip's ground. A tap on the
   place publishes to `schaltli/cmnd/theme` the other of what
   `schaltli/state/theme` says: `light` while it says `dark`, else `dark`.
   The export lists `schaltli/state/theme` among the topics. A device below

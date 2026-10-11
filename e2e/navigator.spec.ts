@@ -275,7 +275,7 @@ test.describe("the navigator's strip on a screen", () => {
 
 // A navigator project with twelve screens, the last with a button back to
 // the first: built from the designer's own download, loaded again.
-async function twelveScreenProject(page: Page): Promise<string[]> {
+async function twelveScreenProject(page: Page, navigatorProperties: Record<string, unknown> = {}): Promise<string[]> {
   const { master } = await newNavigatorProject(page)
   await placeNavigator(page, master)
   await page.getByRole("button", { name: "File" }).click()
@@ -285,6 +285,7 @@ async function twelveScreenProject(page: Page): Promise<string[]> {
   const zip = await JSZip.loadAsync(Buffer.concat(chunks))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const masterScreen = project.screens.find((s: any) => s.isMaster)
+  for (const o of masterScreen.objects) if (o.type === "navigator") o.properties = { ...o.properties, ...navigatorProperties }
   const names = Array.from({ length: 12 }, (_, i) => `Nav ${i + 1}`)
   project.screens = [
     masterScreen,
@@ -356,6 +357,48 @@ test.describe("the navigator in the preview", () => {
     await isOpen(page, "Nav 1")
     await press(page, 130)
     await isOpen(page, "Nav 2")
+  })
+})
+
+// The light/dark switch in the preview (2026-10-11): a click asks
+// schaltli/cmnd/theme for the other variant, and the preview answers as the
+// VanPi bridge does - the variant turns, the switch with it.
+test.describe("the light/dark switch in the preview", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(NAV_DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("navigator")) manifest.supportedObjectTypes.push("navigator")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  test("a click turns the preview dark and back, live and in simulation; the knob moves", async ({ page }) => {
+    await twelveScreenProject(page, { themeSwitch: "far" })
+    await page.getByRole("button", { name: "Nav 1", exact: true }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, 40, 480 - 32, SCREEN_43B)
+    // The view turns with it - live, with no bridge on the broker to
+    // answer, as in simulation, where the preview answers as one would.
+    const dark = page.getByRole("switch", { name: "Dark" })
+    const strip = async () => {
+      const shot = await page.screenshot({ clip: { x: at.x - 20, y: at.y - 12, width: 40, height: 24 } })
+      return shot.toString("base64")
+    }
+    await expect(dark).toHaveAttribute("aria-checked", "false")
+    const before = await strip()
+    await page.mouse.click(at.x, at.y)
+    await expect(dark).toHaveAttribute("aria-checked", "true")
+    // The knob moved.
+    await expect.poll(strip).not.toBe(before)
+    await page.mouse.click(at.x, at.y)
+    await expect(dark).toHaveAttribute("aria-checked", "false")
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.mouse.click(at.x, at.y)
+    await expect(page.getByText("schaltli/cmnd/theme = dark → schaltli/state/theme = dark").first()).toBeVisible()
+    await expect(dark).toHaveAttribute("aria-checked", "true")
   })
 })
 
