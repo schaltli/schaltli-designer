@@ -270,3 +270,63 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
   }
   return { bus, nodes: out, lines }
 }
+
+// ---- Motion (spec decision 10). A phase 0..1 per line or per diagram,
+// advanced by the time that passed; every renderer draws the same picture
+// for the same phase, so a test can freeze one and compare.
+
+/**
+ * How long a dot takes to move on by one spacing, in seconds: quicker with
+ * more watts, never quicker than 0.35 s.
+ */
+export function dotSeconds(watts: number): number {
+  return Math.max(0.35, 2.4 - Math.log10(Math.abs(watts) + 1) * 0.75)
+}
+
+/** A line's dot phase after `seconds`. */
+export function advanceDots(phase: number, seconds: number, watts: number): number {
+  return (((phase + seconds / dotSeconds(watts)) % 1) + 1) % 1
+}
+
+export const DOT_SPACING = 26
+
+/**
+ * The dots on a line at a phase: one every DOT_SPACING px (at least one),
+ * from the line's start - the node - towards its end - the bus - while the
+ * node gives, the other way while it takes.
+ */
+export function dotsOnLine(line: { x0: number; y0: number; x1: number; y1: number }, phase: number, gives: boolean): Point[] {
+  const len = Math.hypot(line.x1 - line.x0, line.y1 - line.y0)
+  const count = Math.max(1, Math.floor(len / DOT_SPACING))
+  const out: Point[] = []
+  for (let k = 0; k < count; k++) {
+    let f = (k + phase) / count
+    if (!gives) f = 1 - f
+    out.push({ x: line.x0 + (line.x1 - line.x0) * f, y: line.y0 + (line.y1 - line.y0) * f })
+  }
+  return out
+}
+
+/** The wave's period across x, and the time it takes to move one. */
+export const WAVE_PX = 48
+export const WAVE_SECONDS = 4
+
+/** The wave's phase after `seconds` - the same pace for every band. */
+export function advanceWave(phase: number, seconds: number): number {
+  return (((phase + seconds / WAVE_SECONDS) % 1) + 1) % 1
+}
+
+/**
+ * How far a column of a band is washed towards the ground at a phase:
+ * 0.42 ± 0.16, by its x alone - so a column is one colour, and a device
+ * repaints a step as one stroke per column.
+ */
+export function waveMix(x: number, phase: number): number {
+  return 0.42 - 0.16 * Math.cos((2 * Math.PI * (x - phase * WAVE_PX)) / WAVE_PX)
+}
+
+/** A column's colour: the band's colour washed towards the ground by `waveMix`, each channel rounded. */
+export function waveColour(band: readonly [number, number, number], ground: readonly [number, number, number], x: number, phase: number): [number, number, number] {
+  const t = waveMix(x, phase)
+  return [0, 1, 2].map((i) => Math.round(band[i] + (ground[i] - band[i]) * t)) as [number, number, number]
+}

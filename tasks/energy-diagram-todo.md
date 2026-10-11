@@ -30,6 +30,6 @@ Meanwhile energy-layout (L1-L5) goes on; it does not depend on this.
 - [x] L1 Types and the rest
 - [x] L2 Sankey layout
 - [x] L3 Flow layout
-- [ ] L4 Dots and waves
+- [x] L4 Dots and waves
 - [ ] L5 Test vectors for the devices
 - [ ] Checkpoint: the four situations from the core, beside the target picture

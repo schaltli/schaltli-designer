@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { FLOW_BUS_R, FLOW_NODE_R, flowLayout, lineWidth, resolveEnergy, sankeyLayout, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_BUS_R, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotSeconds, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -196,5 +196,39 @@ test.describe("Flow (L3)", () => {
     expect(l.nodes.find((n) => n.id === "solar")!.ring).toBeUndefined()
     // Over 100 % or below 0: the ring stays in its bounds.
     expect(flowLayout(NODES, resolveEnergy(NODES, { battery: { charge: 140 } })).nodes.find((n) => n.id === "battery")!.ring!.fraction).toBe(1)
+  })
+})
+
+test.describe("Dots and waves (L4)", () => {
+  test("a dot's pace: 2.4 s at nothing, quicker with more watts, never under 0.35 s", () => {
+    expect(dotSeconds(0)).toBeCloseTo(2.4, 5)
+    // 2.4 - log10(121) * 0.75
+    expect(dotSeconds(120)).toBeCloseTo(0.8379, 3)
+    expect(dotSeconds(1e9)).toBe(0.35)
+    // A phase goes round in that time.
+    expect(advanceDots(0.9, dotSeconds(120) / 2, 120)).toBeCloseTo(0.4, 5)
+  })
+
+  test("dots along a line, 26 px apart: from the node to the bus while it gives, back while it takes", () => {
+    const line = { x0: 0, y0: 0, x1: 100, y1: 0 }
+    expect(dotsOnLine(line, 0, true).map((p) => +p.x.toFixed(2))).toEqual([0, 33.33, 66.67])
+    expect(dotsOnLine(line, 0.5, true).map((p) => +p.x.toFixed(2))).toEqual([16.67, 50, 83.33])
+    expect(dotsOnLine(line, 0, false).map((p) => +p.x.toFixed(2))).toEqual([100, 66.67, 33.33])
+    // A short line still has one dot.
+    expect(dotsOnLine({ x0: 0, y0: 0, x1: 10, y1: 0 }, 0, true)).toHaveLength(1)
+  })
+
+  test("the wave: a column's colour by its x only, 48 px a period, 4 s a period, the same for every band", () => {
+    expect(WAVE_PX).toBe(48)
+    expect(WAVE_SECONDS).toBe(4)
+    expect(waveMix(0, 0)).toBeCloseTo(0.26, 5)
+    expect(waveMix(24, 0)).toBeCloseTo(0.58, 5)
+    expect(waveMix(12, 0)).toBeCloseTo(0.42, 5)
+    // A quarter period on, the wave has moved 12 px to the right.
+    expect(waveMix(12, 0.25)).toBeCloseTo(0.26, 5)
+    expect(advanceWave(0.5, 2)).toBeCloseTo(0, 5)
+    // The band's colour washed towards the ground by the mix, rounded.
+    expect(waveColour([224, 108, 31], [0, 0, 0], 0, 0)).toEqual([166, 80, 23])
+    expect(waveColour([224, 108, 31], [255, 255, 255], 24, 0)).toEqual([242, 193, 161])
   })
 })
