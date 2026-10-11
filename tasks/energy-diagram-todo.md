@@ -31,5 +31,5 @@ Meanwhile energy-layout (L1-L5) goes on; it does not depend on this.
 - [x] L2 Sankey layout
 - [x] L3 Flow layout
 - [x] L4 Dots and waves
-- [ ] L5 Test vectors for the devices
+- [x] L5 Test vectors for the devices - lib/energy-diagram/vectors.json, worked out by hand
 - [ ] Checkpoint: the four situations from the core, beside the target picture

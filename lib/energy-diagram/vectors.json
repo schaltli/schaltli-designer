@@ -1,0 +1,106 @@
+{
+  "about": "The energy diagram's core (lib/energy-diagram.ts, docs/2026-10-11-energy-diagram.md). Designer, firmware and Android app run these cases; the copies there are byte-for-byte this file. Expected values worked out by hand, not taken from the code; numbers to 2 decimals.",
+  "nodes": [
+    { "id": "bus", "role": "bus", "name": "12 V", "x": 338, "y": 186 },
+    { "id": "solar", "role": "source", "name": "Solar", "x": 114, "y": 52 },
+    { "id": "shore", "role": "source", "name": "Landstrom", "x": 338, "y": 52 },
+    { "id": "engine", "role": "source", "name": "Ladebooster", "x": 562, "y": 52 },
+    { "id": "battery", "role": "storage", "name": "Batterie", "x": 202, "y": 302 },
+    { "id": "load", "role": "rest", "name": "Verbraucher", "x": 474, "y": 302 }
+  ],
+  "resolve": [
+    {
+      "name": "night: the battery gives, the rest takes it",
+      "values": { "battery": { "watts": -92 } },
+      "expected": { "solar": [0, true], "shore": [0, true], "engine": [0, true], "battery": [92, true], "load": [92, false] }
+    },
+    {
+      "name": "drive: sun and engine in, the battery takes most",
+      "values": { "solar": { "watts": 120 }, "engine": { "watts": 414 }, "battery": { "watts": 446 } },
+      "expected": { "solar": [120, true], "shore": [0, true], "engine": [414, true], "battery": [446, false], "load": [88, false] }
+    },
+    {
+      "name": "full: the mains covers what draws, a thread into the battery",
+      "values": { "shore": { "watts": 101 }, "battery": { "watts": 9 } },
+      "expected": { "solar": [0, true], "shore": [101, true], "engine": [0, true], "battery": [9, false], "load": [92, false] }
+    },
+    {
+      "name": "a negative source counts as nothing; never a negative rest",
+      "values": { "solar": { "watts": -5 }, "shore": { "watts": 100 }, "battery": { "watts": 300 } },
+      "expected": { "solar": [0, true], "shore": [100, true], "engine": [0, true], "battery": [300, false], "load": [0, false] }
+    }
+  ],
+  "sankey": [
+    {
+      "name": "drive at 1000 W full scale on 676 x 396: 0.34 px a watt",
+      "size": { "width": 676, "height": 396 },
+      "fullScale": 1000,
+      "values": { "solar": { "watts": 120 }, "engine": { "watts": 414 }, "battery": { "watts": 446 } },
+      "expected": {
+        "bars": [
+          { "id": "solar", "side": "left", "x": 170, "y": 100.22, "height": 40.8 },
+          { "id": "engine", "side": "left", "x": 170, "y": 167.62, "height": 140.76 },
+          { "id": "battery", "side": "right", "x": 494, "y": 82.18, "height": 151.64 },
+          { "id": "load", "side": "right", "x": 494, "y": 265.86, "height": 29.92 }
+        ],
+        "bus": { "x": 330, "y": 107.22, "width": 16, "height": 181.56 }
+      }
+    },
+    {
+      "name": "night at 1000 W: the battery on the left, 92 W are 31.28 px",
+      "size": { "width": 676, "height": 396 },
+      "fullScale": 1000,
+      "values": { "battery": { "watts": -92 } },
+      "expected": {
+        "bars": [
+          { "id": "battery", "side": "left", "x": 170, "y": 182.36, "height": 31.28 },
+          { "id": "load", "side": "right", "x": 494, "y": 182.36, "height": 31.28 }
+        ],
+        "bus": { "x": 330, "y": 182.36, "width": 16, "height": 31.28 }
+      }
+    },
+    {
+      "name": "above the full scale the room is full: 340 px",
+      "size": { "width": 676, "height": 396 },
+      "fullScale": 1000,
+      "values": { "engine": { "watts": 2000 }, "battery": { "watts": 2000 } },
+      "expected": {
+        "bars": [
+          { "id": "engine", "side": "left", "x": 170, "y": 28, "height": 340 },
+          { "id": "battery", "side": "right", "x": 494, "y": 28, "height": 340 }
+        ],
+        "bus": { "x": 330, "y": 28, "width": 16, "height": 340 }
+      }
+    }
+  ],
+  "flowLines": [
+    {
+      "name": "the sun's line at drive: from its circle's edge to the bus's, 9.08 px",
+      "values": { "solar": { "watts": 120 } },
+      "id": "solar",
+      "expected": { "x0": 144.89, "y0": 70.48, "x1": 325.99, "y1": 178.81, "width": 9.08, "live": true }
+    },
+    {
+      "name": "the mains still: grey and 3 px",
+      "values": {},
+      "id": "shore",
+      "expected": { "x0": 338, "y0": 88, "x1": 338, "y1": 172, "width": 3, "live": false }
+    }
+  ],
+  "dotSeconds": [
+    { "watts": 0, "expected": 2.4 },
+    { "watts": 120, "expected": 0.84 },
+    { "watts": 1000000000, "expected": 0.35 }
+  ],
+  "dots": [
+    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0, "gives": true, "expected": [[0, 0], [33.33, 0], [66.67, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0.5, "gives": true, "expected": [[16.67, 0], [50, 0], [83.33, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0, "gives": false, "expected": [[100, 0], [66.67, 0], [33.33, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 0, "y1": 60 }, "phase": 0.25, "gives": true, "expected": [[0, 7.5], [0, 37.5]] }
+  ],
+  "wave": [
+    { "x": 0, "phase": 0, "mix": 0.26, "band": [224, 108, 31], "ground": [0, 0, 0], "colour": [166, 80, 23] },
+    { "x": 24, "phase": 0, "mix": 0.58, "band": [224, 108, 31], "ground": [255, 255, 255], "colour": [242, 193, 161] },
+    { "x": 12, "phase": 0.25, "mix": 0.26, "band": [47, 154, 82], "ground": [254, 247, 255], "colour": [101, 178, 127] }
+  ]
+}

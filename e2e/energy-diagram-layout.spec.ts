@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import vectors from "../lib/energy-diagram/vectors.json"
 import { FLOW_BUS_R, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotSeconds, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
@@ -230,5 +231,53 @@ test.describe("Dots and waves (L4)", () => {
     // The band's colour washed towards the ground by the mix, rounded.
     expect(waveColour([224, 108, 31], [0, 0, 0], 0, 0)).toEqual([166, 80, 23])
     expect(waveColour([224, 108, 31], [255, 255, 255], 24, 0)).toEqual([242, 193, 161])
+  })
+})
+
+// The cases the firmware and the app run too (L5): lib/energy-diagram/vectors.json.
+test.describe("shared vectors (L5)", () => {
+  const nodes = vectors.nodes as EnergyNode[]
+  const near = (a: number, b: number) => expect(a).toBeCloseTo(b, 1)
+
+  test("enough cases that a truncated copy cannot pass", () => {
+    expect(vectors.resolve.length + vectors.sankey.length + vectors.flowLines.length).toBeGreaterThanOrEqual(9)
+    expect(vectors.dots.length + vectors.wave.length + vectors.dotSeconds.length).toBeGreaterThanOrEqual(10)
+  })
+  for (const c of vectors.resolve) {
+    test(`resolve: ${c.name}`, () => {
+      const r = Object.fromEntries(resolveEnergy(nodes, c.values as any).map((n) => [n.id, [n.watts, n.gives]]))
+      expect(r).toEqual(c.expected)
+    })
+  }
+  for (const c of vectors.sankey) {
+    test(`sankey: ${c.name}`, () => {
+      const l = sankeyLayout(resolveEnergy(nodes, c.values as any), c.size, c.fullScale)
+      expect(l.bars.map((b) => [b.id, b.side])).toEqual(c.expected.bars.map((b) => [b.id, b.side]))
+      l.bars.forEach((b, i) => {
+        const e = c.expected.bars[i]
+        near(b.x, e.x)
+        near(b.y, e.y)
+        near(b.height, e.height)
+      })
+      for (const k of ["x", "y", "width", "height"] as const) near(l.bus[k], c.expected.bus[k])
+    })
+  }
+  for (const c of vectors.flowLines) {
+    test(`flow: ${c.name}`, () => {
+      const line = flowLayout(nodes, resolveEnergy(nodes, c.values as any)).lines.find((l) => l.id === c.id)!
+      for (const k of ["x0", "y0", "x1", "y1", "width"] as const) near(line[k], c.expected[k])
+      expect(line.live).toBe(c.expected.live)
+    })
+  }
+  test("dot seconds, dots and waves", () => {
+    for (const c of vectors.dotSeconds) near(dotSeconds(c.watts), c.expected)
+    for (const c of vectors.dots) {
+      const pts = dotsOnLine(c.line, c.phase, c.gives)
+      expect(pts.map((p) => [+p.x.toFixed(2), +p.y.toFixed(2)])).toEqual(c.expected)
+    }
+    for (const c of vectors.wave) {
+      near(waveMix(c.x, c.phase), c.mix)
+      expect(waveColour(c.band as [number, number, number], c.ground as [number, number, number], c.x, c.phase)).toEqual(c.colour)
+    }
   })
 })
