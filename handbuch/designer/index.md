@@ -12,7 +12,8 @@ Der Designer hat eine feste Aufteilung: oben die Menüleiste und die Werkzeuge, 
 - <span class="ui">Settings</span> öffnet die Projekteinstellungen, siehe [Projekte](/designer/projekte#projekteinstellungen).
 - <span class="ui">Undo</span> und <span class="ui">Redo</span>, die beiden Pfeile daneben, nehmen die letzte Änderung zurück oder stellen sie wieder her, siehe «Rückgängig machen» weiter unten.
 - <span class="ui">Help</span> öffnet dieses Handbuch.
-- <span class="ui">Preview</span> startet die [Vorschau](/designer/vorschau).
+
+Unter dem Gerät steht ein roter Schalter mit <span class="ui">Preview</span> und <span class="ui">Designer</span>. Er zeigt, wo du gerade bist, und wechselt zwischen der [Vorschau](/designer/vorschau) und dem Editor.
 
 ## Werkzeugleiste
 

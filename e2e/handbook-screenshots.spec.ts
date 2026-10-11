@@ -313,7 +313,7 @@ test.describe("handbook: Erste Schritte", () => {
     await page.getByRole("button", { name: "Simulation", exact: true }).click()
     await expect(page.getByText(/^Simulation: examples and Mock Responses/)).toBeVisible()
     await shot("vorschau-simulation")
-    await page.getByRole("button", { name: "Exit Preview" }).click()
+    await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
 
     // 5. Deploy: the board is offered, up to date with the firmware.
     await page.getByRole("button", { name: "File" }).click()

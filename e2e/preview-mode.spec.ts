@@ -224,14 +224,18 @@ test("preview mode swaps the property panel for Topic Values and back", async ({
 
   await expect(page.getByText("Objects", { exact: true })).toBeVisible()
 
+  // The red switch under the device, as in the demo (2026-10-11): the only
+  // Preview button, and Designer pressed while editing.
+  await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveCount(1)
+  await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" })).toHaveAttribute("aria-pressed", "true")
   await page.getByRole("button", { name: "Preview", exact: true }).click()
   await page.waitForTimeout(300)
 
-  await expect(page.getByRole("button", { name: "Exit Preview" })).toBeVisible()
+  await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("MQTT Topic Values")).toBeVisible()
   await expect(page.getByText("Objects", { exact: true })).toHaveCount(0)
 
-  await page.getByRole("button", { name: "Exit Preview" }).click()
+  await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
   await page.waitForTimeout(300)
 
   await expect(page.getByText("Objects", { exact: true })).toBeVisible()
@@ -289,7 +293,7 @@ test("a hardware button dispatches its configured action instead of opening its 
 
   // Navigating via a preview button must never change what's actually
   // being edited - exiting preview mode returns to the original screen.
-  await page.getByRole("button", { name: "Exit Preview" }).click()
+  await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
   await page.waitForTimeout(300)
   await expect(originalScreenRow).toHaveClass(/bg-accent/)
 })

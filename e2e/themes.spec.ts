@@ -543,7 +543,7 @@ test.describe("drawing and export from roles", () => {
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
 
     // Out of the preview, the Dark switch's view again.
-    await page.getByRole("button", { name: "Exit Preview" }).click()
+    await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
   })
 

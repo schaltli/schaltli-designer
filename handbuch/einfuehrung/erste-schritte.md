@@ -50,7 +50,7 @@ Die Zahlen im Editor sind Beispielwerte, damit du siehst, wie die Anzeige wirkt.
 
 ## 5. In der Vorschau prüfen
 
-Klicke oben rechts auf <span class="ui">Preview</span>. Die Vorschau verbindet sich mit dem Broker und zeigt die echten Werte deines Vans. Rechts stehen unter <span class="ui">MQTT Topic Values</span> alle Werte, die der Screen gerade liest.
+Klicke im roten Schalter unter dem Gerät auf <span class="ui">Preview</span>. Die Vorschau verbindet sich mit dem Broker und zeigt die echten Werte deines Vans. Rechts stehen unter <span class="ui">MQTT Topic Values</span> alle Werte, die der Screen gerade liest.
 
 <Screenshot name="vorschau-live" alt="Die Live-Vorschau mit den echten Werten des Vans" caption="Live: der tatsächliche Füllstand und Ladezustand." />
 
@@ -58,7 +58,7 @@ Klicke oben rechts auf <span class="ui">Preview</span>. Die Vorschau verbindet s
 Tippst du in der Vorschau auf den Schalter, geht das Licht im Van tatsächlich an oder aus. Zum gefahrlosen Ausprobieren wechsle oben in der Liste auf <span class="ui">Simulation</span>.
 :::
 
-<span class="ui">Exit Preview</span> bringt dich zurück in den Editor.
+<span class="ui">Designer</span> im selben Schalter bringt dich zurück in den Editor.
 
 ## 6. Aufs Board übertragen
 

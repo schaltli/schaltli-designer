@@ -40,7 +40,7 @@ Am schnellsten geht es mit den Bausteinen. In der Werkzeugleiste öffnet <span c
 
 ## Die Vorschau
 
-Oben rechts startet <span class="ui">Preview</span> die Vorschau. Der Screen verhält sich jetzt wie auf dem Gerät: Schalter lassen sich antippen, Dimmer ziehen, Buttons wechseln den Screen. Rechts steht die Liste <span class="ui">MQTT Topic Values</span> mit allen Werten, die dein Screen gerade anzeigt. <span class="ui">Exit Preview</span> bringt dich zurück in den Editor.
+Im roten Schalter unter dem Gerät startet <span class="ui">Preview</span> die Vorschau. Der Screen verhält sich jetzt wie auf dem Gerät: Schalter lassen sich antippen, Dimmer ziehen, Buttons wechseln den Screen. Rechts steht die Liste <span class="ui">MQTT Topic Values</span> mit allen Werten, die dein Screen gerade anzeigt. <span class="ui">Designer</span> im selben Schalter bringt dich zurück in den Editor.
 
 Die Vorschau kennt zwei Quellen für ihre Werte, und oben in der Liste wählst du, welche:
 

@@ -465,9 +465,9 @@ test.describe("Undo and redo", () => {
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
 
     await page.getByRole("button", { name: "Preview" }).click()
-    await expect(page.getByRole("button", { name: "Exit Preview" })).toBeVisible()
+    await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
     await page.keyboard.press("ControlOrMeta+z")
-    await page.getByRole("button", { name: "Exit Preview" }).click()
+    await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
 
     await page.keyboard.press("ControlOrMeta+z")

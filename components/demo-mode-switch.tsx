@@ -1,7 +1,7 @@
 "use client"
 
-// The demo's switch between the preview and the designer, under the device
-// (2026-10-10): a visitor could not tell which of the two was on - the
+// The switch between the preview and the designer, under the device - the
+// demo's first (2026-10-10), every designer's since 2026-10-11: a visitor could not tell which of the two was on - the
 // toolbar's Preview button says it only while it is pressed. Red, so it is
 // found, and both words always there, so it says where you are. It floats
 // halfway between the device's lower edge and the bottom of the canvas where
@@ -35,12 +35,15 @@ export function DemoModeSwitch({
   onPreview,
   onDesigner,
   floatAt,
+  felt = false,
 }: {
   preview: boolean
   onPreview: () => void
   onDesigner: () => void
   // Over the canvas at this height (demoSwitchFloat); null: in the strip.
   floatAt: number | null
+  // The demo's preview stands on felt, and the strip with it.
+  felt?: boolean
 }) {
   const segment = (on: boolean) =>
     cn(
@@ -57,7 +60,7 @@ export function DemoModeSwitch({
       style={
         floatAt !== null
           ? { top: floatAt }
-          : preview
+          : preview && felt
             ? FELT_EDGE
             : { backgroundColor: "rgb(var(--canvas-container-bg))" }
       }

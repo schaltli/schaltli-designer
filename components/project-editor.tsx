@@ -72,7 +72,7 @@ import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
 import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
@@ -4102,28 +4102,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </a>
         </Button>
 
-        {/* The demo has the red switch under the device in its place
-            (DemoModeSwitch). */}
-        {!demo && (
-        <Button
-          variant={isPreviewMode ? "default" : "outline"}
-          size="sm"
-          className="h-8 px-3 gap-1.5"
-          onClick={isPreviewMode ? exitPreviewMode : enterPreviewMode}
-        >
-          {isPreviewMode ? (
-            <>
-              <X className="w-4 h-4" />
-              Exit Preview
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4" />
-              Preview
-            </>
-          )}
-        </Button>
-        )}
+        {/* Preview and designer: the red switch under the device
+            (DemoModeSwitch), in the demo and here alike since 2026-10-11 -
+            the toolbar's «Preview» / «Exit Preview» button said where you
+            were only while it was pressed. */}
       </div>
 
       <div className="mt-12 mb-8 flex-1 flex flex-col min-h-0">
@@ -4188,7 +4170,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-auto">
           <Canvas
             backdrop={demo && isPreviewMode ? "felt" : "plain"}
-            onDeviceBottom={demo ? onDeviceBottom : undefined}
+            onDeviceBottom={onDeviceBottom}
             projectScreens={project.screens}
             screen={displayedScreen}
             popupUnderlay={popupUnderlay}
@@ -4262,12 +4244,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             liveValues={isPreviewMode && previewSource === "live" ? liveValuesWithTheme : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
-          {demo && demoSwitchAt !== null && (
-            <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={demoSwitchAt} />
+          {demoSwitchAt !== null && (
+            <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={demoSwitchAt} felt={!!demo} />
           )}
         </div>
-        {demo && demoSwitchAt === null && (
-          <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={null} />
+        {demoSwitchAt === null && (
+          <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={null} felt={!!demo} />
         )}
         </div>
 
