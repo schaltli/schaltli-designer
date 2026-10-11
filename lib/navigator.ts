@@ -39,6 +39,39 @@ export function dividerRect(edge: Edge, strip: Rect): Rect {
   return { x: strip.x, y: strip.y, width: strip.width, height: d }
 }
 
+/**
+ * Where the light/dark switch stands on the strip (2026-10-11): none, at its
+ * start («Near» - the top of a left or right strip, the left of a top or
+ * bottom one) or at its end («Far»). It does not scroll; the entries scroll
+ * in what is left.
+ */
+export type ThemeSwitchAt = "none" | "near" | "far"
+
+/** How long the switch's place is along the strip, in px. */
+export const THEME_SWITCH_LENGTH = 64
+
+/** A navigator's strip split: the whole bar, the entries' part laid out, and the switch's place. */
+export interface NavigatorBar {
+  bar: Rect
+  layout: NavigatorLayout
+  themeSwitch?: Rect
+}
+
+/** The bar laid out with `count` entries, the switch's place cut off where `at` says. */
+export function barLayout(edge: Edge, shows: Shows, bar: Rect, count: number, at: ThemeSwitchAt = "none"): NavigatorBar {
+  if (at !== "near" && at !== "far") return { bar, layout: layoutInStrip(edge, shows, bar, count) }
+  const horizontal = edge === "top" || edge === "bottom"
+  const l = Math.min(THEME_SWITCH_LENGTH, horizontal ? bar.width : bar.height)
+  const near = at === "near"
+  const themeSwitch = horizontal
+    ? { x: near ? bar.x : bar.x + bar.width - l, y: bar.y, width: l, height: bar.height }
+    : { x: bar.x, y: near ? bar.y : bar.y + bar.height - l, width: bar.width, height: l }
+  const entries = horizontal
+    ? { x: near ? bar.x + l : bar.x, y: bar.y, width: bar.width - l, height: bar.height }
+    : { x: bar.x, y: near ? bar.y + l : bar.y, width: bar.width, height: bar.height - l }
+  return { bar, layout: layoutInStrip(edge, shows, entries, count), themeSwitch }
+}
+
 /** How thick the strip is, and the shortest an entry may be, per «Shows». */
 export const NAVIGATOR_SIZES: Record<Shows, { thickness: number; minEntry: number }> = {
   icons: { thickness: 64, minEntry: 64 },

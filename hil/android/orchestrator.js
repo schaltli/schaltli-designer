@@ -172,6 +172,9 @@ function asDesignerProject(project) {
         shows: normalText ? "iconsAndText" : "icons",
         fontId: normalText?.properties?.fontId,
         backgroundColor: nav.backgroundColor,
+        // The line and the light/dark switch, as exported (2026-10-11).
+        ...(nav.borderColor ? { borderColor: nav.borderColor } : {}),
+        ...(nav.themeSwitch ? { themeSwitch: nav.themeSwitch.at } : {}),
         textColor: normalIcon?.properties?.iconColor ?? normalText?.properties?.textColor,
         activeColor: activeBox?.properties?.fillColor,
         activeTextColor: activeIcon?.properties?.iconColor,
@@ -1331,7 +1334,7 @@ async function swipeToScreen(deviceSerial, from, to) {
  * last screen is scrolled to the end; dragged right by the whole strip it is
  * back at the start, and the first entry is under the finger.
  */
-async function checkNavigator(deviceSerial, page, project, si) {
+async function checkNavigator(deviceSerial, page, project, si, mqttClient) {
   const screen = project.screens[si];
   const nav = (project.navigators || []).find((n) => n.id === screen.navigatorId);
   if (!nav) return si;
@@ -1358,6 +1361,30 @@ async function checkNavigator(deviceSerial, page, project, si) {
   }
   console.log(`  navigator: a drag along the strip scrolled it (${(changed * 100).toFixed(1)}% of the glass) and paged nothing`);
 
+  // The light/dark switch asks for the other variant (2026-10-11): with no
+  // theme said, for dark. Before the entry tap below: the screen that opens
+  // may show no navigator.
+  if (nav.themeSwitch && mqttClient) {
+    const along = nav.themeSwitch.at === "near" ? nav.themeSwitch.length / 2 : project.screenWidth - nav.themeSwitch.length / 2;
+    const asked = await new Promise((resolve) => {
+      const onMessage = (topic, payload) => {
+        if (topic !== "schaltli/cmnd/theme") return;
+        mqttClient.removeListener("message", onMessage);
+        resolve(payload.toString());
+      };
+      mqttClient.on("message", onMessage);
+      mqttClient.subscribe("schaltli/cmnd/theme", async () => {
+        const p = await devicePointFor(deviceSerial, project, along, stripY);
+        await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+      });
+      setTimeout(() => {
+        mqttClient.removeListener("message", onMessage);
+        resolve(null);
+      }, 10000);
+    });
+    if (asked !== "dark") throw new Error(`A tap on the navigator's light/dark switch should ask schaltli/cmnd/theme for "dark"; it asked ${JSON.stringify(asked)}.`);
+    console.log("  navigator: a tap on the light/dark switch asked for dark");
+  }
   const first = nav.entries[0];
   const target = project.screens.findIndex((s) => s.id === first.screenId);
   const at = await devicePointFor(deviceSerial, project, nav.entryLength / 2, stripY);
@@ -1367,6 +1394,7 @@ async function checkNavigator(deviceSerial, page, project, si) {
     throw new Error(`A tap on the navigator's first entry should open "${project.screens[target].name}"; the phone shows "${landed[0].name}".`);
   }
   console.log(`  navigator: a tap on the first entry opened "${project.screens[target].name}"`);
+
   return target;
 }
 
@@ -2036,7 +2064,7 @@ async function main() {
   // The navigator, from the screen that shows it, which the loop above ends on.
   if (project.screens[currentScreen]?.navigatorId) {
     console.log("\nThe navigator...");
-    currentScreen = await checkNavigator(deviceSerial, page, project, currentScreen);
+    currentScreen = await checkNavigator(deviceSerial, page, project, currentScreen, mqttClient);
   }
 
   console.log("\nA drag on a slider, and popups...");

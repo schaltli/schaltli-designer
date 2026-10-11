@@ -16,7 +16,7 @@ import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-type
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
-import { darkProperties, entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf, withDarkColours } from "@/lib/navigator-entries"
+import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 import {
   buttonIconKey,
@@ -64,7 +64,8 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // A button opening a popup that is not there does nothing (lib/popup.ts).
   // A live icon keeps its live value (lib/object-text.ts withLiveIconFallbacks);
   // the app draws it from 1.4 on, as it draws no static icon of its own.
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))
+  // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
+  const project = withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject))))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -556,7 +557,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // for a board: each once, its entries as objects; icons as tinted SVGs.
   const navigators = navigatorsOf(project).map(({ master, navigator }) => {
     const nav = applyThemeWithDark([navigator], themeFor(master, project.screens), "24bit")[0]
-    const layout = exportLayout(project, nav)
+    const { layout, themeSwitch } = exportBar(project, nav)
     const { width, height } = entrySize(layout)
     const look = entryLook(nav, project.fonts ?? [])
     const darkLook = entryLook({ ...nav, properties: darkProperties(nav.properties) }, project.fonts ?? [])
@@ -564,6 +565,13 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       withDarkColours(navigatorEntryObjects(screen, width, height, look, active), navigatorEntryObjects(screen, width, height, darkLook, active)).map((o) =>
         appObject(o, entryKey(master.id, screen.id, active)),
       )
+    // The light/dark switch (§2.7, generation 1.6), as for a board.
+    const switchObjects = () =>
+      themeSwitch
+        ? withDarkColours(themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), themeSwitchObjects(themeSwitch.width, themeSwitch.height, darkLook)).map((o) =>
+            appObject(o, themeSwitchKey(master.id)),
+          )
+        : []
     return {
       id: navigator.id,
       edge: nav.properties.edge ?? "left",
@@ -571,6 +579,13 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       entryLength: layout.entryLength,
       backgroundColor: nav.properties.backgroundColor,
       ...(nav.properties.backgroundColorDark ? { backgroundColorDark: nav.properties.backgroundColorDark } : {}),
+      // The line towards the screen: missing here until 2026-10-11, so the
+      // app, which draws it, never got it.
+      ...(nav.properties.borderColor && nav.properties.borderColor !== "transparent" ? { borderColor: nav.properties.borderColor } : {}),
+      ...(nav.properties.borderColorDark && nav.properties.borderColorDark !== "transparent" ? { borderColorDark: nav.properties.borderColorDark } : {}),
+      ...(themeSwitch
+        ? { themeSwitch: { at: themeSwitchAt(nav), length: layout.horizontal ? themeSwitch.width : themeSwitch.height, objects: switchObjects() } }
+        : {}),
       entries: navigatorScreens(project.screens).map((screen) => ({
         screenId: screen.id,
         normal: entryObjects(screen, false),

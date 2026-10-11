@@ -80,7 +80,10 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
    export copies a master's objects into every screen. A navigator copied
    so could not stay put while swiping, so it is written once, at the top
    of project.json, and each screen says whether it shows it.
-10. **Opaque.** The navigator has its own ground («Panel», with a 2 px line
+10. **Opaque.** The navigator has its own ground - since 2026-10-11 a
+    choice, «Background» Panel or Accent: with Accent the strip is in the
+    accent, ink «Text on accent», the open entry a box in the screen's ground
+    with «Accent» ink, and no line - («Panel», with a 2 px line
     in «Outline» towards the screen - on «Surface», as the screen, it read
     as one button, not as a bar; changed 2026-10-10). A background
     image may lie under it on a screen, but the navigator covers it, also
@@ -112,6 +115,14 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
 18. **Generation 1.5.** `NAVIGATOR_GENERATION`; the deploy dialog warns
     before deploying a project with a navigator or a hidden screen to a
     device below it.
+
+19. **Light/dark switch** (added 2026-10-11). «Theme switch» None, Near or
+    Far: a place at the strip's start or end, 64 px along it, that does not
+    scroll; a sun while schaltli/state/theme is light (or says nothing), a
+    moon while dark - a live icon - and a tap asks schaltli/cmnd/theme for
+    the other. Generation 1.6, `NAVIGATOR_THEME_SWITCH_GENERATION`.
+20. **Even distance to the line** (2026-10-11). The open entry's box keeps
+    4 px from the line as from the other side; it stood 2 px from it.
 
 ## Behaviour
 

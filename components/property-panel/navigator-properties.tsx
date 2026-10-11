@@ -6,11 +6,13 @@
  * «Shows» put it where it goes and size it (lib/navigator.ts) - so there is
  * no position here. Its colours are the theme's: «Panel» with a line in
  * «Outline» towards the screen, «Text», the open screen's entry «Accent» and
- * «Text on accent».
+ * «Text on accent» - or, with «Background» on «Accent», the strip in the
+ * accent and the open entry the other way round. «Theme switch» puts a
+ * light/dark switch at its start or end that does not scroll (2026-10-11).
  */
 
 import type { ProjectFont, ScreenObject } from "../project-editor"
-import { navigatorStrip, type Edge, type Shows } from "@/lib/navigator"
+import { navigatorStrip, type Edge, type Shows, type ThemeSwitchAt } from "@/lib/navigator"
 import { FontField, PropertySection, PropertySections, SelectField } from "./fields"
 
 interface NavigatorPropertiesProps {
@@ -28,6 +30,20 @@ const EDGES: { value: Edge; label: string }[] = [
   { value: "top", label: "Top" },
   { value: "bottom", label: "Bottom" },
 ]
+
+const GROUNDS: { value: "panel" | "accent"; label: string }[] = [
+  { value: "panel", label: "Panel" },
+  { value: "accent", label: "Accent" },
+]
+
+const THEME_SWITCH: { value: ThemeSwitchAt; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "near", label: "Near" },
+  { value: "far", label: "Far" },
+]
+
+// The colours a ground decides; changing the ground lets the theme choose them again.
+const GROUND_COLOURS = ["backgroundColor", "textColor", "activeColor", "activeTextColor", "borderColor"]
 
 const SHOWS: { value: Shows; label: string }[] = [
   { value: "icons", label: "Icons" },
@@ -81,6 +97,29 @@ export function NavigatorProperties({
             onManageFonts={onManageFonts}
           />
         )}
+        <SelectField
+          id="navigatorGround"
+          label="Background"
+          value={selectedObject.properties.ground === "accent" ? "accent" : "panel"}
+          options={GROUNDS}
+          onChange={(value) => {
+            const properties: Record<string, any> = { ...selectedObject.properties, ground: value }
+            for (const key of GROUND_COLOURS) {
+              delete properties[key]
+              delete properties[`${key}Dark`]
+            }
+            onUpdateObject(selectedObject.id, { properties })
+          }}
+          hint="Panel with a line towards the screen, or the theme's accent with the open screen the other way round."
+        />
+        <SelectField
+          id="navigatorThemeSwitch"
+          label="Theme switch"
+          value={selectedObject.properties.themeSwitch ?? "none"}
+          options={THEME_SWITCH}
+          onChange={(value) => onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, themeSwitch: value } })}
+          hint="A sun or moon at the start (Near) or end (Far) of the bar that switches light and dark. It stays put while the bar scrolls."
+        />
       </PropertySection>
     </PropertySections>
   )

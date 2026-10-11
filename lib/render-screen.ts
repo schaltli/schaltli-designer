@@ -31,8 +31,8 @@ import { renderSoftwareButton } from "@/components/canvas/renderers/render-softw
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { applyColorDepth } from "@/lib/color-depth"
-import { clampScroll, dividerRect, entryRect, layoutInStrip, navigatorScreens, scrollToShow } from "@/lib/navigator"
-import { entryLook, navigatorEntryObjects, type EntryScreen } from "@/lib/navigator-entries"
+import { barLayout, clampScroll, dividerRect, entryRect, navigatorScreens, scrollToShow } from "@/lib/navigator"
+import { entryLook, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
@@ -384,18 +384,32 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
   const context = options.navigator
   if (context) {
     const screens = navigatorScreens(context.screens)
-    const layout = layoutInStrip(obj.properties.edge ?? "left", obj.properties.shows ?? "iconsAndText", strip, screens.length)
+    const { layout, themeSwitch } = barLayout(obj.properties.edge ?? "left", obj.properties.shows ?? "iconsAndText", strip, screens.length, themeSwitchAt(obj))
     const active = screens.findIndex((s) => s.id === context.activeScreenId)
     const scroll = context.scroll !== undefined ? clampScroll(layout, context.scroll) : scrollToShow(layout, Math.max(0, active), 0)
     const look = entryLook(obj, options.fonts)
+    const entries = layout.strip
+    const withIcons = themeSwitch ? { ...options, projectAssets: [...(options.projectAssets ?? []), ...THEME_SWITCH_ASSETS] } : options
+    // The entries scroll within their part; the switch stands still beside it.
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(entries.x, entries.y, entries.width, entries.height)
+    ctx.clip()
     screens.forEach((screen, i) => {
       const rect = entryRect(layout, i, scroll)
-      if (rect.x >= strip.x + strip.width || rect.y >= strip.y + strip.height || rect.x + rect.width <= strip.x || rect.y + rect.height <= strip.y) return
+      if (rect.x >= entries.x + entries.width || rect.y >= entries.y + entries.height || rect.x + rect.width <= entries.x || rect.y + rect.height <= entries.y) return
       ctx.save()
       ctx.translate(rect.x, rect.y)
       renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...options, nested: true, navigator: undefined })
       ctx.restore()
     })
+    ctx.restore()
+    if (themeSwitch) {
+      ctx.save()
+      ctx.translate(themeSwitch.x, themeSwitch.y)
+      renderScreenObjects(ctx, themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), { ...withIcons, nested: true, navigator: undefined })
+      ctx.restore()
+    }
   }
   if (obj.properties.borderColor && obj.properties.borderColor !== "transparent") {
     const line = dividerRect(obj.properties.edge ?? "left", strip)

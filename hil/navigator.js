@@ -90,6 +90,9 @@ function navigatorProject(ddf) {
       backgroundColor: "#202020",
       // The line towards the screen (contract 2.7, 2026-10-10).
       borderColor: "#ff8000",
+      // The light/dark switch at the strip's end (2.7, generation 1.6,
+      // 2026-10-11): the entries scroll in what is above it.
+      themeSwitch: "far",
       textColor: "#c0c0c0",
       activeColor: "#4060ff",
       activeTextColor: "#ffffff",
@@ -310,10 +313,12 @@ async function main() {
     // as shows the open entry" (-1) until a finger moves it, then follows
     // every screen change only as far as shows the new entry.
     const listed = Array.from({ length: 11 }, (_, i) => i + 2)
-    const ENTRY = listed.length * 88 <= sh ? Math.floor(sh / listed.length) : 88
-    const maxScroll = Math.max(0, listed.length * ENTRY - sh)
+    // The entries' part: the strip less the switch's place at its end.
+    const LEN = sh - 64
+    const ENTRY = listed.length * 88 <= LEN ? Math.floor(LEN / listed.length) : 88
+    const maxScroll = Math.max(0, listed.length * ENTRY - LEN)
     const clamp = (v) => Math.min(Math.max(0, v), maxScroll)
-    const toShow = (i, from) => clamp(i * ENTRY < from ? i * ENTRY : (i + 1) * ENTRY > from + sh ? (i + 1) * ENTRY - sh : from)
+    const toShow = (i, from) => clamp(i * ENTRY < from ? i * ENTRY : (i + 1) * ENTRY > from + LEN ? (i + 1) * ENTRY - LEN : from)
     let scroll = -1
     let open = 0 // index into listed
     const effective = () => (scroll >= 0 ? clamp(scroll) : toShow(open, 0))
@@ -339,7 +344,7 @@ async function main() {
 
     // Up the strip: the 4.3B follows the finger, the PaperS3 turns a page.
     await drag(40, sh * 0.8, 40, sh * 0.4)
-    scroll = eink ? clamp(effective() + Math.max(1, Math.floor(sh / ENTRY)) * ENTRY) : clamp(effective() + Math.round(sh * 0.4))
+    scroll = eink ? clamp(effective() + Math.max(1, Math.floor(LEN / ENTRY)) * ENTRY) : clamp(effective() + Math.round(sh * 0.4))
     await showsOpen("a swipe up the strip scrolls it, the screen stays")
 
     goTo(entryAtY(130))
@@ -404,6 +409,37 @@ async function main() {
     await publish(NAME, "Frischwasser")
     await settle()
     await showsOpen("a value under the strip leaves it whole")
+
+    // The light/dark switch: a tap asks for the other variant of what
+    // schaltli/state/theme says, and its icon follows that topic - a sun
+    // while light, a moon while dark.
+    const THEME_STATE = "schaltli/state/theme"
+    const THEME_CMND = "schaltli/cmnd/theme"
+    const asked = []
+    client.on("message", (topic, payload) => {
+      if (topic === THEME_CMND) asked.push(payload.toString())
+    })
+    await new Promise((resolve) => client.subscribe(THEME_CMND, { qos: 1 }, resolve))
+    const switchPixels = (img) => {
+      const out = []
+      for (let y = sh - 64; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
+      return out.join(",")
+    }
+    const sun = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, light"))
+    await tap(40, sh - 32)
+    await settle()
+    check("a tap on the switch while light asks for dark", asked.includes("dark"), JSON.stringify(asked))
+    await publish(THEME_STATE, "dark")
+    await settle()
+    await sleep(eink ? 3000 : 1500)
+    const moon = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, dark"))
+    check("... and while dark shows the other icon", moon !== sun)
+    asked.length = 0
+    await tap(40, sh - 32)
+    await settle()
+    check("a tap on it while dark asks for light", asked.includes("light"), JSON.stringify(asked))
+    await publish(THEME_STATE, "")
+    await settle()
   } finally {
     await browser.close()
     client.end()

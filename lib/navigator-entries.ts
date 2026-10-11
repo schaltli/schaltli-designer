@@ -9,8 +9,18 @@
 import type { ScreenObject } from "@/components/project-editor"
 import type { LiveValue } from "@/lib/live-value"
 import { screenIconObject } from "@/lib/screen-icon"
-import { navigatorLayout, navigatorScreens, type NavigatorLayout, type Shows } from "@/lib/navigator"
-import { COLOR_KEYS } from "@/lib/themes"
+import {
+  barLayout,
+  navigatorScreens,
+  NAVIGATOR_DIVIDER,
+  navigatorStrip,
+  type Edge,
+  type NavigatorBar,
+  type NavigatorLayout,
+  type Shows,
+  type ThemeSwitchAt,
+} from "@/lib/navigator"
+import { COLOR_KEYS, THEME_STATE_TOPIC } from "@/lib/themes"
 
 /** The icon's side, and the gaps around it and between it and the name. */
 export const ENTRY_ICON = 32
@@ -35,6 +45,13 @@ export interface EntryLook {
   textColor: string
   activeColor: string
   activeTextColor: string
+  /**
+   * The edge whose line lies over the entry's screen side, if the navigator
+   * draws one: the open entry's box keeps its distance from the line, not
+   * from under it (2026-10-11 - it stood 2 px from the line, 4 px from the
+   * other side).
+   */
+  dividerSide?: Edge
 }
 
 /** The navigator object's look, its colours as resolved for the screen it is drawn on. */
@@ -48,6 +65,7 @@ export function entryLook(navigator: ScreenObject, fonts: { id: string; size?: n
     textColor: p.textColor ?? "#000000",
     activeColor: p.activeColor ?? "#6750a4",
     activeTextColor: p.activeTextColor ?? "#ffffff",
+    dividerSide: p.borderColor && p.borderColor !== "transparent" ? (p.edge ?? "left") : undefined,
   }
 }
 
@@ -71,13 +89,16 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
   const objects: ScreenObject[] = []
 
   if (active) {
+    // The line lies over the strip's last pixels on the screen's side.
+    const d = NAVIGATOR_DIVIDER
+    const side = look.dividerSide
     objects.push({
       id: `${screen.id}-active`,
       type: "box",
-      x: ACTIVE_INSET,
-      y: ACTIVE_INSET,
-      width: width - 2 * ACTIVE_INSET,
-      height: height - 2 * ACTIVE_INSET,
+      x: ACTIVE_INSET + (side === "right" ? d : 0),
+      y: ACTIVE_INSET + (side === "bottom" ? d : 0),
+      width: width - 2 * ACTIVE_INSET - (side === "left" || side === "right" ? d : 0),
+      height: height - 2 * ACTIVE_INSET - (side === "top" || side === "bottom" ? d : 0),
       zIndex: 0,
       properties: { fillColor: look.activeColor, strokeColor: look.activeColor, strokeWidth: 0, cornerRadius: ACTIVE_RADIUS },
     } as ScreenObject)
@@ -114,6 +135,88 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
   return objects
 }
 
+// ------------------------------------------------------- the light/dark switch
+//
+// A place on the strip that does not scroll (2026-10-11): a sun while the
+// installation is light, a moon while it is dark - a live icon on
+// THEME_STATE_TOPIC, which every device of 1.4 draws already. A tap asks for
+// the other through THEME_COMMAND_TOPIC.
+
+const themeSvg = (body: string) =>
+  `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`) : Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
+
+export const THEME_SWITCH_SUN = "schaltli-theme-sun"
+export const THEME_SWITCH_MOON = "schaltli-theme-moon"
+
+/** The switch's two icons, as project assets the switch's objects name. */
+export const THEME_SWITCH_ASSETS = [
+  {
+    id: THEME_SWITCH_SUN,
+    name: "Light",
+    type: "icon" as const,
+    data: themeSvg(
+      '<circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v2.5M12 20v2.5M1.5 12H4M20 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/>',
+    ),
+  },
+  {
+    id: THEME_SWITCH_MOON,
+    name: "Dark",
+    type: "icon" as const,
+    data: themeSvg('<path fill="currentColor" d="M14.5 2.5a9.5 9.5 0 1 0 7 15.6A8 8 0 0 1 14.5 2.5z"/>'),
+  },
+]
+
+/** The switch as an entry: no name, its icon the moon while dark, the sun otherwise. */
+export const THEME_SWITCH_ENTRY: EntryScreen = {
+  id: "theme-switch",
+  name: "",
+  iconAssetId: THEME_SWITCH_SUN,
+  iconLive: {
+    id: "lv1",
+    source: { namespace: "topic", path: THEME_STATE_TOPIC },
+    rules: [{ op: "==", operand: "dark", result: { kind: "icon", icon: THEME_SWITCH_MOON } }],
+    otherwise: { kind: "icon", icon: THEME_SWITCH_SUN },
+    // No value means light (device contract 4), so the sun before any arrives.
+    noValueYet: { kind: "icon", icon: THEME_SWITCH_SUN },
+  },
+}
+
+/** Where the navigator's switch stands. */
+export function themeSwitchAt(navigator: ScreenObject): ThemeSwitchAt {
+  const at = navigator.properties?.themeSwitch
+  return at === "near" || at === "far" ? at : "none"
+}
+
+/** The switch's objects in its place, `width` by `height`: its icon centred, in the entries' ink. */
+export function themeSwitchObjects(width: number, height: number, look: EntryLook): ScreenObject[] {
+  return navigatorEntryObjects(THEME_SWITCH_ENTRY, width, height, { ...look, shows: "icons" }, false)
+}
+
+/**
+ * The project with what the switch needs, where a navigator shows it: its
+ * icons among the assets, and THEME_STATE_TOPIC among the topics - a board
+ * keeps the value of a topic its project names, and no other (found on the
+ * 4.3B, 2026-10-11: the moon never came).
+ */
+export function withThemeSwitchAssets<P extends { assets?: any[]; topics?: any[]; screens: readonly { isMaster?: boolean; objects?: ScreenObject[] }[] }>(project: P): P {
+  const shows = project.screens.some((s) => s.isMaster && (s.objects ?? []).some((o) => o.type === "navigator" && themeSwitchAt(o) !== "none"))
+  if (!shows) return project
+  const have = new Set((project.assets ?? []).map((a) => a.id))
+  const topics = project.topics ?? []
+  return {
+    ...project,
+    assets: [...(project.assets ?? []), ...THEME_SWITCH_ASSETS.filter((a) => !have.has(a.id))],
+    topics: topics.some((t) => t.topic === THEME_STATE_TOPIC)
+      ? topics
+      : [...topics, { id: "schaltli-theme-state", topic: THEME_STATE_TOPIC, type: "text", examples: ["light", "dark"] }],
+  }
+}
+
+/** The key the switch's bakes go under. */
+export function themeSwitchKey(masterId: string): string {
+  return `nav-${masterId}-theme-switch`
+}
+
 /**
  * Every entry's objects, normal and active, at a nominal size - what has to
  * be loaded before a navigator can be drawn in one go (test-render's icon
@@ -125,10 +228,10 @@ export function everyEntryObject(
   fonts: { id: string; size?: number }[],
 ): ScreenObject[] {
   const look = entryLook(navigator, fonts)
-  return navigatorScreens(screens).flatMap((s) => [
-    ...navigatorEntryObjects(s, 88, 88, look, false),
-    ...navigatorEntryObjects(s, 88, 88, look, true),
-  ])
+  return [
+    ...navigatorScreens(screens).flatMap((s) => [...navigatorEntryObjects(s, 88, 88, look, false), ...navigatorEntryObjects(s, 88, 88, look, true)]),
+    ...(themeSwitchAt(navigator) !== "none" ? themeSwitchObjects(88, 88, look) : []),
+  ]
 }
 
 // ------------------------------------------------------------------ export
@@ -151,6 +254,13 @@ export function navigatorNotOnDevices(project: NavigatorProject & { screens: rea
   ]
 }
 
+/** What a device below 1.6 would not show: each navigator's light/dark switch, by its master. */
+export function themeSwitchNotOnDevices(project: NavigatorProject & { screens: readonly { name: string }[] }): string[] {
+  return navigatorsOf(project)
+    .filter(({ navigator }) => themeSwitchAt(navigator) !== "none")
+    .map(({ master }) => `the light/dark switch on ${(master as { name: string }).name}`)
+}
+
 /** Every master's navigator, in screen-list order (decisions 1, 16). */
 export function navigatorsOf<P extends NavigatorProject>(project: P): { master: P["screens"][number]; navigator: ScreenObject }[] {
   return project.screens.flatMap((master) => {
@@ -160,15 +270,17 @@ export function navigatorsOf<P extends NavigatorProject>(project: P): { master: 
   })
 }
 
-/** A navigator's layout on the project's screen, with every listed screen. */
+/** A navigator's bar on the project's screen: its entries laid out with every listed screen, and the switch's place. */
+export function exportBar(project: NavigatorProject, navigator: ScreenObject): NavigatorBar {
+  const edge = navigator.properties.edge ?? "left"
+  const shows = navigator.properties.shows ?? "iconsAndText"
+  const bar = navigatorStrip(edge, shows, project.screenWidth, project.screenHeight)
+  return barLayout(edge, shows, bar, navigatorScreens(project.screens).length, themeSwitchAt(navigator))
+}
+
+/** The entries' layout of exportBar. */
 export function exportLayout(project: NavigatorProject, navigator: ScreenObject): NavigatorLayout {
-  return navigatorLayout(
-    navigator.properties.edge ?? "left",
-    navigator.properties.shows ?? "iconsAndText",
-    project.screenWidth,
-    project.screenHeight,
-    navigatorScreens(project.screens).length,
-  )
+  return exportBar(project, navigator).layout
 }
 
 /** An entry's width and height. */

@@ -37,6 +37,7 @@ import {
   POPUP_GENERATION,
   LIVE_VALUE_GENERATION,
   NAVIGATOR_GENERATION,
+  NAVIGATOR_THEME_SWITCH_GENERATION,
   SYSTEM_GENERATION,
   SYSTEM_GENERATION_STRING,
   formatGeneration,
@@ -45,7 +46,7 @@ import {
 } from "@/lib/system-generation"
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
-import { navigatorNotOnDevices } from "@/lib/navigator-entries"
+import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -672,11 +673,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const popupOpenerNames = popupOpeners(project)
   const liveValueTexts = liveValuesNotOnDevices(project)
   const navigatorParts = navigatorNotOnDevices(project as any)
+  const themeSwitchParts = themeSwitchNotOnDevices(project as any)
   const needs: ProjectNeed[] = [
     ...(projectUsesLivePlaceholders(project) ? [{ generation: PLACEHOLDER_GENERATION, parts: ["values in texts"] }] : []),
     ...(popupOpenerNames.length > 0 ? [{ generation: POPUP_GENERATION, parts: [`popups (${popupOpenerNames.join(", ")})`] }] : []),
     ...(liveValueTexts.length > 0 ? [{ generation: LIVE_VALUE_GENERATION, parts: liveValueTexts }] : []),
     ...(navigatorParts.length > 0 ? [{ generation: NAVIGATOR_GENERATION, parts: navigatorParts }] : []),
+    ...(themeSwitchParts.length > 0 ? [{ generation: NAVIGATOR_THEME_SWITCH_GENERATION, parts: themeSwitchParts }] : []),
   ]
   const plan = deployTarget
     ? planDeploy({

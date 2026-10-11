@@ -52,6 +52,14 @@ export const LIVE_VALUE_GENERATION = { major: 1, minor: 4 } as const
 // warning before a deploy, never a refusal.
 export const NAVIGATOR_GENERATION = { major: 1, minor: 5 } as const
 
+// The generation a device announces once it draws the navigator's light/dark
+// switch - a navigator's themeSwitch, a place cut off its strip that does not
+// scroll, a tap on it asking schaltli/cmnd/theme for the other variant
+// (2026-10-11). Additive: a device below it draws the entries over the whole
+// strip and no switch - before a deploy the board is brought up to the
+// release, an app is asked to update.
+export const NAVIGATOR_THEME_SWITCH_GENERATION = { major: 1, minor: 6 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

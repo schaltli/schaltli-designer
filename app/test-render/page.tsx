@@ -1,6 +1,6 @@
 "use client"
 
-import { everyEntryObject } from "@/lib/navigator-entries"
+import { everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
@@ -415,7 +415,7 @@ export default function TestRenderPage() {
       const entryIcons = screen.objects
         .filter((o: ScreenObject) => o.type === "navigator")
         .flatMap((o: ScreenObject) => everyEntryObject(o, project.screens, fonts))
-      await preloadIconImages([...screen.objects, ...entryIcons], project.assets ?? [], iconImageCache)
+      await preloadIconImages([...screen.objects, ...entryIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,

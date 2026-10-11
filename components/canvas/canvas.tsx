@@ -1,6 +1,8 @@
 "use client"
 
-import { clampScroll, entryAt, layoutInStrip, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorLayout } from "@/lib/navigator"
+import { barLayout, clampScroll, entryAt, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
+import { themeSwitchAt } from "@/lib/navigator-entries"
+import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
@@ -832,20 +834,24 @@ export function Canvas({
     screenId: "",
     goTo: (_id: string) => {},
     layout: (): NavigatorLayout | undefined => undefined,
+    bar: (): NavigatorBar | undefined => undefined,
   })
-  const previewNavigatorLayout = (): NavigatorLayout | undefined => {
+  // The bar: its entries' part and, where it has one, the light/dark switch's place.
+  const previewNavigatorBar = (): NavigatorBar | undefined => {
     if (!previewMode) return undefined
     const navigator = [...(masterObjects ?? []), ...screen.objects].find((o) => o.type === "navigator")
     if (!navigator) return undefined
     const strip = { x: navigator.x, y: navigator.y, width: navigator.width, height: navigator.height }
-    return layoutInStrip(navigator.properties.edge ?? "left", navigator.properties.shows ?? "iconsAndText", strip, navigatorScreens(projectScreens ?? []).length)
+    return barLayout(navigator.properties.edge ?? "left", navigator.properties.shows ?? "iconsAndText", strip, navigatorScreens(projectScreens ?? []).length, themeSwitchAt(navigator))
   }
+  const previewNavigatorLayout = (): NavigatorLayout | undefined => previewNavigatorBar()?.layout
   navigatorLatest.current = {
     scroll: navigatorScroll,
     screens: projectScreens ?? [],
     screenId: screen.id,
     goTo: (id) => onPreviewButtonAction?.({ type: "goto-screen", targetScreenId: id }),
     layout: previewNavigatorLayout,
+    bar: previewNavigatorBar,
   }
   const insideStrip = (layout: NavigatorLayout, p: { x: number; y: number }) =>
     p.x >= layout.strip.x && p.y >= layout.strip.y && p.x < layout.strip.x + layout.strip.width && p.y < layout.strip.y + layout.strip.height
@@ -2693,8 +2699,16 @@ export function Canvas({
           return
         }
 
-        // On the navigator: the press is its own, whatever follows.
-        const layout = navigatorLatest.current.layout()
+        // On the navigator: the press is its own, whatever follows. Its
+        // light/dark switch asks for the other variant, as a device does.
+        const bar = navigatorLatest.current.bar()
+        const sw = bar?.themeSwitch
+        if (sw && coords.x >= sw.x && coords.y >= sw.y && coords.x < sw.x + sw.width && coords.y < sw.y + sw.height) {
+          const dark = variantFromTopic(previewValueRef.current(THEME_STATE_TOPIC)) === "dark"
+          onPreviewPublish?.(THEME_COMMAND_TOPIC, dark ? "light" : "dark")
+          return
+        }
+        const layout = bar?.layout
         if (layout && insideStrip(layout, coords)) {
           const scroll = navigatorLatest.current.scroll ?? 0
           navigatorDragRef.current = { layout, start: coords, startScroll: scroll, scroll, moved: false }

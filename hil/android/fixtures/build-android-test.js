@@ -864,6 +864,8 @@ function buildProject(fonts) {
             properties: {
               edge: "bottom",
               shows: "iconsAndText",
+              // The light/dark switch at the right end (2026-10-11).
+              themeSwitch: "far",
               fontId: "font-roboto-16",
               backgroundColor: "#202020",
               textColor: "#c0c0c0",

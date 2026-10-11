@@ -25,7 +25,7 @@ import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
-import { darkProperties, entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf, withDarkColours } from "@/lib/navigator-entries"
+import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
@@ -276,7 +276,8 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // A button opening a popup that is not there does nothing (lib/popup.ts).
   // A live icon keeps its live value for a 1.4 device and its Otherwise icon
   // is what a 1.3 device draws (lib/object-text.ts withLiveIconFallbacks).
-  const project = withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored)))
+  // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
+  const project = withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored))))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -534,7 +535,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     const colorDepth = project.settings.colorDepth
     const nav = applyThemeWithDark([navigator], theme, colorDepth)[0]
     const withDark = colorDepth === undefined || colorDepth === "24bit"
-    const layout = exportLayout(project, nav)
+    const { layout, themeSwitch } = exportBar(project, nav)
     const { width, height } = entrySize(layout)
     const look = entryLook(nav, project.fonts ?? [])
     const darkLook = entryLook({ ...nav, properties: darkProperties(nav.properties) }, project.fonts ?? [])
@@ -543,6 +544,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       const objects = withDark ? withDarkColours(light, navigatorEntryObjects(screen, width, height, darkLook, active)) : light
       return objects.map((o) => deviceObject(o, entryKey(master.id, screen.id, active)))
     }
+    // The light/dark switch (contract 2.7, generation 1.6): its place cut off
+    // the strip at `at`, `length` long, its objects relative to that place.
+    const switchObjects = () => {
+      if (!themeSwitch) return []
+      const light = themeSwitchObjects(themeSwitch.width, themeSwitch.height, look)
+      const objects = withDark ? withDarkColours(light, themeSwitchObjects(themeSwitch.width, themeSwitch.height, darkLook)) : light
+      return objects.map((o) => deviceObject(o, themeSwitchKey(master.id)))
+    }
     return {
       id: navigator.id,
       edge: nav.properties.edge ?? "left",
@@ -550,8 +559,11 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       entryLength: layout.entryLength,
       backgroundColor: nav.properties.backgroundColor,
       ...(withDark && nav.properties.backgroundColorDark ? { backgroundColorDark: nav.properties.backgroundColorDark } : {}),
-      ...(nav.properties.borderColor ? { borderColor: nav.properties.borderColor } : {}),
-      ...(withDark && nav.properties.borderColorDark ? { borderColorDark: nav.properties.borderColorDark } : {}),
+      ...(nav.properties.borderColor && nav.properties.borderColor !== "transparent" ? { borderColor: nav.properties.borderColor } : {}),
+      ...(withDark && nav.properties.borderColorDark && nav.properties.borderColorDark !== "transparent" ? { borderColorDark: nav.properties.borderColorDark } : {}),
+      ...(themeSwitch
+        ? { themeSwitch: { at: themeSwitchAt(nav), length: layout.horizontal ? themeSwitch.width : themeSwitch.height, objects: switchObjects() } }
+        : {}),
       entries: navigatorScreens(project.screens).map((screen) => ({
         screenId: screen.id,
         normal: entryObjects(screen, false),

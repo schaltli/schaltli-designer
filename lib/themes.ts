@@ -47,6 +47,13 @@ export type Variant = "light" | "dark"
  */
 export const THEME_STATE_TOPIC = "schaltli/state/theme"
 
+/**
+ * Where a device asks for light or dark: `light` or `dark`, answered by the
+ * VanPi bridge on THEME_STATE_TOPIC. The navigator's switch sends the other
+ * of what THEME_STATE_TOPIC says (2026-10-11).
+ */
+export const THEME_COMMAND_TOPIC = "schaltli/cmnd/theme"
+
 /** The variant a value on THEME_STATE_TOPIC asks for, or null for anything else. */
 export function variantFromTopic(value: string | undefined): Variant | null {
   return value === "light" || value === "dark" ? value : null
@@ -532,6 +539,13 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   "button-group": { switchColor: "accent" },
 }
 
+const NAVIGATOR_ACCENT_ROLES: Partial<Record<string, Role>> = {
+  backgroundColor: "accent",
+  textColor: "onAccent",
+  activeColor: "surface",
+  activeTextColor: "accent",
+}
+
 // Text is read from `color` or `textColor`, whichever is set (older objects
 // carry the one, newer the other): a default is filled only when neither is.
 const TEXT_EITHER_KEYS: Record<string, readonly ["color", "textColor"] | readonly ["textColor", "color"]> = {
@@ -551,7 +565,10 @@ function withDefaultRoles(type: string, properties: Record<string, any>): Record
     if (out === properties) out = { ...properties }
     out[key] = role
   }
-  for (const [key, role] of Object.entries(DEFAULT_ROLES[type] ?? {})) {
+  // A navigator in the accent (2026-10-11): its ground «Accent», ink «Text
+  // on accent», the open entry the other way round - and no line.
+  const defaults = type === "navigator" && properties.ground === "accent" ? NAVIGATOR_ACCENT_ROLES : DEFAULT_ROLES[type]
+  for (const [key, role] of Object.entries(defaults ?? {})) {
     if (role && isUnset(properties[key])) set(key, role)
   }
   const either = TEXT_EITHER_KEYS[type]

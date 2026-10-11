@@ -837,6 +837,18 @@ the screens slide beneath it.
   line 2 px wide along the strip's inner edge, towards the screen, inside
   the strip and over its entries - so the strip reads as a bar. Without the
   key there is none.
+- **Light/dark switch** (optional, generation 1.6, 2026-10-11):
+  `"themeSwitch": { "at": "near" | "far", "length": 64, "objects": [ … ] }`.
+  Its place is `length` long along the strip, the full `thickness` across,
+  cut off at the strip's start (`near`: top of a left or right strip, left of
+  a top or bottom one) or its end (`far`). It does not scroll; the entries
+  are laid out and scroll in what is left (`entryLength` is already of that
+  part). `objects` are ordinary objects relative to the place - a live icon
+  on `schaltli/state/theme`, sun or moon - drawn clipped to it. A tap on the
+  place publishes to `schaltli/cmnd/theme` the other of what
+  `schaltli/state/theme` says: `light` while it says `dark`, else `dark`.
+  The export lists `schaltli/state/theme` among the topics. A device below
+  1.6 ignores the key and lays the entries over the whole strip.
 - **Entries:** one per screen listed, in order. Each is `entryLength`
   along the edge and `thickness` across; entry *i* starts at
   *i* × `entryLength` − scroll from the strip's start. The open screen's

@@ -7,7 +7,7 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
-import { entryKey, entryLook, entrySize, exportLayout, navigatorEntryObjects, navigatorsOf } from "@/lib/navigator-entries"
+import { entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchKey, themeSwitchObjects, THEME_SWITCH_ENTRY } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 import { isLiveIcon, liveIconBranches, liveIconValue } from "@/lib/object-text"
 import { rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
@@ -387,12 +387,21 @@ export class AssetExporter {
     const out: IconUsageExport[] = []
     for (const { master, navigator } of navigatorsOf(project)) {
       const themed = applyTheme([navigator], themeFor(master, project.screens), variant, this.options.colorDepth)[0]
-      const layout = exportLayout(project, themed)
+      const { layout, themeSwitch } = exportBar(project, themed)
       const { width, height } = entrySize(layout)
       const look = entryLook(themed, project.fonts ?? [])
+      // Each entry, normal and active, and the light/dark switch as one more.
+      const items: Array<{ screen: any; active: boolean; width: number; height: number; objects: any[]; key: string }> = []
       for (const screen of navigatorScreens(project.screens) as any[]) {
         for (const active of [false, true]) {
-          const objects = navigatorEntryObjects(screen, width, height, look, active)
+          items.push({ screen, active, width, height, objects: navigatorEntryObjects(screen, width, height, look, active), key: entryKey(master.id, screen.id, active) })
+        }
+      }
+      if (themeSwitch) {
+        items.push({ screen: THEME_SWITCH_ENTRY, active: false, width: themeSwitch.width, height: themeSwitch.height, objects: themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), key: themeSwitchKey(master.id) })
+      }
+      for (const { screen, width, height, objects, key: itemKey } of items) {
+        {
           const ground = document.createElement('canvas')
           ground.width = width
           ground.height = height
@@ -406,7 +415,7 @@ export class AssetExporter {
           for (const box of objects.filter((o) => o.type === 'box')) renderBox({ ctx, obj: box, zoom: 1, colorDepth: this.options.colorDepth })
           const icon = objects.find((o) => o.type === 'icon')
           if (!icon) continue
-          const key = { id: entryKey(master.id, screen.id, active), name: screen.name, objects: [] }
+          const key = { id: itemKey, name: screen.name, objects: [] }
           const asset = project.assets.find((a: any) => a.id === icon.properties.assetId)
           if (asset) {
             const baked = await this.exportIconUsage(asset, icon, key, project, ground)
