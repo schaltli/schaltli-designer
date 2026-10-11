@@ -109,18 +109,21 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    the bars are rounded on their outer side only, the bus not at all, and
    a band runs 2-4 px under them and is drawn first (the user saw notches
    at rounded corners in the target picture, 2026-10-11).
-   **Scale** (the user, 2026-10-11): everything together is as thick as
-   the room for bands times √(total ÷ full scale), all of it from the full
-   scale on; inside that the bands share linearly, so they add up to the
-   bus exactly. **Full scale** is a property in watts, default 1000 W: what
-   flows at most on an ordinary day (the DC-DC charger and the sun), not
-   the largest device's rating - a 2500 W inverter running fills the
-   diagram, which is honest enough. Worked through for the author's van
-   on the 4.3B (340 px of room): rest 9 W → 32 px, light 20 W → 48 px,
-   fridge and light 92 W → 103 px, mains charger 400 W → 215 px, DC-DC
-   charger and sun 820 W → 308 px. Linear was tried and dropped (rest and
-   light both 3 px threads), and so was filling the room whatever flows
-   (92 W looked like 670 W).
+   **Scale** (the user, 2026-10-11: «linear finde ich am ehrlichsten»):
+   linear - a band is as wide as the room for bands times its watts ÷
+   full scale, so a width means the same watts in every situation, and
+   everything is full from the full scale on. **Full scale** is a property
+   in watts, default 1000 W: what flows at most on an ordinary day (the
+   DC-DC charger and the sun), not the largest device's rating - a 2500 W
+   inverter running fills the diagram, which is honest enough. Worked
+   through for the author's van on the 4.3B (340 px of room): rest 9 W →
+   3 px (the minimum), light 20 W → 7 px, fridge and light 92 W → 31 px,
+   mains charger 400 W → 136 px, DC-DC charger and sun 820 W → 279 px. A
+   quiet evening is a thread - which is what it says. Lowering the full
+   scale makes it thicker (600 W: the fridge 52 px). Tried and dropped: the
+   square root of the total (thicker evenings, but a width no longer means
+   the same watts), and filling the room whatever flows (92 W looked like
+   670 W).
 9. **Flow**: each node a circle at its own x/y, the bus too; a straight line
    from each node to the bus, its width growing with the logarithm of its
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
