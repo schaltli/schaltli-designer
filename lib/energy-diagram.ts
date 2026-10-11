@@ -200,3 +200,73 @@ export function sankeyLayout(nodes: readonly ResolvedNode[], size: Size, fullSca
   stack(right, "right")
   return { bars, slots, bands, bus }
 }
+
+// The Flow's circles (spec decision 9; the target picture).
+export const FLOW_NODE_R = 32
+export const FLOW_BUS_R = 14
+/** The gap between a circle and where its line starts. */
+export const FLOW_LINE_GAP = 4
+export const FLOW_RING_GAP = 7
+
+/** A line's width for its watts: 3 px still, up to 12 px, by the logarithm. */
+export function lineWidth(watts: number): number {
+  if (!(watts > 0)) return 3
+  return Math.max(3, Math.min(12, 2 + Math.log10(watts + 1) * 3.4))
+}
+
+export interface FlowNode extends Point {
+  id: string
+  r: number
+  live: boolean
+  ring?: { r: number; fraction: number }
+}
+export interface FlowLine {
+  id: string
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  width: number
+  live: boolean
+}
+export interface FlowLayout {
+  bus: Point & { r: number }
+  nodes: FlowNode[]
+  lines: FlowLine[]
+}
+
+/**
+ * The Flow (spec decision 9): each node a circle at its own x/y, the bus at
+ * the bus node's; a straight line from a circle's edge (and a gap) to the
+ * bus's edge, as wide as `lineWidth` of its watts, live while it carries
+ * any. The storage's ring is as full as its charge.
+ */
+export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly ResolvedNode[]): FlowLayout {
+  const busNode = nodes.find((n) => n.role === "bus")
+  const bus = { x: busNode?.x ?? 0, y: busNode?.y ?? 0, r: FLOW_BUS_R }
+  const out: FlowNode[] = []
+  const lines: FlowLine[] = []
+  for (const n of resolved) {
+    const live = n.watts > 0
+    const node: FlowNode = { id: n.id, x: n.x, y: n.y, r: FLOW_NODE_R, live }
+    if (n.role === "storage") {
+      const fraction = typeof n.charge === "number" ? Math.max(0, Math.min(1, n.charge / 100)) : 0
+      node.ring = { r: FLOW_NODE_R + FLOW_RING_GAP, fraction }
+    }
+    out.push(node)
+    const dx = bus.x - n.x, dy = bus.y - n.y
+    const len = Math.hypot(dx, dy)
+    if (len <= FLOW_NODE_R + FLOW_LINE_GAP + FLOW_BUS_R) continue
+    const ux = dx / len, uy = dy / len
+    lines.push({
+      id: n.id,
+      x0: n.x + ux * (FLOW_NODE_R + FLOW_LINE_GAP),
+      y0: n.y + uy * (FLOW_NODE_R + FLOW_LINE_GAP),
+      x1: bus.x - ux * FLOW_BUS_R,
+      y1: bus.y - uy * FLOW_BUS_R,
+      width: lineWidth(n.watts),
+      live,
+    })
+  }
+  return { bus, nodes: out, lines }
+}

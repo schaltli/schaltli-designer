@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { resolveEnergy, sankeyLayout, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_BUS_R, FLOW_NODE_R, flowLayout, lineWidth, resolveEnergy, sankeyLayout, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -158,5 +158,43 @@ test.describe("Sankey (L2)", () => {
     const left = l.slots.filter((s) => s.side === "left")
     expect(left).toHaveLength(8)
     expect(left.every((s) => s.height === 66)).toBe(true)
+  })
+})
+
+test.describe("Flow (L3)", () => {
+  const drive = () => flowLayout(NODES, resolveEnergy(NODES, watts({ ...SITUATIONS.drive })))
+
+  test("circles at their x/y, the bus at its own; a line from each circle's edge to the bus's", () => {
+    const l = drive()
+    expect(l.bus).toEqual({ x: 338, y: 186, r: FLOW_BUS_R })
+    const solar = l.nodes.find((n) => n.id === "solar")!
+    expect([solar.x, solar.y, solar.r]).toEqual([114, 52, FLOW_NODE_R])
+    // From (114, 52) to (338, 186): 224 across, 134 down, 261.03 long.
+    const line = l.lines.find((n) => n.id === "solar")!
+    expect(line.x0).toBeCloseTo(114 + (224 / 261.0287) * (32 + 4), 2)
+    expect(line.y0).toBeCloseTo(52 + (134 / 261.0287) * (32 + 4), 2)
+    expect(line.x1).toBeCloseTo(338 - (224 / 261.0287) * 14, 2)
+    expect(line.y1).toBeCloseTo(186 - (134 / 261.0287) * 14, 2)
+  })
+
+  test("a line is thicker with more watts, 3 to 12 px, and still and grey at 0 W", () => {
+    const l = drive()
+    const line = (id: string) => l.lines.find((n) => n.id === id)!
+    // 2 + log10(121) * 3.4 = 9.08
+    expect(line("solar").width).toBeCloseTo(9.081, 2)
+    expect(line("solar").live).toBe(true)
+    expect(line("shore").width).toBe(3)
+    expect(line("shore").live).toBe(false)
+    expect(lineWidth(1e6)).toBe(12)
+    expect(lineWidth(0.5)).toBe(3)
+  })
+
+  test("the storage has a ring as full as its charge", () => {
+    const l = flowLayout(NODES, resolveEnergy(NODES, { battery: { watts: 100, charge: 82 } }))
+    const battery = l.nodes.find((n) => n.id === "battery")!
+    expect(battery.ring).toEqual({ r: FLOW_NODE_R + 7, fraction: 0.82 })
+    expect(l.nodes.find((n) => n.id === "solar")!.ring).toBeUndefined()
+    // Over 100 % or below 0: the ring stays in its bounds.
+    expect(flowLayout(NODES, resolveEnergy(NODES, { battery: { charge: 140 } })).nodes.find((n) => n.id === "battery")!.ring!.fraction).toBe(1)
   })
 })
