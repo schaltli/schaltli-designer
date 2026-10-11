@@ -3,7 +3,8 @@
 //
 // A conversion in progress: stage one was light - three dimmers and two
 // relays -, stage two water - a fresh and a grey water tank, the water pump
-// and a relay that lets the grey water out. What answers the designer is the
+// and a relay that lets the grey water out -, stage three energy - a
+// battery on Pekaway's shunt and a solar charger (2026-10-11). What answers the designer is the
 // real VanPi bridge - the flow buildBridgeFlow() installs into Node-RED on
 // every Pekaway - run here outside Node-RED, node by node and wired as the flow wires them, the way
 // e2e/vanpi-bridge.spec.ts runs it. Where that flow talks to Pekaway, a fake
@@ -56,6 +57,10 @@ function seed() {
       dimmer2: { state: 0, name: "Küche", autooff: 0, offtime: null },
       dimmer3: { state: 0, name: "Einstieg", autooff: 0, offtime: null },
     },
+    // Pekaway's shunt and solar charger, as it reports them: the shunt in
+    // strings, the charger in numbers. Set by tick() from the battery below.
+    batt: { AMPS: "0.00", SoC: String(SEED_SOC), Voltage: volts(SEED_SOC, 0).toFixed(2) },
+    mppt: { mppt_pv_amps: 0, mppt_pv_volts: 0, mppt_pv_watts: 0 },
   }
 }
 
@@ -75,9 +80,34 @@ const PUDDLE_GROWS_PER_SECOND = 0.08
 const PUDDLE_DRIES_PER_SECOND = 1 / 30
 const round1 = (v) => Math.round(v * 10) / 10
 
+// The battery: 100 Ah of lithium at 12.8 V, starting part full. Time runs
+// faster for it than for the water - a van's evening of light would
+// otherwise move it by a percent - so a visitor sees the charge move: an
+// hour of the van's in three real minutes.
+const SEED_SOC = 78
+const BATTERY_WH = 1280
+const BATTERY_TIME = 20
+// The solar panels' most, at noon of the van's day, and what the charger
+// sees of them while the sun is up.
+const SOLAR_PEAK_WATTS = 280
+const SOLAR_VOLTS = 18.6
+// What draws: Pekaway and the router always, each light by its brightness,
+// the water pump while it runs - a shower.
+const BASE_WATTS = 6
+const DIMMER_WATTS = { dimmer1: 12, dimmer2: 8, dimmer3: 4 }
+const RELAY_WATTS = { Relay1: 5, Relay2: 10 }
+const PUMP_WATTS = 45
+
+/** A lithium battery's voltage at a charge, and a little with the current. */
+function volts(soc, amps) {
+  return 12.9 + (soc - 50) * 0.008 + amps * 0.01
+}
+
 /** The fake Pekaway: its state, its answers, what its commands do. */
 function fakePekaway() {
   let state = seed()
+  // The battery's charge, finer than Pekaway's whole percent.
+  let soc = SEED_SOC
   // What is going on around the van, for the scene: seconds of shower and of
   // refilling left, and the puddle under the drain (0..1). Not Pekaway's.
   let scene = { shower: 0, refill: 0, puddle: 0 }
@@ -90,6 +120,7 @@ function fakePekaway() {
     },
     reset() {
       state = seed()
+      soc = SEED_SOC
       scene = { shower: 0, refill: 0, puddle: 0 }
     },
     /** A visitor's shower: false without the water pump or fresh water. */
@@ -119,7 +150,7 @@ function fakePekaway() {
      * and an open drain lets the grey water out. Called every few seconds;
      * `seconds` is how many have passed.
      */
-    tick(seconds) {
+    tick(seconds, daylight = 0) {
       const fresh = state.level.level1
       const grey = state.level.level2
       const used = Math.min(fresh.state, seconds * USE_PER_SECOND)
@@ -145,6 +176,26 @@ function fakePekaway() {
         ? Math.min(1, scene.puddle + seconds * PUDDLE_GROWS_PER_SECOND)
         : Math.max(0, scene.puddle - seconds * PUDDLE_DRIES_PER_SECOND)
       scene.puddle = Math.round(scene.puddle * 100) / 100
+
+      // Energy: the sun in, the van's draw out, the battery the difference.
+      // A full battery takes no more, so the charger gives only what is drawn.
+      let load = BASE_WATTS
+      for (const [key, watts] of Object.entries(DIMMER_WATTS)) load += (watts * (state.dimmer[key]?.state ?? 0)) / 100
+      for (const [key, watts] of Object.entries(RELAY_WATTS)) if (state.relay[key]) load += watts
+      if (scene.shower > 0) load += PUMP_WATTS
+      let solar = SOLAR_PEAK_WATTS * Math.max(0, Math.min(1, daylight))
+      if (soc >= 100) solar = Math.min(solar, load)
+      const net = solar - load
+      soc = Math.max(0, Math.min(100, soc + ((net * seconds * BATTERY_TIME) / 3600 / BATTERY_WH) * 100))
+      const v0 = volts(soc, 0)
+      const amps = net / v0
+      state.batt = { AMPS: amps.toFixed(2), SoC: String(Math.round(soc)), Voltage: volts(soc, amps).toFixed(2) }
+      const pvVolts = solar > 0 ? SOLAR_VOLTS : 0
+      state.mppt = {
+        mppt_pv_amps: pvVolts ? round1(solar / pvVolts) : 0,
+        mppt_pv_volts: pvVolts,
+        mppt_pv_watts: Math.round(solar),
+      }
     },
     /** A pkw/cmnd/... message; true when it changed something. */
     command(topic, payload) {
@@ -329,8 +380,8 @@ function startDemoVan({
     setInterval(() => {
       if (!client.connected) return
       const now = Date.now()
-      pekaway.tick(2)
       const clock = vanClock(now, daySeconds)
+      pekaway.tick(2, clock.daylight)
       client.publish("schaltli/demo/daylight", String(clock.daylight), { retain: true })
       client.publish("schaltli/demo/time", clock.time, { retain: true })
       client.publish("schaltli/demo/shower", pekaway.scene.shower > 0 ? "on" : "off", { retain: true })

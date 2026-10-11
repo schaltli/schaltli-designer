@@ -39,7 +39,10 @@ test("the fake Pekaway has the light and the water, answers in Pekaway's format,
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay3: false, "Relay3 Name": "Grauwasser ablassen" })
   // The water pump is on from the start.
   expect(JSON.parse(pekaway.answer("relay")!)).toMatchObject({ Relay4: true, "Relay4 Name": "Wasserpumpe" })
-  for (const kind of ["batt", "temp", "heater", "maxxfan", "mppt", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
+  for (const kind of ["temp", "heater", "maxxfan", "bms"]) expect(pekaway.answer(kind), kind).toBeNull()
+  // The shunt in Pekaway's strings, the solar charger in numbers.
+  expect(JSON.parse(pekaway.answer("batt")!)).toEqual({ AMPS: "0.00", SoC: "78", Voltage: "13.12" })
+  expect(JSON.parse(pekaway.answer("mppt")!)).toEqual({ mppt_pv_amps: 0, mppt_pv_volts: 0, mppt_pv_watts: 0 })
 
   expect(pekaway.command("pkw/cmnd/dimmer/2/POWER", "60")).toBe(true)
   expect(pekaway.command("pkw/cmnd/relay/1/POWER", "on")).toBe(true)
@@ -59,6 +62,47 @@ test("the fake Pekaway has the light and the water, answers in Pekaway's format,
   pekaway.tick(30)
   expect(pekaway.state.level.level2.state).toBe(0)
   expect(JSON.parse(pekaway.answer("level")!).level1.state).toBe(79)
+})
+
+test("the sun charges the battery, the lights and the pump draw from it, a full one takes only what is drawn", () => {
+  const p = fakePekaway()
+  const batt = () => JSON.parse(p.answer("batt")!)
+  const mppt = () => JSON.parse(p.answer("mppt")!)
+
+  // Night, everything off: Pekaway and the router alone, a little out.
+  p.tick(2, 0)
+  expect(Number(batt().AMPS)).toBeCloseTo(-6 / 13.12, 1)
+  expect(mppt()).toEqual({ mppt_pv_amps: 0, mppt_pv_volts: 0, mppt_pv_watts: 0 })
+
+  // Lights on: more out.
+  p.command("pkw/cmnd/dimmer/1/POWER", "100")
+  p.command("pkw/cmnd/relay/2/POWER", "on")
+  p.tick(2, 0)
+  expect(Number(batt().AMPS)).toBeCloseTo(-28 / 13.1, 1)
+
+  // Noon: the sun's 280 W in, the battery charges and fills.
+  p.tick(2, 1)
+  expect(mppt()).toEqual({ mppt_pv_amps: 15.1, mppt_pv_volts: 18.6, mppt_pv_watts: 280 })
+  expect(Number(batt().AMPS)).toBeGreaterThan(18)
+  const before = Number(batt().SoC)
+  for (let i = 0; i < 30; i++) p.tick(2, 1)
+  expect(Number(batt().SoC)).toBeGreaterThan(before)
+
+  // Full: the charger gives only what the van draws, nothing goes in.
+  for (let i = 0; i < 300; i++) p.tick(2, 1)
+  expect(batt().SoC).toBe("100")
+  expect(Number(batt().AMPS)).toBeCloseTo(0, 1)
+  expect(mppt().mppt_pv_watts).toBe(28)
+
+  // A shower runs the pump.
+  p.tick(2, 0)
+  const lit = Number(batt().AMPS)
+  p.startShower()
+  p.tick(2, 0)
+  expect(Number(batt().AMPS)).toBeLessThan(lit - 3)
+
+  p.reset()
+  expect(batt().SoC).toBe("78")
 })
 
 test("a shower empties fresh water into the grey, a canister fills the fresh, an open drain leaves a puddle that dries", () => {
@@ -123,12 +167,14 @@ test("through the real bridge: the lights are announced and published, switched 
     return (publish as any)(topic, ...rest)
   }
   try {
-    // Announced as blocks: three lights, two tanks, four switches, and the
-    // bridge's own theme switch - nothing of what the van has not got.
+    // Announced as blocks: three lights, the battery, two tanks, four
+    // switches, and the bridge's own theme switch - nothing of what the van
+    // has not got (the solar charger the bridge does not announce).
     await expect.poll(() => [...seen.keys()].filter((t) => t.startsWith("homeassistant/")).sort(), { timeout: 15_000 }).toEqual([
       "homeassistant/light/schaltli-vanpi/dimmer_1/config",
       "homeassistant/light/schaltli-vanpi/dimmer_2/config",
       "homeassistant/light/schaltli-vanpi/dimmer_3/config",
+      "homeassistant/sensor/schaltli-vanpi/battery/config",
       "homeassistant/sensor/schaltli-vanpi/tank_1/config",
       "homeassistant/sensor/schaltli-vanpi/tank_2/config",
       "homeassistant/switch/schaltli-vanpi/relay_1/config",
@@ -142,6 +188,10 @@ test("through the real bridge: the lights are announced and published, switched 
     await expect.poll(() => seen.get("schaltli/state/tank/1/name")).toBe("Frischwasser")
     await expect.poll(() => seen.get("schaltli/state/tank/2/level")).toMatch(/^\d+$/)
     await expect.poll(() => seen.get("schaltli/state/relay/4/power")).toBe("on")
+    // The battery and the sun, with the watts the bridge works out.
+    await expect.poll(() => seen.get("schaltli/state/battery/soc")).toMatch(/^\d+$/)
+    await expect.poll(() => seen.get("schaltli/state/battery/power")).toMatch(/^-?\d+$/)
+    await expect.poll(() => seen.get("schaltli/state/mppt/pv_watts")).toMatch(/^\d+$/)
     // The van starts light.
     await expect.poll(() => seen.get("schaltli/state/theme")).toBe("light")
     // (Nothing more to check for kinds it has not got: the announcements above

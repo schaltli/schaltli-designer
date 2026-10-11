@@ -67,7 +67,12 @@ test.describe("VanPi bridge logic", () => {
       "schaltli/state/battery/voltage": "13.95",
       "schaltli/state/battery/current": "-0.75",
       "schaltli/state/battery/soc": "100",
+      // Not Pekaway's: its volts times its amps, whole watts (2026-10-11).
+      "schaltli/state/battery/power": "-10",
     })
+    // Charging is positive, and nothing comes of a value Pekaway does not know yet.
+    expect(asMap(logic.flatten("batt", '{"AMPS":"4.2","SoC":"87","Voltage":"13.4"}'))["schaltli/state/battery/power"]).toBe("56")
+    expect(asMap(logic.flatten("batt", '{"AMPS":"wait","SoC":"87","Voltage":"13.4"}'))["schaltli/state/battery/power"]).toBeUndefined()
     const tanks = asMap(logic.flatten("level", RECORDED.level))
     expect(tanks["schaltli/state/tank/2/level"]).toBe("2")
     expect(tanks["schaltli/state/tank/1/name"]).toBe("Frischwasser")
@@ -117,7 +122,7 @@ test.describe("VanPi bridge logic", () => {
 
   test("only values that changed go out again", () => {
     const first = logic.changed({}, logic.flatten("batt", RECORDED.batt))
-    expect(first.changed).toHaveLength(3)
+    expect(first.changed).toHaveLength(4)
     const same = logic.changed(first.last, logic.flatten("batt", RECORDED.batt))
     expect(same.changed).toEqual([])
     const moved = logic.changed(first.last, logic.flatten("batt", '{"AMPS":"-0.75","SoC":"99","Voltage":"13.95"}'))

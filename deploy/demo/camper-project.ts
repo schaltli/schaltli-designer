@@ -13,6 +13,11 @@
 //   Wasser  fresh and grey water as tanks, the water pump, and the switch
 //           that lets the grey water out. The page's icon is a drop with an exclamation mark
 //           while the grey water is above 80 % or the fresh below 20 %.
+//   Energie the battery on Pekaway's shunt and the solar charger: what flows
+//           from the sun to the battery and from the battery to what draws,
+//           the charge, volts, amps and watts. Only what Pekaway reports and
+//           the bridge passes on, so the page fits any VanPi; the page's
+//           icon is an empty battery below 20 %.
 //   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
 //           already so the navigator shows where the van is going.
 //
@@ -78,6 +83,30 @@ const ASSETS = [
     ),
   },
   {
+    id: "icon-battery",
+    name: "Battery",
+    type: "icon",
+    data: svg('<path fill="none" stroke="currentColor" stroke-width="1.8" d="M7 4.5h10v17H7z"/><path fill="currentColor" d="M10 2h4v2.5h-4zM9 13h6v6.5H9zM9 8.5h6v3.5H9z"/>'),
+  },
+  {
+    id: "icon-battery-low",
+    name: "Battery low",
+    type: "icon",
+    data: svg('<path fill="none" stroke="currentColor" stroke-width="1.8" d="M7 4.5h10v17H7z"/><path fill="currentColor" d="M10 2h4v2.5h-4zM9 17h6v2.5H9zM11 7.5h2v6.5h-2z"/>'),
+  },
+  {
+    id: "icon-arrow-down",
+    name: "Arrow down",
+    type: "icon",
+    data: svg('<path fill="currentColor" d="M9.5 3h5v10h4.5L12 21.5 5 13h4.5z"/>'),
+  },
+  {
+    id: "icon-plug",
+    name: "Plug",
+    type: "icon",
+    data: svg('<path fill="currentColor" d="M8 2h2v5H8zM14 2h2v5h-2zM5 7.5h14V11a7 7 0 0 1-6 6.9V22h-2v-4.1A7 7 0 0 1 5 11z"/>'),
+  },
+  {
     id: "icon-fan",
     name: "Fan",
     type: "icon",
@@ -113,6 +142,12 @@ const TOPICS = [
     topic(`${S}tank/${n}/level`, "numeric", n === 1 ? ["80", "40", "10"] : ["35", "70", "95"]),
     topic(`${S}tank/${n}/name`, "text", [["Frischwasser", "Grauwasser"][n - 1]]),
   ]),
+  // Pekaway's shunt and solar charger; the battery's watts are the bridge's.
+  topic(`${S}battery/soc`, "numeric", ["78", "100", "15"]),
+  topic(`${S}battery/voltage`, "numeric", ["13.12", "13.39", "12.48"]),
+  topic(`${S}battery/current`, "numeric", ["20.79", "-2.13", "0.00"]),
+  topic(`${S}battery/power`, "numeric", ["278", "-28", "0"]),
+  topic(`${S}mppt/pv_watts`, "numeric", ["280", "120", "0"]),
   // Light or dark for every device at once; the bridge keeps it.
   topic(`${S}theme`, "text", ["light", "dark"]),
   topic(`${C}theme`, "text", ["light", "dark"]),
@@ -334,6 +369,166 @@ function waterScreen() {
   }
 }
 
+// A text of live values: `text` with {live:<id>} in it.
+function live(x: number, y: number, width: number, height: number, text: string, liveValues: unknown[], style: Record<string, unknown> = {}) {
+  return {
+    id: id("live"),
+    type: "text",
+    x,
+    y,
+    width,
+    height,
+    zIndex: next,
+    properties: {
+      text,
+      liveValues,
+      fontId: "font-helvR18",
+      color: "text",
+      textAlign: "left",
+      backgroundColor: "transparent",
+      borderColor: "transparent",
+      ...style,
+    },
+  }
+}
+
+function label(x: number, y: number, width: number, text: string, style: Record<string, unknown> = {}) {
+  return {
+    id: id("label"),
+    type: "text",
+    x,
+    y,
+    width,
+    height: 30,
+    zIndex: next,
+    properties: { text, fontId: "font-helvR18", color: "textMuted", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent", ...style },
+  }
+}
+
+function icon(x: number, y: number, size: number, assetId: string, iconColor = "text") {
+  return { id: id("icon"), type: "icon", x, y, width: size, height: size, zIndex: next, properties: { assetId, iconColor } }
+}
+
+// An arrow that is there only while something flows - a live icon whose
+// rule shows it and whose Otherwise is left empty - over a dotted path that
+// is always there.
+function flow(cx: number, y0: number, y1: number, path: string, op: ">" | "<", operand: string) {
+  const lv = `lv${next}`
+  return [
+    {
+      id: id("path"),
+      type: "line",
+      x: cx - 2,
+      y: y0,
+      width: 4,
+      height: y1 - y0,
+      zIndex: next,
+      properties: { points: [{ x: cx, y: y0 }, { x: cx, y: y1 }], color: "outline", strokeWidth: 4, strokeStyle: "dotted" },
+    },
+    {
+      id: id("arrow"),
+      type: "icon",
+      x: cx - 18,
+      y: Math.round((y0 + y1) / 2) - 18,
+      width: 36,
+      height: 36,
+      zIndex: next,
+      properties: {
+        iconColor: "accent",
+        liveIconId: lv,
+        liveValues: [{ id: lv, source: { namespace: "topic", path }, rules: [{ op, operand, result: { kind: "icon", icon: "icon-arrow-down" } }] }],
+      },
+    },
+  ]
+}
+
+const NONE_YET = { kind: "text", parts: ["–"] }
+const VALUE = { value: true }
+const decimals = (n: number) => ({ kind: "number", decimals: n, grouped: false })
+
+// A value with its unit.
+function withUnit(lvId: string, path: string, places: number, unit: string) {
+  return { id: lvId, source: { namespace: "topic", path }, format: decimals(places), rules: [], otherwise: { kind: "text", parts: [VALUE, unit] }, noValueYet: NONE_YET }
+}
+
+// A value with its unit and a «+» in front while it is above nought: the
+// battery's amps and watts, in while charging, out while discharging.
+function signed(lvId: string, path: string, places: number, unit: string) {
+  return { ...withUnit(lvId, path, places, unit), rules: [{ op: ">", operand: "0", result: { kind: "text", parts: ["+", VALUE, unit] } }] }
+}
+
+// Energy, from what Pekaway reports and the bridge passes on: down the left
+// the way it flows - sun, battery, what draws -, on the right the battery's
+// numbers. Built to be copied whole into a VanPi's own project.
+function energyScreen() {
+  const cx = 246
+  const right = 470
+  const row = (y: number, name: string, lv: unknown) => [label(right, y, 140, name), live(right + 140, y, 170, 30, "{live:v}", [lv], { textAlign: "right" })]
+  return {
+    id: "screen-energie",
+    name: "Energie",
+    masterScreenId: "master-1",
+    iconLive: {
+      id: "lv-energie-icon",
+      source: { namespace: "topic", path: `${S}battery/soc` },
+      rules: [{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }],
+      otherwise: { kind: "icon", icon: "icon-battery" },
+    },
+    objects: [
+      title("Energie"),
+      // The sun and what it brings.
+      icon(cx - 24, 70, 48, "icon-sun"),
+      label(cx + 36, 66, 130, "Solar"),
+      live(cx + 36, 92, 130, 32, "{live:pv}", [withUnit("pv", `${S}mppt/pv_watts`, 0, " W")], { fontId: "font-helvB18" }),
+      ...flow(cx, 124, 180, `${S}mppt/pv_watts`, ">", "0"),
+      // The battery's charge.
+      {
+        id: id("battery"),
+        type: "gauge",
+        x: cx - 80,
+        y: 182,
+        width: 160,
+        height: 160,
+        zIndex: next,
+        properties: {
+          topic: `${S}battery/soc`,
+          calibrationPoints: LINEAR,
+          minAngle: 225,
+          maxAngle: 135,
+          direction: "cw",
+          thickness: 18,
+          displayValue: "percentage",
+          fillColor: "accent",
+          textColor: "text",
+          fontId: "font-helvB24",
+        },
+      },
+      ...flow(cx, 330, 404, `${S}battery/current`, "<", "0"),
+      // What draws: Pekaway does not know how much.
+      icon(cx - 20, 408, 40, "icon-plug"),
+      label(cx + 36, 414, 160, "Verbraucher"),
+      // The battery's numbers.
+      label(right, 70, 310, "Batterie"),
+      live(right, 98, 310, 40, "{live:state}", [
+        {
+          id: "state",
+          source: { namespace: "topic", path: `${S}battery/current` },
+          rules: [
+            { op: ">", operand: "0.05", result: { kind: "text", parts: ["Lädt"] } },
+            { op: "<", operand: "-0.05", result: { kind: "text", parts: ["Entlädt"] } },
+          ],
+          otherwise: { kind: "text", parts: ["Ruht"] },
+          noValueYet: NONE_YET,
+        },
+      ], { fontId: "font-helvB24" }),
+      ...row(170, "Ladezustand", withUnit("v", `${S}battery/soc`, 0, " %")),
+      ...row(214, "Spannung", withUnit("v", `${S}battery/voltage`, 2, " V")),
+      ...row(258, "Strom", signed("v", `${S}battery/current`, 1, " A")),
+      ...row(302, "Leistung", signed("v", `${S}battery/power`, 0, " W")),
+    ],
+  }
+}
+
 // A page of a stage still to come: its title and «Coming soon».
 function comingSoon(id: string, pageName: string, icon: string) {
   return {
@@ -386,7 +581,7 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
     name: "Camper",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master, lightScreen(), waterScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
+    screens: [master, lightScreen(), waterScreen(), energyScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,

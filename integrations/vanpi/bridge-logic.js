@@ -64,6 +64,14 @@ function createBridgeLogic() {
       put("battery/voltage", data.Voltage)
       put("battery/current", data.AMPS)
       put("battery/soc", data.SoC)
+      // Watts, which Pekaway does not report: its volts times its amps,
+      // whole, the sign the current's - in while charging, out while
+      // discharging (2026-10-11, for the demo's «Energie»: a screen cannot
+      // multiply).
+      if (present(data.Voltage) && present(data.AMPS)) {
+        var watts = Math.round(Number(data.Voltage) * Number(data.AMPS))
+        if (!isNaN(watts)) put("battery/power", watts)
+      }
     } else if (kind === "level") {
       for (var t = 1; t <= 4; t++) {
         var tank = data["level" + t]

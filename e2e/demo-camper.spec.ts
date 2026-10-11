@@ -6,6 +6,8 @@ import { fakePekaway } from "../integrations/vanpi/demo-van"
 import { createBridgeLogic } from "../integrations/vanpi/bridge-logic"
 import { createProjectStore } from "../lib/project-store"
 import { computeCombined } from "../lib/combined-topics"
+import { evaluate, formatValue } from "../lib/live-value"
+import { DEFAULT_SEPARATORS } from "../lib/placeholders"
 
 // The start project of demo.schaltli.com (docs/2026-10-09-demo-instance.md,
 // decision 7), built by deploy/demo/camper-project.ts from the 4.3B's
@@ -28,7 +30,7 @@ function vanTopics(): Set<string> {
   const logic = createBridgeLogic()
   const pekaway = fakePekaway()
   const topics = new Set<string>()
-  for (const kind of ["dimmer", "relay", "level"]) {
+  for (const kind of ["dimmer", "relay", "level", "batt", "mppt"]) {
     const answer = pekaway.answer(kind)
     expect(answer, kind).not.toBeNull()
     for (const u of logic.flatten(kind, answer, {})) topics.add(u.topic)
@@ -76,10 +78,10 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   for (const t of [...read, ...written]) expect(declared.has(t), `${t} is not declared`).toBe(true)
 })
 
-test("Licht, Wasser, two pages to come, and the navigator; the page icons follow the van", async () => {
+test("Licht, Wasser, Energie, two pages to come, and the navigator; the page icons follow the van", async () => {
   const project = await built()
   expect(project.settings.deviceId).toBe("waveshare-touch-lcd-4v3b")
-  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser", "MaxxFan", "Heizung"])
+  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser", "Energie", "MaxxFan", "Heizung"])
   expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator", "switch"])
   // Top right on the master: light or dark.
   const theme = project.screens[0].objects[1] as any
@@ -113,12 +115,90 @@ test("Licht, Wasser, two pages to come, and the navigator; the page icons follow
   expect(alert({ "schaltli/state/tank/1/level": "60", "schaltli/state/tank/2/level": "85" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "15", "schaltli/state/tank/2/level": "50" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "20", "schaltli/state/tank/2/level": "80" })).toBe("false")
-  for (const i of [3, 4]) expect(JSON.stringify(project.screens[i].objects)).toContain("Coming soon")
+  for (const i of [4, 5]) expect(JSON.stringify(project.screens[i].objects)).toContain("Coming soon")
   const [pump, drain] = project.screens[2].objects.filter((o) => o.type === "switch") as any[]
   expect(pump.properties.topic).toBe("schaltli/state/relay/4/power")
   expect(pump.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
   expect(drain.properties.topic).toBe("schaltli/state/relay/3/power")
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
+})
+
+// Energie (2026-10-11): only what Pekaway reports and the bridge passes on -
+// the shunt, the solar charger, the battery's watts -, so the page can be
+// copied into any VanPi's project.
+test("Energie: the sun, the battery and what draws, an arrow only while something flows, the battery's numbers", async () => {
+  const project = await built()
+  const energie = project.screens[3] as any
+  expect(energie.name).toBe("Energie")
+  const read = new Set<string>()
+  walk(energie, (key, v) => {
+    if ((key === "topic" || key === "path") && typeof v === "string") read.add(v)
+  })
+  expect([...read].sort()).toEqual([
+    "schaltli/state/battery/current",
+    "schaltli/state/battery/power",
+    "schaltli/state/battery/soc",
+    "schaltli/state/battery/voltage",
+    "schaltli/state/mppt/pv_watts",
+  ])
+  // Nothing on it writes: it only shows.
+  expect(JSON.stringify(energie)).not.toContain("writeTopic")
+  // The page's icon: an empty battery below 20 %.
+  expect(energie.iconLive).toMatchObject({ source: { path: "schaltli/state/battery/soc" }, otherwise: { icon: "icon-battery" } })
+  expect(energie.iconLive.rules).toEqual([{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }])
+
+  // The arrows: a live icon each, with no Otherwise, so nothing shows while
+  // nothing flows - the sun's while it brings watts, the battery's while it gives.
+  const arrows = energie.objects.filter((o: any) => o.properties.liveIconId)
+  expect(arrows.map((o: any) => [o.properties.liveValues[0].source.path, o.properties.liveValues[0].rules[0].op])).toEqual([
+    ["schaltli/state/mppt/pv_watts", ">"],
+    ["schaltli/state/battery/current", "<"],
+  ])
+  for (const a of arrows) expect(a.properties.liveValues[0].otherwise).toBeUndefined()
+  expect(energie.objects.filter((o: any) => o.type === "gauge")).toHaveLength(1)
+  // A line's points are the screen's, not its box's: each path runs inside its own box.
+  for (const line of energie.objects.filter((o: any) => o.type === "line")) {
+    for (const p of line.properties.points) {
+      expect(p.x).toBeGreaterThanOrEqual(line.x)
+      expect(p.x).toBeLessThanOrEqual(line.x + line.width)
+      expect(p.y).toBeGreaterThanOrEqual(line.y)
+      expect(p.y).toBeLessThanOrEqual(line.y + line.height)
+    }
+  }
+
+  // Every icon it uses is in the project.
+  const assets = new Set(project.assets.map((a: any) => a.id))
+  walk(energie, (key, v) => {
+    if ((key === "assetId" || key === "icon") && typeof v === "string") expect(assets.has(v), v).toBe(true)
+  })
+
+  // The texts, as the designer and the devices resolve them.
+  const texts = energie.objects.filter((o: any) => o.type === "text" && o.properties.liveValues)
+  const shown = (values: Record<string, string>) =>
+    texts.map((o: any) => {
+      const lv = o.properties.liveValues[0]
+      const { result } = evaluate(lv, values[lv.source.path])
+      return (result as any)?.kind === "text" ? (result as any).parts.map((p: any) => (typeof p === "string" ? p : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS))).join("") : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS)
+    })
+  const S = "schaltli/state/"
+  expect(shown({ [`${S}mppt/pv_watts`]: "280", [`${S}battery/current`]: "20.79", [`${S}battery/soc`]: "78", [`${S}battery/voltage`]: "13.39", [`${S}battery/power`]: "278" })).toEqual([
+    "280 W",
+    "Lädt",
+    "78 %",
+    "13.39 V",
+    "+20.8 A",
+    "+278 W",
+  ])
+  expect(shown({ [`${S}mppt/pv_watts`]: "0", [`${S}battery/current`]: "-2.13", [`${S}battery/soc`]: "15", [`${S}battery/voltage`]: "12.48", [`${S}battery/power`]: "-28" })).toEqual([
+    "0 W",
+    "Entlädt",
+    "15 %",
+    "12.48 V",
+    "-2.1 A",
+    "-28 W",
+  ])
+  expect(shown({ [`${S}battery/current`]: "0.00" })[1]).toBe("Ruht")
+  expect(shown({})).toEqual(["–", "–", "–", "–", "–", "–"])
 })
 
 test("written into a project store, «Camper» reads back as built", async ({}, testInfo) => {
