@@ -105,6 +105,10 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    node with 0 W is left out. The nodes' y orders each side top to bottom;
    their x is not used. A storage stands on the side its sign puts it.
    Each node keeps a label slot of at least 66 px however thin its band.
+   Where a band meets a node's bar or the bus, nothing shows between them:
+   the bars are rounded on their outer side only, the bus not at all, and
+   a band runs 2-4 px under them and is drawn first (the user saw notches
+   at rounded corners in the target picture, 2026-10-11).
    **Scale** (the user, 2026-10-11): everything together is as thick as
    the room for bands times √(total ÷ full scale), all of it from the full
    scale on; inside that the bands share linearly, so they add up to the
