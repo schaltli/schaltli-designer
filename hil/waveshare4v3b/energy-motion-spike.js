@@ -135,13 +135,18 @@ async function measureTaps(base) {
   await touch(base, x, y, false)
   await sleep(800)
   await get(`${base}/api/debug?set=taplatency=clear`)
+  // At random intervals: taps at a fixed beat lock onto the motion's own
+  // beat and land at the same moment of every step - measured 2026-10-11,
+  // every tap waited ~30 ms more than a person's would. A finger comes at
+  // any moment, so the taps here do too.
   for (let i = 0; i < TAPS; i++) {
     await touch(base, x, y, true)
     await sleep(120)
     await touch(base, x, y, false)
-    await sleep(700)
+    await sleep(600 + Math.floor(Math.random() * 400))
   }
   const debug = (await get(`${base}/api/debug`)).body
+  console.log(`   ${(debug.split("\n").find((l) => l.includes("tap latency")) ?? "").trim()}`)
   const m = /tap latency: (\d+) taps, median ([\d.]+) ms, p90 ([\d.]+) ms, worst ([\d.]+) ms/.exec(debug)
   if (!m) throw new Error(`no tap latency on /api/debug - the firmware predates it:\n${debug.split("\n").find((l) => l.includes("tap latency")) ?? ""}`)
   return { taps: Number(m[1]), median: Number(m[2]), p90: Number(m[3]), worst: Number(m[4]) }

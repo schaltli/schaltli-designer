@@ -496,6 +496,26 @@ async function main() {
     })
   }
 
+  // The energy diagram's spike (docs/2026-10-11-energy-diagram.md, decision
+  // 14): dots and the Sankey's wave moving, and a tap no more than 20 %
+  // slower for it. Kept so the number that decided the 4.3B moves stays a
+  // measured one. Installs its own screen.
+  console.log(`
+=== Waveshare 4.3B energy diagram motion (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/energy-motion-spike.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-energy-motion",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          : exitCode === 0
+            ? "dots and wave at >= 8 steps/s, a tap at most 20 % slower"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // A text's placeholder following its topic through the partial redraw
   // (docs/2026-10-05-placeholder-devices.md), on both boards that have one:
   // a text beside an object bound to the same topic kept its old value until

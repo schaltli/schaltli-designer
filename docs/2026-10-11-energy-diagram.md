@@ -181,14 +181,37 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     | dots and the Sankey's wave | 73 ms | 121 ms | 1.66 | 8.6 | 21.2 ms |
     | dots alone (Flow) | 73.5 ms | 84.9 ms | 1.16 | 8.7 | 6.8 ms |
 
-    The dots pass; the wave does not. Why: the 4.3B has three framebuffers
-    and every rectangle changed must be copied into each of them; whichever
-    present comes next pays for what its buffer missed - the press feedback
-    of a tap included. The band's rectangle is large, so every present
-    after a wave step carries some 14-20 ms of it. Moving the wave only
-    every other step made a tap slower, not quicker (measured), for that
-    reason. **Open, for the user**: what the 4.3B does with the Sankey's
-    wave.
+    Round two, the user's choice (2026-10-11), measured the same way but
+    with the taps at random intervals:
+
+    | | still | moving | factor | p90 moving | steps/s |
+    |---|---|---|---|---|---|
+    | dots and the Sankey's wave | 74.8 ms | 79.5 ms | 1.06 | 109 ms | 9.4 |
+    | the same, again | 74.9 ms | 78.8 ms | 1.05 | 109 ms | 9.0 |
+    | dots alone | 75.0 ms | 79.2 ms | 1.06 | 89 ms | 9.8 |
+
+    **Decided: the 4.3B moves both** - the Flow's dots and the Sankey's
+    wave. How, and why round one failed:
+
+    - Round one repainted the band on the canvas and owed its rectangle to
+      the three framebuffers; whichever present came next - a tap's press
+      feedback included - copied it. Round two paints the wave's rows
+      straight into every framebuffer and the canvas, from one row of
+      colours in internal RAM (a column's colour depends on its x alone),
+      and writes them back out of the cache (`esp_cache_msync`): no buffer
+      owes the band, no present pays for it. A wave step costs ~20 ms.
+    - The step runs at the end of the board's loop, after the touch was
+      read, and not while a finger is down; steps keep a fixed 100 ms grid.
+    - Round one's numbers were also too gloomy: its taps came at a fixed
+      beat, which locked onto the steps' beat, so every tap met a step
+      starting. A finger comes at any moment; the HIL test now taps at
+      random intervals. About one tap in ten still meets a step and waits
+      ~30 ms (the p90).
+
+    Not yet checked: the wave on the glass with an eye (the snapshot reads
+    the canvas, not the panel) - the first look at the 4.3B, and the band's
+    pixel diff against the designer, which needs the designer's band
+    renderer (`energy-designer`) and moves to `energy-firmware`.
 15. **Devices**: the 4.3B and the Android app. The PaperS3 and the Knob do
     not list the type in their `supportedObjectTypes`; the designer then
     refuses it there, as for any unsupported type.
