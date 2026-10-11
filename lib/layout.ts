@@ -15,6 +15,8 @@
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
+import { resolveLiveText, textOf, type LiveValue, type Source } from "@/lib/live-value"
+import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
@@ -41,6 +43,13 @@ export interface LayoutScale {
   pixelsPerMm: number
   /** The project's fonts, to measure a text's words and a control's labels. */
   fonts?: readonly ProjectFont[]
+  /**
+   * The project's topics and how it writes numbers, to measure a text's live
+   * values by what they show - not by their `{live:...}` reference, which
+   * clipped «Lichterkette» on the demo (2026-10-11).
+   */
+  topics?: readonly { topic: string; examples?: readonly string[] }[]
+  separators?: Separators
 }
 export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 
@@ -66,12 +75,39 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
-    return Math.max(1, textWidthIn(String(obj.properties?.text ?? ""), font))
+    return Math.max(1, textWidthIn(shownText(obj, scale, font), font))
   }
   if (obj.type === "switch" || obj.type === "button-group" || obj.type === "button") {
     return Math.max(1, controlMinWidth(obj, obj.height, fonts))
   }
   return obj.width
+}
+
+/**
+ * A text as wide as the designer can know it reads: each live value at its
+ * topic's longest example, formatted and through its rules; one with no
+ * example as it reads without a value.
+ */
+function shownText(obj: ScreenObject, scale: LayoutScale, font: ProjectFont | undefined): string {
+  const text = String(obj.properties?.text ?? "")
+  const liveValues: LiveValue[] | undefined = obj.properties?.liveValues
+  if (!liveValues?.length) return text
+  const separators = scale.separators ?? DEFAULT_SEPARATORS
+  const longest = new Map<Source, string | undefined>()
+  for (const lv of liveValues) {
+    const examples = lv.source.namespace === "topic" ? (scale.topics?.find((t) => t.topic === lv.source.path)?.examples ?? []) : []
+    let best: string | undefined
+    let bestWidth = -1
+    for (const example of examples) {
+      const width = textWidthIn(textOf(lv, example, separators), font)
+      if (width > bestWidth) {
+        best = example
+        bestWidth = width
+      }
+    }
+    longest.set(lv.source, best)
+  }
+  return resolveLiveText(text, liveValues, (source) => longest.get(source), separators)
 }
 
 /**
@@ -192,16 +228,25 @@ export function keepUnchanged<T>(prev: T, next: T): T {
  * (docs/2026-10-03-free-screens.md): its tables and areas lay out what is
  * in them.
  */
-export function layoutProject<P extends {
-  screens?: Array<{ objects?: ScreenObject[] }>
+interface ScaledProject {
   fonts?: readonly ProjectFont[]
-  settings?: { pixelsPerMm?: number }
-}>(project: P): P {
-  if (!project?.screens) return project
-  const scale: LayoutScale = {
+  topics?: readonly { topic: string; examples?: readonly string[] }[]
+  settings?: { pixelsPerMm?: number; decimalSeparator?: string; thousandsSeparator?: string }
+}
+
+/** A project's layout scale: its panel, its fonts, its topics and how it writes numbers. */
+export function layoutScaleOf(project: ScaledProject): LayoutScale {
+  return {
     pixelsPerMm: project.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm,
     fonts: project.fonts,
+    topics: project.topics,
+    separators: projectSeparators(project.settings ?? {}),
   }
+}
+
+export function layoutProject<P extends ScaledProject & { screens?: Array<{ objects?: ScreenObject[] }> }>(project: P): P {
+  if (!project?.screens) return project
+  const scale = layoutScaleOf(project)
   let changed = false
   const screens = project.screens.map((screen) => {
     const objects = screen.objects ?? []

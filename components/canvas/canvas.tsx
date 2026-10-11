@@ -1148,7 +1148,10 @@ export function Canvas({
     return [...ids]
   }, [previewMode, selectedObjectIds, editingContainerId, screen.objects])
 
-  const layoutScale = useMemo(() => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }), [textScale, fonts])
+  const layoutScale = useMemo(
+    () => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts, topics, separators: numberSeparators }),
+    [textScale, fonts, topics, numberSeparators],
+  )
 
   // What a table put together by snapping sizes: the table itself (as large
   // as its content) and each object in it (its cell decides). No resize

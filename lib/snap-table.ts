@@ -224,19 +224,25 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
     const roomHeight = across(heights, cell.row, cell.rowSpan!)
     const fill: SnapFill = cell.fill ?? {}
     const own = drawn(child)
-    const sizedChild = fill.width ? fit(own, room, scale) : size
-    const width = fill.width ? room : sizedChild.width
+    // A text spans its cell and is aligned in it by its own textAlign: as wide
+    // as its words, it was clipped where a live value read longer, and a
+    // column dragged wider gave it no room (the demo, 2026-10-11). An older
+    // cell's Align becomes the text's.
+    const isText = child.type === "text"
+    const sizedChild = fill.width || isText ? fit(own, room, scale) : size
+    const width = fill.width || isText ? room : sizedChild.width
     const height = fill.height ? roomHeight : sizedChild.height
-    const align: SnapAlign = cell.align ?? (roleOf(child) === "label" ? "left" : "center")
+    const align: SnapAlign = isText ? "left" : (cell.align ?? (roleOf(child) === "label" ? "left" : "center"))
     const alignY: SnapAlignY = cell.alignY ?? "middle"
     const dx = align === "left" ? 0 : align === "right" ? room - width : Math.round((room - width) / 2)
     const dy = alignY === "top" ? 0 : alignY === "bottom" ? roomHeight - height : Math.round((roomHeight - height) / 2)
     // The drawn size kept while filled, dropped once it is not.
     const { drawnWidth: _w, drawnHeight: _h, ...kept } = child.properties?.cell ?? {}
     const placedCell: Record<string, any> = { ...kept }
+    if (isText) delete placedCell.align
     if (fill.width) placedCell.drawnWidth = own.width
     if (fill.height) placedCell.drawnHeight = own.height
-    const properties = { ...sizedChild.properties, cell: placedCell }
+    const properties = { ...sizedChild.properties, ...(isText && cell.align ? { textAlign: cell.align } : {}), cell: placedCell }
     const left = lefts[cell.column] + dx
     const top = tops[cell.row] + dy
     // A line moved there whole, its points with it (translateObject).

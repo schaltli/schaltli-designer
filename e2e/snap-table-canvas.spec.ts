@@ -570,7 +570,8 @@ test.describe("snap table: in a switcher panel and a free area", () => {
 })
 
 test.describe("snap table: panel and tree", () => {
-  test("Align right puts an object at its cell's right edge; one Ctrl+Z takes it back", async ({ page }) => {
+  // A text spans its cell (2026-10-11): Align is its own alignment there.
+  test("Align right on a text aligns it right across its cell; one Ctrl+Z takes it back", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)
     await chooseInTable(page, table, "bad")
@@ -578,11 +579,12 @@ test.describe("snap table: panel and tree", () => {
     const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
     const bad = grid.children!.find((c) => c.id === "bad")!
     const licht = grid.children!.find((c) => c.id === "licht")!
-    expect(bad.properties!.cell.align).toBe("right")
-    // Column 0's right edge is the wider «Licht»'s.
+    expect(bad.properties!.textAlign).toBe("right")
+    expect(bad.properties!.cell.align).toBeUndefined()
+    // Column 0's right edge is the wider «Licht»'s, and the text reaches it.
     expect(bad.x + bad.width).toBe(licht.x + licht.width)
     await page.keyboard.press("ControlOrMeta+z")
-    expect((await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "bad")!.properties!.cell.align).toBeUndefined()
+    expect((await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "bad")!.properties!.textAlign ?? "left").toBe("left")
   })
 
   test("Fill Width makes a box as wide as its column; Fill is offered only where it fits", async ({ page }) => {

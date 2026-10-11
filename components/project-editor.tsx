@@ -66,7 +66,7 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { FALLBACK_SCALE, layoutProject } from "@/lib/layout"
+import { layoutProject, layoutScaleOf } from "@/lib/layout"
 import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
@@ -1881,7 +1881,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const newTableId = `obj-${project.nextId + 1}`
         const drop = at.snap
         setProject((prev) => {
-          const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+          const scale = layoutScaleOf(prev)
           const add = (list: ScreenObject[]) =>
             applySnapDrop([...list, { ...object, id, zIndex: Math.max(0, ...list.map((o) => o.zIndex)) + 1 } as ScreenObject], id, drop, scale, newTableId)
           return {
@@ -2160,7 +2160,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const newTableId = `obj-${project.nextId}`
       const tableId = drop.kind === "table" ? drop.tableId : newTableId
       setProject((prev) => {
-        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        const scale = layoutScaleOf(prev)
         return {
           ...prev,
           nextId: drop.kind === "pair" ? prev.nextId + 1 : prev.nextId,
@@ -2197,7 +2197,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const ids = parts.map((_, i) => `obj-${project.nextId + i}`)
       const newTableId = `obj-${project.nextId + parts.length}`
       setProject((prev) => {
-        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        const scale = layoutScaleOf(prev)
         const add = (list: ScreenObject[]) => {
           const inside = target ? (list.find((o) => o.id === target.tableId)?.children ?? []) : []
           const base = Math.max(0, ...inside.map((o) => o.zIndex))
@@ -2232,7 +2232,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const newTableId = `obj-${project.nextId}`
       const parentId = findParentOf(currentScreen.objects, tableId)?.parent?.id ?? null
       setProject((prev) => {
-        const scale = { pixelsPerMm: prev.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts: prev.fonts }
+        const scale = layoutScaleOf(prev)
         const move = (list: ScreenObject[]) => moveOutOf(list, tableId, objectId, to, drop, scale, newTableId)
         return {
           ...prev,

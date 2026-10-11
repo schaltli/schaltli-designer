@@ -135,6 +135,39 @@ test.describe("snap table: layout", () => {
     expect(child(arrangeSnapTable(table([wide, text], [{}], [{}, {}]), SCALE), "txt").x).toBe(0)
   })
 
+  // On the demo, 2026-10-11: «Lichterkette», a live value, was clipped in its
+  // cell, and dragging the column wider did not help. A text spans its cell,
+  // aligned by its own textAlign, and a live value is measured by what it
+  // shows.
+  test("a text spans its cell: a column dragged wider gives it the room; an older cell Align becomes its textAlign", () => {
+    const wide = box(100, 20, { row: 0, column: 0 })
+    const text: ScreenObject = { id: "txt", type: "text", x: 0, y: 0, width: 30, height: 18, zIndex: 0, properties: { text: "Bad", cell: { row: 1, column: 0, align: "right" } } }
+    const laid = child(arrangeSnapTable(table([wide, text], [{}], [{}, {}]), SCALE), "txt")
+    expect(laid).toMatchObject({ x: 0, width: 100 })
+    expect(laid.properties!.textAlign).toBe("right")
+    expect(laid.properties!.cell.align).toBeUndefined()
+    const dragged = child(arrangeSnapTable(table([wide, text], [{ mm: 40 }], [{}, {}]), SCALE), "txt")
+    expect(dragged.width).toBe(40 * SCALE.pixelsPerMm)
+  })
+
+  test("a live text is measured by its topic's longest example, not by its reference", () => {
+    const text: ScreenObject = {
+      id: "name",
+      type: "text",
+      x: 0,
+      y: 0,
+      width: 30,
+      height: 18,
+      zIndex: 0,
+      properties: { text: "{live:lv1}", liveValues: [{ id: "lv1", source: { namespace: "topic", path: "van/relay/1/name" }, rules: [] }] },
+    }
+    const plain = (words: string): ScreenObject => ({ ...text, properties: { text: words } })
+    const scale = { ...SCALE, topics: [{ topic: "van/relay/1/name", examples: ["Licht", "Lichterkette"] }] }
+    expect(naturalWidth(text, scale)).toBe(naturalWidth(plain("Lichterkette"), scale))
+    // Without an example it reads as nothing yet, not as its reference.
+    expect(naturalWidth(text, SCALE)).toBeLessThan(naturalWidth(plain("{live:lv1}"), SCALE))
+  })
+
   test("roles: icons are Icon, texts Label, everything else Control", () => {
     const of = (type: string) => roleOf({ id: "x", type, x: 0, y: 0, width: 1, height: 1, zIndex: 0 } as ScreenObject)
     expect(of("icon")).toBe("icon")

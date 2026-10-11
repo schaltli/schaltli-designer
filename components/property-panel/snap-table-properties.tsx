@@ -70,9 +70,14 @@ export function SnapCellProperties({ selectedObject, onUpdateObject }: { selecte
   }
   const width = FILLS_WIDTH.has(selectedObject.type)
   const height = FILLS_HEIGHT.has(selectedObject.type)
+  // A text spans its cell (lib/snap-table.ts): Align is its own alignment.
+  const isText = selectedObject.type === "text"
+  const align = isText ? (selectedObject.properties?.textAlign ?? "left") : (cell.align ?? startAlign)
+  const setAlign = (value: SnapAlign) =>
+    isText ? onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, textAlign: value } }) : set({ align: value })
   return (
     <PropertySection title="Cell">
-      <SelectField id="snapAlign" label="Align" value={cell.align ?? startAlign} options={ALIGN} onChange={(align) => set({ align })} />
+      <SelectField id="snapAlign" label="Align" value={align} options={ALIGN} onChange={(value) => setAlign(value as SnapAlign)} />
       <SelectField id="snapAlignY" label="Vertical align" value={cell.alignY ?? "middle"} options={ALIGN_Y} onChange={(alignY) => set({ alignY })} />
       {width ? <ToggleRow label="Fill" text="Width" checked={!!cell.fill?.width} onChange={(on) => fill("width", on)} /> : null}
       {height ? <ToggleRow label={width ? "" : "Fill"} text="Height" checked={!!cell.fill?.height} onChange={(on) => fill("height", on)} /> : null}
