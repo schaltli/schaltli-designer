@@ -121,8 +121,10 @@ whether it gives or takes, the storage's side, the rest (decision 4).
 
 ### L2 - Sankey layout
 **Description:** `sankeyLayout(resolved, box)`: givers left, takers right,
-ordered by y, the bus in the middle, one scale for all, bands ≥ 3 px
-while they carry, each band as a polygon (flattened cubic), label anchors.
+ordered by y, the bus in the middle, the total thickness by
+√(total ÷ fullScale) capped at the room, bands linear inside it and ≥ 3 px
+while they carry, label slots ≥ 66 px, each band as a polygon (flattened
+cubic), label anchors.
 **Acceptance:**
 - [ ] matches the target picture's geometry for its four situations
 - [ ] a 0 W node is left out; a storage changes sides with its sign

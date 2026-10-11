@@ -101,10 +101,22 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
 7. **Two modes, one set of nodes**, a property `mode`: `sankey` or `flow`.
    Switching mode keeps every node and topic.
 8. **Sankey**: givers on the left, takers on the right, the bus in the
-   middle; a band's width is its watts on one scale for the whole diagram;
-   a band never thinner than 3 px while it carries anything; a node with
-   0 W is left out. The nodes' y orders each side top to bottom; their x is
-   not used. A storage stands on the side its sign puts it.
+   middle; a band never thinner than 3 px while it carries anything; a
+   node with 0 W is left out. The nodes' y orders each side top to bottom;
+   their x is not used. A storage stands on the side its sign puts it.
+   Each node keeps a label slot of at least 66 px however thin its band.
+   **Scale** (the user, 2026-10-11): everything together is as thick as
+   the room for bands times √(total ÷ full scale), all of it from the full
+   scale on; inside that the bands share linearly, so they add up to the
+   bus exactly. **Full scale** is a property in watts, default 1000 W: what
+   flows at most on an ordinary day (the DC-DC charger and the sun), not
+   the largest device's rating - a 2500 W inverter running fills the
+   diagram, which is honest enough. Worked through for the author's van
+   on the 4.3B (340 px of room): rest 9 W → 32 px, light 20 W → 48 px,
+   fridge and light 92 W → 103 px, mains charger 400 W → 215 px, DC-DC
+   charger and sun 820 W → 308 px. Linear was tried and dropped (rest and
+   light both 3 px threads), and so was filling the room whatever flows
+   (92 W looked like 670 W).
 9. **Flow**: each node a circle at its own x/y, the bus too; a straight line
    from each node to the bus, its width growing with the logarithm of its
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
@@ -156,7 +168,8 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
   rectangle drawn and comes with a bus and three example nodes - a source
   «Solar», a storage «Battery», a rest «Consumers» -, mode Flow, nodes
   placed round the bus.
-- **Property panel**: Mode (Sankey / Flow), Motion (on / off), and the
+- **Property panel**: Mode (Sankey / Flow), Motion (on / off), Full scale
+  (watts, Sankey only; default 1000), and the
   list «Nodes»: each row its icon, name and role; «+ Add node» (Source,
   Sink, Storage, Rest); a row opens the node's fields - Name, Icon, Role,
   Reads (watts), Reverse sign, Charge (storage only), Colour, Lines (up to
@@ -189,6 +202,7 @@ The object exported as is, type `energy-diagram`, its properties:
 {
   "mode": "flow",
   "motion": true,
+  "fullScale": 1000,
   "nodes": [
     { "id": "bus", "role": "bus", "name": "12 V", "x": 270, "y": 150 },
     { "id": "n1", "role": "source", "name": "Solar", "iconAssetId": "...", "topic": "van/energy/solar_watts",
