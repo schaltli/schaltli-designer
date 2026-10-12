@@ -195,7 +195,7 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     other redraws, the 4.3B draws the diagram still and only Android moves
     (decided then, not now).
 
-    **Spike result, 2026-10-11** (`hil/waveshare4v3b/energy-motion-spike.js`,
+    **Spike result, 2026-10-11** (`hil/waveshare4v3b/energy-motion-spike.js`, since grown into `energy-diagram.js`,
     firmware `?set=energyspike`, five lines with 34 dots, one band of some
     80 000 px; a tap's latency measured by the board from the sample to the
     press feedback on the glass, 20 taps, medians):
@@ -387,9 +387,11 @@ the 4.3B's loop. Android: Kotlin, a custom view as `NavigatorStripView`.
 
 ## Testing strategy
 
-- The spike: `hil/waveshare4v3b/energy-motion-spike.js` measures frame
-  rate, a touch's latency during motion and a band's pixel diff - kept as
-  a HIL test, not thrown away.
+- The spike, grown into `hil/waveshare4v3b/energy-diagram.js` once the
+  4.3B drew the real object (energy-firmware, 2026-10-12): the glass moving
+  inside the diagram only, a tap's latency moving against still, steps a
+  second, and a tap on a node opening its popup. The still picture of
+  both modes is `hil/conformance`'s specimen.
 - `lib/energy-diagram.ts`: unit tests of layout, rest, signs, minimum band
   width, Sankey order by y, the storage changing sides.
 - e2e: inserting, the node list, dragging in Flow, mode switch, preview

@@ -883,6 +883,64 @@ const SPECIMENS = {
       };
     },
   },
+
+  // The energy diagram (device contract 2.8), both modes side by side, each
+  // on half the screen: a Flow on the left, a Sankey on the right, reading
+  // the same topics - a source with an icon, a storage with its charge and
+  // an icon, a sink and the rest, each with its watts and a second line.
+  // Motion off, so the snapshot is the still picture at phase 0 (decision 1
+  // of tasks/energy-devices-plan.md); that it moves, and how a tap fares
+  // meanwhile, is hil/waveshare4v3b/energy-diagram.js's. The values swap who
+  // gives: the storage gives at night and takes by day, so its icon, colour
+  // and line or band change sides.
+  "energy-diagram": {
+    build: (c) => {
+      const solar = c.topic("solar", "numeric", ["0", "120"]);
+      const battery = c.topic("battery", "numeric", ["-92", "60"]);
+      const soc = c.topic("soc", "numeric", ["82"]);
+      const fridge = c.topic("fridge", "numeric", ["35"]);
+      const half = Math.floor(c.screen.width / 2);
+      const height = c.screen.height;
+      const lines = (second) => [{ text: "{watts} W" }, ...(second ? [{ text: second }] : [])];
+      const nodes = (w) => {
+        const at = (fx, fy) => ({ x: Math.round(w * fx), y: Math.round(height * fy) });
+        return [
+          { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
+          { id: "solar", role: "source", name: "Solar", colorRole: "#c99400", color: "#c99400", topic: solar, iconAssetId: RING.id, lines: lines("Grüße"), ...at(0.2, 0.18) },
+          { id: "battery", role: "storage", name: "Batterie", colorRole: "#2f9a52", color: "#2f9a52", topic: battery, chargeTopic: soc, iconAssetId: BARS.id, lines: lines(`{topic:${soc}:F0} %`), ...at(0.2, 0.7) },
+          { id: "fridge", role: "sink", name: "Kühlschrank", colorRole: "#2f7ad8", color: "#2f7ad8", topic: fridge, lines: lines(), ...at(0.8, 0.18) },
+          { id: "rest", role: "rest", name: "Verbraucher", colorRole: "#7a5bd1", color: "#7a5bd1", lines: lines(), ...at(0.8, 0.7) },
+        ];
+      };
+      const diagram = (id, mode, x, width) => ({
+        id: c.id(id),
+        type: "energy-diagram",
+        zIndex: 1,
+        x,
+        y: 0,
+        width,
+        height,
+        properties: {
+          mode,
+          motion: false,
+          fullScale: 300,
+          fontId: c.font("small"),
+          valueFontId: c.font("medium"),
+          textColor: c.colors.fg,
+          mutedColor: "#49454f",
+          busColor: "#6750a4",
+          idleColor: "#cac4d0",
+          chargeColor: "#2f9a52",
+          dischargeColor: "#d0453f",
+          nodes: nodes(width),
+        },
+      });
+      return {
+        assets: [RING, BARS],
+        objects: [diagram("flow", "flow", 0, half), diagram("sankey", "sankey", half, c.screen.width - half)],
+      };
+    },
+  },
 };
 
 // A tab-control holding two panels, each with one child, for both the

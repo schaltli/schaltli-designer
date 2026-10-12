@@ -84,6 +84,18 @@ function screenTopics(project, screen) {
         if (lv.source?.namespace === "topic") set.add(baseTopic(lv.source.path));
         if (lv.source?.namespace === "combined") for (const t of combinedInputs(project, lv.source.path)) set.add(t);
       }
+      // An energy diagram's nodes read their watts and charge, and their
+      // lines are texts (device contract 2.8).
+      if (obj.type === "energy-diagram") {
+        for (const node of obj.properties?.nodes || []) {
+          if (node.topic) set.add(baseTopic(node.topic));
+          if (node.chargeTopic) set.add(baseTopic(node.chargeTopic));
+          for (const line of node.lines || []) {
+            if (typeof line.text === "string") for (const topic of placeholderTopics(line.text)) set.add(baseTopic(topic));
+            for (const lv of line.liveValues || []) if (lv.source?.namespace === "topic") set.add(baseTopic(lv.source.path));
+          }
+        }
+      }
       if (obj.children && obj.children.length > 0) walk(obj.children);
     }
   };
