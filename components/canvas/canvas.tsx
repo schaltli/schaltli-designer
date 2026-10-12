@@ -1,7 +1,18 @@
 "use client"
 
 import { barLayout, clampScroll, entryAt, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
-import { defaultDiagram } from "@/lib/energy-diagram"
+import { FLOW_BUS_R, FLOW_NODE_R, defaultDiagram, type EnergyNode } from "@/lib/energy-diagram"
+
+// The node or bus of a Flow diagram under a point, if any: its circle, and a
+// little round it so the bus's small one can be caught.
+function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): EnergyNode | undefined {
+  if (diagram.properties.mode === "sankey" || !Array.isArray(diagram.properties.nodes)) return undefined
+  const nodes = diagram.properties.nodes as EnergyNode[]
+  // The bus first: it is small and often under a line's end.
+  return [...nodes]
+    .sort((a, b) => (a.role === "bus" ? -1 : b.role === "bus" ? 1 : 0))
+    .find((n) => Math.hypot(at.x - diagram.x - n.x, at.y - diagram.y - n.y) <= (n.role === "bus" ? FLOW_BUS_R + 6 : FLOW_NODE_R))
+}
 import { themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
@@ -2996,6 +3007,19 @@ export function Canvas({
               })
               return
             }
+          } else if (isAlreadySelected && clickedObject.type === "energy-diagram" && energyNodeAt(clickedObject, coords)) {
+            // In the Flow a node or the bus is moved by its circle, when the
+            // diagram is selected (docs/2026-10-11-energy-diagram.md).
+            const node = energyNodeAt(clickedObject, coords)!
+            setDragState({
+              mode: "energy-node",
+              objectId: clickedObject.id,
+              startPos: coords,
+              startObjectPos: { x: clickedObject.x, y: clickedObject.y, width: clickedObject.width, height: clickedObject.height },
+              energyNodeId: node.id,
+              energyNodeStart: { x: node.x, y: node.y },
+            })
+            return
           } else {
             const resizeHandle = staysPut(clickedObject) || sizedBySnapTable.has(clickedObject.id) ? null : findResizeHandle(clickedObject, coords.x, coords.y)
             if (resizeHandle) {
@@ -3515,6 +3539,16 @@ export function Canvas({
           if (angles.minAngle !== obj.properties.minAngle || angles.maxAngle !== obj.properties.maxAngle) {
             updateInteractionObject(obj.id, { properties: { ...obj.properties, ...angles } })
           }
+        }
+      } else if (dragState.mode === "energy-node" && dragState.objectId && dragState.energyNodeId && dragState.energyNodeStart) {
+        // A node of the Flow follows the pointer, inside its diagram.
+        const diagram = interactionObjects.find((obj) => obj.id === dragState.objectId)
+        if (diagram) {
+          const start = dragState.energyNodeStart
+          const x = Math.round(Math.max(0, Math.min(diagram.width, start.x + coords.x - dragState.startPos.x)))
+          const y = Math.round(Math.max(0, Math.min(diagram.height, start.y + coords.y - dragState.startPos.y)))
+          const nodes = (diagram.properties.nodes ?? []).map((n: EnergyNode) => (n.id === dragState.energyNodeId ? { ...n, x, y } : n))
+          updateInteractionObject(diagram.id, { properties: { ...diagram.properties, nodes } })
         }
       } else if (
         dragState.mode === "line-endpoint" &&

@@ -40,7 +40,8 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] D4 Property panel: the diagram and its nodes
   - the node's «Tap» (action) is already in its fields; D6 makes the preview run it
   - the Text panel's live-text block became `live-text-editor.tsx`, used by both
-- [ ] D5 Dragging nodes in Flow
+- [x] D5 Dragging nodes in Flow
+  - (halted once 2026-10-12 on a hung dev server; the user restarted it)
 - [ ] D6 A tap on a node runs its action
 - [ ] D7 Copy and paste, topic usage
 - [ ] D8 Handbook

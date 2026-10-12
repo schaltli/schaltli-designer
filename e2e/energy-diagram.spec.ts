@@ -484,3 +484,55 @@ test.describe("the energy diagram's panel", () => {
     void page
   })
 })
+
+// ---- D5: dragging a node in the Flow.
+
+test.describe("the energy diagram's nodes dragged in the Flow", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("energy-diagram")) manifest.supportedObjectTypes.push("energy-diagram")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  const drag = async (page: Page, from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, from.x, from.y, SCREEN_43B)
+    const b = devicePoint(box, to.x, to.y, SCREEN_43B)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 4 })
+    await page.mouse.move(b.x, b.y, { steps: 4 })
+    await page.mouse.up()
+  }
+
+  test("a node follows the pointer, the others stay; undo puts it back; beside the circles the diagram moves", async ({ page }) => {
+    await newProject(page)
+    await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
+    const first = diagramsOf(await downloadProjectJson(page))[0]
+    const solar = first.properties.nodes.find((n: Obj) => n.id === "solar")
+    const at = { x: first.x + solar.x, y: first.y + solar.y }
+
+    await drag(page, at, { x: at.x + 60, y: at.y + 40 })
+    const moved = diagramsOf(await downloadProjectJson(page))[0]
+    expect({ x: moved.x, y: moved.y }).toEqual({ x: first.x, y: first.y })
+    const solarNow = moved.properties.nodes.find((n: Obj) => n.id === "solar")
+    expect(Math.abs(solarNow.x - (solar.x + 60))).toBeLessThanOrEqual(1)
+    expect(Math.abs(solarNow.y - (solar.y + 40))).toBeLessThanOrEqual(1)
+    for (const n of moved.properties.nodes.filter((n: Obj) => n.id !== "solar")) {
+      expect(n, n.id).toEqual(first.properties.nodes.find((m: Obj) => m.id === n.id))
+    }
+
+    await page.keyboard.press("Control+z")
+    const undone = diagramsOf(await downloadProjectJson(page))[0]
+    expect(undone.properties.nodes.find((n: Obj) => n.id === "solar")).toEqual(solar)
+
+    // Pressed where no circle is, the diagram itself moves.
+    await drag(page, { x: first.x + first.width / 2, y: first.y + first.height - 20 }, { x: first.x + first.width / 2 + 30, y: first.y + first.height - 20 })
+    const shifted = diagramsOf(await downloadProjectJson(page))[0]
+    expect(Math.abs(shifted.x - (first.x + 30))).toBeLessThanOrEqual(1)
+    expect(shifted.properties.nodes).toEqual(undone.properties.nodes)
+  })
+})

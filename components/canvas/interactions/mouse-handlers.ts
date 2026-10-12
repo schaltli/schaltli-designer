@@ -9,7 +9,11 @@ import type { ObjectType } from "@/lib/object-types"
  */
 
 export interface DragState {
-  mode: "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle" | "arc-angle"
+  mode: "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle" | "arc-angle" | "energy-node"
+  // An energy diagram's node or bus dragged in the Flow (energy-node mode):
+  // which one, and where it stood when the drag began.
+  energyNodeId?: string
+  energyNodeStart?: { x: number; y: number }
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
