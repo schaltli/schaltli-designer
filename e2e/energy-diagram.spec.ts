@@ -15,7 +15,7 @@ import { planDeploy } from "../lib/deploy-plan"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
-import { FLOW_ICON, defaultDiagram, rowStep, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_ICON, defaultDiagram, expand565, pack565, rgb565, rowStep, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
 
 // The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
 // tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
@@ -388,6 +388,8 @@ async function render(page: Page, project: Obj, overrides: Record<string, string
 
 const hexOf = (c: readonly number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("")
 const rgbOf = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number]
+// What a shape of the diagram shows for a colour: RGB565, as a board holds it (energy-firmware).
+const shown = (r: Parameters<typeof resolveRole>[1]) => hexOf(expand565(rgb565(role(r))))
 
 test.describe("the energy diagram, drawn", () => {
   test.beforeEach(async ({ page }) => {
@@ -399,30 +401,30 @@ test.describe("the energy diagram, drawn", () => {
     const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
     const at = await render(page, project)
     const n = (id: string) => nodes.find((x) => x.id === id)!
-    expect(at(n("bus").x, n("bus").y)).toBe(role("accent"))
+    expect(at(n("bus").x, n("bus").y)).toBe(shown("accent"))
     // The top of a circle's 3 px stroke, r 32.
-    expect(at(n("solar").x, n("solar").y - 32)).toBe(role("energySun"))
-    expect(at(n("storage").x, n("storage").y - 32)).toBe(role("energyCharge"))
+    expect(at(n("solar").x, n("solar").y - 32)).toBe(shown("energySun"))
+    expect(at(n("storage").x, n("storage").y - 32)).toBe(shown("energyCharge"))
     // The ring (r 39, 5 px) half full: from the top clockwise, so its right is charged and its left is not.
-    expect(at(n("storage").x + 39, n("storage").y)).toBe(role("energyCharge"))
-    expect(at(n("storage").x - 39, n("storage").y)).toBe(role("track"))
+    expect(at(n("storage").x + 39, n("storage").y)).toBe(shown("energyCharge"))
+    expect(at(n("storage").x - 39, n("storage").y)).toBe(shown("track"))
     // The rest takes 600 - 446 = 154 W: live, in «Load».
-    expect(at(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
+    expect(at(n("consumers").x, n("consumers").y - 32)).toBe(shown("energyLoad"))
     // The icon, tinted in the node's colour, in the circle's middle.
     expect(at(n("solar").x, n("solar").y)).toBe(role("energySun"))
 
     // Nothing from the sun, the battery giving 154 W: the sun grey, the battery in «Discharging».
     const night = await render(page, project, { "van/solar": "0", "van/battery": "-154" })
-    expect(night(n("solar").x, n("solar").y - 32)).toBe(role("track"))
-    expect(night(n("storage").x, n("storage").y - 32)).toBe(role("energyDischarge"))
-    expect(night(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
+    expect(night(n("solar").x, n("solar").y - 32)).toBe(shown("track"))
+    expect(night(n("storage").x, n("storage").y - 32)).toBe(shown("energyDischarge"))
+    expect(night(n("consumers").x, n("consumers").y - 32)).toBe(shown("energyLoad"))
   })
 
   test("a node whose topic has said nothing counts as 0 W", async ({ page }) => {
     const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
     const at = await render(page, project, { "van/solar": "" })
     const solar = nodes.find((x) => x.id === "solar")!
-    expect(at(solar.x, solar.y - 32)).toBe(role("track"))
+    expect(at(solar.x, solar.y - 32)).toBe(shown("track"))
   })
 
   test("Sankey: the bus, the bars and each band's columns as the core says, at phase 0", async ({ page }) => {
@@ -430,15 +432,15 @@ test.describe("the energy diagram, drawn", () => {
     const { project, nodes } = drawnProject("sankey", values)
     const at = await render(page, project)
     const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 600 }, storage: { watts: 446 } }), SIZE, 1000)
-    expect(at(layout.bus.x + 8, layout.bus.y + layout.bus.height / 2)).toBe(role("accent"))
+    expect(at(layout.bus.x + 8, layout.bus.y + layout.bus.height / 2)).toBe(shown("accent"))
     const bar = (id: string) => layout.bars.find((b) => b.id === id)!
-    expect(at(bar("solar").x + 6, bar("solar").y + bar("solar").height / 2)).toBe(role("energySun"))
-    expect(at(bar("storage").x + 6, bar("storage").y + bar("storage").height / 2)).toBe(role("energyCharge"))
-    for (const [id, colour] of [["solar", role("energySun")], ["storage", role("energyCharge")], ["consumers", role("energyLoad")]] as const) {
+    expect(at(bar("solar").x + 6, bar("solar").y + bar("solar").height / 2)).toBe(shown("energySun"))
+    expect(at(bar("storage").x + 6, bar("storage").y + bar("storage").height / 2)).toBe(shown("energyCharge"))
+    for (const [id, colour] of [["solar", shown("energySun")], ["storage", shown("energyCharge")], ["consumers", shown("energyLoad")]] as const) {
       const band = layout.bands.find((b) => b.id === id)!
       const top = band.polygon[12], bottom = band.polygon[band.polygon.length - 1 - 12]
       const x = Math.floor(top.x)
-      expect(at(x, (top.y + bottom.y) / 2), id).toBe(hexOf(waveColour(rgbOf(colour), [255, 255, 255], x, 0)))
+      expect(at(x, (top.y + bottom.y) / 2), id).toBe(hexOf(expand565(pack565(...waveColour(rgbOf(colour), expand565(rgb565("#ffffff")), x, 0)))))
     }
     // Two columns half a wave apart differ: the wave is there.
     const band = layout.bands.find((b) => b.id === "solar")!
@@ -452,8 +454,8 @@ test.describe("the energy diagram, drawn", () => {
     const at = await render(page, project)
     const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 0 }, storage: { watts: 0 } }), SIZE, 1000)
     expect(layout.bars.map((b) => b.id).sort()).toEqual(["consumers", "solar", "storage"])
-    expect(at(layout.bus.x + 8, layout.bus.y + 1)).toBe(role("accent"))
-    for (const b of layout.bars) expect(at(b.x + 6, b.y + 1), b.id).toBe(role("track"))
+    expect(at(layout.bus.x + 8, layout.bus.y + 1)).toBe(shown("accent"))
+    for (const b of layout.bars) expect(at(b.x + 6, b.y + 1), b.id).toBe(shown("track"))
   })
 })
 

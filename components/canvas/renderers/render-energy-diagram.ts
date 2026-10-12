@@ -10,7 +10,18 @@ import {
   DEFAULT_FULL_SCALE,
   advanceDots,
   advanceWave,
+  arcOutline,
+  bandOutline,
+  barOutline,
+  capsuleOutline,
+  discOutline,
   DOT_R,
+  expand565,
+  mix565,
+  pack565,
+  rectOutline,
+  rgb565,
+  ringOutline,
   dotsOnLine,
   flowBoxes,
   flowLayout,
@@ -30,6 +41,7 @@ import {
 import { diagramColours } from "@/lib/energy-diagram-object"
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { applyColorDepth } from "@/lib/color-depth"
+import { fillPolygon, type Point8 } from "@/lib/polygon-raster"
 
 /**
  * Where the motion stands: one phase per Flow line - keyed `<diagram>/<node>`
@@ -104,16 +116,6 @@ export function energyValues(nodes: readonly EnergyNode[], value: (topic: string
   return out
 }
 
-function rgb(hex: string): [number, number, number] {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  const n = m ? parseInt(m[1], 16) : 0
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-function hex([r, g, b]: readonly number[]): string {
-  return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")
-}
-
 /** A node's colour: the storage's by its sign, a 0 W node grey in the Flow. */
 function colourOf(node: EnergyNode | undefined, r: ResolvedNode, c: ReturnType<typeof look>): string {
   if (r.role === "storage") return r.gives ? c.discharge : c.charge
@@ -182,6 +184,69 @@ function iconObject(node: EnergyNode, box: Box, colour: string): ScreenObject[] 
 }
 
 /**
+ * The diagram's shapes as a board draws them: RGB565 pixels of the
+ * diagram's own size, each shape an outline from the core filled by the
+ * firmware's rules (lib/polygon-raster.ts), mixed in whole numbers. A pixel
+ * no shape has touched yet takes the screen's ground as what it mixes into,
+ * on a board as here; one never touched stays clear.
+ */
+class DiagramPixels {
+  private readonly data: Uint16Array
+  private readonly touched: Uint8Array
+
+  constructor(
+    private readonly width: number,
+    private readonly height: number,
+    private readonly ground: number,
+  ) {
+    this.data = new Uint16Array(Math.max(0, width * height))
+    this.touched = new Uint8Array(Math.max(0, width * height))
+  }
+
+  /** `colour` at (x, y) with weight w of 256. */
+  put(x: number, y: number, colour: number, w: number): void {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return
+    const i = y * this.width + x
+    this.data[i] = mix565(this.touched[i] ? this.data[i] : this.ground, colour, w)
+    this.touched[i] = 1
+  }
+
+  /** An outline filled in `colour` at `alpha` of 256 (a live Flow line: 128). */
+  fill(outline: Point8[], colour: number, alpha = 256): void {
+    fillPolygon(outline, 0, this.height - 1, {
+      fullRun: (y, x0, x1) => {
+        for (let x = x0; x <= x1; x++) this.put(x, y, colour, alpha)
+      },
+      partial: (y, x, coverage) => this.put(x, y, colour, (coverage * alpha) / 16),
+    })
+  }
+
+  /** Onto the canvas at the diagram's place (the context is already there). */
+  drawOn(ctx: CanvasRenderingContext2D): void {
+    if (this.width <= 0 || this.height <= 0 || typeof document === "undefined") return
+    const off = document.createElement("canvas")
+    off.width = this.width
+    off.height = this.height
+    const octx = off.getContext("2d")
+    if (!octx) return
+    const img = octx.createImageData(this.width, this.height)
+    for (let i = 0; i < this.data.length; i++) {
+      if (!this.touched[i]) continue
+      const [r, g, b] = expand565(this.data[i])
+      img.data[i * 4] = r
+      img.data[i * 4 + 1] = g
+      img.data[i * 4 + 2] = b
+      img.data[i * 4 + 3] = 255
+    }
+    octx.putImageData(img, 0, 0)
+    ctx.save()
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(off, 0, 0)
+    ctx.restore()
+  }
+}
+
+/**
  * The diagram at its place on the canvas, from the values its topics have
  * now, at a moment of its motion (STILL: everything at phase 0).
  */
@@ -208,6 +273,13 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
   ctx.clip()
   ctx.translate(obj.x, obj.y)
 
+  // Every shape into a picture of the diagram's own, pixel by pixel in
+  // RGB565 as a board's canvas holds it (energy-firmware, 2026-10-12): an
+  // outline from the core, filled by the firmware's rules. A pixel the
+  // diagram touches first mixes into the screen's ground.
+  const px = new DiagramPixels(obj.width, obj.height, rgb565(depth(ground)))
+  const groundRgb = expand565(rgb565(depth(ground)))
+
   if (p.mode === "sankey") {
     const layout = sankeyLayout(resolved, { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE)
     // A node without watts stands only when nothing flows at all: grey, as in the Flow.
@@ -215,32 +287,25 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
     // The bands first, each column one colour of its wave (decision 10), so
     // a device repaints a step as one stroke per column.
     for (const band of layout.bands) {
-      const base = rgb(depth(colours.get(band.id) ?? c.text))
-      const groundRgb = rgb(depth(ground))
-      ctx.save()
-      ctx.beginPath()
-      band.polygon.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)))
-      ctx.closePath()
-      ctx.clip()
-      const xs = band.polygon.map((pt) => pt.x), ys = band.polygon.map((pt) => pt.y)
-      const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs))
-      const y0 = Math.floor(Math.min(...ys)), y1 = Math.ceil(Math.max(...ys))
-      for (let x = x0; x < x1; x++) {
-        ctx.fillStyle = hex(waveColour(base, groundRgb, x, motion.wave))
-        ctx.fillRect(x, y0, 1, y1 - y0)
+      const base = expand565(rgb565(depth(colours.get(band.id) ?? c.text)))
+      const column = (x: number) => {
+        const [r, g, b] = waveColour(base, groundRgb, x, motion.wave)
+        return pack565(r, g, b)
       }
-      ctx.restore()
+      fillPolygon(bandOutline(band), 0, obj.height - 1, {
+        fullRun: (y, x0, x1) => {
+          for (let x = x0; x <= x1; x++) px.put(x, y, column(x), 256)
+        },
+        partial: (y, x, coverage) => px.put(x, y, column(x), coverage * 16),
+      })
     }
-    ctx.fillStyle = depth(c.bus)
-    ctx.fillRect(layout.bus.x, layout.bus.y, layout.bus.width, layout.bus.height)
+    px.fill(rectOutline(layout.bus.x, layout.bus.y, layout.bus.width, layout.bus.height), rgb565(depth(c.bus)))
     for (const bar of layout.bars) {
       // Rounded outside, square towards the band (decision 8).
-      ctx.fillStyle = depth(colours.get(bar.id) ?? c.text)
       const r = Math.min(3, bar.height / 2)
-      ctx.beginPath()
-      ctx.roundRect(bar.x, bar.y, bar.width, bar.height, bar.side === "left" ? [r, 0, 0, r] : [0, r, r, 0])
-      ctx.fill()
+      px.fill(barOutline(bar.x, bar.y, bar.width, bar.height, r, bar.side === "left"), rgb565(depth(colours.get(bar.id) ?? c.text)))
     }
+    px.drawOn(ctx)
     const boxes = sankeyBoxes(layout, nodes, { width: obj.width, height: obj.height }, t)
     const busNode = nodes.find((n) => n.role === "bus")
     if (busNode && boxes.bus) labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, boxes.bus, t, c))
@@ -255,28 +320,27 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
     const layout = flowLayout(nodes, resolved)
     for (const line of layout.lines) {
       const r = resolved.find((x) => x.id === line.id)!
-      ctx.strokeStyle = depth(line.live ? colourOf(byId.get(r.id), r, c) : c.idle)
-      ctx.globalAlpha = line.live ? 0.5 : 1
-      ctx.lineWidth = line.width
-      ctx.lineCap = "round"
-      ctx.beginPath()
-      ctx.moveTo(line.x0, line.y0)
-      ctx.lineTo(line.x1, line.y1)
-      ctx.stroke()
-      ctx.globalAlpha = 1
-      if (line.live) {
-        ctx.fillStyle = depth(colourOf(byId.get(r.id), r, c))
-        for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) {
-          ctx.beginPath()
-          ctx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
+      const colour = rgb565(depth(line.live ? colourOf(byId.get(r.id), r, c) : c.idle))
+      // A live line at half strength, under its dots.
+      px.fill(capsuleOutline(line.x0, line.y0, line.x1, line.y1, line.width), colour, line.live ? 128 : 256)
+      if (!line.live) continue
+      for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) px.fill(discOutline(d.x, d.y, DOT_R), colour)
     }
-    ctx.fillStyle = depth(c.bus)
-    ctx.beginPath()
-    ctx.arc(layout.bus.x, layout.bus.y, layout.bus.r, 0, Math.PI * 2)
-    ctx.fill()
+    px.fill(discOutline(layout.bus.x, layout.bus.y, layout.bus.r), rgb565(depth(c.bus)))
+    for (const fn of layout.nodes) {
+      const node = byId.get(fn.id)!
+      const r = resolved.find((x) => x.id === fn.id)!
+      const colour = depth(fn.live ? colourOf(node, r, c) : c.idle)
+      if (fn.ring) {
+        px.fill(ringOutline(fn.x, fn.y, fn.ring.r + 2.5, fn.ring.r - 2.5), rgb565(depth(c.idle)))
+        const sweep = Math.round(fn.ring.fraction * 360)
+        if (sweep > 0) px.fill(arcOutline(fn.x, fn.y, fn.ring.r, 5, sweep), rgb565(depth(colourOf(node, r, c))))
+      }
+      // The circle: a ring 3 px wide round the ground.
+      px.fill(discOutline(fn.x, fn.y, fn.r + 1.5), rgb565(colour))
+      px.fill(discOutline(fn.x, fn.y, fn.r - 1.5), rgb565(depth(ground)))
+    }
+    px.drawOn(ctx)
     const boxes = flowBoxes(layout, t)
     const busNode = nodes.find((n) => n.role === "bus")
     if (busNode && boxes.bus) labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, boxes.bus, t, c))
@@ -285,27 +349,6 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       const node = byId.get(fn.id)!
       const r = resolved.find((x) => x.id === fn.id)!
       const colour = depth(fn.live ? colourOf(node, r, c) : c.idle)
-      if (fn.ring) {
-        ctx.lineWidth = 5
-        ctx.strokeStyle = depth(c.idle)
-        ctx.beginPath()
-        ctx.arc(fn.x, fn.y, fn.ring.r, 0, Math.PI * 2)
-        ctx.stroke()
-        if (fn.ring.fraction > 0) {
-          ctx.strokeStyle = depth(colourOf(node, r, c))
-          ctx.lineCap = "round"
-          ctx.beginPath()
-          ctx.arc(fn.x, fn.y, fn.ring.r, -Math.PI / 2, -Math.PI / 2 + fn.ring.fraction * Math.PI * 2)
-          ctx.stroke()
-        }
-      }
-      ctx.fillStyle = depth(ground)
-      ctx.strokeStyle = colour
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.arc(fn.x, fn.y, fn.r, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.stroke()
       labels.push(...iconObject(node, b.icon, fn.live ? colour : depth(c.muted)))
       labels.push(...labelObjects(node, wattsOf(r), b.label, t, c))
     })

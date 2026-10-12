@@ -6,6 +6,8 @@
 // agree on are lib/energy-diagram/vectors.json.
 
 import type { LiveValue } from "@/lib/live-value"
+import { ARC_SIN_SCALE, ARC_SIN_TABLE } from "@/lib/arc-sin-table"
+import { toEighths, type Point8 } from "@/lib/polygon-raster"
 
 export type EnergyRole = "source" | "sink" | "storage" | "rest" | "bus"
 
@@ -352,7 +354,7 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
   for (const n of resolved) {
     const live = n.watts > 0
     const dx = bus.x - n.x, dy = bus.y - n.y
-    const len = Math.hypot(dx, dy)
+    const len = Math.sqrt(dx * dx + dy * dy)
     const ux = len > 0 ? dx / len : 0, uy = len > 0 ? dy / len : 0
     const ringed = n.role === "storage"
     // The label under the circle, centred - beside it, to the right, when
@@ -492,6 +494,154 @@ export function nodeAtTap(mode: string, nodes: readonly EnergyNode[], resolved: 
   return nodes.find((n) => n.role !== "bus" && Math.hypot(x - n.x, y - n.y) <= FLOW_NODE_R)?.id
 }
 
+// ---- Shapes, pixel for pixel (energy-firmware, 2026-10-12). The canvas's
+// own anti-aliasing and a board's disagreed at every edge (866 pixels on the
+// first HIL run), so every shape the diagram fills is an outline in eighths
+// of a pixel from here, filled by lib/polygon-raster.ts - the firmware's
+// PolygonRaster, line for line - and mixed in RGB565 in whole numbers.
+// Only + - * / and square roots go into an outline, and the sines of whole
+// degrees from the arcs' shared table: those come out the same in every
+// language; a library's cos, sin and atan2 need not.
+
+/** sin of a whole degree, from the table the arcs share (lib/arc-sin-table.ts). */
+function sinDeg(deg: number): number {
+  return ARC_SIN_TABLE[((deg % 360) + 360) % 360] / ARC_SIN_SCALE
+}
+function cosDeg(deg: number): number {
+  return sinDeg(deg + 90)
+}
+
+/** The degrees between two corners of a circle of radius r: a step under a pixel. */
+export function circleStep(r: number): number {
+  return r <= 4 ? 15 : r <= 16 ? 6 : r <= 40 ? 3 : 2
+}
+
+const at8 = (x: number, y: number): Point8 => ({ x: toEighths(x), y: toEighths(y) })
+
+/** A filled circle. */
+export function discOutline(cx: number, cy: number, r: number): Point8[] {
+  const step = circleStep(r)
+  const out: Point8[] = []
+  for (let d = 0; d < 360; d += step) out.push(at8(cx + r * cosDeg(d), cy + r * sinDeg(d)))
+  return out
+}
+
+/** A ring between two circles: the outer one round, the inner one back; even-odd leaves the hole. */
+export function ringOutline(cx: number, cy: number, outer: number, inner: number): Point8[] {
+  const out = discOutline(cx, cy, outer)
+  out.push(out[0])
+  const step = circleStep(inner)
+  for (let d = 360; d >= 0; d -= step) out.push(at8(cx + inner * cosDeg(d), cy + inner * sinDeg(d)))
+  return out
+}
+
+/** A stroke `width` wide with round ends from (x0, y0) to (x1, y1). */
+export function capsuleOutline(x0: number, y0: number, x1: number, y1: number, width: number): Point8[] {
+  const dx = x1 - x0, dy = y1 - y0
+  const len = Math.sqrt(dx * dx + dy * dy)
+  const ux = len > 0 ? dx / len : 1, uy = len > 0 ? dy / len : 0
+  // Along the line, and across it.
+  const r = width / 2
+  const step = circleStep(r)
+  const out: Point8[] = []
+  const cap = (cx: number, cy: number, from: number) => {
+    for (let d = from; d <= from + 180; d += step) {
+      const c = cosDeg(d), s = sinDeg(d)
+      out.push(at8(cx + r * (c * ux - s * uy), cy + r * (c * uy + s * ux)))
+    }
+  }
+  cap(x1, y1, -90)
+  cap(x0, y0, 90)
+  return out
+}
+
+/** A ring's arc `sweep` whole degrees long from the top clockwise, `width` wide, round at both ends. */
+export function arcOutline(cx: number, cy: number, r: number, width: number, sweep: number): Point8[] {
+  if (sweep >= 360) return ringOutline(cx, cy, r + width / 2, r - width / 2)
+  const h = width / 2
+  const from = -90, to = -90 + sweep
+  const out: Point8[] = []
+  const arc = (radius: number, a: number, b: number) => {
+    const step = circleStep(radius)
+    if (a <= b) {
+      for (let d = a; d < b; d += step) out.push(at8(cx + radius * cosDeg(d), cy + radius * sinDeg(d)))
+    } else {
+      for (let d = a; d > b; d -= step) out.push(at8(cx + radius * cosDeg(d), cy + radius * sinDeg(d)))
+    }
+    out.push(at8(cx + radius * cosDeg(b), cy + radius * sinDeg(b)))
+  }
+  const cap = (ex: number, ey: number, a: number) => {
+    const step = circleStep(h)
+    for (let d = a; d <= a + 180; d += step) out.push(at8(ex + h * cosDeg(d), ey + h * sinDeg(d)))
+  }
+  arc(r + h, from, to)
+  cap(cx + r * cosDeg(to), cy + r * sinDeg(to), to)
+  arc(r - h, to, from)
+  cap(cx + r * cosDeg(from), cy + r * sinDeg(from), from + 180)
+  return out
+}
+
+/** A rectangle. */
+export function rectOutline(x: number, y: number, width: number, height: number): Point8[] {
+  return [at8(x, y), at8(x + width, y), at8(x + width, y + height), at8(x, y + height)]
+}
+
+/** A Sankey bar: its outer corners rounded by `radius` (the left two on the left), square towards its band. */
+export function barOutline(x: number, y: number, width: number, height: number, radius: number, left: boolean): Point8[] {
+  const out: Point8[] = []
+  const corner = (cx: number, cy: number, a: number) => {
+    for (let d = a; d <= a + 90; d += 15) out.push(at8(cx + radius * cosDeg(d), cy + radius * sinDeg(d)))
+  }
+  if (left) {
+    out.push(at8(x + width, y), at8(x + width, y + height))
+    if (radius > 0) {
+      corner(x + radius, y + height - radius, 90)
+      corner(x + radius, y + radius, 180)
+    } else out.push(at8(x, y + height), at8(x, y))
+  } else {
+    out.push(at8(x, y))
+    if (radius > 0) {
+      corner(x + width - radius, y + radius, 270)
+      corner(x + width - radius, y + height - radius, 0)
+    } else out.push(at8(x + width, y), at8(x + width, y + height))
+    out.push(at8(x, y + height))
+  }
+  return out
+}
+
+/** A Sankey band's outline in eighths. */
+export function bandOutline(band: SankeyBand): Point8[] {
+  return band.polygon.map((p) => at8(p.x, p.y))
+}
+
+// ---- RGB565, as a board's canvas holds a colour, in whole numbers.
+
+/** A "#rrggbb" as RGB565. */
+export function rgb565(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  const n = m ? parseInt(m[1], 16) : 0
+  return (((n >> 16) & 0xf8) << 8) | (((n >> 8) & 0xfc) << 3) | ((n & 0xff) >> 3)
+}
+
+/** RGB565 as 8-bit channels, as the firmware widens it. */
+export function expand565(c: number): [number, number, number] {
+  const r5 = (c >> 11) & 0x1f, g6 = (c >> 5) & 0x3f, b5 = c & 0x1f
+  return [(r5 * 527 + 23) >> 6, (g6 * 259 + 33) >> 6, (b5 * 527 + 23) >> 6]
+}
+
+/** 8-bit channels as RGB565. */
+export function pack565(r: number, g: number, b: number): number {
+  return ((r & 0xf8) << 8) | ((g & 0xfc) << 3) | (b >> 3)
+}
+
+/** `over` on `under` with weight w of 256, each channel rounded: (u (256 - w) + o w + 128) >> 8. */
+export function mix565(under: number, over: number, w: number): number {
+  if (w >= 256) return over
+  if (w <= 0) return under
+  const u = expand565(under), o = expand565(over)
+  return pack565(((u[0] * (256 - w) + o[0] * w + 128) >> 8), ((u[1] * (256 - w) + o[1] * w + 128) >> 8), ((u[2] * (256 - w) + o[2] * w + 128) >> 8))
+}
+
 // ---- Motion (spec decision 10). A phase 0..1 per line or per diagram,
 // advanced by the time that passed; every renderer draws the same picture
 // for the same phase, so a test can freeze one and compare.
@@ -530,7 +680,7 @@ export function advanceDots(phase: number, seconds: number, watts: number): numb
  * takes. A line shorter than its gap may hold none for a moment.
  */
 export function dotsOnLine(line: { x0: number; y0: number; x1: number; y1: number }, phase: number, gives: boolean, watts: number): Point[] {
-  const len = Math.hypot(line.x1 - line.x0, line.y1 - line.y0)
+  const len = Math.sqrt((line.x1 - line.x0) ** 2 + (line.y1 - line.y0) ** 2)
   const gap = dotGap(watts)
   const out: Point[] = []
   for (let d = phase * gap; d < len; d += gap) {

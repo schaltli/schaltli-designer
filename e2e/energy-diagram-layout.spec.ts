@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
+import { fillPolygon } from "../lib/polygon-raster"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { DOT_PACE, DOT_R, FLOW_BUS_R, flowBoxes, labelHeight, nodeAtTap, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { DOT_PACE, DOT_R, FLOW_BUS_R, arcOutline, barOutline, capsuleOutline, discOutline, expand565, mix565, rectOutline, rgb565, ringOutline, flowBoxes, labelHeight, nodeAtTap, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -299,6 +300,45 @@ test.describe("shared vectors (L5)", () => {
       }
     })
   }
+  test("shapes: each outline's corners in eighths, and what the firmware's raster makes of it", () => {
+    expect(vectors.shapes.length).toBeGreaterThanOrEqual(8)
+    for (const c of vectors.shapes as any[]) {
+      const a = c.args
+      const pts =
+        c.kind === "disc" ? discOutline(a[0], a[1], a[2])
+        : c.kind === "ring" ? ringOutline(a[0], a[1], a[2], a[3])
+        : c.kind === "capsule" ? capsuleOutline(a[0], a[1], a[2], a[3], a[4])
+        : c.kind === "arc" ? arcOutline(a[0], a[1], a[2], a[3], a[4])
+        : c.kind === "bar" ? barOutline(a[0], a[1], a[2], a[3], a[4], a[5])
+        : rectOutline(a[0], a[1], a[2], a[3])
+      let full = 0, partial = 0, coverage = 0, weighted = 0
+      fillPolygon(pts, 0, 2000, {
+        fullRun: (y, x0, x1) => {
+          for (let x = x0; x <= x1; x++) {
+            full++
+            coverage += 16
+            weighted += 16 * (x * 7 + y * 13)
+          }
+        },
+        partial: (y, x, cov) => {
+          partial++
+          coverage += cov
+          weighted += cov * (x * 7 + y * 13)
+        },
+      })
+      const sum = (k: "x" | "y") => pts.reduce((s, p) => s + p[k], 0)
+      expect({ points: pts.length, sumX: sum("x"), sumY: sum("y"), full, partial, coverage, weighted }, c.name).toEqual(c.expected)
+    }
+  })
+
+  test("RGB565, as a board's canvas holds a colour, mixed in whole numbers", () => {
+    for (const c of vectors.rgb565) {
+      expect(rgb565(c.hex)).toBe(c.expected)
+      expect(expand565(c.expected)).toEqual(c.expanded)
+    }
+    for (const c of vectors.mix565) expect(mix565(c.under, c.over, c.w), JSON.stringify(c)).toBe(c.expected)
+  })
+
   test("dot gaps, dots and waves", () => {
     for (const c of vectors.dotGap) near(dotGap(c.watts), c.expected)
     for (const c of vectors.dots) {
