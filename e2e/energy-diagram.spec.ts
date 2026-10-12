@@ -320,11 +320,24 @@ test.describe("the energy diagram in the device zip (device contract 2.8)", () =
     })
   }
 
-  test("the Android bundle leaves it out until energy-contract C4", async ({ page }) => {
-    const { project } = await deviceZip(page, exportProject("flow"), "__buildAndroidZipForTest")
-    expect(diagramsOf(project)).toEqual([])
-    const screen = project.screens.find((s: Obj) => s.id === "s1")
-    expect(screen.objects.map((o: Obj) => o.id)).toContain("before")
+  test("the Android bundle carries the same diagram, each look's icon an SVG tinted light and dark", async ({ page }) => {
+    const exported = exportProject("flow")
+    const { project: device } = await deviceZip(page, exported)
+    const { zip, project } = await deviceZip(page, exported, "__buildAndroidZipForTest")
+    const [d] = diagramsOf(project)
+    expect(d, "the diagram is in the bundle").toBeTruthy()
+    // Everything but the icons' files is the device zip's.
+    const withoutIcons = (diagram: Obj) => ({ ...diagram.properties, nodes: diagram.properties.nodes.map(({ icon, ...n }: Obj) => n) })
+    expect(withoutIcons(d)).toEqual(withoutIcons(diagramsOf(device)[0]))
+    const p = d.properties
+    const solar = p.nodes.find((n: Obj) => n.id === "solar")
+    const storage = p.nodes.find((n: Obj) => n.id === "storage")
+    const ink = async (file: string) => (await zip.file(file)!.async("string")).toLowerCase()
+    expect(await ink(solar.icon.live)).toContain(solar.color.toLowerCase())
+    expect(await ink(solar.icon.liveDark)).toContain(solar.colorDark.toLowerCase())
+    expect(await ink(solar.icon.muted)).toContain(p.mutedColor.toLowerCase())
+    expect(await ink(storage.icon.discharge)).toContain(p.dischargeColor.toLowerCase())
+    expect(await ink(storage.icon.chargeDark)).toContain(p.chargeColorDark.toLowerCase())
   })
 })
 

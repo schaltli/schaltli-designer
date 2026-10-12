@@ -3,7 +3,7 @@ import { assertCombinedExportable } from "./combined-topics"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
-import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "./themes"
+import { applyTheme, applyThemeWithDark, assertDeviceColours, darkVariantOf, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { exportedButtonAction } from "./hardware-button-actions"
@@ -15,7 +15,8 @@ import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
-import { withoutEnergyDiagrams } from "@/lib/energy-diagram-object"
+import { exportedEnergyDiagram, iconLookColour } from "@/lib/energy-diagram-object"
+import type { EnergyNode } from "@/lib/energy-diagram"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
@@ -66,7 +67,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // A live icon keeps its live value (lib/object-text.ts withLiveIconFallbacks);
   // the app draws it from 1.4 on, as it draws no static icon of its own.
   // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
-  const project = withoutEnergyDiagrams(withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))))
+  const project = (withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -448,6 +449,16 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // (lib/object-text.ts exportedTextProperties).
     if (obj.type === "text") {
       return { ...obj, properties: exportedTextProperties(obj, project) }
+    }
+    // The energy diagram's data (device contract 2.8); each node's icon per
+    // look as the app takes any icon, an SVG tinted light and dark.
+    if (obj.type === "energy-diagram") {
+      const dark = darkVariantOf(obj.properties)
+      return exportedEnergyDiagram(obj, project, (_key, node, look) => {
+        const path = iconPathFor(node.iconAssetId, iconLookColour(obj.properties, node, look))
+        const darkNode = (dark.nodes as EnergyNode[] | undefined)?.find((n) => n.id === node.id) ?? node
+        return path ? { path, pathDark: iconPathFor(node.iconAssetId, iconLookColour(dark, darkNode, look)) } : undefined
+      })
     }
     if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
       return {

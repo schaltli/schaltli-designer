@@ -6,18 +6,6 @@ import type { ScreenObject } from "@/components/project-editor"
 import { DEFAULT_FULL_SCALE, FLOW_ICON, MAX_NODE_LINES, rowStep, type EnergyNode } from "@/lib/energy-diagram"
 import { exportedTextProperties } from "@/lib/object-text"
 
-/**
- * A project without its energy diagrams, at every depth: what a bundle
- * carries until its devices draw the type (the Android bundle until
- * energy-contract C4).
- */
-export function withoutEnergyDiagrams<P extends { screens: Array<{ objects: ScreenObject[] }> }>(project: P): P {
-  const keep = (objects: ScreenObject[]): ScreenObject[] =>
-    objects.filter((o) => o.type !== "energy-diagram").map((o) => (o.children ? { ...o, children: keep(o.children) } : o))
-  if (!project.screens.some((s) => JSON.stringify(s.objects).includes('"energy-diagram"'))) return project
-  return { ...project, screens: project.screens.map((s) => ({ ...s, objects: keep(s.objects) })) }
-}
-
 /** The colours the theme gave the diagram (lib/themes.ts applyTheme), with what stands in without one. */
 export function diagramColours(p: Record<string, any>) {
   return {
@@ -78,12 +66,12 @@ function fontSizeOf(id: string | undefined, fonts: readonly { id: string; size?:
  * The diagram as a device gets it (device contract 2.8): its data, the
  * colours with their `…Dark` as the theme left them, the fonts' sizes, and
  * per node what it reads, its lines as live text and its icon's bakes
- * (`paths(key)`: the light and dark file of one bake, if there is one).
+ * (`paths`: the light and dark file of one look, if there is one).
  */
 export function exportedEnergyDiagram(
   obj: ScreenObject,
   project: { name: string; fonts?: { id: string; size?: number }[] },
-  paths: (key: string) => { path: string; pathDark?: string } | undefined,
+  paths: (key: string, node: EnergyNode, look: IconLook) => { path: string; pathDark?: string } | undefined,
 ): ScreenObject {
   const p = obj.properties as Record<string, any>
   const fonts = project.fonts ?? []
@@ -101,7 +89,7 @@ export function exportedEnergyDiagram(
     const node = n as EnergyNode & { color?: string; colorDark?: string }
     const icon: Record<string, unknown> = {}
     for (const look of n.iconAssetId ? iconLooks(n) : []) {
-      const baked = paths(iconBakeKey(obj.id, n.id, look))
+      const baked = paths(iconBakeKey(obj.id, n.id, look), n, look)
       if (!baked) continue
       icon[look] = baked.path
       if (baked.pathDark) icon[`${look}Dark`] = baked.pathDark

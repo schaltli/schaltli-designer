@@ -14,7 +14,8 @@ untouched; a push on halt or finish.
 - [x] C3 Into the device zip
   - `exportedEnergyDiagram`, `iconBakes` (lib/energy-diagram-object.ts); bakes in asset-export's bakeScreen on the screen's ground; node `colorDark` from applyThemeWithDark; node topics in objectReferencedTopics (export and preview subscriptions)
   - e2e/energy-diagram.spec.ts «the energy diagram in the device zip»: the data, the topics, the bakes' size and colour in both modes
-- [ ] C4 Into the Android bundle
+- [x] C4 Into the Android bundle
+  - the same `exportedEnergyDiagram`; icons as tinted SVGs per look (iconPathFor), dark from darkVariantOf; e2e: the bundle's diagram equals the zip's but for the icon files
 - [ ] C5 The Deploy dialog
 - [ ] C6 Handbook
 - [ ] Checkpoint: test:all green; the user has read §2.8

@@ -968,7 +968,8 @@ topics say, with its port of `lib/energy-diagram.ts`.
   number. The rows align in their box as its `align` says.
 - **Icons:** baked per look on the screen's background (the Flow's circle
   is filled with it), `icon.size` square, drawn at the box the core
-  gives. A node with watts draws `live` (a storage `charge` or
+  gives. In the Android bundle each look is the icon's SVG tinted in its
+  colour, as the app takes any icon. A node with watts draws `live` (a storage `charge` or
   `discharge`), at 0 W `muted`. A node without `icon` has none.
 - **Motion** (`motion: true`): in the Flow, dots of radius `DOT_R` in the
   node's colour run on each line that carries watts, `dotGap(watts)` apart,
