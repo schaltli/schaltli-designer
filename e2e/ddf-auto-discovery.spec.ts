@@ -171,6 +171,41 @@ test.describe("DDF auto-discovery", () => {
     }
   })
 
+  // Online by its own word but unreachable: an Android emulator long gone,
+  // its hello and "online" still retained (the user, 2026-10-12). Its DDF is
+  // tried - nothing says it is gone - and fails, quietly: this runs for
+  // every device on the broker, and a red toast came up on every project
+  // change, in the Deploy dialog too.
+  test("a device that cannot be reached is tried, and no toast says so", async ({ page }, testInfo) => {
+    const deviceId = `e2e-unreachable-${testInfo.testId}`
+    const instanceId = `e2e-unreachable-instance-${testInfo.testId}`
+    const ddfUrl = "http://127.0.0.1:9/ddf.zip"
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-unreachable-fake-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+    const fetchCalls: string[] = []
+    page.on("request", (request) => {
+      if (request.url().includes("/api/ddf/fetch")) fetchCalls.push(request.postData() || "")
+    })
+    try {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "online", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, JSON.stringify({ deviceId, name: `Unreachable ${testInfo.testId}`, url: ddfUrl }), { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await expect.poll(() => fetchCalls.filter((body) => body.includes(deviceId)).length, { timeout: 15000 }).toBeGreaterThan(0)
+      await page.waitForTimeout(3000)
+      await expect(page.getByText("Couldn't load", { exact: false })).toHaveCount(0)
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+    }
+  })
+
   // And the other half: a device that was off when the designer opened must
   // still be picked up the moment it says it is back, rather than waiting for
   // a reload.

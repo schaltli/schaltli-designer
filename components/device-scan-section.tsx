@@ -13,7 +13,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
-import { useToast } from "@/hooks/use-toast"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { Wifi, WifiOff, Loader2 } from "lucide-react"
 
@@ -45,7 +44,6 @@ interface HelloPayload {
 }
 
 export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDevicesChange }: DeviceScanSectionProps) {
-  const { toast } = useToast()
   const { isConnecting, isConnected, connect, disconnect } = useMqttConnection("schaltli-ddf-scan")
   const [fetchingDeviceIds, setFetchingDeviceIds] = useState<Set<string>>(new Set())
 
@@ -188,11 +186,14 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
                 pendingHelloRef.current.set(instanceId, hello)
                 return
               }
-              toast({
-                variant: "destructive",
-                title: `Couldn't load "${hello.name || deviceId}"'s device description`,
-                description: err instanceof Error ? err.message : "DDF fetch failed",
-              })
+              // Not a toast: this runs in the background for every device on
+              // the broker, chosen or not. A stale announcement - an emulator
+              // long gone, still retained as online - put a red toast up on
+              // every project change (the user, 2026-10-12, switching to a
+              // phone in the Deploy dialog). Such a device simply stays out
+              // of the list; a device someone picks says why it cannot load
+              // where it is picked.
+              console.warn(`[ddf] couldn't load "${hello.name || deviceId}"'s device description:`, err instanceof Error ? err.message : err)
             })
             .finally(() => {
               setFetchingDeviceIds((prev) => {
