@@ -147,7 +147,7 @@ async function uploadProject(zipBuffer) {
   fs.writeFileSync(tmp, zipBuffer)
   const { execFileSync } = require("child_process")
   try {
-    execFileSync("curl", ["-s", "-m", "25", "-F", `file=@${tmp}`, `http://${deviceHost}/api/project`, "-o", "/dev/null"])
+    execFileSync("curl", ["-s", "-m", "25", "-F", `file=@${tmp}`, `http://${deviceHost}/api/project`])
   } catch {
     // expected: the device rebooted mid-request
   }

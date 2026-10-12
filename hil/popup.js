@@ -257,7 +257,7 @@ async function main() {
     fs.writeFileSync(zipPath, zipBuffer)
     console.log("installing a screen with a popup ...")
     try {
-      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl, "-o", os.devNull])
+      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
     } catch (err) {
       if (err.status === 6 || err.status === 7) throw new Error(`the upload never reached ${ddf.testInterface.uploadUrl} (curl exit ${err.status})`)
     }

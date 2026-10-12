@@ -158,8 +158,6 @@ async function uploadProject(
       "-F",
       `file=@${tmp}`,
       testInterface.uploadUrl,
-      "-o",
-      "/dev/null",
     ]);
   } catch (err) {
     const reason = CONNECT_FAILED.get(err.status);
@@ -169,8 +167,10 @@ async function uploadProject(
           "Nothing was installed, so continuing would compare against whatever is already on the device.",
       );
     }
-    // Anything else is the device rebooting mid-request, which is how a
-    // successful upload ends on every board here.
+    // Anything else is the device rebooting mid-request: how a successful
+    // upload ended on every board until firmware 707210e (2026-10-12), which
+    // answers first. The answer is read, not written to /dev/null - curl on
+    // Windows cannot write there and failed with exit 23 once there was one.
   }
 
   // Readiness is the screen switch, retried - not a probe of some other

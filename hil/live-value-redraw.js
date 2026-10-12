@@ -245,7 +245,7 @@ async function main() {
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
     console.log("installing three live values in a text, a threshold icon and an icon on a combined topic ...")
     try {
-      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl, "-o", os.devNull])
+      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
     } catch (err) {
       if (err.status === 6 || err.status === 7) throw new Error(`the upload never reached ${ddf.testInterface.uploadUrl} (curl exit ${err.status})`)
     }

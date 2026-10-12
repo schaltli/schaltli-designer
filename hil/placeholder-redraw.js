@@ -170,7 +170,7 @@ async function main() {
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
     console.log("installing a bound value and two placeholder texts ...")
     try {
-      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl, "-o", os.devNull])
+      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
     } catch (err) {
       // 6 and 7: nothing was sent. Anything else is the board rebooting into
       // the new project mid-request, which is how an install ends.

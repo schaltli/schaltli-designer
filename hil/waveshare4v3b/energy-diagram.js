@@ -144,7 +144,7 @@ async function install(base, ddf, project) {
     const zipPath = path.join(os.tmpdir(), `hil-energy-${RUN}.zip`)
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
     try {
-      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl, "-o", os.devNull])
+      execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
     } catch (err) {
       if (err.status === 6 || err.status === 7) throw new Error(`the upload never reached ${ddf.testInterface.uploadUrl}`)
     }

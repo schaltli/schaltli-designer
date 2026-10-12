@@ -209,10 +209,10 @@ async function main() {
 
   if (!skipUpload) {
     console.log(`uploading ${path.basename(FIXTURE)} to ${ip}...`)
-    // The device reboots into the installed project rather than rebuilding
-    // live render state mid-request, so the HTTP call never gets a reply -
-    // a timeout here is the success path, not a failure.
-    curl(["-s", "-m", "25", "-F", `file=@${FIXTURE}`, `http://${ip}/api/project`, "-o", "/dev/null"], {
+    // The device answers, then reboots into the installed project (firmware
+    // 707210e, 2026-10-12); before, it rebooted first and the call never got
+    // a reply, so a timeout is still no failure here.
+    curl(["-s", "-m", "25", "-F", `file=@${FIXTURE}`, `http://${ip}/api/project`], {
       allowFailure: true,
     })
     if (!(await waitForDevice())) {
