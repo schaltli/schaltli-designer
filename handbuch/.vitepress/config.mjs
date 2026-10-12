@@ -120,6 +120,7 @@ export default defineConfig({
         text: "Betrieb",
         items: [
           { text: "MQTT-Broker und Topics", link: "/betrieb/mqtt" },
+          { text: "Verbindungen und Ports", link: "/betrieb/verbindungen" },
           { text: "VanPi-Brücke", link: "/betrieb/vanpi-bruecke" },
           { text: "Updates und Versionen", link: "/betrieb/updates" },
           { text: "Daten und Sicherung", link: "/betrieb/daten" },

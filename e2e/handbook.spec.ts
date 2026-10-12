@@ -210,6 +210,31 @@ test.describe("handbook site", () => {
     expect(await colours()).toEqual({ focal: "rgb(255, 138, 61)", plain: "rgb(238, 238, 238)", name: "rgb(238, 238, 238)" })
   })
 
+  test("the connections page shows who opens which connection, and the designer only matters while designing", async ({ page }) => {
+    // The overview draws the designer's link dashed: it is needed while
+    // designing, not while the screens run (2026-10-12).
+    await page.goto(`${site.url}einfuehrung/index.html`)
+    const overview = page.locator("svg.schaltli-diagram")
+    await expect(overview.locator(".connector.command")).toHaveCount(1)
+    expect(await overview.locator(".connector.command").evaluate((el) => getComputedStyle(el).strokeDasharray)).not.toBe("none")
+    await expect(page.locator("figcaption a[href*='/betrieb/verbindungen']")).toHaveCount(1)
+
+    // The detailed page: the broker is the one focal node, every arrow points
+    // from the side that opens the connection, and the four that only exist
+    // while designing and deploying are dashed.
+    await page.goto(`${site.url}betrieb/verbindungen.html`)
+    const diagram = page.locator("svg.schaltli-diagram")
+    await expect(diagram).toBeVisible()
+    await expect(diagram.locator(".node.focal")).toHaveCount(1)
+    await expect(diagram.locator(".node.focal + text.name")).toHaveText("MQTT-Broker")
+    await expect(diagram.locator(".connector")).toHaveCount(6)
+    await expect(diagram.locator(".connector.command")).toHaveCount(4)
+    for (const connector of await diagram.locator(".connector").all()) {
+      expect(await connector.getAttribute("marker-end")).toBeTruthy()
+      expect(await connector.getAttribute("marker-start")).toBeNull()
+    }
+  })
+
   test("the MQTT examples build up topic by topic, one highlighted each", async ({ page }) => {
     // handbuch/designer/mqtt-beispiele.md: tank, dimmer, heater, each adding
     // a topic to the one before. A command is dashed (it does not stay on the

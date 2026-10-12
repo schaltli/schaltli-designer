@@ -9,7 +9,7 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
 <figure>
 <svg class="schaltli-diagram" viewBox="0 0 760 304" role="img" aria-labelledby="teile-titel teile-desc">
   <title id="teile-titel">Designer, Broker, VanPi-Brücke und Geräte, verbunden über MQTT</title>
-  <desc id="teile-desc">Designer, VanPi-Brücke und MQTT-Broker laufen zusammen auf dem Pekaway-System, einem Raspberry Pi. Die Geräte sind per WLAN mit dem Broker verbunden und tauschen alles über ihn aus.</desc>
+  <desc id="teile-desc">Designer, VanPi-Brücke und MQTT-Broker laufen zusammen auf dem Pekaway-System, einem Raspberry Pi. Die Geräte sind per WLAN mit dem Broker verbunden und reden im Betrieb nur mit ihm. Die Verbindung zum Designer braucht es nur beim Gestalten.</desc>
   <defs>
     <marker id="pfeil" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
       <path class="arrowhead" d="M0,0 L8,3 L0,6 z" />
@@ -19,7 +19,8 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
   <text class="eyebrow" x="24" y="30">PEKAWAY-SYSTEM · RASPBERRY PI</text>
   <text class="eyebrow" x="636" y="116" text-anchor="middle">PER WLAN VERBUNDEN</text>
   <g transform="translate(0,32)">
-  <path class="connector" d="M224,64 H244 Q252,64 252,72 V112 Q252,120 260,120 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
+  <path class="connector command" d="M224,64 H244 Q252,64 252,72 V112 Q252,120 260,120 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
+  <text class="tech" x="262" y="84">NUR BEIM GESTALTEN</text>
   <path class="connector" d="M224,208 H244 Q252,208 252,200 V160 Q252,152 260,152 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
   <path class="connector" d="M480,136 H536" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
   <rect class="node" x="24" y="24" width="200" height="80" rx="6" />
@@ -40,12 +41,14 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
   <text class="tech" x="636" y="164" text-anchor="middle">ESP32 · Android</text>
   </g>
 </svg>
-<figcaption>Designer, Broker und Brücke laufen auf deinem Pekaway-System. Die Geräte reden nur mit dem Broker.</figcaption>
+<figcaption>Designer, Broker und Brücke laufen auf deinem Pekaway-System. Die Geräte reden im Betrieb nur mit dem Broker. Den Designer brauchst du nur beim Gestalten (gestrichelt). Wer mit wem über welchen Port redet, zeigt <a href="/betrieb/verbindungen">Verbindungen und Ports</a>.</figcaption>
 </figure>
 
 **Der Designer** ist eine Web-Anwendung, die du auf deinem Pekaway-System installierst. Du öffnest ihn im Browser auf dem Laptop oder Tablet und baust dort deine Screens: eine Anzeige für den Tank hierhin, einen Schalter fürs Licht dorthin. Ein Projekt gehört immer zu einem bestimmten Gerätetyp, denn ein runder Screen mit 360 × 360 Pixeln braucht einen anderen Aufbau als ein breiter mit 800 × 480.
 
-**Der MQTT-Broker** ist die Vermittlungsstelle. Auf jedem Pekaway-System läuft schon einer (Mosquitto). Die Anlage legt dort ihre Werte ab, die Geräte holen sie sich, und wer schaltet, schickt einen Befehl dorthin. Auch der Designer schickt fertige Projekte und neue Firmware über den Broker an die Geräte.
+Den Designer brauchst du nur, solange du gestaltest, ein Projekt aufs Gerät schickst oder die Firmware aktualisierst. Jedes Gerät speichert sein Projekt selbst und braucht im Betrieb nur noch den Broker. Läuft der Designer nicht, zeigen und schalten die Geräte trotzdem.
+
+**Der MQTT-Broker** ist die Vermittlungsstelle. Auf jedem Pekaway-System läuft schon einer (Mosquitto). Die Anlage legt dort ihre Werte ab, die Geräte holen sie sich, und wer schaltet, schickt einen Befehl dorthin. Auch der Designer nutzt ihn: Über den Broker erfährt ein Gerät, dass ein neues Projekt oder eine neue Firmware für es bereitliegt. Die Datei holt es dann direkt beim Designer ab.
 
 **Die VanPi-Brücke** übersetzt zwischen Pekaway und Schaltli. Sie läuft als Tab in Node-RED, fragt alle zwei Sekunden die Werte der Anlage ab und legt sie unter `schaltli/state/…` auf den Broker. Schaltbefehle unter `schaltli/cmnd/…` reicht sie an Pekaway weiter. Das Installationsskript richtet sie gleich mit ein.
 
