@@ -214,6 +214,17 @@ export const NavigatorIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// The energy diagram: two sources and a load meeting at the bus.
+export const EnergyDiagramIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <circle cx="5" cy="6" r="2.5" />
+    <circle cx="5" cy="18" r="2.5" />
+    <circle cx="19" cy="12" r="2.5" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    <path d="M7 7.5 10.8 11M7 16.5l3.8-3.5M13.5 12h3" />
+  </Glyph>
+)
+
 // The layout containers (lib/layout.ts): the box, and how it divides.
 export const TableIcon = (p: IconProps) => (
   <Glyph {...p}>
@@ -247,6 +258,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   switcher: SwitcherIcon,
   panel: PanelIcon,
   navigator: NavigatorIcon,
+  "energy-diagram": EnergyDiagramIcon,
   group: GroupIcon,
   free: FreeIcon,
   table: TableIcon,

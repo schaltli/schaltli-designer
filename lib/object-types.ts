@@ -42,6 +42,9 @@ export const OBJECT_TYPES = [
   "panel",
   // A bar of every screen on a master's edge (docs/2026-10-08-navigator.md).
   "navigator",
+  // Where the van's energy comes from and goes (docs/2026-10-11-energy-
+  // diagram.md): one object with a list of nodes, as a Sankey or a Flow.
+  "energy-diagram",
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
@@ -131,6 +134,8 @@ export function objectTypeLabel(type: string): string {
       return "Panel"
     case "navigator":
       return "Navigator"
+    case "energy-diagram":
+      return "Energy diagram"
     case "group":
       return "Group"
     case "free":

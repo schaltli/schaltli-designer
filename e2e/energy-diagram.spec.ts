@@ -1,0 +1,294 @@
+import { test, expect, type Page } from "@playwright/test"
+import JSZip from "jszip"
+import { getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
+import { seedWaveshare4v3bDdf } from "./ddf-seed"
+import { Jimp } from "jimp"
+import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
+import { defaultDiagram, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+
+// The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
+// tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
+// e2e/energy-diagram-layout.spec.ts; this file is the object.
+
+type Obj = Record<string, any>
+
+const DEVICE_ID = "e2e-energy-4v3b"
+const SCREEN_43B = { width: 800, height: 480 }
+
+async function downloadProjectJson(page: Page): Promise<any> {
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "Download Project" }).click(),
+  ])
+  const chunks: Buffer[] = []
+  for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
+  await page.keyboard.press("Escape")
+  return JSON.parse(await zip.file("project.json")!.async("string"))
+}
+
+async function newProject(page: Page): Promise<void> {
+  await page.goto("/")
+  await waitForDeviceGate(page)
+  await chooseDevice(page, DEVICE_ID, "auto-discovered")
+  await createProject(page)
+  await waitForEditorReady(page)
+}
+
+/** Draws a diagram with the tool, from one corner to the other, in device pixels. */
+async function drawDiagram(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
+  await page.getByRole("button", { name: "Energy diagram", exact: true }).click()
+  const { box } = await getMainCanvas(page)
+  const a = devicePoint(box, from.x, from.y, SCREEN_43B)
+  const b = devicePoint(box, to.x, to.y, SCREEN_43B)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 4 })
+  await page.mouse.move(b.x, b.y, { steps: 4 })
+  await page.mouse.up()
+}
+
+function diagramsOf(project: Obj): Obj[] {
+  const all: Obj[] = []
+  const walk = (objects: Obj[]) => {
+    for (const o of objects) {
+      if (o.type === "energy-diagram") all.push(o)
+      if (o.children) walk(o.children)
+    }
+  }
+  for (const s of project.screens) walk(s.objects)
+  return all
+}
+
+function diagramProject(): Obj {
+  return {
+    name: "energy",
+    screenWidth: 800,
+    screenHeight: 480,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [],
+    hardwareButtons: [],
+    snapGuides: [],
+    nextId: 100,
+    screens: [
+      { id: "master-1", name: "Master", isMaster: true, backgroundColor: "#ffffff", objects: [] },
+      {
+        id: "s1",
+        name: "Energie",
+        masterScreenId: "master-1",
+        objects: [
+          { id: "before", type: "text", x: 600, y: 20, width: 100, height: 20, zIndex: 1, properties: { text: "before", color: "#000000" } },
+          { id: "e", type: "energy-diagram", x: 20, y: 20, width: 540, height: 400, zIndex: 2, properties: defaultDiagram({ width: 540, height: 400 }) },
+        ],
+      },
+    ],
+  }
+}
+
+test.describe("the energy diagram object", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("energy-diagram")) manifest.supportedObjectTypes.push("energy-diagram")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  test("drawn with the tool it fills the rectangle: a bus and three nodes, mode Flow", async ({ page }) => {
+    await newProject(page)
+    await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
+    const saved = await downloadProjectJson(page)
+    const [diagram] = diagramsOf(saved)
+    expect(diagram, "one energy diagram").toBeTruthy()
+    expect(Math.abs(diagram.x - 100)).toBeLessThanOrEqual(2)
+    expect(Math.abs(diagram.y - 60)).toBeLessThanOrEqual(2)
+    expect(Math.abs(diagram.width - 540)).toBeLessThanOrEqual(3)
+    expect(Math.abs(diagram.height - 360)).toBeLessThanOrEqual(3)
+    const p = diagram.properties
+    expect(p).toMatchObject({ mode: "flow", motion: true, fullScale: 1000 })
+    expect(p.fontId).toBeTruthy()
+    expect(p.nodes.map((n: Obj) => [n.role, n.name])).toEqual([
+      ["bus", "12 V"],
+      ["source", "Solar"],
+      ["storage", "Battery"],
+      ["rest", "Consumers"],
+    ])
+    for (const n of p.nodes) {
+      expect(n.x, n.name).toBeGreaterThanOrEqual(0)
+      expect(n.y, n.name).toBeGreaterThanOrEqual(0)
+      expect(n.x, n.name).toBeLessThanOrEqual(diagram.width)
+      expect(n.y, n.name).toBeLessThanOrEqual(diagram.height)
+      if (n.role !== "bus") expect(n.lines, n.name).toEqual([{ text: "{watts} W" }])
+    }
+  })
+})
+
+test.describe("the energy diagram's core additions", () => {
+  test("a new diagram's nodes stand round the bus, inside the box", () => {
+    const d = defaultDiagram({ width: 400, height: 300 })
+    const bus = d.nodes.find((n) => n.role === "bus")!
+    expect(bus).toMatchObject({ x: 200, y: 135 })
+    for (const n of d.nodes) {
+      expect(n.x).toBeGreaterThanOrEqual(0)
+      expect(n.x).toBeLessThanOrEqual(400)
+      expect(n.y).toBeGreaterThanOrEqual(0)
+      expect(n.y).toBeLessThanOrEqual(300)
+    }
+    expect(d.nodes.filter((n) => n.role === "rest")).toHaveLength(1)
+  })
+
+  test("{watts} is the node's watts, whole; nothing known is a dash", () => {
+    expect(withWatts("{watts} W", 92.4)).toBe("92 W")
+    expect(withWatts("{watts} W", 92.5)).toBe("93 W")
+    expect(withWatts("{watts} W · {watts}", 0)).toBe("0 W · 0")
+    expect(withWatts("{watts} W", undefined)).toBe("– W")
+    expect(withWatts("{live:soc} %", 5)).toBe("{live:soc} %")
+  })
+})
+
+test.describe("the energy roles", () => {
+  test("every theme has the six, light and dark; the colour themes the target picture's", () => {
+    expect(ENERGY_ROLES.every((r) => (ROLES as readonly string[]).includes(r))).toBe(true)
+    const lavender = THEMES.find((t) => t.id === "lavender")!
+    expect(resolveRole(lavender, "energySun", "light", "24bit")).toBe("#c99400")
+    expect(resolveRole(lavender, "energyCharge", "dark", "24bit")).toBe("#7fd492")
+    for (const theme of THEMES) {
+      for (const variant of ["light", "dark"] as const) {
+        const values = ENERGY_ROLES.map((r) => theme[variant][r])
+        for (const v of values) expect(v, `${theme.id}.${variant}`).toMatch(/^#[0-9a-f]{6}$/i)
+        expect(new Set(values).size, `${theme.id}.${variant}: six different colours`).toBe(6)
+      }
+    }
+  })
+
+  test("a colour from before themes never becomes an energy role", () => {
+    for (const theme of THEMES) {
+      for (const hex of ["#c99400", "#2f9a52", "#4CAF50", "#d0453f", "#7a5bd1", "#2f7ad8"]) {
+        expect(ENERGY_ROLES as readonly string[], `${theme.id} ${hex}`).not.toContain(nearestRole(hex, theme, "24bit"))
+      }
+    }
+  })
+
+  test("the role picker offers them", () => {
+    // Listed with the others: the picker shows every role (e2e/themes.spec.ts).
+    expect(ROLES.slice(-6)).toEqual([...ENERGY_ROLES])
+  })
+})
+
+test.describe("the energy diagram in an export, until the device contract has it", () => {
+  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
+    test(`${hook === "__buildDeviceZipForTest" ? "the device zip" : "the Android bundle"} leaves it out and keeps the rest`, async ({ page }) => {
+      await page.goto("/test-render")
+      await page.waitForFunction(() => (window as any).__testRenderReady === true)
+      const zipBase64: string = await page.evaluate(({ hook, project }) => (window as any)[hook](project), { hook, project: diagramProject() })
+      const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
+      const project = JSON.parse(await zip.file("project.json")!.async("string"))
+      expect(diagramsOf(project)).toEqual([])
+      expect(JSON.stringify(project)).not.toContain("energy-diagram")
+      const screen = project.screens.find((s: Obj) => s.id === "s1")
+      expect(screen.objects.map((o: Obj) => o.id)).toContain("before")
+    })
+  }
+})
+
+// ---- D2: drawn still, through test-render (what the canvas, the preview
+// and the thumbnails draw too). A diagram of 540 x 400 at (20, 20) on white.
+
+const LAVENDER = THEMES.find((t) => t.id === "lavender")!
+const role = (r: Parameters<typeof resolveRole>[1]) => resolveRole(LAVENDER, r, "light", "24bit").toLowerCase()
+const ORIGIN = { x: 20, y: 20 }
+const SIZE = { width: 540, height: 400 }
+const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="#000"/></svg>'
+
+function drawnProject(mode: "flow" | "sankey", topics: Record<string, string>): { project: Obj; nodes: EnergyNode[] } {
+  const d = defaultDiagram(SIZE)
+  const nodes = d.nodes.map((n) => ({
+    ...n,
+    ...(n.role === "source" ? { topic: "van/solar", iconAssetId: "sq" } : {}),
+    ...(n.role === "storage" ? { topic: "van/battery", chargeTopic: "van/soc" } : {}),
+  }))
+  const diagram = { id: "e", type: "energy-diagram", ...ORIGIN, ...SIZE, zIndex: 1, properties: { ...d, mode, nodes } }
+  const project = {
+    name: "energy",
+    screenWidth: 800,
+    screenHeight: 480,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [{ id: "sq", name: "sq", type: "icon", data: SQUARE }],
+    topics: Object.entries(topics).map(([topic, value], i) => ({ id: `t${i}`, topic, type: "number", examples: [value] })),
+    screens: [{ id: "s1", name: "Energie", backgroundColor: "#ffffff", objects: applyTheme([diagram as any], LAVENDER, "light", "24bit") }],
+  }
+  return { project, nodes }
+}
+
+async function render(page: Page, project: Obj, overrides: Record<string, string> = {}) {
+  const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project, screenIndex: 0, topicOverrides: overrides })
+  const img = await Jimp.read(Buffer.from(dataUrl.split(",")[1], "base64"))
+  return (x: number, y: number) => "#" + (img.getPixelColor(Math.round(ORIGIN.x + x), Math.round(ORIGIN.y + y)) >>> 8).toString(16).padStart(6, "0")
+}
+
+const hexOf = (c: readonly number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("")
+const rgbOf = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number]
+
+test.describe("the energy diagram, drawn", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  })
+
+  test("Flow: the bus in the accent, a giving node in its colour, a node without watts grey, the battery's ring", async ({ page }) => {
+    const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
+    const at = await render(page, project)
+    const n = (id: string) => nodes.find((x) => x.id === id)!
+    expect(at(n("bus").x, n("bus").y)).toBe(role("accent"))
+    // The top of a circle's 3 px stroke, r 32.
+    expect(at(n("solar").x, n("solar").y - 32)).toBe(role("energySun"))
+    expect(at(n("battery").x, n("battery").y - 32)).toBe(role("energyCharge"))
+    // The ring (r 39, 5 px) half full: from the top clockwise, so its right is charged and its left is not.
+    expect(at(n("battery").x + 39, n("battery").y)).toBe(role("energyCharge"))
+    expect(at(n("battery").x - 39, n("battery").y)).toBe(role("track"))
+    // The rest takes 600 - 446 = 154 W: live, in «Load».
+    expect(at(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
+    // The icon, tinted in the node's colour, in the circle's middle.
+    expect(at(n("solar").x, n("solar").y)).toBe(role("energySun"))
+
+    // Nothing from the sun, the battery giving 154 W: the sun grey, the battery in «Discharging».
+    const night = await render(page, project, { "van/solar": "0", "van/battery": "-154" })
+    expect(night(n("solar").x, n("solar").y - 32)).toBe(role("track"))
+    expect(night(n("battery").x, n("battery").y - 32)).toBe(role("energyDischarge"))
+    expect(night(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
+  })
+
+  test("a node whose topic has said nothing counts as 0 W", async ({ page }) => {
+    const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
+    const at = await render(page, project, { "van/solar": "" })
+    const solar = nodes.find((x) => x.id === "solar")!
+    expect(at(solar.x, solar.y - 32)).toBe(role("track"))
+  })
+
+  test("Sankey: the bus, the bars and each band's columns as the core says, at phase 0", async ({ page }) => {
+    const values = { "van/solar": "600", "van/battery": "446", "van/soc": "50" }
+    const { project, nodes } = drawnProject("sankey", values)
+    const at = await render(page, project)
+    const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 600 }, battery: { watts: 446 } }), SIZE, 1000)
+    expect(at(layout.bus.x + 8, layout.bus.y + layout.bus.height / 2)).toBe(role("accent"))
+    const bar = (id: string) => layout.bars.find((b) => b.id === id)!
+    expect(at(bar("solar").x + 6, bar("solar").y + bar("solar").height / 2)).toBe(role("energySun"))
+    expect(at(bar("battery").x + 6, bar("battery").y + bar("battery").height / 2)).toBe(role("energyCharge"))
+    for (const [id, colour] of [["solar", role("energySun")], ["battery", role("energyCharge")], ["consumers", role("energyLoad")]] as const) {
+      const band = layout.bands.find((b) => b.id === id)!
+      const top = band.polygon[12], bottom = band.polygon[band.polygon.length - 1 - 12]
+      const x = Math.floor(top.x)
+      expect(at(x, (top.y + bottom.y) / 2), id).toBe(hexOf(waveColour(rgbOf(colour), [255, 255, 255], x, 0)))
+    }
+    // Two columns half a wave apart differ: the wave is there.
+    const band = layout.bands.find((b) => b.id === "solar")!
+    const mid = (band.polygon[12].y + band.polygon[band.polygon.length - 13].y) / 2
+    const x0 = Math.floor(band.polygon[12].x)
+    expect(at(x0, mid)).not.toBe(at(x0 + 24, mid))
+  })
+})

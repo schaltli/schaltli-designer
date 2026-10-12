@@ -10,6 +10,7 @@
  * needs.
  */
 
+import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
 import type { LiveValue } from "@/lib/live-value"
@@ -359,6 +360,9 @@ export interface RenderScreenObjectsOptions {
   // scrolled - absent, as far as shows the highlighted entry. Without it a
   // navigator draws its ground only.
   navigator?: NavigatorContext
+
+  // Where an energy diagram's motion stands; absent, still at phase 0.
+  energyMotion?: EnergyMotion
 }
 
 export interface NavigatorContext {
@@ -514,6 +518,10 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "navigator":
         renderNavigator(ctx, obj, options)
+        break
+
+      case "energy-diagram":
+        renderEnergyDiagram(ctx, obj, options, options.energyMotion)
         break
 
       case "icon":

@@ -15,6 +15,7 @@ import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
+import { withoutEnergyDiagrams } from "@/lib/energy-diagram-object"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
@@ -65,7 +66,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // A live icon keeps its live value (lib/object-text.ts withLiveIconFallbacks);
   // the app draws it from 1.4 on, as it draws no static icon of its own.
   // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
-  const project = withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject))))
+  const project = withoutEnergyDiagrams(withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")

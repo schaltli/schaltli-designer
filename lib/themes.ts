@@ -35,7 +35,19 @@ export const ROLES = [
   "accentEnd",
   "track",
   "trackEdge",
+  // The energy diagram's (docs/2026-10-11-energy-diagram.md decision 12):
+  // what a node is - the sun, the grid, the engine, a load - and a battery
+  // charging or discharging. One pair for every colour theme (ENERGY_LIGHT).
+  "energySun",
+  "energyGrid",
+  "energyEngine",
+  "energyCharge",
+  "energyDischarge",
+  "energyLoad",
 ] as const
+
+/** The energy diagram's roles: not what a colour from before themes is matched to (nearestRole). */
+export const ENERGY_ROLES = ["energySun", "energyGrid", "energyEngine", "energyCharge", "energyDischarge", "energyLoad"] as const
 
 export type Role = (typeof ROLES)[number]
 export type Variant = "light" | "dark"
@@ -73,6 +85,12 @@ export const ROLE_LABELS: Record<Role, string> = {
   accentEnd: "Gradient end",
   track: "Track",
   trackEdge: "Track edge",
+  energySun: "Sun",
+  energyGrid: "Grid",
+  energyEngine: "Engine",
+  energyCharge: "Charging",
+  energyDischarge: "Discharging",
+  energyLoad: "Load",
 }
 
 /** The colour depths a device declares (its DDF's screen.colorDepth). */
@@ -127,7 +145,36 @@ export const COLOR_KEYS = [
   // (docs/2026-10-08-navigator.md decision 7).
   "activeColor",
   "activeTextColor",
+  // The energy diagram's (docs/2026-10-11-energy-diagram.md decision 12):
+  // its names and quiet lines, the bus, what carries nothing, and a
+  // battery charging and discharging. Each node's own colour is its
+  // `colorRole`, resolved to `color` by applyTheme.
+  "mutedColor",
+  "busColor",
+  "idleColor",
+  "chargeColor",
+  "dischargeColor",
 ] as const
+
+// The energy roles of every colour theme, from the target picture the user
+// approved (2026-10-11): what a sun, a socket or an engine is coloured
+// does not change with a theme's accent. A theme may set its own later.
+const ENERGY_LIGHT = {
+  energySun: "#c99400",
+  energyGrid: "#2f7ad8",
+  energyEngine: "#e06c1f",
+  energyCharge: "#2f9a52",
+  energyDischarge: "#d0453f",
+  energyLoad: "#7a5bd1",
+}
+const ENERGY_DARK = {
+  energySun: "#ffd54f",
+  energyGrid: "#7fb2ff",
+  energyEngine: "#ffab70",
+  energyCharge: "#7fd492",
+  energyDischarge: "#ff8a80",
+  energyLoad: "#c3b0ff",
+}
 
 export const THEMES: Theme[] = [
   {
@@ -139,6 +186,7 @@ export const THEMES: Theme[] = [
     // before themes opens in this and looks the same. Material 3's primary
     // as accent, chosen by the user on 2026-09-19.
     light: {
+      ...ENERGY_LIGHT,
       surface: "#ffffff",
       panel: "#e5e5e5",
       outline: "#cccccc",
@@ -153,6 +201,7 @@ export const THEMES: Theme[] = [
     },
     // Material 3's dark scheme for the same seed.
     dark: {
+      ...ENERGY_DARK,
       surface: "#1c1b1f",
       panel: "#2b2930",
       outline: "#49454f",
@@ -175,6 +224,7 @@ export const THEMES: Theme[] = [
     // else. Text on orange is ink, not white: 7:1 against 2.9:1. There is
     // no second colour in the brand, so the second accent is a grey.
     light: {
+      ...ENERGY_LIGHT,
       surface: "#ffffff",
       panel: "#eeeeee",
       outline: "#cccccc",
@@ -188,6 +238,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#111111",
       panel: "#222222",
       outline: "#444444",
@@ -206,6 +257,7 @@ export const THEMES: Theme[] = [
     name: "Slate",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#f4f6f8",
       panel: "#e3e8ee",
       outline: "#b8c2cc",
@@ -219,6 +271,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#15202b",
       panel: "#1f2d3a",
       outline: "#3b4a58",
@@ -237,6 +290,7 @@ export const THEMES: Theme[] = [
     name: "Forest",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#f6f8f2",
       panel: "#e6ecdc",
       outline: "#b9c4a8",
@@ -250,6 +304,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#121a12",
       panel: "#1c261c",
       outline: "#3a4a3a",
@@ -268,6 +323,7 @@ export const THEMES: Theme[] = [
     name: "Ocean",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#f3f8fa",
       panel: "#dfeef3",
       outline: "#a9c7d3",
@@ -281,6 +337,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#0f1c22",
       panel: "#16282f",
       outline: "#2e4a54",
@@ -299,6 +356,7 @@ export const THEMES: Theme[] = [
     name: "Amber",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#fbf7f0",
       panel: "#f1e8d8",
       outline: "#d4c4a8",
@@ -312,6 +370,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#1a150d",
       panel: "#262016",
       outline: "#4a3f2c",
@@ -330,6 +389,7 @@ export const THEMES: Theme[] = [
     name: "Terracotta",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#faf5ef",
       panel: "#efe4d6",
       outline: "#cfb9a2",
@@ -343,6 +403,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#1b1512",
       panel: "#29201b",
       outline: "#4d3b31",
@@ -361,6 +422,7 @@ export const THEMES: Theme[] = [
     name: "Garden",
     depths: COLOUR,
     light: {
+      ...ENERGY_LIGHT,
       surface: "#f5f5f5",
       panel: "#e4e4e4",
       outline: "#bdbdbd",
@@ -374,6 +436,7 @@ export const THEMES: Theme[] = [
       trackEdge: "transparent",
     },
     dark: {
+      ...ENERGY_DARK,
       surface: "#161616",
       panel: "#232323",
       outline: "#3d3d3d",
@@ -398,6 +461,14 @@ export const THEMES: Theme[] = [
     // one is its inverse, for completeness.
     depths: ["4bit"],
     light: {
+      // Greys on the ramp, apart from one another (the PaperS3 does not
+      // draw the energy diagram; a text may still pick them).
+      energySun: "#777777",
+      energyGrid: "#555555",
+      energyEngine: "#666666",
+      energyCharge: "#444444",
+      energyDischarge: "#333333",
+      energyLoad: "#999999",
       surface: "#ffffff",
       panel: "#dddddd",
       outline: "#888888",
@@ -413,6 +484,12 @@ export const THEMES: Theme[] = [
       trackEdge: "#000000",
     },
     dark: {
+      energySun: "#888888",
+      energyGrid: "#aaaaaa",
+      energyEngine: "#999999",
+      energyCharge: "#bbbbbb",
+      energyDischarge: "#cccccc",
+      energyLoad: "#666666",
       surface: "#000000",
       panel: "#222222",
       outline: "#777777",
@@ -537,6 +614,14 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   button: { buttonColor: "accent" },
   switch: { switchColor: "accent" },
   "button-group": { switchColor: "accent" },
+  "energy-diagram": {
+    textColor: "text",
+    mutedColor: "textMuted",
+    busColor: "accent",
+    idleColor: "track",
+    chargeColor: "energyCharge",
+    dischargeColor: "energyDischarge",
+  },
 }
 
 const NAVIGATOR_ACCENT_ROLES: Partial<Record<string, Role>> = {
@@ -629,6 +714,15 @@ export function applyTheme<T extends { type?: string; properties: Record<string,
       if (properties === object.properties) properties = { ...properties }
       properties[key] = resolveRole(theme, value, variant, colorDepth)
     }
+    // An energy diagram's nodes each name a role (decision 12); a node
+    // without one is a load.
+    if (type === "energy-diagram" && Array.isArray(properties.nodes)) {
+      if (properties === object.properties) properties = { ...properties }
+      properties.nodes = properties.nodes.map((n: { colorRole?: string }) => {
+        const role = isRole(n.colorRole) ? n.colorRole : "energyLoad"
+        return { ...n, color: resolveRole(theme, role, variant, colorDepth) }
+      })
+    }
     const children = object.children ? applyTheme(object.children, theme, variant, colorDepth) : object.children
     if (properties === object.properties && children === object.children) return object
     return { ...object, properties, children }
@@ -669,6 +763,9 @@ export function nearestRole(hex: string, theme: Theme, colorDepth: string | unde
     // Never the gradient's end: it exists for the theme's own fills, and an
     // old hand-picked colour near it was meant as an accent (2026-09-28).
     if (role === "accentEnd") continue
+    // Nor an energy role: a green from before themes was an accent, not a
+    // battery charging.
+    if ((ENERGY_ROLES as readonly string[]).includes(role)) continue
     const d = distance(shown, resolveRole(theme, role, "light", colorDepth))
     if (d < bestDistance || (d === bestDistance && role === preferred)) {
       best = role

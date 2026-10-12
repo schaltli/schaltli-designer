@@ -1,5 +1,6 @@
 "use client"
 
+import { everyEnergyIcon } from "@/components/canvas/renderers/render-energy-diagram"
 import { everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
 import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
@@ -416,7 +417,9 @@ export default function TestRenderPage() {
       const entryIcons = screen.objects
         .filter((o: ScreenObject) => o.type === "navigator")
         .flatMap((o: ScreenObject) => everyEntryObject(o, project.screens, fonts))
-      await preloadIconImages([...screen.objects, ...entryIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS], iconImageCache)
+      // An energy diagram's node icons, in each colour a node may have.
+      const energyIcons = screen.objects.filter((o: ScreenObject) => o.type === "energy-diagram").flatMap(everyEnergyIcon)
+      await preloadIconImages([...screen.objects, ...entryIcons, ...energyIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,

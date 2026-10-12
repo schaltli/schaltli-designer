@@ -1,9 +1,11 @@
 "use client"
 
 import { barLayout, clampScroll, entryAt, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
+import { defaultDiagram } from "@/lib/energy-diagram"
 import { themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
+import { renderEnergyDiagram } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -914,6 +916,12 @@ export function Canvas({
       const currentSize = font.size || 0
       return currentSize < smallestSize ? font : smallest
     }, fonts[0])
+  }
+
+  // The font whose size is nearest to `px`, the smaller one on a tie.
+  const fontNear = (px: number) => {
+    if (!fonts || fonts.length === 0) return null
+    return [...fonts].sort((a, b) => Math.abs((a.size || 0) - px) - Math.abs((b.size || 0) - px) || (a.size || 0) - (b.size || 0))[0]
   }
 
   // The panel or group currently open for editing (editingContainerId), if
@@ -2057,6 +2065,21 @@ export function Canvas({
             activeScreenId: screen.isMaster ? navigatorScreens(projectScreens ?? [])[0]?.id : screen.id,
             scroll: previewMode ? navigatorScroll : undefined,
           },
+        })
+        break
+
+      case "energy-diagram":
+        renderEnergyDiagram(ctx, obj, {
+          fonts,
+          projectAssets,
+          topics,
+          colorDepth,
+          bdfFontCache: bdfFontCacheRef.current,
+          iconImageCache: iconImageCacheRef.current,
+          getPreviewValueFromTopic,
+          placeholders,
+          requestRedraw: draw,
+          screenBackgroundColor: resolvedBackgroundColor,
         })
         break
 
@@ -3923,6 +3946,18 @@ export function Canvas({
       }
 
       return mqttDataLineObject
+    }
+    if (type === "energy-diagram") {
+      // A bus and three nodes placed round it, mode Flow (lib/energy-diagram.ts).
+      const size = { width: Math.round(Math.abs(width)), height: Math.round(Math.abs(height)) }
+      return {
+        type: "energy-diagram",
+        x: Math.round(x),
+        y: Math.round(y),
+        ...size,
+        // Names in a font near 16 px, the watts near 22 (the target picture's 14 and 18 on a 4.3B).
+        properties: { ...defaultDiagram(size), fontId: fontNear(16)?.id, valueFontId: fontNear(22)?.id },
+      }
     }
     if (type === "switcher") {
       // Starts with a single "Panel 1" child (comparisonValue "") so a

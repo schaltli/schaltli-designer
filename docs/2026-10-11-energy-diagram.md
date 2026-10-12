@@ -154,7 +154,14 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     device.
 11. **Node lines** are live text exactly as a text object's (`text` with
     `{live:<id>}`, `liveValues` with rules, format, No value yet). The
-    first line defaults to the watts, `{live:w} W`, whole watts. A node's
+    first line defaults to the watts, `{watts} W`: **`{watts}`** is the
+    node's watts as the diagram has them - after «Reverse sign», the rest
+    worked out, whole, a dash while its topic has said nothing - put in
+    before the line is resolved as live text (decided in D1, 2026-10-12:
+    the rest has no topic a live value could read, and a live value on the
+    topic would show the sign before «Reverse sign»). Names and quieter
+    lines use the diagram's «Font», the first line its «Value font»
+    (`fontId`, `valueFontId`; on insert the fonts nearest 16 and 22 px). A node's
     width in the Sankey's labels and the Flow's caption is reserved for
     the widest it can show (`lib/layout.ts`, as for texts since
     2026-10-11).
@@ -162,7 +169,13 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     `energyGrid`, `energyEngine`, `energyCharge`, `energyDischarge`,
     `energyLoad` - each with a light and a dark value. A node picks one;
     the storage uses `energyCharge` while taking and `energyDischarge`
-    while giving, whatever is picked. The bus uses `accent`.
+    while giving, whatever is picked. The bus uses `accent`. One light and
+    one dark value per role, shared by every colour theme (Paper: greys);
+    a colour from before themes is never matched to one (`nearestRole`).
+    The diagram's own colours are keys like any object's - `textColor`
+    (text), `mutedColor` (textMuted), `busColor` (accent), `idleColor`
+    (track), `chargeColor`, `dischargeColor` - and each node's `colorRole`
+    becomes its `color` when the theme is applied.
 13. **A tap on a node** runs its action, the same actions a button has; in
     practice «Open popup». Without an action a tap does nothing.
 14. **Order of work**: first a firmware spike on the 4.3B (motion and one
@@ -215,7 +228,9 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
 15. **Devices**: the 4.3B and the Android app. The PaperS3 and the Knob do
     not list the type in their `supportedObjectTypes`; the designer then
     refuses it there, as for any unsupported type.
-16. **Generation 1.7.** A device without it gets the diagram dissolved
+16. **Until `energy-contract`** the device zip and the Android bundle leave
+    the object out (`lib/energy-diagram-object.ts`), so nothing half-made
+    reaches a device. **Generation 1.7.** A device without it gets the diagram dissolved
     into nothing and the Deploy dialog's usual need for an update.
 
 ## Behaviour

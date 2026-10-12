@@ -120,6 +120,7 @@ export function Toolbar({
         tool("live-icon", "Live Icon", "One of several icons, chosen by a value"),
         tool("bar", "Bar", "A level to read, as a bar"),
         tool("gauge", "Gauge", "A level to read, as an arc"),
+        tool("energy-diagram", "Energy diagram", "Where the energy comes from and goes: a Sankey or a Flow of nodes"),
       ],
     },
     {

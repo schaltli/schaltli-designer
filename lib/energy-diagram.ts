@@ -5,6 +5,8 @@
 // designer, the 4.3B and the Android app share. The cases all three must
 // agree on are lib/energy-diagram/vectors.json.
 
+import type { LiveValue } from "@/lib/live-value"
+
 export type EnergyRole = "source" | "sink" | "storage" | "rest" | "bus"
 
 /** A node as the object holds it (spec decision 2). x/y: its centre in the Flow, relative to the diagram. */
@@ -22,6 +24,68 @@ export interface EnergyNode {
   /** The topic's watts are the other way round (spec decision 5). */
   reverseSign?: boolean
   colorRole?: string
+  /** Up to three lines of live text under its name (spec decision 11). */
+  lines?: EnergyLine[]
+  /** What a tap on it does: a button's action (spec decision 13). */
+  action?: unknown
+}
+
+/**
+ * A node's line: live text as a text object's. `{watts}` in it is the
+ * node's watts as the diagram has them - after «Reverse sign», the rest
+ * worked out, whole watts - which no topic carries for the rest.
+ */
+export interface EnergyLine {
+  text: string
+  liveValues?: LiveValue[]
+}
+
+/** At most this many lines under a node's name. */
+export const MAX_NODE_LINES = 3
+
+/** What `{watts}` in a node's line is: the node's resolved watts, whole. */
+export const WATTS_PLACEHOLDER = "{watts}"
+
+/** A node's line with `{watts}` put in; the rest of it is resolved as any live text. */
+export function withWatts(text: string, watts: number | undefined): string {
+  if (!text.includes(WATTS_PLACEHOLDER)) return text
+  return text.split(WATTS_PLACEHOLDER).join(watts === undefined ? "–" : String(Math.round(watts)))
+}
+
+export type EnergyMode = "sankey" | "flow"
+
+/** The object's properties (spec decisions 1-12, export §2.8). */
+export interface EnergyDiagramProperties {
+  mode: EnergyMode
+  motion: boolean
+  /** Watts the Sankey's room stands for (decision 8). */
+  fullScale: number
+  fontId?: string
+  nodes: EnergyNode[]
+}
+
+export const DEFAULT_FULL_SCALE = 1000
+
+/**
+ * A new diagram for a box (the designer's «Insert», spec «Behaviour»): the
+ * bus in the middle, the sun above left, the battery below left, what the
+ * van draws to the right - mode Flow, each node's first line its watts.
+ */
+export function defaultDiagram(size: Size): EnergyDiagramProperties {
+  const w = Math.max(0, size.width), h = Math.max(0, size.height)
+  const at = (fx: number, fy: number) => ({ x: Math.round(w * fx), y: Math.round(h * fy) })
+  const watts: EnergyLine[] = [{ text: `${WATTS_PLACEHOLDER} W` }]
+  return {
+    mode: "flow",
+    motion: true,
+    fullScale: DEFAULT_FULL_SCALE,
+    nodes: [
+      { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
+      { id: "solar", role: "source", name: "Solar", colorRole: "energySun", lines: watts, ...at(0.18, 0.22) },
+      { id: "battery", role: "storage", name: "Battery", colorRole: "energyCharge", lines: watts, ...at(0.18, 0.68) },
+      { id: "consumers", role: "rest", name: "Consumers", colorRole: "energyLoad", lines: watts, ...at(0.82, 0.45) },
+    ],
+  }
 }
 
 /** What a node's topics bring, as numbers; absent: nothing known. */

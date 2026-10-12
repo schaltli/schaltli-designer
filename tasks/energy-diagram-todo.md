@@ -30,8 +30,11 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] user said «weiter» 2026-10-12
 
 ## energy-designer
-- [ ] D1 The object: type, tool, defaults, theme roles
-- [ ] D2 Drawn still: both modes on the canvas
+- [x] D1 The object: type, tool, defaults, theme roles
+  - `{watts}` in a node's line instead of `{live:w}` (the rest has no topic) - spec decision 11
+- [x] D2 Drawn still: both modes on the canvas
+  - looked at in light and dark, both modes, with the demo's fonts and icons: as the target picture
+  - on the way: two tests the screens' «Copy» (5195b7e) had broken, fixed apart (clipboard, navigator)
 - [ ] D3 Motion in the preview
 - [ ] D4 Property panel: the diagram and its nodes
 - [ ] D5 Dragging nodes in Flow
