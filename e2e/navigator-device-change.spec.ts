@@ -6,6 +6,7 @@ import path from "path"
 import { loadProject, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { NAVIGATOR_SIZES } from "../lib/navigator"
+import { defaultDiagram } from "../lib/energy-diagram"
 
 // The user, 2026-10-12: after Settings › Device moved a project to another
 // device - the 4.3B to a phone, 800x480 to 360x679 - the navigator kept the
@@ -31,7 +32,7 @@ test.beforeEach(async () => {
   )
 })
 
-test("moved to a phone, the navigator fills the phone's edge", async ({ page }) => {
+test("moved to a phone, the navigator fills the phone's edge and a diagram takes the phone's fonts", async ({ page }) => {
   await page.goto("/")
   await waitForDeviceGate(page)
   await chooseDevice(page, NAV_DEVICE_ID, "auto-discovered")
@@ -43,6 +44,9 @@ test("moved to a phone, the navigator fills the phone's edge", async ({ page }) 
   saved.assets = [...(saved.assets ?? []), { id: "sq", name: "sq", type: "icon", data: SQUARE }]
   master.objects.push({ id: "nav", type: "navigator", x: 0, y: 0, width: 80, height: 480, zIndex: 50, properties: { edge: "left", shows: "iconsAndText", backgroundColor: "#e5e5e5", textColor: "#000000", activeColor: "#6750a4", activeTextColor: "#ffffff" } })
   saved.topics = [...(saved.topics ?? []), { id: "t-level", topic: "Freshwater/Level", type: "numeric", examples: ["12"] }]
+  // An energy diagram in the 4.3B's Lucida, 17 and 22 px tall.
+  const screen = saved.screens.find((s: any) => !s.isMaster && s.screenType !== "popup")
+  screen.objects.push({ id: "e", type: "energy-diagram", x: 100, y: 20, width: 500, height: 400, zIndex: 1, properties: { ...defaultDiagram({ width: 500, height: 400 }), fontId: "font-luRS14", valueFontId: "font-luRS18" } })
   for (const s of saved.screens) if (!s.isMaster && s.screenType !== "popup") s.iconLive = { id: "lv1", source: { namespace: "topic", path: "Freshwater/Level" }, rules: [], otherwise: { kind: "icon", icon: "sq" } }
   const zip = new JSZip()
   zip.file("project.json", JSON.stringify(saved))
@@ -65,6 +69,16 @@ test("moved to a phone, the navigator fills the phone's edge", async ({ page }) 
   const moved = await downloadProjectJson(page)
   await page.keyboard.press("Escape")
   const nav = moved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
+  // The diagram in the phone's fonts nearest the old sizes (17 and 22 px): the
+  // 4.3B's stayed, in a box the phone's fonts sized, cut off at the bottom.
+  const diagram = moved.screens.flatMap((s: any) => s.objects).find((o: any) => o.type === "energy-diagram")
+  const size = (id: string) => moved.fonts.find((f: any) => f.id === id)?.size
+  expect(size(diagram.properties.fontId), "the name's font is the phone's").toBeDefined()
+  expect(size(diagram.properties.valueFontId), "the value's font is the phone's").toBeDefined()
+  const nearest = (px: number) => Math.min(...moved.fonts.map((f: any) => Math.abs(f.size - px)))
+  expect(Math.abs(size(diagram.properties.fontId) - 17)).toBe(nearest(17))
+  expect(Math.abs(size(diagram.properties.valueFontId) - 22)).toBe(nearest(22))
+
   // Along the left edge, as tall as the phone's screen, as deep as «Icons and text» makes it.
   expect(moved.screenHeight).not.toBe(480)
   expect({ x: nav.x, y: nav.y, width: nav.width, height: nav.height }).toEqual({ x: 0, y: 0, width: NAVIGATOR_SIZES.iconsAndText.thickness, height: moved.screenHeight })

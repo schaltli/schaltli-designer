@@ -50,7 +50,7 @@ export function projectOnDevice(
   })
   // A navigator fills its edge of the new screen: placed for the old one,
   // it kept the old size until moved (the user, 2026-10-12, 4.3B to a phone).
-  const fitted = withNavigatorsFitted(moved, rotated.screenWidth, rotated.screenHeight)
+  const fitted = withFontsOnDevice(withNavigatorsFitted(moved, rotated.screenWidth, rotated.screenHeight), project.fonts ?? [])
   return { project: fitted, screenWidth: rotated.screenWidth, screenHeight: rotated.screenHeight, rotationWasReset: rotated.rotationWasReset }
 }
 
@@ -68,6 +68,52 @@ function withNavigatorsFitted(project: Project, screenWidth: number, screenHeigh
           : o,
       ),
     }
+  })
+  return changed ? { ...project, screens } : project
+}
+
+// The font keys of the objects that pick a font of the device by hand and
+// have no text style to pick it again by (resolveScale does those).
+const FONT_KEYS: Record<string, string[]> = {
+  "energy-diagram": ["fontId", "valueFontId"],
+  navigator: ["fontId"],
+}
+
+/**
+ * An energy diagram's and a navigator's fonts, where the new device has
+ * them not: the new device's font nearest the old one's size, the smaller
+ * on a tie - as a new diagram gets its fonts. The 4.3B's Lucida stayed on a
+ * diagram moved to a phone, drawn in a box the phone's fonts sized, cut off
+ * at the bottom (the user, 2026-10-12).
+ */
+function withFontsOnDevice(project: Project, oldFonts: readonly { id: string; size?: number }[]): Project {
+  const fonts = project.fonts ?? []
+  if (fonts.length === 0) return project
+  const has = (id: unknown) => typeof id === "string" && fonts.some((f) => f.id === id)
+  const near = (px: number) =>
+    [...fonts].sort((a, b) => Math.abs((a.size || 0) - px) - Math.abs((b.size || 0) - px) || (a.size || 0) - (b.size || 0))[0]
+  let changed = false
+  const fix = (o: Project["screens"][number]["objects"][number]): typeof o => {
+    let next = o
+    const keys = FONT_KEYS[o.type]
+    if (keys) {
+      for (const key of keys) {
+        const id = o.properties?.[key]
+        if (id === undefined || has(id)) continue
+        const was = oldFonts.find((f) => f.id === id)?.size ?? (key === "valueFontId" ? 22 : 16)
+        next = { ...next, properties: { ...next.properties, [key]: near(was).id } }
+        changed = true
+      }
+    }
+    if (o.children?.length) {
+      const children = o.children.map(fix)
+      if (children.some((c, i) => c !== o.children![i])) next = { ...next, children }
+    }
+    return next
+  }
+  const screens = project.screens.map((screen) => {
+    const objects = screen.objects.map(fix)
+    return objects.some((o, i) => o !== screen.objects[i]) ? { ...screen, objects } : screen
   })
   return changed ? { ...project, screens } : project
 }
