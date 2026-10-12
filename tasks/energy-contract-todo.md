@@ -20,5 +20,6 @@ untouched; a push on halt or finish.
   - `energyDiagramsNotOnDevices` → a need at 1.7 in deploy-dialog.tsx; e2e: names by screen (nested too), the plan for a board and an app below 1.7
 - [x] C6 Handbook
   - objekte/anzeigen.md, the info box: no device offers it yet; what Deploy does with an older firmware or app
-- [ ] Checkpoint: test:all green; the user has read §2.8
-  - the user: «ok weiter» 2026-10-12 after the summary; test:all running
+- [x] Checkpoint: test:all green; the user has read §2.8
+  - the user: «ok weiter» 2026-10-12 after the summary
+  - test:all 2026-10-12: e2e 1500 passed, 4 red - two «Preview» locators matched the user's project «… Energy preview» (exact now), focus-on-create and the undo memory test green alone (25/25); every HIL suite green; waveshare-ddf stale only through energy-firmware's DDF edit made during the run
