@@ -400,6 +400,9 @@ export function everyEnergyIcon(obj: ScreenObject): ScreenObject[] {
   return nodes.flatMap((n) =>
     [c.idle, c.muted, c.text, c.charge, c.discharge, (n as { color?: string }).color]
       .filter((colour): colour is string => !!colour)
+      // And as a panel of fewer colours draws each.
+      .flatMap((colour) => [colour, applyColorDepth(colour, "4bit"), applyColorDepth(colour, "1bit")])
+      .filter((colour, i, all) => all.indexOf(colour) === i)
       .flatMap((colour) => iconObject(n, { x: -8, y: -8, width: 16, height: 16 }, colour)),
   )
 }

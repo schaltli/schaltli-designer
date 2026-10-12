@@ -24,6 +24,7 @@ import { isSwitchType } from "@/lib/object-types"
 import { dissolveGroups, dissolveGroupsInProject } from "@/lib/object-groups"
 import { isContainerType } from "@/lib/layout"
 import { iconBakes } from "@/lib/energy-diagram-object"
+import { applyColorDepth } from "@/lib/color-depth"
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -538,7 +539,10 @@ export class AssetExporter {
           if (!groundCtx) continue
           groundCtx.fillStyle = screen.backgroundColor && screen.backgroundColor !== 'transparent' ? screen.backgroundColor : '#ffffff'
           groundCtx.fillRect(0, 0, bake.size, bake.size)
-          const icon = { id: bake.key, type: 'icon', x: 0, y: 0, width: bake.size, height: bake.size, properties: { assetId: bake.assetId, iconColor: bake.colour, backgroundColor: 'transparent' } }
+          // In the panel's own colours, as the rest of the project leaves
+          // (quantizeColorsDeep): on the PaperS3 the storage's icon came
+          // out green beside a grey ring (2026-10-12).
+          const icon = { id: bake.key, type: 'icon', x: 0, y: 0, width: bake.size, height: bake.size, properties: { assetId: bake.assetId, iconColor: applyColorDepth(bake.colour, this.options.colorDepth), backgroundColor: 'transparent' } }
           const exportResult = await this.exportIconUsage(asset, icon, screen, project, ground, undefined, false, bake.key)
           if (exportResult) {
             out.iconUsages.push(exportResult)
