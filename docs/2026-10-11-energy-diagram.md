@@ -139,7 +139,13 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    label); a straight line
    from each node to the bus, its width growing with the logarithm of its
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
-   storage's charge is a ring round its circle.
+   storage's charge is a bar in a track round its circle, 10 px wide, the
+   track the bar's colour almost clear (mixed 25 % into the ground, drawn
+   opaque), the storage's line ending at its outer edge (the user,
+   2026-10-12: the 5 px grey ring did not stand out). Its dots run on into
+   the track: entering the bar, along its longer branch, fading, drawn
+   lighter; entering the empty track, the shorter way to the bar at half
+   strength, gone in the bar; giving, backwards (`storageDots`).
 10. **Motion**: in the Flow, dots run along each line that carries watts,
     from a giver towards the bus and from the bus to a taker; still where
     nothing flows. The dots stand for current (the user, 2026-10-12: «die

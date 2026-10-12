@@ -950,9 +950,12 @@ topics say, with its port of `lib/energy-diagram.ts`.
 - **Flow:** per node a line to the bus, `lineWidth(watts)` wide, its colour
   at 50 % opacity while it carries watts (at 0 W `idleColor`, opaque); then
   the bus, a filled circle; then each node's circle, filled with the
-  screen's background, a 3 px ring in its colour. A storage with a
-  `chargeTopic` has a 5 px track in `idleColor` round its circle and on it,
-  from the top clockwise, its charge in its colour.
+  screen's background, a 3 px ring in its colour. A storage's line ends at
+  its track's outer edge; with a `chargeTopic` it has a track
+  `FLOW_RING_W` (10 px) wide round its circle, opaque, in `trackColour` of
+  its colour and the screen's background (the colour at `TRACK_ALPHA`), drawn
+  over the line's end, and on it, from the top clockwise, its charge in its
+  colour, round at both ends.
 - **Sankey:** the bands first, each column of a band one colour
   (`waveColour` of its colour towards the screen's background), then the
   bus (a rectangle) and the bars (rounded outside, square towards the
@@ -976,7 +979,12 @@ topics say, with its port of `lib/energy-diagram.ts`.
 - **Motion** (`motion: true`): in the Flow, dots of radius `DOT_R` in the
   node's colour run on each line that carries watts, `dotGap(watts)` apart,
   all at `DOT_PACE` - from the node to the bus while it gives, back while
-  it takes (`advanceDots`, `dotsOnLine`). In the Sankey every band's wave
+  it takes (`advanceDots`, `dotsOnLine`). A storage's dots run on into its
+  track (`storageDots`): entering the charge bar, along its longer branch,
+  fading, drawn its colour mixed `BAR_DOT_LIGHT` towards white; entering
+  the empty track, the shorter way to the bar at `TRACK_DOT_ALPHA`, gone in
+  the bar; giving, the same path backwards; drawn over the track. In the
+  Sankey every band's wave
   moves by `advanceWave`. A device steps as often as it can; the picture
   depends only on the phase. `motion: false`: phase 0, still.
 - **Tap:** in the Flow within `FLOW_NODE_R` of a node's centre, in the

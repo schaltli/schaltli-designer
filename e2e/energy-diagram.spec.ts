@@ -15,7 +15,7 @@ import { planDeploy } from "../lib/deploy-plan"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
-import { FLOW_ICON, defaultDiagram, expand565, pack565, rgb565, rowStep, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_ICON, defaultDiagram, expand565, pack565, rgb565, rowStep, trackColour, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
 
 // The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
 // tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
@@ -407,9 +407,11 @@ test.describe("the energy diagram, drawn", () => {
     // The top of a circle's 3 px stroke, r 32.
     expect(at(n("solar").x, n("solar").y - 32)).toBe(shown("energySun"))
     expect(at(n("storage").x, n("storage").y - 32)).toBe(shown("energyCharge"))
-    // The ring (r 39, 5 px) half full: from the top clockwise, so its right is charged and its left is not.
-    expect(at(n("storage").x + 39, n("storage").y)).toBe(shown("energyCharge"))
-    expect(at(n("storage").x - 39, n("storage").y)).toBe(shown("track"))
+    // The track (r 40, 10 px) half full: from the top clockwise, so its right is charged; its left is
+    // the bar's colour mixed into the ground (the user, 2026-10-12: it was the idle grey). Looked at
+    // 44 px out, past where the dots running in the track reach.
+    expect(at(n("storage").x + 44, n("storage").y)).toBe(shown("energyCharge"))
+    expect(at(n("storage").x - 44, n("storage").y)).toBe(hexOf(expand565(pack565(...trackColour(rgbOf(shown("energyCharge")), expand565(rgb565("#ffffff")))))))
     // The rest takes 600 - 446 = 154 W: live, in «Load».
     expect(at(n("consumers").x, n("consumers").y - 32)).toBe(shown("energyLoad"))
     // The icon, tinted in the node's colour, in the circle's middle.

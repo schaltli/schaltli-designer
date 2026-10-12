@@ -304,7 +304,22 @@ export const FLOW_NODE_R = 32
 export const FLOW_BUS_R = 14
 /** The gap between a circle and where its line starts. */
 export const FLOW_LINE_GAP = 4
-export const FLOW_RING_GAP = 7
+export const FLOW_RING_GAP = 8
+/**
+ * The storage's track, round its circle: as wide as this (2026-10-12, the
+ * user: 5 px did not stand out; was 5, its centre 7 px off the circle).
+ */
+export const FLOW_RING_W = 10
+/**
+ * The track is the bar's colour, almost clear: this much of it over the
+ * ground (the user, 2026-10-12; it was the idle grey).
+ */
+export const TRACK_ALPHA = 0.25
+
+/** The track's colour: the bar's mixed this far into the ground, drawn opaque over the line's end. */
+export function trackColour(bar: readonly [number, number, number], ground: readonly [number, number, number]): [number, number, number] {
+  return [0, 1, 2].map((i) => Math.round(ground[i] + (bar[i] - ground[i]) * TRACK_ALPHA)) as [number, number, number]
+}
 /** Between a circle and a label beside it. */
 export const FLOW_LABEL_GAP = 10
 /** A line leaving a circle steeper than this below the level (60°) would cross a label under it. */
@@ -360,22 +375,25 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
     // The label under the circle, centred - beside it, to the right, when
     // the line leaves downwards and would run through it (the user,
     // 2026-10-11, after the target picture's Landstrom).
-    const outer = FLOW_NODE_R + (ringed ? FLOW_RING_GAP : 0)
+    const outer = FLOW_NODE_R + (ringed ? FLOW_RING_GAP + FLOW_RING_W / 2 : 0)
     const label: FlowNode["label"] =
       uy > LABEL_BESIDE_BELOW
         ? { x: n.x + outer + FLOW_LABEL_GAP, y: n.y - FLOW_NODE_R + 8, align: "start" }
-        : { x: n.x, y: n.y + FLOW_NODE_R + (ringed ? 26 : 20), align: "middle" }
+        : { x: n.x, y: n.y + FLOW_NODE_R + (ringed ? 30 : 20), align: "middle" }
     const node: FlowNode = { id: n.id, x: n.x, y: n.y, r: FLOW_NODE_R, live, label }
     if (ringed) {
       const fraction = typeof n.charge === "number" ? Math.max(0, Math.min(1, n.charge / 100)) : 0
       node.ring = { r: FLOW_NODE_R + FLOW_RING_GAP, fraction }
     }
     out.push(node)
-    if (len <= FLOW_NODE_R + FLOW_LINE_GAP + FLOW_BUS_R) continue
+    // A storage's line ends at its track's outer edge (the user, 2026-10-12):
+    // the track is drawn over the line's round end, so the end is clean.
+    const start = ringed ? FLOW_NODE_R + FLOW_RING_GAP + FLOW_RING_W / 2 : FLOW_NODE_R + FLOW_LINE_GAP
+    if (len <= start + FLOW_BUS_R) continue
     lines.push({
       id: n.id,
-      x0: n.x + ux * (FLOW_NODE_R + FLOW_LINE_GAP),
-      y0: n.y + uy * (FLOW_NODE_R + FLOW_LINE_GAP),
+      x0: n.x + ux * start,
+      y0: n.y + uy * start,
       x1: bus.x - ux * FLOW_BUS_R,
       y1: bus.y - uy * FLOW_BUS_R,
       width: lineWidth(n.watts),
@@ -470,7 +488,7 @@ export function flowBoxes(layout: FlowLayout, m: LabelMetrics): DiagramBoxes {
     nodes: layout.nodes.map((fn) => {
       const beside = fn.label.align === "start"
       // The core gives the name's baseline; a label is placed by its top.
-      const top = beside ? fn.y - FLOW_NODE_R : Math.max(fn.label.y - Math.round(m.fontSize * 0.8), fn.y + (fn.ring ? fn.ring.r + 4 : fn.r + 4))
+      const top = beside ? fn.y - FLOW_NODE_R : Math.max(fn.label.y - Math.round(m.fontSize * 0.8), fn.y + (fn.ring ? fn.ring.r + FLOW_RING_W / 2 + 4 : fn.r + 4))
       return {
         id: fn.id,
         icon: { x: Math.round(fn.x - FLOW_ICON / 2), y: Math.round(fn.y - FLOW_ICON / 2), width: FLOW_ICON, height: FLOW_ICON },
@@ -686,6 +704,100 @@ export function dotsOnLine(line: { x0: number; y0: number; x1: number; y1: numbe
   for (let d = phase * gap; d < len; d += gap) {
     const f = gives ? d / len : 1 - d / len
     out.push({ x: line.x0 + (line.x1 - line.x0) * f, y: line.y0 + (line.y1 - line.y0) * f })
+  }
+  return out
+}
+
+// ---- Dots in the storage's track (the user, 2026-10-12). A dot that
+// reaches the storage's circle does not stop at its edge: it runs on into
+// the track round it. Where it enters - where its line meets the track -
+// decides the rest:
+//  - inside the charge bar: along the bar's longer branch to its end,
+//    fading out on the way (drawn lighter: in the bar's own colour it would
+//    not show);
+//  - in the empty track: the shorter way to the bar, at half strength from
+//    the moment it enters; once in the bar it is gone - the bar's colour.
+// While the storage gives, the same path backwards: dots come out of the
+// bar and run out along the line. No charge to show (no bar): the dots end
+// at the circle, as on every other line.
+
+/** How far a dot entering the empty track is drawn. */
+export const TRACK_DOT_ALPHA = 0.5
+/** A dot on the bar is the bar's colour mixed this far towards white. */
+export const BAR_DOT_LIGHT = 0.6
+
+/** A dot of a storage's line: where, how strong, and whether it rides the bar (drawn lighter). */
+export interface PathDot extends Point {
+  alpha: number
+  onBar: boolean
+  /** Still on the line - drawn with the line's dots, under the bus and the circle. */
+  onLine: boolean
+}
+
+/**
+ * The dots of a storage's line at a phase: on the line as dotsOnLine has
+ * them, then on through the track round the circle as the rule above says.
+ * `node` is the storage's circle as flowLayout gives it (its ring).
+ */
+export function storageDots(line: FlowLine, node: FlowNode, phase: number, gives: boolean, watts: number): PathDot[] {
+  const len = Math.sqrt((line.x1 - line.x0) ** 2 + (line.y1 - line.y0) ** 2)
+  const gap = dotGap(watts)
+  const out: PathDot[] = []
+  const ring = node.ring
+  const sweep = ring ? Math.max(0, Math.min(360, Math.round(ring.fraction * 360))) : 0
+  // Where the line meets the track, in degrees from the top, clockwise.
+  const toBus = Math.atan2(line.y1 - node.y, line.x1 - node.x)
+  const entry = ((((toBus * 180) / Math.PI + 90) % 360) + 360) % 360
+  // The path in the track: from the entry, which way, how far, how strong.
+  let arc = 0
+  let way = 1
+  let inBar = false
+  if (ring && sweep > 0) {
+    if (entry <= sweep) {
+      inBar = true
+      const back = entry, on = sweep - entry
+      way = on >= back ? 1 : -1
+      arc = Math.max(back, on)
+    } else {
+      const back = entry - sweep, on = 360 - entry
+      way = on <= back ? 1 : -1
+      arc = Math.min(back, on)
+    }
+  }
+  const r = ring ? ring.r : 0
+  // The line ends at the track's outer edge; a dot runs on, straight, to the
+  // track's middle and turns there - not further in and back (the user,
+  // 2026-10-12: it sprang back).
+  const lineEnd = Math.sqrt((line.x0 - node.x) ** 2 + (line.y0 - node.y) ** 2)
+  const inward = ring && sweep > 0 ? Math.max(0, lineEnd - r) : 0
+  const onLine = len + inward
+  const arcLen = (arc / 360) * 2 * Math.PI * r
+  const total = onLine + arcLen
+  const at = (t: number): PathDot | undefined => {
+    if (t <= len) {
+      // On the line: from the bus (t = 0) to the track's outer edge.
+      const f = 1 - t / len
+      return { x: line.x0 + (line.x1 - line.x0) * f, y: line.y0 + (line.y1 - line.y0) * f, alpha: 1, onBar: false, onLine: true }
+    }
+    if (t <= onLine) {
+      // On, straight, into the track's middle.
+      const q = lineEnd - (t - len)
+      return { x: node.x + q * Math.cos(toBus), y: node.y + q * Math.sin(toBus), alpha: inBar ? 1 : TRACK_DOT_ALPHA, onBar: inBar, onLine: false }
+    }
+    const s = t - onLine
+    const deg = entry + (way * s * 360) / (2 * Math.PI * r)
+    const rad = ((deg - 90) * Math.PI) / 180
+    const p = { x: node.x + r * Math.cos(rad), y: node.y + r * Math.sin(rad) }
+    if (inBar) return { ...p, alpha: Math.max(0, 1 - s / arcLen), onBar: true, onLine: false }
+    return { ...p, alpha: TRACK_DOT_ALPHA, onBar: false, onLine: false }
+  }
+  // Placed as dotsOnLine places them, `phase` a share of the gap from the
+  // path's start: the bus while the storage takes, the track's far end
+  // while it gives.
+  for (let d = phase * gap; d < total; d += gap) {
+    const t = gives ? total - d : d
+    const dot = at(t)
+    if (dot && dot.alpha > 0) out.push(dot)
   }
   return out
 }

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { fillPolygon } from "../lib/polygon-raster"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { DOT_PACE, DOT_R, FLOW_BUS_R, arcOutline, barOutline, capsuleOutline, discOutline, expand565, mix565, rectOutline, rgb565, ringOutline, flowBoxes, labelHeight, nodeAtTap, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { DOT_PACE, DOT_R, FLOW_BUS_R, storageDots, trackColour, arcOutline, barOutline, capsuleOutline, discOutline, expand565, mix565, rectOutline, rgb565, ringOutline, flowBoxes, labelHeight, nodeAtTap, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -194,7 +194,7 @@ test.describe("Flow (L3)", () => {
   test("the storage has a ring as full as its charge", () => {
     const l = flowLayout(NODES, resolveEnergy(NODES, { battery: { watts: 100, charge: 82 } }))
     const battery = l.nodes.find((n) => n.id === "battery")!
-    expect(battery.ring).toEqual({ r: FLOW_NODE_R + 7, fraction: 0.82 })
+    expect(battery.ring).toEqual({ r: FLOW_NODE_R + 8, fraction: 0.82 })
     expect(l.nodes.find((n) => n.id === "solar")!.ring).toBeUndefined()
     // Over 100 % or below 0: the ring stays in its bounds.
     expect(flowLayout(NODES, resolveEnergy(NODES, { battery: { charge: 140 } })).nodes.find((n) => n.id === "battery")!.ring!.fraction).toBe(1)
@@ -339,6 +339,24 @@ test.describe("shared vectors (L5)", () => {
     for (const c of vectors.mix565) expect(mix565(c.under, c.over, c.w), JSON.stringify(c)).toBe(c.expected)
   })
 
+  test("a storage's dots run on into its track: into the bar's longer branch fading, else the shorter way at half; giving, backwards", () => {
+    for (const c of vectors.storageDots as any[]) {
+      const res = resolveEnergy(nodes, c.values)
+      const lay = flowLayout(nodes, res)
+      const rb = res.find((x) => x.id === "battery")!
+      const dots = storageDots(lay.lines.find((x) => x.id === "battery")!, lay.nodes.find((x) => x.id === "battery")!, c.phase, rb.gives, rb.watts)
+      expect(dots.length, c.name).toBe(c.expected.length)
+      dots.forEach((d, i) => {
+        const e = c.expected[i]
+        near(d.x, e[0])
+        near(d.y, e[1])
+        near(d.alpha, e[2])
+        expect([d.onBar ? 1 : 0, d.onLine ? 1 : 0], c.name).toEqual([e[3], e[4]])
+      })
+    }
+    for (const c of vectors.trackColour) expect(trackColour(c.bar as [number, number, number], c.ground as [number, number, number])).toEqual(c.expected)
+  })
+
   test("dot gaps, dots and waves", () => {
     for (const c of vectors.dotGap) near(dotGap(c.watts), c.expected)
     for (const c of vectors.dots) {
@@ -399,8 +417,8 @@ test.describe("Flow labels (decided 2026-10-11)", () => {
     expect(label("shore")).toEqual({ x: 338 + FLOW_NODE_R + FLOW_LABEL_GAP, y: 52 - FLOW_NODE_R + 8, align: "start" })
     // The sun's line leaves at about 31° below the level: under the circle.
     expect(label("solar")).toEqual({ x: 114, y: 52 + FLOW_NODE_R + 20, align: "middle" })
-    // The battery's ring takes room: its label 6 px further down.
-    expect(label("battery")).toEqual({ x: 202, y: 302 + FLOW_NODE_R + 26, align: "middle" })
+    // The battery's track takes room (10 px, 2026-10-12): its label 10 px further down.
+    expect(label("battery")).toEqual({ x: 202, y: 302 + FLOW_NODE_R + 30, align: "middle" })
   })
 })
 

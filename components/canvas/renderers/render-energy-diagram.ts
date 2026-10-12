@@ -15,7 +15,12 @@ import {
   barOutline,
   capsuleOutline,
   discOutline,
+  BAR_DOT_LIGHT,
   DOT_R,
+  FLOW_RING_W,
+  trackColour,
+  storageDots,
+  type PathDot,
   expand565,
   mix565,
   pack565,
@@ -326,27 +331,46 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
     }
   } else {
     const layout = flowLayout(nodes, resolved)
+    // A storage's dots past its line, drawn over its track once that is drawn.
+    const storageLines: { dots: PathDot[]; colour: number }[] = []
     for (const line of layout.lines) {
       const r = resolved.find((x) => x.id === line.id)!
       const colour = rgb565(depth(line.live ? colourOf(byId.get(r.id), r, c) : c.idle))
       // A live line at half strength, under its dots.
       px.fill(capsuleOutline(line.x0 * k, line.y0 * k, line.x1 * k, line.y1 * k, line.width * k), colour, line.live ? 128 : 256)
       if (!line.live) continue
-      for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), colour)
+      const phase = motion.dots[dotKey(obj.id, line.id)] ?? 0
+      const fn = layout.nodes.find((n) => n.id === line.id)
+      if (r.role === "storage" && fn?.ring) {
+        const dots = storageDots(line, fn, phase, r.gives, r.watts)
+        storageLines.push({ dots: dots.filter((d) => !d.onLine), colour })
+        for (const d of dots.filter((d) => d.onLine)) px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), colour)
+      } else for (const d of dotsOnLine(line, phase, r.gives, r.watts)) px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), colour)
     }
     px.fill(discOutline(layout.bus.x * k, layout.bus.y * k, layout.bus.r * k), rgb565(depth(c.bus)))
+
     for (const fn of layout.nodes) {
       const node = byId.get(fn.id)!
       const r = resolved.find((x) => x.id === fn.id)!
       const colour = depth(fn.live ? colourOf(node, r, c) : c.idle)
       if (fn.ring) {
-        px.fill(ringOutline(fn.x * k, fn.y * k, (fn.ring.r + 2.5) * k, (fn.ring.r - 2.5) * k), rgb565(depth(c.idle)))
+        const h = FLOW_RING_W / 2
+        // Opaque, its colour mixed beforehand: it covers the line's round end.
+        const [tr, tg, tb] = trackColour(expand565(rgb565(depth(colourOf(node, r, c)))), groundRgb)
+        px.fill(ringOutline(fn.x * k, fn.y * k, (fn.ring.r + h) * k, (fn.ring.r - h) * k), pack565(tr, tg, tb))
         const sweep = Math.round(fn.ring.fraction * 360)
-        if (sweep > 0) px.fill(arcOutline(fn.x * k, fn.y * k, fn.ring.r * k, 5 * k, sweep), rgb565(depth(colourOf(node, r, c))))
+        if (sweep > 0) px.fill(arcOutline(fn.x * k, fn.y * k, fn.ring.r * k, FLOW_RING_W * k, sweep), rgb565(depth(colourOf(node, r, c))))
       }
       // The circle: a ring 3 px wide round the ground.
       px.fill(discOutline(fn.x * k, fn.y * k, (fn.r + 1.5) * k), rgb565(colour))
       px.fill(discOutline(fn.x * k, fn.y * k, (fn.r - 1.5) * k), rgb565(depth(ground)))
+    }
+    const white = rgb565("#ffffff")
+    for (const { dots, colour } of storageLines) {
+      for (const d of dots) {
+        const ink = d.onBar ? mix565(colour, white, Math.round(BAR_DOT_LIGHT * 256)) : colour
+        px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), ink, Math.round(d.alpha * 256))
+      }
     }
     px.drawOn(ctx)
     const boxes = flowBoxes(layout, t)
