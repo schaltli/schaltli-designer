@@ -141,8 +141,16 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    watts (3-12 px); a node with 0 W is drawn grey with a grey line. The
    storage's charge is a ring round its circle.
 10. **Motion**: in the Flow, dots run along each line that carries watts,
-    from a giver towards the bus and from the bus to a taker, faster with
-    more watts (`dotSeconds`); still where nothing flows. In the Sankey a
+    from a giver towards the bus and from the bus to a taker; still where
+    nothing flows. The dots stand for current (the user, 2026-10-12: «die
+    Kugeln repräsentieren Strom»): all alike (radius 3.5 px), all at **one
+    pace**, 40 px a second, and more watts mean **closer dots**. The gap
+    shrinks by the same factor every tenfold: 120 px at 1 W, 49 px at
+    10 W, 20 px at 100 W, 8 px at 1000 W and above (`dotGap`). So 1 W to
+    1000 W can be told apart, and a line never shows fewer dots for more
+    watts. Replaced the first build's dots 26 px apart that ran quicker
+    with more watts: a long line at 12 W showed more dots than a short one
+    at 40 W. In the Sankey a
     **wave** runs through each band instead (the user, 2026-10-11, after
     the C64's colour cycling): soft and subtle - 8 shades a little either
     side of the band's colour (towards the background by 0.42 ± 0.16),
@@ -335,13 +343,10 @@ shares, English identifiers, a comment saying why with the date it was
 decided, German only in the handbook and in the user's own labels.
 
 ```ts
-/**
- * How long a dot takes from one end of a band or line to the other, in
- * seconds: quicker with more watts, never quicker than 0.35 s (decision
- * 10, 2026-10-11). The same number for the designer, the 4.3B and Android.
- */
-export function dotSeconds(watts: number): number {
-  return Math.max(0.35, 2.4 - Math.log10(Math.abs(watts) + 1) * 0.75)
+/** The gap between two dots on a line carrying `watts`, in px (decision 10). */
+export function dotGap(watts: number): number {
+  const w = Math.min(1000, Math.max(1, Math.abs(watts)))
+  return DOT_GAP_1W * Math.pow(DOT_GAP_FULL / DOT_GAP_1W, Math.log10(w) / 3)
 }
 ```
 

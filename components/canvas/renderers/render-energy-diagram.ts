@@ -13,6 +13,7 @@ import {
   SANKEY_LABEL_W,
   advanceDots,
   advanceWave,
+  DOT_R,
   dotsOnLine,
   flowLayout,
   resolveEnergy,
@@ -287,10 +288,9 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       ctx.globalAlpha = 1
       if (line.live) {
         ctx.fillStyle = depth(colourOf(byId.get(r.id), r, c))
-        const dotR = Math.max(2.5, line.width / 2 + 0.5)
-        for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives)) {
+        for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) {
           ctx.beginPath()
-          ctx.arc(d.x, d.y, dotR, 0, Math.PI * 2)
+          ctx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2)
           ctx.fill()
         }
       }

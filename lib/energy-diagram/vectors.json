@@ -108,16 +108,21 @@
     { "name": "its line leaves at about 31 degrees: under the circle", "id": "solar", "expected": { "x": 114, "y": 104, "align": "middle" } },
     { "name": "the storage under its ring", "id": "battery", "expected": { "x": 202, "y": 360, "align": "middle" } }
   ],
-  "dotSeconds": [
-    { "watts": 0, "expected": 2.4 },
-    { "watts": 120, "expected": 0.84 },
-    { "watts": 1000000000, "expected": 0.35 }
+  "dotGap": [
+    { "watts": 0, "expected": 120 },
+    { "watts": 1, "expected": 120 },
+    { "watts": 10, "expected": 48.66 },
+    { "watts": -40, "expected": 28.26 },
+    { "watts": 100, "expected": 19.73 },
+    { "watts": 1000, "expected": 8 },
+    { "watts": 1000000000, "expected": 8 }
   ],
   "dots": [
-    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0, "gives": true, "expected": [[0, 0], [33.33, 0], [66.67, 0]] },
-    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0.5, "gives": true, "expected": [[16.67, 0], [50, 0], [83.33, 0]] },
-    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0, "gives": false, "expected": [[100, 0], [66.67, 0], [33.33, 0]] },
-    { "line": { "x0": 0, "y0": 0, "x1": 0, "y1": 60 }, "phase": 0.25, "gives": true, "expected": [[0, 7.5], [0, 37.5]] }
+    { "line": { "x0": 0, "y0": 0, "x1": 300, "y1": 0 }, "phase": 0, "gives": true, "watts": 1, "expected": [[0, 0], [120, 0], [240, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 300, "y1": 0 }, "phase": 0.5, "gives": true, "watts": 1, "expected": [[60, 0], [180, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 300, "y1": 0 }, "phase": 0, "gives": false, "watts": 1, "expected": [[300, 0], [180, 0], [60, 0]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 0, "y1": 60 }, "phase": 0.25, "gives": true, "watts": 100, "expected": [[0, 4.93], [0, 24.66], [0, 44.39]] },
+    { "line": { "x0": 0, "y0": 0, "x1": 100, "y1": 0 }, "phase": 0, "gives": true, "watts": 10, "expected": [[0, 0], [48.66, 0], [97.32, 0]] }
   ],
   "wave": [
     { "x": 0, "phase": 0, "mix": 0.26, "band": [224, 108, 31], "ground": [0, 0, 0], "colour": [166, 80, 23] },

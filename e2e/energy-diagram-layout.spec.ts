@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { FLOW_BUS_R, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotSeconds, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { DOT_PACE, DOT_R, FLOW_BUS_R, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -201,22 +201,35 @@ test.describe("Flow (L3)", () => {
 })
 
 test.describe("Dots and waves (L4)", () => {
-  test("a dot's pace: 2.4 s at nothing, quicker with more watts, never under 0.35 s", () => {
-    expect(dotSeconds(0)).toBeCloseTo(2.4, 5)
-    // 2.4 - log10(121) * 0.75
-    expect(dotSeconds(120)).toBeCloseTo(0.8379, 3)
-    expect(dotSeconds(1e9)).toBe(0.35)
-    // A phase goes round in that time.
-    expect(advanceDots(0.9, dotSeconds(120) / 2, 120)).toBeCloseTo(0.4, 5)
+  test("dots stand for current: one pace, a gap shrinking the same factor every tenfold, 120 px at 1 W to 8 px at 1000 W", () => {
+    expect(DOT_PACE).toBe(40)
+    expect(DOT_R).toBe(3.5)
+    expect(dotGap(1)).toBe(120)
+    expect(dotGap(0.2)).toBe(120)
+    expect(dotGap(10)).toBeCloseTo(48.66, 2)
+    expect(dotGap(100)).toBeCloseTo(19.73, 2)
+    expect(dotGap(1000)).toBeCloseTo(8, 5)
+    expect(dotGap(1e9)).toBeCloseTo(8, 5)
+    expect(dotGap(-40)).toBe(dotGap(40))
+    // More watts, never fewer dots.
+    for (let w = 1; w < 1000; w *= 1.5) expect(dotGap(w * 1.5)).toBeLessThan(dotGap(w))
+    // The phase is a share of the gap: at 1 W a dot moves 40 px of 120 a second.
+    expect(advanceDots(0.9, 1.5, 1)).toBeCloseTo(0.4, 5)
+    expect(advanceDots(0.25, 0.1, 1000)).toBeCloseTo(0.75, 5)
   })
 
-  test("dots along a line, 26 px apart: from the node to the bus while it gives, back while it takes", () => {
-    const line = { x0: 0, y0: 0, x1: 100, y1: 0 }
-    expect(dotsOnLine(line, 0, true).map((p) => +p.x.toFixed(2))).toEqual([0, 33.33, 66.67])
-    expect(dotsOnLine(line, 0.5, true).map((p) => +p.x.toFixed(2))).toEqual([16.67, 50, 83.33])
-    expect(dotsOnLine(line, 0, false).map((p) => +p.x.toFixed(2))).toEqual([100, 66.67, 33.33])
-    // A short line still has one dot.
-    expect(dotsOnLine({ x0: 0, y0: 0, x1: 10, y1: 0 }, 0, true)).toHaveLength(1)
+  test("dots along a line, a gap apart: from the node to the bus while it gives, back while it takes", () => {
+    const line = { x0: 0, y0: 0, x1: 300, y1: 0 }
+    expect(dotsOnLine(line, 0, true, 1).map((p) => +p.x.toFixed(2))).toEqual([0, 120, 240])
+    expect(dotsOnLine(line, 0.5, true, 1).map((p) => +p.x.toFixed(2))).toEqual([60, 180])
+    expect(dotsOnLine(line, 0, false, 1).map((p) => +p.x.toFixed(2))).toEqual([300, 180, 60])
+    // The user's case, 2026-10-12: 40 W into the storage shows closer dots
+    // than 12 W of sun, whatever the lines' lengths.
+    const hundred = { x0: 0, y0: 0, x1: 100, y1: 0 }
+    expect(dotsOnLine(hundred, 0, false, 40)).toHaveLength(4)
+    expect(dotsOnLine(hundred, 0, true, 12)).toHaveLength(3)
+    // A line shorter than its gap may hold none for a moment.
+    expect(dotsOnLine({ x0: 0, y0: 0, x1: 10, y1: 0 }, 0.5, true, 1)).toHaveLength(0)
   })
 
   test("the wave: a column's colour by its x only, 48 px a period, 4 s a period, the same for every band", () => {
@@ -241,7 +254,7 @@ test.describe("shared vectors (L5)", () => {
 
   test("enough cases that a truncated copy cannot pass", () => {
     expect(vectors.resolve.length + vectors.sankey.length + vectors.flowLines.length).toBeGreaterThanOrEqual(9)
-    expect(vectors.dots.length + vectors.wave.length + vectors.dotSeconds.length).toBeGreaterThanOrEqual(10)
+    expect(vectors.dots.length + vectors.wave.length + vectors.dotGap.length).toBeGreaterThanOrEqual(10)
   })
   for (const c of vectors.resolve) {
     test(`resolve: ${c.name}`, () => {
@@ -274,10 +287,10 @@ test.describe("shared vectors (L5)", () => {
       expect(flowLayout(nodes, resolveEnergy(nodes, {})).nodes.find((n) => n.id === c.id)!.label).toEqual(c.expected)
     })
   }
-  test("dot seconds, dots and waves", () => {
-    for (const c of vectors.dotSeconds) near(dotSeconds(c.watts), c.expected)
+  test("dot gaps, dots and waves", () => {
+    for (const c of vectors.dotGap) near(dotGap(c.watts), c.expected)
     for (const c of vectors.dots) {
-      const pts = dotsOnLine(c.line, c.phase, c.gives)
+      const pts = dotsOnLine(c.line, c.phase, c.gives, c.watts)
       expect(pts.map((p) => [+p.x.toFixed(2), +p.y.toFixed(2)])).toEqual(c.expected)
     }
     for (const c of vectors.wave) {

@@ -387,33 +387,45 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
 // advanced by the time that passed; every renderer draws the same picture
 // for the same phase, so a test can freeze one and compare.
 
-/**
- * How long a dot takes to move on by one spacing, in seconds: quicker with
- * more watts, never quicker than 0.35 s.
- */
-export function dotSeconds(watts: number): number {
-  return Math.max(0.35, 2.4 - Math.log10(Math.abs(watts) + 1) * 0.75)
+// The dots stand for current (the user, 2026-10-12: «die Kugeln
+// repräsentieren Strom»): every dot runs at one pace, and more watts mean
+// closer dots. The gap shrinks by the same factor every tenfold - 120 px
+// at 1 W, 8 px at 1000 W and above - so 1 W to 1000 W can be told apart,
+// and more is never fewer dots. Before, every line had its dots 26 px apart
+// and ran quicker with more watts: a long line at 12 W showed more dots
+// than a short one at 40 W.
+export const DOT_PACE = 40 // px a second, the same on every line
+export const DOT_GAP_1W = 120
+export const DOT_GAP_FULL = 8
+/** Every dot alike, whatever the line's width. */
+export const DOT_R = 3.5
+
+/** The gap between two dots on a line carrying `watts`, in px. */
+export function dotGap(watts: number): number {
+  const w = Math.min(1000, Math.max(1, Math.abs(watts)))
+  return DOT_GAP_1W * Math.pow(DOT_GAP_FULL / DOT_GAP_1W, Math.log10(w) / 3)
 }
 
-/** A line's dot phase after `seconds`. */
+/**
+ * A line's dot phase after `seconds`. The phase is a share of the gap, so
+ * a gap that changes with the watts moves no dot backwards.
+ */
 export function advanceDots(phase: number, seconds: number, watts: number): number {
-  return (((phase + seconds / dotSeconds(watts)) % 1) + 1) % 1
+  return (((phase + (seconds * DOT_PACE) / dotGap(watts)) % 1) + 1) % 1
 }
 
-export const DOT_SPACING = 26
-
 /**
- * The dots on a line at a phase: one every DOT_SPACING px (at least one),
- * from the line's start - the node - towards its end - the bus - while the
- * node gives, the other way while it takes.
+ * The dots on a line carrying `watts` at a phase: one every dotGap(watts)
+ * px, the first `phase` of a gap from the line's start - the node - and on
+ * towards its end - the bus - while the node gives; mirrored while it
+ * takes. A line shorter than its gap may hold none for a moment.
  */
-export function dotsOnLine(line: { x0: number; y0: number; x1: number; y1: number }, phase: number, gives: boolean): Point[] {
+export function dotsOnLine(line: { x0: number; y0: number; x1: number; y1: number }, phase: number, gives: boolean, watts: number): Point[] {
   const len = Math.hypot(line.x1 - line.x0, line.y1 - line.y0)
-  const count = Math.max(1, Math.floor(len / DOT_SPACING))
+  const gap = dotGap(watts)
   const out: Point[] = []
-  for (let k = 0; k < count; k++) {
-    let f = (k + phase) / count
-    if (!gives) f = 1 - f
+  for (let d = phase * gap; d < len; d += gap) {
+    const f = gives ? d / len : 1 - d / len
     out.push({ x: line.x0 + (line.x1 - line.x0) * f, y: line.y0 + (line.y1 - line.y0) * f })
   }
   return out
