@@ -160,7 +160,7 @@ Im Moment zeichnet nur der Designer das Energiediagramm, in der Arbeitsfläche u
 
 Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> wählst. Die Knoten bleiben beim Umschalten dieselben.
 
-- <span class="ui">Flow</span>: jeder Knoten ein Kreis, mit einer Linie zum Bus. Je mehr fliesst, desto dicker die Linie. Punkte laufen darauf vom Geber zum Bus und vom Bus zum Nehmer, schneller bei mehr Leistung. Ein Knoten ohne Leistung ist grau. Um die Batterie zeigt ein Ring den Ladestand. Die Kreise schiebst du bei ausgewähltem Diagramm mit der Maus dorthin, wo sie stehen sollen.
+- <span class="ui">Flow</span>: jeder Knoten ein Kreis, mit einer Linie zum Bus. Je mehr fliesst, desto dicker die Linie. Punkte laufen darauf vom Geber zum Bus und vom Bus zum Nehmer, überall gleich schnell. Je mehr Leistung, desto dichter folgen sie sich: bei 1 W etwa alle 3 Sekunden einer, ab 1000 W ein dichter Strom. Ein Knoten ohne Leistung ist grau. Um die Batterie zeigt ein Ring den Ladestand. Die Kreise schiebst du bei ausgewähltem Diagramm mit der Maus dorthin, wo sie stehen sollen.
 - <span class="ui">Sankey</span>: Geber links, Nehmer rechts, dazwischen der Bus, verbunden durch Bänder. Ein Band ist so breit, wie Leistung fliesst. Ein Knoten ohne Leistung fehlt, solange anderswo etwas fliesst. Fliesst nirgends etwas, stehen alle Knoten und der Bus dünn und grau da. Durch die Bänder läuft langsam eine Welle. Die Reihenfolge von oben nach unten änderst du, indem du die Knoten in der Liste verschiebst.
 
 Die Eigenschaften:
