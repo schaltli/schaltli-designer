@@ -176,7 +176,7 @@ test.describe("the demo in the browser", () => {
     await page.goto("/")
     await expect(page.getByTestId("project-title")).toHaveText(START)
     const modes = page.getByTestId("demo-mode-switch")
-    const preview = modes.getByRole("button", { name: "Preview" })
+    const preview = modes.getByRole("button", { name: "Preview", exact: true })
     const designer = modes.getByRole("button", { name: "Designer" })
     const backdrop = page.locator("[data-backdrop]")
     await expect(preview).toHaveAttribute("aria-pressed", "true")

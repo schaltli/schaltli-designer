@@ -305,7 +305,7 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0)
 
     // 4. The preview, live: the van's own values, before any board shows them.
-    await page.getByRole("button", { name: "Preview" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
     await expect(page.getByText(/^Live from ws:\/\//)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
     await shot("vorschau-live")

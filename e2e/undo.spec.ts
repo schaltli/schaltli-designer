@@ -406,7 +406,7 @@ test.describe("Undo and redo", () => {
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
     await expect(redo).toBeDisabled()
 
-    await page.getByRole("button", { name: "Preview" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
     await expect(undo).toBeDisabled()
   })
 
@@ -464,8 +464,8 @@ test.describe("Undo and redo", () => {
     await deleteOnCanvas(page, OBJ_4)
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
 
-    await page.getByRole("button", { name: "Preview" }).click()
-    await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
     await page.keyboard.press("ControlOrMeta+z")
     await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)

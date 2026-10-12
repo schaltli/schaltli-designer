@@ -231,7 +231,7 @@ test("preview mode swaps the property panel for Topic Values and back", async ({
   await page.getByRole("button", { name: "Preview", exact: true }).click()
   await page.waitForTimeout(300)
 
-  await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByTestId("demo-mode-switch").getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByText("MQTT Topic Values")).toBeVisible()
   await expect(page.getByText("Objects", { exact: true })).toHaveCount(0)
 
