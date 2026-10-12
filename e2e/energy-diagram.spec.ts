@@ -299,6 +299,15 @@ test.describe("the energy diagram, drawn", () => {
     const x0 = Math.floor(band.polygon[12].x)
     expect(at(x0, mid)).not.toBe(at(x0 + 24, mid))
   })
+
+  test("Sankey with nothing flowing: the bus in the accent, every node's bar grey - not a blank box", async ({ page }) => {
+    const { project, nodes } = drawnProject("sankey", { "van/solar": "0", "van/battery": "0", "van/soc": "50" })
+    const at = await render(page, project)
+    const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 0 }, storage: { watts: 0 } }), SIZE, 1000)
+    expect(layout.bars.map((b) => b.id).sort()).toEqual(["consumers", "solar", "storage"])
+    expect(at(layout.bus.x + 8, layout.bus.y + 1)).toBe(role("accent"))
+    for (const b of layout.bars) expect(at(b.x + 6, b.y + 1), b.id).toBe(role("track"))
+  })
 })
 
 // ---- D3: motion in the preview. The demo's project with one screen: a

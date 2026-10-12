@@ -299,3 +299,26 @@ test.describe("Flow labels (decided 2026-10-11)", () => {
     expect(label("battery")).toEqual({ x: 202, y: 302 + FLOW_NODE_R + 26, align: "middle" })
   })
 })
+
+// Nothing flows anywhere (the user, 2026-10-12: a Sankey left blank said
+// nothing about why): the bus as its thinnest bar, every node on its side
+// at the thinnest bar with its label, grey - no band.
+test("Sankey: with nothing flowing, the bus and every node stand at the thinnest, without bands", () => {
+  const nodes: EnergyNode[] = [
+    { id: "bus", role: "bus", name: "12 V", x: 270, y: 200 },
+    { id: "sun", role: "source", name: "Sun", x: 80, y: 60 },
+    { id: "grid", role: "source", name: "Grid", x: 80, y: 160 },
+    { id: "store", role: "storage", name: "Store", x: 80, y: 300 },
+    { id: "fridge", role: "sink", name: "Fridge", x: 460, y: 100 },
+    { id: "rest", role: "rest", name: "Rest", x: 460, y: 200 },
+  ]
+  const layout = sankeyLayout(resolveEnergy(nodes, {}), { width: 676, height: 396 }, 1000)
+  expect(layout.bands).toEqual([])
+  expect(layout.bus.height).toBe(3)
+  expect(layout.bus.y).toBeCloseTo((396 - 3) / 2)
+  // Givers left, the rest right - a storage that neither gives nor takes takes.
+  expect(layout.bars.filter((b) => b.side === "left").map((b) => b.id)).toEqual(["sun", "grid"])
+  expect(layout.bars.filter((b) => b.side === "right").map((b) => b.id)).toEqual(["fridge", "rest", "store"])
+  for (const b of layout.bars) expect(b.height, b.id).toBe(3)
+  expect(layout.slots.map((s) => s.height)).toEqual(Array(5).fill(66))
+})

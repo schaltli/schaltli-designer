@@ -229,21 +229,25 @@ const order = (a: ResolvedNode, b: ResolvedNode) => a.y - b.y || a.x - b.x
  * and 14 px apart - when the slots do not fit, the bands shrink, not the
  * slots; the bus in the middle as thick as the total; bands from just
  * under their bar to just under the bus, stacked at the bus in order.
+ * When nothing flows anywhere, every node stands on its side at the
+ * thinnest, the bus too, and there is no band (the user, 2026-10-12: a
+ * blank Sankey said nothing about why).
  */
 export function sankeyLayout(nodes: readonly ResolvedNode[], size: Size, fullScale: number): SankeyLayout {
-  const left = nodes.filter((n) => n.gives && n.watts > 0).sort(order)
-  const right = nodes.filter((n) => !n.gives && n.watts > 0).sort(order)
+  const flowing = nodes.filter((n) => n.watts > 0)
   const total = Math.max(
-    left.reduce((a, n) => a + n.watts, 0),
-    right.reduce((a, n) => a + n.watts, 0),
+    flowing.filter((n) => n.gives).reduce((a, n) => a + n.watts, 0),
+    flowing.filter((n) => !n.gives).reduce((a, n) => a + n.watts, 0),
   )
+  const still = total <= 0
+  const shown = still ? nodes : flowing
+  const left = shown.filter((n) => n.gives).sort(order)
+  const right = shown.filter((n) => !n.gives).sort(order)
   const room = size.height - SANKEY_GAP * 4
   const leftBarX = SANKEY_LABEL_W
   const rightBarX = size.width - SANKEY_LABEL_W - SANKEY_BAR_W
   const busX = Math.round(size.width / 2 - SANKEY_BUS_W / 2)
-  if (total <= 0) return { bars: [], slots: [], bands: [], bus: { x: busX, y: size.height / 2, width: SANKEY_BUS_W, height: 0 } }
-
-  let scale = (room * Math.min(1, total / Math.max(1, fullScale))) / total
+  let scale = still ? 0 : (room * Math.min(1, total / Math.max(1, fullScale))) / total
   const band = (w: number) => Math.max(SANKEY_MIN_BAND, w * scale)
   const fits = (list: ResolvedNode[]) => list.reduce((a, n) => a + Math.max(SANKEY_SLOT_MIN, band(n.watts)), 0) + SANKEY_GAP * Math.max(0, list.length - 1)
   for (let i = 0; i < 40 && Math.max(fits(left), fits(right)) > size.height && scale * total > SANKEY_MIN_BAND; i++) scale *= 0.92
@@ -286,8 +290,10 @@ export function sankeyLayout(nodes: readonly ResolvedNode[], size: Size, fullSca
       by += h
     }
   }
-  stack(left, "left")
-  stack(right, "right")
+  if (!still) {
+    stack(left, "left")
+    stack(right, "right")
+  }
   return { bars, slots, bands, bus }
 }
 

@@ -102,7 +102,10 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
    Switching mode keeps every node and topic.
 8. **Sankey**: givers on the left, takers on the right, the bus in the
    middle; a band never thinner than 3 px while it carries anything; a
-   node with 0 W is left out. The nodes' y orders each side top to bottom;
+   node with 0 W is left out - unless nothing flows at all: then every node
+   stands on its side at 3 px, grey, with its label, the bus at 3 px too,
+   and there is no band (the user, 2026-10-12, after a Sankey that was
+   simply blank - «Reverse sign» had turned its only source to nought). The nodes' y orders each side top to bottom;
    their x is not used. A storage stands on the side its sign puts it.
    Each node keeps a label slot of at least 66 px however thin its band.
    Where a band meets a node's bar or the bus, nothing shows between them:

@@ -71,6 +71,22 @@
         ],
         "bus": { "x": 330, "y": 28, "width": 16, "height": 340 }
       }
+    },
+    {
+      "name": "nothing flows (2026-10-12): every node at the thinnest on its side, the bus too, no band",
+      "size": { "width": 676, "height": 396 },
+      "fullScale": 1000,
+      "values": {},
+      "expected": {
+        "bars": [
+          { "id": "solar", "side": "left", "x": 170, "y": 116.5, "height": 3 },
+          { "id": "shore", "side": "left", "x": 170, "y": 196.5, "height": 3 },
+          { "id": "engine", "side": "left", "x": 170, "y": 276.5, "height": 3 },
+          { "id": "battery", "side": "right", "x": 494, "y": 156.5, "height": 3 },
+          { "id": "load", "side": "right", "x": 494, "y": 236.5, "height": 3 }
+        ],
+        "bus": { "x": 330, "y": 196.5, "width": 16, "height": 3 }
+      }
     }
   ],
   "flowLines": [

@@ -225,7 +225,8 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
 
   if (p.mode === "sankey") {
     const layout = sankeyLayout(resolved, { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE)
-    const colours = new Map(resolved.map((r) => [r.id, colourOf(byId.get(r.id), r, c)]))
+    // A node without watts stands only when nothing flows at all: grey, as in the Flow.
+    const colours = new Map(resolved.map((r) => [r.id, r.watts > 0 ? colourOf(byId.get(r.id), r, c) : c.idle]))
     // The bands first, each column one colour of its wave (decision 10), so
     // a device repaints a step as one stroke per column.
     for (const band of layout.bands) {
@@ -268,7 +269,7 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       const top = Math.round(slot.y + (slot.height - labelHeight(node, t)) / 2)
       const width = SANKEY_LABEL_W - 12 - iconSize - 6
       const x = left ? 0 : obj.width - SANKEY_LABEL_W + 12
-      labels.push(...iconObject(node, left ? SANKEY_LABEL_W - 12 - iconSize / 2 : x + iconSize / 2, top + iconSize / 2, iconSize, depth(colours.get(r.id) ?? c.text)))
+      labels.push(...iconObject(node, left ? SANKEY_LABEL_W - 12 - iconSize / 2 : x + iconSize / 2, top + iconSize / 2, iconSize, depth(r.watts > 0 ? (colours.get(r.id) ?? c.text) : c.muted)))
       labels.push(...labelObjects(node, wattsOf(r), { x: left ? 0 : x + iconSize + 6, y: top, width, align: left ? "right" : "left" }, t, c))
     }
   } else {
