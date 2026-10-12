@@ -4,7 +4,7 @@
 
 Wo ein Objekt ein Icon zeigen kann, öffnet ein Klick auf das Icon-Feld den Dialog <span class="ui">Select Icon</span>. Er sucht in einer freien Online-Sammlung mit vielen tausend Icons, du brauchst dafür also Internet. Such auf Englisch, etwa nach «water», «battery» oder «light».
 
-Eigene Icons lädst du mit <span class="ui">Upload SVG</span> hoch. Es müssen SVG-Dateien sein, höchstens 1 MB gross. Nur so lassen sich Icons umfärben und in jeder Grösse sauber zeichnen.
+Eigene Icons lädst du mit <span class="ui">Upload SVG</span> hoch. Es müssen SVG-Dateien sein, höchstens 1 MB gross. Nur so lassen sich Icons umfärben und in jeder Grösse sauber zeichnen. Manche Icons zeichnen sich selbst, etwa die aus dem Set «line-md». Ein Display zeigt ein Icon aber als Standbild, darum übernimmt der Designer so ein Icon so, wie es am Ende der Animation aussieht.
 
 Ein gewähltes Icon wird Teil des Projekts. Nimmst du dasselbe Icon an mehreren Stellen, liegt es trotzdem nur einmal im Projekt.
 
