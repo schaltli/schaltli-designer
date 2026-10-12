@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
+import fs from "fs"
+import os from "os"
+import path from "path"
+import { getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady, loadProject } from "./helpers"
+import { buildCamperProject } from "../deploy/demo/camper-project"
+import { buildEditableProjectZip } from "../lib/project-zip"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
@@ -290,5 +295,115 @@ test.describe("the energy diagram, drawn", () => {
     const mid = (band.polygon[12].y + band.polygon[band.polygon.length - 13].y) / 2
     const x0 = Math.floor(band.polygon[12].x)
     expect(at(x0, mid)).not.toBe(at(x0 + 24, mid))
+  })
+})
+
+// ---- D3: motion in the preview. The demo's project with one screen: a
+// diagram of 540 x 400 at (20, 20) and a text beside it.
+
+const DDF_43B = path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
+
+async function previewProject(mode: "flow" | "sankey", motion: boolean): Promise<string> {
+  const camper: any = await buildCamperProject(new Uint8Array(fs.readFileSync(DDF_43B)))
+  const d = defaultDiagram(SIZE)
+  const nodes = d.nodes.map((n) => ({
+    ...n,
+    ...(n.role === "source" ? { topic: "van/solar" } : {}),
+    ...(n.role === "storage" ? { topic: "van/battery", chargeTopic: "van/soc" } : {}),
+  }))
+  const font = camper.fonts.find((f: any) => f.id === "font-helvR12")?.id ?? camper.fonts[0].id
+  const master = camper.screens.find((s: any) => s.isMaster)
+  const project = {
+    ...camper,
+    nextId: 1000,
+    topics: [
+      { id: "t1", topic: "van/solar", type: "number", examples: ["600"] },
+      { id: "t2", topic: "van/battery", type: "number", examples: ["446"] },
+      { id: "t3", topic: "van/soc", type: "number", examples: ["50"] },
+    ],
+    combinedTopics: [],
+    screens: [
+      { ...master, objects: [] },
+      {
+        id: "energy",
+        name: "Energy",
+        masterScreenId: master.id,
+        objects: [
+          { id: "e", type: "energy-diagram", ...ORIGIN, ...SIZE, zIndex: 1, properties: { ...d, mode, motion, nodes, fontId: font } },
+          { id: "label", type: "text", x: 600, y: 40, width: 160, height: 30, zIndex: 2, properties: { text: "Still", fontId: font, textColor: "text" } },
+        ],
+      },
+    ],
+  }
+  const out = path.join(os.tmpdir(), `energy-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, Buffer.from(await (await buildEditableProjectZip(project)).arrayBuffer()))
+  return out
+}
+
+/** The main canvas's pixels now, as screen coordinates (zoom 1, the screen centred). */
+async function canvasPixels(page: Page): Promise<{ left: number; top: number; width: number; height: number; data: number[] }> {
+  return page.evaluate(({ sw, sh }) => {
+    const canvas = [...document.querySelectorAll("canvas")].sort((a, b) => b.width * b.height - a.width * a.height)[0]
+    const ctx = canvas.getContext("2d")!
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    // The screen's top left on the canvas: centred, as the canvas draws it.
+    return { left: Math.round((canvas.width - sw) / 2), top: Math.round((canvas.height - sh) / 2), width: canvas.width, height: canvas.height, data: Array.from(data) }
+  }, { sw: SCREEN_43B.width, sh: SCREEN_43B.height })
+}
+
+/** Where the screen's pixels on the canvas changed over `ms`, in screen coordinates. */
+async function changesOver(page: Page, ms: number): Promise<{ x: number; y: number }[]> {
+  const a = await canvasPixels(page)
+  await page.waitForTimeout(ms)
+  const b = await canvasPixels(page)
+  const out: { x: number; y: number }[] = []
+  for (let y = 0; y < a.height; y += 2) {
+    for (let x = 0; x < a.width; x += 2) {
+      const i = (y * a.width + x) * 4
+      if (a.data[i] !== b.data[i] || a.data[i + 1] !== b.data[i + 1] || a.data[i + 2] !== b.data[i + 2]) out.push({ x: x - a.left, y: y - a.top })
+    }
+  }
+  return out
+}
+
+const inside = (p: { x: number; y: number }) => p.x >= ORIGIN.x && p.x < ORIGIN.x + SIZE.width && p.y >= ORIGIN.y && p.y < ORIGIN.y + SIZE.height
+
+test.describe("the energy diagram moving in the preview", () => {
+  for (const mode of ["sankey", "flow"] as const) {
+    test(`${mode}: frames a moment apart differ inside the diagram and nowhere else; the editor stays still`, async ({ page }) => {
+      await loadProject(page, await previewProject(mode, true))
+      await page.getByRole("button", { name: /^Energy/ }).first().click()
+      expect(await changesOver(page, 700), "the editor draws it still").toEqual([])
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+      await page.waitForTimeout(500)
+      const changed = await changesOver(page, 700)
+      expect(changed.length, "something moved").toBeGreaterThan(20)
+      expect(changed.filter((p) => !inside(p)), "only inside the diagram").toEqual([])
+    })
+  }
+
+  test("Motion off: nothing moves in the preview", async ({ page }) => {
+    await loadProject(page, await previewProject("sankey", false))
+    await page.getByRole("button", { name: /^Energy/ }).first().click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.waitForTimeout(500)
+    expect(await changesOver(page, 700)).toEqual([])
+  })
+
+  test("held at a phase it stands still, and another phase is another picture", async ({ page }) => {
+    await loadProject(page, await previewProject("sankey", true))
+    await page.getByRole("button", { name: /^Energy/ }).first().click()
+    await page.evaluate(() => ((window as any).__energyFrozenPhase = 0.25))
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.waitForTimeout(400)
+    expect(await changesOver(page, 500)).toEqual([])
+    const quarter = (await canvasPixels(page)).data
+    await page.evaluate(() => ((window as any).__energyFrozenPhase = 0.75))
+    await page.waitForTimeout(300)
+    const threeQuarters = (await canvasPixels(page)).data
+    expect(threeQuarters.some((v, i) => v !== quarter[i])).toBe(true)
   })
 })

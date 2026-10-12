@@ -11,6 +11,8 @@ import {
   FLOW_NODE_R,
   SANKEY_BAR_W,
   SANKEY_LABEL_W,
+  advanceDots,
+  advanceWave,
   dotsOnLine,
   flowLayout,
   resolveEnergy,
@@ -25,13 +27,45 @@ import {
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { applyColorDepth } from "@/lib/color-depth"
 
-/** Where the motion stands: one phase per Flow line (by node id), one for every Sankey band. */
+/**
+ * Where the motion stands: one phase per Flow line - keyed `<diagram>/<node>`
+ * (dotKey) - and one for every Sankey band on the screen.
+ */
 export interface EnergyMotion {
   dots: Readonly<Record<string, number>>
   wave: number
 }
 
 export const STILL: EnergyMotion = { dots: {}, wave: 0 }
+
+/** A Flow line's key in EnergyMotion.dots. */
+export function dotKey(diagramId: string, nodeId: string): string {
+  return `${diagramId}/${nodeId}`
+}
+
+/**
+ * The motion `seconds` later (spec decision 10): every line's dots on by
+ * their own pace, the wave by its one pace. Lines of diagrams whose Motion
+ * is off stay where they are.
+ */
+export function advanceEnergyMotion(motion: EnergyMotion, seconds: number, diagrams: readonly ScreenObject[], value: (topic: string | undefined) => string): EnergyMotion {
+  const dots: Record<string, number> = { ...motion.dots }
+  let moving = false
+  for (const d of diagrams) {
+    const p = d.properties as Record<string, any>
+    if (p.motion === false || !Array.isArray(p.nodes)) continue
+    moving = true
+    for (const r of resolveEnergy(p.nodes, energyValues(p.nodes, value))) {
+      if (r.watts > 0) dots[dotKey(d.id, r.id)] = advanceDots(dots[dotKey(d.id, r.id)] ?? 0, seconds, r.watts)
+    }
+  }
+  return moving ? { dots, wave: advanceWave(motion.wave, seconds) } : motion
+}
+
+/** Every diagram on a screen, at any depth. */
+export function energyDiagramsIn(objects: readonly ScreenObject[]): ScreenObject[] {
+  return objects.flatMap((o) => [...(o.type === "energy-diagram" ? [o] : []), ...energyDiagramsIn(o.children ?? [])])
+}
 
 /** The colours the theme gave the diagram (lib/themes.ts applyTheme), with what stands in without one. */
 function look(p: Record<string, any>) {
@@ -151,6 +185,8 @@ function labelHeight(node: EnergyNode, t: TextLook): number {
  */
 export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenObject, options: RenderScreenObjectsOptions, motion: EnergyMotion = STILL): void {
   const p = obj.properties as EnergyDiagramProperties & Record<string, any>
+  // Motion off: the picture at phase 0, as a device draws it.
+  if (p.motion === false) motion = STILL
   const nodes: EnergyNode[] = Array.isArray(p.nodes) ? p.nodes : []
   const c = look(p)
   const depth = (colour: string) => applyColorDepth(colour, options.colorDepth)
@@ -234,7 +270,7 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       if (line.live) {
         ctx.fillStyle = depth(colourOf(byId.get(r.id), r, c))
         const dotR = Math.max(2.5, line.width / 2 + 0.5)
-        for (const d of dotsOnLine(line, motion.dots[line.id] ?? 0, r.gives)) {
+        for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives)) {
           ctx.beginPath()
           ctx.arc(d.x, d.y, dotR, 0, Math.PI * 2)
           ctx.fill()

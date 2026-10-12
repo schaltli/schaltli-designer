@@ -5,7 +5,7 @@ import { defaultDiagram } from "@/lib/energy-diagram"
 import { themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
-import { renderEnergyDiagram } from "@/components/canvas/renderers/render-energy-diagram"
+import { STILL, advanceEnergyMotion, energyDiagramsIn, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -1859,6 +1859,41 @@ export function Canvas({
     return () => observer.disconnect()
   }, [])
 
+  // The energy diagrams' motion in the preview (docs/2026-10-11-energy-
+  // diagram.md decision 10): the dots and the wave move at a device's pace,
+  // some 30 frames a second, only while a diagram with Motion on is shown.
+  // The editor draws them still. A test may hold the motion at one phase
+  // (window.__energyFrozenPhase), to compare a frame.
+  const energyMotionRef = useRef<EnergyMotion>(STILL)
+  const movingDiagrams = useMemo(
+    () => (previewMode ? energyDiagramsIn(previewObjects).filter((d) => d.properties.motion !== false) : []),
+    [previewMode, previewObjects],
+  )
+  useEffect(() => {
+    if (movingDiagrams.length === 0) {
+      energyMotionRef.current = STILL
+      return
+    }
+    let frame = 0
+    let last = performance.now()
+    const tick = (now: number) => {
+      frame = requestAnimationFrame(tick)
+      if (now - last < 33) return
+      const seconds = Math.min(0.25, (now - last) / 1000)
+      last = now
+      const frozen = (window as { __energyFrozenPhase?: number }).__energyFrozenPhase
+      if (typeof frozen === "number") {
+        const all = new Proxy({}, { get: () => frozen }) as Record<string, number>
+        energyMotionRef.current = { dots: all, wave: frozen }
+      } else {
+        energyMotionRef.current = advanceEnergyMotion(energyMotionRef.current, seconds, movingDiagrams, previewValueRef.current)
+      }
+      drawRef.current()
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [movingDiagrams])
+
   // Whatever draw() reads is in its dependencies, so a new draw is a picture
   // to paint - once. A hovered hardware button is among them; it used to
   // have an effect of its own besides, which drew every hover twice.
@@ -2080,7 +2115,7 @@ export function Canvas({
           placeholders,
           requestRedraw: draw,
           screenBackgroundColor: resolvedBackgroundColor,
-        })
+        }, previewMode ? energyMotionRef.current : STILL)
         break
 
       case "text":
