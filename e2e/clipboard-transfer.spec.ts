@@ -36,13 +36,16 @@ test.describe("what a copy carries and how it merges", () => {
     const energie = project.screens.find((s: any) => s.name === "Energie")
     const payload = unpackClipboard(packClipboard(project, { screen: energie }, "t1"))!
     expect(payload.screen!.name).toBe("Energie")
-    expect(payload.assets.map((a) => a.id).sort()).toEqual(["icon-arrow-down", "icon-battery", "icon-battery-low", "icon-plug", "icon-sun"])
+    expect(payload.assets.map((a) => a.id).sort()).toEqual(["icon-arrow-down", "icon-battery", "icon-battery-low", "icon-engine", "icon-load", "icon-plug", "icon-sun"])
     expect(payload.topics.map((t) => t.topic).sort()).toEqual([
+      "ble/charger/watts",
+      "ble/orion/watts",
       "schaltli/state/battery/current",
       "schaltli/state/battery/power",
       "schaltli/state/battery/soc",
       "schaltli/state/battery/voltage",
-      "schaltli/state/mppt/pv_watts",
+      "van/energy/consumers_watts",
+      "van/energy/solar_watts",
     ])
     expect(payload.combinedTopics).toEqual([])
     expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-helvB18", "font-helvB24", "font-helvR18"])
