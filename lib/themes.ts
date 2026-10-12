@@ -714,11 +714,14 @@ export function applyTheme<T extends { type?: string; properties: Record<string,
       if (properties === object.properties) properties = { ...properties }
       properties[key] = resolveRole(theme, value, variant, colorDepth)
     }
-    // An energy diagram's nodes each name a role (decision 12); a node
-    // without one is a load.
+    // An energy diagram's nodes each name a role (decision 12) or a colour
+    // of their own, as any colour field may; a node without one is a load.
     if (type === "energy-diagram" && Array.isArray(properties.nodes)) {
       if (properties === object.properties) properties = { ...properties }
       properties.nodes = properties.nodes.map((n: { colorRole?: string }) => {
+        if (!isRole(n.colorRole) && typeof n.colorRole === "string" && /^#[0-9a-f]{6}$/i.test(n.colorRole)) {
+          return { ...n, color: applyColorDepth(n.colorRole, colorDepth) }
+        }
         const role = isRole(n.colorRole) ? n.colorRole : "energyLoad"
         return { ...n, color: resolveRole(theme, role, variant, colorDepth) }
       })

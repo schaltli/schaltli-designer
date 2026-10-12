@@ -176,6 +176,12 @@ test.describe("the energy roles", () => {
     }
   })
 
+  test("a node with a colour of its own keeps it; one without a role or colour is a load", () => {
+    const diagram = { id: "e", type: "energy-diagram", properties: { nodes: [{ id: "a", colorRole: "#12ab34" }, { id: "b", colorRole: "energySun" }, { id: "c" }] } }
+    const nodes = (applyTheme([diagram] as any, LAVENDER, "light", "24bit")[0] as any).properties.nodes
+    expect(nodes.map((n: Obj) => n.color.toLowerCase())).toEqual(["#12ab34", role("energySun"), role("energyLoad")])
+  })
+
   test("a colour from before themes never becomes an energy role", () => {
     for (const theme of THEMES) {
       for (const hex of ["#c99400", "#2f9a52", "#4CAF50", "#d0453f", "#7a5bd1", "#2f7ad8"]) {

@@ -117,7 +117,9 @@ function hex([r, g, b]: readonly number[]): string {
 /** A node's colour: the storage's by its sign, a 0 W node grey in the Flow. */
 function colourOf(node: EnergyNode | undefined, r: ResolvedNode, c: ReturnType<typeof look>): string {
   if (r.role === "storage") return r.gives ? c.discharge : c.charge
-  return (node as { color?: string } | undefined)?.color ?? c.text
+  // Unthemed (a test's reference render), a colour of its own still counts.
+  const own = node?.colorRole && /^#[0-9a-f]{6}$/i.test(node.colorRole) ? node.colorRole : undefined
+  return (node as { color?: string } | undefined)?.color ?? own ?? c.text
 }
 
 interface TextLook {
