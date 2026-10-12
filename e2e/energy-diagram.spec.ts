@@ -303,12 +303,12 @@ test.describe("the energy diagram, drawn", () => {
 
 const DDF_43B = path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
 
-async function previewProject(mode: "flow" | "sankey", motion: boolean): Promise<string> {
+async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopup = false): Promise<string> {
   const camper: any = await buildCamperProject(new Uint8Array(fs.readFileSync(DDF_43B)))
   const d = defaultDiagram(SIZE)
   const nodes = d.nodes.map((n) => ({
     ...n,
-    ...(n.role === "source" ? { topic: "van/solar" } : {}),
+    ...(n.role === "source" ? { topic: "van/solar", ...(withPopup ? { action: { type: "open-popup", targetScreenId: "pop" } } : {}) } : {}),
     ...(n.role === "storage" ? { topic: "van/battery", chargeTopic: "van/soc" } : {}),
   }))
   const font = camper.fonts.find((f: any) => f.id === "font-helvR12")?.id ?? camper.fonts[0].id
@@ -333,6 +333,7 @@ async function previewProject(mode: "flow" | "sankey", motion: boolean): Promise
           { id: "label", type: "text", x: 600, y: 40, width: 160, height: 30, zIndex: 2, properties: { text: "Still", fontId: font, textColor: "text" } },
         ],
       },
+      ...(withPopup ? [{ id: "pop", name: "Popup P", screenType: "popup", objects: [] }] : []),
     ],
   }
   const out = path.join(os.tmpdir(), `energy-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -534,5 +535,80 @@ test.describe("the energy diagram's nodes dragged in the Flow", () => {
     const shifted = diagramsOf(await downloadProjectJson(page))[0]
     expect(Math.abs(shifted.x - (first.x + 30))).toBeLessThanOrEqual(1)
     expect(shifted.properties.nodes).toEqual(undone.properties.nodes)
+  })
+})
+
+// ---- D6: a tap on a node runs its action.
+
+test.describe("a tap on an energy diagram's node", () => {
+  /** Whether the screen outside the diagram looks as it did: a popup over it dims it. */
+  const outside = async (page: Page) => {
+    const px = await canvasPixels(page)
+    const at = (x: number, y: number) => {
+      const i = ((px.top + y) * px.width + px.left + x) * 4
+      return px.data.slice(i, i + 3).join(",")
+    }
+    return [at(600, 460), at(10, 470), at(700, 300)].join(" ")
+  }
+
+  for (const mode of ["flow", "sankey"] as const) {
+    test(`${mode}: on a node with «Open a popup» it opens; on one without, nothing`, async ({ page }) => {
+      await loadProject(page, await previewProject(mode, false, true))
+      await page.getByRole("button", { name: /^Energy/ }).first().click()
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await page.getByRole("button", { name: "Simulation", exact: true }).click()
+      await page.waitForTimeout(400)
+      const { box } = await getMainCanvas(page)
+      const d = defaultDiagram(SIZE)
+      const nodeAt = (id: string) => {
+        if (mode === "flow") {
+          const n = d.nodes.find((m) => m.id === id)!
+          return { x: ORIGIN.x + n.x, y: ORIGIN.y + n.y }
+        }
+        const nodes = d.nodes
+        const layout = sankeyLayout(resolveEnergy(nodes.map((n) => ({ ...n, ...(n.role === "source" ? { topic: "x" } : {}) })), { solar: { watts: 600 }, battery: { watts: 446 } }), SIZE, 1000)
+        const bar = layout.bars.find((b) => b.id === id)!
+        return { x: ORIGIN.x + bar.x + bar.width / 2, y: ORIGIN.y + bar.y + bar.height / 2 }
+      }
+      const before = await outside(page)
+      const consumers = devicePoint(box, nodeAt("consumers").x, nodeAt("consumers").y, SCREEN_43B)
+      await page.mouse.click(consumers.x, consumers.y)
+      await page.waitForTimeout(300)
+      expect(await outside(page), "no action, nothing opens").toBe(before)
+      const solar = devicePoint(box, nodeAt("solar").x, nodeAt("solar").y, SCREEN_43B)
+      await page.mouse.click(solar.x, solar.y)
+      await expect.poll(() => outside(page)).not.toBe(before)
+    })
+  }
+})
+
+test.describe("a node's popup in the export", () => {
+  test("an «Open a popup» to no popup is dropped from a node; one to a popup stays and is named for the deploy's warning", async () => {
+    const { withoutDeadPopupActions, popupOpeners } = await import("../lib/popup")
+    const project = {
+      screens: [
+        {
+          id: "s1",
+          name: "Energie",
+          objects: [
+            {
+              id: "e",
+              type: "energy-diagram",
+              properties: {
+                nodes: [
+                  { id: "a", name: "Solar", action: { type: "open-popup", targetScreenId: "gone" } },
+                  { id: "b", name: "Batterie", action: { type: "open-popup", targetScreenId: "pop" } },
+                ],
+              },
+            },
+          ],
+        },
+        { id: "pop", name: "Popup P", screenType: "popup" as const, objects: [] },
+      ],
+    }
+    const nodes = (withoutDeadPopupActions(project as any).screens[0].objects[0] as any).properties.nodes
+    expect(nodes[0]).toEqual({ id: "a", name: "Solar" })
+    expect(nodes[1].action).toEqual({ type: "open-popup", targetScreenId: "pop" })
+    expect(popupOpeners(project as any)).toEqual(['"Batterie" in an energy diagram on Energie'])
   })
 })

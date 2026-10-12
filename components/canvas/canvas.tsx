@@ -16,7 +16,7 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
 import { themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
-import { STILL, advanceEnergyMotion, energyDiagramsIn, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
+import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -2790,6 +2790,10 @@ export function Canvas({
         if (clickedObject?.type === "button") {
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
+          if (action) onPreviewButtonAction?.(action)
+        } else if (clickedObject?.type === "energy-diagram") {
+          // A node's action, as a button's (docs/2026-10-11-energy-diagram.md decision 13).
+          const action = energyNodeAtTap(clickedObject, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
         } else if (isSwitchType(clickedObject?.type)) {
           // Same two steps the firmware takes: work out which state the

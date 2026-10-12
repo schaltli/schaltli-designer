@@ -62,6 +62,23 @@ export function advanceEnergyMotion(motion: EnergyMotion, seconds: number, diagr
   return moving ? { dots, wave: advanceWave(motion.wave, seconds) } : motion
 }
 
+/**
+ * The node a tap at `at` (screen coordinates) lands on, if any: in the
+ * Flow its circle, in the Sankey its bar and its label beside it. The bus
+ * is never one - it has no action.
+ */
+export function energyNodeAtTap(obj: ScreenObject, at: { x: number; y: number }, value: (topic: string | undefined) => string): EnergyNode | undefined {
+  const p = obj.properties as Record<string, any>
+  const nodes: EnergyNode[] = Array.isArray(p.nodes) ? p.nodes : []
+  const x = at.x - obj.x, y = at.y - obj.y
+  if (p.mode === "sankey") {
+    const layout = sankeyLayout(resolveEnergy(nodes, energyValues(nodes, value)), { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE)
+    const slot = layout.slots.find((s) => y >= s.y && y < s.y + s.height && (s.side === "left" ? x < SANKEY_LABEL_W + SANKEY_BAR_W : x >= obj.width - SANKEY_LABEL_W - SANKEY_BAR_W))
+    return slot ? nodes.find((n) => n.id === slot.id) : undefined
+  }
+  return nodes.find((n) => n.role !== "bus" && Math.hypot(x - n.x, y - n.y) <= FLOW_NODE_R)
+}
+
 /** Every diagram on a screen, at any depth. */
 export function energyDiagramsIn(objects: readonly ScreenObject[]): ScreenObject[] {
   return objects.flatMap((o) => [...(o.type === "energy-diagram" ? [o] : []), ...energyDiagramsIn(o.children ?? [])])

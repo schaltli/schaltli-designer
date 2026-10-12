@@ -42,7 +42,8 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
   - the Text panel's live-text block became `live-text-editor.tsx`, used by both
 - [x] D5 Dragging nodes in Flow
   - (halted once 2026-10-12 on a hung dev server; the user restarted it)
-- [ ] D6 A tap on a node runs its action
+- [x] D6 A tap on a node runs its action
+  - popups are cleaned at export, not when one is deleted (as for buttons): a node's dead «Open a popup» is dropped there; the deploy's warning names nodes
 - [ ] D7 Copy and paste, topic usage
 - [ ] D8 Handbook
 - [ ] Checkpoint: test:all green; the user builds their van's diagram in the preview

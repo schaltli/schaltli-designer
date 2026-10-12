@@ -182,6 +182,14 @@ export function withoutDeadPopupActions<
         const { action: _dropped, ...properties } = obj.properties
         next = { ...obj, properties }
       }
+      // An energy diagram's nodes each have an action of their own.
+      const nodes = next.properties?.nodes
+      if (Array.isArray(nodes) && nodes.some((n) => dead(n?.action))) {
+        next = {
+          ...next,
+          properties: { ...next.properties, nodes: nodes.map((n) => (dead(n?.action) ? (({ action: _gone, ...rest }) => rest)(n) : n)) },
+        }
+      }
       return obj.children?.length ? { ...next, children: clean(obj.children) } : next
     })
   return {
@@ -265,6 +273,8 @@ export function popupOpeners(project: {
     const walk = (objects: ObjectWithAction[]) => {
       for (const obj of objects) {
         if (opens(obj.properties?.action)) names.push(`"${String(obj.properties?.text ?? "")}" on ${screen.name}`)
+        const nodes = obj.properties?.nodes
+        if (Array.isArray(nodes)) for (const n of nodes) if (opens(n?.action)) names.push(`"${String(n.name ?? "")}" in an energy diagram on ${screen.name}`)
         if (obj.children?.length) walk(obj.children)
       }
     }
