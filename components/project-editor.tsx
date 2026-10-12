@@ -391,6 +391,9 @@ export interface ProjectSettings {
   typographies?: Typography[]
   // Round or rectangular, from the DDF's screen.shape. Absent: rectangular.
   screenShape?: "rect" | "round"
+  // false where the device animates nothing, from the DDF's screen.motion
+  // (the PaperS3): an energy diagram is drawn still, the preview too.
+  screenMotion?: boolean
   // The close button the device draws on an open popup, from the DDF's
   // screen.popupCloseRadius (lib/popup.ts popupCloseBadge). Absent: none.
   popupCloseRadius?: number
@@ -3121,6 +3124,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       pixelsPerMm: fields.pixelsPerMm,
       typographies: fields.typographies,
       screenShape: fields.screenShape,
+      screenMotion: fields.screenMotion,
       popupCloseRadius: fields.popupCloseRadius,
     }
     // The master starts in the first theme made for the device's depth -
@@ -3390,6 +3394,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 pixelsPerMm: fields.pixelsPerMm,
                 typographies: fields.typographies,
                 screenShape: fields.screenShape,
+                screenMotion: fields.screenMotion,
                 popupCloseRadius: fields.popupCloseRadius,
               },
             }
@@ -4356,6 +4361,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             adornmentDrawingArea={project.adornmentDrawingArea}
             adornmentRotation={project.settings.rotation ?? 0}
             screenShape={project.settings.screenShape}
+            deviceAnimates={project.settings.screenMotion !== false}
             popupCloseRadius={project.settings.popupCloseRadius}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
@@ -4484,6 +4490,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     fonts={project.fonts} // Added fonts prop
                     textScale={screenTextScale(project, currentScreen)}
                     colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
+                    deviceAnimates={project.settings.screenMotion !== false}
                     setProjectSettingsTab={setProjectSettingsTab}
                     setShowProjectSettings={setShowProjectSettings}
                     onOpenIconSelector={handleValueIconPairIconSelect}

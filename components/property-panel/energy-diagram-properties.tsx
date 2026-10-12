@@ -50,6 +50,8 @@ interface EnergyDiagramPropertiesProps {
   /** Opens the icon picker for one node. */
   onOpenNodeIcon: (nodeId: string) => void
   allScreens?: Array<{ id: string; name: string; screenType?: string; isMaster?: boolean }>
+  // false where the device animates nothing: «Motion» is not offered.
+  deviceAnimates?: boolean
 }
 
 const MODES = [
@@ -112,6 +114,7 @@ export function EnergyDiagramProperties({
   colorDepth,
   onOpenNodeIcon,
   allScreens,
+  deviceAnimates,
 }: EnergyDiagramPropertiesProps) {
   const p = selectedObject.properties
   const mode: string = p.mode === "sankey" ? "sankey" : "flow"
@@ -154,7 +157,10 @@ export function EnergyDiagramProperties({
     <PropertySections>
       <PropertySection title="Diagram">
         <SelectField id="energyMode" label="Mode" value={mode} options={MODES} onChange={(value) => update({ mode: value })} hint="The same nodes, as bands or as circles and lines." />
-        <ToggleRow label="Motion" checked={p.motion !== false} onChange={(checked) => update({ motion: checked })} text="Dots and waves move" hint="Off: drawn still, on a device too." />
+        {/* A device that animates nothing (the PaperS3) draws it still: nothing to choose. */}
+        {deviceAnimates !== false && (
+          <ToggleRow label="Motion" checked={p.motion !== false} onChange={(checked) => update({ motion: checked })} text="Dots and waves move" hint="Off: drawn still, on a device too." />
+        )}
         {mode === "sankey" ? (
           <NumberField
             id="energyFullScale"

@@ -242,9 +242,12 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     the canvas, not the panel) - the first look at the 4.3B, and the band's
     pixel diff against the designer, which needs the designer's band
     renderer (`energy-designer`) and moves to `energy-firmware`.
-15. **Devices**: the 4.3B and the Android app. The PaperS3 and the Knob do
-    not list the type in their `supportedObjectTypes`; the designer then
-    refuses it there, as for any unsupported type.
+15. **Devices**: the 4.3B and the Android app; since 2026-10-12 also the
+    knob, moving, and the PaperS3, still (the user: «beim PaperS3 einfach
+    nicht animiert, aber beim Knob schon»). The PaperS3's DDF says
+    `screen.motion: false`; the designer then draws the diagram still and
+    offers no «Motion». A deploy asks for the type in the device's own DDF,
+    not for generation 1.7: the knob is at 1.4, without the navigator.
 16. **Until `energy-contract`** the device zip and the Android bundle leave
     the object out (`lib/energy-diagram-object.ts`), so nothing half-made
     reaches a device. **Generation 1.7.** A device without it gets the diagram dissolved

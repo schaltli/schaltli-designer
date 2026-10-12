@@ -38,7 +38,6 @@ import {
   LIVE_VALUE_GENERATION,
   NAVIGATOR_GENERATION,
   NAVIGATOR_THEME_SWITCH_GENERATION,
-  ENERGY_DIAGRAM_GENERATION,
   SYSTEM_GENERATION,
   SYSTEM_GENERATION_STRING,
   formatGeneration,
@@ -48,7 +47,6 @@ import {
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
-import { energyDiagramsNotOnDevices } from "@/lib/energy-diagram-object"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -676,14 +674,12 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const liveValueTexts = liveValuesNotOnDevices(project)
   const navigatorParts = navigatorNotOnDevices(project as any)
   const themeSwitchParts = themeSwitchNotOnDevices(project as any)
-  const energyParts = energyDiagramsNotOnDevices(project as any)
   const needs: ProjectNeed[] = [
     ...(projectUsesLivePlaceholders(project) ? [{ generation: PLACEHOLDER_GENERATION, parts: ["values in texts"] }] : []),
     ...(popupOpenerNames.length > 0 ? [{ generation: POPUP_GENERATION, parts: [`popups (${popupOpenerNames.join(", ")})`] }] : []),
     ...(liveValueTexts.length > 0 ? [{ generation: LIVE_VALUE_GENERATION, parts: liveValueTexts }] : []),
     ...(navigatorParts.length > 0 ? [{ generation: NAVIGATOR_GENERATION, parts: navigatorParts }] : []),
     ...(themeSwitchParts.length > 0 ? [{ generation: NAVIGATOR_THEME_SWITCH_GENERATION, parts: themeSwitchParts }] : []),
-    ...(energyParts.length > 0 ? [{ generation: ENERGY_DIAGRAM_GENERATION, parts: energyParts }] : []),
   ]
   const plan = deployTarget
     ? planDeploy({
@@ -698,6 +694,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
         release: firmwareRelease[deployTarget.deviceId],
         needs,
         unsupportedTypes,
+        releaseTypes: project.settings.supportedObjectTypes,
       })
     : null
 

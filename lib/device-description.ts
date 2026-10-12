@@ -96,6 +96,9 @@ export interface DeviceDescriptionFile {
     // the largest square in the circle (docs/2026-10-02-layout.md). Absent
     // means rectangular. Firmware and app do not read it.
     shape?: "rect" | "round"
+    // false: the device draws nothing that moves - an energy diagram's dots
+    // and wave stand still (the PaperS3, 2026-10-12). Absent: it animates.
+    motion?: boolean
     // The radius, in pixels, of the round close button the device draws on an
     // open popup's edge (lib/popup.ts popupCloseBadge). Absent: it draws
     // none, and the designer shows none.
@@ -408,6 +411,8 @@ export interface ProjectDeviceFields {
   typographies?: Typography[]
   // screen.shape: round (the Knob) or rectangular.
   screenShape: "rect" | "round"
+  // screen.motion: false where the device animates nothing (the PaperS3).
+  screenMotion?: boolean
   // screen.popupCloseRadius; undefined when the device draws no close button.
   popupCloseRadius?: number
 }
@@ -490,6 +495,7 @@ export function deviceDescriptionToProjectFields(
     pixelsPerMm: pixelsPerMmOf(manifest.screen),
     typographies: typographies.length > 0 ? typographies : undefined,
     screenShape: manifest.screen.shape === "round" ? "round" : "rect",
+    ...(manifest.screen.motion === false ? { screenMotion: false } : {}),
     popupCloseRadius: manifest.screen.popupCloseRadius,
   }
 }

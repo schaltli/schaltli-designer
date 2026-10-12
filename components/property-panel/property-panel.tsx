@@ -101,6 +101,8 @@ interface PropertyPanelProps {
   /** The device's scale, when it gives one: text is then set in a style. */
   textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
+  // false where the device animates nothing: no «Motion» for a diagram.
+  deviceAnimates?: boolean
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
   onOpenIconSelector: (pairIndex: number) => void
@@ -204,6 +206,7 @@ export function PropertyPanel({
   fonts,
   textScale,
   colorDepth,
+  deviceAnimates,
   setProjectSettingsTab,
   setShowProjectSettings,
   onOpenIconSelector,
@@ -351,6 +354,7 @@ export function PropertyPanel({
               {selectedObject.type === "energy-diagram" && (
                 <EnergyDiagramProperties
                   selectedObject={selectedObject}
+                  deviceAnimates={deviceAnimates}
                   onUpdateObject={onUpdateObject}
                   fonts={fonts}
                   onManageFonts={handleManageFonts}

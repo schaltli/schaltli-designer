@@ -996,10 +996,15 @@ topics say, with its port of `lib/energy-diagram.ts`.
 - **Conformance:** `lib/energy-diagram/vectors.json` - resolving, the
   Sankey's bars and bus, the Flow's lines and labels, the boxes, the dot
   gaps and dots, the wave. Copy it; do not edit a copy.
-- **Announce** generation **1.7** in `hello` once the diagram is drawn.
-  Below it a device skips the object as any unknown type: nothing stands
-  in its place. The deploy dialog warns before sending, naming the
-  diagrams.
+- **Declare** the type `energy-diagram` in the DDF once the diagram is
+  drawn; the deploy dialog refuses a project with one for a device whose
+  DDF does not list it, as for any type. The 4.3B and the app also
+  announce generation **1.7** with it; the knob draws it at 1.4 (it lacks
+  the navigator of 1.5 and 1.6), so a deploy asks for the type, not the
+  generation (2026-10-12).
+- **Motion:** a device that animates nothing says `screen.motion: false`
+  in its DDF (the PaperS3); it draws every diagram at phase 0, dots
+  included, and the designer draws it so too, its preview still.
 
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 

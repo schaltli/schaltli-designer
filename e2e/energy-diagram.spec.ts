@@ -9,8 +9,6 @@ import { buildEditableProjectZip } from "../lib/project-zip"
 import { packClipboard, unpackClipboard } from "../lib/clipboard-transfer"
 import { unusedTopics } from "../lib/topic-usage"
 import { popupOpeners, withoutDeadPopupActions } from "../lib/popup"
-import { energyDiagramsNotOnDevices } from "../lib/energy-diagram-object"
-import { ENERGY_DIAGRAM_GENERATION } from "../lib/system-generation"
 import { planDeploy } from "../lib/deploy-plan"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
@@ -468,8 +466,18 @@ test.describe("the energy diagram, drawn", () => {
 
 const DDF_43B = path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
 
-async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopup = false): Promise<string> {
-  const camper: any = await buildCamperProject(new Uint8Array(fs.readFileSync(DDF_43B)))
+/** The 4.3B's DDF, saying it animates nothing, as the PaperS3's does. */
+async function stillDdf(): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(DDF_43B))
+  const name = Object.keys(zip.files).find((f) => f.endsWith("device.json"))!
+  const manifest = JSON.parse(await zip.file(name)!.async("string"))
+  manifest.screen.motion = false
+  zip.file(name, JSON.stringify(manifest))
+  return zip.generateAsync({ type: "uint8array" })
+}
+
+async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopup = false, stillDevice = false): Promise<string> {
+  const camper: any = await buildCamperProject(stillDevice ? await stillDdf() : new Uint8Array(fs.readFileSync(DDF_43B)))
   const d = defaultDiagram(SIZE)
   const nodes = d.nodes.map((n) => ({
     ...n,
@@ -558,6 +566,15 @@ test.describe("the energy diagram moving in the preview", () => {
     expect(await changesOver(page, 700)).toEqual([])
   })
 
+  test("on a device that animates nothing (the PaperS3) it stands still, Motion on or not", async ({ page }) => {
+    await loadProject(page, await previewProject("sankey", true, false, true))
+    await page.getByRole("button", { name: /^Energy/ }).first().click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.waitForTimeout(500)
+    expect(await changesOver(page, 700)).toEqual([])
+  })
+
   test("held at a phase it stands still, and another phase is another picture", async ({ page }) => {
     await loadProject(page, await previewProject("sankey", true))
     await page.getByRole("button", { name: /^Energy/ }).first().click()
@@ -600,6 +617,19 @@ test.describe("the energy diagram's panel", () => {
     const after = await diagramOf(page)
     expect(after.properties).toMatchObject({ mode: "sankey", fullScale: 2500, motion: false })
     expect(after.properties.nodes).toEqual(before.properties.nodes)
+  })
+
+  test("a device that animates nothing offers no Motion", async ({ page }) => {
+    expect(
+      await seedWaveshare4v3bDdf(DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("energy-diagram")) manifest.supportedObjectTypes.push("energy-diagram")
+        manifest.screen.motion = false
+      }),
+    ).toBe(true)
+    await newProject(page)
+    await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
+    await expect(page.locator("#energyMode")).toBeVisible()
+    await expect(page.getByText("Dots and waves move")).toHaveCount(0)
   })
 
   test("nodes: added by role, one rest at most, the bus stays, a node's fields change it", async ({ page }) => {
@@ -758,30 +788,31 @@ test.describe("a tap on an energy diagram's node", () => {
   }
 })
 
-test.describe("the deploy's warning below generation 1.7", () => {
-  test("each diagram is named by its screen, nested ones too; a project without one needs nothing", () => {
-    const project = {
-      screens: [
-        { name: "Master", objects: [{ id: "m", type: "energy-diagram", properties: {} }] },
-        { name: "Energie", objects: [{ id: "g", type: "group", properties: {}, children: [{ id: "e", type: "energy-diagram", properties: {} }] }] },
-        { name: "Licht", objects: [{ id: "t", type: "text", properties: {} }] },
-      ],
-    }
-    expect(energyDiagramsNotOnDevices(project as any)).toEqual(["the energy diagram on Master", "the energy diagram on Energie"])
-    expect(energyDiagramsNotOnDevices({ screens: [project.screens[2]] } as any)).toEqual([])
+// Since 2026-10-12 (the knob and the PaperS3 got it): gated by the device's
+// own type list, which the Deploy dialog fetches from its firmware - the
+// knob stays at generation 1.4, without the navigator 1.5 brought.
+test.describe("a device that does not list the energy diagram", () => {
+  test("is refused, the type named; one that lists it is not asked for a generation", () => {
+    const board = { name: "Knob", platform: "firmware" as const, online: true, systemGeneration: "1.4", firmwareBuild: "fw-2026.10.12.1" }
+    const release = { build: "fw-2026.10.12.1", systemGeneration: "1.6", available: true }
+    const refused = planDeploy({ device: board, release, needs: [], unsupportedTypes: ["energy-diagram"] })
+    expect(refused.kind).toBe("blocked")
+    if (refused.kind === "blocked") expect(refused.reason).toContain("energy-diagram")
+    expect(planDeploy({ device: board, release, needs: [] }).kind).toBe("deploy")
   })
 
-  test("a board is brought up to a release that draws it, blocked by one that does not; an app below 1.7 is asked to update", () => {
-    const need = { generation: ENERGY_DIAGRAM_GENERATION, parts: ["the energy diagram on Energie"] }
-    const board = { name: "4.3B", platform: "firmware" as const, online: true, systemGeneration: "1.6", firmwareBuild: "fw-2026.10.11.2" }
-    expect(planDeploy({ device: board, release: { build: "fw-2026.10.20.1", systemGeneration: "1.7", available: true }, needs: [need] }).kind).toBe("update-and-deploy")
-    const old = planDeploy({ device: board, release: { build: "fw-2026.10.11.2", systemGeneration: "1.6", available: true }, needs: [need] })
-    expect(old.kind).toBe("blocked")
-    if (old.kind === "blocked") expect(old.reason).toContain("cannot show the energy diagram on Energie")
-    const phone = { name: "P20 Pro", platform: "android" as const, online: true, systemGeneration: "1.6", firmwareVersion: "0.9.0" }
-    const app = planDeploy({ device: phone, release: undefined, needs: [need] })
-    expect(app.kind).toBe("blocked")
-    if (app.kind === "blocked") expect(app.reason).toContain("generation 1.7 or newer")
+  test("an older 4.3B whose own list lacks it is brought up to the release first; an older app is asked for an update", () => {
+    const board = { name: "4.3B", platform: "firmware" as const, online: true, systemGeneration: "1.6", firmwareBuild: "fw-2026.10.01.1" }
+    const release = { build: "fw-2026.10.12.1", systemGeneration: "1.7", available: true }
+    const releaseTypes = ["text", "energy-diagram"]
+    expect(planDeploy({ device: board, release, needs: [], unsupportedTypes: ["energy-diagram"], releaseTypes }).kind).toBe("update-and-deploy")
+    // Already at the release: nothing newer to bring.
+    const current = { ...board, firmwareBuild: release.build }
+    expect(planDeploy({ device: current, release, needs: [], unsupportedTypes: ["energy-diagram"], releaseTypes }).kind).toBe("blocked")
+    const app = { name: "Tablet", platform: "android" as const, online: true, systemGeneration: "1.6", firmwareVersion: "v0.9.0" }
+    const plan = planDeploy({ device: app, needs: [], unsupportedTypes: ["energy-diagram"], releaseTypes })
+    expect(plan.kind).toBe("blocked")
+    if (plan.kind === "blocked") expect(plan.link?.label).toBe("Get the app")
   })
 })
 

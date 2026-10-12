@@ -60,11 +60,10 @@ export const NAVIGATOR_GENERATION = { major: 1, minor: 5 } as const
 // release, an app is asked to update.
 export const NAVIGATOR_THEME_SWITCH_GENERATION = { major: 1, minor: 6 } as const
 
-// The generation a device announces once it draws the energy diagram -
-// an object of type energy-diagram, its nodes, bakes and motion (device
-// contract 2.8, docs/2026-10-11-energy-diagram.md). Additive: a device
-// below it skips the type and draws nothing in its place - a warning
-// before a deploy, never a refusal.
+// The generation the 4.3B and the app announce once they draw the energy
+// diagram (device contract 2.8, docs/2026-10-11-energy-diagram.md). Not
+// what a deploy asks of a device since 2026-10-12: the device's own type
+// list is (the knob draws it at 1.4, without the navigator of 1.5).
 export const ENERGY_DIAGRAM_GENERATION = { major: 1, minor: 7 } as const
 
 /** Whether an announced generation is below `required`; an absent one is. */

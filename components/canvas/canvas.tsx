@@ -352,6 +352,9 @@ export interface CanvasProps {
   // The display's shape (ProjectSettings.screenShape): a popup's fence is a
   // circle on a round one (lib/popup.ts popupFence).
   screenShape?: "rect" | "round"
+  // false: the device animates nothing (the PaperS3) - the preview's energy
+  // diagrams stand still, as there.
+  deviceAnimates?: boolean
   // The close button the device draws on an open popup
   // (ProjectSettings.popupCloseRadius, lib/popup.ts popupCloseBadge).
   popupCloseRadius?: number
@@ -781,6 +784,7 @@ export function Canvas({
   deviceId,
   adornmentRotation = 0,
   screenShape,
+  deviceAnimates,
   popupCloseRadius,
   adornment,
   showAdornment = true,
@@ -1877,8 +1881,8 @@ export function Canvas({
   // (window.__energyFrozenPhase), to compare a frame.
   const energyMotionRef = useRef<EnergyMotion>(STILL)
   const movingDiagrams = useMemo(
-    () => (previewMode ? energyDiagramsIn(previewObjects).filter((d) => d.properties.motion !== false) : []),
-    [previewMode, previewObjects],
+    () => (previewMode && deviceAnimates !== false ? energyDiagramsIn(previewObjects).filter((d) => d.properties.motion !== false) : []),
+    [previewMode, previewObjects, deviceAnimates],
   )
   useEffect(() => {
     if (movingDiagrams.length === 0) {

@@ -53,12 +53,31 @@ export function planDeploy(input: {
   needs: readonly ProjectNeed[]
   /** Object types the project places that the device's description does not declare. */
   unsupportedTypes?: readonly string[]
+  /**
+   * The types this designer's own description of the device declares - what
+   * its release draws. A type missing only from an older device's own list
+   * asks for that release, not for its removal (2026-10-12: the energy
+   * diagram is gated by type, not by generation).
+   */
+  releaseTypes?: readonly string[]
 }): DeployPlan {
   const { device, release, needs } = input
   if (!device.online) return { kind: "offline" }
 
   const unsupported = input.unsupportedTypes ?? []
-  if (unsupported.length > 0) {
+  const releaseDraws = input.releaseTypes !== undefined && unsupported.every((t) => input.releaseTypes!.includes(t))
+  if (unsupported.length > 0 && releaseDraws && device.platform === "android") {
+    return {
+      kind: "blocked",
+      reason:
+        `App ${device.firmwareVersion || "unknown"} cannot show ${unsupported.join(", ")}. ` +
+        `Update the app on "${device.name}", then deploy.`,
+      link: { label: "Get the app", url: APP_RELEASES },
+    }
+  }
+  const awaitsRelease =
+    releaseDraws && firmwareStanding(device.firmwareBuild, release?.build) === "update-available" && release?.available === true
+  if (unsupported.length > 0 && !awaitsRelease) {
     return {
       kind: "blocked",
       reason:

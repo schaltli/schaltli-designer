@@ -46,6 +46,7 @@ export function projectOnDevice(
       pixelsPerMm: fields.pixelsPerMm,
       typographies: fields.typographies,
       screenShape: fields.screenShape,
+      screenMotion: fields.screenMotion,
     },
   })
   // A navigator fills its edge of the new screen: placed for the old one,
