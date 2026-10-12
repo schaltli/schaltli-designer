@@ -257,7 +257,9 @@ export interface ProjectAsset {
 // and incompatible with the real setter, which is what the type checker was
 // complaining about until 2026-08-22.
 export interface IconSelectorContext {
-  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule" | "screen-live-rule"
+  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule" | "screen-live-rule" | "energy-node"
+  // An energy diagram's node (docs/2026-10-11-energy-diagram.md).
+  nodeId?: string
   pairIndex?: number
   screenId?: string
   stateIndex?: number
@@ -2491,6 +2493,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           return lv
         })
         updateObject(selectedObject.id, { properties: { ...selectedObject.properties, liveValues } })
+      } else if (iconSelectorContext?.type === "energy-node" && selectedObject && iconSelectorContext.nodeId) {
+        const { nodeId } = iconSelectorContext
+        const nodes = (selectedObject.properties.nodes ?? []).map((n: any) => (n.id === nodeId ? { ...n, iconAssetId: assetId } : n))
+        updateObject(selectedObject.id, { properties: { ...selectedObject.properties, nodes } })
       } else if (iconSelectorContext?.type === "icon-properties" && selectedObject) {
         updateObject(selectedObject.id, {
           properties: {

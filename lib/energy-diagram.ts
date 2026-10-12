@@ -49,12 +49,38 @@ export const WATTS_PLACEHOLDER = "{watts}"
 /** A node's line with `{watts}` put in; the rest of it is resolved as any live text. */
 export function withWatts(text: string, watts: number | undefined): string {
   if (!text.includes(WATTS_PLACEHOLDER)) return text
-  return text.split(WATTS_PLACEHOLDER).join(watts === undefined ? "–" : String(Math.round(watts)))
+  return text.split(WATTS_PLACEHOLDER).join(watts === undefined ? "-" : String(Math.round(watts)))
 }
 
 export type EnergyMode = "sankey" | "flow"
 
-/** The object's properties (spec decisions 1-12, export §2.8). */
+/**
+ * The nodes as a list shows them: in the Sankey the bus first, then as the
+ * diagram stands, top to bottom (y, then x); in the Flow in the order kept.
+ */
+export function listedNodes(nodes: readonly EnergyNode[], mode: string): EnergyNode[] {
+  if (mode !== "sankey") return [...nodes]
+  return [...nodes.filter((n) => n.role === "bus"), ...nodes.filter((n) => n.role !== "bus").sort((a, b) => a.y - b.y || a.x - b.x)]
+}
+
+/**
+ * The nodes after a row of the Sankey's list (listedNodes) moved from
+ * `from` to `to`: the same y values handed out again in the new order, so
+ * the order is the list's and nothing else moves - the bus not at all, its
+ * y is its place in the Flow.
+ */
+export function reorderedNodes(nodes: readonly EnergyNode[], from: number, to: number): EnergyNode[] {
+  const moved = listedNodes(nodes, "sankey")
+  const [n] = moved.splice(from, 1)
+  moved.splice(to, 0, n)
+  const order = moved.filter((m) => m.role !== "bus")
+  const ys = order.map((m) => m.y).sort((a, b) => a - b)
+  // Equal y would leave the order to x: each at least a pixel below the one before.
+  const placed = new Map<string, number>()
+  order.forEach((m, i) => placed.set(m.id, i > 0 ? Math.max(ys[i], placed.get(order[i - 1].id)! + 1) : ys[i]))
+  return nodes.map((m) => ({ ...m, y: placed.get(m.id) ?? m.y }))
+}
+
 export interface EnergyDiagramProperties {
   mode: EnergyMode
   motion: boolean

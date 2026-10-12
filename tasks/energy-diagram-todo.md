@@ -37,7 +37,9 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
   - on the way: two tests the screens' «Copy» (5195b7e) had broken, fixed apart (clipboard, navigator)
 - [x] D3 Motion in the preview
   - in the preview's simulation (the examples) or live; ~30 frames/s, one loop per screen, `window.__energyFrozenPhase` holds it
-- [ ] D4 Property panel: the diagram and its nodes
+- [x] D4 Property panel: the diagram and its nodes
+  - the node's «Tap» (action) is already in its fields; D6 makes the preview run it
+  - the Text panel's live-text block became `live-text-editor.tsx`, used by both
 - [ ] D5 Dragging nodes in Flow
 - [ ] D6 A tap on a node runs its action
 - [ ] D7 Copy and paste, topic usage

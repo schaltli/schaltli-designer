@@ -9,6 +9,7 @@ import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
 import { NavigatorProperties } from "./navigator-properties"
+import { EnergyDiagramProperties } from "./energy-diagram-properties"
 import { LineProperties } from "./line-properties"
 import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
@@ -344,6 +345,27 @@ export function PropertyPanel({
                   onManageFonts={handleManageFonts}
                   screenWidth={screenWidth}
                   screenHeight={screenHeight}
+                />
+              )}
+
+              {selectedObject.type === "energy-diagram" && (
+                <EnergyDiagramProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                  combinedTopics={combinedTopics}
+                  numberSeparators={numberSeparators}
+                  onDeclareTopics={onDeclareTopics}
+                  projectAssets={projectAssets}
+                  colorDepth={colorDepth}
+                  onOpenNodeIcon={(nodeId) => {
+                    setIconSelectorContext({ type: "energy-node", nodeId })
+                    setShowIconSelector(true)
+                  }}
+                  allScreens={allScreens}
                 />
               )}
 

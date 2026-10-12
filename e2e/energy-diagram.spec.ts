@@ -9,7 +9,7 @@ import { buildEditableProjectZip } from "../lib/project-zip"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
-import { defaultDiagram, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+import { defaultDiagram, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
 
 // The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
 // tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
@@ -146,11 +146,11 @@ test.describe("the energy diagram's core additions", () => {
     expect(d.nodes.filter((n) => n.role === "rest")).toHaveLength(1)
   })
 
-  test("{watts} is the node's watts, whole; nothing known is a dash", () => {
+  test("{watts} is the node's watts, whole; nothing known is a hyphen", () => {
     expect(withWatts("{watts} W", 92.4)).toBe("92 W")
     expect(withWatts("{watts} W", 92.5)).toBe("93 W")
     expect(withWatts("{watts} W · {watts}", 0)).toBe("0 W · 0")
-    expect(withWatts("{watts} W", undefined)).toBe("– W")
+    expect(withWatts("{watts} W", undefined)).toBe("- W")
     expect(withWatts("{live:soc} %", 5)).toBe("{live:soc} %")
   })
 })
@@ -405,5 +405,82 @@ test.describe("the energy diagram moving in the preview", () => {
     await page.waitForTimeout(300)
     const threeQuarters = (await canvasPixels(page)).data
     expect(threeQuarters.some((v, i) => v !== quarter[i])).toBe(true)
+  })
+})
+
+// ---- D4: the property panel. A diagram drawn with the tool, its panel open.
+
+test.describe("the energy diagram's panel", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("energy-diagram")) manifest.supportedObjectTypes.push("energy-diagram")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  const diagramOf = async (page: Page) => diagramsOf(await downloadProjectJson(page))[0]
+
+  test("Mode, Motion and Full scale; switching mode keeps every node", async ({ page }) => {
+    await newProject(page)
+    await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
+    await expect(page.locator("#energyFullScale")).toHaveCount(0)
+    const before = await diagramOf(page)
+    await page.locator("#energyMode").selectOption("sankey")
+    await page.locator("#energyFullScale").fill("2500")
+    await page.locator("#energyFullScale").press("Enter")
+    await page.getByText("Dots and waves move").click()
+    const after = await diagramOf(page)
+    expect(after.properties).toMatchObject({ mode: "sankey", fullScale: 2500, motion: false })
+    expect(after.properties.nodes).toEqual(before.properties.nodes)
+  })
+
+  test("nodes: added by role, one rest at most, the bus stays, a node's fields change it", async ({ page }) => {
+    await newProject(page)
+    await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
+    const add = page.locator("#energyAddNode")
+    await expect(add.locator("option", { hasText: "Rest" })).toHaveCount(0)
+    await add.selectOption("sink")
+    await expect(page.getByRole("button", { name: "Remove 12 V" })).toHaveCount(0)
+    await page.getByRole("button", { name: "Remove Battery" }).click()
+    let d = await diagramOf(page)
+    expect(d.properties.nodes.map((n: Obj) => n.role)).toEqual(["bus", "source", "rest", "sink"])
+
+    // The new sink's fields: its name and its topic's reverse sign.
+    await page.getByRole("button", { name: /^Sink/ }).first().click()
+    const sink = d.properties.nodes.find((n: Obj) => n.role === "sink")
+    await page.locator(`#energy-${sink.id}-name`).fill("Fridge")
+    await page.locator(`#energy-${sink.id}-name`).press("Tab")
+    await page.getByText("The topic counts the other way").click()
+    // A second line, then the tap opens nothing.
+    await page.getByRole("button", { name: "Add line" }).click()
+    d = await diagramOf(page)
+    const fridge = d.properties.nodes.find((n: Obj) => n.id === sink.id)
+    expect(fridge).toMatchObject({ name: "Fridge", reverseSign: true })
+    expect(fridge.lines).toHaveLength(2)
+    expect(fridge.action).toBeUndefined()
+
+    // The rest gone, it may be added again.
+    await page.getByRole("button", { name: "Remove Consumers" }).click()
+    await expect(add.locator("option", { hasText: "Rest" })).toHaveCount(1)
+  })
+
+  test("in the Sankey the rows are its order: dragging one changes which comes first", async ({ page }) => {
+    const nodes: EnergyNode[] = [
+      { id: "bus", role: "bus", name: "12 V", x: 270, y: 200 },
+      { id: "a", role: "source", name: "Alpha", x: 80, y: 60 },
+      { id: "b", role: "source", name: "Beta", x: 80, y: 200 },
+      { id: "c", role: "source", name: "Gamma", x: 80, y: 340 },
+    ]
+    expect(listedNodes(nodes, "sankey").map((n) => n.id)).toEqual(["bus", "a", "b", "c"])
+    expect(listedNodes(nodes, "flow").map((n) => n.id)).toEqual(["bus", "a", "b", "c"])
+    const moved = reorderedNodes(nodes, 3, 1)
+    expect(listedNodes(moved, "sankey").map((n) => n.id)).toEqual(["bus", "c", "a", "b"])
+    // Nothing but the nodes' y changed, the bus not at all.
+    expect(moved.map((n) => n.x)).toEqual(nodes.map((n) => n.x))
+    expect(moved.find((n) => n.id === "bus")).toEqual(nodes[0])
+    expect(moved.map((n) => n.y)).toEqual([200, 200, 340, 60])
+    void page
   })
 })

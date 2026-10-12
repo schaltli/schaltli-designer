@@ -13,14 +13,10 @@
  * of its own, went into Text on 2026-10-07.
  */
 
-import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
-import { useEffect, useState } from "react"
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
-import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
-import { liveTextSegments, placeholdersToLiveValues, sourceShortName, textOf, type LiveValue } from "@/lib/live-value"
-import { LiveValueEditor } from "./live-value-editor"
-import { topicExample } from "@/lib/placeholder-completion"
-import { LiveTextField } from "./fields/live-text-field"
+import type { Separators } from "@/lib/placeholders"
+import { LiveTextEditor } from "./live-text-editor"
 import { liveValuesOf } from "@/lib/object-text"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectFont, Topic } from "../project-editor"
@@ -97,32 +93,6 @@ export function LabelProperties({
   }
 
   const liveValues = liveValuesOf(selectedObject)
-  // The live value whose editor is open under the field, and the chips in
-  // the order the text has them, for ‹ and ›.
-  const [openLiveValueId, setOpenLiveValueId] = useState<string | null>(null)
-  useEffect(() => setOpenLiveValueId(null), [selectedObject.id])
-  const chipOrder = [
-    ...new Set(
-      liveTextSegments(String(selectedObject.properties.text ?? ""), liveValues).flatMap((segment) => (segment.kind === "live" ? [segment.id] : [])),
-    ),
-  ]
-  const openLiveValue = openLiveValueId && chipOrder.includes(openLiveValueId) ? liveValues.find((lv) => lv.id === openLiveValueId) : undefined
-  const chipIndex = openLiveValue ? chipOrder.indexOf(openLiveValue.id) : -1
-
-  // What a chip shows - its source's short name and what it reads at the
-  // examples - in the field and in the head of its editor alike.
-  const chipLabelOf = (lv: LiveValue) => ({
-    name: sourceShortName(lv.source),
-    reads: textOf(
-      lv,
-      lv.source.namespace === "topic"
-        ? topicExample(lv.source.path, topics)
-        : lv.source.namespace === "combined"
-          ? computeCombined(combinedTopics, (path) => topicExample(path, topics)).get(lv.source.path)
-          : undefined,
-      numberSeparators ?? DEFAULT_SEPARATORS,
-    ),
-  })
 
   // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
@@ -133,58 +103,18 @@ export function LabelProperties({
   return (
     <PropertySections>
       <PropertySection title="Content">
-        <LiveTextField
+        <LiveTextEditor
           id="text"
           label="Text"
           text={selectedObject.properties.text}
           liveValues={liveValues}
-          onChange={(text, next) => {
-            onUpdateObject(selectedObject.id, {
-              properties: { ...selectedObject.properties, text, liveValues: next.length > 0 ? next : undefined },
-            })
-          }}
-          onBlur={(text, current) => {
-            // A placeholder typed in full becomes a chip; a live value whose
-            // chip is gone goes with it (docs/2026-10-07-live-values.md).
-            const typed = parse(text).some((segment) => segment.kind === "placeholder")
-            const live = typed ? placeholdersToLiveValues(text, current, numberSeparators ?? DEFAULT_SEPARATORS) : { text, liveValues: current }
-            const kept = live.liveValues.filter((lv) => live.text.includes(`{live:${lv.id}}`))
-            onDeclareTopics?.(kept.filter((lv) => lv.source.namespace === "topic").map((lv) => lv.source.path))
-            if (live.text !== text || kept.length !== current.length) {
-              onUpdateObject(selectedObject.id, {
-                properties: { ...selectedObject.properties, text: live.text, liveValues: kept.length > 0 ? kept : undefined },
-              })
-            }
-          }}
-          onOpenLiveValue={setOpenLiveValueId}
-          openLiveValueId={openLiveValueId}
-          chipLabel={chipLabelOf}
+          onChange={(text, next) => onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, text, liveValues: next } })}
+          onDeclareTopics={onDeclareTopics}
           topics={topics}
           combinedTopics={combinedTopics}
-          separators={numberSeparators}
+          numberSeparators={numberSeparators}
+          resetKey={selectedObject.id}
         />
-        {openLiveValue ? (
-          <LiveValueEditor
-            liveValue={openLiveValue}
-            combinedTopics={combinedTopics}
-            chip={chipLabelOf(openLiveValue)}
-            chipSelector={`#text [data-live-id="${openLiveValue.id}"]`}
-            position={chipOrder.indexOf(openLiveValue.id) + 1}
-            count={chipOrder.length}
-            topics={topics}
-            onChange={(changed) =>
-              onUpdateObject(selectedObject.id, {
-                properties: { ...selectedObject.properties, liveValues: liveValues.map((lv) => (lv.id === changed.id ? changed : lv)) },
-              })
-            }
-            onPrevious={chipIndex > 0 ? () => setOpenLiveValueId(chipOrder[chipIndex - 1]) : undefined}
-            onNext={chipIndex < chipOrder.length - 1 ? () => setOpenLiveValueId(chipOrder[chipIndex + 1]) : undefined}
-            onClose={(backToText) => {
-              setOpenLiveValueId(null)
-              if (backToText) document.getElementById("text")?.focus()
-            }}
-          />
-        ) : null}
       </PropertySection>
 
       <PropertySection title="Text">

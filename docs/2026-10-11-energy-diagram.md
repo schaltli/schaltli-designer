@@ -156,7 +156,7 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     `{live:<id>}`, `liveValues` with rules, format, No value yet). The
     first line defaults to the watts, `{watts} W`: **`{watts}`** is the
     node's watts as the diagram has them - after «Reverse sign», the rest
-    worked out, whole, a dash while its topic has said nothing - put in
+    worked out, whole, a hyphen while its topic has said nothing (a dash is in few device fonts) - put in
     before the line is resolved as live text (decided in D1, 2026-10-12:
     the rest has no topic a live value could read, and a live value on the
     topic would show the sign before «Reverse sign»). Names and quieter
