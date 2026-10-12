@@ -21,3 +21,4 @@ untouched; a push on halt or finish.
 - [x] C6 Handbook
   - objekte/anzeigen.md, the info box: no device offers it yet; what Deploy does with an older firmware or app
 - [ ] Checkpoint: test:all green; the user has read §2.8
+  - the user: «ok weiter» 2026-10-12 after the summary; test:all running
