@@ -20,7 +20,6 @@ const files = [
   "device/splash-knob-360x360.png",
   "device/splash-4v3b-800x480.png",
   "device/splash-papers3-960x540.png",
-  "device/splash-epaper-400x300-1bit.png",
 ]
 
 fs.rmSync(out, { recursive: true, force: true })

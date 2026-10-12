@@ -11,7 +11,7 @@
 // type, so a failing case names the control rather than a screen number.
 //
 // The shapes here are lifted from the two fixtures that were hand-built
-// before this existed (hil/epaper/fixtures/build-comprehensive-test.js and
+// before this existed (the retired e-paper's hil/epaper/fixtures/build-comprehensive-test.js and
 // hil/waveshare/fixtures/build-smoke-test.js), because those are the ones
 // proven to render identically on both sides. Where they carry a comment
 // about why a property is the way it is, that reasoning is repeated here

@@ -21,9 +21,9 @@ Schaltli läuft auf drei Boards und auf Android-Handys. Ein Projekt im Designer 
 
 Alle vier können sämtliche Objekttypen des Designers darstellen. Welche das sind, zeigt der Designer selbst: Er blendet in der Werkzeugleiste aus, was ein Gerät nicht kann.
 
-## Das E-Paper-Display (läuft aus)
+## Das E-Paper-Display (nicht mehr unterstützt)
 
-Das «MQTT ePaper Display (GDEY042T81)» mit 400 × 300 Pixeln in Schwarz-Weiss und zwölf Tasten war das erste Schaltli-Gerät. Es läuft aus: Es bekommt keine Updates über den Designer mehr und lässt sich nur noch per USB bespielen. Für neue Einbauten nimm eines der Geräte oben. Wer eines hat, kann es im Designer weiterhin als Gerät wählen.
+Das «MQTT ePaper Display (GDEY042T81)» mit 400 × 300 Pixeln in Schwarz-Weiss und zwölf Tasten war das erste Schaltli-Gerät. Seit Oktober 2026 wird es nicht mehr unterstützt. Ein Projekt, das du dafür gemacht hast, öffnet der Designer weiterhin, für ein neues Projekt bietet er es nicht mehr an. Für neue Einbauten nimm eines der Geräte oben.
 
 ## Ohne eigenes Gerät
 

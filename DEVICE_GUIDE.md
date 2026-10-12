@@ -77,11 +77,13 @@ What does *not* live here is the editable source of a curated one. Each
 board's `device.json`/`adornment.svg`/`fonts/` is authored in its own
 firmware repo under `ddf-source/`, and a script there builds the zip into
 this repo's `public/ddf/`: `tools/generate-ddf-header.js` in
-`schaltli-firmware` (all three boards) and `tools/build-ddf.js` in
-`schaltli-eink`. Each takes `--check`, and `hil/test-all.js` runs them -
-a built file checked in next to no check is a file that goes stale quietly,
-which has now happened twice (the M5 Dial's zip, and the e-paper's own copy
-sitting at DDF 1.3 while this repo held 1.5).
+`schaltli-firmware` (all three boards). It takes `--check`, and
+`hil/test-all.js` runs it - a built file checked in next to no check is a
+file that goes stale quietly, which has happened twice (the M5 Dial's zip,
+and the e-paper's own copy sitting at DDF 1.3 while this repo held 1.5).
+The retired XIAO e-paper's zip (`mqtt-epaper-display.ddf.zip`) has no
+source any more: it stays as it is, for the projects made for it and as
+the e2e suite's device without touch.
 
 ## `device.json` reference
 
@@ -97,7 +99,9 @@ sitting at DDF 1.3 while this repo held 1.5).
   "device": {
     "id": "your-device-id",          // stable, unique - projects store this
     "name": "Human-Readable Name",   // shown in the device picker
-    "firmwareRepo": "YourFirmwareRepo" // optional, informational only
+    "firmwareRepo": "YourFirmwareRepo", // optional, informational only
+    "retired": true                  // optional: no longer made for - its projects
+                                     // still open, but no picker offers it (2026-10-12)
   },
 
   "screen": {

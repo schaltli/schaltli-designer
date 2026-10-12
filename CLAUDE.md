@@ -1,8 +1,8 @@
 # Testing
 
 Run the full local test suite with `npm run test:all` (bundles the
-Playwright `e2e/` suite and every HIL suite: `hil/epaper/`,
-`hil/waveshare/`, `hil/waveshare4v3b/`, `hil/android/` and
+Playwright `e2e/` suite and every HIL suite: `hil/waveshare/`,
+`hil/waveshare4v3b/`, `hil/papers3/`, `hil/android/` and
 `hil/conformance/` - see `hil/README.md` for what each one needs
 running/connected). Hardware-dependent HIL suites are skipped with a
 visible warning when their device isn't reachable, never silently.
@@ -11,9 +11,8 @@ visible warning when their device isn't reachable, never silently.
 When building or fixing a feature, any one-off script written to verify it
 live (a scratch Playwright script, a manual HIL run against real hardware)
 gets turned into a permanent `e2e/` spec or an addition to the relevant HIL
-fixture (`hil/epaper/fixtures/build-comprehensive-test.js`,
-`hil/waveshare/fixtures/`, or the equivalent under
-`hil/android/fixtures/` once one exists) before considering the task
+fixture (`hil/waveshare/fixtures/`, `hil/conformance/specimens.js`, or the
+equivalent under `hil/android/fixtures/`) before considering the task
 finished - not thrown away. State explicitly, when reporting a
 task as complete, which test was added or extended.
 

@@ -121,8 +121,8 @@ test("erzeugt den Markensatz neu", async ({ page }) => {
     }, null, 1)}\n`)
 
   // --- Rastergrafik --------------------------------------------------------
-  const png = async (source: string, w: number, h: number, oneBit = false, fill = 0.62) => {
-    return await page.evaluate(async ({ source, w, h, oneBit, fill }) => {
+  const png = async (source: string, w: number, h: number, fill = 0.62) => {
+    return await page.evaluate(async ({ source, w, h, fill }) => {
       const img = new Image()
       const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source)
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url })
@@ -135,17 +135,8 @@ test("erzeugt den Markensatz neu", async ({ page }) => {
       const scale = Math.min(target / img.width, (h * fill) / img.height)
       const dw = img.width * scale, dh = img.height * scale
       g.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh)
-      if (oneBit) {
-        const d = g.getImageData(0, 0, w, h)
-        for (let i = 0; i < d.data.length; i += 4) {
-          const lum = 0.299 * d.data[i] + 0.587 * d.data[i + 1] + 0.114 * d.data[i + 2]
-          const v = lum < 128 ? 0 : 255
-          d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255
-        }
-        g.putImageData(d, 0, 0)
-      }
       return c.toDataURL("image/png").split(",")[1]
-    }, { source, w, h, oneBit, fill })
+    }, { source, w, h, fill })
   }
 
   const squareSvg = fs.readFileSync(path.join(BRAND, "icon-square.svg"), "utf8")
@@ -154,10 +145,10 @@ test("erzeugt den Markensatz neu", async ({ page }) => {
   const write = (p: string, b64: string) => fs.writeFileSync(p, Buffer.from(b64, "base64"))
 
   // Icons randlos aus dem Vollton-Quadrat, damit sie ihr Feld ausfüllen
-  write(path.join(BRAND, "favicon-16.png"), await png(squareSvg, 16, 16, false, 1))
-  write(path.join(BRAND, "favicon-32.png"), await png(squareSvg, 32, 32, false, 1))
-  write(path.join(BRAND, "apple-touch-icon-180.png"), await png(squareSvg, 180, 180, false, 1))
-  write(path.join(BRAND, "icon-512.png"), await png(squareSvg, 512, 512, false, 1))
+  write(path.join(BRAND, "favicon-16.png"), await png(squareSvg, 16, 16, 1))
+  write(path.join(BRAND, "favicon-32.png"), await png(squareSvg, 32, 32, 1))
+  write(path.join(BRAND, "apple-touch-icon-180.png"), await png(squareSvg, 180, 180, 1))
+  write(path.join(BRAND, "icon-512.png"), await png(squareSvg, 512, 512, 1))
 
   // Der Designer selbst: Next.js nimmt app/icon.svg als Favicon und
   // app/apple-icon.png als Icon für den Home-Bildschirm. Kopien, keine eigenen
@@ -167,11 +158,10 @@ test("erzeugt den Markensatz neu", async ({ page }) => {
   fs.copyFileSync(path.join(BRAND, "icon.svg"), path.join(APP, "icon.svg"))
   fs.copyFileSync(path.join(BRAND, "apple-touch-icon-180.png"), path.join(APP, "apple-icon.png"))
 
-  // Boot-Bilder in den echten Auflösungen der vier Boards
+  // Boot-Bilder in den echten Auflösungen der drei Boards
   write(path.join(BRAND, "device", "splash-knob-360x360.png"), await png(wordSvg, 360, 360))
   write(path.join(BRAND, "device", "splash-4v3b-800x480.png"), await png(wordSvg, 800, 480))
   write(path.join(BRAND, "device", "splash-papers3-960x540.png"), await png(wordSvg, 960, 540))
-  write(path.join(BRAND, "device", "splash-epaper-400x300-1bit.png"), await png(wordSvg, 400, 300, true))
 
   // Kontaktbogen zum Ansehen
   const sheet = `<!doctype html><meta charset="utf-8"><style>
@@ -188,11 +178,10 @@ img{background:#fff;border:1px solid #eee}
 <span class="d"><img src="wordmark-dark.svg" height="62" style="border:0;background:none"></span></div>
 <h3>Favicon und Icons</h3><div class="r">
 <img src="favicon-16.png"><img src="favicon-32.png"><img src="apple-touch-icon-180.png" height="90"></div>
-<h3>Boot-Bilder der vier Boards</h3><div class="r">
+<h3>Boot-Bilder der drei Boards</h3><div class="r">
 <img src="device/splash-knob-360x360.png" height="150">
 <img src="device/splash-4v3b-800x480.png" height="150">
-<img src="device/splash-papers3-960x540.png" height="150">
-<img src="device/splash-epaper-400x300-1bit.png" height="150"></div>
+<img src="device/splash-papers3-960x540.png" height="150"></div>
 `
   fs.writeFileSync(path.join(BRAND, "contact-sheet.html"), sheet)
 

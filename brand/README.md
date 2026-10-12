@@ -91,8 +91,8 @@ In Farbe darf die Kugel im Zeichen orange sein. Sonst bleibt das Zeichen
 schwarz.
 
 Auf E-Paper gibt es keine Farbe. Auf dem PaperS3 wird Orange ein mittleres
-Grau, auf dem 1-Bit-Panel verschwindet es ganz. Ob etwas an ist, muss
-deshalb immer auch die Form zeigen, die Kugel rechts. Die Farbe kommt nur
+Grau. Ob etwas an ist, muss deshalb immer auch die Form zeigen, die Kugel
+rechts. Die Farbe kommt nur
 dazu.
 
 Für Diagramme gibt es die Palette als Profil `schaltli` des Plugins
@@ -103,15 +103,11 @@ zeigt den Weg vom Designer über den Pi auf die Geräte.
 
 ## Die Geräte
 
-`device/` enthält die Boot-Bilder in den echten Auflösungen der vier Boards:
+`device/` enthält die Boot-Bilder in den echten Auflösungen der drei Boards:
 
 - `splash-knob-360x360.png` – Waveshare Knob-Touch LCD 1.8
 - `splash-4v3b-800x480.png` – Waveshare ESP32-S3-Touch-LCD-4.3B
 - `splash-papers3-960x540.png` – M5Stack PaperS3, 4 Bit Graustufen
-- `splash-epaper-400x300-1bit.png` – GDEY042T81, **auf ein Bit geschwellt**
-
-Das E-Paper-Bild ist bereits schwarzweiss gerechnet, nicht bloss graustufig
-gespeichert – was du siehst, ist was das Panel zeigt.
 
 ## Der Auftritt
 
@@ -155,8 +151,7 @@ ohnehin bei jeder Weitergabe.
 
 Bewacht wird das Ergebnis von `e2e/brand-assets.spec.ts`, das im normalen
 Durchgang mitläuft: es prüft, dass jedes Stück da ist, dass die Schriftzüge
-Umrisse statt `<text>` tragen, dass das E-Paper-Bild wirklich nur zwei Töne
-hat, dass die Animation ohne Schriftlieferung durchläuft und am Ende die
+Umrisse statt `<text>` tragen, dass die Animation ohne Schriftlieferung durchläuft und am Ende die
 Kugel oben stehen hat – und dass nichts bündig am Rand klebt.
 
 ## Warum überall Luft ist

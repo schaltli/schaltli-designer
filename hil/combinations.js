@@ -1,5 +1,5 @@
 // Wrap-around MQTT-value combination generation, shared by both
-// orchestrators (hil/epaper, hil/android) - for each screen, run as many
+// orchestrators (hil/android; hil/epaper until 2026-10-12) - for each screen, run as many
 // combinations as the MAX number of examples across the topics that
 // screen's objects (including nested tab-control panel children) bind to.
 // Combination i uses examples[i % examples.length] per topic. A screen with

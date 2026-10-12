@@ -1,6 +1,6 @@
 // Bundles the whole local test suite into one command: the Playwright
-// `e2e/` suite, `hil/epaper/orchestrator.js`, `hil/android/
-// orchestrator.js` and (since 2026-08-20) `hil/waveshare/`'s orchestrator
+// `e2e/` suite, `hil/android/orchestrator.js` and (since 2026-08-20)
+// `hil/waveshare/`'s orchestrator
 // plus its smoke-test verifier - built
 // 2026-07-31 (grill-me session) after repeatedly hitting the friction of
 // running each of these by hand, separately, only when someone remembered
@@ -11,9 +11,9 @@
 // against a golden file generated from THIS repo, so a change here is what
 // breaks it and the person making that change is who should see it.
 //
-// Since 2026-09-22 it also runs the four host checks that live in the
-// firmware repos (schaltli-firmware/tools/{arc-raster,level-shape,
-// switch-shape}, schaltli-eink/tools/arc-raster): the boards' own C++
+// Since 2026-09-22 it also runs the host checks that live in the firmware
+// repo (schaltli-firmware/tools/{arc-raster,level-shape,switch-shape,...}):
+// the boards' own C++
 // compiled for this machine and compared against the designer's recordings.
 // Like the Android unit test they need no hardware, and like it they belong
 // here because the recording they are held to is generated from THIS repo.
@@ -26,7 +26,8 @@
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
 // output and the final summary, never silently - when their device isn't
 // reachable, rather than failing the whole run just because a phone wasn't
-// plugged in. The epaper orchestrator doesn't fail its own exit code on a
+// plugged in. (The XIAO e-paper and its suite hil/epaper/ went on
+// 2026-10-12.) Some orchestrators don't fail their own exit code on a
 // comparison mismatch (only on a crash), so this wrapper reads each
 // one's results.json itself to decide pass/fail - see the two functions
 // below. The Waveshare one does set its exit code, and also runs a check that
@@ -44,7 +45,7 @@
 //
 // Run: npm run test:all
 // Each board's address has a default that DHCP can invalidate at any time -
-// override with HIL_EPAPER_DEVICE / HIL_WAVESHARE_DEVICE
+// override with HIL_WAVESHARE_DEVICE / HIL_WAVESHARE_4V3B_DEVICE
 // =<ip> when one has moved (a wrong address just skips that suite, loudly).
 
 const { spawn } = require("child_process")
@@ -53,8 +54,6 @@ const path = require("path")
 const http = require("http")
 
 const REPO_ROOT = path.join(__dirname, "..")
-const EPAPER_DEVICE = process.env.HIL_EPAPER_DEVICE || "192.168.1.110"
-const EPAPER_PROJECT = path.join(__dirname, "epaper/fixtures/comprehensive-test.zip")
 const ANDROID_PROJECT = path.join(__dirname, "android/fixtures/comprehensive-test.zip")
 const WAVESHARE_DEVICE = process.env.HIL_WAVESHARE_DEVICE || "192.168.1.114"
 const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zip")
@@ -72,7 +71,6 @@ const ANDROID_REPO = process.env.SCHALTLI_ANDROID_REPO || path.join(REPO_ROOT, "
 // without a device present. (It no longer lacks an HTTP server - it serves
 // its own /ddf.zip and announces it over MQTT like the knob does.)
 const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "schaltli-firmware")
-const EPAPER_REPO = process.env.SCHALTLI_EPAPER_REPO || path.join(REPO_ROOT, "..", "schaltli-eink")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
@@ -253,7 +251,6 @@ async function main() {
     { name: "fw-switch-shape", repo: FIRMWARE_REPO, script: "tools/switch-shape/run.js", detail: "switch shapes and colours agree with the designer" },
     { name: "fw-pill-raster", repo: FIRMWARE_REPO, script: "tools/pill-raster/run.js", detail: "the quick pill coverage agrees with the full sampling" },
     { name: "fw-theme-variant", repo: FIRMWARE_REPO, script: "tools/theme-variant/run.js", detail: "the light/dark swap follows the designer's reader rule" },
-    { name: "epaper-arc-raster", repo: EPAPER_REPO, script: "tools/arc-raster/run.js", detail: "1-bit arc rasterizer agrees with the designer" },
   ]
   for (const check of hostChecks) {
     console.log(`\n=== ${check.name} (host, no hardware) ===`)
@@ -294,27 +291,6 @@ async function main() {
       detail: exitCode === 0 ? "placeholder and live value vectors, popup fence" : missing ? "pio not found - install PlatformIO Core" : `exit code ${exitCode} - see output above`,
       report: "",
     })
-  }
-
-  console.log(`\n=== epaper HIL (device: ${EPAPER_DEVICE}) ===`)
-  const epaperReachable = (await httpGetStatus(`http://${EPAPER_DEVICE}/`)) === 200
-  if (!epaperReachable) {
-    console.warn(`SKIPPED - device not reachable at http://${EPAPER_DEVICE}/ (set HIL_EPAPER_DEVICE to override)`)
-    summary.push({ name: "epaper-HIL", status: "SKIPPED", detail: `device unreachable at ${EPAPER_DEVICE}`, report: "hil/epaper/report/index.html" })
-  } else if (!fs.existsSync(EPAPER_PROJECT)) {
-    console.warn(`SKIPPED - fixture not found: ${EPAPER_PROJECT}`)
-    summary.push({ name: "epaper-HIL", status: "SKIPPED", detail: "fixture missing", report: "hil/epaper/report/index.html" })
-  } else {
-    clearResults(path.join(__dirname, "epaper/report"))
-    const exitCode = await run("node", ["hil/epaper/orchestrator.js", "--project", EPAPER_PROJECT, "--device", EPAPER_DEVICE], { cwd: REPO_ROOT })
-    const results = readResults(path.join(__dirname, "epaper/report"))
-    if (!results) {
-      summary.push({ name: "epaper-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/epaper/report/index.html" })
-    } else {
-      const passed = results.filter((r) => r.pass).length
-      const ok = passed === results.length && results.length > 0
-      summary.push({ name: "epaper-HIL", status: ok ? "PASS" : "FAIL", detail: `${passed}/${results.length} cases`, report: "hil/epaper/report/index.html" })
-    }
   }
 
   console.log(`\n=== Waveshare HIL (device: ${WAVESHARE_DEVICE}) ===`)
@@ -1058,32 +1034,6 @@ async function main() {
     })
   }
 
-  // And the e-paper, which had no such guard until 2026-09-12 because it had
-  // no source to compare against: its DDF was a hand-assembled zip living in
-  // two places at once. It drifted exactly as the other two headers warn -
-  // the designer's copy was migrated to DDF 1.5 in August and the board's
-  // was not, so it announced and served 1.3 while the designer held 1.5.
-  //
-  // Its builder writes both copies from one source and checks both, so this
-  // fires whether the board's data/ddf.zip or public/ddf/ is the stale one.
-  console.log("\n=== e-paper DDF freshness ===")
-  const epaperBuilder = path.join(EPAPER_REPO, "tools", "build-ddf.js")
-  if (!fs.existsSync(epaperBuilder)) {
-    console.warn(`SKIPPED - e-paper repo not checked out at ${EPAPER_REPO} (set SCHALTLI_EPAPER_REPO to override)`)
-    summary.push({ name: "epaper-ddf", status: "SKIPPED", detail: "e-paper repo not checked out", report: "" })
-  } else {
-    const exitCode = await run("node", [epaperBuilder, "--check"], { cwd: EPAPER_REPO })
-    summary.push({
-      name: "epaper-ddf",
-      status: exitCode === 0 ? "PASS" : "FAIL",
-      detail:
-        exitCode === 0
-          ? "data/ddf.zip and public/ddf zip both match ddf-source"
-          : "stale - run node tools/build-ddf.js in the e-paper repo",
-      report: "",
-    })
-  }
-
   // The Android app's own JVM unit tests: the arc rasterizer held to the
   // numbers the designer's copy produces (hil/android/fixtures/
   // build-arc-golden.js records them), and what the app's runtime-built DDF
@@ -1093,7 +1043,7 @@ async function main() {
   // is exactly what invalidates it, and the person making that change is the
   // one who has to see it go red.
   // The brand mark exists twice now: brand/glyphs.js here, and BrandGlyphs.kt
-  // in the app, which is generated from it. Same argument as the three DDF
+  // in the app, which is generated from it. Same argument as the DDF
   // freshness checks above - a copy nobody compares is a copy that drifts, and
   // this one is 5 KB of curve numbers that no human will ever diff.
   console.log("\n=== brand glyphs freshness (Android copy) ===")

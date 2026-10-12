@@ -27,4 +27,4 @@ Ein Feld in grauer Schrift mit Schloss rechnet der Designer selbst aus, etwa die
 
 ## Nicht jedes Gerät kann alles
 
-Knob, 4.3B, PaperS3 und die Android-App können alle Typen darstellen, ausser dass der runde Knob keinen [Navigator](/objekte/anordnen#navigator) hat. Das [Energy diagram](/objekte/anzeigen#energiediagramm) zeichnet vorerst nur der Designer. Das auslaufende E-Paper-Display kann nichts aus der Gruppe [Bedienen](/objekte/bedienen). Der Designer blendet in der Werkzeugleiste aus, was das Gerät des Projekts nicht kann.
+Knob, 4.3B, PaperS3 und die Android-App können alle Typen darstellen, ausser dass der runde Knob keinen [Navigator](/objekte/anordnen#navigator) hat. Das [Energy diagram](/objekte/anzeigen#energiediagramm) zeichnet vorerst nur der Designer. Der Designer blendet in der Werkzeugleiste aus, was das Gerät des Projekts nicht kann.

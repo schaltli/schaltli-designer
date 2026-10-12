@@ -1,6 +1,6 @@
 import os from "os"
 
-// Server-side counterpart to hil/epaper/orchestrator.js's localLanAddress()
+// Server-side counterpart to the retired e-paper orchestrator's localLanAddress()
 // helper - same bug, same fix, different caller. app/api/deploy/route.ts
 // needs to hand the *device* a URL it can actually reach; the browser's
 // own window.location.origin is NOT that (2026-08-01 finding, reported

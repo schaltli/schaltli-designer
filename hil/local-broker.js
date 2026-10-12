@@ -13,8 +13,8 @@
 // this project's HIL tooling is already all-Node.
 //
 // Run once, leave it running for the whole work session - same convention
-// as the designer dev server (`npm run dev`): neither hil/epaper/
-// orchestrator.js nor hil/android/orchestrator.js start this themselves,
+// as the designer dev server (`npm run dev`): no orchestrator (hil/android/,
+// hil/waveshare/, ...) starts this itself,
 // since they're just as often run standalone (iterating on one HIL case)
 // as through npm run test:all, and a broker's lifetime shouldn't be tied
 // to any single one of those invocations.
@@ -70,10 +70,9 @@ async function main() {
     console.log("Reachable at:");
     console.log(`  localhost:${PORT} (orchestrators on this machine)`);
     for (const addr of localLanAddresses()) {
-      console.log(`  ${addr}:${PORT} (the e-paper device / Android phone, same LAN)`);
+      console.log(`  ${addr}:${PORT} (the boards / Android phone, same LAN)`);
     }
-    console.log("\nPoint the e-paper device at this broker once via its Setup page (WiFi & MQTT tab)");
-    console.log("- see hil/README.md for the one-time reconfiguration steps.");
+    console.log("\nPoint a board at this broker once with node hil/boards-network.js - see hil/README.md.");
   });
 
   const wsHttpServer = http.createServer();

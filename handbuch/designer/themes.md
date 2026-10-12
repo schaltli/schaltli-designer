@@ -6,7 +6,7 @@ Farben wählst du im Designer nicht einzeln. Jeder Screen hat ein Theme, und jed
 
 Der Designer bringt acht farbige Themes mit: Lavender, Schaltli, Slate, Forest, Ocean, Amber, Terracotta und Garden. Jedes gibt es hell und dunkel. Dazu kommt Paper, schwarz auf weiss, gemacht für die 16 Graustufen des [PaperS3](/geraete/papers3). Die Themes lassen sich nicht bearbeiten.
 
-Welche Themes du siehst, hängt vom Gerät ab. Ein Gerät mit Farbdisplay und das schwarzweisse E-Paper bekommen die acht farbigen, neue Master fangen dort mit Lavender an. Der PaperS3 bekommt nur Paper: In Graustufen sähen die farbigen Themes fast gleich aus, und ihre Balken wären ein blasses Grau. Ein Screen, der schon ein anderes Theme hat, etwa nach einem Gerätewechsel, behält es, bis du ein anderes wählst.
+Welche Themes du siehst, hängt vom Gerät ab. Ein Gerät mit Farbdisplay bekommt die acht farbigen, neue Master fangen dort mit Lavender an. Der PaperS3 bekommt nur Paper: In Graustufen sähen die farbigen Themes fast gleich aus, und ihre Balken wären ein blasses Grau. Ein Screen, der schon ein anderes Theme hat, etwa nach einem Gerätewechsel, behält es, bis du ein anderes wählst.
 
 ## Master und Screen
 
@@ -42,7 +42,7 @@ Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sei
 
 Hat ein Bar, Slider, Gauge oder Dial als Füllung die Rolle <span class="ui">Accent</span>, läuft die Füllung auf einem Farbdisplay von <span class="ui">Accent</span> zu <span class="ui">Gradient end</span>, vom Anfang der Skala bis zu ihrem Ende. Der Anfasser von Slider und Dial hat die Farbe, die die Füllung an seiner Stelle hat.
 
-Jedes Theme hat ein eigenes <span class="ui">Gradient end</span>, das zu seinem Akzent passt. Wählst du für die Füllung eine andere Rolle, bleibt sie einfarbig. Auf dem PaperS3 und auf E-Paper-Displays ist die Füllung immer einfarbig.
+Jedes Theme hat ein eigenes <span class="ui">Gradient end</span>, das zu seinem Akzent passt. Wählst du für die Füllung eine andere Rolle, bleibt sie einfarbig. Auf dem PaperS3 ist die Füllung immer einfarbig.
 
 Knob, 4.3B und die Android-App brauchen dafür eine Firmware oder App ab dem 28. September 2026. Ältere zeigen die Füllung einfarbig.
 
@@ -56,9 +56,9 @@ Knob, 4.3B und die Android-App wechseln sofort, sobald sich der Wert ändert, oh
 
 Die [Vorschau](/einfuehrung/ausprobieren#die-vorschau) macht es wie die Geräte. Steht auf `schaltli/state/theme` ein `light` oder `dark`, zeigt sie diese Variante, live vom Broker oder in der Simulation aus der Liste <span class="ui">MQTT Topic Values</span>. Der Schalter <span class="ui">Dark</span> bleibt dabei, wie er ist, und gilt wieder, sobald du die Vorschau verlässt.
 
-## Graustufen und Schwarzweiss
+## Graustufen
 
-Der [PaperS3](/geraete/papers3) und E-Paper-Displays haben nur eine Variante, die helle, auf die Farben gerundet, die das Display zeigen kann. <span class="ui">Dark</span> ist dort ausgegraut. Zwei Themes, die gleich hell sind, sehen auf einem solchen Gerät gleich aus. In der Liste der Themes siehst du das schon beim Auswählen.
+Der [PaperS3](/geraete/papers3) hat nur eine Variante, die helle, auf die Farben gerundet, die das Display zeigen kann. <span class="ui">Dark</span> ist dort ausgegraut. Zwei Themes, die gleich hell sind, sehen auf einem solchen Gerät gleich aus. In der Liste der Themes siehst du das schon beim Auswählen.
 
 ## Ältere Projekte
 

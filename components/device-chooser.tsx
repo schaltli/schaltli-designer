@@ -171,7 +171,8 @@ export function DeviceChooser({
     setListError(null)
     listDeviceDescriptionFiles()
       .then((devices) => {
-        setAvailableDdfs(devices)
+        // A retired device is not offered for a new project.
+        setAvailableDdfs(devices.filter((d) => !d.retired))
         if (devices.length === 0) {
           // Not necessarily an error (the folder may genuinely be empty),
           // but log it since it silently blocks project creation otherwise.

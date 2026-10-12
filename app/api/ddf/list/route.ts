@@ -20,6 +20,7 @@ interface DdfListEntry {
   ddfHash: string | null
   source: "curated" | "auto-discovered"
   adornmentSvg: string | null
+  retired: boolean
 }
 
 async function scanDdfDir(
@@ -69,10 +70,14 @@ async function scanDdfDir(
           ddfHash: computeDdfHash(new Uint8Array(buffer)),
           source,
           adornmentSvg,
+          // A device no longer made for (device.json `device.retired`): its
+          // projects still open, but no picker offers it (2026-10-12, the
+          // XIAO e-paper).
+          retired: manifest?.device?.retired === true,
         }
       } catch (error) {
         console.error(`[v0] Error parsing DDF "${file}":`, error)
-        return { name: file, path, deviceId: null, deviceName: file, ddfHash: null, source, adornmentSvg: null }
+        return { name: file, path, deviceId: null, deviceName: file, ddfHash: null, source, adornmentSvg: null, retired: false }
       }
     }),
   )

@@ -513,6 +513,9 @@ export interface DeviceDescriptionListEntry {
   // Raw adornment SVG markup, for a picker thumbnail. Null if the DDF
   // couldn't be parsed or its SVG file is missing.
   adornmentSvg: string | null
+  // A device no longer made for: a project on it still opens, but no picker
+  // offers it for a new one (device.json `device.retired`).
+  retired?: boolean
 }
 
 /**

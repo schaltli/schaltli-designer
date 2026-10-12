@@ -1,5 +1,6 @@
 // HIL test orchestrator for the Schaltli Android app (schaltli-android
-// repo) - the Android counterpart to hil/epaper/orchestrator.js, sharing
+// repo) - once the counterpart to the retired XIAO e-paper's orchestrator
+// (hil/epaper/, removed 2026-10-12), sharing
 // its report format (hil/report-template.js) and combination-generation
 // logic (hil/combinations.js) so both render targets get directly
 // comparable reports.
@@ -81,8 +82,7 @@ const { combinationCount, combinationOverrides } = require("../combinations");
 
 const execFileAsync = promisify(execFile);
 
-// See hil/epaper/orchestrator.js's identical constant for why this defaults
-// to the local broker (hil/local-broker.js, `npm run hil:broker`) now
+// Defaults to the local broker (hil/local-broker.js, `npm run hil:broker`) now
 // instead of the public test.mosquitto.org (2026-08-01).
 const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883";
 const DESIGNER_URL = "http://localhost:3000/test-render";

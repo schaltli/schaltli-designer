@@ -804,11 +804,12 @@ export function ProjectSettingsDialog({
                                     auto-discovered) with different versions; the group + version
                                     make that visible instead of one copy silently winning behind
                                     the scenes (see app/api/ddf/list/route.ts's header comment). */}
+                                {/* A retired device only for a project already on it. */}
                                 {availableDdfs.some((d) => d.source === "curated") && (
                                   <SelectGroup>
                                     <SelectLabel>Server DDFs</SelectLabel>
                                     {availableDdfs
-                                      .filter((d) => d.source === "curated")
+                                      .filter((d) => d.source === "curated" && (!d.retired || d.deviceId === project.settings.deviceId))
                                       .map((ddf) => (
                                         <SelectItem key={ddf.path} value={ddf.path}>
                                           {ddf.deviceName}

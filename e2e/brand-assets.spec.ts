@@ -22,7 +22,7 @@ test("jedes Stück des Markensatzes liegt da", async () => {
     "wordmark.svg", "wordmark-dark.svg", "glyphs.js", "intro.js", "intro.html",
     "favicon-16.png", "favicon-32.png", "apple-touch-icon-180.png", "icon-512.png",
     "device/splash-knob-360x360.png", "device/splash-4v3b-800x480.png",
-    "device/splash-papers3-960x540.png", "device/splash-epaper-400x300-1bit.png",
+    "device/splash-papers3-960x540.png",
   ]) {
     expect(fs.existsSync(file(...f.split("/"))), `${f} fehlt`).toBe(true)
     expect(fs.statSync(file(...f.split("/"))).size, `${f} ist leer`).toBeGreaterThan(64)
@@ -60,29 +60,6 @@ test("der Schriftzug trägt Umrisse, keine Schriftabhängigkeit", async () => {
   // hell und dunkel müssen gegeneinander ausgespart sein
   expect(read("wordmark.svg")).toContain("#ffffff")
   expect(read("wordmark-dark.svg")).toContain("#111111")
-})
-
-test("das E-Paper-Bild ist wirklich einbittig", async ({ page }) => {
-  const b64 = fs.readFileSync(file("device", "splash-epaper-400x300-1bit.png")).toString("base64")
-  const tones = await page.evaluate(async (b64) => {
-    const img = new Image()
-    await new Promise((res, rej) => {
-      img.onload = res; img.onerror = rej
-      img.src = "data:image/png;base64," + b64
-    })
-    const c = document.createElement("canvas")
-    c.width = img.width; c.height = img.height
-    const g = c.getContext("2d")!
-    g.drawImage(img, 0, 0)
-    const d = g.getImageData(0, 0, c.width, c.height).data
-    const seen = new Set<number>()
-    for (let i = 0; i < d.length; i += 4) seen.add(d[i])
-    return { values: [...seen].sort((a, b) => a - b), w: img.width, h: img.height }
-  }, b64)
-  expect(tones.w).toBe(400)
-  expect(tones.h).toBe(300)
-  // genau zwei Töne, und die müssen schwarz und weiss sein
-  expect(tones.values).toEqual([0, 255])
 })
 
 test("der Auftritt läuft ohne Schrift und endet mit der Kugel oben", async ({ page }) => {

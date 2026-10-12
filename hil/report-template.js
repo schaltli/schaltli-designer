@@ -1,6 +1,6 @@
 // Shared HTML report builder for hardware-in-the-loop (HIL) test runs -
-// used identically by hil/epaper/orchestrator.js and
-// hil/android/orchestrator.js, so both render targets get the exact same
+// used by hil/android/orchestrator.js (and the retired e-paper's until
+// 2026-10-12), so every render target gets the same
 // report look (dark theme, collapsible per-case sections, expected/actual/
 // blink-compare columns) instead of two copies that could drift apart.
 // Originally built 2026-07-20 for the e-paper firmware pixel-parity work

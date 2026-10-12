@@ -35,7 +35,6 @@ next-env.d.ts
 /playwright/.cache/
 
 # HIL test output (generated per-run, see hil/README.md)
-/hil/epaper/report/
 /hil/android/report/
 /hil/waveshare/report/
 /hil/waveshare4v3b/report/
@@ -46,7 +45,6 @@ next-env.d.ts
 /hil/navigator-report/
 /hil/size-scale/out/
 /hil/layout/out/
-/hil/epaper/designer-preview/
 # What the factory-flash run leaves behind: its verdict and the merged image it
 # wrote (about 2 MB, rebuilt from the firmware checkout every run)
 /hil/factory-flash/results.json

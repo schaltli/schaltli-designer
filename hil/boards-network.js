@@ -5,7 +5,7 @@
 //
 //   node hil/boards-network.js camper      # all boards onto the camper's WiFi and broker
 //   node hil/boards-network.js home        # and back
-//   node hil/boards-network.js camper --only knob,epaper
+//   node hil/boards-network.js camper --only knob,4v3b
 //   node hil/boards-network.js home --dry-run
 //
 // The passwords live in the designer's .env.local, which git ignores - this
@@ -29,8 +29,8 @@
 // board sent to a network it cannot reach is stranded in its setup portal.
 // Then POST /api/mqtt with the target broker, and POST /api/wifi, which
 // stores the network and reboots onto it. Both need the firmware from
-// 2026-09-27 on (schaltli-firmware's TestInterfaceServer, schaltli-eink's
-// UnifiedConfigurator); older firmware answers 404 and is left alone.
+// 2026-09-27 on (schaltli-firmware's TestInterfaceServer); older firmware
+// answers 404 and is left alone.
 //
 // An Android phone on the USB cable (--only android) moves half by itself:
 // Android 10 lets adb change no WiFi, so the script sets the broker (the app's
@@ -60,7 +60,6 @@ const BOARDS = [
   { name: "knob", prefix: "waveshare-knob-1v8-" },
   { name: "4v3b", prefix: "waveshare-touch-lcd-4v3b-" },
   { name: "papers3", prefix: "m5stack-papers3-" },
-  { name: "epaper", prefix: "EPaper-" },
 ]
 
 function loadEnvLocal() {
@@ -143,8 +142,8 @@ async function answers(ip) {
     .catch(() => 0)
 }
 
-// The SSIDs a board can hear. The firmware answers {networks:[...]}; the
-// e-paper wraps the same JSON as a string in {success, message}.
+// The SSIDs a board can hear: the firmware answers {networks:[...]}. (The
+// retired XIAO e-paper wrapped it as a string in {success, message}.)
 async function heard(ip) {
   const { status, text } = await http("GET", `http://${ip}/api/scan`, null, 30_000)
   if (status !== 200) throw new Error(`GET /api/scan answered ${status}`)
@@ -193,7 +192,7 @@ async function main() {
   const args = process.argv.slice(2)
   const target = args[0]
   if (target !== "camper" && target !== "home") {
-    console.error("Usage: node hil/boards-network.js camper|home [--only knob,4v3b,papers3,epaper] [--dry-run]")
+    console.error("Usage: node hil/boards-network.js camper|home [--only knob,4v3b,papers3] [--dry-run]")
     process.exit(2)
   }
   const onlyArg = args.find((a) => a.startsWith("--only"))

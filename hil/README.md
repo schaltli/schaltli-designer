@@ -10,7 +10,6 @@ results are directly comparable:
 
 - `conformance/run.js` - any device, generated from its own DDF. See its
   own section below; the orchestrators under it are per-device.
-- `epaper/orchestrator.js` - schaltli-eink firmware.
 - `waveshare/orchestrator.js` - schaltli-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Schaltli Android app (schaltli-android repo).
 - `stalled-snapshot.js`, `radio-awake.js`, `late-wifi.js` - any board with
@@ -307,32 +306,14 @@ browser-side MQTT features do (MQTT Discovery, and the deploy flow below) -
 browsers can't open a raw TCP socket. `e2e/deploy-dialog.spec.ts` connects
 here directly.
 
-**The e-paper device needs pointing at the same broker once**, since its
-own MQTT broker host is stored on-device (`/config.json`, set via the
-configurator), not passed in the uploaded project:
-
-```
-curl -X POST http://<device-ip>/api/mqtt \
-  --data-urlencode "protocol=mqtt" \
-  --data-urlencode "host=<this-machine's-LAN-IP>" \
-  --data-urlencode "port=1883" \
-  --data-urlencode "username=" \
-  --data-urlencode "password="
-```
-
-Takes effect after the next reboot (any project upload triggers one) - the
-setting is persisted, so this is a true one-time step per device, not
-something you need to repeat every session. `/api/mqtt` is reachable
-without setup mode on the `xiao_esp32s3_hiltest` build (same as
-`/api/project` - see the firmware section below), or via setup mode
-otherwise.
+A board is pointed at this broker with `hil/boards-network.js home` (below).
 
 ### Moving every board to the camper and back
 
 ```
 node hil/boards-network.js camper        # WiFi and broker of the camper
 node hil/boards-network.js home          # back to datentrampolin and this PC's broker
-node hil/boards-network.js camper --only knob,epaper
+node hil/boards-network.js camper --only knob,4v3b
 node hil/boards-network.js home --dry-run
 ```
 
@@ -358,107 +339,15 @@ phone is on it - the app reconnects only there. Installing a newer app over
 the one on the phone needs the debug key it was signed with,
 `~/.android/debug.keystore` from the PC that built it.
 
-## E-paper
+## E-paper (retired 2026-10-12)
 
-```
-node hil/epaper/orchestrator.js --project <exported-project.zip> --device <device-ip>
-```
-
-`epaper/fixtures/` holds a standing comprehensive test project (box, label,
-MqttDataField, level-indicator, a segmented/filleted line - every object
-type the firmware's `ScreenRenderer::renderObject()` actually dispatches,
-except tab-control/panel and MQTTIconField) instead of a fresh one-off
-project for every manual run:
-
-```
-node hil/epaper/fixtures/build-comprehensive-test.js   # regenerates fixtures/comprehensive-test.zip
-node hil/epaper/orchestrator.js --project hil/epaper/fixtures/comprehensive-test.zip --device <device-ip>
-```
-
-`comprehensive-test.zip` is checked in too (~220KB, mostly the embedded BDF
-fonts) so a run doesn't require regenerating it first - re-run the build
-script only after editing the fixture itself. **Uploading requires the
-device to be in setup mode** (hold Button 0 for 3s - see
-`Application::checkConfiguratorTrigger()`); `/api/project` (port 80) isn't
-registered during normal operation at all, so an upload attempt while the
-device is already running normally fails to even connect, and the
-orchestrator's own "connection dropped = presumed success, the device
-restarts before replying" tolerance can mask this if you're not watching
-for it - the run still executes normally and reports a (large, confusing)
-FAIL, just comparing the reference against a stale, several-uploads-old
-snapshot the whole device-upload step silently never replaced (2026-07-30
-finding, this fixture's own first couple of runs).
-
-Uploads the project to the device (`/api/project`, setup mode), waits for
-it to reboot, then for each screen/MQTT-value-combination: publishes the
-values, forces a full re-render (`POST /api/screen`), fetches
-`/snapshot.bmp`, and does a **strict** pixel comparison (any differing
-pixel fails) - the device snapshot is captured at its exact native
-resolution, so there's no reason to tolerate any drift.
-
-Useful flags: `--skip-upload` (project is already on the device),
-`--designer-preview` (render every screen once, no device/MQTT involved -
-sanity-check a layout before spending a real hardware run on it),
-`--partial-update-screen <index>` (exercise the MQTT-triggered partial-
-redraw path specifically, instead of the full-refresh path every other
-case already covers), `--report-only` (rebuild `report/index.html` from an
-existing `report/results.json` without re-running anything).
-
-**Resolved 2026-08-01: combo 0 immediately after a fresh upload** used to
-fail (up to ~1700/120000 differing pixels), for an object newly bound to a
-topic never published to the device before. Diagnosed via temporary serial
-logging (`Serial.printf` at every MQTT connect/subscribe/receive and every
-render call, since removed) added to a HIL-test build, correlating exact
-`millis()` timestamps against the orchestrator's own combo timeline. Real
-root cause, confirmed on-device: `ScreenRenderer::renderObjectsPartial()`
-escalates the very *first* MQTT-triggered partial update after every boot
-into a full render (`partialUpdateCounter_ == 1`, meant to clear ghosting
-after startup) - a genuine e-paper full refresh, ~2-4s of blocking work,
-during which the single-threaded firmware's `mqttClient_.loop()` never
-runs, so whichever of a combo's *other* just-published topics hadn't
-already arrived sit undelivered for that whole window. No fixed sleep
-before `POST /api/screen` can be safe against this - the delay is bounded
-by real e-paper refresh hardware, not network jitter, and depending on
-which topic happens to arrive first, only combo 0 (or, as briefly seen
-while debug logging itself was slowing the device down further, every
-combo) can be affected.
-
-Fixed properly rather than papered over with a longer sleep: the firmware
-now exposes `GET /api/topic-values?topics=a,b,c` (`DisplaySnapshot.h/.cpp`,
-wired through `Application::setupDisplaySnapshot()` to
-`ProjectLoader::getTopicValue()`), and the orchestrator's
-`waitForTopicValuesApplied()` polls it after publishing a combo's values,
-proceeding to `/api/screen` only once the device's own cache actually
-reflects every published value - deterministic regardless of how long the
-device takes to get there. Verified via two consecutive full (non-
-`--skip-upload`) runs against real hardware, 5/5 combos at exact 0/120000
-diff each time, combo 0 included.
-
-**`MqttDataLine`'s arrowhead could render visibly clipped during a
-partial update** (fixed 2026-08-01, `f71b063` in the firmware repo): a
-line-shaped object's own x/y/width/height bounding box is degenerate for
-a perfectly horizontal or vertical line (0-1px in one dimension), but its
-arrowhead paints *perpendicular* to the line, well outside that box.
-`renderObjectsPartial()`'s temporary canvas was sized to that same
-degenerate box, silently clipping the arrowhead to a thin band -
-diagnosed via pixel-exact matching *within* the clipped band (ruling out
-a wrong stroke width) plus the redraw-rect arithmetic independently
-confirming an 8px-tall window against an arrowhead needing roughly 20px.
-
-**A thick line's body could poke out past its own arrowhead's tip** (fixed
-2026-08-01, both repos): the arrowhead triangle tapers to a single point
-at its tip, but the line was drawn all the way to that same point at a
-constant `strokeWidth` - past wherever the triangle's own local half-width
-dropped below `strokeWidth/2`, the line's straight edges stuck out past
-the triangle's tapering sides. Only visible at a large enough `strokeWidth`
-relative to the arrowhead (the comprehensive fixture's `MqttDataLine` now
-calibrates up to 16px specifically to keep exercising this). Both
-`render-line.ts`/`render-mqtt-data-line.ts` (designer) and
-`ScreenRenderer.cpp` (firmware) now shorten the line body toward whichever
-end(s) show an arrow before drawing it - by a *constant fraction* of the
-arrowhead's own length (not a fixed pixel amount), since both the
-triangle's length and half-width scale linearly with `strokeWidth`
-together, so the safe stopping point turns out to be size-independent.
+The XIAO-ESP32S3 1-bit e-paper (GDEY042T81, firmware `schaltli-eink`) is no
+longer supported (the user, 2026-10-06 and 2026-10-12). `hil/epaper/`, its
+fixtures and its place in `npm run test:all` are gone. Its DDF stays in
+`public/ddf/`, marked `"retired": true`: projects made for it still open,
+no picker offers it, and the e2e suite keeps using it as its device without
+touch, with 1-bit colour and hardware buttons (`COMBINED_TEST_PROJECT`).
+The M5Stack PaperS3, e-paper too, stays - see its own sections.
 
 ## M5 Dial (retired 2026-09-10)
 
@@ -522,10 +411,8 @@ frame), but `__renderScreenForTest` calls `renderScreenObjects` exactly
 once per invocation and takes a synchronous `canvas.toDataURL()` snapshot
 immediately after, with a **fresh** `iconImageCache` every single call - so
 every icon-bearing object rendered blank, on every call, unconditionally.
-This was already latent in the e-paper fixture's own MQTTIconField coverage
-too, just never noticed (the last committed `hil/epaper/report/results.json`
-predates it ever being exercised correctly - worth a fresh e-paper hardware
-run to confirm that coverage is real now, not just this device's). Fixed by
+This was already latent in the (since retired) e-paper fixture's own
+MQTTIconField coverage too, just never noticed. Fixed by
 walking the screen for every icon asset it references and pre-loading +
 `await img.decode()`-ing each one into `iconImageCache` before the
 synchronous render pass, so every renderer's already-proven cache-*hit*
@@ -679,13 +566,13 @@ taken while it is still up would look like a rendering bug.
 ## Deploy flow (MQTT self-deploy)
 
 Designer-triggered live deploy (2026-08-01) - "Deploy to Device" in the
-File menu, e-paper devices only (see `components/deploy-dialog.tsx`'s
+File menu, for every board (see `components/deploy-dialog.tsx`'s
 header comment for the full design rationale). No device HTTP endpoint is
 involved: the designer's own backend stores the exported zip
 (`app/api/deploy`), the browser publishes a **retained** MQTT trigger
 naming that zip's URL + a CRC32, and the device downloads/verifies/applies
 it itself. Topics, all under `schaltli/<clientId>/...` (`clientId` is
-the firmware's own `"EPaper-" + MAC`):
+the board's own client id, its model and MAC):
 
 - `status` - retained, `online`/`offline` (the `offline` half is an MQTT
   Last Will, published by the broker itself the moment the device's
@@ -702,24 +589,10 @@ the firmware's own `"EPaper-" + MAC`):
 filtering, offline labeling, live status UI) against the local broker's
 WebSocket listener, with a fake device (just another MQTT client
 publishing the same messages a real one would) - no hardware needed there.
-The firmware side (`DeployManager`, `ProjectInstaller`) needs real
-hardware to verify meaningfully - see `epaper/orchestrator.js`'s
-`--deploy-flow` mode (below) for that.
-
-```
-node hil/epaper/orchestrator.js --project <zip> --device <device-ip> --deploy-flow
-```
-
-Exercises the real end-to-end path against actual hardware: uploads the
-zip to the designer's own `/api/deploy`, publishes a `deploy` trigger with
-its real CRC32, asserts the `deploy-status` sequence arrives in order, and
-asserts the device's `/snapshot.bmp` matches the deployed project
-afterward (same pixel-exact comparison as every other case here). Also
-runs a negative case: deploys a project whose `deviceId` doesn't match the
-target device's compiled `DEVICE_ID`, and asserts an `error` status plus
-that the device's *previous* project is still what's rendered - proving
-the "never touch /PROJECT until verified" rollback guarantee, not just the
-happy path.
+The firmware side needs real hardware: `npm run test:all` deploys to each
+reachable board over MQTT (see «MQTT deploy check» above). The e-paper's
+`--deploy-flow` mode, which also checked the rollback on a refused project,
+went with it on 2026-10-12.
 
 ### Pekaway prerequisite
 
@@ -904,7 +777,7 @@ anywhere. The arc's colour recording sat broken through four re-recordings
 because the recorder only ever reported that it had written a file.
 
 **And the same recordings hold the firmware, since 2026-09-22.** The rules are
-written four times over, not twice - this repo, two C++ firmwares, one Kotlin
+written three times over, not twice - this repo, the C++ firmware, one Kotlin
 app - so the boards' own source is compiled for this machine behind a handful
 of Arduino shims and held to the very files the Android test is held to:
 
@@ -912,12 +785,11 @@ of Arduino shims and held to the very files the Android test is held to:
 cd ../schaltli-firmware   && node tools/arc-raster/run.js
 cd ../schaltli-firmware   && node tools/level-shape/run.js
 cd ../schaltli-firmware   && node tools/switch-shape/run.js
-cd ../schaltli-eink   && node tools/arc-raster/run.js
 ```
 
 They need no device, no broker and no dev server - only a desktop C++ compiler
 (g++/clang++ on PATH, or Visual Studio Build Tools) - and `npm run test:all`
-runs all four. What they check is the code the board runs rather than a copy of
+runs them all. What they check is the code the board runs rather than a copy of
 it: each compiles the real `src/project/*.{h,cpp}` out of the firmware
 checkout. Without a compiler each leaves with **exit code 2** and is reported
 SKIPPED, loudly, the same as a board nobody plugged in; a real disagreement
