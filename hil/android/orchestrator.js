@@ -1331,7 +1331,7 @@ async function swipeToScreen(deviceSerial, from, to) {
  *
  * Its strip is along the bottom in the fixture (the orchestrator's own swipes
  * start at the sides). Drawn as far as shows the open entry, which on the
- * last screen is scrolled to the end; dragged right by the whole strip it is
+ * last screen is scrolled to the end; dragged right until it stops it is
  * back at the start, and the first entry is under the finger.
  */
 async function checkNavigator(deviceSerial, page, project, si, mqttClient) {
@@ -1345,9 +1345,18 @@ async function checkNavigator(deviceSerial, page, project, si, mqttClient) {
   const from = await devicePointFor(deviceSerial, project, project.screenWidth * 0.2, stripY);
   const to = await devicePointFor(deviceSerial, project, project.screenWidth * 0.95, stripY);
   await startSwipe(deviceSerial, from.x, to.x, from.y, 400);
-  const after = await settledFrame(deviceSerial);
-  fs.writeFileSync(path.join(IMG_DIR, "navigator-drag.png"), after);
+  let after = await settledFrame(deviceSerial);
   const changed = await frameChange(before, after);
+  // A strip longer than one drag (eight screens since the energy diagram's,
+  // 2026-10-12) takes more: again until it stops.
+  for (let more = 0; more < 3; more++) {
+    await startSwipe(deviceSerial, from.x, to.x, from.y, 400);
+    const next = await settledFrame(deviceSerial);
+    const moved = await frameChange(after, next);
+    after = next;
+    if (moved < 0.001) break;
+  }
+  fs.writeFileSync(path.join(IMG_DIR, "navigator-drag.png"), after);
   if (changed <= 0) throw new Error("A drag along the navigator changed nothing on the glass - it did not scroll.");
   // The same screen, its strip scrolled to the start - not another screen
   // (which a reference of the unscrolled strip cannot tell apart from a
@@ -1690,6 +1699,77 @@ async function checkPopup(deviceSerial, mqttClient, project) {
 }
 
 /**
+ * A screen with an energy diagram moving (device contract 2.8): not compared
+ * picture for picture, since it moves, but checked - two frames a moment
+ * apart differ inside the diagram and nowhere else, and a tap on a node with
+ * an action (the fixture's sun opens the popup) runs it. The popup is closed
+ * again with a tap beside it.
+ */
+function movingDiagram(screen) {
+  return (screen.objects || []).find((o) => o.type === "energy-diagram" && o.properties?.motion);
+}
+
+async function checkEnergyMotion(deviceSerial, mqttClient, project, screen, si) {
+  const diagram = movingDiagram(screen);
+  for (const [topic, value] of Object.entries(combinationOverrides(project, screen, 0))) {
+    await new Promise((resolve, reject) => mqttClient.publish(topic, value, { qos: 1 }, (err) => (err ? reject(err) : resolve())));
+  }
+  await sleep(1500);
+  const a = await cropDeviceScreenshot(await captureDeviceScreenshot(deviceSerial), project, deviceSerial);
+  await sleep(300);
+  const b = await cropDeviceScreenshot(await captureDeviceScreenshot(deviceSerial), project, deviceSerial);
+  await a.write(path.join(IMG_DIR, `expected-${si}-0.png`));
+  await b.write(path.join(IMG_DIR, `actual-${si}-0.png`));
+  const scale = a.bitmap.width / project.screenWidth;
+  let inside = 0, outside = 0;
+  for (let y = 0; y < a.bitmap.height; y++) {
+    for (let x = 0; x < a.bitmap.width; x++) {
+      const i = (y * a.bitmap.width + x) * 4;
+      if (a.bitmap.data[i] === b.bitmap.data[i] && a.bitmap.data[i + 1] === b.bitmap.data[i + 1] && a.bitmap.data[i + 2] === b.bitmap.data[i + 2]) continue;
+      const ux = x / scale, uy = y / scale;
+      if (ux >= diagram.x && ux < diagram.x + diagram.width && uy >= diagram.y && uy < diagram.y + diagram.height) inside++;
+      else outside++;
+    }
+  }
+  const moves = inside > 50 && outside === 0;
+  console.log(`  [${si}-0] ${moves ? "PASS" : "FAIL"} the diagram moves: ${inside} px inside it changed, ${outside} outside`);
+
+  // The tap: a node's action, here the sun's «Open a popup».
+  const node = (diagram.properties.nodes || []).find((n) => n.action?.type === "open-popup");
+  const fence = project.popupFence;
+  let opens = false;
+  if (node && fence) {
+    const p = await devicePointFor(deviceSerial, project, diagram.x + node.x, diagram.y + node.y);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+    await sleep(900);
+    const img = await cropDeviceScreenshot(await captureDeviceScreenshot(deviceSerial), project, deviceSerial);
+    // The popup's light ground, just inside its fence's left edge.
+    const i = (Math.round((fence.y + fence.height / 2) * scale) * img.bitmap.width + Math.round((fence.x + 12) * scale)) * 4;
+    opens = img.bitmap.data[i] > 200 && img.bitmap.data[i + 1] > 200 && img.bitmap.data[i + 2] > 200;
+    if (!opens) await img.write(path.join(IMG_DIR, `energy-tap-${si}.png`));
+    const q = await devicePointFor(deviceSerial, project, fence.x / 2, fence.y + fence.height / 2);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(q.x), String(q.y)]));
+    await sleep(800);
+  }
+  console.log(`  [${si}-0] ${opens ? "PASS" : "FAIL"} a tap on the sun's node opens the popup`);
+  return {
+    landedOn: null,
+    screenIndex: si,
+    screenName: screen.name,
+    comboIndex: 0,
+    overrides: {},
+    pass: moves && opens,
+    diffPixels: inside,
+    totalPixels: a.bitmap.width * a.bitmap.height,
+    dimensionMismatch: false,
+    expectedFile: `images/expected-${si}-0.png`,
+    actualFile: `images/actual-${si}-0.png`,
+    expectedDims: `${a.bitmap.width}x${a.bitmap.height}`,
+    actualDims: `${b.bitmap.width}x${b.bitmap.height}`,
+  };
+}
+
+/**
  * A long sideways drag on a slider on a screen is the slider's and pages
  * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
  * app's swipe navigation never asked whether a control had taken the touch.
@@ -1948,6 +2028,12 @@ async function main() {
       console.log(`\nSwiping from screen ${currentScreen} to ${si}...`);
       await swipeToScreen(deviceSerial, currentScreen, si);
       currentScreen = si;
+    }
+
+    if (movingDiagram(screen)) {
+      console.log(`\nScreen ${si} "${screen.name}": an energy diagram moving - checked, not compared`);
+      results.push(await checkEnergyMotion(deviceSerial, mqttClient, project, screen, si));
+      continue;
     }
 
     const combos = combinationCount(project, screen);

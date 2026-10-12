@@ -34,6 +34,9 @@
 //   screen-7  the energy diagram (device contract 2.8): a Flow above a
 //             Sankey, Motion off so the picture is the still one; the
 //             storage gives, takes and gives again across the examples
+//   screen-8  a Flow moving, its sun opening the popup: checked, not
+//             compared (orchestrator.js checkEnergyMotion)
+//   (screen-7 and -8 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -100,7 +103,7 @@ const svgAsset = (id, name, body) => ({
 
 // screen-7's diagrams: a source with an icon, a storage with its charge
 // and an icon, the rest; Motion off, so the screenshot is the still picture.
-function energyDiagram(id, mode, x, y, width, height) {
+function energyDiagram(id, mode, x, y, width, height, { motion = false, solarAction } = {}) {
   const at = (fx, fy) => ({ x: Math.round(width * fx), y: Math.round(height * fy) });
   const watts = [{ text: "{watts} W" }];
   return {
@@ -113,7 +116,7 @@ function energyDiagram(id, mode, x, y, width, height) {
     height,
     properties: {
       mode,
-      motion: false,
+      motion,
       fullScale: 500,
       fontId: "font-roboto-12",
       valueFontId: "font-roboto-16",
@@ -125,7 +128,7 @@ function energyDiagram(id, mode, x, y, width, height) {
       dischargeColor: "#ff5252",
       nodes: [
         { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
-        { id: "solar", role: "source", name: "Solar", colorRole: "#ffd54f", color: "#ffd54f", topic: "hil/energy/solar", iconAssetId: "icon-circle", lines: watts, ...at(0.2, 0.2) },
+        { id: "solar", role: "source", name: "Solar", colorRole: "#ffd54f", color: "#ffd54f", topic: "hil/energy/solar", iconAssetId: "icon-circle", lines: watts, ...(solarAction ? { action: solarAction } : {}), ...at(0.2, 0.2) },
         { id: "battery", role: "storage", name: "Batterie", colorRole: FILL, color: FILL, topic: "hil/energy/battery", chargeTopic: "hil/energy/soc", iconAssetId: "icon-square", lines: [...watts, { text: "{topic:hil/energy/soc:F0} %" }], ...at(0.2, 0.68) },
         { id: "rest", role: "rest", name: "Verbraucher", colorRole: "#c3b0ff", color: "#c3b0ff", lines: watts, ...at(0.8, 0.45) },
       ],
@@ -918,6 +921,32 @@ function buildProject(fonts) {
         ],
       },
       {
+        id: "screen-7",
+        name: "Energie",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          energyDiagram("e-flow", "flow", 0, 0, SCREEN_W, 330),
+          energyDiagram("e-sankey", "sankey", 0, 330, SCREEN_W, SCREEN_H - 330),
+          // A band of colour under it: two dark screens with a diagram on
+          // them differ by under the 5 % the run's paging check asks of a swipe.
+          { id: "e7-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 90, width: SCREEN_W, height: 90, properties: { fillColor: "#16263a", strokeColor: "transparent" } },
+        ],
+      },
+      // The diagram moving, and a tap on its sun opening the popup: not
+      // compared picture for picture - it moves - but checked by the
+      // orchestrator (checkEnergyMotion).
+      {
+        id: "screen-8",
+        name: "Energie bewegt",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-square",
+        objects: [
+          energyDiagram("e-moving", "flow", 0, 0, SCREEN_W, 400, { motion: true, solarAction: { type: "open-popup", targetScreenId: "popup-1" } }),
+          { id: "e8-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 120, width: SCREEN_W, height: 120, properties: { fillColor: "#2e1a33", strokeColor: "transparent" } },
+        ],
+      },
+      {
         id: "screen-6",
         name: "Navigator",
         masterScreenId: "master-nav",
@@ -933,17 +962,6 @@ function buildProject(fonts) {
             height: 32,
             properties: { text: "Navigator", fontId: "font-roboto-24", textColor: WHITE, backgroundColor: "transparent", borderColor: "transparent" },
           },
-        ],
-      },
-
-      {
-        id: "screen-7",
-        name: "Energie",
-        masterScreenId: "master-1",
-        iconAssetId: "icon-circle",
-        objects: [
-          energyDiagram("e-flow", "flow", 0, 0, SCREEN_W, 330),
-          energyDiagram("e-sankey", "sankey", 0, 330, SCREEN_W, SCREEN_H - 330),
         ],
       },
 
