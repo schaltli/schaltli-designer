@@ -155,7 +155,7 @@ Ohne Wert zeigt der Gauge nur den leeren Ring.
 Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Storage» und «Consumers».
 
 ::: info Noch nicht auf den Geräten
-Im Moment zeichnet nur der Designer das Energiediagramm, in der Arbeitsfläche und in der Vorschau. Beim Übertragen auf ein Gerät lässt er es weg. Der 4.3B und die Android-App folgen.
+Im Moment zeichnet nur der Designer das Energiediagramm, in der Arbeitsfläche und in der Vorschau. Noch bietet kein Gerät es an. Der 4.3B und die Android-App folgen. Eine ältere Firmware oder App zeigt es auch dann nicht: «Deploy» bringt den 4.3B vorher auf den neuen Stand und bittet bei der App um ein Update.
 :::
 
 Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> wählst. Die Knoten bleiben beim Umschalten dieselben.

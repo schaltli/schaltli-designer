@@ -18,5 +18,6 @@ untouched; a push on halt or finish.
   - the same `exportedEnergyDiagram`; icons as tinted SVGs per look (iconPathFor), dark from darkVariantOf; e2e: the bundle's diagram equals the zip's but for the icon files
 - [x] C5 The Deploy dialog
   - `energyDiagramsNotOnDevices` → a need at 1.7 in deploy-dialog.tsx; e2e: names by screen (nested too), the plan for a board and an app below 1.7
-- [ ] C6 Handbook
+- [x] C6 Handbook
+  - objekte/anzeigen.md, the info box: no device offers it yet; what Deploy does with an older firmware or app
 - [ ] Checkpoint: test:all green; the user has read §2.8
