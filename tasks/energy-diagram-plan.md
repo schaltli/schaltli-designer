@@ -158,11 +158,122 @@ script and checked by the spec file, as `lib/navigator/vectors.json`.
       the core (a test-render image of each beside the picture's)
 - [ ] the user has looked at the four images
 
-## Later modules (tasks once the checkpoints above are passed)
+## Task list: `energy-designer` (planned 2026-10-12)
 
-- `energy-designer`: the object type, the property panel and node list,
-  the canvas renderer from the core, dragging in Flow, the preview with
-  motion, six theme roles, insert defaults, copy and paste, handbook page.
+The precedent is the navigator (`tasks/navigator-plan.md`, its Tasks 4-6
+and 9): a type, a tool, a renderer in `lib/render-screen.ts`, a panel, the
+preview. Every picture comes from `lib/energy-diagram.ts`; the renderer
+only paints what the core gives. Tests in `e2e/energy-diagram.spec.ts`.
+
+### D1 - The object: type, tool, defaults, theme roles
+**Description:** `energy-diagram` in `OBJECT_TYPES` and the drawing order;
+tool «Energy diagram» under «Show» with its icon; a new diagram fills the
+rectangle drawn with a bus and three nodes - «Solar» (source), «Battery»
+(storage), «Consumers» (rest) - in mode Flow, placed round the bus by
+`defaultDiagram(box)` in the core (each node's first line `{live:w} W`).
+The six roles of decision 12 in `lib/themes.ts`: one light and one dark
+value each, from the target picture, shared by every theme (a theme may
+override later), offered by the role picker. Until `energy-contract` the
+device zip and the Android bundle leave the object out, so nothing
+half-made reaches a device.
+**Acceptance:**
+- [ ] drawing with the tool gives the bus and the three nodes, Flow, inside the rectangle
+- [ ] the six roles resolve in every theme, light and dark
+- [ ] a project with a diagram exports; the zip and the bundle have no `energy-diagram`
+**Verification:** `npx playwright test e2e/energy-diagram.spec.ts e2e/energy-diagram-layout.spec.ts`
+**Dependencies:** layout. **Files:** `lib/object-types.ts`, `lib/object-order.ts`, `lib/themes.ts`, `lib/energy-diagram.ts`, `components/toolbar/toolbar.tsx`, `components/icons/object-icons.tsx` (+ export filter). **Scope:** M.
+
+### D2 - Drawn still: both modes on the canvas
+**Description:** `components/canvas/renderers/render-energy-diagram.ts`,
+called from `lib/render-screen.ts`, so the editor, the preview, the
+thumbnails and test-render all draw it. From the values the canvas has
+(broker or examples): `resolveEnergy`, then `flowLayout` or
+`sankeyLayout`; circles with the node's icon tinted, lines, the ring for a
+storage's charge, bars, the bus, band polygons, grey for 0 W; each node's
+lines as live text through the text renderer, the label slot reserved for
+the widest it can show (decision 11). Motion stands at phase 0 here.
+**Acceptance:**
+- [ ] test-render draws the target picture's four situations; colours sampled at the core's band centres, circles and bus match the roles
+- [ ] a node without a value shows «No value yet» in its line and counts as 0 W
+- [ ] the four images shown beside the core's pictures (artifact) - same geometry
+**Verification:** same spec file. **Dependencies:** D1. **Files:** the renderer, `lib/render-screen.ts`, `app/test-render/page.tsx`. **Scope:** M.
+
+### D3 - Motion in the preview
+**Description:** while the preview runs and the diagram's Motion is on,
+the dots run (`dotsOnLine`, `dotSeconds`) and the wave moves (`waveColour`,
+`WAVE_SECONDS`) at the pace a device has - one animation loop for all
+diagrams on the screen, only while one is visible, stopped when the
+preview closes. The editor canvas stays still. A test hook freezes the
+phase, so a test (and later the HIL diff) can take one fixed frame.
+**Acceptance:**
+- [ ] two frames a second apart differ inside a band and on a line, not elsewhere
+- [ ] Motion off: no frame differs; no loop runs when no diagram is shown
+- [ ] a frozen phase draws the same pixels as the core says
+**Verification:** same spec file. **Dependencies:** D2. **Files:** the renderer, `components/canvas/canvas.tsx`. **Scope:** S.
+
+### D4 - Property panel: the diagram and its nodes
+**Description:** `energy-diagram-properties.tsx`: Mode (Sankey / Flow),
+Motion, Full scale (watts, Sankey only, default 1000); the list «Nodes»
+- each row its icon, name and role, «+ Add node» (Source, Sink, Storage,
+Rest), delete, rows dragged to reorder (in Sankey that is the order top
+to bottom, written to y). A row opens the node's fields: Name, Icon, Role,
+Reads (watts), Reverse sign, Charge (storage only), Colour (the six roles
+and the others), Lines (up to three, the live-text editor texts have).
+At most one rest and one bus are enforced.
+**Acceptance:**
+- [ ] each field changes what the canvas draws (one test per field group)
+- [ ] a second rest cannot be added; the bus cannot be deleted
+- [ ] switching mode keeps every node and topic
+**Verification:** same spec file. **Dependencies:** D2. **Files:** `components/property-panel/energy-diagram-properties.tsx`, `energy-node-fields.tsx`, `property-panel.tsx`. **Scope:** M.
+
+### D5 - Dragging nodes in Flow
+**Description:** with the diagram selected in mode Flow, a node's or the
+bus's circle is dragged on the canvas; that is its x/y, relative to the
+diagram, kept inside it; undo takes it back. In Sankey nothing is dragged
+inside the diagram; the diagram itself moves and resizes as any object.
+**Acceptance:**
+- [ ] a drag moves one node, its line follows, the others stay; undo restores
+- [ ] a drag elsewhere in the diagram moves the diagram
+**Verification:** same spec file. **Dependencies:** D2. **Files:** `components/canvas/canvas.tsx`. **Scope:** S.
+
+### D6 - A tap on a node runs its action
+**Description:** the node's Action field (the button's actions, in
+practice «Open popup»); in the preview a tap on a node's circle or bar
+runs it. `lib/popup.ts` learns that actions live in nodes too, so a popup
+removed leaves no dead node action and «opened by» lists the node.
+**Acceptance:**
+- [ ] tapping a node with «Open popup» opens it in the preview; without an action nothing happens
+- [ ] deleting the popup removes the node's action
+**Verification:** same spec file. **Dependencies:** D4. **Files:** `energy-node-fields.tsx`, `components/canvas/canvas.tsx`, `lib/popup.ts`. **Scope:** S.
+
+### D7 - Copy and paste, topic usage
+**Description:** a diagram copied to another project brings its icons,
+topics - the storage's `chargeTopic` too, which `TOPIC_KEYS` in
+`lib/clipboard-transfer.ts` does not know yet - and fonts; «Remove unused
+topics» counts every node's topics (`lib/topic-usage.ts` already matches
+`*topic`; a test makes sure).
+**Acceptance:**
+- [ ] paste into an empty project brings the node icons and both of the storage's topics
+- [ ] a topic read only by a node is not «unused»
+**Verification:** `npx playwright test e2e/clipboard-transfer.spec.ts e2e/energy-diagram.spec.ts`
+**Dependencies:** D4. **Files:** `lib/clipboard-transfer.ts`, the two specs. **Scope:** XS.
+
+### D8 - Handbook
+**Description:** a page «Energiediagramm» under the objects (what it
+shows, Knoten and their roles, the rest, Sankey and Flow, full scale,
+motion, a tap), the tool in `objekte.md`, through the humanizer; labels
+marked `ui` so `e2e/handbook-labels.spec.ts` checks them. Says that only
+the designer draws it until the devices follow.
+**Acceptance:** [ ] handbook builds; handbook-labels green
+**Verification:** `npx playwright test e2e/handbook-labels.spec.ts`, `npm run build --prefix handbuch`
+**Dependencies:** D1-D7. **Files:** `handbuch/designer/energiediagramm.md`, `objekte.md`, the sidebar. **Scope:** S.
+
+### Checkpoint: designer
+- [ ] `npm run test:all` green
+- [ ] the user builds their van's diagram in the designer and watches it in the preview with the broker's values
+
+## Later modules (tasks once the designer's checkpoint is passed)
+
 - `energy-contract`: export of the object, icons baked per node, contract
   §2.8, generation 1.7, the DDFs' `supportedObjectTypes`, the Deploy
   dialog's need.
@@ -179,6 +290,7 @@ script and checked by the spec file, as `lib/navigator/vectors.json`.
 | Motion makes the 4.3B's taps slow | High | the spike decides first; still on the 4.3B is an accepted outcome (decision 14) |
 | Band edges differ by anti-aliasing between canvas and firmware | Med | bands as polygons from the core; the diff in S4 decides AA on or off |
 | A full redraw (782 ms) catches a moving dot mid-way | Med | the motion timer pauses while a full render runs; dots resume at their phase |
+| A diagram deployed before `energy-contract` | Med | D1 leaves it out of both exports; the contract adds it with generation 1.7 |
 | Values arriving one by one make the rest jump | Low | the rest settles after 500 ms (spec), checked in the demo |
 | The target picture promises what no device can draw | Med | it is drawn with the core's rules once L2-L4 exist, and compared |
 

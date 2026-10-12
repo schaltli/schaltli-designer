@@ -16,9 +16,7 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
   - moved on: the band's pixel diff -> energy-firmware (needs the designer's band renderer); the wave on the glass wants an eye
 - [x] Checkpoint: numbers and decision shown to the user (decision: another round; it passed)
 
-## For the user to look at
-- The wave on the 4.3B's glass: `curl "http://192.168.1.117/api/debug?set=energyspike=5"`,
-  then look - smooth, no stripes or leftovers? (`=0` stops it)
+- [x] The wave on the 4.3B's glass, looked at by the user 2026-10-12: «sieht sehr gut aus auf dem Gerät»
 
 ## energy-layout
 - [x] L1 Types and the rest
@@ -29,3 +27,15 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [ ] Checkpoint: the four situations from the core, beside the target picture
   - drawn 2026-10-11 from lib/energy-diagram.ts alone: https://claude.ai/artifact/XGY37K5UZjn7AAzSyvisan - matches the target picture
   - found: in the Flow, the line of a node straight above the bus (Landstrom) ran down through its own label - decided by the user 2026-10-11: beside the circle when the line leaves downwards (core, vectors, spec decision 9, target picture v8)
+- [x] user said «weiter» 2026-10-12
+
+## energy-designer
+- [ ] D1 The object: type, tool, defaults, theme roles
+- [ ] D2 Drawn still: both modes on the canvas
+- [ ] D3 Motion in the preview
+- [ ] D4 Property panel: the diagram and its nodes
+- [ ] D5 Dragging nodes in Flow
+- [ ] D6 A tap on a node runs its action
+- [ ] D7 Copy and paste, topic usage
+- [ ] D8 Handbook
+- [ ] Checkpoint: test:all green; the user builds their van's diagram in the preview
