@@ -144,7 +144,7 @@ test.describe("between two tabs", () => {
     const from = await context.newPage()
     await loadProject(from, await camperZip())
     await from.getByText("Energie", { exact: true }).first().hover()
-    await from.getByRole("button", { name: "Actions for Energie" }).click()
+    await from.getByTitle("Actions for Energie").click()
     await from.getByRole("menuitem", { name: "Copy", exact: true }).click()
     await expect(from.getByText("«Energie» copied", { exact: true })).toBeVisible()
 
@@ -155,7 +155,7 @@ test.describe("between two tabs", () => {
     await to.keyboard.press("Control+V")
     // Made for 800 x 480, pasted into a round 360 x 360.
     await expect(to.getByText("Made for another screen", { exact: true })).toBeVisible()
-    await expect(to.getByRole("button", { name: "Actions for Energie" })).toHaveCount(1)
+    await expect(to.getByTitle("Actions for Energie")).toHaveCount(1)
 
     const project = await downloadProjectJson(to)
     const energie = project.screens.find((s: any) => s.name === "Energie")

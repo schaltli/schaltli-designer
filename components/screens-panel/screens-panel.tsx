@@ -491,7 +491,11 @@ export function ScreensPanel({
             <Button
               size="sm"
               variant="secondary"
-              aria-label={`Actions for ${screen.name}`}
+              // Not named after the screen: the screen's own row is, and a
+              // second button with its name made «the button named Main A»
+              // two (2026-10-12). The screen is in the title.
+              aria-label="Screen actions"
+              title={`Actions for ${screen.name}`}
               className="absolute top-0.5 right-0.5 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow"
               onClick={(e) => e.stopPropagation()}
             >
