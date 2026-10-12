@@ -50,4 +50,5 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] Checkpoint, tests: test:all twice 2026-10-12
   - run 1: 7 e2e red (no-van-words, font-select, three «Settings» locators, the D6 tap tests under load) and android-HIL (the app could not rename its project folder until force-stopped) - all fixed or explained, each green alone
   - run 2: e2e 1482 passed; project-list (2) and one android case red only under the full load - green alone (10/10, 16/16)
-- [ ] Checkpoint, the user: builds their van's diagram in the designer and watches it in the preview with the broker's values
+- [x] Checkpoint, the user: built their diagram (project prompt-water) and watched it in the preview, 2026-10-12
+  - found and fixed on the way: an empty Sankey, the blank line-md icon, the dots (one pace, closer with more watts); «weiter» 2026-10-12
