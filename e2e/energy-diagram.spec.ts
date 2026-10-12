@@ -122,7 +122,7 @@ test.describe("the energy diagram object", () => {
     expect(p.nodes.map((n: Obj) => [n.role, n.name])).toEqual([
       ["bus", "12 V"],
       ["source", "Solar"],
-      ["storage", "Battery"],
+      ["storage", "Storage"],
       ["rest", "Consumers"],
     ])
     for (const n of p.nodes) {
@@ -255,10 +255,10 @@ test.describe("the energy diagram, drawn", () => {
     expect(at(n("bus").x, n("bus").y)).toBe(role("accent"))
     // The top of a circle's 3 px stroke, r 32.
     expect(at(n("solar").x, n("solar").y - 32)).toBe(role("energySun"))
-    expect(at(n("battery").x, n("battery").y - 32)).toBe(role("energyCharge"))
+    expect(at(n("storage").x, n("storage").y - 32)).toBe(role("energyCharge"))
     // The ring (r 39, 5 px) half full: from the top clockwise, so its right is charged and its left is not.
-    expect(at(n("battery").x + 39, n("battery").y)).toBe(role("energyCharge"))
-    expect(at(n("battery").x - 39, n("battery").y)).toBe(role("track"))
+    expect(at(n("storage").x + 39, n("storage").y)).toBe(role("energyCharge"))
+    expect(at(n("storage").x - 39, n("storage").y)).toBe(role("track"))
     // The rest takes 600 - 446 = 154 W: live, in «Load».
     expect(at(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
     // The icon, tinted in the node's colour, in the circle's middle.
@@ -267,7 +267,7 @@ test.describe("the energy diagram, drawn", () => {
     // Nothing from the sun, the battery giving 154 W: the sun grey, the battery in «Discharging».
     const night = await render(page, project, { "van/solar": "0", "van/battery": "-154" })
     expect(night(n("solar").x, n("solar").y - 32)).toBe(role("track"))
-    expect(night(n("battery").x, n("battery").y - 32)).toBe(role("energyDischarge"))
+    expect(night(n("storage").x, n("storage").y - 32)).toBe(role("energyDischarge"))
     expect(night(n("consumers").x, n("consumers").y - 32)).toBe(role("energyLoad"))
   })
 
@@ -282,12 +282,12 @@ test.describe("the energy diagram, drawn", () => {
     const values = { "van/solar": "600", "van/battery": "446", "van/soc": "50" }
     const { project, nodes } = drawnProject("sankey", values)
     const at = await render(page, project)
-    const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 600 }, battery: { watts: 446 } }), SIZE, 1000)
+    const layout = sankeyLayout(resolveEnergy(nodes, { solar: { watts: 600 }, storage: { watts: 446 } }), SIZE, 1000)
     expect(at(layout.bus.x + 8, layout.bus.y + layout.bus.height / 2)).toBe(role("accent"))
     const bar = (id: string) => layout.bars.find((b) => b.id === id)!
     expect(at(bar("solar").x + 6, bar("solar").y + bar("solar").height / 2)).toBe(role("energySun"))
-    expect(at(bar("battery").x + 6, bar("battery").y + bar("battery").height / 2)).toBe(role("energyCharge"))
-    for (const [id, colour] of [["solar", role("energySun")], ["battery", role("energyCharge")], ["consumers", role("energyLoad")]] as const) {
+    expect(at(bar("storage").x + 6, bar("storage").y + bar("storage").height / 2)).toBe(role("energyCharge"))
+    for (const [id, colour] of [["solar", role("energySun")], ["storage", role("energyCharge")], ["consumers", role("energyLoad")]] as const) {
       const band = layout.bands.find((b) => b.id === id)!
       const top = band.polygon[12], bottom = band.polygon[band.polygon.length - 1 - 12]
       const x = Math.floor(top.x)
@@ -447,7 +447,7 @@ test.describe("the energy diagram's panel", () => {
     await expect(add.locator("option", { hasText: "Rest" })).toHaveCount(0)
     await add.selectOption("sink")
     await expect(page.getByRole("button", { name: "Remove 12 V" })).toHaveCount(0)
-    await page.getByRole("button", { name: "Remove Battery" }).click()
+    await page.getByRole("button", { name: "Remove Storage" }).click()
     let d = await diagramOf(page)
     expect(d.properties.nodes.map((n: Obj) => n.role)).toEqual(["bus", "source", "rest", "sink"])
 
@@ -569,7 +569,7 @@ test.describe("a tap on an energy diagram's node", () => {
           return { x: ORIGIN.x + n.x, y: ORIGIN.y + n.y }
         }
         const nodes = d.nodes
-        const layout = sankeyLayout(resolveEnergy(nodes.map((n) => ({ ...n, ...(n.role === "source" ? { topic: "x" } : {}) })), { solar: { watts: 600 }, battery: { watts: 446 } }), SIZE, 1000)
+        const layout = sankeyLayout(resolveEnergy(nodes.map((n) => ({ ...n, ...(n.role === "source" ? { topic: "x" } : {}) })), { solar: { watts: 600 }, storage: { watts: 446 } }), SIZE, 1000)
         const bar = layout.bars.find((b) => b.id === id)!
         return { x: ORIGIN.x + bar.x + bar.width / 2, y: ORIGIN.y + bar.y + bar.height / 2 }
       }
@@ -579,8 +579,19 @@ test.describe("a tap on an energy diagram's node", () => {
       await page.waitForTimeout(300)
       expect(await outside(page), "no action, nothing opens").toBe(before)
       const solar = devicePoint(box, nodeAt("solar").x, nodeAt("solar").y, SCREEN_43B)
-      await page.mouse.click(solar.x, solar.y)
-      await expect.poll(() => outside(page)).not.toBe(before)
+      // Tapped again until it shows: under a full suite's load the preview
+      // may not have taken the first one yet (2026-10-12). A second tap lands
+      // inside the popup's fence and closes nothing.
+      await expect
+        .poll(
+          async () => {
+            await page.mouse.click(solar.x, solar.y)
+            await page.waitForTimeout(300)
+            return outside(page)
+          },
+          { timeout: 15000 },
+        )
+        .not.toBe(before)
     })
   }
 })

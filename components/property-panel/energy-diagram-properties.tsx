@@ -68,8 +68,8 @@ export const ROLE_LABELS: Record<EnergyRole, string> = {
 
 const ROLE_HINTS: Record<EnergyRole, string> = {
   source: "Gives: the sun, the grid, the engine.",
-  sink: "Takes: a fridge, a heater.",
-  storage: "Takes while positive, gives while negative: the battery.",
+  sink: "Takes: something measured on its own.",
+  storage: "Takes while positive, gives while negative.",
   rest: "What comes in and is not measured going out - worked out, no topic.",
   bus: "Where every line meets.",
 }
@@ -86,7 +86,7 @@ const NEW_COLOUR: Record<EnergyRole, string | undefined> = {
 const NEW_NAME: Record<EnergyRole, string> = {
   source: "Source",
   sink: "Sink",
-  storage: "Battery",
+  storage: "Storage",
   rest: "Consumers",
   bus: "12 V",
 }

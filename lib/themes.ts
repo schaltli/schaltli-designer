@@ -36,7 +36,7 @@ export const ROLES = [
   "track",
   "trackEdge",
   // The energy diagram's (docs/2026-10-11-energy-diagram.md decision 12):
-  // what a node is - the sun, the grid, the engine, a load - and a battery
+  // what a node is - the sun, the grid, the engine, a load - and a storage
   // charging or discharging. One pair for every colour theme (ENERGY_LIGHT).
   "energySun",
   "energyGrid",
@@ -147,7 +147,7 @@ export const COLOR_KEYS = [
   "activeTextColor",
   // The energy diagram's (docs/2026-10-11-energy-diagram.md decision 12):
   // its names and quiet lines, the bus, what carries nothing, and a
-  // battery charging and discharging. Each node's own colour is its
+  // storage charging and discharging. Each node's own colour is its
   // `colorRole`, resolved to `color` by applyTheme.
   "mutedColor",
   "busColor",
@@ -764,7 +764,7 @@ export function nearestRole(hex: string, theme: Theme, colorDepth: string | unde
     // old hand-picked colour near it was meant as an accent (2026-09-28).
     if (role === "accentEnd") continue
     // Nor an energy role: a green from before themes was an accent, not a
-    // battery charging.
+    // storage charging.
     if ((ENERGY_ROLES as readonly string[]).includes(role)) continue
     const d = distance(shown, resolveRole(theme, role, "light", colorDepth))
     if (d < bestDistance || (d === bestDistance && role === preferred)) {

@@ -94,7 +94,7 @@ export const DEFAULT_FULL_SCALE = 1000
 
 /**
  * A new diagram for a box (the designer's «Insert», spec «Behaviour»): the
- * bus in the middle, the sun above left, the battery below left, what the
+ * bus in the middle, the sun above left, a storage below left, what the
  * van draws to the right - mode Flow, each node's first line its watts.
  */
 export function defaultDiagram(size: Size): EnergyDiagramProperties {
@@ -108,7 +108,7 @@ export function defaultDiagram(size: Size): EnergyDiagramProperties {
     nodes: [
       { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
       { id: "solar", role: "source", name: "Solar", colorRole: "energySun", lines: watts, ...at(0.18, 0.22) },
-      { id: "battery", role: "storage", name: "Battery", colorRole: "energyCharge", lines: watts, ...at(0.18, 0.68) },
+      { id: "storage", role: "storage", name: "Storage", colorRole: "energyCharge", lines: watts, ...at(0.18, 0.68) },
       { id: "consumers", role: "rest", name: "Consumers", colorRole: "energyLoad", lines: watts, ...at(0.82, 0.45) },
     ],
   }

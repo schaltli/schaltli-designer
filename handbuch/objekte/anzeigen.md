@@ -152,7 +152,7 @@ Ohne Wert zeigt der Gauge nur den leeren Ring.
 
 ## Energy diagram {#energiediagramm}
 
-Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Battery» und «Consumers».
+Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Storage» und «Consumers».
 
 ::: info Noch nicht auf den Geräten
 Im Moment zeichnet nur der Designer das Energiediagramm, in der Arbeitsfläche und in der Vorschau. Beim Übertragen auf ein Gerät lässt er es weg. Der 4.3B und die Android-App folgen.

@@ -239,7 +239,7 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
 
 - **Insert**: tool «Energy diagram» under «Show». A new diagram fills the
   rectangle drawn and comes with a bus and three example nodes - a source
-  «Solar», a storage «Battery», a rest «Consumers» -, mode Flow, nodes
+  «Solar», a storage «Storage», a rest «Consumers» - (not «Battery»: the designer's source names no thing of the van, e2e/no-van-words.spec.ts; 2026-10-12) -, mode Flow, nodes
   placed round the bus.
 - **Property panel**: Mode (Sankey / Flow), Motion (on / off), Full scale
   (watts, Sankey only; default 1000), and the
