@@ -6,6 +6,9 @@ import path from "path"
 import { getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady, loadProject } from "./helpers"
 import { buildCamperProject } from "../deploy/demo/camper-project"
 import { buildEditableProjectZip } from "../lib/project-zip"
+import { packClipboard, unpackClipboard } from "../lib/clipboard-transfer"
+import { unusedTopics } from "../lib/topic-usage"
+import { popupOpeners, withoutDeadPopupActions } from "../lib/popup"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
@@ -584,7 +587,6 @@ test.describe("a tap on an energy diagram's node", () => {
 
 test.describe("a node's popup in the export", () => {
   test("an «Open a popup» to no popup is dropped from a node; one to a popup stays and is named for the deploy's warning", async () => {
-    const { withoutDeadPopupActions, popupOpeners } = await import("../lib/popup")
     const project = {
       screens: [
         {
@@ -610,5 +612,66 @@ test.describe("a node's popup in the export", () => {
     expect(nodes[0]).toEqual({ id: "a", name: "Solar" })
     expect(nodes[1].action).toEqual({ type: "open-popup", targetScreenId: "pop" })
     expect(popupOpeners(project as any)).toEqual(['"Batterie" in an energy diagram on Energie'])
+  })
+})
+
+// ---- D7: copy and paste, and «Remove unused topics».
+
+test.describe("the energy diagram copied and its topics", () => {
+  const project = () => ({
+    name: "p",
+    screenWidth: 800,
+    screenHeight: 480,
+    settings: {},
+    fonts: [{ id: "f1", name: "f", size: 16 }],
+    assets: [
+      { id: "sun", name: "sun", type: "icon", data: SQUARE },
+      { id: "other", name: "other", type: "icon", data: SQUARE },
+    ],
+    topics: [
+      { id: "t1", topic: "van/solar", type: "number", examples: ["1"] },
+      { id: "t2", topic: "van/battery", type: "number", examples: ["1"] },
+      { id: "t3", topic: "van/soc", type: "number", examples: ["1"] },
+      { id: "t4", topic: "van/unused", type: "number", examples: ["1"] },
+    ],
+    combinedTopics: [],
+    screens: [
+      {
+        id: "s1",
+        name: "Energie",
+        objects: [
+          {
+            id: "e",
+            type: "energy-diagram",
+            x: 0,
+            y: 0,
+            width: 540,
+            height: 400,
+            zIndex: 1,
+            properties: {
+              ...defaultDiagram(SIZE),
+              fontId: "f1",
+              nodes: [
+                { id: "bus", role: "bus", name: "12 V", x: 270, y: 200 },
+                { id: "solar", role: "source", name: "Solar", x: 80, y: 80, topic: "van/solar", iconAssetId: "sun" },
+                { id: "battery", role: "storage", name: "Battery", x: 80, y: 300, topic: "van/battery", chargeTopic: "van/soc" },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  })
+
+  test("a copy brings the node icons, both of the storage's topics and the font", async () => {
+    const p: any = project()
+    const payload = unpackClipboard(packClipboard(p, { screen: p.screens[0] }, "t1"))!
+    expect(payload.assets.map((a) => a.id)).toEqual(["sun"])
+    expect(payload.topics.map((t) => t.topic).sort()).toEqual(["van/battery", "van/soc", "van/solar"])
+    expect(payload.fonts.map((f) => f.id)).toEqual(["f1"])
+  })
+
+  test("a topic only a node reads is not unused", async () => {
+    expect(unusedTopics(project() as any).map((t: any) => t.topic)).toEqual(["van/unused"])
   })
 })

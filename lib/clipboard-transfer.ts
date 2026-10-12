@@ -70,7 +70,8 @@ function renamed<T>(value: T, rename: (key: string, s: string) => string, key = 
 }
 
 // The keys a topic stands under in an object, a live value or a condition.
-const TOPIC_KEYS = new Set(["topic", "writeTopic", "path"])
+// An energy diagram's storage reads its charge from `chargeTopic`.
+const TOPIC_KEYS = new Set(["topic", "writeTopic", "path", "chargeTopic"])
 
 /** A topic as the project lists it: without a JSON field after `#`. */
 const bareTopic = (t: string) => t.split("#")[0]
