@@ -472,14 +472,15 @@ async function main() {
     })
   }
 
-  // The energy diagram's spike (docs/2026-10-11-energy-diagram.md, decision
-  // 14): dots and the Sankey's wave moving, and a tap no more than 20 %
-  // slower for it. Kept so the number that decided the 4.3B moves stays a
-  // measured one. Installs its own screen.
+  // The energy diagram moving (docs/2026-10-11-energy-diagram.md, decisions
+  // 10 and 14; device contract 2.8): a Flow's dots and a Sankey's wave on the
+  // glass and nowhere else, a tap no more than 20 % slower for them, and a
+  // tap on a node opening its popup. Grew out of the spike, so the number
+  // that decided the 4.3B moves stays a measured one. Installs its own screen.
   console.log(`
 === Waveshare 4.3B energy diagram motion (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
   {
-    const exitCode = await run("node", ["hil/waveshare4v3b/energy-motion-spike.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    const exitCode = await run("node", ["hil/waveshare4v3b/energy-diagram.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
     summary.push({
       name: "waveshare-4v3b-energy-motion",
       status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
@@ -487,7 +488,7 @@ async function main() {
         exitCode === 2
           ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
           : exitCode === 0
-            ? "dots and wave at >= 8 steps/s, a tap at most 20 % slower"
+            ? "dots and wave on the glass at >= 8 steps/s, a tap at most 20 % slower, a node's popup opens"
             : `exit code ${exitCode} - see output above`,
     })
   }
