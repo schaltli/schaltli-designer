@@ -47,4 +47,7 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] D7 Copy and paste, topic usage
 - [x] D8 Handbook
   - a section «Energy diagram» in objekte/anzeigen.md (the reference's place for it), not a page of its own; overview updated; an info box (no issue) says it is the designer's alone for now
-- [ ] Checkpoint: test:all green; the user builds their van's diagram in the preview
+- [x] Checkpoint, tests: test:all twice 2026-10-12
+  - run 1: 7 e2e red (no-van-words, font-select, three «Settings» locators, the D6 tap tests under load) and android-HIL (the app could not rename its project folder until force-stopped) - all fixed or explained, each green alone
+  - run 2: e2e 1482 passed; project-list (2) and one android case red only under the full load - green alone (10/10, 16/16)
+- [ ] Checkpoint, the user: builds their van's diagram in the designer and watches it in the preview with the broker's values
