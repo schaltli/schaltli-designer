@@ -41,6 +41,7 @@ const Loader2 = ({ className }: { className?: string }) => (
 
 import type { ProjectAsset } from "./project-editor"
 import { searchIcons as searchIconsShared, fetchIconSvgData, type IconMatch } from "@/lib/icon-search"
+import { stillIconData } from "@/lib/svg-still"
 
 type IconData = IconMatch
 
@@ -156,6 +157,8 @@ export function IconSelectorModal({
         // btoa throws on non-Latin-1 content; URL-encoding always works.
         data = `data:image/svg+xml,${encodeURIComponent(svgText)}`
       }
+      // An icon that draws itself is kept as it ends (lib/svg-still.ts).
+      data = stillIconData(data)
 
       const name = file.name.replace(/\.svg$/i, "")
       const existing = existingAssets.find((asset) => asset.type === "icon" && asset.data === data)

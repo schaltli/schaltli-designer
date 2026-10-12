@@ -22,6 +22,8 @@
 // collection replaces one per icon - fifteen instead of fifty for a query
 // whose hits were scattered over fifteen sets, and usually far fewer.
 
+import { stillSvg } from "@/lib/svg-still"
+
 export interface IconMatch {
   /** "prefix:name", which is also what the asset is called. */
   name: string
@@ -217,7 +219,9 @@ function resolveIcon(
  * that bakes it at the object's size) has been living with exactly it.
  */
 function svgText(body: string, width: number, height: number): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 ${width} ${height}">${body}</svg>`
+  // An icon that draws itself (line-md) is kept as it ends: a still picture
+  // of its start is empty (lib/svg-still.ts).
+  return stillSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 ${width} ${height}">${body}</svg>`)
 }
 
 function svgDataUrl(svg: string): string {
@@ -258,7 +262,7 @@ export async function fetchIconSvgData(icon: IconMatch): Promise<{ data: string;
   if (!svgResponse.ok) {
     throw new Error(`Failed to fetch icon SVG: ${svgResponse.status} ${svgResponse.statusText}`)
   }
-  const svgData = await svgResponse.text()
+  const svgData = stillSvg(await svgResponse.text())
 
   let data: string
   try {

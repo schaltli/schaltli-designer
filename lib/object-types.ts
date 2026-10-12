@@ -23,6 +23,7 @@ import type { ScreenObject } from "@/components/project-editor"
 import { dissolveOldTables } from "@/lib/table"
 import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
+import { stillIconData } from "@/lib/svg-still"
 
 export const OBJECT_TYPES = [
   "text",
@@ -377,6 +378,12 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
     if (migrated.length !== declared.length || migrated.some((t, i) => t !== declared[i])) {
       project.settings!.supportedObjectTypes = migrated
     }
+  }
+  // An icon that draws itself is kept as it ends (lib/svg-still.ts): one
+  // added before 2026-10-12 showed nothing on the canvas.
+  const assets = (project as { assets?: Array<{ type?: string; data?: string }> }).assets
+  if (Array.isArray(assets)) {
+    for (const asset of assets) if (asset.type === "icon" && typeof asset.data === "string") asset.data = stillIconData(asset.data)
   }
   // Screens are always free (docs/2026-10-03-free-screens.md): a screen
   // root that laid out its objects becomes an object where it did.
