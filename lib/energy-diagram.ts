@@ -383,6 +383,101 @@ export function flowLayout(nodes: readonly EnergyNode[], resolved: readonly Reso
   return { bus, nodes: out, lines }
 }
 
+// ---- Names, lines and icons (energy-contract C1, 2026-10-12). Where they
+// stand was the designer renderer's; a device would have had to copy a
+// renderer, and a Sankey's slot grows with its band, so the places depend
+// on the values. A label is the node's name, then up to three lines: the
+// first in the value font, each line ROW_LEADING times its font's size
+// below the one before, rounded.
+
+export const ROW_LEADING = 1.2
+/** The fonts' sizes a label is set in, px. */
+export interface LabelMetrics {
+  fontSize: number
+  valueFontSize: number
+}
+/** A label's box: its top left, how wide, and how its rows align in it. */
+export interface LabelBox extends Point {
+  width: number
+  align: "left" | "center" | "right"
+}
+export interface NodeBoxes {
+  id: string
+  /** Where its icon goes, a square. */
+  icon: Box
+  label: LabelBox
+}
+export interface DiagramBoxes {
+  /** The bus's name; none in a Sankey without bars. */
+  bus?: LabelBox
+  nodes: NodeBoxes[]
+}
+
+/** How far a row in a font of `size` moves the next one down. */
+export function rowStep(size: number): number {
+  return Math.round(size * ROW_LEADING)
+}
+
+/** How tall a label is with `lines` lines under its name. */
+export function labelHeight(lines: number, m: LabelMetrics): number {
+  const n = Math.min(MAX_NODE_LINES, Math.max(0, lines))
+  return rowStep(m.fontSize) * (1 + Math.max(0, n - 1)) + (n ? rowStep(m.valueFontSize) : 0)
+}
+
+const lineCount = (n: EnergyNode | undefined) => Math.min(MAX_NODE_LINES, n?.lines?.length ?? 0)
+
+/**
+ * The Sankey's boxes: each slot's icon beside its bar, a row high, its
+ * label beside the icon - right-aligned on the left, left-aligned on the
+ * right - centred in the slot; the bus's name over the bus.
+ */
+export function sankeyBoxes(layout: SankeyLayout, nodes: readonly EnergyNode[], size: Size, m: LabelMetrics): DiagramBoxes {
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const iconSize = rowStep(m.fontSize)
+  const width = SANKEY_LABEL_W - 12 - iconSize - 6
+  const out: NodeBoxes[] = []
+  for (const slot of layout.slots) {
+    const left = slot.side === "left"
+    const top = Math.round(slot.y + (slot.height - labelHeight(lineCount(byId.get(slot.id)), m)) / 2)
+    const x = left ? 0 : size.width - SANKEY_LABEL_W + 12
+    const cx = left ? SANKEY_LABEL_W - 12 - iconSize / 2 : x + iconSize / 2
+    out.push({
+      id: slot.id,
+      icon: { x: Math.round(cx - iconSize / 2), y: top, width: iconSize, height: iconSize },
+      label: { x: left ? 0 : x + iconSize + 6, y: top, width, align: left ? "right" : "left" },
+    })
+  }
+  const bus = layout.bars.length
+    ? { x: Math.round(layout.bus.x - 60), y: Math.max(0, Math.round(layout.bus.y - rowStep(m.fontSize) - 4)), width: 120 + SANKEY_BAR_W, align: "center" as const }
+    : undefined
+  return { ...(bus ? { bus } : {}), nodes: out }
+}
+
+export const FLOW_ICON = Math.round(FLOW_NODE_R * 0.95)
+export const FLOW_LABEL_W = 160
+
+/**
+ * The Flow's boxes: the icon in its circle; the label from the core's
+ * baseline (flowLayout) - under the circle and centred, never into the
+ * circle or its ring, or beside it from the circle's top; the bus's name
+ * right of the bus.
+ */
+export function flowBoxes(layout: FlowLayout, m: LabelMetrics): DiagramBoxes {
+  return {
+    bus: { x: layout.bus.x + layout.bus.r + 8, y: layout.bus.y - Math.round(m.fontSize * 0.6), width: 120, align: "left" },
+    nodes: layout.nodes.map((fn) => {
+      const beside = fn.label.align === "start"
+      // The core gives the name's baseline; a label is placed by its top.
+      const top = beside ? fn.y - FLOW_NODE_R : Math.max(fn.label.y - Math.round(m.fontSize * 0.8), fn.y + (fn.ring ? fn.ring.r + 4 : fn.r + 4))
+      return {
+        id: fn.id,
+        icon: { x: Math.round(fn.x - FLOW_ICON / 2), y: Math.round(fn.y - FLOW_ICON / 2), width: FLOW_ICON, height: FLOW_ICON },
+        label: { x: beside ? fn.label.x : fn.label.x - FLOW_LABEL_W / 2, y: top, width: FLOW_LABEL_W, align: beside ? "left" : "center" },
+      }
+    }),
+  }
+}
+
 // ---- Motion (spec decision 10). A phase 0..1 per line or per diagram,
 // advanced by the time that passed; every renderer draws the same picture
 // for the same phase, so a test can freeze one and compare.

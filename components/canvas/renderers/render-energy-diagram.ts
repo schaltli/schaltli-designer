@@ -15,11 +15,15 @@ import {
   advanceWave,
   DOT_R,
   dotsOnLine,
+  flowBoxes,
   flowLayout,
+  rowStep,
+  sankeyBoxes,
   resolveEnergy,
   sankeyLayout,
   waveColour,
   withWatts,
+  type Box,
   type EnergyDiagramProperties,
   type EnergyNode,
   type EnergyValue,
@@ -164,7 +168,7 @@ function labelObjects(
       zIndex: 3,
       properties: { text, ...(liveValues ? { liveValues } : {}), fontId, textColor: colour, textAlign: at.align, backgroundColor: "transparent", borderColor: "transparent" },
     } as ScreenObject)
-    y += Math.round(size * 1.2)
+    y += rowStep(size)
   }
   // A name as a text: braces doubled, so it is never read as a placeholder.
   line("name", (name ?? node.name).replace(/\{/g, "{{").replace(/\}/g, "}}"), undefined, t.fontId, t.fontSize, c.muted)
@@ -175,26 +179,20 @@ function labelObjects(
   return out
 }
 
-function iconObject(node: EnergyNode, cx: number, cy: number, size: number, colour: string): ScreenObject[] {
+function iconObject(node: EnergyNode, box: Box, colour: string): ScreenObject[] {
   if (!node.iconAssetId) return []
   return [
     {
       id: `${node.id}-icon`,
       type: "icon",
-      x: Math.round(cx - size / 2),
-      y: Math.round(cy - size / 2),
-      width: size,
-      height: size,
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
       zIndex: 2,
       properties: { assetId: node.iconAssetId, iconColor: colour, backgroundColor: "transparent" },
     } as ScreenObject,
   ]
-}
-
-/** How tall a node's label is: its name and its lines. */
-function labelHeight(node: EnergyNode, t: TextLook): number {
-  const lines = (node.lines ?? []).slice(0, 3)
-  return Math.round(t.fontSize * 1.2) * (1 + Math.max(0, lines.length - 1)) + (lines.length ? Math.round(t.valueFontSize * 1.2) : 0)
 }
 
 /**
@@ -257,21 +255,15 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       ctx.roundRect(bar.x, bar.y, bar.width, bar.height, bar.side === "left" ? [r, 0, 0, r] : [0, r, r, 0])
       ctx.fill()
     }
+    const boxes = sankeyBoxes(layout, nodes, { width: obj.width, height: obj.height }, t)
     const busNode = nodes.find((n) => n.role === "bus")
-    if (busNode && layout.bars.length) {
-      labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, { x: layout.bus.x - 60, y: Math.max(0, layout.bus.y - Math.round(t.fontSize * 1.2) - 4), width: 120 + SANKEY_BAR_W, align: "center" }, t, c))
-    }
-    for (const slot of layout.slots) {
-      const node = byId.get(slot.id)
-      const r = resolved.find((x) => x.id === slot.id)
+    if (busNode && boxes.bus) labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, boxes.bus, t, c))
+    for (const b of boxes.nodes) {
+      const node = byId.get(b.id)
+      const r = resolved.find((x) => x.id === b.id)
       if (!node || !r) continue
-      const left = slot.side === "left"
-      const iconSize = Math.round(t.fontSize * 1.2)
-      const top = Math.round(slot.y + (slot.height - labelHeight(node, t)) / 2)
-      const width = SANKEY_LABEL_W - 12 - iconSize - 6
-      const x = left ? 0 : obj.width - SANKEY_LABEL_W + 12
-      labels.push(...iconObject(node, left ? SANKEY_LABEL_W - 12 - iconSize / 2 : x + iconSize / 2, top + iconSize / 2, iconSize, depth(r.watts > 0 ? (colours.get(r.id) ?? c.text) : c.muted)))
-      labels.push(...labelObjects(node, wattsOf(r), { x: left ? 0 : x + iconSize + 6, y: top, width, align: left ? "right" : "left" }, t, c))
+      labels.push(...iconObject(node, b.icon, depth(r.watts > 0 ? (colours.get(r.id) ?? c.text) : c.muted)))
+      labels.push(...labelObjects(node, wattsOf(r), b.label, t, c))
     }
   } else {
     const layout = flowLayout(nodes, resolved)
@@ -299,9 +291,11 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
     ctx.beginPath()
     ctx.arc(layout.bus.x, layout.bus.y, layout.bus.r, 0, Math.PI * 2)
     ctx.fill()
+    const boxes = flowBoxes(layout, t)
     const busNode = nodes.find((n) => n.role === "bus")
-    if (busNode) labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, { x: layout.bus.x + layout.bus.r + 8, y: layout.bus.y - Math.round(t.fontSize * 0.6), width: 120, align: "left" }, t, c))
-    for (const fn of layout.nodes) {
+    if (busNode && boxes.bus) labels.push(...labelObjects({ ...busNode, lines: [] }, undefined, boxes.bus, t, c))
+    layout.nodes.forEach((fn, i) => {
+      const b = boxes.nodes[i]
       const node = byId.get(fn.id)!
       const r = resolved.find((x) => x.id === fn.id)!
       const colour = depth(fn.live ? colourOf(node, r, c) : c.idle)
@@ -326,13 +320,9 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       ctx.arc(fn.x, fn.y, fn.r, 0, Math.PI * 2)
       ctx.fill()
       ctx.stroke()
-      labels.push(...iconObject(node, fn.x, fn.y, Math.round(FLOW_NODE_R * 0.95), fn.live ? colour : depth(c.muted)))
-      const width = 160
-      const beside = fn.label.align === "start"
-      // The core gives the name's baseline; a text object is placed by its top.
-      const top = beside ? fn.y - FLOW_NODE_R : Math.max(fn.label.y - Math.round(t.fontSize * 0.8), fn.y + (fn.ring ? fn.ring.r + 4 : fn.r + 4))
-      labels.push(...labelObjects(node, wattsOf(r), { x: beside ? fn.label.x : fn.label.x - width / 2, y: top, width, align: beside ? "left" : "center" }, t, c))
-    }
+      labels.push(...iconObject(node, b.icon, fn.live ? colour : depth(c.muted)))
+      labels.push(...labelObjects(node, wattsOf(r), b.label, t, c))
+    })
   }
   renderScreenObjects(ctx, labels, { ...options, nested: true })
   ctx.restore()
@@ -349,6 +339,6 @@ export function everyEnergyIcon(obj: ScreenObject): ScreenObject[] {
   return nodes.flatMap((n) =>
     [c.idle, c.muted, c.text, c.charge, c.discharge, (n as { color?: string }).color]
       .filter((colour): colour is string => !!colour)
-      .flatMap((colour) => iconObject(n, 0, 0, 16, colour)),
+      .flatMap((colour) => iconObject(n, { x: -8, y: -8, width: 16, height: 16 }, colour)),
   )
 }

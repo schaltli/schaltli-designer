@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { DOT_PACE, DOT_R, FLOW_BUS_R, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { DOT_PACE, DOT_R, FLOW_BUS_R, flowBoxes, labelHeight, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -287,6 +287,18 @@ test.describe("shared vectors (L5)", () => {
       expect(flowLayout(nodes, resolveEnergy(nodes, {})).nodes.find((n) => n.id === c.id)!.label).toEqual(c.expected)
     })
   }
+  for (const c of vectors.boxes as any[]) {
+    test(`boxes: ${c.name}`, () => {
+      const withLines = nodes.map((n) => ({ ...n, lines: Array.from({ length: c.lines[n.id] ?? 0 }, () => ({ text: "{watts} W" })) }))
+      const r = resolveEnergy(withLines, c.values)
+      const b = c.mode === "flow" ? flowBoxes(flowLayout(withLines, r), c.metrics) : sankeyBoxes(sankeyLayout(r, c.size, c.fullScale), withLines, c.size, c.metrics)
+      expect(b.bus).toEqual(c.expected.bus)
+      for (const [id, e] of Object.entries(c.expected.nodes)) {
+        const n = b.nodes.find((x) => x.id === id)!
+        expect({ icon: n.icon, label: n.label }, id).toEqual(e)
+      }
+    })
+  }
   test("dot gaps, dots and waves", () => {
     for (const c of vectors.dotGap) near(dotGap(c.watts), c.expected)
     for (const c of vectors.dots) {
@@ -296,6 +308,29 @@ test.describe("shared vectors (L5)", () => {
     for (const c of vectors.wave) {
       near(waveMix(c.x, c.phase), c.mix)
       expect(waveColour(c.band as [number, number, number], c.ground as [number, number, number], c.x, c.phase)).toEqual(c.colour)
+    }
+  })
+})
+
+test.describe("names, lines and icons: boxes from the core (energy-contract C1)", () => {
+  test("a row is 1.2 times its font, rounded; a label is its name, then its lines, the first in the value font", () => {
+    expect(rowStep(16)).toBe(19)
+    expect(rowStep(22)).toBe(26)
+    const m = { fontSize: 16, valueFontSize: 22 }
+    expect(labelHeight(0, m)).toBe(19)
+    expect(labelHeight(1, m)).toBe(19 + 26)
+    expect(labelHeight(3, m)).toBe(19 * 3 + 26)
+    // Never more than three lines.
+    expect(labelHeight(5, m)).toBe(labelHeight(3, m))
+  })
+
+  test("every box stands on whole pixels, for a device to place text by", () => {
+    const m = { fontSize: 15, valueFontSize: 21 }
+    const r = resolveEnergy(NODES, { solar: { watts: 77 }, battery: { watts: -33 } })
+    for (const b of [flowBoxes(flowLayout(NODES, r), m), sankeyBoxes(sankeyLayout(r, { width: 601, height: 377 }, 700), NODES, { width: 601, height: 377 }, m)]) {
+      for (const box of [b.bus!, ...b.nodes.flatMap((n) => [n.icon, n.label])]) {
+        for (const v of [box.x, box.y]) expect(Number.isInteger(v), JSON.stringify(box)).toBe(true)
+      }
     }
   })
 })
