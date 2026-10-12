@@ -6,6 +6,25 @@ import type { ScreenObject } from "@/components/project-editor"
 import { DEFAULT_FULL_SCALE, FLOW_ICON, MAX_NODE_LINES, rowStep, type EnergyNode } from "@/lib/energy-diagram"
 import { exportedTextProperties } from "@/lib/object-text"
 
+/**
+ * What a device below generation 1.7 would not show, for the deploy
+ * dialog: each energy diagram, by the screen it is on (a master's by the
+ * master), at every depth.
+ */
+export function energyDiagramsNotOnDevices(project: { screens: readonly { name: string; objects?: ScreenObject[] }[] }): string[] {
+  const names: string[] = []
+  for (const screen of project.screens) {
+    const walk = (objects: readonly ScreenObject[]) => {
+      for (const o of objects) {
+        if (o.type === "energy-diagram") names.push(`the energy diagram on ${screen.name}`)
+        if (o.children?.length) walk(o.children)
+      }
+    }
+    walk(screen.objects ?? [])
+  }
+  return names
+}
+
 /** The colours the theme gave the diagram (lib/themes.ts applyTheme), with what stands in without one. */
 export function diagramColours(p: Record<string, any>) {
   return {

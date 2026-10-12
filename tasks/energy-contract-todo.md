@@ -16,6 +16,7 @@ untouched; a push on halt or finish.
   - e2e/energy-diagram.spec.ts «the energy diagram in the device zip»: the data, the topics, the bakes' size and colour in both modes
 - [x] C4 Into the Android bundle
   - the same `exportedEnergyDiagram`; icons as tinted SVGs per look (iconPathFor), dark from darkVariantOf; e2e: the bundle's diagram equals the zip's but for the icon files
-- [ ] C5 The Deploy dialog
+- [x] C5 The Deploy dialog
+  - `energyDiagramsNotOnDevices` → a need at 1.7 in deploy-dialog.tsx; e2e: names by screen (nested too), the plan for a board and an app below 1.7
 - [ ] C6 Handbook
 - [ ] Checkpoint: test:all green; the user has read §2.8

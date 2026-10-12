@@ -9,6 +9,9 @@ import { buildEditableProjectZip } from "../lib/project-zip"
 import { packClipboard, unpackClipboard } from "../lib/clipboard-transfer"
 import { unusedTopics } from "../lib/topic-usage"
 import { popupOpeners, withoutDeadPopupActions } from "../lib/popup"
+import { energyDiagramsNotOnDevices } from "../lib/energy-diagram-object"
+import { ENERGY_DIAGRAM_GENERATION } from "../lib/system-generation"
+import { planDeploy } from "../lib/deploy-plan"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
@@ -741,6 +744,33 @@ test.describe("a tap on an energy diagram's node", () => {
         .not.toBe(before)
     })
   }
+})
+
+test.describe("the deploy's warning below generation 1.7", () => {
+  test("each diagram is named by its screen, nested ones too; a project without one needs nothing", () => {
+    const project = {
+      screens: [
+        { name: "Master", objects: [{ id: "m", type: "energy-diagram", properties: {} }] },
+        { name: "Energie", objects: [{ id: "g", type: "group", properties: {}, children: [{ id: "e", type: "energy-diagram", properties: {} }] }] },
+        { name: "Licht", objects: [{ id: "t", type: "text", properties: {} }] },
+      ],
+    }
+    expect(energyDiagramsNotOnDevices(project as any)).toEqual(["the energy diagram on Master", "the energy diagram on Energie"])
+    expect(energyDiagramsNotOnDevices({ screens: [project.screens[2]] } as any)).toEqual([])
+  })
+
+  test("a board is brought up to a release that draws it, blocked by one that does not; an app below 1.7 is asked to update", () => {
+    const need = { generation: ENERGY_DIAGRAM_GENERATION, parts: ["the energy diagram on Energie"] }
+    const board = { name: "4.3B", platform: "firmware" as const, online: true, systemGeneration: "1.6", firmwareBuild: "fw-2026.10.11.2" }
+    expect(planDeploy({ device: board, release: { build: "fw-2026.10.20.1", systemGeneration: "1.7", available: true }, needs: [need] }).kind).toBe("update-and-deploy")
+    const old = planDeploy({ device: board, release: { build: "fw-2026.10.11.2", systemGeneration: "1.6", available: true }, needs: [need] })
+    expect(old.kind).toBe("blocked")
+    if (old.kind === "blocked") expect(old.reason).toContain("cannot show the energy diagram on Energie")
+    const phone = { name: "P20 Pro", platform: "android" as const, online: true, systemGeneration: "1.6", firmwareVersion: "0.9.0" }
+    const app = planDeploy({ device: phone, release: undefined, needs: [need] })
+    expect(app.kind).toBe("blocked")
+    if (app.kind === "blocked") expect(app.reason).toContain("generation 1.7 or newer")
+  })
 })
 
 test.describe("a node's popup in the export", () => {
