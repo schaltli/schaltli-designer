@@ -8,7 +8,9 @@ untouched; a push on halt or finish.
 
 - [x] C1 Label and icon boxes in the core
   - `rowStep`, `labelHeight`, `sankeyBoxes`, `flowBoxes` in lib/energy-diagram.ts; vectors `boxes` (4 cases); the renderer draws from them; the Sankey bus name now on whole pixels
-- [ ] C2 Contract §2.8 and generation 1.7
+- [x] C2 Contract §2.8 and generation 1.7
+  - docs/device-contract.md §2.8; `ENERGY_DIAGRAM_GENERATION`; spec decision 16 amended
+  - the tap's geometry also moved into the core (`nodeAtTap`), so §2.8 names only the core
 - [ ] C3 Into the device zip
 - [ ] C4 Into the Android bundle
 - [ ] C5 The Deploy dialog

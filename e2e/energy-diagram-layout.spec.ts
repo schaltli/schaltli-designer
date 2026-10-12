@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/energy-diagram/vectors.json"
-import { DOT_PACE, DOT_R, FLOW_BUS_R, flowBoxes, labelHeight, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
+import { DOT_PACE, DOT_R, FLOW_BUS_R, flowBoxes, labelHeight, nodeAtTap, rowStep, sankeyBoxes, FLOW_LABEL_GAP, FLOW_NODE_R, WAVE_PX, WAVE_SECONDS, advanceDots, advanceWave, dotGap, dotsOnLine, flowLayout, lineWidth, resolveEnergy, sankeyLayout, waveColour, waveMix, type EnergyNode } from "../lib/energy-diagram"
 
 // lib/energy-diagram.ts, the energy diagram's core (docs/2026-10-11-energy-
 // diagram.md, tasks/energy-diagram-plan.md L1-L5): pure, shared by the
@@ -322,6 +322,22 @@ test.describe("names, lines and icons: boxes from the core (energy-contract C1)"
     expect(labelHeight(3, m)).toBe(19 * 3 + 26)
     // Never more than three lines.
     expect(labelHeight(5, m)).toBe(labelHeight(3, m))
+  })
+
+  test("a tap: in the Flow within a circle, never on the bus; in the Sankey on a slot's side", () => {
+    const r = resolveEnergy(NODES, { solar: { watts: 120 }, battery: { watts: -92 } })
+    const size = { width: 676, height: 396 }
+    // The sun's circle at (114, 52), 32 px round.
+    expect(nodeAtTap("flow", NODES, r, size, 1000, 114 + 31, 52)).toBe("solar")
+    expect(nodeAtTap("flow", NODES, r, size, 1000, 114 + 33, 52)).toBeUndefined()
+    expect(nodeAtTap("flow", NODES, r, size, 1000, 338, 186)).toBeUndefined()
+    const layout = sankeyLayout(r, size, 1000)
+    for (const slot of layout.slots) {
+      const x = slot.side === "left" ? 10 : size.width - 10
+      expect(nodeAtTap("sankey", NODES, r, size, 1000, x, slot.y + slot.height / 2)).toBe(slot.id)
+      // The middle, between the bars, is no node's.
+      expect(nodeAtTap("sankey", NODES, r, size, 1000, size.width / 2, slot.y + slot.height / 2)).toBeUndefined()
+    }
   })
 
   test("every box stands on whole pixels, for a device to place text by", () => {

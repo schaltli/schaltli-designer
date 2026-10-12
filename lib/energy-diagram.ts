@@ -478,6 +478,20 @@ export function flowBoxes(layout: FlowLayout, m: LabelMetrics): DiagramBoxes {
   }
 }
 
+/**
+ * The node a tap at (x, y), relative to the diagram, lands on: in the Flow
+ * within FLOW_NODE_R of its centre; in the Sankey in its slot, on its side
+ * - its label and its bar. Never the bus: it has no action (decision 13).
+ */
+export function nodeAtTap(mode: string, nodes: readonly EnergyNode[], resolved: readonly ResolvedNode[], size: Size, fullScale: number, x: number, y: number): string | undefined {
+  if (mode === "sankey") {
+    const layout = sankeyLayout(resolved, size, fullScale)
+    const slot = layout.slots.find((s) => y >= s.y && y < s.y + s.height && (s.side === "left" ? x < SANKEY_LABEL_W + SANKEY_BAR_W : x >= size.width - SANKEY_LABEL_W - SANKEY_BAR_W))
+    return slot?.id
+  }
+  return nodes.find((n) => n.role !== "bus" && Math.hypot(x - n.x, y - n.y) <= FLOW_NODE_R)?.id
+}
+
 // ---- Motion (spec decision 10). A phase 0..1 per line or per diagram,
 // advanced by the time that passed; every renderer draws the same picture
 // for the same phase, so a test can freeze one and compare.

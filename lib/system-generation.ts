@@ -60,6 +60,13 @@ export const NAVIGATOR_GENERATION = { major: 1, minor: 5 } as const
 // release, an app is asked to update.
 export const NAVIGATOR_THEME_SWITCH_GENERATION = { major: 1, minor: 6 } as const
 
+// The generation a device announces once it draws the energy diagram -
+// an object of type energy-diagram, its nodes, bakes and motion (device
+// contract 2.8, docs/2026-10-11-energy-diagram.md). Additive: a device
+// below it skips the type and draws nothing in its place - a warning
+// before a deploy, never a refusal.
+export const ENERGY_DIAGRAM_GENERATION = { major: 1, minor: 7 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

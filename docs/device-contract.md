@@ -882,6 +882,113 @@ the screens slide beneath it.
   a hidden screen is paged to. The deploy dialog warns before sending,
   naming the navigators and hidden screens.
 
+### 2.8 The energy diagram - generation 1.7 (designer side 2026-10-12)
+
+Where the power goes: sources, storage and consumers round a bus, as a
+Flow (circles with lines, dots running on them) or a Sankey (bands as wide
+as their watts) - designer `docs/2026-10-11-energy-diagram.md`. The export
+carries the diagram's data; the device works every place out from what its
+topics say, with its port of `lib/energy-diagram.ts`.
+
+```json
+{
+  "type": "energy-diagram", "id": "obj-3", "x": 40, "y": 60, "width": 676, "height": 396,
+  "properties": {
+    "mode": "flow",
+    "motion": true,
+    "fullScale": 1000,
+    "fontId": "font-luRS14", "fontSize": 16,
+    "valueFontId": "font-luRS18", "valueFontSize": 22,
+    "textColor": "#1d1b20", "textColorDark": "#e6e0e9",
+    "mutedColor": "#49454f", "mutedColorDark": "#cac4d0",
+    "busColor": "#6750a4", "busColorDark": "#d0bcff",
+    "idleColor": "#cac4d0", "idleColorDark": "#49454f",
+    "chargeColor": "#2f9a52", "chargeColorDark": "#6fd08f",
+    "dischargeColor": "#d0453f", "dischargeColorDark": "#ff8a80",
+    "nodes": [
+      { "id": "bus", "role": "bus", "name": "12 V", "x": 338, "y": 186 },
+      { "id": "solar", "role": "source", "name": "Solar", "x": 114, "y": 52,
+        "topic": "solar/power", "reverseSign": false,
+        "color": "#c99400", "colorDark": "#f2c94c",
+        "icon": { "size": 30,
+                  "live": "assets/…", "liveDark": "assets/…",
+                  "muted": "assets/…", "mutedDark": "assets/…" },
+        "lines": [ { "text": "{watts} W" },
+                   { "text": "today {topic:solar/yield} Wh" } ],
+        "action": { "type": "open-popup", "targetScreenId": "p-solar" } },
+      { "id": "battery", "role": "storage", "name": "Batterie", "x": 202, "y": 302,
+        "topic": "battery/power", "chargeTopic": "battery/soc",
+        "icon": { "size": 30, "charge": "…", "chargeDark": "…",
+                  "discharge": "…", "dischargeDark": "…", "muted": "…", "mutedDark": "…" },
+        "lines": [ { "text": "{watts} W" } ] },
+      { "id": "load", "role": "rest", "name": "Verbraucher", "x": 474, "y": 302,
+        "color": "#7a5af5", "colorDark": "#b39dff",
+        "lines": [ { "text": "{watts} W" } ] }
+    ]
+  }
+}
+```
+
+- **Nodes:** exactly one `bus`; any number of `source`, `sink` and
+  `storage`; at most one `rest`. `x`/`y` are relative to the diagram: in
+  the Flow where the circles stand; in the Sankey only their order counts,
+  the order listed.
+- **Watts** (`resolveEnergy`): a node's `topic` says watts as a number,
+  turned round first where `reverseSign` is true. A source counts what it
+  gives (below 0 counts 0), a sink what it takes, a storage its amount -
+  taking while positive, giving while negative. The `rest` has no topic:
+  it is what the givers give and the takers do not take, never below 0. A
+  storage's `chargeTopic` says its charge in percent (the Flow's ring).
+- **Places:** the Flow from `flowLayout`; the Sankey from `sankeyLayout`,
+  `fullScale` the watts that fill its height; names, lines and icons from
+  `flowBoxes` and `sankeyBoxes` with `fontSize` and `valueFontSize`. Every
+  number a device needs is in those functions and their constants.
+- **Colours:** a node's colour is its `color`; a storage's is `chargeColor`
+  while taking and `dischargeColor` while giving. A node at 0 W is drawn
+  in `idleColor` (its circle, line, bar and band). The bus is `busColor`.
+  Each beside its `…Dark` as in 2.3.
+- **Flow:** per node a line to the bus, `lineWidth(watts)` wide, its colour
+  at 50 % opacity while it carries watts (at 0 W `idleColor`, opaque); then
+  the bus, a filled circle; then each node's circle, filled with the
+  screen's background, a 3 px ring in its colour. A storage with a
+  `chargeTopic` has a 5 px track in `idleColor` round its circle and on it,
+  from the top clockwise, its charge in its colour.
+- **Sankey:** the bands first, each column of a band one colour
+  (`waveColour` of its colour towards the screen's background), then the
+  bus (a rectangle) and the bars (rounded outside, square towards the
+  band). With nothing flowing every bar and the bus are 3 px, and no band.
+- **Labels:** the name in `fontId` and `mutedColor`, drawn as written - no
+  placeholders; then up to three lines, the first in `valueFontId` and
+  `textColor`, the others in `fontId` and `mutedColor`, each one row
+  (`rowStep` of the font above it) lower. A line is a text's live text
+  (2.4, 2.6: `text`, and `liveText` with `liveValues` where it has live
+  values). Before it is resolved, **`{watts}`** is replaced with the
+  node's watts as worked out above, whole: negative for a storage that
+  gives, `-` while its topic has said nothing; the rest's is always a
+  number. The rows align in their box as its `align` says.
+- **Icons:** baked per look, `icon.size` square, drawn at the box the core
+  gives. A node with watts draws `live` (a storage `charge` or
+  `discharge`), at 0 W `muted`. A node without `icon` has none.
+- **Motion** (`motion: true`): in the Flow, dots of radius `DOT_R` in the
+  node's colour run on each line that carries watts, `dotGap(watts)` apart,
+  all at `DOT_PACE` - from the node to the bus while it gives, back while
+  it takes (`advanceDots`, `dotsOnLine`). In the Sankey every band's wave
+  moves by `advanceWave`. A device steps as often as it can; the picture
+  depends only on the phase. `motion: false`: phase 0, still.
+- **Tap:** in the Flow within `FLOW_NODE_R` of a node's centre, in the
+  Sankey on its slot on its side (`nodeAtTap`): runs the node's
+  `action`, the same actions a button has. The bus has none; without an
+  action a tap does nothing.
+- **Topics:** every node's `topic` and `chargeTopic`, and what its lines
+  read, are in the export's `topics`.
+- **Conformance:** `lib/energy-diagram/vectors.json` - resolving, the
+  Sankey's bars and bus, the Flow's lines and labels, the boxes, the dot
+  gaps and dots, the wave. Copy it; do not edit a copy.
+- **Announce** generation **1.7** in `hello` once the diagram is drawn.
+  Below it a device skips the object as any unknown type: nothing stands
+  in its place. The deploy dialog warns before sending, naming the
+  diagrams.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008

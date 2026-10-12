@@ -243,6 +243,14 @@ Order: `energy-spike` and `energy-layout` side by side → `energy-designer`
     the object out (`lib/energy-diagram-object.ts`), so nothing half-made
     reaches a device. **Generation 1.7.** A device without it gets the diagram dissolved
     into nothing and the Deploy dialog's usual need for an update.
+    **The contract** (energy-contract, 2026-10-12): device contract 2.8.
+    The export carries the data and the device works every place out with
+    its port of the core - the boxes for names, lines and icons included
+    (`flowBoxes`, `sankeyBoxes`); icons are baked per node and look
+    (`live`, or a storage's `charge` and `discharge`, and `muted`), light
+    and dark; `{watts}` stays in the lines for the device to fill. The
+    DDFs list the type only once a device draws it (`energy-firmware`,
+    `energy-android`).
 
 ## Behaviour
 
