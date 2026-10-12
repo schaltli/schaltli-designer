@@ -198,6 +198,9 @@ class DiagramPixels {
     private readonly width: number,
     private readonly height: number,
     private readonly ground: number,
+    /** The size it is drawn at, in the canvas's units. */
+    private readonly drawnWidth = width,
+    private readonly drawnHeight = height,
   ) {
     this.data = new Uint16Array(Math.max(0, width * height))
     this.touched = new Uint8Array(Math.max(0, width * height))
@@ -241,7 +244,7 @@ class DiagramPixels {
     octx.putImageData(img, 0, 0)
     ctx.save()
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(off, 0, 0)
+    ctx.drawImage(off, 0, 0, this.drawnWidth, this.drawnHeight)
     ctx.restore()
   }
 }
@@ -277,7 +280,12 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
   // RGB565 as a board's canvas holds it (energy-firmware, 2026-10-12): an
   // outline from the core, filled by the firmware's rules. A pixel the
   // diagram touches first mixes into the screen's ground.
-  const px = new DiagramPixels(obj.width, obj.height, rgb565(depth(ground)))
+  // At the canvas's own resolution (a phone's reference render, the
+  // editor's zoom): a picture made at 1 and scaled up would show its pixels.
+  // A board's is 1, and there the pixels are the board's exactly.
+  const t0 = ctx.getTransform()
+  const k = Math.max(1, Math.hypot(t0.a, t0.b))
+  const px = new DiagramPixels(Math.ceil(obj.width * k), Math.ceil(obj.height * k), rgb565(depth(ground)), obj.width, obj.height)
   const groundRgb = expand565(rgb565(depth(ground)))
 
   if (p.mode === "sankey") {
@@ -289,21 +297,21 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
     for (const band of layout.bands) {
       const base = expand565(rgb565(depth(colours.get(band.id) ?? c.text)))
       const column = (x: number) => {
-        const [r, g, b] = waveColour(base, groundRgb, x, motion.wave)
+        const [r, g, b] = waveColour(base, groundRgb, k === 1 ? x : x / k, motion.wave)
         return pack565(r, g, b)
       }
-      fillPolygon(bandOutline(band), 0, obj.height - 1, {
+      fillPolygon(bandOutline({ ...band, polygon: band.polygon.map((q) => ({ x: q.x * k, y: q.y * k })) }), 0, Math.ceil(obj.height * k) - 1, {
         fullRun: (y, x0, x1) => {
           for (let x = x0; x <= x1; x++) px.put(x, y, column(x), 256)
         },
         partial: (y, x, coverage) => px.put(x, y, column(x), coverage * 16),
       })
     }
-    px.fill(rectOutline(layout.bus.x, layout.bus.y, layout.bus.width, layout.bus.height), rgb565(depth(c.bus)))
+    px.fill(rectOutline(layout.bus.x * k, layout.bus.y * k, layout.bus.width * k, layout.bus.height * k), rgb565(depth(c.bus)))
     for (const bar of layout.bars) {
       // Rounded outside, square towards the band (decision 8).
       const r = Math.min(3, bar.height / 2)
-      px.fill(barOutline(bar.x, bar.y, bar.width, bar.height, r, bar.side === "left"), rgb565(depth(colours.get(bar.id) ?? c.text)))
+      px.fill(barOutline(bar.x * k, bar.y * k, bar.width * k, bar.height * k, r * k, bar.side === "left"), rgb565(depth(colours.get(bar.id) ?? c.text)))
     }
     px.drawOn(ctx)
     const boxes = sankeyBoxes(layout, nodes, { width: obj.width, height: obj.height }, t)
@@ -322,23 +330,23 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       const r = resolved.find((x) => x.id === line.id)!
       const colour = rgb565(depth(line.live ? colourOf(byId.get(r.id), r, c) : c.idle))
       // A live line at half strength, under its dots.
-      px.fill(capsuleOutline(line.x0, line.y0, line.x1, line.y1, line.width), colour, line.live ? 128 : 256)
+      px.fill(capsuleOutline(line.x0 * k, line.y0 * k, line.x1 * k, line.y1 * k, line.width * k), colour, line.live ? 128 : 256)
       if (!line.live) continue
-      for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) px.fill(discOutline(d.x, d.y, DOT_R), colour)
+      for (const d of dotsOnLine(line, motion.dots[dotKey(obj.id, line.id)] ?? 0, r.gives, r.watts)) px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), colour)
     }
-    px.fill(discOutline(layout.bus.x, layout.bus.y, layout.bus.r), rgb565(depth(c.bus)))
+    px.fill(discOutline(layout.bus.x * k, layout.bus.y * k, layout.bus.r * k), rgb565(depth(c.bus)))
     for (const fn of layout.nodes) {
       const node = byId.get(fn.id)!
       const r = resolved.find((x) => x.id === fn.id)!
       const colour = depth(fn.live ? colourOf(node, r, c) : c.idle)
       if (fn.ring) {
-        px.fill(ringOutline(fn.x, fn.y, fn.ring.r + 2.5, fn.ring.r - 2.5), rgb565(depth(c.idle)))
+        px.fill(ringOutline(fn.x * k, fn.y * k, (fn.ring.r + 2.5) * k, (fn.ring.r - 2.5) * k), rgb565(depth(c.idle)))
         const sweep = Math.round(fn.ring.fraction * 360)
-        if (sweep > 0) px.fill(arcOutline(fn.x, fn.y, fn.ring.r, 5, sweep), rgb565(depth(colourOf(node, r, c))))
+        if (sweep > 0) px.fill(arcOutline(fn.x * k, fn.y * k, fn.ring.r * k, 5 * k, sweep), rgb565(depth(colourOf(node, r, c))))
       }
       // The circle: a ring 3 px wide round the ground.
-      px.fill(discOutline(fn.x, fn.y, fn.r + 1.5), rgb565(colour))
-      px.fill(discOutline(fn.x, fn.y, fn.r - 1.5), rgb565(depth(ground)))
+      px.fill(discOutline(fn.x * k, fn.y * k, (fn.r + 1.5) * k), rgb565(colour))
+      px.fill(discOutline(fn.x * k, fn.y * k, (fn.r - 1.5) * k), rgb565(depth(ground)))
     }
     px.drawOn(ctx)
     const boxes = flowBoxes(layout, t)

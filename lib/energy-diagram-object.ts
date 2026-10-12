@@ -125,6 +125,9 @@ export function exportedEnergyDiagram(
       ...(node.color ? { color: node.color } : {}),
       ...(node.colorDark ? { colorDark: node.colorDark } : {}),
       ...(Object.keys(icon).length ? { icon: { size: iconSize(p, fonts), ...icon } } : {}),
+      // The asset its looks were baked from: a device reads the bakes; a
+      // reference render of the export draws from it (hil/android).
+      ...(Object.keys(icon).length && n.iconAssetId ? { iconAssetId: n.iconAssetId } : {}),
       lines: (n.lines ?? []).slice(0, MAX_NODE_LINES).map((line, i) => {
         const text = exportedTextProperties({ id: `${obj.id}-${n.id}-line${i}`, type: "text", x: 0, y: 0, width: 0, height: 0, zIndex: 0, properties: { text: line.text, ...(line.liveValues?.length ? { liveValues: line.liveValues } : {}) } } as ScreenObject, project)
         return { text: text.text, ...(text.liveText !== undefined ? { liveText: text.liveText, liveValues: text.liveValues } : {}) }

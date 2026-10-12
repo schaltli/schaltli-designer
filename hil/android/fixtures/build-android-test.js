@@ -31,6 +31,9 @@
 //             of them - yes/no, a countdown empty at 0, a number - a live
 //             icon on a threshold, and one on a combined topic two levels
 //             deep, whose examples turn it on once through only its input
+//   screen-7  the energy diagram (device contract 2.8): a Flow above a
+//             Sankey, Motion off so the picture is the still one; the
+//             storage gives, takes and gives again across the examples
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -95,6 +98,41 @@ const svgAsset = (id, name, body) => ({
     ),
 });
 
+// screen-7's diagrams: a source with an icon, a storage with its charge
+// and an icon, the rest; Motion off, so the screenshot is the still picture.
+function energyDiagram(id, mode, x, y, width, height) {
+  const at = (fx, fy) => ({ x: Math.round(width * fx), y: Math.round(height * fy) });
+  const watts = [{ text: "{watts} W" }];
+  return {
+    id,
+    type: "energy-diagram",
+    zIndex: 1,
+    x,
+    y,
+    width,
+    height,
+    properties: {
+      mode,
+      motion: false,
+      fullScale: 500,
+      fontId: "font-roboto-12",
+      valueFontId: "font-roboto-16",
+      textColor: WHITE,
+      mutedColor: "#c0c0c0",
+      busColor: ACCENT,
+      idleColor: TRACK,
+      chargeColor: FILL,
+      dischargeColor: "#ff5252",
+      nodes: [
+        { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
+        { id: "solar", role: "source", name: "Solar", colorRole: "#ffd54f", color: "#ffd54f", topic: "hil/energy/solar", iconAssetId: "icon-circle", lines: watts, ...at(0.2, 0.2) },
+        { id: "battery", role: "storage", name: "Batterie", colorRole: FILL, color: FILL, topic: "hil/energy/battery", chargeTopic: "hil/energy/soc", iconAssetId: "icon-square", lines: [...watts, { text: "{topic:hil/energy/soc:F0} %" }], ...at(0.2, 0.68) },
+        { id: "rest", role: "rest", name: "Verbraucher", colorRole: "#c3b0ff", color: "#c3b0ff", lines: watts, ...at(0.8, 0.45) },
+      ],
+    },
+  };
+}
+
 function buildProject(fonts) {
   return {
     name: "android-hil",
@@ -132,6 +170,10 @@ function buildProject(fonts) {
       { id: "t-outside", topic: "hil/live/outside", type: "numeric", examples: ["8", "-2", "0.5"] },
       { id: "t-boiler", topic: "hil/live/boiler", type: "boolean", examples: ["false", "true", "false"] },
       { id: "t-night", topic: "hil/live/night", type: "boolean", examples: ["true", "true", "false"] },
+      // screen-7.
+      { id: "t-solar", topic: "hil/energy/solar", type: "numeric", examples: ["0", "120", "400"] },
+      { id: "t-battery", topic: "hil/energy/battery", type: "numeric", examples: ["-92", "60", "-300"] },
+      { id: "t-soc", topic: "hil/energy/soc", type: "numeric", examples: ["82", "15", "50"] },
     ],
     combinedTopics: [
       {
@@ -891,6 +933,17 @@ function buildProject(fonts) {
             height: 32,
             properties: { text: "Navigator", fontId: "font-roboto-24", textColor: WHITE, backgroundColor: "transparent", borderColor: "transparent" },
           },
+        ],
+      },
+
+      {
+        id: "screen-7",
+        name: "Energie",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          energyDiagram("e-flow", "flow", 0, 0, SCREEN_W, 330),
+          energyDiagram("e-sankey", "sankey", 0, 330, SCREEN_W, SCREEN_H - 330),
         ],
       },
 

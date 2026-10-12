@@ -284,6 +284,8 @@ test.describe("the energy diagram in the device zip (device contract 2.8)", () =
     expect(solar.color.toLowerCase()).toBe(role("energySun"))
     expect(solar.colorDark.toLowerCase()).toBe(resolveRole(LAVENDER, "energySun", "dark", "24bit").toLowerCase())
     expect(solar.colorRole).toBeUndefined()
+    // The asset its looks were baked from, for a reference render; the rest has no icon.
+    expect(solar.iconAssetId).toBe("sun")
     // {watts} stays for the device; a live value goes as a text's (2.6).
     expect(solar.lines[0]).toEqual({ text: "{watts} W" })
     expect(solar.lines[1].liveText).toBe("today {live:y} Wh")
