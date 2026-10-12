@@ -225,7 +225,7 @@ class DiagramPixels {
       fullRun: (y, x0, x1) => {
         for (let x = x0; x <= x1; x++) this.put(x, y, colour, alpha)
       },
-      partial: (y, x, coverage) => this.put(x, y, colour, (coverage * alpha) / 16),
+      partial: (y, x, coverage) => this.put(x, y, colour, Math.floor((coverage * alpha) / 16)),
     })
   }
 
