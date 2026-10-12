@@ -154,8 +154,8 @@ Ohne Wert zeigt der Gauge nur den leeren Ring.
 
 Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Storage» und «Consumers».
 
-::: info Nur auf dem 4.3B und auf Android
-Das Energiediagramm zeigen der Waveshare 4.3B und die Android-App, ab ihrer nächsten Firmware- und App-Version. Für den Knob und das PaperS3 bietet der Designer es nicht an. Eine ältere Firmware oder App zeigt es nicht: «Deploy» bringt den 4.3B vorher auf den neuen Stand und bittet bei der App um ein Update.
+::: info Ab der nächsten Firmware- und App-Version
+Das Energiediagramm zeigen der 4.3B, der Knob, das PaperS3 und die Android-App, jeweils ab ihrer nächsten Firmware- und App-Version. Eine ältere Version zeigt es nicht: «Deploy» bringt die Firmware vorher auf den neuen Stand und bittet bei der App um ein Update. Auf dem PaperS3 steht das Diagramm still.
 :::
 
 Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> wählst. Die Knoten bleiben beim Umschalten dieselben.
@@ -165,7 +165,7 @@ Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> w
 
 Die Eigenschaften:
 
-- <span class="ui">Motion</span>: ob sich Punkte und Wellen bewegen. Ausgeschaltet steht das Diagramm still. Auf dem 4.3B bewegen sie sich etwa zehnmal pro Sekunde und halten an, solange ein Finger auf dem Glas liegt, damit ein Tipp nicht warten muss.
+- <span class="ui">Motion</span>: ob sich Punkte und Wellen bewegen. Ausgeschaltet steht das Diagramm still. Auf dem 4.3B und dem Knob bewegen sie sich etwa zehnmal pro Sekunde und halten an, solange ein Finger auf dem Glas liegt, damit ein Tipp nicht warten muss. Beim PaperS3 fehlt das Feld: E-Paper zeigt keine Bewegung, das Diagramm steht dort mit seinen Punkten still, auch in der Vorschau des Designers.
 - <span class="ui">Full scale</span>, nur beim Sankey: die Leistung in Watt, bei der die Bänder den Platz füllen, voreingestellt 1000 W. Die Breite ist linear, 200 W sind also doppelt so breit wie 100 W. Ist ein Wechselrichter für einen Induktionsherd eingebaut, setzt du hier seine Leistung ein: Dann ist der Kühlschrank ein dünner Faden und der Herd füllt das Bild.
 - <span class="ui">Font</span> und <span class="ui">Value font</span>: die Schrift für Namen und Nebenzeilen und die für die erste Zeile jedes Knotens, meist die Leistung.
 - <span class="ui">Nodes</span>: die Liste der Knoten. Mit <span class="ui">+ Add node</span> kommt einer dazu.

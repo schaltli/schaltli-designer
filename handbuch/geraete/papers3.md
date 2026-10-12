@@ -26,6 +26,8 @@ Ein Tippen wirkt nach etwa einer Drittelsekunde. Wischgesten und Slider wirken e
 
 Jede Änderung zeichnet das Display nur an der Stelle neu, die sich geändert hat. Das geht schnell, hinterlässt mit der Zeit aber leichte Schatten. Nach zehn solchen Teiländerungen zeichnet der PaperS3 den ganzen Screen einmal sauber neu, sobald zehn Sekunden lang niemand das Display berührt hat. Beim Wechsel auf einen anderen Screen zeichnet er immer alles neu.
 
+Bewegung gibt es auf E-Paper nicht. Ein [Energy diagram](/objekte/anzeigen#energiediagramm) steht still, mit seinen Punkten an der Stelle, an der sie im Designer stehen. Ändert sich ein Wert, zeichnet der PaperS3 das Diagramm neu.
+
 ## Zurück in die Einrichtung
 
 Halte einen Finger zehn Sekunden still auf das obere linke Viertel des Displays. Nach drei Sekunden erscheint ein Kasten mit <span class="ui fw">Setup in</span> und einem Countdown. Lässt du vorher los, passiert nichts, auch das Tippen darunter wird nicht ausgelöst.
