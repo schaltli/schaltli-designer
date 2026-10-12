@@ -25,6 +25,10 @@ const button = (id: string, action: Record<string, unknown>) => ({
   properties: { text: "Go", iconAssetId: null, buttonStyle: "tonal", buttonColor: "#6750A4", action },
 })
 
+// A screen's row in the screens panel: its name first - not the «Actions for
+// <name>» menu beside it (since the screens' «Copy», 2026-10-11).
+const screenRow = (name: string) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)
+
 async function projectWith(screens: any[]): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
@@ -74,7 +78,7 @@ async function newNavigatorProject(page: Page): Promise<{ master: string; screen
 }
 
 async function placeNavigator(page: Page, master: string): Promise<void> {
-  await page.getByRole("button", { name: master }).click()
+  await page.getByRole("button", { name: screenRow(master) }).click()
   await page.getByRole("button", { name: "Navigator", exact: true }).click()
   const { box } = await getMainCanvas(page)
   const at = devicePoint(box, 400, 240, SCREEN_43B)
@@ -93,7 +97,7 @@ test.describe("the navigator object", () => {
 
   test("the tool is on a master that has none; placed, it fills the left edge and the tool goes", async ({ page }) => {
     const { master, screen } = await newNavigatorProject(page)
-    await page.getByRole("button", { name: screen }).click()
+    await page.getByRole("button", { name: screenRow(screen) }).click()
     await expect(page.getByRole("button", { name: "Navigator", exact: true })).toHaveCount(0)
 
     await placeNavigator(page, master)
@@ -255,7 +259,7 @@ test.describe("the navigator's strip on a screen", () => {
   test("is hatched while editing, not in the preview", async ({ page }) => {
     const { master, screen } = await newNavigatorProject(page)
     await placeNavigator(page, master)
-    await page.getByRole("button", { name: screen }).click()
+    await page.getByRole("button", { name: screenRow(screen) }).click()
     // A few pixels in the strip, below the first entry's highlight.
     const strip = async () => {
       const { box } = await getMainCanvas(page)
@@ -419,9 +423,9 @@ test.describe("Hide screen", () => {
     await page.getByRole("button", { name: "Preview", exact: true }).click()
     await page.waitForTimeout(300)
     await clickFixtureButton(page)
-    await expect(page.getByRole("button", { name: "Screen C" })).toHaveClass(/bg-accent/)
+    await expect(page.getByRole("button", { name: screenRow("Screen C") })).toHaveClass(/bg-accent/)
     await clickFixtureButton(page)
-    await expect(page.getByRole("button", { name: "Screen B" })).toHaveClass(/bg-accent/)
+    await expect(page.getByRole("button", { name: screenRow("Screen B") })).toHaveClass(/bg-accent/)
   })
 
   test("a project whose first screen is hidden opens on the next", async ({ page }) => {
@@ -432,7 +436,7 @@ test.describe("Hide screen", () => {
         { id: "b", name: "Screen B", objects: [] },
       ]),
     )
-    await expect(page.getByRole("button", { name: "Screen B" })).toHaveClass(/bg-accent/)
+    await expect(page.getByRole("button", { name: screenRow("Screen B") })).toHaveClass(/bg-accent/)
   })
 
   test("the checkbox is on a main screen only, and is saved", async ({ page }) => {
@@ -444,17 +448,17 @@ test.describe("Hide screen", () => {
         { id: "p", name: "Popup P", screenType: "popup", showMaster: false, objects: [] },
       ]),
     )
-    await page.getByRole("button", { name: "Screen A" }).click()
+    await page.getByRole("button", { name: screenRow("Screen A") }).click()
     const hide = page.getByLabel("Hide screen")
     await expect(hide).toBeVisible()
     await hide.check()
-    await expect(page.getByRole("button", { name: "Screen A" }).getByText("Hidden")).toBeVisible()
+    await expect(page.getByRole("button", { name: screenRow("Screen A") }).getByText("Hidden")).toBeVisible()
     const saved = await downloadProjectJson(page)
     expect(saved.screens.find((s: any) => s.id === "a").hidden).toBe(true)
 
-    await page.getByRole("button", { name: "Master M" }).click()
+    await page.getByRole("button", { name: screenRow("Master M") }).click()
     await expect(page.getByLabel("Hide screen")).toHaveCount(0)
-    await page.getByRole("button", { name: "Popup P" }).click()
+    await page.getByRole("button", { name: screenRow("Popup P") }).click()
     await expect(page.getByLabel("Hide screen")).toHaveCount(0)
   })
 })
