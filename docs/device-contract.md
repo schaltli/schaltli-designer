@@ -966,7 +966,8 @@ topics say, with its port of `lib/energy-diagram.ts`.
   node's watts as worked out above, whole: negative for a storage that
   gives, `-` while its topic has said nothing; the rest's is always a
   number. The rows align in their box as its `align` says.
-- **Icons:** baked per look, `icon.size` square, drawn at the box the core
+- **Icons:** baked per look on the screen's background (the Flow's circle
+  is filled with it), `icon.size` square, drawn at the box the core
   gives. A node with watts draws `live` (a storage `charge` or
   `discharge`), at 0 W `muted`. A node without `icon` has none.
 - **Motion** (`motion: true`): in the Flow, dots of radius `DOT_R` in the

@@ -22,7 +22,7 @@ import { exportedTopics } from "@/lib/render-screen"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
-import { withoutEnergyDiagrams } from "@/lib/energy-diagram-object"
+import { exportedEnergyDiagram } from "@/lib/energy-diagram-object"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
@@ -278,7 +278,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // A live icon keeps its live value for a 1.4 device and its Otherwise icon
   // is what a 1.3 device draws (lib/object-text.ts withLiveIconFallbacks).
   // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
-  const project = withoutEnergyDiagrams(withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored)))))
+  const project = withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored))))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -449,6 +449,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
       const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
       return { ...obj, height, properties: exportedTextProperties(obj, project) }
+    }
+    // The energy diagram's data, its node icons' bakes beside each look
+    // (device contract 2.8).
+    if (obj.type === "energy-diagram") {
+      return exportedEnergyDiagram(obj, project, (key) => {
+        const path = iconPathMap.get(assetKey(keyId, key))
+        return path ? { path, pathDark: iconDarkPathMap.get(assetKey(keyId, key)) } : undefined
+      })
     }
     if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
       return {

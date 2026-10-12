@@ -1013,6 +1013,13 @@ export function applyThemeWithDark<T extends { type?: string; properties: Record
         if (properties === l.properties) properties = { ...properties }
         properties[`${key}Dark`] = darks[i].properties[key]
       }
+      // An energy diagram's nodes: each colour beside its dark one (device contract 2.8).
+      if (sources[i].type === "energy-diagram" && Array.isArray(properties.nodes) && Array.isArray(darks[i].properties.nodes)) {
+        if (properties === l.properties) properties = { ...properties }
+        properties.nodes = properties.nodes.map((n: { color?: string }, k: number) =>
+          n.color !== undefined ? { ...n, colorDark: darks[i].properties.nodes[k]?.color } : n,
+        )
+      }
       const children =
         l.children && sources[i].children && darks[i].children ? join(sources[i].children!, l.children, darks[i].children!) : l.children
       if (properties === l.properties && children === l.children) return l

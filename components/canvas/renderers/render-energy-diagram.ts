@@ -27,6 +27,7 @@ import {
   type EnergyValue,
   type ResolvedNode,
 } from "@/lib/energy-diagram"
+import { diagramColours } from "@/lib/energy-diagram-object"
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { applyColorDepth } from "@/lib/color-depth"
 
@@ -82,17 +83,7 @@ export function energyDiagramsIn(objects: readonly ScreenObject[]): ScreenObject
   return objects.flatMap((o) => [...(o.type === "energy-diagram" ? [o] : []), ...energyDiagramsIn(o.children ?? [])])
 }
 
-/** The colours the theme gave the diagram (lib/themes.ts applyTheme), with what stands in without one. */
-function look(p: Record<string, any>) {
-  return {
-    text: p.textColor ?? "#1d1b20",
-    muted: p.mutedColor ?? "#49454f",
-    bus: p.busColor ?? "#6750a4",
-    idle: p.idleColor ?? "#cac4d0",
-    charge: p.chargeColor ?? "#2f9a52",
-    discharge: p.dischargeColor ?? "#d0453f",
-  }
-}
+const look = diagramColours
 
 /** A number from a topic's value, or undefined: nothing arrived, or not a number. */
 function numberOf(value: string | undefined): number | undefined {

@@ -158,6 +158,17 @@ export function objectReferencedTopics(obj: ScreenObject): string[] {
   for (const liveValue of liveValuesOf(obj)) {
     if (liveValue.source.namespace === "topic" && liveValue.source.path && !topics.includes(liveValue.source.path)) topics.push(liveValue.source.path)
   }
+  // An energy diagram's nodes read their watts and charge, and their lines
+  // are live texts (device contract 2.8).
+  if (obj.type === "energy-diagram" && Array.isArray(obj.properties?.nodes)) {
+    for (const node of obj.properties.nodes as { topic?: string; chargeTopic?: string; lines?: { text: string; liveValues?: unknown[] }[] }[]) {
+      for (const topic of [node.topic, node.chargeTopic]) if (topic && !topics.includes(topic)) topics.push(topic)
+      for (const line of node.lines ?? []) {
+        const asText = { id: "", type: "text", x: 0, y: 0, width: 0, height: 0, zIndex: 0, properties: { text: line.text, liveValues: line.liveValues } } as ScreenObject
+        for (const topic of objectReferencedTopics(asText)) if (!topics.includes(topic)) topics.push(topic)
+      }
+    }
+  }
   return topics
 }
 

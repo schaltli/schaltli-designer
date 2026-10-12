@@ -23,6 +23,7 @@ import { BDFFont } from '@/lib/bdffont'
 import { isSwitchType } from "@/lib/object-types"
 import { dissolveGroups, dissolveGroupsInProject } from "@/lib/object-groups"
 import { isContainerType } from "@/lib/layout"
+import { iconBakes } from "@/lib/energy-diagram-object"
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -515,6 +516,30 @@ export class AssetExporter {
           if (!branchAsset) continue
           out.iconUsageCount++
           const exportResult = await this.exportIconUsage(branchAsset, obj, screen, project, flattenedBackground, undefined, false, `${obj.id}~${branch}`)
+          if (exportResult) {
+            out.iconUsages.push(exportResult)
+            out.files.set(exportResult.filename, exportResult.data)
+          }
+        }
+      }
+      // An energy diagram's node icons, each look of each node (device
+      // contract 2.8), on the screen's own ground - the Flow's circle is
+      // filled with it, the Sankey's labels stand on it - keyed
+      // <diagram>~<node>~<look>.
+      else if (obj.type === 'energy-diagram') {
+        for (const bake of iconBakes(obj, project.fonts ?? [])) {
+          const asset = project.assets.find((a: any) => a.id === bake.assetId)
+          if (!asset) continue
+          out.iconUsageCount++
+          const ground = document.createElement('canvas')
+          ground.width = bake.size
+          ground.height = bake.size
+          const groundCtx = ground.getContext('2d')
+          if (!groundCtx) continue
+          groundCtx.fillStyle = screen.backgroundColor && screen.backgroundColor !== 'transparent' ? screen.backgroundColor : '#ffffff'
+          groundCtx.fillRect(0, 0, bake.size, bake.size)
+          const icon = { id: bake.key, type: 'icon', x: 0, y: 0, width: bake.size, height: bake.size, properties: { assetId: bake.assetId, iconColor: bake.colour, backgroundColor: 'transparent' } }
+          const exportResult = await this.exportIconUsage(asset, icon, screen, project, ground, undefined, false, bake.key)
           if (exportResult) {
             out.iconUsages.push(exportResult)
             out.files.set(exportResult.filename, exportResult.data)

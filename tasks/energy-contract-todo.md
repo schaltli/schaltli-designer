@@ -11,7 +11,9 @@ untouched; a push on halt or finish.
 - [x] C2 Contract §2.8 and generation 1.7
   - docs/device-contract.md §2.8; `ENERGY_DIAGRAM_GENERATION`; spec decision 16 amended
   - the tap's geometry also moved into the core (`nodeAtTap`), so §2.8 names only the core
-- [ ] C3 Into the device zip
+- [x] C3 Into the device zip
+  - `exportedEnergyDiagram`, `iconBakes` (lib/energy-diagram-object.ts); bakes in asset-export's bakeScreen on the screen's ground; node `colorDark` from applyThemeWithDark; node topics in objectReferencedTopics (export and preview subscriptions)
+  - e2e/energy-diagram.spec.ts «the energy diagram in the device zip»: the data, the topics, the bakes' size and colour in both modes
 - [ ] C4 Into the Android bundle
 - [ ] C5 The Deploy dialog
 - [ ] C6 Handbook

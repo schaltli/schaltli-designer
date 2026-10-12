@@ -12,7 +12,7 @@ import { popupOpeners, withoutDeadPopupActions } from "../lib/popup"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
-import { defaultDiagram, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_ICON, defaultDiagram, rowStep, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
 
 // The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
 // tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
@@ -187,20 +187,145 @@ test.describe("the energy roles", () => {
   })
 })
 
-test.describe("the energy diagram in an export, until the device contract has it", () => {
-  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
-    test(`${hook === "__buildDeviceZipForTest" ? "the device zip" : "the Android bundle"} leaves it out and keeps the rest`, async ({ page }) => {
-      await page.goto("/test-render")
-      await page.waitForFunction(() => (window as any).__testRenderReady === true)
-      const zipBase64: string = await page.evaluate(({ hook, project }) => (window as any)[hook](project), { hook, project: diagramProject() })
-      const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
-      const project = JSON.parse(await zip.file("project.json")!.async("string"))
-      expect(diagramsOf(project)).toEqual([])
-      expect(JSON.stringify(project)).not.toContain("energy-diagram")
-      const screen = project.screens.find((s: Obj) => s.id === "s1")
-      expect(screen.objects.map((o: Obj) => o.id)).toContain("before")
+// ---- energy-contract C3: the device zip carries it (device contract 2.8).
+
+const ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" fill="#000"/></svg>'
+
+function exportProject(mode: "flow" | "sankey"): Obj {
+  const p = diagramProject()
+  p.fonts = [
+    { id: "f16", name: "small", size: 16, data: "" },
+    { id: "f22", name: "big", size: 22, data: "" },
+  ]
+  p.assets = [{ id: "sun", name: "sun", type: "icon", data: `data:image/svg+xml;base64,${Buffer.from(ICON_SVG).toString("base64")}` }]
+  p.topics = [{ id: "t1", topic: "van/solar", type: "numeric", examples: ["120"] }]
+  p.screens.push({ id: "pop", name: "Solar popup", screenType: "popup", objects: [] })
+  const d = p.screens[1].objects[1]
+  d.properties = {
+    ...defaultDiagram({ width: 540, height: 400 }),
+    mode,
+    fontId: "f16",
+    valueFontId: "f22",
+  }
+  d.properties.nodes = d.properties.nodes.map((n: Obj) => {
+    if (n.id === "solar") {
+      return {
+        ...n,
+        iconAssetId: "sun",
+        topic: "van/solar",
+        reverseSign: true,
+        lines: [{ text: "{watts} W" }, { text: "today {live:y} Wh", liveValues: [{ id: "y", source: { namespace: "topic", path: "van/yield" }, rules: [], format: { kind: "number", decimals: 0, grouped: false } }] }],
+        action: { type: "open-popup", targetScreenId: "pop" },
+      }
+    }
+    if (n.id === "storage") return { ...n, iconAssetId: "sun", topic: "van/battery", chargeTopic: "van/soc" }
+    return n
+  })
+  return p
+}
+
+async function deviceZip(page: Page, project: Obj, hook = "__buildDeviceZipForTest") {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const zipBase64: string = await page.evaluate(({ hook, project }) => (window as any)[hook](project), { hook, project })
+  const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
+  return { zip, project: JSON.parse(await zip.file("project.json")!.async("string")) }
+}
+
+/** A 24-bit BMP's size and the colour at its centre, as hex. */
+function bmpCentre(bytes: Uint8Array): { width: number; height: number; centre: string } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const offset = view.getUint32(10, true)
+  const width = view.getInt32(18, true)
+  const rawHeight = view.getInt32(22, true)
+  const height = Math.abs(rawHeight)
+  const stride = Math.ceil((width * 3) / 4) * 4
+  const row = rawHeight > 0 ? height - 1 - Math.floor(height / 2) : Math.floor(height / 2)
+  const at = offset + row * stride + Math.floor(width / 2) * 3
+  const hex = (v: number) => v.toString(16).padStart(2, "0")
+  return { width, height, centre: `#${hex(bytes[at + 2])}${hex(bytes[at + 1])}${hex(bytes[at])}` }
+}
+
+test.describe("the energy diagram in the device zip (device contract 2.8)", () => {
+  test("the diagram goes as its data: mode, fonts' sizes, colours with their dark ones, each node as the contract says", async ({ page }) => {
+    const { project } = await deviceZip(page, exportProject("flow"))
+    const [d] = diagramsOf(project)
+    expect(d, "the diagram is in the zip").toBeTruthy()
+    const p = d.properties
+    expect({ mode: p.mode, motion: p.motion, fullScale: p.fullScale, fontId: p.fontId, fontSize: p.fontSize, valueFontId: p.valueFontId, valueFontSize: p.valueFontSize }).toEqual({
+      mode: "flow", motion: true, fullScale: 1000, fontId: "f16", fontSize: 16, valueFontId: "f22", valueFontSize: 22,
+    })
+    for (const key of ["textColor", "mutedColor", "busColor", "idleColor", "chargeColor", "dischargeColor"]) {
+      expect(p[key], key).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(p[`${key}Dark`], `${key}Dark`).toMatch(/^#[0-9a-f]{6}$/i)
+    }
+    expect(p.chargeColor.toLowerCase()).toBe(role("energyCharge"))
+    expect(p.chargeColorDark.toLowerCase()).toBe(resolveRole(LAVENDER, "energyCharge", "dark", "24bit").toLowerCase())
+    // Only what the contract names: no roles left, no designer-only keys.
+    expect(Object.keys(p).sort()).toEqual(
+      ["mode", "motion", "fullScale", "fontId", "fontSize", "valueFontId", "valueFontSize", "nodes", "textColor", "mutedColor", "busColor", "idleColor", "chargeColor", "dischargeColor"]
+        .flatMap((k) => (k.endsWith("Color") ? [k, `${k}Dark`] : [k]))
+        .sort(),
+    )
+
+    const node = (id: string) => p.nodes.find((n: Obj) => n.id === id)
+    expect(node("bus")).toEqual({ id: "bus", role: "bus", name: "12 V", x: 270, y: 180 })
+    const solar = node("solar")
+    expect(solar).toMatchObject({ role: "source", name: "Solar", topic: "van/solar", reverseSign: true, action: { type: "open-popup", targetScreenId: "pop" } })
+    expect(solar.color.toLowerCase()).toBe(role("energySun"))
+    expect(solar.colorDark.toLowerCase()).toBe(resolveRole(LAVENDER, "energySun", "dark", "24bit").toLowerCase())
+    expect(solar.colorRole).toBeUndefined()
+    // {watts} stays for the device; a live value goes as a text's (2.6).
+    expect(solar.lines[0]).toEqual({ text: "{watts} W" })
+    expect(solar.lines[1].liveText).toBe("today {live:y} Wh")
+    expect(solar.lines[1].text).toBe("today {topic:van/yield:F0} Wh")
+    expect(solar.lines[1].liveValues[0].source.path).toBe("van/yield")
+    expect(node("storage")).toMatchObject({ role: "storage", topic: "van/battery", chargeTopic: "van/soc" })
+    // The rest reads nothing; its colour is the load's.
+    const rest = node("consumers")
+    expect(rest.topic).toBeUndefined()
+    expect(rest.color.toLowerCase()).toBe(role("energyLoad"))
+  })
+
+  test("every topic a node reads is declared: watts, charge and what its lines read", async ({ page }) => {
+    const { project } = await deviceZip(page, exportProject("flow"))
+    const topics = project.topics.map((t: Obj) => t.topic)
+    for (const t of ["van/solar", "van/battery", "van/soc", "van/yield"]) expect(topics, t).toContain(t)
+  })
+
+  for (const mode of ["flow", "sankey"] as const) {
+    test(`${mode}: each node's icon baked per look, light and dark, as big as the core draws it, in its look's colour`, async ({ page }) => {
+      const { zip, project } = await deviceZip(page, exportProject(mode))
+      const p = diagramsOf(project)[0].properties
+      const size = mode === "flow" ? FLOW_ICON : rowStep(16)
+      const solar = p.nodes.find((n: Obj) => n.id === "solar")
+      const storage = p.nodes.find((n: Obj) => n.id === "storage")
+      expect(Object.keys(solar.icon).sort()).toEqual(["live", "liveDark", "muted", "mutedDark", "size"])
+      expect(Object.keys(storage.icon).sort()).toEqual(["charge", "chargeDark", "discharge", "dischargeDark", "muted", "mutedDark", "size"])
+      expect(solar.icon.size).toBe(size)
+      // A node without an icon has none.
+      expect(p.nodes.find((n: Obj) => n.id === "consumers").icon).toBeUndefined()
+      const read = async (file: string) => bmpCentre(await zip.file(file)!.async("uint8array"))
+      const expectLook = async (file: string, colour: string) => {
+        const b = await read(file)
+        expect({ width: b.width, height: b.height }, file).toEqual({ width: size, height: size })
+        expect(b.centre, file).toBe(colour.toLowerCase())
+      }
+      await expectLook(solar.icon.live, solar.color)
+      await expectLook(solar.icon.muted, p.mutedColor)
+      await expectLook(solar.icon.liveDark, solar.colorDark)
+      await expectLook(storage.icon.charge, p.chargeColor)
+      await expectLook(storage.icon.discharge, p.dischargeColor)
+      await expectLook(storage.icon.dischargeDark, p.dischargeColorDark)
     })
   }
+
+  test("the Android bundle leaves it out until energy-contract C4", async ({ page }) => {
+    const { project } = await deviceZip(page, exportProject("flow"), "__buildAndroidZipForTest")
+    expect(diagramsOf(project)).toEqual([])
+    const screen = project.screens.find((s: Obj) => s.id === "s1")
+    expect(screen.objects.map((o: Obj) => o.id)).toContain("before")
+  })
 })
 
 // ---- D2: drawn still, through test-render (what the canvas, the preview
