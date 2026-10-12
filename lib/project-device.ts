@@ -1,5 +1,6 @@
 import { resolveRotatedScreenSize, type ProjectDeviceFields } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
+import { navigatorStrip } from "@/lib/navigator"
 import type { Project } from "@/components/project-editor"
 
 /**
@@ -47,5 +48,26 @@ export function projectOnDevice(
       screenShape: fields.screenShape,
     },
   })
-  return { project: moved, screenWidth: rotated.screenWidth, screenHeight: rotated.screenHeight, rotationWasReset: rotated.rotationWasReset }
+  // A navigator fills its edge of the new screen: placed for the old one,
+  // it kept the old size until moved (the user, 2026-10-12, 4.3B to a phone).
+  const fitted = withNavigatorsFitted(moved, rotated.screenWidth, rotated.screenHeight)
+  return { project: fitted, screenWidth: rotated.screenWidth, screenHeight: rotated.screenHeight, rotationWasReset: rotated.rotationWasReset }
+}
+
+/** Every navigator on a master placed along its edge of a screen this size (lib/navigator.ts navigatorStrip). */
+function withNavigatorsFitted(project: Project, screenWidth: number, screenHeight: number): Project {
+  let changed = false
+  const screens = project.screens.map((screen) => {
+    if (!screen.objects.some((o) => o.type === "navigator")) return screen
+    changed = true
+    return {
+      ...screen,
+      objects: screen.objects.map((o) =>
+        o.type === "navigator"
+          ? { ...o, ...navigatorStrip(o.properties?.edge ?? "left", o.properties?.shows ?? "iconsAndText", screenWidth, screenHeight) }
+          : o,
+      ),
+    }
+  })
+  return changed ? { ...project, screens } : project
 }
