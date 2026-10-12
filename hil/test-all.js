@@ -493,6 +493,25 @@ async function main() {
     })
   }
 
+  // The same on the knob (2026-10-12, tasks/energy-knob-papers3-plan.md K4):
+  // dots and wave inside the diagram only, steps that hold the loop at most
+  // 25 ms, a node's popup. Installs its own screen.
+  console.log(`
+=== Waveshare knob energy diagram motion (device: ${WAVESHARE_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare/energy-diagram.js", "--device", WAVESHARE_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-knob-energy-motion",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_DEVICE}`
+          : exitCode === 0
+            ? "dots and wave on the glass at >= 8 steps/s, no step over 25 ms, a node's popup opens"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // A text's placeholder following its topic through the partial redraw
   // (docs/2026-10-05-placeholder-devices.md), on both boards that have one:
   // a text beside an object bound to the same topic kept its old value until

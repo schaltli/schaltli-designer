@@ -892,15 +892,18 @@ const SPECIMENS = {
   // of tasks/energy-devices-plan.md); that it moves, and how a tap fares
   // meanwhile, is hil/waveshare4v3b/energy-diagram.js's. The values swap who
   // gives: the storage gives at night and takes by day, so its icon, colour
-  // and line or band change sides.
+  // and line or band change sides. On a screen not wide enough for two (the
+  // round knob, 2026-10-12) the Flow alone, in the square safe inside the
+  // circle: the Sankey is the same renderer's, compared on the wide ones.
   "energy-diagram": {
     build: (c) => {
       const solar = c.topic("solar", "numeric", ["0", "120"]);
       const battery = c.topic("battery", "numeric", ["-92", "60"]);
       const soc = c.topic("soc", "numeric", ["82"]);
       const fridge = c.topic("fridge", "numeric", ["35"]);
+      const wide = c.screen.width >= c.screen.height * 1.4;
       const half = Math.floor(c.screen.width / 2);
-      const height = c.screen.height;
+      const height = wide ? c.screen.height : c.square.height;
       const lines = (second) => [{ text: "{watts} W" }, ...(second ? [{ text: second }] : [])];
       const nodes = (w) => {
         const at = (fx, fy) => ({ x: Math.round(w * fx), y: Math.round(height * fy) });
@@ -912,12 +915,12 @@ const SPECIMENS = {
           { id: "rest", role: "rest", name: "Verbraucher", colorRole: "#7a5bd1", color: "#7a5bd1", lines: lines(), ...at(0.8, 0.7) },
         ];
       };
-      const diagram = (id, mode, x, width) => ({
+      const diagram = (id, mode, x, width, y = 0) => ({
         id: c.id(id),
         type: "energy-diagram",
         zIndex: 1,
         x,
-        y: 0,
+        y,
         width,
         height,
         properties: {
@@ -937,7 +940,9 @@ const SPECIMENS = {
       });
       return {
         assets: [RING, BARS],
-        objects: [diagram("flow", "flow", 0, half), diagram("sankey", "sankey", half, c.screen.width - half)],
+        objects: wide
+          ? [diagram("flow", "flow", 0, half), diagram("sankey", "sankey", half, c.screen.width - half)]
+          : [diagram("flow", "flow", c.square.x, c.square.width, c.square.y)],
       };
     },
   },
