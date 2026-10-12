@@ -149,3 +149,44 @@ Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mit
 - <span class="ui">Thickness</span>: wie breit der Ring ist, höchstens die Hälfte des Objekts.
 
 Ohne Wert zeigt der Gauge nur den leeren Ring.
+
+## Energy diagram {#energiediagramm}
+
+Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Battery» und «Consumers».
+
+::: info Noch nicht auf den Geräten
+Im Moment zeichnet nur der Designer das Energiediagramm, in der Arbeitsfläche und in der Vorschau. Beim Übertragen auf ein Gerät lässt er es weg. Der 4.3B und die Android-App folgen.
+:::
+
+Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> wählst. Die Knoten bleiben beim Umschalten dieselben.
+
+- <span class="ui">Flow</span>: jeder Knoten ein Kreis, mit einer Linie zum Bus. Je mehr fliesst, desto dicker die Linie. Punkte laufen darauf vom Geber zum Bus und vom Bus zum Nehmer, schneller bei mehr Leistung. Ein Knoten ohne Leistung ist grau. Um die Batterie zeigt ein Ring den Ladestand. Die Kreise schiebst du bei ausgewähltem Diagramm mit der Maus dorthin, wo sie stehen sollen.
+- <span class="ui">Sankey</span>: Geber links, Nehmer rechts, dazwischen der Bus, verbunden durch Bänder. Ein Band ist so breit, wie Leistung fliesst. Durch die Bänder läuft langsam eine Welle. Die Reihenfolge von oben nach unten änderst du, indem du die Knoten in der Liste verschiebst.
+
+Die Eigenschaften:
+
+- <span class="ui">Motion</span>: ob sich Punkte und Wellen bewegen. Ausgeschaltet steht das Diagramm still.
+- <span class="ui">Full scale</span>, nur beim Sankey: die Leistung in Watt, bei der die Bänder den Platz füllen, voreingestellt 1000 W. Die Breite ist linear, 200 W sind also doppelt so breit wie 100 W. Ist ein Wechselrichter für einen Induktionsherd eingebaut, setzt du hier seine Leistung ein: Dann ist der Kühlschrank ein dünner Faden und der Herd füllt das Bild.
+- <span class="ui">Font</span> und <span class="ui">Value font</span>: die Schrift für Namen und Nebenzeilen und die für die erste Zeile jedes Knotens, meist die Leistung.
+- <span class="ui">Nodes</span>: die Liste der Knoten. Mit <span class="ui">+ Add node</span> kommt einer dazu.
+
+Ein Knoten hat eine Rolle:
+
+| Rolle | was er ist |
+|---|---|
+| <span class="ui">Source</span> | gibt Energie ab: Sonne, Landstrom, Ladebooster |
+| <span class="ui">Sink</span> | nimmt Energie: ein Verbraucher, den du misst, etwa der Kühlschrank |
+| <span class="ui">Storage</span> | nimmt beim Laden, gibt beim Entladen: die Batterie |
+| <span class="ui">Rest</span> | was hereinkommt und nirgends gemessen hinausgeht, also was der Van sonst braucht. Der Designer rechnet ihn aus, er hat kein Topic. Höchstens einer pro Diagramm. |
+| <span class="ui">Bus</span> | wo alle Linien zusammenkommen. Genau einer, er lässt sich nicht löschen. |
+
+Seine Felder:
+
+- <span class="ui">Name</span> und <span class="ui">Icon</span>.
+- <span class="ui">Reads</span>: das Topic mit der Leistung in Watt. Eine Batterie liefert positive Werte beim Laden. Zählt dein Topic andersherum, schaltest du <span class="ui">Reverse sign</span> ein.
+- <span class="ui">Charge</span>, nur bei der Batterie: das Topic mit dem Ladestand in Prozent, für den Ring.
+- <span class="ui">Colour</span>: eine der Rollen <span class="ui">Sun</span>, <span class="ui">Grid</span>, <span class="ui">Engine</span> oder <span class="ui">Load</span>. Sie haben in jedem Theme dieselben Farben. Die Batterie hat keine eigene Farbe: Sie ist grün beim Laden (<span class="ui">Charging</span>) und rot beim Entladen (<span class="ui">Discharging</span>).
+- Bis zu drei Zeilen unter dem Namen, jede ein Text mit Werten wie bei einem [Text](#platzhalter). `{watts}` steht für die Leistung des Knotens, so wie das Diagramm sie verwendet: mit umgedrehtem Vorzeichen, falls eingestellt, und beim Rest ausgerechnet. Die erste Zeile ist anfangs `{watts} W`. Weitere Zeilen kommen mit <span class="ui">Add line</span> dazu.
+- <span class="ui">Tap</span>: was ein Antippen des Knotens tut, etwa <span class="ui">Open a popup</span> mit den Details zur Batterie. In der Vorschau probierst du es aus.
+
+Solange ein Topic nichts geliefert hat, zählt der Knoten mit 0 W und `{watts}` zeigt einen Bindestrich.

@@ -45,5 +45,6 @@ Plan: `tasks/energy-diagram-plan.md`. Spec: `docs/2026-10-11-energy-diagram.md`.
 - [x] D6 A tap on a node runs its action
   - popups are cleaned at export, not when one is deleted (as for buttons): a node's dead «Open a popup» is dropped there; the deploy's warning names nodes
 - [x] D7 Copy and paste, topic usage
-- [ ] D8 Handbook
+- [x] D8 Handbook
+  - a section «Energy diagram» in objekte/anzeigen.md (the reference's place for it), not a page of its own; overview updated; an info box (no issue) says it is the designer's alone for now
 - [ ] Checkpoint: test:all green; the user builds their van's diagram in the preview
