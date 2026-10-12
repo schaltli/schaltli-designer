@@ -25,7 +25,7 @@ test.describe("Per-screen icon", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
 
     // An outline button with a Search icon + visible text, same style as
@@ -76,7 +76,7 @@ test.describe("Per-screen icon", () => {
     await page.getByRole("button", { name: "Create Screen" }).click()
     await page.waitForTimeout(300)
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
 
     // Two rows now (Screen 1 + the new master) - exactly one icon button,

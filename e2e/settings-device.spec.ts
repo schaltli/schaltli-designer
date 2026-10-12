@@ -87,7 +87,7 @@ test("the project's device with a newer description is offered as an update; one
     )
     broker.publish(`${TOPIC_PREFIX}/${instance}/status`, "online", { retain: true })
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     const dialog = page.getByRole("dialog")
     await dialog.getByRole("button", { name: "Device", exact: true }).click()
 

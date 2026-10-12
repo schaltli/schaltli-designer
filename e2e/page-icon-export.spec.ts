@@ -67,7 +67,7 @@ test.describe("Page icon export", () => {
       await page.waitForTimeout(1500)
 
       // Set an icon on Screen 1 via Settings > Screens (the Phase 1 UI).
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
       await page.getByRole("button", { name: "Select icon" }).click()
       await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
@@ -171,7 +171,7 @@ test.describe("Page icon export", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
     await expect(page.getByRole("button", { name: "Select icon" })).toBeVisible()
   })

@@ -181,7 +181,7 @@ test.describe("placing a catalog entry", () => {
 
   // What the Topics tab lists for `wanted`: its type and its line of examples.
   async function topicsInSettings(page: Page, wanted: string[]): Promise<Record<string, { type: string; examples: string }>> {
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     const dialog = page.getByRole("dialog")
     await dialog.getByRole("button", { name: "Topics", exact: true }).click()
     await expect(dialog.getByRole("button", { name: "Add Topic" })).toBeVisible()

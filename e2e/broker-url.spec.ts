@@ -28,7 +28,7 @@ test("the designer, opened over http here, offers the broker on 9001", async ({ 
   // connection settings, with nothing stored.
   await loadProject(page, COMBINED_TEST_PROJECT)
   await page.evaluate(() => window.localStorage.clear())
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByText("Topics", { exact: true }).click()
   await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
   await page.getByRole("button", { name: "Connection settings" }).click()

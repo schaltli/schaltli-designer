@@ -271,7 +271,7 @@ test.describe("the demo in the browser", () => {
   test("Discover MQTT Topics connects to the demo's broker and offers no other", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByTestId("project-title")).toHaveText(START)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     await expect(page.getByRole("button", { name: "Start Discovery" })).toBeVisible()

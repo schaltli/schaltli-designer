@@ -129,7 +129,7 @@ test.describe("device-specific actions", () => {
     // The Button tool is hidden until this project-level flag is on - see
     // software-button-render.spec.ts's own note on why that's separate from
     // the DDF's supportedObjectTypes.
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")
 

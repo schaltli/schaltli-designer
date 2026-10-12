@@ -17,7 +17,7 @@ async function downloadProjectJson(page: Page): Promise<any> {
 }
 
 async function openTopics(page: Page) {
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByRole("dialog").getByRole("button", { name: "Topics", exact: true }).click()
 }
 

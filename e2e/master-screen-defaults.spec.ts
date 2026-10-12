@@ -45,7 +45,7 @@ async function createProject(page: Page): Promise<void> {
 }
 
 async function openManageScreens(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
 }
 

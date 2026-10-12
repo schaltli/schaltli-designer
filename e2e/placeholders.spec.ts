@@ -60,7 +60,7 @@ test.describe("number format", () => {
   }
 
   async function openProperties(page: Page) {
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByRole("dialog").getByRole("button", { name: "Project Properties" }).click()
     return page.getByRole("dialog").locator("#numberFormat")
   }
@@ -225,7 +225,7 @@ test.describe("topics named by placeholders", () => {
     await field.fill("{topic:van/new:F1} und {topic:van/new} und {topic:van/json#a}")
     await field.evaluate((el) => (el as HTMLElement).blur())
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     const dialog = page.getByRole("dialog")
     await dialog.getByRole("button", { name: "Topics", exact: true }).click()
     await expect(dialog.getByText("van/new", { exact: true })).toHaveCount(1)

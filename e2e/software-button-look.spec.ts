@@ -329,7 +329,7 @@ test.describe("the button in the property panel", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")
 
@@ -380,7 +380,7 @@ test.describe("the button in the property panel", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")
 

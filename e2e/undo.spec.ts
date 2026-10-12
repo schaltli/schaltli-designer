@@ -113,7 +113,7 @@ test.describe("Undo and redo", () => {
   })
 
   test("a deleted topic comes back", async ({ page }) => {
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     const dialog = page.getByRole("dialog")
     await dialog.getByRole("button", { name: "Topics", exact: true }).click()
     const deletes = dialog.getByRole("button", { name: "Delete", exact: true })

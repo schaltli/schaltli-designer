@@ -50,7 +50,7 @@ test.describe("focus on create", () => {
     test(`a ${tool} just drawn: its text focused and selected, typed over, Enter finishes it`, async ({ page }) => {
       if (tool === "Button") {
         // The Button tool shows once the project allows software buttons.
-        await page.getByRole("button", { name: "Settings" }).click()
+        await page.getByRole("button", { name: "Settings", exact: true }).click()
         await page.locator("#software-buttons").check()
         await page.keyboard.press("Escape")
       }

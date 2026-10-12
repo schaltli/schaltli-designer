@@ -58,7 +58,7 @@ test.describe("SoftwareButton base-state rendering", () => {
       // (project-settings-dialog.tsx's "software-buttons" checkbox) -
       // unrelated to the DDF's own supportedObjectTypes, which only
       // controls whether an already-visible tool is enabled/disabled.
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.locator("#software-buttons").check()
       await page.keyboard.press("Escape")
 
@@ -147,7 +147,7 @@ test.describe("SoftwareButton base-state rendering", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")
 

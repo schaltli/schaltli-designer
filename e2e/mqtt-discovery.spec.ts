@@ -45,7 +45,7 @@ test.describe("MQTT topic discovery", () => {
 
   test("badges a pre-existing retained topic as retained, and a topic only seen live as live", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
 
@@ -84,7 +84,7 @@ test.describe("MQTT topic discovery", () => {
     })
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
@@ -124,7 +124,7 @@ test.describe("MQTT topic discovery", () => {
     })
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     await page.getByRole("button", { name: "Start Discovery" }).click()
@@ -155,7 +155,7 @@ test.describe("MQTT topic discovery", () => {
     })
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     const settings = page.getByRole("dialog")
     const before = await settings.getByText(existing, { exact: true }).count()
@@ -199,7 +199,7 @@ test.describe("MQTT topic discovery", () => {
     })
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     await page.getByRole("button", { name: "Start Discovery" }).click()
@@ -236,7 +236,7 @@ test.describe("MQTT topic discovery", () => {
     })
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     await page.getByRole("button", { name: "Start Discovery" }).click()
@@ -272,7 +272,7 @@ test.describe("MQTT topic discovery", () => {
     )
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
@@ -298,7 +298,7 @@ test.describe("MQTT topic discovery", () => {
 // discovery.md). The Block menu's catalog reads it (storedDiscoveryPrefix).
 test.describe("the discovery prefix", () => {
   async function openConnectionStep(page: import("@playwright/test").Page) {
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
     // The dialog connects by itself; Connection settings brings the fields back.

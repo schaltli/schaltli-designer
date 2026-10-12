@@ -50,7 +50,7 @@ test.describe("Master screen mechanism", () => {
     await createScreen(page, "E2E Screen With Master", false)
 
     // Auto-inherited the only (therefore "first") existing master.
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByRole("button", { name: "Screens", exact: true }).click()
     const row = page.locator('[data-screen-name="E2E Screen With Master"]')
     await expect(row.getByRole("combobox", { name: "Master" })).toHaveText("E2E Master")

@@ -132,7 +132,7 @@ test.describe("Recover project from device", () => {
       // The recovered project actually opened - Startup Gate is gone, the
       // real editor (with this project's own name/device) is showing.
       await expect(page.getByRole("button", { name: "Recover from Device..." })).not.toBeVisible({ timeout: 15000 })
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await expect(page.getByText(`Currently loaded: Recovery Test Device`)).toBeVisible()
     } finally {
@@ -272,7 +272,7 @@ test.describe("Recover project from device", () => {
       // <rect id="screen"> without the live-DDF resync), and specifically
       // with the LIVE device's data, not the frozen copy's.
       await expect(page.getByRole("button", { name: "Recover from Device..." })).not.toBeVisible({ timeout: 15000 })
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await expect(page.getByText(`Currently loaded: Live Current DDF Device`)).toBeVisible()
     } finally {

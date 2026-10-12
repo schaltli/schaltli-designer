@@ -684,7 +684,7 @@ test.describe("DDF auto-discovery", () => {
 
       // Only the curated device name should end up loaded - if the
       // auto-discovered copy won instead, this would say "Device Copy".
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await expect(page.getByText(`Currently loaded: Curated Copy ${testInfo.testId}`)).toBeVisible()
     } finally {
@@ -745,7 +745,7 @@ test.describe("DDF auto-discovery", () => {
       // The embedded copy's name must win - if the instance's curated copy
       // won instead (a regression to the old always-re-resolve behavior),
       // this would say "Stale Curated Copy".
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await expect(page.getByText(`Currently loaded: Embedded Copy ${testInfo.testId}`)).toBeVisible()
     } finally {

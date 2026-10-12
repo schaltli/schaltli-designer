@@ -21,7 +21,7 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 test.describe("Device rotation", () => {
   test("rotation picker shows allowed rotations, swaps screen dimensions, and persists", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Device", { exact: true }).click()
 
     for (const deg of ["0°", "90°", "180°", "270°"]) {
@@ -41,7 +41,7 @@ test.describe("Device rotation", () => {
     // the rotation button's own selected-state styling, which is more
     // resilient to unrelated visual changes.
     await page.keyboard.press("Escape")
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Project Properties", { exact: true }).click()
     await expect(page.locator("#screenWidth")).toHaveValue("300")
     await expect(page.locator("#screenHeight")).toHaveValue("400")
@@ -62,7 +62,7 @@ test.describe("Device rotation", () => {
     await clickButton0(page)
     await expect(page.locator("#button-10-actionType")).toBeFocused()
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Device", { exact: true }).click()
     await page.getByRole("button", { name: "90°", exact: true }).click()
     await page.keyboard.press("Escape")
@@ -98,7 +98,7 @@ test.describe("Device rotation", () => {
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
       await loadProject(page, COMBINED_TEST_PROJECT)
-      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await page.getByRole("button", { name: "180°", exact: true }).click()
       await page.keyboard.press("Escape")

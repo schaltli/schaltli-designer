@@ -56,7 +56,7 @@ test.describe("Remove unused topics", () => {
     // The switch fixture binds test/switch-mode and writes test/switch-cmd;
     // its four diag/ topics are bound to nothing.
     await loadProject(page, SWITCH_TEST_PROJECT)
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
     const dialog = page.getByRole("dialog")
     await expect(dialog.getByText("diag/plain", { exact: true })).toBeVisible()

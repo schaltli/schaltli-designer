@@ -19,7 +19,7 @@ test("resizing one corner with snap-to-grid keeps the opposite corner fixed", as
   await loadProject(page, COMBINED_TEST_PROJECT)
 
   // Configure a single vertical snap guide at x=100.
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByText("Snap Grid", { exact: true }).click()
   const snapGridTextarea = page.locator("#snapGrid")
   await snapGridTextarea.fill('{"horizontal": [], "vertical": [100]}')

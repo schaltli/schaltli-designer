@@ -103,7 +103,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
   test("a mock response survives the topic form and lands in the exported project", async ({ page }) => {
     await loadProject(page, SWITCH_TEST_PROJECT)
 
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     // The dialog opens on another section - Topics is one of its tabs.
     await page.getByText("Topics", { exact: true }).first().click()
     await page.getByRole("button", { name: "Add Topic" }).click()

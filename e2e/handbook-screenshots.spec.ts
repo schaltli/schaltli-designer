@@ -296,7 +296,7 @@ test.describe("handbook: Erste Schritte", () => {
     await page.mouse.click(beside.x, beside.y)
 
     // The project's topics, which the blocks registered by themselves.
-    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
     await expect(page.getByRole("dialog")).toContainText("Project Settings")
     await page.getByRole("dialog").getByRole("button", { name: "Topics", exact: true }).click()
     await expect(page.getByRole("dialog").getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
