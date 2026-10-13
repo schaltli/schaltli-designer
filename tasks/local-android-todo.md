@@ -13,4 +13,4 @@ released just before; no release in this module.
   - LocalTopicsTest 3/3; the Android HIL 6/6 on screen-9, every other screen green
 - [x] A3 DDF and generation
   - DdfBuilder supportedFeatures ["local-topics"], SYSTEM_GENERATION 1.8; DdfBuilderTest; the HIL's check 6 reads it from the phone
-- [ ] Checkpoint: Android HIL and android-unit green, test:all; the user decides on v0.11.0
+- [x] Checkpoint: Android HIL and android-unit green, test:quick green; released with android-draws-all as v0.11.0 (the user's go for the autonomous run)

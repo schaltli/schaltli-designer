@@ -13,7 +13,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:all": "node hil/test-all.js",
     "test:quick": "node hil/test-all.js --quick",
-    "test:e2e:prod": "node hil/e2e-prod.js --grep-invert @alone",
+    "test:e2e:prod": "node hil/e2e-prod.js --grep-invert \"@alone|@dev\"",
     "hil:broker": "node hil/local-broker.js",
     "hil:mock": "node hil/simulate-project.js",
     "hil:discovery": "node hil/discovery-devices.js",

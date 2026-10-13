@@ -302,7 +302,7 @@ async function main() {
   step("host", async () => {
     console.log("\n=== e2e (Playwright) ===")
     // Against the production server started below, before the lanes.
-    const e2eCode = await run("node", ["hil/e2e-prod.js", "--grep-invert", "@alone"], {
+    const e2eCode = await run("node", ["hil/e2e-prod.js", "--grep-invert", '"@alone|@dev"'], {
       cwd: REPO_ROOT,
       env: { ...process.env, E2E_PROD_EXTERNAL: "1" },
     })
@@ -321,7 +321,9 @@ async function main() {
   // After the lanes: beside them it would measure the machine.
   afterLanes(async () => {
     console.log("\n=== e2e timing (Playwright, @alone, one worker) ===")
-    const aloneCode = await run("npx", ["playwright", "test", "--grep", "@alone", "--workers=1"], { cwd: REPO_ROOT })
+    // And @dev: what only `next dev` can do (a file added to public/ served
+    // at once), skipped against the production build.
+    const aloneCode = await run("npx", ["playwright", "test", "--grep", '"@alone|@dev"', "--workers=1"], { cwd: REPO_ROOT })
     summary.push({
       name: "e2e timing",
       status: aloneCode === 0 ? "PASS" : "FAIL",

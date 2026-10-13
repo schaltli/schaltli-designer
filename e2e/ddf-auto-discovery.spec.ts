@@ -676,7 +676,8 @@ test.describe("DDF auto-discovery", () => {
   // resolveDeviceForProject), so it needs its own automatic rule. Curated
   // wins there deliberately (see that function's comment): predictable,
   // rather than whichever copy a device happened to have served last.
-  test("opening a project resolves its device to the curated copy, not whatever a device last announced", async ({
+  // @dev: run against `next dev` by test:all, after its lanes (see below).
+  test("opening a project resolves its device to the curated copy, not whatever a device last announced @dev", async ({
     page,
   }, testInfo) => {
     // It puts a curated copy into public/ddf while the server runs, which
