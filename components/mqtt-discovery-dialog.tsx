@@ -40,6 +40,10 @@ interface MqttDiscoveryDialogProps {
   // The topics the project has already: shown «in project» and not offered
   // again (#37 - they were added a second time).
   existingTopics?: readonly string[]
+  // The project's local topics (docs/2026-10-13-local-topics.md, decision 7):
+  // a real topic under one of their names never reaches a display, which
+  // the row and a note above the list say.
+  localTopics?: readonly string[]
 }
 
 let globalDiscoveryStopFlag = false
@@ -63,8 +67,9 @@ const PROCESSING_DELAY = 100
 // messages aren't inspected at all.
 const MAX_JSON_EXAMPLES = 10
 
-export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existingTopics = [] }: MqttDiscoveryDialogProps) {
-  const inProject = new Set(existingTopics)
+export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existingTopics = [], localTopics = [] }: MqttDiscoveryDialogProps) {
+  const inProject = new Set([...existingTopics, ...localTopics])
+  const local = new Set(localTopics)
   // The demo's broker is the demo's own; nobody points it elsewhere
   // (docs/2026-10-09-demo-instance.md, decision 3).
   const demo = useDemoMode()
@@ -522,6 +527,14 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
                   </div>
                 ) : (
                   <div className="space-y-4 h-full overflow-hidden w-full max-w-full flex flex-col">
+                    {discoveredTopics.some((t) => local.has(t.topic)) && (
+                      <p className="text-sm text-destructive shrink-0" data-testid="local-collision">
+                        {`The broker carries ${discoveredTopics
+                          .filter((t) => local.has(t.topic))
+                          .map((t) => `«${t.topic}»`)
+                          .join(", ")}, the name of a local topic here. Its messages do not reach the display: a local topic is never subscribed.`}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between gap-4 shrink-0">
                       <p className="text-sm text-muted-foreground">
                         {isFiltered
@@ -590,10 +603,16 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
-                                {inProject.has(topic.topic) && (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 shrink-0" data-testid="in-project">
-                                    in project
+                                {local.has(topic.topic) ? (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 shrink-0 border-destructive text-destructive" data-testid="local-topic-name">
+                                    local topic
                                   </Badge>
+                                ) : (
+                                  inProject.has(topic.topic) && (
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 shrink-0" data-testid="in-project">
+                                      in project
+                                    </Badge>
+                                  )
                                 )}
                                 <Badge
                                   variant="outline"

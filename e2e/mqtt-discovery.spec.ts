@@ -176,6 +176,37 @@ test.describe("MQTT topic discovery", () => {
     testClient.publish(fresh, "", { retain: true })
   })
 
+  // A local topic (docs/2026-10-13-local-topics.md, decision 7): a real
+  // topic under its name is not offered, and the dialog says that its
+  // messages will not reach the display.
+  test("a real topic under a local topic's name is not offered, and warned about", async ({ page }, testInfo) => {
+    const name = `local/discovery-${testInfo.testId}/view`
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings", exact: true }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    const settings = page.getByRole("dialog")
+    await settings.getByRole("button", { name: "Add local topic" }).click()
+    await settings.getByLabel("Local topic name").fill(name)
+    await settings.getByLabel("Local topic name").press("Enter")
+
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+    const discovery = page.getByRole("dialog", { name: "Discover MQTT Topics" })
+    await expect(discovery.getByText(retainedTopic)).toBeVisible()
+    testClient.publish(name, "sankey")
+    const row = discovery.locator("div.cursor-pointer").filter({ hasText: name }).first()
+    await expect(row.getByTestId("local-topic-name")).toBeVisible()
+    await expect(row.getByTestId("in-project")).toHaveCount(0)
+    await expect(discovery.getByTestId("local-collision")).toContainText(`«${name}», the name of a local topic here`)
+
+    await discovery.getByRole("button", { name: "Select All", exact: true }).click()
+    await discovery.getByRole("button", { name: "Add Selected Topics" }).click()
+    await expect(settings.getByText(retainedTopic, { exact: true })).toBeVisible()
+    // Still one topic of that name, the local one.
+    await expect(settings.getByTestId("local-topic")).toHaveCount(1)
+    await expect(settings.getByText(name, { exact: true })).toHaveCount(0)
+  })
+
   test("derives subtopics from a JSON topic and merges fields across differing payloads", async ({
     page,
   }, testInfo) => {

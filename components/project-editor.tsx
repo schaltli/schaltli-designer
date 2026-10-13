@@ -4631,7 +4631,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
-        existingTopics={project.topics.map((t) => t.topic)}
+        existingTopics={project.topics.filter((t) => !t.local).map((t) => t.topic)}
+        localTopics={project.topics.filter((t) => t.local).map((t) => t.topic)}
       />
     </div>
   )
