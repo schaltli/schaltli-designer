@@ -7,7 +7,9 @@ by USB (allowed: «Die flashes kannst du selber»); no push, no release.
 - [x] F1 The HIL test first: hil/local-topics.js
   - initial "b", not the first panel «a» a switcher shows without a value (with "a" check 1 passed on the old firmware); a mid-grey screen, so a switcher showing no panel reads as neither; the broker's retained value is «c»
   - in hil/test-all.js for all three, the knob with the 4.3B as its pair; red on the old knob firmware: 5 of 5
-- [ ] F2 The loader and the DDFs
+- [x] F2 The loader and the DDFs
+  - firmware: MQTTTopic.local/initial, a local topic starts at initial after every load, ProjectLoader::isLocalTopic; the three ddf-source*/device.json list supportedFeatures ["local-topics"]; the 4.3B announces 1.8; public/ddf zips regenerated
+  - three envs build, native 38/38; e2e/local-topics.spec.ts «… declares local-topics» for the three shipped DDFs
 - [ ] F3 The knob
 - [ ] F4 The 4.3B
 - [ ] F5 The PaperS3

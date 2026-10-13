@@ -140,6 +140,16 @@ test.describe("local topics: the device's feature", () => {
     expect((await fieldsOf(["local-topics"])).supportedFeatures).toEqual(["local-topics"])
     expect((await fieldsOf()).supportedFeatures).toEqual([])
   })
+
+  // local-firmware F2: the boards' own descriptions, as this designer ships
+  // them, say they keep local topics.
+  for (const file of ["waveshare-knob-1v8.ddf.zip", "waveshare-touch-lcd-4v3b.ddf.zip", "m5stack-papers3.ddf.zip"]) {
+    test(`${file} declares local-topics`, async () => {
+      const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", file))
+      const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
+      expect(fields.supportedFeatures).toContain("local-topics")
+    })
+  }
 })
 
 // local-contract C2: the device zip and the Android bundle carry a local
