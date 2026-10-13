@@ -27,6 +27,30 @@ const switchObject = (id: string, readTopic: string, writeTopic: string, states:
 })
 
 test.describe("mock engine", () => {
+  // A local topic is never on the broker (device contract §2.9;
+  // tasks/local-contract-plan.md, C4): a Switch on one derives no round trip,
+  // a rule on one is not taken, and neither is listened to.
+  test("leaves local topics alone: nothing listened to, nothing answered", () => {
+    const states = [
+      { id: "s0", label: "Flow", readValue: "flow", writeValue: "flow" },
+      { id: "s1", label: "Sankey", readValue: "sankey", writeValue: "sankey" },
+    ]
+    const engine = buildMockEngine(
+      project(
+        [
+          { id: "v", topic: "local/view", type: "text", examples: [], local: true, mock: [{ id: "r", when: "x", then: [{ id: "e", topic: "state/y", kind: "set", value: "1" }] }] },
+          { id: "w", topic: "local/cmd", type: "text", examples: [], local: true },
+        ],
+        [switchObject("view", "local/view", "local/view", states), switchObject("other", "state/b", "local/cmd", states)],
+      ),
+    )
+    expect(engine.commandTopics).toEqual([])
+    expect(engine.respond("local/view", "sankey", {})).toEqual([])
+    expect(engine.respond("local/view", "x", {})).toEqual([])
+    expect(engine.skipped.filter((l) => l.includes("a local topic"))).toHaveLength(2)
+  })
+
+
   test("derives a Switch's round trip and answers it", () => {
     const engine = buildMockEngine(
       project(

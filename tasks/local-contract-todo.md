@@ -13,6 +13,8 @@ push, no release, demo and van untouched.
 - [x] C3 Deploy
   - planDeploy takes `unsupportedFeatures` and `releaseFeatures` beside the types; `localTopicsFeature` in lib/local-topics.ts; the dialog reads the device's live DDF features
   - e2e/deploy-plan.spec.ts «local topics: a board without the feature …»; e2e/local-topics.spec.ts «Deploy asks the feature …»
-- [ ] C4 Mock host and HIL tooling
+- [x] C4 Mock host and HIL tooling
+  - lib/mock-engine.js: no round trip derived for a switch reading or writing a local topic (listed under skipped), no rule taken from a local topic; hil/simulate-project.js uses the engine, the other hil/ tools build their own projects without local topics
+  - e2e/mock-engine.spec.ts «leaves local topics alone»; mock-simulator.spec.ts green with one worker (with four, a different test each run lost the broker: ECONNRESET)
 - [ ] C5 Handbook
 - [ ] Checkpoint: the e2e specs touched green, tsc clean; the user has read §2.9
