@@ -46,6 +46,7 @@ import {
 } from "@/lib/system-generation"
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
+import { localTopicsFeature } from "@/lib/local-topics"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
@@ -139,6 +140,9 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // description does not declare - a block, since 2026-10-10 (#66): rather
   // nothing on the device than a project with holes in it.
   const [unsupportedTypes, setUnsupportedTypes] = useState<string[]>([])
+  // The features the selected device's live description declares
+  // (supportedFeatures, device contract §1); null until it is read.
+  const [deviceFeatures, setDeviceFeatures] = useState<string[] | null>(null)
   // Where devices reach this machine, for naming the broker an offline device
   // should be set to (app/api/firmware/release).
   const [deviceHost, setDeviceHost] = useState<string | null>(null)
@@ -168,6 +172,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       setDeployStatus(null)
       setDeployError(null)
       setUnsupportedTypes([])
+      setDeviceFeatures(null)
       setFirmwareError(null)
       setShowFirmware(false)
       activeDeployIdRef.current = null
@@ -298,6 +303,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // device that's silently missing a widget.
   useEffect(() => {
     setUnsupportedTypes([])
+    setDeviceFeatures(null)
     if (!selectedInstanceId) return
     const device = devices.get(selectedInstanceId)
     // Another device than the project's: nothing to check against until the
@@ -322,6 +328,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
           new Set<string>(),
         )
         setUnsupportedTypes(Array.from(placedTypes).filter((type) => !fields.supportedObjectTypes.includes(type)))
+        setDeviceFeatures(fields.supportedFeatures)
       } catch {
         // Best-effort - see this effect's own comment.
       }
@@ -674,6 +681,10 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const liveValueTexts = liveValuesNotOnDevices(project)
   const navigatorParts = navigatorNotOnDevices(project as any)
   const themeSwitchParts = themeSwitchNotOnDevices(project as any)
+  // Local topics are a feature the device declares, not a generation
+  // (device contract §2.9).
+  const localFeature = localTopicsFeature(project.topics)
+  const unsupportedFeatures = localFeature && deviceFeatures && !deviceFeatures.includes(localFeature.feature) ? [localFeature] : []
   const needs: ProjectNeed[] = [
     ...(projectUsesLivePlaceholders(project) ? [{ generation: PLACEHOLDER_GENERATION, parts: ["values in texts"] }] : []),
     ...(popupOpenerNames.length > 0 ? [{ generation: POPUP_GENERATION, parts: [`popups (${popupOpenerNames.join(", ")})`] }] : []),
@@ -695,6 +706,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
         needs,
         unsupportedTypes,
         releaseTypes: project.settings.supportedObjectTypes,
+        unsupportedFeatures,
+        releaseFeatures: project.settings.supportedFeatures,
       })
     : null
 

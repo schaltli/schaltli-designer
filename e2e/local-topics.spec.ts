@@ -3,7 +3,7 @@ import JSZip from "jszip"
 import fs from "fs"
 import path from "path"
 import { loadProject, objectTreeRow } from "./helpers"
-import { isLocalTopic, localInitialValues } from "../lib/local-topics"
+import { isLocalTopic, localInitialValues, localTopicsFeature } from "../lib/local-topics"
 import { projectSubscriptionTopics } from "../lib/render-screen"
 import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
 
@@ -28,6 +28,11 @@ test.describe("local topics: the core", () => {
     expect(isLocalTopic(topics, "van/battery")).toBe(false)
     expect(isLocalTopic(undefined, "local/energie/view")).toBe(false)
     expect(isLocalTopic(topics, "")).toBe(false)
+  })
+
+  test("Deploy asks the feature for any declared local topic, naming them", () => {
+    expect(localTopicsFeature(topics)).toEqual({ feature: "local-topics", label: "local topics (local/energie/view, local/blank)" })
+    expect(localTopicsFeature(topics.filter((t) => !t.local))).toBeNull()
   })
 
   test("each starts at its initial value, where it has one", () => {

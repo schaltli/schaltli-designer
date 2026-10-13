@@ -60,12 +60,27 @@ export function planDeploy(input: {
    * diagram is gated by type, not by generation).
    */
   releaseTypes?: readonly string[]
+  /**
+   * Features the project needs that the device's description does not
+   * declare in `supportedFeatures` (device contract §1), each with what the
+   * message names: { feature: "local-topics", label: "local topics (…)" }.
+   * Asked for as an object type is, and not by generation: the knob and
+   * the PaperS3 announce generations below what they can do (2026-10-13).
+   */
+  unsupportedFeatures?: readonly { feature: string; label: string }[]
+  /** The features this designer's own description of the device declares - what its release does. */
+  releaseFeatures?: readonly string[]
 }): DeployPlan {
   const { device, release, needs } = input
   if (!device.online) return { kind: "offline" }
 
-  const unsupported = input.unsupportedTypes ?? []
-  const releaseDraws = input.releaseTypes !== undefined && unsupported.every((t) => input.releaseTypes!.includes(t))
+  const missingTypes = input.unsupportedTypes ?? []
+  const missingFeatures = input.unsupportedFeatures ?? []
+  const unsupported = [...missingTypes, ...missingFeatures.map((f) => f.label)]
+  const releaseDraws =
+    input.releaseTypes !== undefined &&
+    missingTypes.every((t) => input.releaseTypes!.includes(t)) &&
+    missingFeatures.every((f) => (input.releaseFeatures ?? []).includes(f.feature))
   if (unsupported.length > 0 && releaseDraws && device.platform === "android") {
     return {
       kind: "blocked",

@@ -13,6 +13,16 @@ export function isLocalTopic(topics: readonly Topic[] | undefined, name: string 
   return (topics ?? []).some((t) => t.local === true && t.topic === bare)
 }
 
+// What Deploy asks of a device for a project with local topics: the feature
+// its description must declare (device contract §2.9), and the topics named
+// for the message. Any declared local topic, used or not.
+export function localTopicsFeature(topics: readonly Topic[] | undefined): { feature: string; label: string } | null {
+  const names = (topics ?? []).filter((t) => t.local === true && t.topic).map((t) => t.topic)
+  return names.length > 0 ? { feature: LOCAL_TOPICS_FEATURE, label: `local topics (${names.join(", ")})` } : null
+}
+
+export const LOCAL_TOPICS_FEATURE = "local-topics"
+
 // The value each local topic starts with: its `initial`, where it has one.
 export function localInitialValues(topics: readonly Topic[] | undefined): Record<string, string> {
   const out: Record<string, string> = {}

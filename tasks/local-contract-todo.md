@@ -10,7 +10,9 @@ push, no release, demo and van untouched.
   - e2e/local-topics.spec.ts «local topics: the device's feature»
 - [x] C2 Into the device zip and the Android bundle
   - no code: exportedTopics copies the declaration; e2e/local-topics.spec.ts «local topics: into the export» reads both outputs
-- [ ] C3 Deploy
+- [x] C3 Deploy
+  - planDeploy takes `unsupportedFeatures` and `releaseFeatures` beside the types; `localTopicsFeature` in lib/local-topics.ts; the dialog reads the device's live DDF features
+  - e2e/deploy-plan.spec.ts «local topics: a board without the feature …»; e2e/local-topics.spec.ts «Deploy asks the feature …»
 - [ ] C4 Mock host and HIL tooling
 - [ ] C5 Handbook
 - [ ] Checkpoint: the e2e specs touched green, tsc clean; the user has read §2.9
