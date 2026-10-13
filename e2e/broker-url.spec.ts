@@ -32,5 +32,6 @@ test("the designer, opened over http here, offers the broker on 9001", async ({ 
   await page.getByText("Topics", { exact: true }).click()
   await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
   await page.getByRole("button", { name: "Connection settings" }).click()
-  await expect(page.locator("#websocketUrl")).toHaveValue("ws://localhost:9001")
+  // 9001, or the port of the e2e build's own broker (hil/e2e-prod.js).
+  await expect(page.locator("#websocketUrl")).toHaveValue(`ws://localhost:${process.env.E2E_BROKER_WS_PORT || 9001}`)
 })

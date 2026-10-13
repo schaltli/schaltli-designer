@@ -331,11 +331,15 @@ async function main() {
 
       // The board's own word for the combined topic, as /api/topic-values
       // reads it: "" while it has no value.
+      // Asked up to three times: a busy board's answer outlasted 4 s beside
+      // test:all's other lanes, and "?" was then a timeout, not its value.
       let alarm = "?"
-      try {
-        const got = await topicValues(["combined:alarm"])
-        alarm = got["combined:alarm"] == null ? "" : String(got["combined:alarm"])
-      } catch {}
+      for (let attempt = 0; attempt < 3 && alarm === "?"; attempt++) {
+        try {
+          const got = await topicValues(["combined:alarm"])
+          alarm = got["combined:alarm"] == null ? "" : String(got["combined:alarm"])
+        } catch {}
+      }
 
       const pixelsOk = !dimensionMismatch && diffPixels === 0
       const pathOk = full || !step.regions || /region\(s\)|rect/.test(how)

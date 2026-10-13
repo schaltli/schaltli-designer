@@ -44,12 +44,13 @@ const crypto = require("crypto")
 const { sleep, get, parseBoot, readBoot, waitForBoot, loadBuild } = require("./firmware-common")
 
 function parseArgs(argv) {
-  const args = { device: null, env: null, foreignEnv: null, times: 2 }
+  const args = { device: null, env: null, foreignEnv: null, times: 2, installCheckout: false }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     else if (argv[i] === "--env") args.env = argv[++i]
     else if (argv[i] === "--foreign-env") args.foreignEnv = argv[++i]
     else if (argv[i] === "--times") args.times = Number(argv[++i])
+    else if (argv[i] === "--install-checkout") args.installCheckout = true
   }
   if (!args.device || !args.env) {
     console.error("usage: node hil/firmware-upload.js --device <ip> --env <platformio env> [--foreign-env <env>] [--times <n>]")
@@ -92,7 +93,7 @@ function upload(url, image) {
 }
 
 async function main() {
-  const { device, env, foreignEnv, times } = parseArgs(process.argv)
+  const { device, env, foreignEnv, times, installCheckout } = parseArgs(process.argv)
   const base = `http://${device}`
 
   let first
@@ -115,9 +116,25 @@ async function main() {
     console.warn(`SKIPPED - no ${env} build in the firmware checkout; run pio run -e ${env} there`)
     process.exit(3)
   }
+  // --install-checkout (test:all): a board on another image gets the
+  // checkout's build first, and the test goes on with it. After a release
+  // the release tool has rebuilt the checkout under the release's name, and
+  // every board flashed before it was skipped - nine tests that said nothing
+  // (2026-10-13).
+  if (own.md5 !== state.md5 && installCheckout) {
+    console.log(`${device} runs ${state.md5}; installing the checkout's ${env} build ${own.md5} first`)
+    const res = await upload(`${base}/api/firmware`, own.image)
+    const after = res.status === 200 && /"success":true/.test(res.body) ? await waitForBoot(base) : null
+    if (!after || after.md5 !== own.md5) {
+      console.error(`FAIL - installing the checkout's build: ${res.status === null ? `no answer: ${res.error}` : `${res.status} ${res.body}`}` +
+        `${after ? `, came back on ${after.md5}` : ""}`)
+      process.exit(1)
+    }
+    state = after
+  }
   if (own.md5 !== state.md5) {
     console.warn(`SKIPPED - ${device} runs ${state.md5}, the checkout's ${env} build is ${own.md5}. ` +
-      `This test only ever re-uploads the running image; flash the build or rebuild what the board runs.`)
+      `This test only ever re-uploads the running image; flash the build, rebuild what the board runs, or pass --install-checkout.`)
     process.exit(3)
   }
 

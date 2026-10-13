@@ -88,6 +88,24 @@ export interface VersionSummary {
   deployedTo?: string[]
 }
 
+// A rename that Windows refuses for a moment: EPERM, EACCES or EBUSY while
+// another process - a virus scanner, the indexer, a second designer on the
+// same folder - holds the file or folder open. Tried again for up to about
+// two seconds, as graceful-fs does; anything else, or a refusal that lasts,
+// is thrown. Found 2026-10-13: a save failed with EPERM while the e2e suite
+// ran beside the dev server.
+async function renameRetrying(from: string, to: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (attempt >= 20 || !(code === "EPERM" || code === "EACCES" || code === "EBUSY")) throw error
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
+}
+
 // Atomic on power loss (2026-09-23): a van's supply can drop mid-write.
 // Write beside the target, flush it to the card, then rename - a rename
 // replaces the file whole or not at all. The random part keeps two requests
@@ -102,7 +120,7 @@ export async function writeFileAtomic(path: string, data: string): Promise<void>
     await handle.close()
   }
   try {
-    await rename(tmp, path)
+    await renameRetrying(tmp, path)
   } catch (error) {
     // No half-written leftovers, whatever went wrong.
     await unlink(tmp).catch(() => {})
@@ -441,7 +459,7 @@ export function createProjectStore(
       if (newName === folder) return { name: folder, versionId: newest.versionId, savedAt: newest.savedAt }
       // A change of case only ("van knob" -> "Van Knob") is a rename too; it
       // finds its own folder above and is allowed.
-      await rename(join(projectsDir, folder), join(projectsDir, newName))
+      await renameRetrying(join(projectsDir, folder), join(projectsDir, newName))
       await pointInstancesAway(folder, newName)
       const version = await writeVersion(newName, { ...newest.project, name: newName })
       return { name: newName, ...version }

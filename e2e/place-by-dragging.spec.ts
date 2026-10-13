@@ -71,7 +71,9 @@ async function savedObjects(page: Page): Promise<ScreenObject[]> {
     savedAs.set(page, name)
   } else {
     await page.keyboard.press("ControlOrMeta+s")
-    await page.waitForTimeout(800)
+    // Saved when the title loses its dot - not after a fixed 800 ms, which a
+    // save under ten browsers outlasted (2026-10-13).
+    await expect(page.getByTestId("project-title")).toHaveText(name, { timeout: 20_000 })
   }
   const saved = (await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()).project
   return saved.screens.find((s: Obj) => s.id === "screen-1").objects

@@ -69,3 +69,6 @@ next-env.d.ts
 # project dependencies:
 #   npm install --prefix .flasher-deps --no-save esptool-js@0.6.1 esbuild@0.24.0
 /.flasher-deps/
+/hil/test-all-logs/
+/hil/placeholder-redraw-report/
+/hil/live-value-redraw-report/

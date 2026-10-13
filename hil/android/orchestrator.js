@@ -85,7 +85,7 @@ const execFileAsync = promisify(execFile);
 // Defaults to the local broker (hil/local-broker.js, `npm run hil:broker`) now
 // instead of the public test.mosquitto.org (2026-08-01).
 const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883";
-const DESIGNER_URL = "http://localhost:3000/test-render";
+const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render";
 const OUT_DIR = path.join(__dirname, "report");
 const IMG_DIR = path.join(OUT_DIR, "images");
 const ADB = process.env.ANDROID_ADB_PATH ||

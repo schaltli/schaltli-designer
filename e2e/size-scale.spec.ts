@@ -561,8 +561,8 @@ test.describe("a text's style", () => {
     await broker.publishAsync(topic, JSON.stringify({ name: "Pumpe", stat_t: "van/pump", cmd_t: "van/pump/set" }), { retain: true })
     try {
       await page.addInitScript(
-        (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://localhost:9001", discoveryPrefix: p })),
-        prefix,
+        (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: p.url, discoveryPrefix: p.prefix })),
+        { url: process.env.HIL_MQTT_WS_URL || "ws://localhost:9001", prefix },
       )
       // Neither icon service is asked for real: the block's icon is looked
       // for through /api/translate first, which goes out to Google with a 5 s

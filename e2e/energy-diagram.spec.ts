@@ -528,19 +528,42 @@ async function canvasPixels(page: Page): Promise<{ left: number; top: number; wi
   }, { sw: SCREEN_43B.width, sh: SCREEN_43B.height })
 }
 
+// The canvas kept in the page under `key`, and compared there: carrying the
+// whole canvas out as numbers cost seconds a frame, and under ten browsers
+// a test of three frames ran out of its minute (2026-10-13).
+async function keepCanvas(page: Page, key: string): Promise<void> {
+  await page.evaluate((key) => {
+    const canvas = [...document.querySelectorAll("canvas")].sort((a, b) => b.width * b.height - a.width * a.height)[0]
+    const w = window as any
+    w.__kept = w.__kept || {}
+    w.__kept[key] = { width: canvas.width, height: canvas.height, data: canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data }
+  }, key)
+}
+
+/** Where the canvas now differs from the one kept under `key`, every second pixel, in screen coordinates. */
+async function changedSince(page: Page, key: string): Promise<{ x: number; y: number }[]> {
+  return page.evaluate(({ key, sw, sh }) => {
+    const canvas = [...document.querySelectorAll("canvas")].sort((a, b) => b.width * b.height - a.width * a.height)[0]
+    const a = (window as any).__kept[key]
+    const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data
+    const left = Math.round((canvas.width - sw) / 2)
+    const top = Math.round((canvas.height - sh) / 2)
+    const out: { x: number; y: number }[] = []
+    for (let y = 0; y < a.height; y += 2) {
+      for (let x = 0; x < a.width; x += 2) {
+        const i = (y * a.width + x) * 4
+        if (a.data[i] !== data[i] || a.data[i + 1] !== data[i + 1] || a.data[i + 2] !== data[i + 2]) out.push({ x: x - left, y: y - top })
+      }
+    }
+    return out
+  }, { key, sw: SCREEN_43B.width, sh: SCREEN_43B.height })
+}
+
 /** Where the screen's pixels on the canvas changed over `ms`, in screen coordinates. */
 async function changesOver(page: Page, ms: number): Promise<{ x: number; y: number }[]> {
-  const a = await canvasPixels(page)
+  await keepCanvas(page, "before")
   await page.waitForTimeout(ms)
-  const b = await canvasPixels(page)
-  const out: { x: number; y: number }[] = []
-  for (let y = 0; y < a.height; y += 2) {
-    for (let x = 0; x < a.width; x += 2) {
-      const i = (y * a.width + x) * 4
-      if (a.data[i] !== b.data[i] || a.data[i + 1] !== b.data[i + 1] || a.data[i + 2] !== b.data[i + 2]) out.push({ x: x - a.left, y: y - a.top })
-    }
-  }
-  return out
+  return changedSince(page, "before")
 }
 
 const inside = (p: { x: number; y: number }) => p.x >= ORIGIN.x && p.x < ORIGIN.x + SIZE.width && p.y >= ORIGIN.y && p.y < ORIGIN.y + SIZE.height
@@ -586,11 +609,10 @@ test.describe("the energy diagram moving in the preview", () => {
     await page.getByRole("button", { name: "Simulation", exact: true }).click()
     await page.waitForTimeout(400)
     expect(await changesOver(page, 500)).toEqual([])
-    const quarter = (await canvasPixels(page)).data
+    await keepCanvas(page, "quarter")
     await page.evaluate(() => ((window as any).__energyFrozenPhase = 0.75))
-    await page.waitForTimeout(300)
-    const threeQuarters = (await canvasPixels(page)).data
-    expect(threeQuarters.some((v, i) => v !== quarter[i])).toBe(true)
+    // Another picture once the next frame is drawn, however long that takes.
+    await expect.poll(async () => (await changedSince(page, "quarter")).length).toBeGreaterThan(0)
   })
 })
 

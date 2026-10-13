@@ -42,7 +42,9 @@ const { sleep, get, readBoot, lanAddress } = require("./firmware-common")
 const { deviceTag } = require("./device-tag")
 
 const TOPIC_PREFIX = "schaltli"
-const HTTP_PORT = Number(process.env.HIL_DEPLOY_PORT || 8899)
+// Any free port unless one is given: test:all deploys to three boards at
+// once, and a fixed 8899 let only the first of them listen (2026-10-13).
+let HTTP_PORT = Number(process.env.HIL_DEPLOY_PORT || 0)
 const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render"
 const brokerUrl = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 // The simplest specimens, in order of preference: this is about the deploy,
@@ -143,6 +145,7 @@ async function main() {
     res.end(zip)
   })
   await new Promise((resolve) => server.listen(HTTP_PORT, "0.0.0.0", resolve))
+  HTTP_PORT = server.address().port
   const url = `http://${lanAddress()}:${HTTP_PORT}/project.zip`
 
   const failures = []
