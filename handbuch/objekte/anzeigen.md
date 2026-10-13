@@ -154,8 +154,8 @@ Ohne Wert zeigt der Gauge nur den leeren Ring.
 
 Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Storage» und «Consumers».
 
-::: info Ab der nächsten Firmware- und App-Version
-Das Energiediagramm zeigen der 4.3B, der Knob und das PaperS3 ab der Firmware fw-2026.10.13.1, die Android-App ab ihrer nächsten Version. Eine ältere Version zeigt es nicht: «Deploy» bringt die Firmware vorher auf den neuen Stand und bittet bei der App um ein Update. Auf dem PaperS3 steht das Diagramm still.
+::: info Ab fw-2026.10.13.1 und App 0.10.0
+Das Energiediagramm zeigen der 4.3B, der Knob und das PaperS3 ab der Firmware fw-2026.10.13.1, die Android-App ab Version 0.10.0. Eine ältere Version zeigt es nicht: «Deploy» bringt die Firmware vorher auf den neuen Stand und bittet bei der App um ein Update. Auf dem PaperS3 steht das Diagramm still.
 :::
 
 Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> wählst. Die Knoten bleiben beim Umschalten dieselben.
