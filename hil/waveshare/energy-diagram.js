@@ -59,6 +59,10 @@ async function get(url, ms = 10000) {
 const debugOf = async (base) => JSON.parse((await get(`${base}/api/debug`)).body)
 
 const VALUES = { solar: "180", battery: "120", soc: "64", fridge: "45" }
+// The fridge's watts come as JSON, read through its field (`…/fridge#value`),
+// as the author's chargers do: a new value redraws the diagram (2026-10-13).
+const JSON_FIELD = { fridge: "value" }
+const payload = (name, value) => (JSON_FIELD[name] ? JSON.stringify({ [JSON_FIELD[name]]: Number(value) }) : value)
 
 function energyProject(ddf, mode, motion) {
   const { project } = buildProject(ddf, { topicPrefix: PREFIX })
@@ -68,7 +72,11 @@ function energyProject(ddf, mode, motion) {
   const topic = (name) => `${PREFIX}/${name}`
   project.name = "HIL energy diagram"
   project.fonts = ddf.fonts
-  project.topics = Object.entries(VALUES).map(([name, value]) => ({ id: name, topic: topic(name), type: "numeric", examples: [value] }))
+  project.topics = Object.entries(VALUES).map(([name, value]) =>
+    JSON_FIELD[name]
+      ? { id: name, topic: topic(name), type: "json", subtopics: [{ path: JSON_FIELD[name], type: "numeric" }], examples: [payload(name, value)] }
+      : { id: name, topic: topic(name), type: "numeric", examples: [value] },
+  )
   project.combinedTopics = []
   const at = (fx, fy) => ({ x: Math.round(DIAGRAM.width * fx), y: Math.round(DIAGRAM.height * fy) })
   const watts = [{ text: "{watts} W" }]
@@ -93,7 +101,7 @@ function energyProject(ddf, mode, motion) {
               { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
               { id: "solar", role: "source", name: "Solar", colorRole: "energySun", topic: topic("solar"), lines: watts, action: { type: "open-popup", targetScreenId: `popup-${RUN}` }, ...at(0.2, 0.2) },
               { id: "battery", role: "storage", name: "Batterie", colorRole: "energyCharge", topic: topic("battery"), chargeTopic: topic("soc"), lines: watts, ...at(0.2, 0.72) },
-              { id: "fridge", role: "sink", name: "Kühlschrank", colorRole: "energyGrid", topic: topic("fridge"), lines: watts, ...at(0.8, 0.2) },
+              { id: "fridge", role: "sink", name: "Kühlschrank", colorRole: "energyGrid", topic: `${topic("fridge")}#value`, lines: watts, ...at(0.8, 0.2) },
               { id: "rest", role: "rest", name: "Verbraucher", colorRole: "energyLoad", lines: watts, ...at(0.8, 0.72) },
             ],
           },
@@ -141,25 +149,25 @@ async function install(base, ddf, project) {
 }
 
 // The values, retained, and the knob's word that it has them.
-async function publishValues(base) {
+async function publishValues(base, values = VALUES) {
   const client = mqtt.connect(BROKER_URL)
   await new Promise((resolve, reject) => {
     client.once("connect", resolve)
     client.once("error", reject)
   })
-  for (const [name, value] of Object.entries(VALUES)) {
-    await new Promise((resolve) => client.publish(`${PREFIX}/${name}`, value, { retain: true }, resolve))
+  for (const [name, value] of Object.entries(values)) {
+    await new Promise((resolve) => client.publish(`${PREFIX}/${name}`, payload(name, value), { retain: true }, resolve))
   }
   client.end()
-  const topics = Object.keys(VALUES).map((name) => `${PREFIX}/${name}`)
+  const topics = Object.keys(values).map((name) => `${PREFIX}/${name}`)
   const deadline = Date.now() + 15000
   for (;;) {
     const r = await get(`${base}/api/topic-values?topics=${encodeURIComponent(topics.join(","))}`).catch(() => ({ body: "null" }))
-    let values = null
+    let reported = null
     try {
-      values = JSON.parse(r.body)
+      reported = JSON.parse(r.body)
     } catch {}
-    if (values && Object.entries(VALUES).every(([name, value]) => String(values[`${PREFIX}/${name}`]) === value)) return
+    if (reported && Object.entries(values).every(([name, value]) => String(reported[`${PREFIX}/${name}`]).replace(/\s/g, "") === payload(name, value))) return
     if (Date.now() > deadline) throw new Error(`the knob never reported the diagram's values (broker ${BROKER_URL})`)
     await sleep(500)
   }
@@ -238,6 +246,12 @@ async function main() {
     const b = await glass(base, `${mode}-still-2`)
     const still = changes(a, b)
     check(`${mode}, Motion off: the glass stands still`, still.inside + still.outside === 0, `${still.inside + still.outside} px changed`)
+    if (mode === "flow") {
+      await publishValues(base, { fridge: "90" })
+      await sleep(1500)
+      const redrawn = changes(b, await glass(base, `${mode}-still-fridge-90`))
+      check("a node's topic with a JSON field redraws the diagram", redrawn.inside > 0 && redrawn.outside === 0, `${redrawn.inside} px inside, ${redrawn.outside} outside`)
+    }
 
     console.log(`--- ${mode}: moving ---`)
     await install(base, ddf, energyProject(ddf, mode, true))

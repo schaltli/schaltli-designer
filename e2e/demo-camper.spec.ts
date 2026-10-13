@@ -80,8 +80,9 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   expect(new Set(writes.map(([t]) => t))).toEqual(written)
   for (const [t, v] of writes) expect(logic.command(t, v, state), `${t} = ${v} is not a command the bridge takes`).not.toBeNull()
   // And every one is declared among the project's topics.
+  // A JSON field (`ble/charger/watts#value`) is declared under its topic.
   const declared = new Set(project.topics.map((t) => t.topic))
-  for (const t of [...read, ...written]) expect(declared.has(t), `${t} is not declared`).toBe(true)
+  for (const t of [...read, ...written]) expect(declared.has(t.split("#")[0]), `${t} is not declared`).toBe(true)
 })
 
 test("Licht, Wasser, Energie, two pages to come, and the navigator; the page icons follow the van", async () => {
@@ -129,25 +130,23 @@ test("Licht, Wasser, Energie, two pages to come, and the navigator; the page ico
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
 })
 
-// Energie (2026-10-11): the sun, the mains and the engine into the battery,
-// the battery to what draws. The battery is Pekaway's through the bridge, the
-// rest as the author's van has it (vanpi-custom), so the page goes into his
-// project as it is.
-test("Energie: three sources and what draws round the battery, an arrow only while watts flow, the battery's numbers", async () => {
+// Energie (2026-10-11, a Flow since 2026-10-13): the sun, the mains and the
+// engine into the 12 V bus, the battery and what draws off it. The battery is
+// Pekaway's through the bridge, the rest as the author's van has it
+// (vanpi-custom), so the page goes into his project as it is.
+test("Energie: an energy diagram's Flow - three sources, the battery and what draws on the bus", async () => {
   const project = await built()
   const energie = project.screens[3] as any
   expect(energie.name).toBe("Energie")
   const read = new Set<string>()
   walk(energie, (key, v) => {
-    if ((key === "topic" || key === "path") && typeof v === "string") read.add(v)
+    if ((key === "topic" || key === "chargeTopic" || key === "path") && typeof v === "string") read.add(v)
   })
   expect([...read].sort()).toEqual([
     "ble/charger/watts#value",
     "ble/orion/watts#value",
-    "schaltli/state/battery/current",
     "schaltli/state/battery/power",
     "schaltli/state/battery/soc",
-    "schaltli/state/battery/voltage",
     "van/energy/consumers_watts",
     "van/energy/solar_watts",
   ])
@@ -160,68 +159,68 @@ test("Energie: three sources and what draws round the battery, an arrow only whi
   expect(energie.iconLive).toMatchObject({ source: { path: "schaltli/state/battery/soc" }, otherwise: { icon: "icon-battery" } })
   expect(energie.iconLive.rules).toEqual([{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }])
 
-  // The arrows: a live icon each, with no Otherwise, so nothing shows while
-  // nothing flows - a source's while it brings watts (not while it says it
-  // charges: a charger in float says so and gives nothing), the battery's
-  // while it gives.
-  const arrows = energie.objects.filter((o: any) => o.properties.liveIconId)
-  expect(arrows.map((o: any) => [o.properties.liveValues[0].source.path, o.properties.liveValues[0].rules[0].op, o.properties.liveValues[0].rules[0].operand])).toEqual([
-    ["van/energy/solar_watts", ">", "0"],
-    ["ble/charger/watts#value", ">", "0"],
-    ["ble/orion/watts#value", ">", "0"],
-    ["schaltli/state/battery/current", "<", "0"],
+  // The title and one diagram, a moving Flow, every node where it belongs.
+  expect(energie.objects.map((o: any) => o.type)).toEqual(["text", "energy-diagram"])
+  const diagram = energie.objects[1]
+  expect(diagram.properties).toMatchObject({ mode: "flow", motion: true })
+  const nodes = diagram.properties.nodes
+  expect(nodes.map((n: any) => [n.name, n.role, n.colorRole])).toEqual([
+    ["12 V", "bus", undefined],
+    ["Solar", "source", "energySun"],
+    ["Landstrom", "source", "energyGrid"],
+    ["Ladebooster", "source", "energyEngine"],
+    ["Batterie", "storage", "energyCharge"],
+    ["Verbraucher", "sink", "energyLoad"],
   ])
-  for (const a of arrows) expect(a.properties.liveValues[0].otherwise).toBeUndefined()
-  expect(energie.objects.filter((o: any) => o.type === "gauge")).toHaveLength(1)
-  // A line's points are the screen's, not its box's: each path runs inside its own box.
-  const lines = energie.objects.filter((o: any) => o.type === "line")
-  expect(lines).toHaveLength(4)
-  for (const line of lines) {
-    for (const p of line.properties.points) {
-      expect(p.x).toBeGreaterThanOrEqual(line.x)
-      expect(p.x).toBeLessThanOrEqual(line.x + line.width)
-      expect(p.y).toBeGreaterThanOrEqual(line.y)
-      expect(p.y).toBeLessThanOrEqual(line.y + line.height)
-    }
+  const battery = nodes.find((n: any) => n.role === "storage")
+  expect(battery).toMatchObject({ topic: "schaltli/state/battery/power", chargeTopic: "schaltli/state/battery/soc" })
+  // Every node inside the diagram; the diagram inside the screen, beside the
+  // navigator and under the light/dark switch top right.
+  for (const n of nodes) {
+    expect(n.x).toBeGreaterThan(0)
+    expect(n.x).toBeLessThan(diagram.width)
+    expect(n.y).toBeGreaterThan(0)
+    expect(n.y).toBeLessThan(diagram.height)
   }
-  // Nothing reaches past the screen, or under the light/dark switch top right.
-  for (const o of energie.objects) {
-    expect(o.x + o.width, o.id).toBeLessThanOrEqual(project.screenWidth)
-    expect(o.y + o.height, o.id).toBeLessThanOrEqual(project.screenHeight)
-    if (o.x + o.width > project.screenWidth - 196) expect(o.y, o.id).toBeGreaterThanOrEqual(62)
-  }
+  expect(diagram.x).toBeGreaterThanOrEqual(104)
+  expect(diagram.x + diagram.width).toBeLessThanOrEqual(project.screenWidth)
+  expect(diagram.y + diagram.height).toBeLessThanOrEqual(project.screenHeight)
+  expect(diagram.y).toBeGreaterThanOrEqual(62)
+  // Fonts the device has.
+  const fonts = new Set(project.fonts.map((f: any) => f.id))
+  expect(fonts.has(diagram.properties.fontId)).toBe(true)
+  expect(fonts.has(diagram.properties.valueFontId)).toBe(true)
 
   // Every icon it uses is in the project.
   const assets = new Set(project.assets.map((a: any) => a.id))
   walk(energie, (key, v) => {
-    if ((key === "assetId" || key === "icon") && typeof v === "string") expect(assets.has(v), v).toBe(true)
+    if ((key === "assetId" || key === "iconAssetId" || key === "icon") && typeof v === "string") expect(assets.has(v), v).toBe(true)
   })
 
-  // The texts, as the designer and the devices resolve them (a JSON field
-  // given as its value).
-  const texts = energie.objects.filter((o: any) => o.type === "text" && o.properties.liveValues)
-  const shown = (values: Record<string, string>) =>
-    texts.map((o: any) => {
-      const lv = o.properties.liveValues[0]
-      const { result } = evaluate(lv, values[lv.source.path])
-      return (result as any)?.kind === "text" ? (result as any).parts.map((p: any) => (typeof p === "string" ? p : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS))).join("") : formatValue(values[lv.source.path], lv.format, DEFAULT_SEPARATORS)
-    })
-  const S = "schaltli/state/"
-  expect(
-    shown({
-      "van/energy/solar_watts": "0",
-      "ble/charger/watts#value": "241",
-      "ble/orion/watts#value": "414",
-      "van/energy/consumers_watts": "16",
-      [`${S}battery/current`]: "49.1",
-      [`${S}battery/soc`]: "82",
-      [`${S}battery/voltage`]: "13.65",
-      [`${S}battery/power`]: "670",
-    }),
-  ).toEqual(["0 W", "241 W", "414 W", "16 W", "Lädt", "82 %", "13.65 V", "+49.1 A", "+670 W"])
-  expect(shown({ [`${S}battery/current`]: "-2.13", [`${S}battery/power`]: "-28" }).slice(4)).toEqual(["Entlädt", "–", "–", "-2.1 A", "-28 W"])
-  expect(shown({ [`${S}battery/current`]: "0.00" })[4]).toBe("Ruht")
-  expect(shown({})).toEqual(["–", "–", "–", "–", "–", "–", "–", "–", "–"])
+  // The battery's charge under its watts, as the designer and the devices
+  // resolve a live value.
+  const soc = battery.lines[1].liveValues[0]
+  expect(battery.lines[1].text).toBe(`{live:${soc.id}}`)
+  const { result } = evaluate(soc, "82")
+  expect((result as any).parts.map((p: any) => (typeof p === "string" ? p : formatValue("82", soc.format, DEFAULT_SEPARATORS))).join("")).toBe("82 %")
+
+  // The demo van's numbers add up on the bus - in from the sun, the chargers
+  // and a giving battery, out to what draws and a charging one - so no node
+  // is left to be worked out as a rest. Within the bridge's battery watts,
+  // which are its volts under current times its amps.
+  const pekaway = fakePekaway()
+  const logic = createBridgeLogic()
+  for (const daylight of [0, 0.5, 1]) {
+    pekaway.tick(2, daylight)
+    const values: Record<string, number> = {}
+    for (const [topic, value] of pekaway.energy()) values[value.startsWith("{") ? `${topic}#value` : topic] = Number(value.startsWith("{") ? JSON.parse(value).value : value)
+    for (const u of logic.flatten("batt", pekaway.answer("batt"), {})) values[u.topic] = Number(u.value)
+    const watts = (n: any) => values[n.topic]
+    for (const n of nodes) if (n.topic) expect(Number.isFinite(watts(n)), n.topic).toBe(true)
+    const into = nodes.filter((n: any) => n.role === "source").reduce((sum: number, n: any) => sum + watts(n), 0)
+    const out = watts(nodes.find((n: any) => n.role === "sink")) + watts(battery)
+    expect(Math.abs(into - out), `daylight ${daylight}: ${into} W in, ${out} W out`).toBeLessThanOrEqual(Math.max(5, into * 0.05))
+  }
 })
 
 test("written into a project store, «Camper» reads back as built", async ({}, testInfo) => {

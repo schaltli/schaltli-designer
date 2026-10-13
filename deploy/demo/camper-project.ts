@@ -13,11 +13,11 @@
 //   Wasser  fresh and grey water as tanks, the water pump, and the switch
 //           that lets the grey water out. The page's icon is a drop with an exclamation mark
 //           while the grey water is above 80 % or the fresh below 20 %.
-//   Energie what flows into the battery - the sun, the mains charger, the
-//           DC-DC charger off the engine - and out of it to what draws, the
-//           charge, volts, amps and watts; an arrow only while something
-//           flows. The battery is Pekaway's shunt through the bridge; the
-//           rest comes as in the author's van (vanpi-custom: its BLE bridge's
+//   Energie an energy diagram's Flow: the sun, the mains charger and the
+//           DC-DC charger off the engine into the 12 V bus, the battery and
+//           what draws off it, the dots running while watts flow. The
+//           battery is Pekaway's shunt through the bridge; the rest comes as
+//           in the author's van (vanpi-custom: its BLE bridge's
 //           ble/charger/... and ble/orion/..., its Node-RED tab's
 //           van/energy/...), so the page goes into his project as it is.
 //           The page's icon is an empty battery below 20 %.
@@ -96,12 +96,6 @@ const ASSETS = [
     name: "Battery low",
     type: "icon",
     data: svg('<path fill="none" stroke="currentColor" stroke-width="1.8" d="M7 4.5h10v17H7z"/><path fill="currentColor" d="M10 2h4v2.5h-4zM9 17h6v2.5H9zM11 7.5h2v6.5h-2z"/>'),
-  },
-  {
-    id: "icon-arrow-down",
-    name: "Arrow down",
-    type: "icon",
-    data: svg('<path fill="currentColor" d="M9.5 3h5v10h4.5L12 21.5 5 13h4.5z"/>'),
   },
   {
     id: "icon-plug",
@@ -398,79 +392,6 @@ function waterScreen() {
   }
 }
 
-// A text of live values: `text` with {live:<id>} in it.
-function live(x: number, y: number, width: number, height: number, text: string, liveValues: unknown[], style: Record<string, unknown> = {}) {
-  return {
-    id: id("live"),
-    type: "text",
-    x,
-    y,
-    width,
-    height,
-    zIndex: next,
-    properties: {
-      text,
-      liveValues,
-      fontId: "font-helvR18",
-      color: "text",
-      textAlign: "left",
-      backgroundColor: "transparent",
-      borderColor: "transparent",
-      ...style,
-    },
-  }
-}
-
-function label(x: number, y: number, width: number, text: string, style: Record<string, unknown> = {}) {
-  return {
-    id: id("label"),
-    type: "text",
-    x,
-    y,
-    width,
-    height: 30,
-    zIndex: next,
-    properties: { text, fontId: "font-helvR18", color: "textMuted", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent", ...style },
-  }
-}
-
-function icon(x: number, y: number, size: number, assetId: string, iconColor = "text") {
-  return { id: id("icon"), type: "icon", x, y, width: size, height: size, zIndex: next, properties: { assetId, iconColor } }
-}
-
-// An arrow that is there only while something flows - a live icon whose
-// rule shows it and whose Otherwise is left empty - over a dotted path that
-// is always there.
-function flow(cx: number, y0: number, y1: number, path: string, op: ">" | "<", operand: string) {
-  const lv = `lv${next}`
-  return [
-    {
-      id: id("path"),
-      type: "line",
-      x: cx - 2,
-      y: y0,
-      width: 4,
-      height: y1 - y0,
-      zIndex: next,
-      properties: { points: [{ x: cx, y: y0 }, { x: cx, y: y1 }], color: "outline", strokeWidth: 4, strokeStyle: "dotted" },
-    },
-    {
-      id: id("arrow"),
-      type: "icon",
-      x: cx - 18,
-      y: Math.round((y0 + y1) / 2) - 18,
-      width: 36,
-      height: 36,
-      zIndex: next,
-      properties: {
-        iconColor: "accent",
-        liveIconId: lv,
-        liveValues: [{ id: lv, source: { namespace: "topic", path }, rules: [{ op, operand, result: { kind: "icon", icon: "icon-arrow-down" } }] }],
-      },
-    },
-  ]
-}
-
 const NONE_YET = { kind: "text", parts: ["–"] }
 const VALUE = { value: true }
 const decimals = (n: number) => ({ kind: "number", decimals: n, grouped: false })
@@ -480,56 +401,18 @@ function withUnit(lvId: string, path: string, places: number, unit: string) {
   return { id: lvId, source: { namespace: "topic", path }, format: decimals(places), rules: [], otherwise: { kind: "text", parts: [VALUE, unit] }, noValueYet: NONE_YET }
 }
 
-// A value with its unit and a «+» in front while it is above nought: the
-// battery's amps and watts, in while charging, out while discharging.
-function signed(lvId: string, path: string, places: number, unit: string) {
-  return { ...withUnit(lvId, path, places, unit), rules: [{ op: ">", operand: "0", result: { kind: "text", parts: ["+", VALUE, unit] } }] }
-}
+// Energy, as an energy diagram's Flow (docs/2026-10-11-energy-diagram.md):
+// across the top what comes in - the sun, the mains, the engine -, below the
+// battery and what draws, each a circle on the 12 V bus whose dots run while
+// watts flow; the battery's charge as its ring and in %. The demo van's
+// numbers add up (the battery's watts are what comes in less what draws), so
+// nothing is worked out as a rest.
+const WATTS = [{ text: "{watts} W" }]
 
-// Energy: across the top what comes in - the sun, the mains, the engine -,
-// each with its watts and an arrow down to the battery while it brings any;
-// the battery's charge in the middle, what draws below it, with an arrow
-// while the battery gives. On the right the battery's numbers.
 function energyScreen() {
-  const cx = 297
-  const right = 500
-  const row = (y: number, name: string, lv: unknown) => [label(right, y, 144, name), live(right + 144, y, 140, 30, "{live:v}", [lv], { textAlign: "right" })]
-  // A source: its icon, its name, its watts, the arrow under it while it
-  // brings something, and the dotted path from there to the battery.
-  const source = (x: number, name: string, iconId: string, watts: string, to: { x: number; y: number }) => {
-    const lv = `lv${next}`
-    return [
-      icon(x - 18, 64, 36, iconId),
-      label(x - 67, 102, 134, name, { textAlign: "center", color: "textMuted" }),
-      live(x - 67, 126, 134, 28, "{live:w}", [withUnit("w", watts, 0, " W")], { fontId: "font-helvB18", textAlign: "center" }),
-      {
-        id: id("arrow"),
-        type: "icon",
-        x: x - 14,
-        y: 156,
-        width: 28,
-        height: 28,
-        zIndex: next,
-        properties: {
-          iconColor: "accent",
-          liveIconId: lv,
-          // By its watts, not by whether it says it charges: a charger in
-          // float says so and gives nothing.
-          liveValues: [{ id: lv, source: { namespace: "topic", path: watts }, rules: [{ op: ">", operand: "0", result: { kind: "icon", icon: "icon-arrow-down" } }] }],
-        },
-      },
-      {
-        id: id("path"),
-        type: "line",
-        x: Math.min(x, to.x),
-        y: 186,
-        width: Math.max(4, Math.abs(to.x - x)),
-        height: to.y - 186,
-        zIndex: next,
-        properties: { points: [{ x, y: 186 }, to], color: "outline", strokeWidth: 3, strokeStyle: "dotted" },
-      },
-    ]
-  }
+  const box = { x: 124, y: 66, width: 656, height: 404 }
+  const at = (fx: number, fy: number) => ({ x: Math.round(box.width * fx), y: Math.round(box.height * fy) })
+  const line = (lvId: string, path: string, places: number, unit: string) => ({ text: `{live:${lvId}}`, liveValues: [withUnit(lvId, path, places, unit)] })
   return {
     id: "screen-energie",
     name: "Energie",
@@ -542,54 +425,37 @@ function energyScreen() {
     },
     objects: [
       title("Energie"),
-      ...source(cx - 132, "Solar", "icon-sun", "van/energy/solar_watts", { x: cx - 52, y: 226 }),
-      ...source(cx, "Landstrom", "icon-plug", "ble/charger/watts#value", { x: cx, y: 206 }),
-      ...source(cx + 132, "Ladebooster", "icon-engine", "ble/orion/watts#value", { x: cx + 52, y: 226 }),
-      // The battery's charge.
       {
-        id: id("battery"),
-        type: "gauge",
-        x: cx - 70,
-        y: 206,
-        width: 140,
-        height: 140,
+        id: id("energy"),
+        type: "energy-diagram",
+        ...box,
         zIndex: next,
         properties: {
-          topic: `${S}battery/soc`,
-          calibrationPoints: LINEAR,
-          minAngle: 225,
-          maxAngle: 135,
-          direction: "cw",
-          thickness: 16,
-          displayValue: "percentage",
-          fillColor: "accent",
-          textColor: "text",
-          fontId: "font-helvB24",
+          mode: "flow",
+          motion: true,
+          fullScale: 1000,
+          fontId: "font-luRS14",
+          valueFontId: "font-luRS18",
+          nodes: [
+            { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.4) },
+            { id: "solar", role: "source", name: "Solar", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/energy/solar_watts", lines: WATTS, ...at(0.14, 0.16) },
+            { id: "landstrom", role: "source", name: "Landstrom", iconAssetId: "icon-plug", colorRole: "energyGrid", topic: "ble/charger/watts#value", lines: WATTS, ...at(0.5, 0.12) },
+            { id: "booster", role: "source", name: "Ladebooster", iconAssetId: "icon-engine", colorRole: "energyEngine", topic: "ble/orion/watts#value", lines: WATTS, ...at(0.86, 0.16) },
+            {
+              id: "batterie",
+              role: "storage",
+              name: "Batterie",
+              iconAssetId: "icon-battery",
+              colorRole: "energyCharge",
+              topic: `${S}battery/power`,
+              chargeTopic: `${S}battery/soc`,
+              lines: [{ text: "{watts} W" }, line("soc", `${S}battery/soc`, 0, " %")],
+              ...at(0.22, 0.64),
+            },
+            { id: "verbraucher", role: "sink", name: "Verbraucher", iconAssetId: "icon-load", colorRole: "energyLoad", topic: "van/energy/consumers_watts", lines: WATTS, ...at(0.78, 0.64) },
+          ],
         },
       },
-      ...flow(cx, 336, 402, `${S}battery/current`, "<", "0"),
-      // What draws, as the author's Node-RED tab works it out.
-      icon(cx - 58, 410, 36, "icon-load"),
-      label(cx - 14, 404, 180, "Verbraucher"),
-      live(cx - 14, 430, 180, 28, "{live:w}", [withUnit("w", "van/energy/consumers_watts", 0, " W")], { fontId: "font-helvB18" }),
-      // The battery's numbers.
-      label(right, 70, 284, "Batterie"),
-      live(right, 98, 284, 40, "{live:state}", [
-        {
-          id: "state",
-          source: { namespace: "topic", path: `${S}battery/current` },
-          rules: [
-            { op: ">", operand: "0.05", result: { kind: "text", parts: ["Lädt"] } },
-            { op: "<", operand: "-0.05", result: { kind: "text", parts: ["Entlädt"] } },
-          ],
-          otherwise: { kind: "text", parts: ["Ruht"] },
-          noValueYet: NONE_YET,
-        },
-      ], { fontId: "font-helvB24" }),
-      ...row(170, "Ladezustand", withUnit("v", `${S}battery/soc`, 0, " %")),
-      ...row(214, "Spannung", withUnit("v", `${S}battery/voltage`, 2, " V")),
-      ...row(258, "Strom", signed("v", `${S}battery/current`, 1, " A")),
-      ...row(302, "Leistung", signed("v", `${S}battery/power`, 0, " W")),
     ],
   }
 }

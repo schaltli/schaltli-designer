@@ -36,19 +36,17 @@ test.describe("what a copy carries and how it merges", () => {
     const energie = project.screens.find((s: any) => s.name === "Energie")
     const payload = unpackClipboard(packClipboard(project, { screen: energie }, "t1"))!
     expect(payload.screen!.name).toBe("Energie")
-    expect(payload.assets.map((a) => a.id).sort()).toEqual(["icon-arrow-down", "icon-battery", "icon-battery-low", "icon-engine", "icon-load", "icon-plug", "icon-sun"])
+    expect(payload.assets.map((a) => a.id).sort()).toEqual(["icon-battery", "icon-battery-low", "icon-engine", "icon-load", "icon-plug", "icon-sun"])
     expect(payload.topics.map((t) => t.topic).sort()).toEqual([
       "ble/charger/watts",
       "ble/orion/watts",
-      "schaltli/state/battery/current",
       "schaltli/state/battery/power",
       "schaltli/state/battery/soc",
-      "schaltli/state/battery/voltage",
       "van/energy/consumers_watts",
       "van/energy/solar_watts",
     ])
     expect(payload.combinedTopics).toEqual([])
-    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-helvB18", "font-helvB24", "font-helvR18"])
+    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-helvB24", "font-luRS14", "font-luRS18"])
     expect([payload.screenWidth, payload.screenHeight]).toEqual([800, 480])
 
     // Licht's icon asks a combined topic, which comes with the topics it asks.
@@ -159,9 +157,9 @@ test.describe("between two tabs", () => {
 
     const project = await downloadProjectJson(to)
     const energie = project.screens.find((s: any) => s.name === "Energie")
-    expect(energie.objects.length).toBeGreaterThan(10)
+    expect(energie.objects.find((o: any) => o.type === "energy-diagram").properties.nodes).toHaveLength(6)
     expect(project.topics.map((t: any) => t.topic)).toContain("schaltli/state/battery/power")
-    expect(project.assets.map((a: any) => a.name)).toEqual(expect.arrayContaining(["Battery", "Battery low", "Arrow down", "Plug", "Sun"]))
+    expect(project.assets.map((a: any) => a.name)).toEqual(expect.arrayContaining(["Battery", "Battery low", "Plug", "Sun"]))
     expect(energie.iconLive.otherwise.icon).toBe(project.assets.find((a: any) => a.name === "Battery").id)
   })
 
