@@ -15,6 +15,11 @@ by USB (allowed: «Die flashes kannst du selber»); no push, no release.
   - the asked marker of a level needs no special case: the local write comes back through the same path an echo does
   - /api/debug?set=restart (the knob had no restart for the HIL); hil/local-topics.js checks the uptime went down
   - hil/local-topics.js on the knob 5/5; knob smoke HIL 16/16, popups 26, live values, energy flow green
-- [ ] F4 The 4.3B
-- [ ] F5 The PaperS3
+- [x] F4 The 4.3B
+  - the callback's project part is applyTopicValue; writeProjectTopic queues a local write, applied after mqttClient.loop() - after the switch marked what it asked for, so the value answers that mark; subscriptions without local topics
+  - hil/local-topics.js 5/5, the knob/4.3B pair green; conformance 57/57, popups, live values, navigator, energy nested, placeholder redraw green
+  - the 4.3B joined a far access point (B4:FB:…, -88 to -91 dBm) after some restarts and then took no upload: suites were run with it on the near one (FC:EC:…); the user chose to go on without a WiFi fix («Weiter, flashen»)
+- [x] F5 The PaperS3
+  - the same in src/boards/papers3/main.cpp
+  - hil/local-topics.js 5/5; popups (second try - the first lost the install, as in the last test:all), live values, navigator, hold countdown green
 - [ ] Checkpoint: test:all; the user decides on the release
