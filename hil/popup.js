@@ -33,10 +33,12 @@ const { Jimp } = require("jimp")
 const { comparePixels } = require("./report-template")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
+const { deviceTag } = require("./device-tag")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const OUT_DIR = path.join(__dirname, "popup-report")
+const PREFIX = `hil-popup-${deviceTag()}`
+const OUT_DIR = path.join(__dirname, "popup-report", deviceTag())
 const POPUP_GENERATION = [1, 3]
 // Ends the run early, past the popup checks, for a board below 1.3.
 const OLDER_DEVICE_DONE = Symbol("older device checked")
@@ -89,8 +91,8 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true })
 
   const ddf = await loadDdf(device)
-  const { project: specimens } = buildProject(ddf, { topicPrefix: "hil-popup" })
-  const { project } = buildProject(ddf, { topicPrefix: "hil-popup" })
+  const { project: specimens } = buildProject(ddf, { topicPrefix: PREFIX })
+  const { project } = buildProject(ddf, { topicPrefix: PREFIX })
   const { width: sw, height: sh } = ddf.screen
   // The shape is in the DDF as the board wrote it (raw); loadDdf's own
   // summary leaves it out - read from there, a round knob was taken for a
@@ -161,7 +163,7 @@ async function main() {
   // screen menu; on the popup only a right turn is bound, to its slider. A
   // board without them never reports those ids.
   const ringBoard = /knob/i.test(ddf.deviceId || "")
-  const RING_LEFT_TOPIC = "hil-popup/ring-left"
+  const RING_LEFT_TOPIC = `${PREFIX}/ring-left`
   project.hardwareButtons = [
     { id: "swipe-left", name: "Swipe Left" },
     { id: "swipe-up", name: "Swipe Up" },
@@ -253,7 +255,7 @@ async function main() {
         ? (2 * x - (2 * fence.x + fence.width)) ** 2 + (2 * y - (2 * fence.y + fence.height)) ** 2 <= fence.width ** 2
         : x >= fence.x && x < fence.x + fence.width && y >= fence.y && y < fence.y + fence.height
 
-    const zipPath = path.join(os.tmpdir(), "hil-popup.zip")
+    const zipPath = path.join(os.tmpdir(), `${PREFIX}.zip`)
     fs.writeFileSync(zipPath, zipBuffer)
     console.log("installing a screen with a popup ...")
     try {

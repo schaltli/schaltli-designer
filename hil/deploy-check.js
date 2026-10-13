@@ -39,6 +39,7 @@ const { chromium } = require("playwright")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
 const { sleep, get, readBoot, lanAddress } = require("./firmware-common")
+const { deviceTag } = require("./device-tag")
 
 const TOPIC_PREFIX = "schaltli"
 const HTTP_PORT = Number(process.env.HIL_DEPLOY_PORT || 8899)
@@ -93,7 +94,7 @@ async function main() {
     console.error(`FAIL - ${ddf.deviceId} declares none of ${PREFERRED_TYPES.join(", ")}`)
     process.exit(1)
   }
-  const { project } = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: "hil-deploy" })
+  const { project } = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: `hil-deploy-${deviceTag()}` })
   const screenId = `screen-deploy-${crypto.randomBytes(4).toString("hex")}`
   project.screens[0].id = screenId
   project.screens[0].name = `deploy ${screenId.slice(-8)}`

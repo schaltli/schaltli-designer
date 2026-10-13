@@ -32,10 +32,11 @@ const { Jimp } = require("jimp")
 const { comparePixels } = require("./report-template")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
+const { deviceTag } = require("./device-tag")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const OUT_DIR = path.join(__dirname, "live-value-redraw-report")
+const OUT_DIR = path.join(__dirname, "live-value-redraw-report", deviceTag())
 
 // Fresh topics each run: a value the broker kept from an earlier run would
 // make «nothing arrived yet» impossible to show.
@@ -241,7 +242,7 @@ async function main() {
     await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
     const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
 
-    const zipPath = path.join(os.tmpdir(), "hil-live-value.zip")
+    const zipPath = path.join(os.tmpdir(), `hil-live-value-${deviceTag()}.zip`)
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
     console.log("installing three live values in a text, a threshold icon and an icon on a combined topic ...")
     try {

@@ -33,13 +33,15 @@ const { Jimp } = require("jimp")
 const { comparePixels } = require("./report-template")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
+const { deviceTag } = require("./device-tag")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const OUT_DIR = path.join(__dirname, "placeholder-redraw-report")
+const OUT_DIR = path.join(__dirname, "placeholder-redraw-report", deviceTag())
 
-const LEVEL = "hil-placeholder/level"
-const NAME = "hil-placeholder/name"
+const PREFIX = `hil-placeholder-${deviceTag()}`
+const LEVEL = `${PREFIX}/level`
+const NAME = `${PREFIX}/name`
 
 function parseArgs(argv) {
   const args = { device: null }
@@ -92,7 +94,7 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true })
 
   const ddf = await loadDdf(device)
-  const { project } = buildProject(ddf, { topicPrefix: "hil-placeholder" })
+  const { project } = buildProject(ddf, { topicPrefix: PREFIX })
   const font = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))[Math.floor(ddf.fonts.length * 0.4)]
   const screenId = `placeholder-${Date.now().toString(36)}`
   // Three rows in the middle of the screen, inside the knob's circle too.
@@ -166,7 +168,7 @@ async function main() {
     await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
     const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
 
-    const zipPath = path.join(os.tmpdir(), "hil-placeholder.zip")
+    const zipPath = path.join(os.tmpdir(), `${PREFIX}.zip`)
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
     console.log("installing a bound value and two placeholder texts ...")
     try {

@@ -30,12 +30,13 @@ const { chromium } = require("playwright")
 const { Jimp } = require("jimp")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
+const { deviceTag } = require("./device-tag")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = Date.now().toString(36)
 const NAME = `local/hil-${RUN}/view`
-const OUT_DIR = path.join(__dirname, "local-topics-report")
+const OUT_DIR = path.join(__dirname, "local-topics-report", deviceTag())
 const DARK = "#202020"
 const LIGHT = "#e0e0e0"
 
