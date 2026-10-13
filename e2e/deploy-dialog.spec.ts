@@ -333,7 +333,9 @@ test.describe("Deploy to Device dialog", () => {
     const bundle = await JSZip.loadAsync(await (await page.request.get(trigger.url)).body())
     const files = Object.keys(bundle.files)
     expect(files.filter((f) => /\.(bmp|pbm)$/i.test(f)), files.join(", ")).toEqual([])
-    expect(files.some((f) => /\.png$/i.test(f)), files.join(", ")).toBe(true)
+    // The phone's bundle says so - it was its PNG backgrounds until they
+    // went on 2026-10-13 (the app draws every object itself since).
+    expect(JSON.parse(await bundle.file("project.json")!.async("string")).platform).toBe("android")
   })
 
   test("deploy still works when crypto.randomUUID isn't available (insecure context)", async ({ page }) => {
