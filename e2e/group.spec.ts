@@ -507,32 +507,16 @@ test.describe("groups in an export", () => {
     expect(flatten(authored.screens.find((s: Obj) => s.id === "s1").objects).map((o: Obj) => o.type)).toContain("group")
   })
 
-  test("the Android app gets the objects too, and a box in a group is in the background picture", async ({ page }) => {
+  test("the Android app gets the objects too, a box in a group among them", async ({ page }) => {
     const zip = await buildZip(page, "__buildAndroidZipForTest")
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
     const screen = project.screens.find((s: Obj) => s.id === "s1")
     expectDissolved(screen)
 
-    // A box at the top level goes into the baked background - and one in a
-    // group at the top level is a top-level box once dissolved.
-    const png = await zip.file(screen.backgroundImage)!.async("base64")
-    const pixel = (x: number, y: number) =>
-      page.evaluate(
-        async ({ png, x, y }) => {
-          const img = new Image()
-          img.src = `data:image/png;base64,${png}`
-          await img.decode()
-          const canvas = document.createElement("canvas")
-          canvas.width = img.width
-          canvas.height = img.height
-          const ctx = canvas.getContext("2d")!
-          ctx.drawImage(img, 0, 0)
-          return Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
-        },
-        { png, x, y },
-      )
-    expect(await pixel(50, 50)).toEqual([255, 0, 0])
-    expect(await pixel(100, 40)).toEqual([0, 0, 255])
-    expect(await pixel(200, 150)).toEqual([255, 255, 255])
+    // The app draws boxes itself since 2026-10-13 - no baked picture, and a
+    // box from a group is a box object like any other, where it stood.
+    expect(screen.backgroundImage).toBeUndefined()
+    const boxes = flatten(screen.objects).filter((o) => o.type === "box").map((o) => o.id)
+    expect(boxes).toEqual(expect.arrayContaining(["g-red", "g-blue"]))
   })
 })

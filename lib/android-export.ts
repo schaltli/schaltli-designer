@@ -142,38 +142,12 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     return `assets/${filename}`
   }
 
-  // One flattened background PNG per screen (background color + any
-  // static box/line/icon objects baked in - the app draws no box, line or
-  // icon of its own, so this picture is how they reach it).
-  // Dynamic objects (labels, MQTT-bound fields, buttons, switches, arcs,
-  // tab-controls) stay out of the image and are described in project.json
-  // below instead, for a real Android UI toolkit to render and update live.
-  //
-  // Twice: the light variant, and the dark one beside it as
-  // backgroundImageDark (docs/2026-09-25-themes-export.md), drawn by the
-  // same code from the dark objects and background.
-  const screenBackgrounds = new Map<string, string>() // screenId -> asset path
-  const screenBackgroundsDark = new Map<string, string>()
-  for (const resolved of resolvedScreens) {
-    for (const dark of [false, true]) {
-      // The *resolved* screen, not the authored one: createFlattenedBackground
-      // reads backgroundColor straight off what it is
-      // handed, so inheritance has to be applied before it gets there.
-      const screenForBake = {
-        ...resolved.screen,
-        backgroundColor: dark ? resolved.backgroundColorDark : resolved.backgroundColor,
-      }
-      const canvas = await exporter.renderScreenBackground(
-        screenForBake,
-        project,
-        dark ? resolved.darkObjects : resolved.objects,
-      )
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
-      if (!blob) continue
-      const path = await writeBake(`${resolved.screen.id}.png`, new Uint8Array(await blob.arrayBuffer()), dark)
-      ;(dark ? screenBackgroundsDark : screenBackgrounds).set(resolved.screen.id, path)
-    }
-  }
+  // No background picture per screen since 2026-10-13
+  // (tasks/android-draws-all-plan.md): the app fills the screen colour and
+  // draws box, line and fixed icon itself, as every board has since
+  // 2026-09-25 (device contract §2, «Static content»). The picture never held
+  // what a switcher's panel shows, so a box there was missing on the phone,
+  // and a screen's background image now reaches no device at all.
 
   // Icon assets as their original SVGs, not pre-flattened bitmaps - unlike
   // e-paper firmware, a real Android renderer can composite/recolor vector
@@ -665,8 +639,6 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         name: screen.name,
         backgroundColor,
         backgroundColorDark,
-        backgroundImage: screenBackgrounds.get(screen.id),
-        backgroundImageDark: screenBackgroundsDark.get(screen.id),
         // Which navigator it shows, and whether it is out of the paging.
         navigatorId: masterScreen?.objects.find((o: any) => o.type === "navigator")?.id,
         hidden: screen.hidden || undefined,

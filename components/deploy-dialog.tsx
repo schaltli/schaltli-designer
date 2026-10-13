@@ -47,6 +47,7 @@ import {
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
 import { localTopicsFeature } from "@/lib/local-topics"
+import { STATIC_OBJECTS_FEATURE, staticObjectsFeature } from "@/lib/static-objects"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
@@ -684,7 +685,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // Local topics are a feature the device declares, not a generation
   // (device contract §2.9).
   const localFeature = localTopicsFeature(project.topics)
-  const unsupportedFeatures = localFeature && deviceFeatures && !deviceFeatures.includes(localFeature.feature) ? [localFeature] : []
+  // A phone draws box, line and fixed icon itself only from the app that
+  // says so; the bundle carries no baked picture of them any more
+  // (lib/static-objects.ts). Boards always have.
+  const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
+  const unsupportedFeatures = [localFeature, staticFeature].filter(
+    (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
+  )
   const needs: ProjectNeed[] = [
     ...(projectUsesLivePlaceholders(project) ? [{ generation: PLACEHOLDER_GENERATION, parts: ["values in texts"] }] : []),
     ...(popupOpenerNames.length > 0 ? [{ generation: POPUP_GENERATION, parts: [`popups (${popupOpenerNames.join(", ")})`] }] : []),
@@ -707,7 +714,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
         unsupportedTypes,
         releaseTypes: project.settings.supportedObjectTypes,
         unsupportedFeatures,
-        releaseFeatures: project.settings.supportedFeatures,
+        // Every app from 0.11.0 draws box, line and fixed icon itself, whatever
+        // the description the project was made with says: an app lacking it
+        // is asked to update, not the project to lose them.
+        releaseFeatures: [
+          ...(project.settings.supportedFeatures ?? []),
+          ...(deployTarget.platform === "android" ? [STATIC_OBJECTS_FEATURE] : []),
+        ],
       })
     : null
 

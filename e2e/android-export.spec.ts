@@ -472,8 +472,9 @@ test.describe("Android-Export", () => {
     expect(exported.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
     expect(exported.borderColorDark).toMatch(/^#[0-9a-f]{6}$/i)
     expect(exported.scrimColor).toBe("#000000")
-    expect(zip.file(exported.backgroundImage)).toBeTruthy()
-    // Every object travels, as on a screen; the app draws the box from the picture.
+    // No baked picture since 2026-10-13: every object travels, as on a
+    // screen, and the app draws the box itself.
+    expect(exported.backgroundImage).toBeUndefined()
     expect(flatten(exported.objects).map((o: any) => o.id)).toEqual(["pop-box", "pop-close"])
     expect(exported.buttonActions).toBeUndefined()
 

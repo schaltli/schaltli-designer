@@ -624,27 +624,20 @@ function liveObjectVerdicts(project, screen, actualImg, references, own) {
 }
 
 /**
- * The fixture with flat-coloured screen backgrounds. Same zip otherwise,
- * same project.json.
+ * The fixture with every screen's colour turned to the marker red: the same
+ * bundle otherwise, and a picture nothing in the fixture draws. It was the
+ * baked background pictures, painted red, until 2026-10-13 - when the app
+ * started drawing every object itself and the bundle lost them.
  */
 async function markerBundle(zipBuffer) {
   const zip = await JSZip.loadAsync(zipBuffer);
   const project = JSON.parse(await zip.file("project.json").async("string"));
-  const backgrounds = [...new Set((project.screens || []).map((s) => s.backgroundImage).filter(Boolean))];
-  if (backgrounds.length === 0) {
-    throw new Error("Fixture has no screen background image - nothing to mark, and nothing this check could see");
+  const red = "#" + (MARKER_BACKGROUND >>> 8).toString(16).padStart(6, "0");
+  for (const screen of project.screens || []) {
+    screen.backgroundColor = red;
+    screen.backgroundColorDark = red;
   }
-  for (const name of backgrounds) {
-    const entry = zip.file(name);
-    if (!entry) throw new Error(`Fixture names a background it does not contain: ${name}`);
-    const original = await Jimp.read(await entry.async("nodebuffer"));
-    const flat = new Jimp({
-      width: original.bitmap.width,
-      height: original.bitmap.height,
-      color: MARKER_BACKGROUND,
-    });
-    zip.file(name, await flat.getBuffer("image/png"));
-  }
+  zip.file("project.json", JSON.stringify(project));
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
@@ -1122,7 +1115,7 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
   await sleep(2000);
 
-  console.log("Installing the marker bundle (flat background, unchanged project.json)...");
+  console.log("Installing the marker bundle (every screen marker red)...");
   await deployBundle(mqttClient, deviceId, await markerBundle(fixture), deviceSerial, "the marker bundle");
   await sleep(2000);
   const markerFrame = await captureDeviceScreenshot(deviceSerial);

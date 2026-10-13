@@ -747,6 +747,45 @@ function buildProject(fonts) {
                       borderColor: "transparent",
                     },
                   },
+                  // What the app draws itself since 2026-10-13, here where a
+                  // baked background never reached: a rounded box with a
+                  // border, a thick filleted line with an arrow, a fixed icon.
+                  {
+                    id: "s4-manual-box",
+                    type: "box",
+                    zIndex: 0,
+                    x: 8,
+                    y: 44,
+                    width: 150,
+                    height: 90,
+                    properties: { fillColor: "#203a5a", strokeColor: ACCENT, strokeWidth: 3, cornerRadius: 16 },
+                  },
+                  {
+                    id: "s4-manual-line",
+                    type: "line",
+                    zIndex: 2,
+                    x: 180,
+                    y: 50,
+                    width: 140,
+                    height: 200,
+                    properties: {
+                      color: FILL,
+                      strokeWidth: 4,
+                      filletRadius: 20,
+                      arrowEnd: true,
+                      points: [{ x: 180, y: 60 }, { x: 310, y: 60 }, { x: 310, y: 160 }, { x: 200, y: 240 }],
+                    },
+                  },
+                  {
+                    id: "s4-manual-icon",
+                    type: "icon",
+                    zIndex: 2,
+                    x: 40,
+                    y: 170,
+                    width: 48,
+                    height: 48,
+                    properties: { assetId: "icon-triangle", iconColor: ACCENT },
+                  },
                 ],
               },
             ],
@@ -1205,8 +1244,10 @@ async function main() {
     fail("the master screen came out as a screen of its own");
   }
   for (const screen of exported.screens) {
-    if (!screen.backgroundImage || !zip.file(screen.backgroundImage)) {
-      fail(`${screen.id}: no flattened background in the bundle`);
+    // The app draws box, line and fixed icon itself since 2026-10-13: a
+    // baked background would be drawn under them twice.
+    if (screen.backgroundImage || screen.backgroundImageDark) {
+      fail(`${screen.id}: a baked background in the bundle (${screen.backgroundImage})`);
     }
     // screen-9 picks its own mid grey (a switcher showing no panel); the rest inherit.
     if (screen.id !== "screen-9" && screen.backgroundColor !== DARK) {

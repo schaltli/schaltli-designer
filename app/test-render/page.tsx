@@ -51,6 +51,8 @@ import {
 import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
 import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
 import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
+import { renderLine } from "@/components/canvas/renderers/render-line"
+import { renderBox } from "@/components/canvas/renderers/render-box"
 import {
   arcCaps,
   arcGlowFor,
@@ -614,6 +616,32 @@ export default function TestRenderPage() {
       bands: PillBand[]
       pixels: [number, number][]
     }): number[][] => req.pixels.map(([x, y]) => pillPixelBands(req.bands, x, y))
+
+    // A line or a box as the designer draws it, on a canvas of its own: the
+    // pixels each sets, for the Android app's ports to be held to
+    // (hil/android/fixtures/build-line-golden.js, 2026-10-13 - the app draws
+    // them itself since then, instead of a baked background).
+    // `ink` lists every pixel not left white, with its colour as #rrggbb.
+    ;(window as any).__staticObjectPixelsForTest = (req: { width: number; height: number; obj: any }): [number, number, string][] => {
+      const canvas = document.createElement("canvas")
+      canvas.width = req.width
+      canvas.height = req.height
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, req.width, req.height)
+      if (req.obj.type === "box") renderBox({ ctx, obj: req.obj, zoom: 1, colorDepth: "24bit" })
+      else renderLine({ ctx, obj: req.obj, zoom: 1, colorDepth: "24bit" })
+      const data = ctx.getImageData(0, 0, req.width, req.height).data
+      const ink: [number, number, string][] = []
+      const hex = (v: number) => v.toString(16).padStart(2, "0")
+      for (let y = 0; y < req.height; y++) {
+        for (let x = 0; x < req.width; x++) {
+          const i = (y * req.width + x) * 4
+          if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) ink.push([x, y, `#${hex(data[i])}${hex(data[i + 1])}${hex(data[i + 2])}`])
+        }
+      }
+      return ink
+    }
 
     // Draws arc-level objects on their own, without a project around them.
     //

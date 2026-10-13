@@ -72,7 +72,7 @@ device.json
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 ├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
-├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9)
+├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content)
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -428,8 +428,14 @@ flattened by the designer into one background per screen
 in memory, as the backdrop icons are baked on. **Since 2026-09-25 the file is
 no longer exported and a screen has no `path`.** No current device read it:
 knob, 4.3B and PaperS3 all run `ColorScreenRenderer::renderScreen`, which
-fills `backgroundColor` and draws every object itself, and Android draws its
-own `backgroundImage` PNG. Only the retired `schaltli-eink` firmware
+fills `backgroundColor` and draws every object itself, and Android drew its
+own `backgroundImage` PNG - until 2026-10-13, when the Android bundle lost it
+too: the app draws box, line and fixed icon itself as the boards do (the
+picture never held what a switcher's panel shows, so a box there was
+missing on the phone). An app that does says `"static-objects"` in its DDF's
+`supportedFeatures`, and Deploy asks an older one to update before it sends
+a project with a box, a line or a fixed icon; boards are never asked, their
+export never carried the picture. Only the retired `schaltli-eink` firmware
 (GDEY042T81) blitted it; on that panel a new export shows the screen colour
 and the objects, without what only the flattened picture carried. It cost a
 full-screen bitmap per screen (389 KB on the knob, 1.15 MB on the 4.3B), and
