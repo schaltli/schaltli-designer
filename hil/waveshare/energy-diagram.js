@@ -11,12 +11,16 @@
 //   2. it costs input little: at least 8 steps a second, and no step holds
 //      the loop longer than 25 ms - a tap or a detent waits at most that
 //      long for it. The first step after a redraw is reported apart;
-//   3. a tap on a node runs its action: the sun's opens a popup.
+//   3. a tap on a node runs its action: the sun's opens a popup;
+//   4. (--mode nested) a diagram in a switcher's active panel moves, and
+//      stands still once the switcher shows a panel without one; a tap on
+//      its sun opens a popup, and the diagram in the popup moves there
+//      (docs/2026-10-13-local-topics.md, decision 8; tasks/energy-nested).
 //
 // The values come retained from the broker the knob listens to
 // (HIL_BROKER_URL, default mqtt://localhost:1883 - `npm run hil:broker`).
 //
-// Run: node hil/waveshare/energy-diagram.js --device <ip> [--mode flow|sankey]
+// Run: node hil/waveshare/energy-diagram.js --device <ip> [--mode flow|sankey|nested]
 // Needs the dev server (test-render builds the zip). Exit 0 pass, 1 fail,
 // 2 the knob is not reachable (skipped, loudly).
 
@@ -43,7 +47,7 @@ const OUT_DIR = path.join(__dirname, "report", "energy")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function parseArgs(argv) {
-  const args = { device: null, modes: ["flow", "sankey"] }
+  const args = { device: null, modes: ["flow", "sankey", "nested"] }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     if (argv[i] === "--mode") args.modes = [argv[++i]]
@@ -117,6 +121,103 @@ function energyProject(ddf, mode, motion) {
     },
   ]
   return project
+}
+
+// A switcher on `view` with a moving Flow in its panel «flow» (its sun opens
+// the popup) and a box in its panel «none»; the popup holds another moving
+// Flow on its card.
+const POPUP_DIAGRAM = { x: 90, y: 110, width: 180, height: 140 }
+const VIEW = "view"
+
+function nestedProject(ddf) {
+  const project = energyProject(ddf, "flow", true)
+  const [screen, popup] = project.screens
+  const [diagram] = screen.objects
+  const topic = (name) => `${PREFIX}/${name}`
+  project.topics.push({ id: VIEW, topic: topic(VIEW), type: "text", examples: ["flow"] })
+  const panel = (id, value, children) => ({
+    id,
+    type: "panel",
+    zIndex: 0,
+    x: 0,
+    y: 0,
+    width: DIAGRAM.width,
+    height: DIAGRAM.height,
+    properties: { comparisonOperator: "==", comparisonValue: value },
+    children,
+  })
+  const box = { id: "none-box", type: "box", zIndex: 1, x: 40, y: 40, width: 180, height: 120, properties: { fillColor: "#dddddd", strokeColor: "#3a3a3a", strokeWidth: 2 } }
+  screen.objects = [
+    {
+      id: "switcher",
+      type: "switcher",
+      zIndex: 1,
+      ...DIAGRAM,
+      properties: { topic: topic(VIEW) },
+      // Children stand relative to the switcher.
+      children: [panel("panel-flow", "flow", [{ ...diagram, x: 0, y: 0 }]), panel("panel-none", "none", [box])],
+    },
+  ]
+  const scaled = diagram.properties.nodes
+    .filter((n) => n.role !== "rest")
+    .map(({ action, ...n }) => ({ ...n, x: Math.round((n.x / DIAGRAM.width) * POPUP_DIAGRAM.width), y: Math.round((n.y / DIAGRAM.height) * POPUP_DIAGRAM.height) }))
+  popup.objects = [
+    { id: "popup-card", type: "box", zIndex: 1, ...POPUP_DIAGRAM, properties: { fillColor: "#ffffff", strokeColor: "#3a3a3a", strokeWidth: 2 } },
+    { ...diagram, id: "popup-diagram", zIndex: 2, ...POPUP_DIAGRAM, properties: { ...diagram.properties, nodes: scaled } },
+  ]
+  return project
+}
+
+async function publishRetained(topic, value) {
+  const client = mqtt.connect(BROKER_URL)
+  await new Promise((resolve, reject) => {
+    client.once("connect", resolve)
+    client.once("error", reject)
+  })
+  await new Promise((resolve) => client.publish(topic, value, { retain: true }, resolve))
+  client.end()
+}
+
+async function checkNested(base, ddf, check) {
+  console.log("\n--- nested: a switcher's panel and a popup ---")
+  await publishRetained(`${PREFIX}/${VIEW}`, "flow")
+  await install(base, ddf, nestedProject(ddf))
+  await publishValues(base)
+  await wake(base)
+  let motion = String((await debugOf(base)).energyMotion ?? "")
+  const a = await glass(base, "nested-panel-1")
+  await sleep(400)
+  const b = await glass(base, "nested-panel-2")
+  const inPanel = changes(a, b)
+  check("a diagram in a switcher's panel moves", /1 diagram\(s\)/.test(motion) && inPanel.inside > 20 && inPanel.outside === 0, `${motion}; ${inPanel.inside} px inside, ${inPanel.outside} outside`)
+
+  await publishRetained(`${PREFIX}/${VIEW}`, "none")
+  await sleep(1500)
+  motion = String((await debugOf(base)).energyMotion ?? "")
+  const c = await glass(base, "nested-none-1")
+  await sleep(400)
+  const d = await glass(base, "nested-none-2")
+  const none = changes(c, d)
+  check("a panel without a diagram stands still", /still/.test(motion) && none.inside + none.outside === 0, `${motion}; ${none.inside + none.outside} px changed`)
+
+  await publishRetained(`${PREFIX}/${VIEW}`, "flow")
+  await sleep(1500)
+  await wake(base)
+  await tap(base, DIAGRAM.x + Math.round(DIAGRAM.width * 0.2), DIAGRAM.y + Math.round(DIAGRAM.height * 0.2))
+  await sleep(1500)
+  const after = await debugOf(base)
+  const popup = String(after.popup ?? "")
+  motion = String(after.energyMotion ?? "")
+  const e = await glass(base, "nested-popup-1")
+  await sleep(400)
+  const f = await glass(base, "nested-popup-2")
+  const inPopup = changes(e, f, POPUP_DIAGRAM)
+  check(
+    "a tap on a node in a panel opens its popup, and the popup's diagram moves there only",
+    /^open/.test(popup) && /1 diagram\(s\)/.test(motion) && inPopup.inside > 20 && inPopup.outside === 0,
+    `popup ${popup}; ${motion}; ${inPopup.inside} px inside, ${inPopup.outside} outside`,
+  )
+  await publishRetained(`${PREFIX}/${VIEW}`, "")
 }
 
 async function install(base, ddf, project) {
@@ -196,15 +297,15 @@ async function glass(base, name) {
   return Jimp.read(file)
 }
 
-// Where two pictures differ: inside the diagram, and outside it.
-function changes(a, b) {
+// Where two pictures differ: inside the diagram (or the box given), and outside it.
+function changes(a, b, box = DIAGRAM) {
   let inside = 0, outside = 0
   const { width, height } = a.bitmap
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4
       if (a.bitmap.data[i] === b.bitmap.data[i] && a.bitmap.data[i + 1] === b.bitmap.data[i + 1] && a.bitmap.data[i + 2] === b.bitmap.data[i + 2]) continue
-      const within = x >= DIAGRAM.x && x < DIAGRAM.x + DIAGRAM.width && y >= DIAGRAM.y && y < DIAGRAM.y + DIAGRAM.height
+      const within = x >= box.x && x < box.x + box.width && y >= box.y && y < box.y + box.height
       if (within) inside++
       else outside++
     }
@@ -237,6 +338,10 @@ async function main() {
   }
 
   for (const mode of args.modes) {
+    if (mode === "nested") {
+      await checkNested(base, ddf, check)
+      continue
+    }
     console.log(`\n--- ${mode}: still ---`)
     await install(base, ddf, energyProject(ddf, mode, false))
     await publishValues(base)

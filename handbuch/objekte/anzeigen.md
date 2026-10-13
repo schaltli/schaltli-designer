@@ -165,7 +165,7 @@ Das Diagramm hat zwei Darstellungen, die du unter <span class="ui">Mode</span> w
 
 Die Eigenschaften:
 
-- <span class="ui">Motion</span>: ob sich Punkte und Wellen bewegen. Ausgeschaltet steht das Diagramm still. Auf dem 4.3B und dem Knob bewegen sie sich etwa zehnmal pro Sekunde und halten an, solange ein Finger auf dem Glas liegt, damit ein Tipp nicht warten muss. Beim PaperS3 fehlt das Feld: E-Paper zeigt keine Bewegung, das Diagramm steht dort mit seinen Punkten still, auch in der Vorschau des Designers.
+- <span class="ui">Motion</span>: ob sich Punkte und Wellen bewegen. Ausgeschaltet steht das Diagramm still. Auf dem 4.3B und dem Knob bewegen sie sich etwa zehnmal pro Sekunde und halten an, solange ein Finger auf dem Glas liegt, damit ein Tipp nicht warten muss. Ein Diagramm in einem Switcher oder einem Popup bewegt sich dort erst mit der nächsten Firmware, bis dahin steht es still. Beim PaperS3 fehlt das Feld: E-Paper zeigt keine Bewegung, das Diagramm steht dort mit seinen Punkten still, auch in der Vorschau des Designers.
 - <span class="ui">Full scale</span>, nur beim Sankey: die Leistung in Watt, bei der die Bänder den Platz füllen, voreingestellt 1000 W. Die Breite ist linear, 200 W sind also doppelt so breit wie 100 W. Ist ein Wechselrichter für einen Induktionsherd eingebaut, setzt du hier seine Leistung ein: Dann ist der Kühlschrank ein dünner Faden und der Herd füllt das Bild.
 - <span class="ui">Font</span> und <span class="ui">Value font</span>: die Schrift für Namen und Nebenzeilen und die für die erste Zeile jedes Knotens, meist die Leistung.
 - <span class="ui">Nodes</span>: die Liste der Knoten. Mit <span class="ui">+ Add node</span> kommt einer dazu.
