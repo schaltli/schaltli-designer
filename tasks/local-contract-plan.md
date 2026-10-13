@@ -23,16 +23,22 @@ and `local-android`, side by side.
    has no value; the value is never kept across a restart. A name is
    compared without its `#path`. §4 (MQTT) gets one line pointing there:
    a local topic is never on the broker.
-3. **Generation 1.8** (`LOCAL_TOPIC_GENERATION` in
-   `lib/system-generation.ts`). A device below it ignores the two fields:
-   it would subscribe the topic and publish its writes - shared among all
-   displays, the very thing a local topic is not.
-4. **Deploy asks 1.8 of a device for any declared local topic**, used or
-   not, and names them: «local topics (local/energie/view)». The existing
-   plan does the rest (`lib/deploy-plan.ts`): a board below it is brought
-   up to the release first; while no release announces 1.8, the board is
-   refused with the reason; an app below it is asked to update. Unused
-   ones are «Remove unused topics»'s to clear.
+3. **A feature in the DDF, not a generation** (changed with the user
+   2026-10-13, «Ja»: the knob announces 1.4 and the PaperS3 1.6, so a 1.8
+   gate would shut them out for good). A DDF lists what its firmware
+   can do beyond object types in `supportedFeatures`; a firmware that
+   keeps local topics lists `"local-topics"`. A device without it ignores
+   the two fields: it would subscribe the topic and publish its writes -
+   shared among all displays, the very thing a local topic is not.
+   Generation 1.8 (`LOCAL_TOPIC_GENERATION`) names the contract's state
+   for a device that has all of it, as 1.7 does for the energy diagram.
+4. **Deploy asks the feature of a device for any declared local topic**,
+   used or not, and names them: «local topics (local/energie/view)». As
+   for an object type the device's own DDF does not list
+   (`lib/deploy-plan.ts`): where the designer's copy of the device's DDF
+   (the release's) lists it, the board is brought up to the release
+   first; else refused with the reason; an app is asked to update.
+   Unused ones are «Remove unused topics»'s to clear.
 5. **The mock host and the HIL tooling leave local topics alone**: a mock
    answers commands on the broker, and a local topic is never there.
    (`lib/mock-engine.js` reads `topics[].mock`, which a local topic does
@@ -41,12 +47,15 @@ and `local-android`, side by side.
 
 ## Tasks
 
-- **C1 Contract §2.9 and generation 1.8.** The section in
-  `docs/device-contract.md` with an example (`topics[]` with a local
-  topic, a switch writing it, a switcher reading it); the line in §4;
-  `LOCAL_TOPIC_GENERATION`; the spec's decision 6 pointed at §2.9.
+- **C1 Contract §2.9, `supportedFeatures`, generation 1.8.** The section
+  in `docs/device-contract.md` with an example (`topics[]` with a local
+  topic, a switch writing it, a switcher reading it); `supportedFeatures`
+  in §1; the line in §4; `LOCAL_TOPIC_GENERATION`; the DDF reader keeps
+  `supportedFeatures` (`lib/device-description.ts`) and a project keeps
+  its copy in its settings beside `supportedObjectTypes`.
   Files: `docs/device-contract.md`, `lib/system-generation.ts`,
-  `docs/2026-10-13-local-topics.md`.
+  `lib/device-description.ts`, `lib/project-device.ts`,
+  `components/project-editor.tsx`.
 - **C2 Into the device zip and the Android bundle.** Test: an e2e builds
   both from a project with a local topic (with and without `initial`)
   and a text referencing an undeclared `local/x`: the zip's and the
@@ -54,13 +63,16 @@ and `local-android`, side by side.
   one carries neither. Code only if the test shows a field dropped.
   Files: `e2e/local-topics.spec.ts`, maybe `lib/project-zip.ts`,
   `lib/android-export.ts`.
-- **C3 Deploy.** `localTopicsNotOnDevices(project)` (names of declared
-  local topics) → a need at 1.8 in `components/deploy-dialog.tsx`.
-  Test: e2e as the energy diagram's and the navigator's - a board at 1.7
-  with a release at 1.8 is updated first, with a release at 1.7 refused
-  naming the topics; an app at 1.7 asked to update; at 1.8 none.
-  Files: `lib/local-topics.ts`, `components/deploy-dialog.tsx`,
-  `e2e/deploy-plan.spec.ts` (or `deploy-dialog.spec.ts`).
+- **C3 Deploy.** `planDeploy` takes the features a project needs that
+  the device's DDF lacks, beside the types, and the release's
+  (`project.settings.supportedFeatures`); the dialog feeds it
+  «local topics (…)» from the declared local topics. Test: e2e on
+  `planDeploy` as the energy diagram's type gate - a board whose DDF
+  lacks the feature with a release listing it is updated first, without
+  one refused naming the topics; an app asked to update; a device
+  listing it deploys at once.
+  Files: `lib/local-topics.ts`, `lib/deploy-plan.ts`,
+  `components/deploy-dialog.tsx`, `e2e/deploy-plan.spec.ts`.
 - **C4 Mock host and HIL tooling.** Grep `hil/` and `lib/mock-engine.js`
   for everything that subscribes or publishes by `topics[]`; leave local
   topics out where one does. Test: the mock-engine spec with a local
@@ -77,6 +89,6 @@ and `local-android`, side by side.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Until a firmware with 1.8 is released, a project with a local topic cannot go to a board at all | Med - the demo's switch waits for it | the demo in the browser needs no device; the release follows `local-firmware` |
+| Until a firmware listing `local-topics` is released, a project with a local topic cannot go to a board at all | Med - the demo's switch waits for it | the demo in the browser needs no device; the release follows `local-firmware` |
 | A field dropped on the way (Android's bundle builds its own topic list) | Med | C2's test reads both outputs, not the function |
 | The mock host subscribing by the topic list and answering a local topic | Low | C4 |

@@ -55,10 +55,17 @@ Users: whoever builds a panel in the designer; first the demo's page
    `initial` again after a restart and after a deploy. Keeping it across
    a restart is left out (decided 2026-10-13): for a view switch,
    starting at `initial` again is right.
-6. **Generation 1.8.** A project using a local topic needs it; Deploy
-   brings an older board up to the release first and asks for an app
-   update, as with 1.7. A board that does not know local topics would
-   subscribe to it and publish its writes.
+6. **A feature the device declares, not a generation** (changed
+   2026-10-13 while planning `local-contract`: the generation counts up
+   linearly, and the knob announces 1.4, the PaperS3 1.6 - a 1.8 gate
+   would never let them have local topics). A device whose firmware keeps
+   local topics lists `"local-topics"` in its DDF's `supportedFeatures`
+   (device contract §1, §2.9). Deploy asks it of a device for a project
+   with a local topic, as it asks for an object type: a board without it
+   is brought up to the release first where the release has it, else
+   refused; an app is asked to update. A board that does not know local
+   topics would subscribe to them and publish their writes. Generation
+   1.8 still names the contract's state for a device that has everything.
 7. **The designer.** Local topics have their own list in the project
    settings, «Local topics», below «Combined topics» and like it (asked
    for by the user on 2026-10-13), with «Add local topic»: name (suggested
@@ -84,7 +91,7 @@ Users: whoever builds a panel in the designer; first the demo's page
 | Module | Responsibility | Depends on |
 |---|---|---|
 | `local-designer` | `local` and `initial` in `lib/`, preview (Simulation and Live), no publish, no subscribe, topic list and «Add topic», Discover leaves them out and warns | - |
-| `local-contract` | `docs/device-contract.md` §4 local topics, generation 1.8, export, Deploy's check | `local-designer` |
+| `local-contract` | `docs/device-contract.md` §2.9 local topics, `supportedFeatures`, export, Deploy's check | `local-designer` |
 | `local-firmware` | knob, 4.3B, PaperS3: a write applied locally through the same path as an arriving message, never published nor subscribed, `initial` at start; HIL | `local-contract` |
 | `energy-nested` | the boards animate an energy diagram in a switcher's active panel and in a popup; HIL | - |
 | `local-android` | the app: the same as the firmware; the orchestrator's HIL | `local-contract` |
@@ -131,7 +138,7 @@ it, the page then waiting for the next release on the devices.
    knob and the 4.3B as one on the screen does (HIL, the energy motion
    checks reused).
 6. The Android app as 3 and 5 (orchestrator HIL).
-7. Deploy of a project with a local topic to a board below 1.8 updates
+7. Deploy of a project with a local topic to a board whose DDF lacks `local-topics` updates
    it first; to an older app asks for an update (e2e).
 8. The demo's «Energie» opens on Flow, switches to Sankey and back, and
    another visitor's view stays as it was (e2e against the demo build).

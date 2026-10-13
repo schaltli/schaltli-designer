@@ -66,6 +66,12 @@ export const NAVIGATOR_THEME_SWITCH_GENERATION = { major: 1, minor: 6 } as const
 // list is (the knob draws it at 1.4, without the navigator of 1.5).
 export const ENERGY_DIAGRAM_GENERATION = { major: 1, minor: 7 } as const
 
+// The generation a device announces once it has every part of the contract
+// up to local topics (device contract 2.9, docs/2026-10-13-local-topics.md).
+// Not what a deploy asks of a device: that is the DDF's supportedFeatures
+// "local-topics" - the knob (1.4) and the PaperS3 (1.6) would never reach it.
+export const LOCAL_TOPIC_GENERATION = { major: 1, minor: 8 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

@@ -137,6 +137,9 @@ export interface DeviceDescriptionFile {
   // why an id missing from it is still offered. Omitted/empty = this device
   // offers none, and the option doesn't appear at all.
   deviceActions?: string[]
+  // What the firmware can do beyond its object types (device contract §1):
+  // "local-topics" (§2.9). Omitted = none.
+  supportedFeatures?: string[]
   // Optional: how an external hardware-in-the-loop test orchestrator talks to
   // a running instance of this device. Not used by the designer app itself at
   // runtime - only read by test tooling. "{ip}" in the URLs is a placeholder
@@ -381,6 +384,8 @@ export interface ProjectDeviceFields {
   // See DeviceDescriptionFile.deviceActions. Always [] when the DDF declares
   // none, so callers never have to distinguish "no field" from "empty".
   deviceActions: string[]
+  // See DeviceDescriptionFile.supportedFeatures; [] when the DDF declares none.
+  supportedFeatures: string[]
   deviceId: string
   deviceName: string
   // Identity of the DDF this project was last built against, so "is my copy
@@ -485,6 +490,7 @@ export function deviceDescriptionToProjectFields(
     // a slider; see migrateDeclaredTypes for why that distinction matters.
     supportedObjectTypes: migrateDeclaredTypes(manifest.supportedObjectTypes),
     deviceActions: manifest.deviceActions ?? [],
+    supportedFeatures: manifest.supportedFeatures ?? [],
     ddfHash: parsed.ddfHash,
     ddfZipBase64,
     deviceId: manifest.device.id,

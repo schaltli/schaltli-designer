@@ -72,6 +72,7 @@ device.json
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 ├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
+├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9)
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -1006,6 +1007,50 @@ topics say, with its port of `lib/energy-diagram.ts`.
   in its DDF (the PaperS3); it draws every diagram at phase 0, dots
   included, and the designer draws it so too, its preview still.
 
+### 2.9 Local topics - feature `local-topics` (designer side 2026-10-13)
+
+A topic the display keeps itself - designer
+`docs/2026-10-13-local-topics.md`. A switch or a button writes it,
+anything that reads a topic reads it, and it never leaves the device: each
+display has its own value (which look a page shows, which tab is open).
+
+```json
+"topics": [
+  { "id": "t-view", "topic": "local/energie/view", "type": "text",
+    "examples": ["flow"], "local": true, "initial": "flow" },
+  { "id": "t-soc", "topic": "schaltli/state/battery/soc", "type": "numeric", "examples": ["64"] }
+],
+…
+{ "type": "button-group", "properties": { "topic": "local/energie/view", "writeTopic": "local/energie/view", … } },
+{ "type": "switcher", "properties": { "topic": "local/energie/view" }, "children": [ … ] }
+```
+
+- **Which topic is local:** one in `topics[]` with `local: true`. Only the
+  declaration says it, never the name: `local/…` is a convention, and a
+  topic nobody declared is never local. A name is compared without its
+  `#path`.
+- **Never on the broker:** a device does not subscribe a local topic, and
+  does not publish a write to it - a switch, a button group, a button's
+  send-mqtt action, a level, an energy node's action alike.
+- **A write is a value:** writing a local topic sets its value at once, as
+  if it had arrived: combined topics (2.6) are worked out again, and what
+  reads it is drawn again. A switch's pending state ends at once - no
+  answer is awaited.
+- **Start:** at boot and after every deploy each local topic has its
+  `initial` (a string, as every value); without `initial` it has no value
+  yet (§4, «No value until one arrives»). The value is never kept across
+  a restart.
+- **Declare** `"local-topics"` in the DDF's `supportedFeatures` (§1) once
+  the firmware does all of the above. The deploy dialog asks it of a
+  device for a project with a local topic, as it asks for an object type:
+  a board without it is brought up to the release first where the
+  designer's copy of its DDF lists it, else refused; an app is asked to
+  update. Not a generation: the generation counts up linearly, and the
+  knob (1.4) and the PaperS3 (1.6) would never reach it. A device that
+  has every part of this contract announces generation **1.8**.
+- **Below it** a device ignores `local` and `initial`: it subscribes the
+  topic and publishes its writes, shared by every display.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008
@@ -1059,6 +1104,9 @@ a JSONPath *subset* (member/index access only — no wildcards, recursive
 descent, filters, slices, unions): `"temp"`, `"$.temp"`, `"nested.temp"`,
 `"readings[0].value"`. An object binds to a specific field via the
 composite string `"<topic>#<path>"` stored in its own `properties.topic`.
+
+A topic with `local: true` is never on the broker: never subscribed, its
+writes never published (§2.9).
 
 A device must implement the same JSONPath subset identically on-device —
 see `ProjectLoader::extractJsonField`/`tokenizeJsonPath()` in the e-paper

@@ -1,9 +1,11 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
+import fs from "fs"
 import path from "path"
 import { loadProject, objectTreeRow } from "./helpers"
 import { isLocalTopic, localInitialValues } from "../lib/local-topics"
 import { projectSubscriptionTopics } from "../lib/render-screen"
+import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
 
 // Local topics (docs/2026-10-13-local-topics.md; tasks/local-designer-todo.md):
 // a topic declared with `local: true` is the display's own - never
@@ -113,5 +115,24 @@ test.describe("local topics: the list", () => {
     await expect(page.getByTestId("local-topic")).toHaveCount(0)
     await page.keyboard.press("Escape")
     expect((await downloadProjectJson(page)).topics.some((t: any) => t.local)).toBe(false)
+  })
+})
+
+// local-contract C1: a DDF says what its firmware can do beyond its object
+// types in supportedFeatures (device contract §1, §2.9); the designer keeps it.
+test.describe("local topics: the device's feature", () => {
+  test("the device description's supportedFeatures is kept; without one there are none", async () => {
+    const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip"))
+    const fieldsOf = async (features?: string[]) => {
+      const zip = await JSZip.loadAsync(bytes)
+      const manifest = JSON.parse(await zip.file("device.json")!.async("string"))
+      if (features) manifest.supportedFeatures = features
+      else delete manifest.supportedFeatures
+      zip.file("device.json", JSON.stringify(manifest))
+      const changed = await zip.generateAsync({ type: "nodebuffer" })
+      return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(changed), changed.toString("base64"))
+    }
+    expect((await fieldsOf(["local-topics"])).supportedFeatures).toEqual(["local-topics"])
+    expect((await fieldsOf()).supportedFeatures).toEqual([])
   })
 })

@@ -39,6 +39,7 @@ export function projectOnDevice(
       // the boards' BMPs (2026-09-27).
       devicePlatform: fields.devicePlatform,
       deviceActions: fields.deviceActions,
+      supportedFeatures: fields.supportedFeatures,
       supportedObjectTypes: fields.supportedObjectTypes,
       ddfHash: fields.ddfHash,
       rotation: rotated.rotation,

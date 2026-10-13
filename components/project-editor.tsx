@@ -344,6 +344,10 @@ export interface ProjectSettings {
   // exactly the order the device named them. Undefined/empty = this device
   // offers none and the option stays hidden. See lib/device-actions.ts.
   deviceActions?: string[]
+  // What the device's firmware can do beyond its object types, from the same
+  // DDF (device contract §1): "local-topics". What Deploy asks a device that
+  // lacks it to be brought up to (lib/deploy-plan.ts).
+  supportedFeatures?: string[]
   // How placeholders in texts write numbers (docs/2026-09-25-text-placeholders.md):
   // the two characters are all a device reads, so a new country never needs
   // firmware. Absent in a project saved before 2026-09-25, which then gets
@@ -3150,6 +3154,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       devicePlatform: fields.devicePlatform,
       supportedObjectTypes: fields.supportedObjectTypes,
       deviceActions: fields.deviceActions,
+      supportedFeatures: fields.supportedFeatures,
       ddfHash: fields.ddfHash,
       // Was previously never set from the device at all - every touch-
       // capable device (including the existing m5dial) required manually
@@ -3424,6 +3429,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 devicePlatform: fields.devicePlatform,
                 supportedObjectTypes: fields.supportedObjectTypes,
                 deviceActions: fields.deviceActions,
+                supportedFeatures: fields.supportedFeatures,
                 ddfHash: fields.ddfHash,
                 rotation: rotated.rotation,
                 needsPageIconsInSize: fields.needsPageIconsInSize,
@@ -3475,6 +3481,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   devicePlatform: fields.devicePlatform,
                   supportedObjectTypes: fields.supportedObjectTypes,
                   deviceActions: fields.deviceActions,
+                  supportedFeatures: fields.supportedFeatures,
                   ddfHash: fields.ddfHash,
                   rotation: rotated.rotation,
                   needsPageIconsInSize: fields.needsPageIconsInSize,
