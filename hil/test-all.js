@@ -220,7 +220,7 @@ async function main() {
   })
 
   console.log("\n=== e2e (Playwright) ===")
-  const e2eCode = await run("npx", ["playwright", "test", "--grep-invert", "@alone"], { cwd: REPO_ROOT })
+  const e2eCode = await run("node", ["hil/e2e-prod.js", "--grep-invert", "@alone"], { cwd: REPO_ROOT })
   summary.push({
     name: "e2e",
     status: e2eCode === 0 ? "PASS" : "FAIL",
