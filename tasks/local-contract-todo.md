@@ -16,5 +16,7 @@ push, no release, demo and van untouched.
 - [x] C4 Mock host and HIL tooling
   - lib/mock-engine.js: no round trip derived for a switch reading or writing a local topic (listed under skipped), no rule taken from a local topic; hil/simulate-project.js uses the engine, the other hil/ tools build their own projects without local topics
   - e2e/mock-engine.spec.ts «leaves local topics alone»; mock-simulator.spec.ts green with one worker (with four, a different test each run lost the broker: ECONNRESET)
-- [ ] C5 Handbook
+- [x] C5 Handbook
+  - designer/topics.md, the warning: Deploy sends a project with local topics only to a device that knows them, updates a board first once the designer brings such a firmware, else refuses naming them; asks the app for an update
 - [ ] Checkpoint: the e2e specs touched green, tsc clean; the user has read §2.9
+  - 2026-10-13: local-topics, deploy-plan, deploy-dialog, live-preview, mqtt-discovery, handbook-labels, energy-diagram, android-export: 82 passed; mock-engine and mock-simulator 21 passed (one worker); tsc clean - §2.9 waits for the user
