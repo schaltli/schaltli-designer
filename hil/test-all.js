@@ -597,6 +597,31 @@ async function main() {
     })
   }
 
+  // Local topics (docs/2026-10-13-local-topics.md, device contract 2.9): a
+  // topic the board keeps itself - its initial value, a tap applied at once
+  // and never published, a real topic of its name not heard, nothing kept
+  // over a restart. The knob and the 4.3B also as a pair: each its own value.
+  // Installs its own project.
+  for (const [name, device, pair] of [
+    ["knob", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE],
+    ["4v3b", WAVESHARE_4V3B_DEVICE, null],
+    ["papers3", PAPERS3_DEVICE, null],
+  ]) {
+    console.log(`
+=== ${name} local topics (device: ${device}${pair ? `, pair ${pair}` : ""}) ===`)
+    const exitCode = await run("node", ["hil/local-topics.js", "--device", device, ...(pair ? ["--pair", pair] : [])], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-local-topics`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}${pair ? ` or ${pair}` : ""}`
+          : exitCode === 0
+            ? `initial value, a tap kept on the board and never published, the broker's topic of that name not heard, nothing kept over a restart${pair ? "; the pair holds its own values" : ""}`
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // The 4.3B's pixel clock against its own WiFi. At Waveshare's 16 MHz the
   // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
   // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,
