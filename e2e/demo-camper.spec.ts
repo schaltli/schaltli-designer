@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import { Jimp } from "jimp"
 import fs from "fs"
 import path from "path"
 import { buildCamperProject } from "../deploy/demo/camper-project"
@@ -66,7 +67,10 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   })
   for (const c of project.combinedTopics) for (const cond of c.conditions) read.add(cond.source.path)
   expect(read.size).toBeGreaterThan(10)
-  for (const t of read) expect(published.has(t), `${t} is not published by the demo van`).toBe(true)
+  // A local topic never reaches the broker (docs/2026-10-13-local-topics.md):
+  // nothing publishes it and no bridge takes it - the display keeps it.
+  const local = new Set(project.topics.filter((t: any) => t.local).map((t: any) => t.topic))
+  for (const t of read) if (!local.has(t)) expect(published.has(t), `${t} is not published by the demo van`).toBe(true)
   // A command the bridge takes: it answers it with something to do, for every
   // value a switch writes.
   const state = Object.fromEntries([...published].map((t) => [t, "off"]))
@@ -78,7 +82,7 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
       else if (p?.writeTopic) writes.push([p.writeTopic, "50"])
     }
   expect(new Set(writes.map(([t]) => t))).toEqual(written)
-  for (const [t, v] of writes) expect(logic.command(t, v, state), `${t} = ${v} is not a command the bridge takes`).not.toBeNull()
+  for (const [t, v] of writes) if (!local.has(t)) expect(logic.command(t, v, state), `${t} = ${v} is not a command the bridge takes`).not.toBeNull()
   // And every one is declared among the project's topics.
   // A JSON field (`ble/charger/watts#value`) is declared under its topic.
   const declared = new Set(project.topics.map((t) => t.topic))
@@ -135,7 +139,7 @@ test("Energie first, then Licht, Wasser, two pages to come, and the navigator; t
 // engine into the 12 V bus, the battery and what draws off it. The battery is
 // Pekaway's through the bridge, the rest as the author's van has it
 // (vanpi-custom), so the page goes into his project as it is.
-test("Energie: an energy diagram's Flow - three sources, the battery and what draws on the bus", async () => {
+test("Energie: an energy diagram as Flow or Sankey, switched on the display - three sources, the battery and what draws on the bus", async () => {
   const project = await built()
   const energie = project.screens.find((s) => s.name === "Energie") as any
   expect(energie.name).toBe("Energie")
@@ -146,6 +150,7 @@ test("Energie: an energy diagram's Flow - three sources, the battery and what dr
   expect([...read].sort()).toEqual([
     "ble/charger/watts#value",
     "ble/orion/watts#value",
+    "local/energie/view",
     "schaltli/state/battery/power",
     "schaltli/state/battery/soc",
     "van/energy/consumers_watts",
@@ -154,16 +159,31 @@ test("Energie: an energy diagram's Flow - three sources, the battery and what dr
   // The chargers' topics are declared as JSON with their field "value".
   const charger = project.topics.find((t: any) => t.topic === "ble/charger/watts") as any
   expect(charger).toMatchObject({ type: "json", subtopics: [{ path: "value", type: "numeric" }] })
-  // Nothing on it writes: it only shows.
-  expect(JSON.stringify(energie)).not.toContain("writeTopic")
+  // Nothing on it writes to the van: only its switch, the local topic of
+  // which look this display shows, initially the Flow.
+  expect(JSON.stringify(energie).match(/"writeTopic":"[^"]*"/g)).toEqual(['"writeTopic":"local/energie/view"'])
+  expect(project.topics.find((t: any) => t.topic === "local/energie/view")).toMatchObject({ local: true, initial: "flow" })
   // The page's icon: an empty battery below 20 %.
   expect(energie.iconLive).toMatchObject({ source: { path: "schaltli/state/battery/soc" }, otherwise: { icon: "icon-battery" } })
   expect(energie.iconLive.rules).toEqual([{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }])
 
-  // The title and one diagram, a moving Flow, every node where it belongs.
-  expect(energie.objects.map((o: any) => o.type)).toEqual(["text", "energy-diagram"])
-  const diagram = energie.objects[1]
-  expect(diagram.properties).toMatchObject({ mode: "flow", motion: true })
+  // The title, «Flow | Sankey» beside it and left of the master's
+  // light/dark switch, and a switcher holding the diagram in both looks.
+  expect(energie.objects.map((o: any) => o.type)).toEqual(["text", "button-group", "switcher"])
+  const [titleText, view, looks] = energie.objects
+  expect(view.properties).toMatchObject({ topic: "local/energie/view", writeTopic: "local/energie/view" })
+  expect(view.properties.states.map((s: any) => [s.label, s.writeValue])).toEqual([["Flow", "flow"], ["Sankey", "sankey"]])
+  const theme = project.screens[0].objects[1] as any
+  expect(view.x).toBeGreaterThanOrEqual(titleText.x + titleText.width)
+  expect(view.x + view.width).toBeLessThanOrEqual(theme.x)
+  expect(looks.properties.topic).toBe("local/energie/view")
+  expect(looks.children.map((p: any) => [p.type, p.properties.comparisonValue])).toEqual([["panel", "flow"], ["panel", "sankey"]])
+  const diagrams = looks.children.map((p: any) => p.children[0])
+  expect(diagrams.map((d: any) => [d.type, d.properties.mode, d.properties.motion])).toEqual([["energy-diagram", "flow", true], ["energy-diagram", "sankey", true]])
+  expect(JSON.stringify(diagrams[1].properties.nodes)).toBe(JSON.stringify(diagrams[0].properties.nodes))
+  // Each fills its panel, which is the switcher's box.
+  const diagram = { ...diagrams[0], x: looks.x, y: looks.y }
+  expect(diagrams[0]).toMatchObject({ x: 0, y: 0, width: looks.width, height: looks.height })
   const nodes = diagram.properties.nodes
   expect(nodes.map((n: any) => [n.name, n.role, n.colorRole])).toEqual([
     ["12 V", "bus", undefined],
@@ -222,6 +242,48 @@ test("Energie: an energy diagram's Flow - three sources, the battery and what dr
     const out = watts(nodes.find((n: any) => n.role === "sink")) + watts(battery)
     expect(Math.abs(into - out), `daylight ${daylight}: ${into} W in, ${out} W out`).toBeLessThanOrEqual(Math.max(5, into * 0.05))
   }
+})
+
+test("Energie draws a Flow at first and a Sankey once switched - only inside the diagram's box", async ({ page }, testInfo) => {
+  const project = (await built()) as any
+  const index = project.screens.findIndex((s: any) => s.name === "Energie")
+  const looks = project.screens[index].objects.find((o: any) => o.type === "switcher")
+  // The demo van's numbers at half daylight, so both looks have flows to draw.
+  const pekaway = fakePekaway()
+  const logic = createBridgeLogic()
+  pekaway.tick(2, 0.5)
+  const values: Record<string, string> = {}
+  for (const [topic, value] of pekaway.energy()) values[topic] = value
+  for (const u of logic.flatten("batt", pekaway.answer("batt"), {})) values[u.topic] = String(u.value)
+
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true, undefined, { timeout: 90_000 })
+  const render = async (view: string) => {
+    const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
+      project,
+      screenIndex: index,
+      topicOverrides: { ...values, "local/energie/view": view },
+    })
+    const png = Buffer.from(dataUrl.split(",")[1], "base64")
+    fs.writeFileSync(testInfo.outputPath(`energie-${view}.png`), png)
+    return Jimp.read(png)
+  }
+  const flow = await render("flow")
+  const sankey = await render("sankey")
+  let inside = 0
+  let outside = 0
+  for (let y = 0; y < flow.bitmap.height; y++) {
+    for (let x = 0; x < flow.bitmap.width; x++) {
+      const i = (y * flow.bitmap.width + x) * 4
+      if (flow.bitmap.data[i] === sankey.bitmap.data[i] && flow.bitmap.data[i + 1] === sankey.bitmap.data[i + 1] && flow.bitmap.data[i + 2] === sankey.bitmap.data[i + 2]) continue
+      const inBox = x >= looks.x && x < looks.x + looks.width && y >= looks.y && y < looks.y + looks.height
+      if (inBox) inside++
+      // The switch beside the title shows which look is on: it changes too.
+      else if (!(y < looks.y)) outside++
+    }
+  }
+  expect(inside, "the two looks differ inside the diagram").toBeGreaterThan(2000)
+  expect(outside, "and nowhere below the switch row outside it").toBe(0)
 })
 
 test("written into a project store, «Camper» reads back as built", async ({}, testInfo) => {

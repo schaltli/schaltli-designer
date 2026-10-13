@@ -7,7 +7,10 @@
 // fonts make it 3 MB -: that spec, with DEMO_SEED_DIR, writes it into a
 // project store, which the server's setup copies over.
 //
-//   Energie first, an energy diagram's Flow: the sun, the mains charger and the
+//   Energie first, an energy diagram as a Flow or a Sankey - «Flow | Sankey»
+//           top right switches them on this display only (the local topic
+//           local/energie/view, docs/2026-10-13-local-topics.md): the sun,
+//           the mains charger and the
 //           DC-DC charger off the engine into the 12 V bus, the battery and
 //           what draws off it, the dots running while watts flow. The
 //           battery is Pekaway's shunt through the bridge; the rest comes as
@@ -142,6 +145,8 @@ const jsonTopic = (t: string, type: "numeric" | "text", values: string[]) => ({
   subtopics: [{ id: `${topic(t, "text", []).id}-value`, path: "value", type }],
 })
 
+const ENERGY_VIEW = "local/energie/view"
+
 const TOPICS = [
   ...[1, 2, 3].flatMap((n) => [
     topic(`${S}dimmer/${n}/level`, "numeric", ["0", "40", "80"]),
@@ -174,6 +179,9 @@ const TOPICS = [
   // Light or dark for every device at once; the bridge keeps it.
   topic(`${S}theme`, "text", ["light", "dark"]),
   topic(`${C}theme`, "text", ["light", "dark"]),
+  // Which look the energy page shows - each display its own, nothing on the
+  // broker (a local topic).
+  { ...topic(ENERGY_VIEW, "text", ["flow", "sankey"]), local: true, initial: "flow" },
 ]
 
 // Any light burning: the Licht page's icon reads it.
@@ -413,6 +421,7 @@ function energyScreen() {
   const box = { x: 124, y: 66, width: 656, height: 404 }
   const at = (fx: number, fy: number) => ({ x: Math.round(box.width * fx), y: Math.round(box.height * fy) })
   const line = (lvId: string, path: string, places: number, unit: string) => ({ text: `{live:${lvId}}`, liveValues: [withUnit(lvId, path, places, unit)] })
+  const diagram = (mode: "flow" | "sankey") => energyDiagram(mode, box, at, line)
   return {
     id: "screen-energie",
     name: "Energie",
@@ -425,38 +434,69 @@ function energyScreen() {
     },
     objects: [
       title("Energie"),
+      // Flow or Sankey, on this display only: the switch writes a local
+      // topic the switcher reads (docs/2026-10-13-local-topics.md).
+      // Between the title and the master's light/dark switch (x 604), as a
+      // button group: both looks on view, the shown one marked.
+      { ...onOff(426, 14, ENERGY_VIEW, ENERGY_VIEW, ["Flow", "Sankey"], ["flow", "sankey"], [172, 48]), type: "button-group", id: id("view") },
       {
-        id: id("energy"),
-        type: "energy-diagram",
+        id: id("looks"),
+        type: "switcher",
         ...box,
         zIndex: next,
-        properties: {
-          mode: "flow",
-          motion: true,
-          fullScale: 1000,
-          fontId: "font-luRS14",
-          valueFontId: "font-luRS18",
-          nodes: [
-            { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.4) },
-            { id: "solar", role: "source", name: "Solar", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/energy/solar_watts", lines: WATTS, ...at(0.14, 0.16) },
-            { id: "landstrom", role: "source", name: "Landstrom", iconAssetId: "icon-plug", colorRole: "energyGrid", topic: "ble/charger/watts#value", lines: WATTS, ...at(0.5, 0.12) },
-            { id: "booster", role: "source", name: "Ladebooster", iconAssetId: "icon-engine", colorRole: "energyEngine", topic: "ble/orion/watts#value", lines: WATTS, ...at(0.86, 0.16) },
-            {
-              id: "batterie",
-              role: "storage",
-              name: "Batterie",
-              iconAssetId: "icon-battery",
-              colorRole: "energyCharge",
-              topic: `${S}battery/power`,
-              chargeTopic: `${S}battery/soc`,
-              lines: [{ text: "{watts} W" }, line("soc", `${S}battery/soc`, 0, " %")],
-              ...at(0.22, 0.64),
-            },
-            { id: "verbraucher", role: "sink", name: "Verbraucher", iconAssetId: "icon-load", colorRole: "energyLoad", topic: "van/energy/consumers_watts", lines: WATTS, ...at(0.78, 0.64) },
-          ],
-        },
+        properties: { topic: ENERGY_VIEW },
+        children: (["flow", "sankey"] as const).map((mode) => ({
+          id: id(`look-${mode}`),
+          type: "panel",
+          x: 0,
+          y: 0,
+          width: box.width,
+          height: box.height,
+          zIndex: 0,
+          properties: { comparisonOperator: "==", comparisonValue: mode },
+          children: [diagram(mode)],
+        })),
       },
     ],
+  }
+}
+
+// The energy page's diagram in one of its two looks, as a switcher's panel
+// holds it (at the panel's 0,0).
+function energyDiagram(mode: "flow" | "sankey", box: { width: number; height: number }, at: (fx: number, fy: number) => { x: number; y: number }, line: (lvId: string, path: string, places: number, unit: string) => any) {
+  return {
+    id: id(`energy-${mode}`),
+    type: "energy-diagram",
+    x: 0,
+    y: 0,
+    width: box.width,
+    height: box.height,
+    zIndex: next,
+    properties: {
+      mode,
+      motion: true,
+      fullScale: 1000,
+      fontId: "font-luRS14",
+      valueFontId: "font-luRS18",
+      nodes: [
+        { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.4) },
+        { id: "solar", role: "source", name: "Solar", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/energy/solar_watts", lines: WATTS, ...at(0.14, 0.16) },
+        { id: "landstrom", role: "source", name: "Landstrom", iconAssetId: "icon-plug", colorRole: "energyGrid", topic: "ble/charger/watts#value", lines: WATTS, ...at(0.5, 0.12) },
+        { id: "booster", role: "source", name: "Ladebooster", iconAssetId: "icon-engine", colorRole: "energyEngine", topic: "ble/orion/watts#value", lines: WATTS, ...at(0.86, 0.16) },
+        {
+          id: "batterie",
+          role: "storage",
+          name: "Batterie",
+          iconAssetId: "icon-battery",
+          colorRole: "energyCharge",
+          topic: `${S}battery/power`,
+          chargeTopic: `${S}battery/soc`,
+          lines: [{ text: "{watts} W" }, line("soc", `${S}battery/soc`, 0, " %")],
+          ...at(0.22, 0.64),
+        },
+        { id: "verbraucher", role: "sink", name: "Verbraucher", iconAssetId: "icon-load", colorRole: "energyLoad", topic: "van/energy/consumers_watts", lines: WATTS, ...at(0.78, 0.64) },
+      ],
+    },
   }
 }
 
