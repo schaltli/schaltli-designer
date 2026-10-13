@@ -188,6 +188,25 @@ function run(cmd, args, opts = {}) {
   })
 }
 
+// What lanes must not do at the same time: a firmware update through the
+// designer's Deploy dialog. Three at once - three dialogs, three images
+// through the dev server - and one dialog lost its broker connection, which
+// it does not make again, and never saw "Rebooting" though the board
+// updated (2026-10-13; alone it passes).
+const locks = new Map()
+async function exclusively(name, fn) {
+  const before = locks.get(name) || Promise.resolve()
+  let release
+  const mine = new Promise((r) => (release = r))
+  locks.set(name, before.then(() => mine))
+  await before
+  try {
+    return await fn()
+  } finally {
+    release()
+  }
+}
+
 // Not `adb -s <serial> get-state`, because we don't have a serial yet - this
 // IS how we find one. Filters out "unauthorized"/"offline" lines, which
 // `adb devices` lists but which can't actually run anything.
@@ -1163,7 +1182,7 @@ async function main() {
   // "Rebooting" in the dialog and to the other slot on the board. The one
   // check that the URL the designer hands out, the image it serves and the
   // status the board reports all meet. Needs the dev server and the broker.
-  for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) step(board.name, async () => {
+  for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) step(board.name, () => exclusively("designer firmware", async () => {
     console.log(`\n=== firmware update through the designer (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run(
       "node",
@@ -1182,7 +1201,7 @@ async function main() {
               ? "installed from the Deploy dialog, followed to Rebooting, running on the other slot"
               : `exit code ${exitCode} - see output above`,
     })
-  })
+  }))
   for (const board of readerBoards.filter((b) => b.name !== "knob")) step(board.name, async () => {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })
