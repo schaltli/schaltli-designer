@@ -23,3 +23,5 @@ by USB (allowed: «Die flashes kannst du selber»); no push, no release.
   - the same in src/boards/papers3/main.cpp
   - hil/local-topics.js 5/5; popups (second try - the first lost the install, as in the last test:all), live values, navigator, hold countdown green
 - [ ] Checkpoint: test:all; the user decides on the release
+  - test:all 2026-10-13, all three boards on g0986acd (USB): knob, 4v3b and papers3 local topics PASS (the knob with the 4.3B as its pair); every HIL suite green but the 4.3B Sankey motion (0 px between two pictures while stepping 8.9/s) - green alone (31480 px); e2e 1523 passed, 5 red under load (leave-unsaved, startup-gate, two snap-table-canvas, undo across loads) - all 5 green alone
+  - waits for the user's decision on the release
