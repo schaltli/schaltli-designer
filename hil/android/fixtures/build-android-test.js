@@ -36,7 +36,11 @@
 //             storage gives, takes and gives again across the examples
 //   screen-8  a Flow moving, its sun opening the popup: checked, not
 //             compared (orchestrator.js checkEnergyMotion)
-//   (screen-7 and -8 stand before screen-6: the run ends on the navigator)
+//   screen-9  a local topic (device contract 2.9): a button group writes
+//             local/hil/view (initial "b"), a switcher reads it - panel «a»
+//             a dark text, «b» a light one, on a mid-grey screen; checked,
+//             not compared (orchestrator.js checkLocalTopics)
+//   (screen-7, -8 and -9 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -177,6 +181,8 @@ function buildProject(fonts) {
       { id: "t-solar", topic: "hil/energy/solar", type: "numeric", examples: ["0", "120", "400"] },
       { id: "t-battery", topic: "hil/energy/battery", type: "numeric", examples: ["-92", "60", "-300"] },
       { id: "t-soc", topic: "hil/energy/soc", type: "numeric", examples: ["82", "15", "50"] },
+      // screen-9: kept by the app itself, never on the broker.
+      { id: "t-local", topic: "local/hil/view", type: "text", examples: ["a"], local: true, initial: "b" },
     ],
     combinedTopics: [
       {
@@ -946,6 +952,78 @@ function buildProject(fonts) {
           { id: "e8-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 120, width: SCREEN_W, height: 120, properties: { fillColor: "#2e1a33", strokeColor: "transparent" } },
         ],
       },
+      // A local topic: the group writes it, the switcher shows it, and nothing
+      // goes over the broker (orchestrator.js checkLocalTopics). Mid grey,
+      // so a switcher showing no panel reads as neither «a» nor «b».
+      {
+        id: "screen-9",
+        name: "Lokal",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-triangle",
+        backgroundColor: "#808080",
+        objects: [
+          {
+            id: "l-group",
+            type: "button-group",
+            zIndex: 1,
+            x: 40,
+            y: 70,
+            width: 280,
+            height: 64,
+            properties: {
+              topic: "local/hil/view",
+              writeTopic: "local/hil/view",
+              switchStyle: "filled",
+              switchColor: FILL,
+              fontId: "font-roboto-16",
+              states: [
+                { id: "l-a", label: "A", readValue: "a", writeValue: "a" },
+                { id: "l-b", label: "B", readValue: "b", writeValue: "b" },
+              ],
+            },
+          },
+          {
+            id: "l-switcher",
+            type: "switcher",
+            zIndex: 2,
+            x: 60,
+            y: 180,
+            width: 240,
+            height: 320,
+            properties: { topic: "local/hil/view" },
+            children: ["a", "b"].map((v) => ({
+              id: `l-panel-${v}`,
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 240,
+              height: 320,
+              properties: { comparisonOperator: "==", comparisonValue: v },
+              children: [
+                // A text, not a box: the app draws no box of its own, and
+                // the export bakes none that sits in a switcher's panel.
+                {
+                  id: `l-text-${v}`,
+                  type: "text",
+                  zIndex: 1,
+                  x: 0,
+                  y: 0,
+                  width: 240,
+                  height: 320,
+                  properties: {
+                    text: v.toUpperCase(),
+                    fontId: "font-roboto-24",
+                    color: v === "a" ? WHITE : BLACK,
+                    backgroundColor: v === "a" ? "#202020" : "#e0e0e0",
+                    borderColor: "transparent",
+                  },
+                },
+              ],
+            })),
+          },
+        ],
+      },
       {
         id: "screen-6",
         name: "Navigator",
@@ -1130,7 +1208,8 @@ async function main() {
     if (!screen.backgroundImage || !zip.file(screen.backgroundImage)) {
       fail(`${screen.id}: no flattened background in the bundle`);
     }
-    if (screen.backgroundColor !== DARK) {
+    // screen-9 picks its own mid grey (a switcher showing no panel); the rest inherit.
+    if (screen.id !== "screen-9" && screen.backgroundColor !== DARK) {
       fail(`${screen.id}: background colour ${screen.backgroundColor} was not inherited from the master`);
     }
     const inherited = Object.keys(screen.buttonActions || {}).sort();

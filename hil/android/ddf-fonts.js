@@ -113,6 +113,8 @@ async function phoneDdf(deviceSerial) {
       // type the suite reports nothing about, which reads exactly like a
       // type that works.
       supportedObjectTypes: device.supportedObjectTypes || [],
+      // And what it keeps beyond object types: local topics (§2.9).
+      supportedFeatures: device.supportedFeatures || [],
       fonts,
     };
     return cached;

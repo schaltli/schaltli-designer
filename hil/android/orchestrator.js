@@ -1770,6 +1770,111 @@ async function checkEnergyMotion(deviceSerial, mqttClient, project, screen, si) 
 }
 
 /**
+ * A screen with a switcher on a local topic (device contract 2.9;
+ * tasks/local-android-plan.md, A1): not compared, since the designer's
+ * reference shows a topic's example and the app its initial value, but
+ * checked. The fixture's group writes `local/hil/view` (initial "b"), the
+ * switcher shows a dark text for «a» and a light one for «b»:
+ *
+ *   1. the glass shows «b», the initial value;
+ *   2. a tap on the group's «A» shows «a»;
+ *   3. nothing went over the broker under the name;
+ *   4. a retained «c» on the name from the broker changes nothing;
+ *   5. after the app is stopped and started, «b» again: nothing is kept;
+ *   6. the DDF the app serves lists "local-topics", which is what Deploy asks.
+ *
+ * Returns with the phone on this screen again.
+ */
+function localSwitcher(project, screen) {
+  const local = new Set((project.topics || []).filter((t) => t.local).map((t) => t.topic));
+  return (screen.objects || []).find((o) => o.type === "switcher" && local.has(o.properties?.topic));
+}
+
+async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
+  const switcher = localSwitcher(project, screen);
+  const name = switcher.properties.topic;
+  const group = (screen.objects || []).find((o) => o.type === "button-group" && o.properties?.writeTopic === name);
+  const checks = [];
+  const check = (what, ok, detail) => {
+    checks.push(ok);
+    console.log(`  [${si}-0] ${ok ? "PASS" : "FAIL"} ${what}${detail ? ` - ${detail}` : ""}`);
+  };
+  let shots = 0;
+  let last = null;
+  // What the switcher shows, by the brightness near its top: the app fills a
+  // text's background to its line, not to its whole frame.
+  const shown = async (label) => {
+    const img = await cropDeviceScreenshot(await captureDeviceScreenshot(deviceSerial), project, deviceSerial);
+    await img.write(path.join(IMG_DIR, `local-${si}-${++shots}-${label}.png`));
+    last = img;
+    const scale = img.bitmap.width / project.screenWidth;
+    const i = (Math.round((switcher.y + 12) * scale) * img.bitmap.width + Math.round((switcher.x + switcher.width / 2) * scale)) * 4;
+    const lum = 0.3 * img.bitmap.data[i] + 0.59 * img.bitmap.data[i + 1] + 0.11 * img.bitmap.data[i + 2];
+    return lum < 100 ? "a" : lum > 160 ? "b" : `neither (brightness ${Math.round(lum)})`;
+  };
+  const heard = [];
+  const listen = (topic, payload, packet) => {
+    if (topic === name && !packet.retain) heard.push(payload.toString());
+  };
+  mqttClient.on("message", listen);
+  await new Promise((resolve) => mqttClient.subscribe("#", resolve));
+  try {
+    await sleep(800);
+    let seen = await shown("start");
+    check("1. the glass shows «b», the initial value", seen === "b", seen);
+
+    // The group's first state, «A», is its left half.
+    const p = await devicePointFor(deviceSerial, project, group.x + group.width / 4, group.y + group.height / 2);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+    await sleep(1000);
+    seen = await shown("tapped");
+    check("2. a tap on «A» shows «a» within a second", seen === "a", seen);
+
+    await sleep(1000);
+    check("3. nothing went over the broker under the name", heard.length === 0, `${heard.length} message(s): ${JSON.stringify(heard)}`);
+
+    await new Promise((resolve) => mqttClient.publish(name, "c", { qos: 1, retain: true }, resolve));
+    await sleep(2000);
+    seen = await shown("broker-c");
+    check("4. a retained «c» from the broker changes nothing", seen === "a", seen);
+
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "force-stop", "com.schaltli.android"]));
+    await sleep(1000);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
+    // The project is read again and the broker reached again before a swipe
+    // can be told from a start that is still drawing.
+    await sleep(6000);
+    await swipeToScreen(deviceSerial, 0, si);
+    await sleep(1000);
+    seen = await shown("restarted");
+    check("5. after the app is stopped and started, «b» again", seen === "b", seen);
+
+    const features = (await phoneDdf(deviceSerial)).supportedFeatures || [];
+    check("6. the app's DDF lists local-topics", features.includes("local-topics"), JSON.stringify(features));
+  } finally {
+    mqttClient.removeListener("message", listen);
+    await new Promise((resolve) => mqttClient.unsubscribe("#", resolve));
+    await new Promise((resolve) => mqttClient.publish(name, "", { qos: 1, retain: true }, resolve));
+  }
+  const pass = checks.every(Boolean);
+  return {
+    landedOn: null,
+    screenIndex: si,
+    screenName: screen.name,
+    comboIndex: 0,
+    overrides: {},
+    pass,
+    diffPixels: checks.filter((ok) => !ok).length,
+    totalPixels: checks.length,
+    dimensionMismatch: false,
+    expectedFile: `images/local-${si}-1-start.png`,
+    actualFile: `images/local-${si}-${shots}-restarted.png`,
+    expectedDims: last ? `${last.bitmap.width}x${last.bitmap.height}` : "",
+    actualDims: last ? `${last.bitmap.width}x${last.bitmap.height}` : "",
+  };
+}
+
+/**
  * A long sideways drag on a slider on a screen is the slider's and pages
  * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
  * app's swipe navigation never asked whether a control had taken the touch.
@@ -2033,6 +2138,13 @@ async function main() {
     if (movingDiagram(screen)) {
       console.log(`\nScreen ${si} "${screen.name}": an energy diagram moving - checked, not compared`);
       results.push(await checkEnergyMotion(deviceSerial, mqttClient, project, screen, si));
+      continue;
+    }
+
+    if (localSwitcher(project, screen)) {
+      console.log(`
+Screen ${si} "${screen.name}": a local topic - checked, not compared`);
+      results.push(await checkLocalTopics(deviceSerial, mqttClient, project, screen, si));
       continue;
     }
 
