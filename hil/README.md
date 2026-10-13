@@ -129,6 +129,28 @@ it, and several test runs later the bezel produced no screen changes at
 all, because the fixture that had replaced it binds the knob to something
 else entirely.
 
+**Lanes, and the quick run (2026-10-13).** `test:all` runs a lane per
+device - host (typecheck, e2e, the firmware's host checks), knob, 4.3B,
+PaperS3 and Android - at the same time, each its steps one after another.
+Each lane writes `hil/test-all-logs/<lane>.log`, the console shows every line
+marked with its lane, and the summary lists the steps by lane with their
+seconds. One after another the run took 50 min. Before the lanes it builds
+the designer for production (`hil/e2e-prod.js`, into `.next-e2e`, served on
+3100): the e2e suite runs against it, with a broker of its own (1884/9002),
+and every HIL script renders through it, since `next dev` serves one request
+at a time. Steps that touch something every device shares - the navigator,
+which sets `schaltli/state/theme` - and the `@alone` timing specs run after
+the lanes.
+
+`npm run test:quick` (`test:all --quick`) runs only the e2e suite and each
+device's core checks - deploy, placeholders, live values, popups, local
+topics, conformance, the Android HIL - in about seven minutes. It is the run
+for every change; `test:all` is for before a release.
+
+A script that runs on several boards at once keeps them apart through
+`hil/device-tag.js`: its topic prefix, temp zip and report folder carry the
+device.
+
 `npm run test:all` opens with `npm run typecheck` (`tsc` over the whole
 tree, using `tsconfig.typecheck.json`). It is first because it is the one
 step that needs no device, no broker and not even the dev server, so it

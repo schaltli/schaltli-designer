@@ -1,5 +1,10 @@
 # Testing
 
+For every change run `npm run test:quick` (about 7 minutes: the e2e suite
+against a production build and each device's core checks, the devices in
+parallel lanes); before a release run the full `npm run test:all`. See
+`hil/README.md` («Lanes, and the quick run»).
+
 Run the full local test suite with `npm run test:all` (bundles the
 Playwright `e2e/` suite and every HIL suite: `hil/waveshare/`,
 `hil/waveshare4v3b/`, `hil/papers3/`, `hil/android/` and
