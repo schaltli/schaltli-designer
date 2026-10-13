@@ -112,6 +112,7 @@ Ganz aus schaltet die App das Display dabei nicht. Ein ausgeschaltetes Display b
 - Ohne die Einstellung als Startbildschirm startet die App nach einem Neustart des Handys nicht von selbst. Öffne sie dann einmal von Hand.
 - Wird die App neu installiert, bekommt das Handy eine neue Kennung. Im Designer ist es dann ein neues Gerät, und du überträgst dein Projekt noch einmal.
 - Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer. Gemessen wird ab der Lage, in der das Gerät von Haus aus steht. Bei einem Handy ist das hochkant, bei den meisten Tablets quer. Bei einem solchen Tablet heisst 0° also quer. Bis Version 0.8.0 kam auf diesen Tablets alles verdreht an.
+- Boxen, Linien und Icons zeichnet die App ab Version 0.11.0 selbst, wie die Boards. Vorher bekam sie sie als fertiges Bild pro Screen, und in einem Switcher fehlten sie. Hat ein Projekt eines davon, bittet <span class="ui">Deploy</span> eine ältere App um ein Update.
 
 ## Tipp: LineageOS für sehr alte Handys
 

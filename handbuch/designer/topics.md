@@ -86,7 +86,7 @@ In der Auswahl eines Objekts stehen Local topics wie alle anderen. Die [Vorschau
 Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Discover MQTT Topics</span> markiert es mit <span class="ui">local topic</span>, bietet es nicht an und sagt das über der Liste.
 
 ::: warning Ältere Firmware
-Knob, 4.3B und PaperS3 kennen Local topics ab der Firmware fw-2026.10.13.2. Die Android-App kennt sie noch nicht, auch Version 0.10.0 nicht. Eine ältere Version würde eines wie ein gewöhnliches Topic behandeln: Sie abonniert es auf dem Broker und publiziert, was ein Schalter hineinschreibt. Deshalb überträgt <span class="ui">Deploy</span> ein Projekt mit Local topics nur auf ein Gerät, das sie kennt. Ein älteres Board bringt der Designer vorher auf den neuen Stand. Bei der App bittet er um ein Update.
+Knob, 4.3B und PaperS3 kennen Local topics ab der Firmware fw-2026.10.13.2, die Android-App ab Version 0.11.0. Eine ältere Version würde eines wie ein gewöhnliches Topic behandeln: Sie abonniert es auf dem Broker und publiziert, was ein Schalter hineinschreibt. Deshalb überträgt <span class="ui">Deploy</span> ein Projekt mit Local topics nur auf ein Gerät, das sie kennt. Ein älteres Board bringt der Designer vorher auf den neuen Stand. Bei der App bittet er um ein Update.
 :::
 
 ## Welcher Broker?
