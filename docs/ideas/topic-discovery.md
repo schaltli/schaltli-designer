@@ -118,7 +118,7 @@ Rajiva's three configs (from the screenshot) as a fixture under
   himself. It stays «Not supported»; its coordinates as text could come
   later.
 - **Brightness as percent** - his other question; it belongs to
-  `docs/ideas/rechnen-in-combined-topics.md`.
+  `docs/ideas/level-in-prozent.md`.
 
 - **The Topics list under Settings** - stays as it is (user, 2026-10-13);
   it holds the project's topics, not a whole broker.
