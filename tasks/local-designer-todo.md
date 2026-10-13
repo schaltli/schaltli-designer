@@ -8,7 +8,9 @@ or finish.
 - [x] L1 The core
   - `local`, `initial` on Topic; lib/local-topics.ts `isLocalTopic`, `localInitialValues`; projectSubscriptionTopics leaves local topics out
   - e2e/local-topics.spec.ts «local topics: the core»
-- [ ] L2 The preview, Simulation and Live
+- [x] L2 The preview, Simulation and Live
+  - `localValues` in project-editor.tsx, seeded from `initial` on entering the preview; handlePreviewPublish sets it with a toast «→ Local»; no asked marker for a local topic; a broker message under a local name dropped; previewTopics and liveValuesWithTheme read it; the Topic Values panel shows «local» and edits it in Live too
+  - e2e/live-preview.spec.ts «local topics in the preview» (the switch fixture, put there for its pixel helpers)
 - [ ] L3 The list «Local topics»
 - [ ] L4 Discover
 - [ ] L5 Handbook

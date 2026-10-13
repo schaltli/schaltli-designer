@@ -6,6 +6,8 @@ import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
+import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
+import { splitTopicPath } from "@/lib/json-path"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
@@ -1137,6 +1139,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // at a time, as on a device.
   const [previewPopupId, setPreviewPopupId] = useState<string | null>(null)
   const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
+  // The values of the project's local topics (docs/2026-10-13-local-topics.md):
+  // the preview's own, as a display's are, in Simulation and Live alike. A
+  // write sets one here and goes nowhere else; entering the preview starts
+  // each at its `initial` again, as a display does when it starts.
+  const [localValues, setLocalValues] = useState<Record<string, string>>({})
 
   // Live preview (docs/2026-09-15-live-data.md, decision 5). Entering preview
   // connects to the broker the way the Deploy dialog does and, once it
@@ -1261,6 +1268,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         }
         client.on("message", (topic, payload) => {
           if (gen !== liveGenRef.current) return
+          // A real topic under a local topic's name does not reach the
+          // display (docs/2026-10-13-local-topics.md, decision 4).
+          if (isLocalTopic(project.topics, topic)) return
           pending.push([topic, payload.toString()])
           if (!frame) frame = requestAnimationFrame(takeIn)
         })
@@ -1303,6 +1313,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setPreviewPopupId(null)
     }
     setPreviewTopicValues({})
+    setLocalValues(localInitialValues(project.topics))
     startLive()
     // Clear every editing-only UI state that would otherwise be stranded
     // on screen once the property panel (which normally owns closing them)
@@ -1348,6 +1359,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const handlePreviewPublish = useCallback(
     (topic: string, payload: string) => {
       trackDemo("tap", `${topic.replace(/^schaltli\/cmnd\//, "")}=${payload}`)
+      // A local topic is the display's own: the write is its value at once,
+      // and nothing goes to a broker or the mock engine, Live or not.
+      if (isLocalTopic(project.topics, topic)) {
+        setLocalValues((prev) => ({ ...prev, [splitTopicPath(topic).topic]: payload }))
+        toast({ title: "→ Local", description: `${topic} = ${payload} - kept on this display, not published` })
+        return
+      }
       // The navigator's light/dark switch turns the preview's own view too,
       // as the Dark switch below does: without a bridge on the broker
       // nothing would answer, and the click did nothing (2026-10-11). A
@@ -1393,7 +1411,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
       }
     },
-    [mockEngine, previewTopicValues, toast, previewSource, liveStatus, previewMqtt.clientRef],
+    [mockEngine, previewTopicValues, toast, previewSource, liveStatus, previewMqtt.clientRef, project.topics],
   )
 
   // What the preview shows for each topic while live: what the broker last
@@ -1449,7 +1467,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // the request is keyed by.
       const markerTopic = setpointTopic || topic
       const now = Date.now()
-      if (markerTopic) {
+      // A local topic is set by the write itself; no answer is awaited.
+      if (markerTopic && !isLocalTopic(project.topics, markerTopic)) {
         setAskedValues((prev) => {
           // Already answered while the hand rested: a bridge publishes only
           // changes, so no second answer comes - the request ends now.
@@ -1476,20 +1495,20 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       lastLevelPublishRef.current.set(writeTopic, now)
       handlePreviewPublish(writeTopic, payload)
     },
-    [handlePreviewPublish, liveValues, previewSource],
+    [handlePreviewPublish, liveValues, previewSource, project.topics],
   )
 
   // A Switch tap, held the way a level's marker is held: keyed by the topic an
   // answer would arrive on, dropped the moment one does (see askedValues).
   const handlePreviewAsk = useCallback(
     (topic: string, expected: string) => {
-      if (!topic) return
+      if (!topic || isLocalTopic(project.topics, topic)) return
       setAskedValues((prev) => ({
         ...prev,
         [topic]: { value: expected, seen: prev[topic]?.seen ?? liveValues[topic] },
       }))
     },
-    [liveValues],
+    [liveValues, project.topics],
   )
 
   const handlePreviewButtonAction = useCallback(
@@ -1581,9 +1600,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // through the same previewTopicValues override map a simulated
   // send-mqtt button action does - both are "a message just arrived on
   // this topic", just triggered from a different place.
-  const handleSetPreviewTopicValue = useCallback((topic: string, value: string) => {
-    setPreviewTopicValues((prev) => ({ ...prev, [topic]: value }))
-  }, [])
+  const handleSetPreviewTopicValue = useCallback(
+    (topic: string, value: string) => {
+      if (isLocalTopic(project.topics, topic)) setLocalValues((prev) => ({ ...prev, [topic]: value }))
+      else setPreviewTopicValues((prev) => ({ ...prev, [topic]: value }))
+    },
+    [project.topics],
+  )
 
   // Switching screens invalidates any open tab-editing context - it refers
   // to an object on the screen being left.
@@ -1658,9 +1681,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // Live, the light/dark switch shows the variant the view is in where the
   // broker has said nothing of it.
+  // And the local topics' values, which are the preview's own.
   const liveValuesWithTheme = useMemo(
-    () => (liveValues[THEME_STATE_TOPIC] ? liveValues : { ...liveValues, [THEME_STATE_TOPIC]: shownVariant }),
-    [liveValues, shownVariant],
+    () => ({ ...(liveValues[THEME_STATE_TOPIC] ? liveValues : { ...liveValues, [THEME_STATE_TOPIC]: shownVariant }), ...localValues }),
+    [liveValues, shownVariant, localValues],
   )
 
   // What the view reads, for the live preview to redraw at once (#58); and
@@ -1684,13 +1708,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // The navigator's light/dark switch reads schaltli/state/theme, which a
     // project need not have among its topics (lib/navigator-entries.ts).
     const topics = withThemeSwitchAssets(project).topics as Topic[]
-    if (!isPreviewMode || Object.keys(previewTopicValues).length === 0) return topics
+    if (!isPreviewMode) return topics
+    // A local topic shows the preview's own value, and none before it has
+    // one - its examples are not a value it would have on a display.
     return topics.map((topic) =>
-      topic.topic in previewTopicValues
-        ? { ...topic, examples: [previewTopicValues[topic.topic], ...topic.examples.slice(1)] }
-        : topic,
+      topic.local
+        ? { ...topic, examples: topic.topic in localValues ? [localValues[topic.topic], ...topic.examples] : [] }
+        : topic.topic in previewTopicValues
+          ? { ...topic, examples: [previewTopicValues[topic.topic], ...topic.examples.slice(1)] }
+          : topic,
     )
-  }, [isPreviewMode, previewTopicValues, project])
+  }, [isPreviewMode, previewTopicValues, localValues, project])
 
   const selectedObject = useMemo(() => {
     if (!selectedObjectIds.length) return null
@@ -4437,6 +4465,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 <TopicValuesPanel
                   topics={project.topics}
                   previewTopicValues={previewTopicValues}
+                  localValues={localValues}
                   onSetTopicValue={handleSetPreviewTopicValue}
                   source={previewSource}
                   liveStatus={liveStatus}

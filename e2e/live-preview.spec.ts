@@ -278,3 +278,78 @@ test.describe("live preview", () => {
     }
   })
 })
+
+// Local topics (docs/2026-10-13-local-topics.md; tasks/local-designer-todo.md
+// L2): the switch fixture's Switch reads and writes a local topic. The
+// preview keeps its value itself, Live and Simulation alike; a tap is never
+// published, and a real topic of the same name on the broker is not heard.
+test.describe("local topics in the preview", () => {
+  test.beforeEach(async () => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("a Switch on a local topic switches, publishes nothing and starts at its initial value", async ({ page }) => {
+    const prefix = `e2e-local/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const local = `${prefix}/mode`
+    const zipPath = await projectWithTopics(prefix, (project) => {
+      const mode = project.topics.find((t: any) => t.topic === local)
+      mode.local = true
+      mode.initial = "low"
+      project.screens[0].objects[0].properties.writeTopic = local
+    })
+    const broker = await connectBroker()
+    const heard: string[] = []
+    try {
+      // A real topic under the local topic's name, retained: the preview
+      // must not take it in.
+      await publish(broker, local, "high", true)
+      broker.on("message", (topic, payload, packet) => {
+        if (!packet.retain && topic.startsWith(prefix)) heard.push(`${topic}=${payload}`)
+      })
+      await new Promise<void>((resolve) => broker.subscribe("#", () => resolve()))
+
+      await loadProject(page, zipPath)
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 10000 })
+
+      // Its initial value, not the broker's "high".
+      await expect(valueField(page, local)).toHaveValue("low")
+      await expect.poll(() => markerPixels(page, 85, 155)).toBeGreaterThan(0)
+      expect(await markerPixels(page, 160, 225)).toBe(0)
+
+      // A tap sets it at once, Live, with no broker answering.
+      const { box } = await getMainCanvas(page)
+      const high = devicePoint(box, 192, 45, ROUND_FIXTURE_SCREEN)
+      await page.mouse.click(high.x, high.y)
+      await expect(valueField(page, local)).toHaveValue("high")
+      await expect.poll(() => markerPixels(page, 160, 225)).toBeGreaterThan(0)
+      expect(await markerPixels(page, 85, 155)).toBe(0)
+
+      // A message on the broker under its name changes nothing.
+      await publish(broker, local, "low", false)
+      await page.waitForTimeout(500)
+      await expect(valueField(page, local)).toHaveValue("high")
+
+      // Leaving the preview and coming back is a display starting again.
+      await page.getByRole("button", { name: "Designer", exact: true }).click()
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 10000 })
+      await expect(valueField(page, local)).toHaveValue("low")
+
+      // Simulation keeps it the same way.
+      await page.getByRole("button", { name: "Simulation", exact: true }).click()
+      await page.mouse.click(high.x, high.y)
+      await expect(valueField(page, local)).toHaveValue("high")
+      await expect.poll(() => markerPixels(page, 160, 225)).toBeGreaterThan(0)
+
+      await page.waitForTimeout(500)
+      // The one message under the prefix is the test's own.
+      expect(heard).toEqual([`${local}=low`])
+    } finally {
+      await publish(broker, local, "", true).catch(() => {})
+      broker.end(true)
+      fs.unlinkSync(zipPath)
+    }
+  })
+})

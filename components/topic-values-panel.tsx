@@ -16,6 +16,9 @@ interface TopicValuesPanelProps {
   // topic's own first example value", matching getPreviewValueFromTopic's
   // fallback everywhere else in the app.
   previewTopicValues: Record<string, string>
+  // The local topics' values (docs/2026-10-13-local-topics.md): the
+  // preview's own, shown and edited in Simulation and Live alike.
+  localValues?: Record<string, string>
   onSetTopicValue: (topic: string, value: string) => void
   // Where the values come from (project-editor.tsx's live preview). Live,
   // each field shows what the broker last delivered - empty where nothing
@@ -55,6 +58,7 @@ function sourceStatus(
 export function TopicValuesPanel({
   topics,
   previewTopicValues,
+  localValues = {},
   onSetTopicValue,
   source = "simulation",
   liveStatus = "idle",
@@ -91,9 +95,13 @@ export function TopicValuesPanel({
       )}
 
       {topics.map((topic) => {
-        const currentValue = live
-          ? (liveValues[topic.topic] ?? "")
-          : (previewTopicValues[topic.topic] ?? topic.examples[0] ?? "")
+        const local = topic.local === true
+        const readOnly = live && !local
+        const currentValue = local
+          ? (localValues[topic.topic] ?? "")
+          : live
+            ? (liveValues[topic.topic] ?? "")
+            : (previewTopicValues[topic.topic] ?? topic.examples[0] ?? "")
         return (
           // Keyed by the topic string, not topic.id - project.topics can
           // contain duplicate ids from older/imported data, but topic names
@@ -103,9 +111,10 @@ export function TopicValuesPanel({
               <Label className="text-sm font-medium truncate" title={topic.topic}>
                 {topic.topic}
               </Label>
-              <Badge variant="outline" className="shrink-0">
-                {topic.type}
-              </Badge>
+              <div className="flex shrink-0 gap-1">
+                {local && <Badge variant="secondary">local</Badge>}
+                <Badge variant="outline">{topic.type}</Badge>
+              </div>
             </div>
 
             {topic.type === "json" ? (
@@ -113,10 +122,10 @@ export function TopicValuesPanel({
                 <Textarea
                   value={currentValue}
                   onChange={(e) => onSetTopicValue(topic.topic, e.target.value)}
-                  readOnly={live}
+                  readOnly={readOnly}
                   rows={4}
                   className="font-mono text-xs"
-                  placeholder={live ? "no value yet" : '{"field": "value"}'}
+                  placeholder={readOnly || local ? "no value yet" : '{"field": "value"}'}
                 />
                 {topic.subtopics && topic.subtopics.length > 0 && (
                   <div className="rounded-md border border-border bg-muted/30 p-2 space-y-1">
@@ -138,10 +147,10 @@ export function TopicValuesPanel({
               <Input
                 value={currentValue}
                 onChange={(e) => onSetTopicValue(topic.topic, e.target.value)}
-                readOnly={live}
+                readOnly={readOnly}
                 type={topic.type === "numeric" ? "text" : "text"}
                 inputMode={topic.type === "numeric" ? "decimal" : "text"}
-                placeholder={live ? "no value yet" : topic.type === "numeric" ? "0" : "text value"}
+                placeholder={readOnly || local ? "no value yet" : topic.type === "numeric" ? "0" : "text value"}
               />
             )}
 
