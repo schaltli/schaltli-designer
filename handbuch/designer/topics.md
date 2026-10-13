@@ -71,6 +71,24 @@ Ein Combined topic, das noch gelesen wird, lässt sich nicht löschen. Der Desig
 Combined topics rechnen Knob, 4.3B, PaperS3 und die Android-App ab Systemgeneration 1.4 selbst. Mit älterer Firmware oder einer älteren App bleibt ein Wert im Text, der eines liest, leer. Ein Icon zeigt dort auf den Boards sein <span class="ui">Otherwise</span> und in der App gar keines. Beim Übertragen nennt der Dialog die betroffenen Objekte.
 :::
 
+## Local topics {#local}
+
+Manche Werte gehen nur das Display etwas an, das sie zeigt: ob ein Screen das Energiediagramm als Flow oder als Sankey zeigt, welcher Teil einer Seite gerade offen ist. Als MQTT-Topic gälte so ein Wert für alle Displays im Van zugleich, und auf dem Broker müsste ihn jemand halten. Ein Local topic hält das Display selbst. Ein Schalter oder Button setzt es, und lesen kann es alles, was sonst ein Topic liest. Das Gerät verlässt es nie, es wird weder publiziert noch abonniert. So hat jedes Display seinen eigenen Wert.
+
+Local topics stehen unter <span class="ui">Settings</span> › <span class="ui">Topics</span> in einer eigenen Liste, unter den Combined topics. <span class="ui">Add local topic</span> legt eines an:
+
+- Der Name ist frei, ohne Leerzeichen, `#` und `+`, und kein anderes Topic darf ihn schon haben. Der Designer schlägt einen unter `local/` vor, damit man ihm ansieht, was er ist. Ob ein Topic lokal ist, entscheidet aber die Liste, in der es steht, nicht sein Name.
+- Der Typ ist <span class="ui">text</span> oder <span class="ui">numeric</span>.
+- <span class="ui">Initial value</span> ist der Wert, mit dem das Display startet, nach jedem Neustart und jedem Übertragen wieder. Ohne ihn hat das Topic zuerst keinen Wert, und ein Switcher zeigt sein erstes Panel.
+
+In der Auswahl eines Objekts stehen Local topics wie alle anderen. Die [Vorschau](/designer/vorschau) hält sie in der Simulation und im Live-Modus gleich: Ein Tipp setzt den Wert sofort, auf den Broker geht nichts. Rechts in den Topic-Werten sind sie mit <span class="ui">local</span> markiert und lassen sich auch live ändern.
+
+Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Discover MQTT Topics</span> markiert es mit <span class="ui">local topic</span>, bietet es nicht an und sagt das über der Liste.
+
+::: warning Noch nicht auf den Geräten
+Knob, 4.3B, PaperS3 und die Android-App kennen Local topics erst mit ihrem nächsten Release. Bis dahin behandeln sie eines wie ein gewöhnliches Topic: Sie abonnieren es auf dem Broker und publizieren, was ein Schalter hineinschreibt.
+:::
+
 ## Welcher Broker?
 
 Der Designer spricht den Broker über WebSocket an, unter derselben Adresse, unter der du den Designer geöffnet hast, auf Port 9001. Auf einem Pekaway-System richtet das [Installationsskript](/installieren/pekaway) das ein. Gibst du in einem der Dialoge eine andere Adresse ein, merkt sich der Browser sie. Benutzername und Passwort speichert er nicht.

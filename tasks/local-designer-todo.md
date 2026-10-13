@@ -17,5 +17,6 @@ or finish.
 - [x] L4 Discover
   - a local topic's name is not offered; its row says «local topic», and a note above the list names it: its messages do not reach the display
   - e2e/mqtt-discovery.spec.ts «a real topic under a local topic's name is not offered, and warned about»
-- [ ] L5 Handbook
+- [x] L5 Handbook
+  - handbuch/designer/topics.md «Local topics» (after Combined topics), with a warning that the devices come with their next release; through maettel-humanizer
 - [ ] Checkpoint: test:all green; the user tries a local switch in the preview
