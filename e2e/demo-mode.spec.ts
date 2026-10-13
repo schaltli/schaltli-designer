@@ -117,7 +117,9 @@ test.describe("the demo in the browser", () => {
 
   test("the start page opens the start project at once, with the notice and without the project list", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByTestId("project-title")).toHaveText(START)
+    // Opening a whole project: 3.5 s cold on its own, past the default 5 s
+    // with the other workers busy (test:all, 2026-10-13).
+    await expect(page.getByTestId("project-title")).toHaveText(START, { timeout: 30000 })
     await expect(page).toHaveURL(new RegExp(`/projects/${START}$`))
     await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0)
     await expect(page.getByTestId("demo-notice")).toContainText("Demo - nothing is saved")

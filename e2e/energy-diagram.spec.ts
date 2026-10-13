@@ -22,6 +22,9 @@ import { FLOW_ICON, defaultDiagram, expand565, pack565, rgb565, rowStep, trackCo
 type Obj = Record<string, any>
 
 const DEVICE_ID = "e2e-energy-4v3b"
+// Its own id: seeded with screen.motion false under DEVICE_ID, the panel tests
+// running beside it (fullyParallel) would read the still copy mid-run.
+const STILL_DEVICE_ID = "e2e-energy-still"
 const SCREEN_43B = { width: 800, height: 480 }
 
 async function downloadProjectJson(page: Page): Promise<any> {
@@ -37,10 +40,10 @@ async function downloadProjectJson(page: Page): Promise<any> {
   return JSON.parse(await zip.file("project.json")!.async("string"))
 }
 
-async function newProject(page: Page): Promise<void> {
+async function newProject(page: Page, deviceId = DEVICE_ID): Promise<void> {
   await page.goto("/")
   await waitForDeviceGate(page)
-  await chooseDevice(page, DEVICE_ID, "auto-discovered")
+  await chooseDevice(page, deviceId, "auto-discovered")
   await createProject(page)
   await waitForEditorReady(page)
 }
@@ -621,12 +624,12 @@ test.describe("the energy diagram's panel", () => {
 
   test("a device that animates nothing offers no Motion", async ({ page }) => {
     expect(
-      await seedWaveshare4v3bDdf(DEVICE_ID, (manifest) => {
+      await seedWaveshare4v3bDdf(STILL_DEVICE_ID, (manifest) => {
         if (!manifest.supportedObjectTypes.includes("energy-diagram")) manifest.supportedObjectTypes.push("energy-diagram")
         manifest.screen.motion = false
       }),
     ).toBe(true)
-    await newProject(page)
+    await newProject(page, STILL_DEVICE_ID)
     await drawDiagram(page, { x: 100, y: 60 }, { x: 640, y: 420 })
     await expect(page.locator("#energyMode")).toBeVisible()
     await expect(page.getByText("Dots and waves move")).toHaveCount(0)

@@ -263,10 +263,15 @@ async function main() {
     check(`${mode}: no step holds the loop longer than ${MAX_STEP_MS} ms`, worst <= MAX_STEP_MS, `worst ${worst} ms, after a redraw ${afterRedraw} ms`)
 
     if (mode === "flow") {
+      // The panel goes dark 15 s after the last touch, and the snapshots
+      // above can take that long on a weak link: a tap on a dark panel only
+      // wakes it ("woke-display-only"). So it is woken right before.
+      await wake(base)
       await tap(base, DIAGRAM.x + Math.round(DIAGRAM.width * 0.2), DIAGRAM.y + Math.round(DIAGRAM.height * 0.2))
       await sleep(1500)
-      const popup = String((await debugOf(base)).popup ?? "")
-      check("a tap on the sun's node opens its popup", /^open/.test(popup), popup)
+      const after = await debugOf(base)
+      const popup = String(after.popup ?? "")
+      check("a tap on the sun's node opens its popup", /^open/.test(popup), `${popup} - the tap read as ${after.lastReleaseVerdict}`)
     }
   }
 
