@@ -85,10 +85,10 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   for (const t of [...read, ...written]) expect(declared.has(t.split("#")[0]), `${t} is not declared`).toBe(true)
 })
 
-test("Licht, Wasser, Energie, two pages to come, and the navigator; the page icons follow the van", async () => {
+test("Energie first, then Licht, Wasser, two pages to come, and the navigator; the page icons follow the van", async () => {
   const project = await built()
   expect(project.settings.deviceId).toBe("waveshare-touch-lcd-4v3b")
-  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Licht", "Wasser", "Energie", "MaxxFan", "Heizung"])
+  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Energie", "Licht", "Wasser", "MaxxFan", "Heizung"])
   expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator", "switch"])
   // Top right on the master: light or dark.
   const theme = project.screens[0].objects[1] as any
@@ -96,15 +96,16 @@ test("Licht, Wasser, Energie, two pages to come, and the navigator; the page ico
   expect(theme.y).toBeLessThan(40)
   expect(theme.properties).toMatchObject({ topic: "schaltli/state/theme", writeTopic: "schaltli/cmnd/theme" })
   expect(theme.properties.states.map((s: any) => [s.label, s.writeValue])).toEqual([["Hell", "light"], ["Dunkel", "dark"]])
-  const types = (i: number) => project.screens[i].objects.map((o) => o.type).filter((t) => t !== "text")
-  expect(types(1)).toEqual(["dial", "slider", "switch", "switch", "switch"])
-  expect(types(2)).toEqual(["bar", "bar", "switch", "switch"])
-  const licht = project.screens[1] as any
+  const screen = (name: string) => project.screens.find((s) => s.name === name) as any
+  const types = (name: string) => screen(name).objects.map((o: any) => o.type).filter((t: string) => t !== "text")
+  expect(types("Licht")).toEqual(["dial", "slider", "switch", "switch", "switch"])
+  expect(types("Wasser")).toEqual(["bar", "bar", "switch", "switch"])
+  const licht = screen("Licht")
   expect(licht.iconLive).toMatchObject({ source: { namespace: "combined", path: "licht_an" }, otherwise: { icon: "icon-bulb-off" } })
   expect(project.combinedTopics[0]).toMatchObject({ name: "licht_an", mode: "any" })
   expect(project.combinedTopics[0].conditions).toHaveLength(5)
   // Wasser: a drop, with an exclamation mark while grey > 80 % or fresh < 20 %.
-  const wasser = project.screens[2] as any
+  const wasser = screen("Wasser")
   expect(wasser.iconLive).toMatchObject({ source: { namespace: "combined", path: "wasser_achtung" }, otherwise: { icon: "icon-drop" } })
   expect(wasser.iconLive.rules[0].result.icon).toBe("icon-drop-alert")
   expect(project.combinedTopics[1]).toMatchObject({
@@ -122,8 +123,8 @@ test("Licht, Wasser, Energie, two pages to come, and the navigator; the page ico
   expect(alert({ "schaltli/state/tank/1/level": "60", "schaltli/state/tank/2/level": "85" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "15", "schaltli/state/tank/2/level": "50" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "20", "schaltli/state/tank/2/level": "80" })).toBe("false")
-  for (const i of [4, 5]) expect(JSON.stringify(project.screens[i].objects)).toContain("Coming soon")
-  const [pump, drain] = project.screens[2].objects.filter((o) => o.type === "switch") as any[]
+  for (const name of ["MaxxFan", "Heizung"]) expect(JSON.stringify(screen(name).objects)).toContain("Coming soon")
+  const [pump, drain] = wasser.objects.filter((o) => o.type === "switch") as any[]
   expect(pump.properties.topic).toBe("schaltli/state/relay/4/power")
   expect(pump.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
   expect(drain.properties.topic).toBe("schaltli/state/relay/3/power")
@@ -136,7 +137,7 @@ test("Licht, Wasser, Energie, two pages to come, and the navigator; the page ico
 // (vanpi-custom), so the page goes into his project as it is.
 test("Energie: an energy diagram's Flow - three sources, the battery and what draws on the bus", async () => {
   const project = await built()
-  const energie = project.screens[3] as any
+  const energie = project.screens.find((s) => s.name === "Energie") as any
   expect(energie.name).toBe("Energie")
   const read = new Set<string>()
   walk(energie, (key, v) => {

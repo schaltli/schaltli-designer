@@ -7,13 +7,7 @@
 // fonts make it 3 MB -: that spec, with DEMO_SEED_DIR, writes it into a
 // project store, which the server's setup copies over.
 //
-//   Licht   Innenlicht on a dial, Einstieg on a slider, Küche, Lichterkette
-//           and Aussenlicht as switches. The page's icon is a lit bulb while
-//           any of them burns (a combined topic), an unlit one otherwise.
-//   Wasser  fresh and grey water as tanks, the water pump, and the switch
-//           that lets the grey water out. The page's icon is a drop with an exclamation mark
-//           while the grey water is above 80 % or the fresh below 20 %.
-//   Energie an energy diagram's Flow: the sun, the mains charger and the
+//   Energie first, an energy diagram's Flow: the sun, the mains charger and the
 //           DC-DC charger off the engine into the 12 V bus, the battery and
 //           what draws off it, the dots running while watts flow. The
 //           battery is Pekaway's shunt through the bridge; the rest comes as
@@ -21,6 +15,12 @@
 //           ble/charger/... and ble/orion/..., its Node-RED tab's
 //           van/energy/...), so the page goes into his project as it is.
 //           The page's icon is an empty battery below 20 %.
+//   Licht   Innenlicht on a dial, Einstieg on a slider, Küche, Lichterkette
+//           and Aussenlicht as switches. The page's icon is a lit bulb while
+//           any of them burns (a combined topic), an unlit one otherwise.
+//   Wasser  fresh and grey water as tanks, the water pump, and the switch
+//           that lets the grey water out. The page's icon is a drop with an exclamation mark
+//           while the grey water is above 80 % or the fresh below 20 %.
 //   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
 //           already so the navigator shows where the van is going.
 //
@@ -512,7 +512,7 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
     name: "Camper",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master, lightScreen(), waterScreen(), energyScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
+    screens: [master, energyScreen(), lightScreen(), waterScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,
