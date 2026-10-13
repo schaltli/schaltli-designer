@@ -8,7 +8,8 @@ push, no release, demo and van untouched.
   - changed with the user before building («Ja»): a feature in the DDF, not a generation - the knob announces 1.4, the PaperS3 1.6; spec decision 6 and the plan's decisions 3, 4, C1, C3 rewritten
   - device-contract §1 (`supportedFeatures?[]`), §2.9, a line in §4; `LOCAL_TOPIC_GENERATION`; `supportedFeatures` read from the DDF and kept in ProjectSettings
   - e2e/local-topics.spec.ts «local topics: the device's feature»
-- [ ] C2 Into the device zip and the Android bundle
+- [x] C2 Into the device zip and the Android bundle
+  - no code: exportedTopics copies the declaration; e2e/local-topics.spec.ts «local topics: into the export» reads both outputs
 - [ ] C3 Deploy
 - [ ] C4 Mock host and HIL tooling
 - [ ] C5 Handbook

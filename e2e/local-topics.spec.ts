@@ -136,3 +136,60 @@ test.describe("local topics: the device's feature", () => {
     expect((await fieldsOf()).supportedFeatures).toEqual([])
   })
 })
+
+// local-contract C2: the device zip and the Android bundle carry a local
+// topic's declaration as it is (device contract §2.9); a topic the export
+// adds for a reference nobody declared is never local.
+test.describe("local topics: into the export", () => {
+  const exportProject = () => ({
+    name: "local",
+    screenWidth: 800,
+    screenHeight: 480,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    hardwareButtons: [],
+    snapGuides: [],
+    nextId: 100,
+    topics: [
+      { id: "t-view", topic: "local/energie/view", type: "text", examples: ["flow"], local: true, initial: "flow" },
+      { id: "t-tab", topic: "local/tab", type: "numeric", examples: [], local: true },
+      { id: "t-soc", topic: "van/soc", type: "numeric", examples: ["64"] },
+    ],
+    screens: [
+      { id: "master-1", name: "Master", isMaster: true, backgroundColor: "#ffffff", objects: [] },
+      {
+        id: "s1",
+        name: "Energie",
+        masterScreenId: "master-1",
+        objects: [
+          { id: "a", type: "text", x: 20, y: 20, width: 200, height: 30, zIndex: 1, properties: { text: "{topic:local/energie/view}", color: "#000000" } },
+          { id: "b", type: "text", x: 20, y: 60, width: 200, height: 30, zIndex: 2, properties: { text: "{topic:local/undeclared}", color: "#000000" } },
+        ],
+      },
+    ],
+  })
+
+  const exported = async (page: Page, hook: string) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const zipBase64: string = await page.evaluate(({ hook, project }) => (window as any)[hook](project), { hook, project: exportProject() })
+    const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    return Object.fromEntries(project.topics.map((t: any) => [t.topic, t]))
+  }
+
+  for (const [what, hook] of [["the device zip", "__buildDeviceZipForTest"], ["the Android bundle", "__buildAndroidZipForTest"]]) {
+    test(`${what} carries local and initial as declared`, async ({ page }) => {
+      const topics = await exported(page, hook)
+      expect(topics["local/energie/view"]).toMatchObject({ local: true, initial: "flow" })
+      expect(topics["local/tab"].local).toBe(true)
+      expect(topics["local/tab"].initial).toBeUndefined()
+      expect(topics["van/soc"].local).toBeUndefined()
+      // Referenced, never declared: added as a plain topic, never local.
+      expect(topics["local/undeclared"]).toBeTruthy()
+      expect(topics["local/undeclared"].local).toBeUndefined()
+      expect(topics["local/undeclared"].initial).toBeUndefined()
+    })
+  }
+})
