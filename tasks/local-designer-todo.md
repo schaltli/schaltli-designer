@@ -20,3 +20,4 @@ or finish.
 - [x] L5 Handbook
   - handbuch/designer/topics.md «Local topics» (after Combined topics), with a warning that the devices come with their next release; through maettel-humanizer
 - [ ] Checkpoint: test:all green; the user tries a local switch in the preview
+  - test:all 2026-10-13: e2e 1515 passed, 4 red under load (leave-unsaved, new-project, project-list, startup-gate: timeouts, one ECONNRESET to the dev server) - green alone; 4v3b live values and navigator, PaperS3 popups and hold countdown red in the run, green alone; every other suite green, the nested energy checks included
