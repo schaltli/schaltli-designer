@@ -1,6 +1,7 @@
 "use client"
 
 import { CombinedTopicsSection } from "@/components/combined-topics-section"
+import { LocalTopicsSection } from "@/components/local-topics-section"
 import { resolveScale } from "@/lib/size-scale"
 import { useEffect, useMemo } from "react"
 
@@ -143,6 +144,8 @@ export function ProjectSettingsDialog({
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
   const [snapGridInput, setSnapGridInput] = useState(project.settings.snapGrid)
   const topics = project.topics || []
+  // Local topics have a list of their own (components/local-topics-section.tsx).
+  const mqttTopics = topics.filter((t) => !t.local)
   const fonts = project.fonts || [] // Added fonts state
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false)
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
@@ -1305,7 +1308,7 @@ export function ProjectSettingsDialog({
                     <div className="flex-1 min-h-0 overflow-hidden w-full max-w-full">
                       <ScrollArea className="h-[calc(600px-200px)] w-full max-w-full">
                         <div className="space-y-2 pr-4 w-full max-w-full overflow-hidden">
-                          {topics.length === 0 ? (
+                          {mqttTopics.length === 0 ? (
                             <div className="text-center py-12 border-2 border-dashed border-muted rounded-lg">
                               <MqttIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                               <p className="text-sm text-muted-foreground">
@@ -1314,7 +1317,7 @@ export function ProjectSettingsDialog({
                               </p>
                             </div>
                           ) : (
-                            topics.map((topic) => (
+                            mqttTopics.map((topic) => (
                               <div
                                 key={topic.topic}
                                 className="p-4 border rounded-lg bg-card w-full max-w-full overflow-hidden"
@@ -1379,6 +1382,7 @@ export function ProjectSettingsDialog({
                             ))
                           )}
                           <CombinedTopicsSection project={project} onProjectUpdate={onProjectUpdate} />
+                          <LocalTopicsSection project={project} onProjectUpdate={onProjectUpdate} />
                         </div>
                       </ScrollArea>
                     </div>
