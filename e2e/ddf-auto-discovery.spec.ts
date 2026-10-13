@@ -679,6 +679,10 @@ test.describe("DDF auto-discovery", () => {
   test("opening a project resolves its device to the curated copy, not whatever a device last announced", async ({
     page,
   }, testInfo) => {
+    // It puts a curated copy into public/ddf while the server runs, which
+    // only `next dev` serves; a production build serves public/ as it was
+    // built (hil/e2e-prod.js).
+    test.skip(process.env.E2E_PROD === "1", "a file added to public/ at run time is served only by next dev")
     const deviceId = `e2e-resolve-${testInfo.testId}`
     const publicZip = await buildTestDdfZip(deviceId, `Curated Copy ${testInfo.testId}`)
     const dataZip = await buildTestDdfZip(deviceId, `Device Copy ${testInfo.testId}`)

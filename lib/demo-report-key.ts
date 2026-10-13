@@ -14,7 +14,8 @@ const MIN_LENGTH = 24
 function expectedKey(): string {
   const key = process.env.DEMO_REPORT_KEY?.trim() ?? ""
   if (key.length >= MIN_LENGTH) return key
-  return process.env.NODE_ENV === "production" ? "" : DEV_REPORT_KEY
+  // The fast test run's production server says SCHALTLI_E2E=1 (hil/e2e-prod.js).
+  return process.env.NODE_ENV === "production" && process.env.SCHALTLI_E2E !== "1" ? "" : DEV_REPORT_KEY
 }
 
 /** Whether `key` opens the stats page; never without a key long enough. */

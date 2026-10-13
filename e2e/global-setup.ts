@@ -1,5 +1,6 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 /**
  * Writes down which projects already existed, so the teardown can remove the
@@ -39,6 +40,9 @@ export default async function globalSetup() {
     byInstance: await readdir(join(data, "by-instance")).catch(() => [] as string[]),
   }
   await writeFile(projectsSnapshotPath(), JSON.stringify(snapshot), "utf8")
+  // The round fixture most specs choose, seeded once before any of them: after
+  // its source changed, every worker wrote it at once and lost the rename.
+  await seedRoundFixtureDdf()
   await warmUpRoutes()
 }
 

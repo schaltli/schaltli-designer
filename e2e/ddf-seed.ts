@@ -1,5 +1,5 @@
 import fs from "fs"
-import { mkdir, rename, writeFile } from "fs/promises"
+import { mkdir, rename, rm, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
@@ -145,8 +145,17 @@ async function seedDdfFrom(
       await rename(tmpPath, finalPath)
       return true
     } catch (err) {
-      if (attempt >= 20) throw err
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Another worker seeding the same change got there first: the file is
+      // what this one would have written (2026-10-13, ten browsers seeding a
+      // DDF whose source had just changed).
+      if (fs.existsSync(finalPath) && fs.readFileSync(finalPath).equals(buf)) {
+        await rm(tmpPath, { force: true })
+        return true
+      }
+      // Up to about 20 s: under ten browsers a reader (the server listing
+      // DDFs, a virus scanner) held it longer than the 5 s this was.
+      if (attempt >= 100) throw err
+      await new Promise((resolve) => setTimeout(resolve, 200))
     }
   }
 }

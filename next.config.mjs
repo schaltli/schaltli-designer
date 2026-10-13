@@ -39,6 +39,10 @@ const stamp = designerStamp()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The fast test run (hil/e2e-prod.js) builds into a directory of its own,
+  // so that a production build sits beside the dev server's .next and never
+  // in it.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   env: {
     NEXT_PUBLIC_DESIGNER_BUILD: stamp.build,
     NEXT_PUBLIC_DESIGNER_COMMIT: stamp.commit,
@@ -69,8 +73,9 @@ const nextConfig = {
     if (dev) {
       config.watchOptions = {
         ...config.watchOptions,
-        // Next's own pattern (next/dist/build/webpack-config.js), with .data added.
-        ignored: /^((?:[^/]*(?:\/|$))*)(\.(git|next|data)|node_modules)(\/((?:[^/]*(?:\/|$))*)(?:$|\/))?/,
+        // Next's own pattern (next/dist/build/webpack-config.js), with .data
+        // and the fast test run's build (.next-e2e) added.
+        ignored: /^((?:[^/]*(?:\/|$))*)(\.(git|next|next-e2e|data)|node_modules)(\/((?:[^/]*(?:\/|$))*)(?:$|\/))?/,
       }
     }
     return config

@@ -18,10 +18,12 @@ export const DEMO_HEADER = "x-schaltli-demo"
  * Whether this request is served as the demo: `SCHALTLI_DEMO=1` in the
  * server's environment, or - only outside production - the test header,
  * which lets the e2e suite use the shared dev server instead of a second one.
+ * The fast test run's production server (hil/e2e-prod.js) says
+ * `SCHALTLI_E2E=1` and honours the header too; no real server sets it.
  */
 export function isDemo(request: Pick<Request, "headers">): boolean {
   if (process.env.SCHALTLI_DEMO === "1") return true
-  if (process.env.NODE_ENV === "production") return false
+  if (process.env.NODE_ENV === "production" && process.env.SCHALTLI_E2E !== "1") return false
   return request.headers.get(DEMO_HEADER) === "1"
 }
 
