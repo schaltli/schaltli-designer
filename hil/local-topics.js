@@ -221,11 +221,28 @@ async function board(device) {
       return "(unreadable)"
     }
   }
+  // Seconds since boot, as the board says it: the knob in its JSON, the
+  // others in a line.
+  const uptime = async () => {
+    const body = (await get(`${base}/api/debug`)).body
+    try {
+      const ms = JSON.parse(body).uptimeMs
+      if (typeof ms === "number") return ms / 1000
+    } catch {}
+    const m = /uptime (\d+) s/.exec(body)
+    return m ? Number(m[1]) : NaN
+  }
+  // The knob restarts on set=restart; the 4.3B and the PaperS3 on
+  // set=latewifi=1, with WiFi held back a second (hil/late-wifi.js).
+  const knob = /knob/i.test(ddf.deviceId || "")
   const restart = async () => {
-    await get(`${base}/api/debug?set=latewifi=1`).catch(() => {})
+    const before = await uptime()
+    await get(`${base}/api/debug?set=${knob ? "restart" : "latewifi=1"}`).catch(() => {})
     await sleep(8000)
     await waitFor("the board did not come back after the restart", 120000)
     await sleep(eink ? 5000 : 3000)
+    const after = await uptime()
+    if (!(after < before)) throw new Error(`${device} did not restart: up ${before} s before, ${after} s after`)
   }
   // A first touch on a blanked panel only wakes it: on the empty bottom.
   const wake = () => tap(switcher.x + switcher.width / 2, Math.min(ddf.screen.height - 5, switcher.y + switcher.height + 8))
