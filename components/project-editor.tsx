@@ -435,6 +435,14 @@ export interface Topic {
   // send-mqtt action, and a hardware knob publishing "up"/"down" at a
   // brightness that no object in the project describes.
   mock?: MockRule[]
+  // A topic the display keeps itself (docs/2026-10-13-local-topics.md):
+  // a write sets its value there and is never published, and it is never
+  // subscribed - each display has its own value. lib/local-topics.ts
+  // answers whether a name is one. `initial` is its value when the display
+  // starts; without one it has no value yet, as a topic before its first
+  // message.
+  local?: boolean
+  initial?: string
 }
 
 // One command payload and what it does. `when` is matched against the

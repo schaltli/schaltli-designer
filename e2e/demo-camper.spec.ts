@@ -124,7 +124,7 @@ test("Energie first, then Licht, Wasser, two pages to come, and the navigator; t
   expect(alert({ "schaltli/state/tank/1/level": "15", "schaltli/state/tank/2/level": "50" })).toBe("true")
   expect(alert({ "schaltli/state/tank/1/level": "20", "schaltli/state/tank/2/level": "80" })).toBe("false")
   for (const name of ["MaxxFan", "Heizung"]) expect(JSON.stringify(screen(name).objects)).toContain("Coming soon")
-  const [pump, drain] = wasser.objects.filter((o) => o.type === "switch") as any[]
+  const [pump, drain] = wasser.objects.filter((o: { type: string }) => o.type === "switch") as any[]
   expect(pump.properties.topic).toBe("schaltli/state/relay/4/power")
   expect(pump.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
   expect(drain.properties.topic).toBe("schaltli/state/relay/3/power")

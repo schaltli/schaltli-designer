@@ -12,6 +12,7 @@
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
+import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
 import type { LiveValue } from "@/lib/live-value"
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
@@ -208,7 +209,9 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
     }
   }
   for (const screen of project.screens ?? []) walk(screen.objects ?? [])
-  return [...set]
+  // A local topic is the display's own and never subscribed
+  // (docs/2026-10-13-local-topics.md, decision 4).
+  return [...set].filter((topic) => !isLocalTopic(project.topics, topic))
 }
 
 // The topics a live preview redraws for at once (#58, docs/2026-10-09-
