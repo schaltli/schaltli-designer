@@ -56,7 +56,8 @@ const {
 const { loadDdf } = require("./ddf");
 const {
   buildProject,
-  screensPerInstall,
+  INSTALL_BUDGET_BYTES,
+  unpackedBytes,
   chunkProject,
 } = require("./build-project");
 
@@ -655,12 +656,29 @@ async function main() {
     `comparison: ${quantize ? `reference quantized to ${quantize}` : "no quantization declared"}`,
   );
 
-  const perInstall = screensPerInstall(ddf.screen, args.batch);
-  const chunks = chunkProject(project, screenTopics, perInstall);
-  console.log(
-    `installs:   ${chunks.length} (${perInstall} screen(s) each, ` +
-      `${((ddf.screen.width * ddf.screen.height * 3) / 1024 / 1024).toFixed(2)}MB of background per screen)`,
-  );
+  // As many screens per install as fit, measured rather than guessed
+  // (build-project.js, INSTALL_BUDGET_BYTES): every screen in one install
+  // first, halved until each install's files, unpacked, fit the budget.
+  // Until 2026-10-13 it counted a full-screen bitmap per screen that has not
+  // been exported since 2026-09-25 - 17 installs on the 4.3B, 315 s.
+  const exportChunk = async (chunk) =>
+    Buffer.from(await page.evaluate((p) => window.__buildDeviceZipForTest(p), { ...chunk, fonts: ddf.fonts }), "base64");
+  let perInstall = args.batch || project.screens.filter((s) => !s.isMaster).length;
+  let chunks;
+  const zips = new Map();
+  for (;;) {
+    chunks = chunkProject(project, screenTopics, perInstall);
+    if (args.batch) break;
+    let largest = 0;
+    for (const chunk of chunks) {
+      const zip = await exportChunk(chunk);
+      zips.set(chunk, zip);
+      largest = Math.max(largest, await unpackedBytes(zip));
+    }
+    if (largest <= INSTALL_BUDGET_BYTES || perInstall === 1) break;
+    perInstall = Math.ceil(perInstall / 2);
+  }
+  console.log(`installs:   ${chunks.length} (${perInstall} screen(s) each, measured against ${INSTALL_BUDGET_BYTES / 1024 / 1024} MB unpacked)`);
 
   const results = [];
   for (let bi = 0; bi < chunks.length; bi++) {
@@ -687,11 +705,7 @@ async function main() {
     console.log(
       `\n=== install ${bi + 1}/${chunks.length}: ${shown.map((s) => s.name).join(", ")}`,
     );
-    const base64 = await page.evaluate(
-      (p) => window.__buildDeviceZipForTest(p),
-      chunk,
-    );
-    const zipBuffer = Buffer.from(base64, "base64");
+    const zipBuffer = zips.get(chunks[bi]) || (await exportChunk(chunks[bi]));
     console.log(`  ${(zipBuffer.length / 1024).toFixed(0)}KB, installing ...`);
     await uploadProject(
       zipBuffer,

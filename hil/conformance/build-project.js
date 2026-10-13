@@ -8,6 +8,7 @@
 // the screens are named after the type for the same reason.
 
 const { SPECIMENS } = require("./specimens");
+const JSZip = require("jszip");
 
 // Types a device may still declare but the designer no longer makes.
 const RETIRED_TYPES = new Set(["live-text"]);
@@ -242,56 +243,27 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
   return { project, skipped, fontsWithData: fonts, taps, drags };
 }
 
-// How many screens can be installed at once.
+// How much one install may hold: the project's files as the board unpacks
+// them into LittleFS, measured from the real export (run.js) - not guessed
+// per screen, as until 2026-10-13, from a full-screen bitmap the export has
+// not carried since 2026-09-25 (docs/device-contract.md §2, "Static
+// content").
 //
-// NOTE 2026-09-25: the premise below no longer holds. The flattened
-// full-screen bitmap is not exported any more (docs/device-contract.md §2,
-// "Static content"); what a screen costs now is its icon, button and switch
-// bitmaps, twice at 24 bit for the dark variant - a few KB to a few hundred
-// KB, not width*height*3. The budget is therefore far too conservative. It is
-// left as it is until the suite is re-measured on the boards, because a
-// guess that overruns is the expensive direction (see the rest of this note).
-//
-// The export flattens each screen's static content into a full-screen 24-bit
-// bitmap, and the firmware inflates the zip into LittleFS, so what has to fit
-// is width*height*3 per screen - uncompressed, however well it zipped. On the
-// 4.3B that is 1.15MB a screen against a partition of a few megabytes, so a
-// project with a screen per object type does not fit and the install fails in
-// the least helpful way available: the upload's reply never arrives anyway,
-// so from the harness's side a rejected project looks exactly like an
-// accepted one, and the run then compares against whatever was already on the
-// device.
-//
-// Hence a budget rather than a fixed count: a 360x360 panel fits five screens
-// in the same space this one fits one, and neither number should be written
-// down here. 2MB is deliberately below the ~3MB an ESP32 default partition
-// table leaves for a filesystem, since the project's own JSON, fonts and icon
-// bitmaps have to live there too.
-// 1MB, lowered from 2MB on 2026-09-12 after filling a device's filesystem.
-//
-// Nothing here can see how much space a board actually has - the DDF does
-// not say, and there is no endpoint that does - so this number is a guess
-// about someone else's flash layout, and guessing high is the expensive
-// direction. The e-paper has a 1536KB filesystem; a 2MB budget let five of
-// its 400x300 screens through, the install ran out of space partway, and the
-// board was left with no working project at all and no room to write a new
-// one. Recovering it meant erasing the partition over USB, which also took
-// its WiFi credentials with it, because that firmware keeps them in a file
-// rather than in NVS.
-//
-// A guess that installs twice as often costs minutes. A guess that overruns
-// costs a device on the bench. So: conservative by default, --batch to
-// override when the board is known to have room.
-const INSTALL_BUDGET_BYTES = 1024 * 1024;
+// Every board left has the 16 MB layout with about 3.4 MB of filesystem
+// (default_16MB.csv). 1.5 MB keeps well below it: guessing high is the
+// expensive direction - the retired e-paper once filled its filesystem with
+// a project and could only be recovered over USB, its WiFi credentials gone
+// with the partition.
+const INSTALL_BUDGET_BYTES = 1.5 * 1024 * 1024;
 
-function screensPerInstall(screen, override) {
-  if (override) return override;
-  // Deliberately 3 bytes a pixel even for a 1-bit panel. What is exported is
-  // a full-colour bitmap per screen regardless of what the device does with
-  // it afterwards, and the figure is an upper bound on purpose - see the
-  // budget's own comment for which direction it is safe to be wrong in.
-  const perScreen = screen.width * screen.height * 3;
-  return Math.max(1, Math.floor(INSTALL_BUDGET_BYTES / perScreen));
+/** The bytes a zip's files take unpacked. */
+async function unpackedBytes(zipBuffer) {
+  const zip = await JSZip.loadAsync(zipBuffer);
+  let total = 0;
+  for (const file of Object.values(zip.files)) {
+    if (!file.dir) total += (await file.async("nodebuffer")).length;
+  }
+  return total;
 }
 
 // Splits a project into installable chunks, each a complete project carrying
@@ -319,4 +291,4 @@ function chunkProject(project, screenTopicsOf, size) {
   return chunks;
 }
 
-module.exports = { buildProject, slots, screensPerInstall, chunkProject };
+module.exports = { buildProject, slots, INSTALL_BUDGET_BYTES, unpackedBytes, chunkProject };
