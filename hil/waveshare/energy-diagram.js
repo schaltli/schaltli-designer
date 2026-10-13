@@ -126,7 +126,7 @@ function energyProject(ddf, mode, motion) {
 // A switcher on `view` with a moving Flow in its panel «flow» (its sun opens
 // the popup) and a box in its panel «none»; the popup holds another moving
 // Flow on its card.
-const POPUP_DIAGRAM = { x: 90, y: 110, width: 180, height: 140 }
+const POPUP_DIAGRAM = { x: 70, y: 100, width: 220, height: 160 }
 const VIEW = "view"
 
 function nestedProject(ddf) {
@@ -158,8 +158,10 @@ function nestedProject(ddf) {
       children: [panel("panel-flow", "flow", [{ ...diagram, x: 0, y: 0 }]), panel("panel-none", "none", [box])],
     },
   ]
+  // Sun, bus and fridge only: a storage's track and the rest would stand
+  // out of so small a box, and their dots with them.
   const scaled = diagram.properties.nodes
-    .filter((n) => n.role !== "rest")
+    .filter((n) => ["bus", "solar", "fridge"].includes(n.id))
     .map(({ action, ...n }) => ({ ...n, x: Math.round((n.x / DIAGRAM.width) * POPUP_DIAGRAM.width), y: Math.round((n.y / DIAGRAM.height) * POPUP_DIAGRAM.height) }))
   popup.objects = [
     { id: "popup-card", type: "box", zIndex: 1, ...POPUP_DIAGRAM, properties: { fillColor: "#ffffff", strokeColor: "#3a3a3a", strokeWidth: 2 } },
