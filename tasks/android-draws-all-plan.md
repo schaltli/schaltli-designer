@@ -29,8 +29,9 @@ as app v0.11.0.
    the pill and the level shape are. The live line uses it too.
 5. **A fixed icon** is drawn from the `path`/`pathDark` the export already
    gives it (`IconPathView`), with its background colour.
-6. **A text's background** fills its whole frame, not its line (found in
-   local-android, 2026-10-13).
+6. ~~A text's background fills its whole frame~~ - dropped: the designer
+   (render-text-box.ts, getBoundingBoxHeight) and the boards draw it one
+   font height tall too, so the app was right.
 7. **Tolerances:** the Android HIL compares with its existing tolerance;
    any rounding difference at a corner or a fillet that needs more is
    listed in the final report, not a reason to stop (the user, 2026-10-13).
@@ -41,7 +42,7 @@ as app v0.11.0.
   the designer's golden builder. Verify: the golden test green.
 - **D2 The app draws box, line, fixed icon, text background; no
   background picture; DDF `static-objects`.** `ScreenRenderer.kt`,
-  new `StaticObjectViews.kt`, `TextBoxView.kt`, `MqttDataLineView.kt`,
+  new `StaticObjectViews.kt`, `MqttDataLineView.kt`,
   `DdfBuilder.kt` (+test). Verify: unit tests, lint.
 - **D3 The export and Deploy.** `lib/android-export.ts` without the bake,
   `lib/deploy-plan.ts`/deploy dialog asking older apps; e2e
