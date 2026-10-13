@@ -191,6 +191,17 @@ function readResults(reportDir) {
 
 async function main() {
   const summary = []
+  // How long each block took: the time since the entry before it, so the
+  // summary says where a slow run spends its minutes.
+  const startedAt = Date.now()
+  let lastEntryAt = startedAt
+  const pushEntry = summary.push.bind(summary)
+  summary.push = (...entries) => {
+    const now = Date.now()
+    for (const entry of entries) entry.seconds = Math.round((now - lastEntryAt) / 1000)
+    lastEntryAt = now
+    return pushEntry(...entries)
+  }
 
   // First, and deliberately cheap: it needs no device, no broker and not
   // even the dev server, so it is the one step that can fail before
@@ -1230,8 +1241,10 @@ async function main() {
 
   console.log("\n=== Test Summary ===")
   for (const s of summary) {
-    console.log(`${s.name.padEnd(16)} ${s.status.padEnd(8)} ${s.detail}`)
+    console.log(`${s.name.padEnd(16)} ${s.status.padEnd(8)} ${String(s.seconds ?? "").padStart(5)} s  ${s.detail}`)
   }
+  console.log(`
+Total: ${Math.round((Date.now() - startedAt) / 60000)} min`)
   console.log("\nReports:")
   // Not every suite produces one - the MQTT deploy check has nothing to
   // show beyond its own output - so skip those rather than printing
