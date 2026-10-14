@@ -1158,6 +1158,24 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   })
+  // The knob's internal RAM under test-interface traffic: no leak, and the
+  // low-water mark since boot - after the suites before this one, on their
+  // project - above 32 KB. It lost its network at 684 bytes (2026-10-14).
+  step("knob", async () => {
+    console.log(`
+=== internal heap (knob, device: ${WAVESHARE_DEVICE}) ===`)
+    const exitCode = await run("node", ["hil/internal-heap.js", "--device", WAVESHARE_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "knob-internal-heap",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_DEVICE}`
+          : exitCode === 0
+            ? "no leak under snapshots and debug requests, room left for WiFi"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }, { quick: true })
   // A boot whose WiFi comes up late must still start serving. Both ports
   // returned from setup when the first ten seconds passed without a link,
   // leaving a board that answered ping and refused port 80 until its next
