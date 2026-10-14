@@ -405,14 +405,6 @@ async function main() {
 
   step("knob", async () => {
     console.log(`\n=== Waveshare HIL (device: ${WAVESHARE_DEVICE}) ===`)
-    // A hard reset first, over USB: after a few software restarts and much
-    // test traffic the knob loses its network - pingable, MQTT offline, HTTP
-    // silent, its loop still running - and only a hard reset brings it back.
-    // Seen with the release of 2026-10-14 morning too; the cause in the
-    // firmware is still open (tasks/connections-todo.md, Findings).
-    if ((await run("node", ["hil/test-interface.js", "reset", "--port", process.env.HIL_WAVESHARE_PORT || "COM4"], { cwd: REPO_ROOT })) === 0) {
-      for (let i = 0; i < 30 && (await httpGetStatus(`http://${WAVESHARE_DEVICE}/api/debug`)) !== 200; i++) await new Promise((r) => setTimeout(r, 2000))
-    }
     const waveshareReachable = (await httpGetStatus(`http://${WAVESHARE_DEVICE}/snapshot.bmp`)) === 200
     if (!waveshareReachable) {
       console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_DEVICE}/snapshot.bmp (set HIL_WAVESHARE_DEVICE to override)`)

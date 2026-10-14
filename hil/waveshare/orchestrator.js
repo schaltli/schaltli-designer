@@ -415,9 +415,9 @@ async function main() {
     mqttClient.on("message", onHello)
   })
 
-  // Over the broker, as the designer takes it (lib/announced-ddf.ts): the
-  // retained copy when it is the announced one, else asked for.
-  const servedDdf = new Uint8Array(await deviceDdf(instanceId, MQTT_URL, { hash: hello.ddfHash }))
+  // Asked for over the broker on every run (ddf/get), so the stream from
+  // flash is exercised, not a copy the broker kept.
+  const servedDdf = new Uint8Array(await deviceDdf(instanceId, MQTT_URL))
   const servedHash = computeDdfHash(servedDdf)
   const helloChecks = [
     ["announces a ddfHash", typeof hello.ddfHash === "string" && hello.ddfHash.length === 16, hello.ddfHash],

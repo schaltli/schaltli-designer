@@ -31,10 +31,8 @@ Push notification on a stop and at the end.
 - [x] C10 The app: the same test interface (Android HIL 22/22 and app-guards without adb; android-test-interface check; snapshot pixel-identical to screencap)
 - [x] C11 Handbook (verbindungen, mqtt, topics, deploy, einrichten, android; warnings #67/#68/#70 gone)
 - [ ] Checkpoint: test:all; releases; issues closed; forum draft
-  STOPPED 2026-10-14: test:all red on the knob (network loss at «Raste
-  stellt Regler», see Findings) - releases fw-2026.10.14.2 / app v0.13.0,
-  demo rollout and closing #70/#67/#68 wait for the user. Forum draft in
-  the session's scratchpad (forum-rajiva.md).
+  Stopped 2026-10-14 on the knob's network loss; found and fixed (Findings),
+  the user asked to investigate it.
 
 ## Findings
 
@@ -45,13 +43,14 @@ Push notification on a stop and at the end.
   bytes went out as 31631 and the broker dropped the board. The firmware
   writes the PUBLISH header itself now.
 
-- The knob loses its network after a few software restarts and much HIL
-  traffic: pingable, MQTT offline, HTTP silent, its loop alive (it answers
-  hil? over USB); only a hard reset helps. Same with the release of the
-  morning (fw-2026.10.14.1), so older than C9; its internal heap is
-  ~14-18 KB. A designer asking ddf/get on every run made it come sooner.
-  Cause in the firmware open - nothing of it in normal operation, where the
-  test interface is off.
+- The knob lost its network after minutes of HIL (pingable, MQTT offline,
+  HTTP silent, loop alive): found 2026-10-14 with hil-diag over USB. The
+  S3's USB serial counts as connected once a host has read or written -
+  hil-on, hil?, a monitor - and from then on every print with nobody
+  reading waited up to 100 ms. The knob logs a lot; its loop starved WiFi
+  and MQTT. Serial.setTxTimeoutMs(0) on every board fixes it (3 runs green
+  in the state that failed every second run before). It began today because
+  today was the first time HIL touched the boards' USB after boot.
 
 ## Weakened checks and tolerances (to report at the end)
 
@@ -60,9 +59,4 @@ Push notification on a stop and at the end.
   shared broker asks a hello it sees. "Never asked" stays exact.
 - hil/test-all.js: the 4.3B's pixel-clock measurement runs after the lanes
   (it measures the WiFi the parallel boards share); same assertion.
-- hil/test-all.js: the knob is hard-reset over USB before its HIL run
-  (the finding above); hides the network loss instead of failing on it.
-- hil/waveshare/orchestrator.js: the description is taken retained when its
-  hash is the announced one, as the designer takes it, rather than asked
-  for on every run.
 - e2e/demo-van.spec.ts: the bridge test runs @alone (after the lanes).
