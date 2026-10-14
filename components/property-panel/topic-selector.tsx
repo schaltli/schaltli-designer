@@ -9,6 +9,7 @@ import { splitTopicPath } from "@/lib/json-path"
 import { SubtopicPicker } from "./subtopic-picker"
 import { ChevronRight, ChevronDown } from "lucide-react"
 import { useState } from "react"
+import { topicTree as buildTopicTree, ancestorPaths, type TopicTreeNode } from "@/lib/topic-tree"
 
 interface TopicSelectorProps {
   selectedTopicId?: string
@@ -28,68 +29,9 @@ interface TopicSelectorProps {
   allowSubtopics?: boolean
 }
 
-interface TopicTreeNode {
-  name: string
-  fullPath: string
-  isLeaf: boolean
-  topic?: Topic // Only present for leaf nodes (actual topics)
-  children: Map<string, TopicTreeNode>
-  level: number
-}
-
-function buildTopicTree(topics: Topic[]): TopicTreeNode {
-  const root: TopicTreeNode = {
-    name: "",
-    fullPath: "",
-    isLeaf: false,
-    children: new Map(),
-    level: 0,
-  }
-
-  topics.forEach((topic) => {
-    const parts = topic.topic.split("/")
-    let currentNode = root
-
-    parts.forEach((part, index) => {
-      const isLastPart = index === parts.length - 1
-      const fullPath = parts.slice(0, index + 1).join("/")
-
-      if (!currentNode.children.has(part)) {
-        currentNode.children.set(part, {
-          name: part,
-          fullPath,
-          isLeaf: isLastPart,
-          topic: isLastPart ? topic : undefined,
-          children: new Map(),
-          level: index + 1,
-        })
-      }
-
-      currentNode = currentNode.children.get(part)!
-
-      // If this is the last part, mark it as a leaf and attach the topic
-      if (isLastPart) {
-        currentNode.isLeaf = true
-        currentNode.topic = topic
-      }
-    })
-  })
-
-  return root
-}
-
-// Every ancestor path segment of `topicPath` (NOT including the topic
-// itself) - e.g. "A/B/C" -> ["A", "A/B"]. Used to auto-expand exactly the
-// tree branches that need to be open for the current selection to be
-// visible, without expanding anything else.
-function ancestorPaths(topicPath: string): string[] {
-  const parts = topicPath.split("/")
-  const ancestors: string[] = []
-  for (let i = 1; i < parts.length; i++) {
-    ancestors.push(parts.slice(0, i).join("/"))
-  }
-  return ancestors
-}
+// The tree is the one of every topic list (lib/topic-tree.ts,
+// docs/2026-10-14-topic-discovery.md decision 3).
+const depth = (n: TopicTreeNode<Topic>) => n.path.split("/").length
 
 export function TopicSelector({
   selectedTopicId,
@@ -126,7 +68,7 @@ export function TopicSelector({
   const selectedSubtopic = selectedPath ? selectedTopic?.subtopics?.find((s) => s.path === selectedPath) : undefined
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
-  const topicTree = buildTopicTree(topics)
+  const topicTree = buildTopicTree(topics.map((t) => ({ topic: t.topic, item: t })))
 
   const handleToggleExpand = (path: string) => {
     const newExpanded = new Set(expandedNodes)
@@ -147,22 +89,22 @@ export function TopicSelector({
     setExpandedNodes(selectedTopic ? new Set(ancestorPaths(selectedTopic.topic)) : new Set())
   }
 
-  const renderTreeNodes = (node: TopicTreeNode): React.ReactNode[] => {
+  const renderTreeNodes = (node: TopicTreeNode<Topic>): React.ReactNode[] => {
     const nodes: React.ReactNode[] = []
 
     const sortedChildren = Array.from(node.children.values()).sort((a, b) => {
       // Sort: abstract nodes first, then leaf nodes, alphabetically within each group
-      if (a.isLeaf !== b.isLeaf) {
-        return a.isLeaf ? 1 : -1
+      if ((a.item !== undefined) !== (b.item !== undefined)) {
+        return a.item !== undefined ? 1 : -1
       }
       return a.name.localeCompare(b.name)
     })
 
     sortedChildren.forEach((child) => {
-      const isExpanded = expandedNodes.has(child.fullPath)
+      const isExpanded = expandedNodes.has(child.path)
       const hasNestedChildren = child.children.size > 0
 
-      if (child.isLeaf && child.topic) {
+      if (child.item) {
         // Render selectable topic (leaf node) - every registered topic is
         // a plain, directly-selectable pick here regardless of type,
         // including "json" ones. A JSON topic's fields are never offered
@@ -172,22 +114,22 @@ export function TopicSelector({
         // it's relative to, and it can never be a publish destination on
         // its own either way (see allowSubtopics's own doc comment).
         nodes.push(
-          <SelectItem key={child.topic.topic} value={child.topic.topic}>
-            <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${child.level * 12}px` }}>
+          <SelectItem key={child.item.topic} value={child.item.topic}>
+            <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${depth(child) * 12}px` }}>
               <span className="truncate flex-1 min-w-0" title={child.name}>
                 {child.name}
               </span>
               <span
                 className={cn(
                   "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                  child.topic.type === "numeric"
+                  child.item.type === "numeric"
                     ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                    : child.topic.type === "json"
+                    : child.item.type === "json"
                       ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                       : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
                 )}
               >
-                {child.topic.type}
+                {child.item.type}
               </span>
             </div>
           </SelectItem>,
@@ -203,12 +145,12 @@ export function TopicSelector({
         if (hasNestedChildren) {
           nodes.push(
             <div
-              key={`nested-toggle-${child.fullPath}`}
+              key={`nested-toggle-${child.path}`}
               className="flex items-center px-2 py-1 cursor-pointer hover:bg-accent"
-              style={{ paddingLeft: `${child.level * 12 + 8}px` }}
-              onClick={() => handleToggleExpand(child.fullPath)}
+              style={{ paddingLeft: `${depth(child) * 12 + 8}px` }}
+              onClick={() => handleToggleExpand(child.path)}
               role="button"
-              aria-label={`${isExpanded ? "Hide" : "Show"} topics nested under ${child.topic.topic}`}
+              aria-label={`${isExpanded ? "Hide" : "Show"} topics nested under ${child.item.topic}`}
             >
               {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </div>,
@@ -223,10 +165,10 @@ export function TopicSelector({
         // with no topic of its own, purely structural.
         nodes.push(
           <div
-            key={`header-${child.fullPath}`}
+            key={`header-${child.path}`}
             className="flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground cursor-pointer hover:bg-accent"
-            style={{ paddingLeft: `${child.level * 12 + 8}px` }}
-            onClick={() => handleToggleExpand(child.fullPath)}
+            style={{ paddingLeft: `${depth(child) * 12 + 8}px` }}
+            onClick={() => handleToggleExpand(child.path)}
           >
             {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             <span className="font-medium">{child.name}</span>
