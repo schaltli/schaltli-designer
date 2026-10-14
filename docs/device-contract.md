@@ -28,9 +28,21 @@ re-entering screen specs. Schema lives in `lib/device-description.ts`.
 
 A device becomes known to a running instance one of three ways: curated (a
 `.zip` checked into the designer's own `public/ddf/`), live MQTT
-announcement (device publishes `url` in its `hello`, see §4's "Deploy-flow
-topics"), or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes
-a URL on the Startup Gate).
+announcement (the device's retained `hello` names its `ddfHash`, and the
+device hands the zip itself over the broker on `ddf` - see §4's
+"Deploy-flow topics"), or manual URL import (`app/api/ddf/fetch/route.ts`,
+a human pastes a URL on the Startup Gate).
+
+**No device has a server open for its description** (2026-10-14,
+schaltli-designer#70). Until then a device served its zip over HTTP at the
+`url` its `hello` named - a board at `http://<ip>/ddf.zip`, the Android app
+at `:8080/ddf.zip` - and the designer's server fetched it from there. That
+needed the designer to reach every device directly, which a designer in a
+VM behind NAT cannot, and it left a door open on every device that no
+broker rule covered. Now everything a device says goes over the broker, so
+the broker's own rules - user, password, topic rights - apply to it. The
+designer still reads a `url` from an older device's `hello` and fetches
+from it as before; a device of this contract never sends one.
 
 Every *board* maintained alongside the designer is curated, as of 2026-09-12
 when the Waveshare knob joined the other three; the Android app announces
@@ -42,9 +54,9 @@ for a device the designer has never heard of.
 
 The Android app was curated until 2026-09-21 and is now announced like any
 board: it builds its DDF at runtime from the screen the phone actually has,
-serves it at `http://<phone>:8080/ddf.zip` and points a retained `hello` at
-it (`schaltli-android`'s `ddf/DdfBuilder.kt`, `DdfServer.kt`). There is no
-`public/ddf/android-phone.ddf.zip` any more.
+hands it over the broker like every board (`schaltli-android`'s
+`ddf/DdfBuilder.kt`; until 2026-10-14 `DdfServer.kt` served it at
+`:8080/ddf.zip`). There is no `public/ddf/android-phone.ddf.zip` any more.
 
 A curated file could not be right here, and the reason generalises: it holds
 one screen size, and "Android phone" is a class of devices whose sizes all
@@ -220,7 +232,7 @@ an identity, not a version: it has no ordering, only "same or not", which
 is the only question a DDF version was ever asked. Nothing authors it, so
 nothing can forget to bump it — the failure that produced the 1.7/1.9
 history below. A *running* device optionally publishes that hash as
-`ddfHash` alongside `url` in its MQTT `hello` to self-announce for the
+`ddfHash` in its MQTT `hello` to self-announce for the
 designer's "Announced Devices" auto-discovery — see §4's "Deploy-flow
 topics" for that mechanism.
 
@@ -1343,22 +1355,34 @@ e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
     has no firmware this designer could offer it, so the deploy dialog says
     where the app comes from instead of showing a release, an upload and an
     update badge that nobody could use (2026-09-21).
-  - `url` is optional — a device that omits it is treated as "doesn't
-    self-announce its DDF" and is silently skipped by the designer's
-    "Announced Devices" auto-discovery
-    (`components/device-scan-section.tsx`); a device that includes it must
-    serve its own DDF zip at `url` (e.g. `GET http://<device-ip>/ddf.zip`)
-    unauthenticated, byte-identical to what it ships embedded. See §1 for
-    the DDF zip format itself.
-  - `ddfHash` is optional and is the identity of exactly those bytes (§1):
-    `sha256` of the served zip, first 16 hex characters, lowercase. Compute
-    it in the build step that emits `ddf_zip.h` — it hashes the bytes it
-    just wrote, so it cannot drift from them. **The designer verifies it**:
-    if the bytes fetched from `url` hash to something else, the fetch is
-    refused rather than cached, so an announcement that lies is visible
-    instead of silently poisoning the designer's copy. Omit it and the
-    designer simply hashes what it downloads (one fetch per session, no
-    check possible).
+  - `ddfHash` says the device self-announces its DDF and is the identity of
+    exactly those bytes (§1): `sha256` of the zip, first 16 hex characters,
+    lowercase. Compute it in the build step that emits `ddf_zip.h` — it
+    hashes the bytes it just wrote, so it cannot drift from them. A device
+    without it is skipped by the designer's "Announced Devices"
+    auto-discovery (`components/device-scan-section.tsx`). **The designer
+    verifies it**: bytes that hash to something else are refused rather
+    than cached, so an announcement that lies is visible instead of
+    silently poisoning the designer's copy.
+  - `url` is **gone** (2026-10-14, #70): it named where the device served
+    its zip over HTTP. The designer still fetches from it when an older
+    device sends one; a device of this contract never does.
+- `ddf/get` — not retained, any payload, published by the browser when it
+  needs this device's description: no retained `ddf` on the broker, or one
+  whose hash is not the `hello`'s `ddfHash`. The device answers by
+  publishing `ddf`. Nothing asks twice for the same hash in one session.
+- `ddf` — **retained**, the DDF zip's raw bytes (about 300 KB), published
+  by the device only when asked on `ddf/get`, so the next designer to
+  connect finds it without asking and a reconnect sends nothing. A board
+  streams it from flash (PubSubClient `beginPublish`/`write`/`endPublish`,
+  so its 1 KB buffer is enough). The browser posts the bytes to the
+  designer's `/api/ddf/upload`, which checks them as `/api/ddf/fetch` does.
+  A broker with a message size limit below that refuses it - the designer
+  then says no description arrived.
+- `recovery/get` / `recovery` — the same pair for the project a device
+  keeps for recovery (the «recover» dialog): not retained, answered once;
+  an empty `recovery` means the device has none. Until 2026-10-14 this was
+  `GET /recovery-project` on the test interface.
   - `systemGeneration` is optional, `"major.minor"`, and declares what this
     firmware can read (`lib/system-generation.ts`). The deploy dialog checks
     it *before* uploading a project zip, so a device on an older major says
@@ -1728,6 +1752,16 @@ postRenderSettleMs
 ```
 
 Only used by `hil/*/orchestrator.js`, never by the designer app itself.
+
+**Off from the factory, on with a password** (2026-10-14, #70). The test
+interface is an HTTP server, and in normal operation no device has one
+open. It is switched on at the device - a board in its setup portal's
+device tab, the app in its settings - together with a password, and stays
+on across restarts until switched off. While it is off nothing listens on
+its port. While it is on, every request carries
+`Authorization: Bearer <password>` and is refused with `401` otherwise.
+HIL takes the password from `HIL_PASSWORD` in `.env.local`. The device
+settings a board offered at `/settings` stay in its setup portal.
 `"{ip}"` in any URL is a placeholder the orchestrator substitutes with the
 real device address. The e-paper reference exposes all of this at
 `/api/project` (setup-mode only), `/api/screen` (`index=N` form field),
