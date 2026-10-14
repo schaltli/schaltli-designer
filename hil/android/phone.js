@@ -55,18 +55,26 @@ const swipe = (x1, y1, x2, y2, ms = 250) =>
 const setDisplayOff = (seconds) => request("/api/device-settings", { method: "POST", form: { displayOffSeconds: seconds } })
 
 // The app afresh, process and all, and back answering.
+// Back means the window at its full size again: right after a start the
+// system bars are still there and the window is shorter (2037 instead of
+// 2240 on the P20) until full screen takes hold - a swipe then landed a
+// screen short, and every comparison after it was off by one (2026-10-14).
 async function restart(timeoutMs = 30_000) {
+  const before = await debug()
   await request("/api/restart", { method: "POST" })
   await new Promise((r) => setTimeout(r, 1500))
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
       const d = await debug()
-      if (d.width > 0) return d
+      if (d.width === before.width && d.height === before.height) {
+        await new Promise((r) => setTimeout(r, 1000))
+        return d
+      }
     } catch {}
     await new Promise((r) => setTimeout(r, 500))
   }
-  throw new Error("The app did not come back after a restart")
+  throw new Error(`The app did not come back at its full size (${before.width}x${before.height}) after a restart`)
 }
 
 // This machine's IPv4 address on the phone's network, for a file the phone
