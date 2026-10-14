@@ -8,7 +8,8 @@ import { extractJsonField } from "@/lib/json-path"
 import { FIELDS, parse } from "@/lib/placeholders"
 
 export interface ReferenceEntry {
-  section: "topic" | "combined" | "device" | "project"
+  /** "heard": a topic the designer heard on the broker that the project lacks yet. */
+  section: "topic" | "heard" | "combined" | "device" | "project"
   /** What is written between the braces: `topic:a/b#temp`, `device:model`. */
   reference: string
   /** The type for a topic, a short description for a field. */
@@ -23,14 +24,28 @@ const FIELD_DETAILS: Record<string, string> = {
   "project:name": "the project's name",
 }
 
+/** A topic heard on the broker, as the completion offers it. */
+export interface HeardReference {
+  topic: string
+  type: string
+  /** The latest payload heard. */
+  latest?: string
+}
+
 /**
  * What stage one offers for a query, in section order: the project's topics
- * (a JSON topic also once per declared field), then device and project
- * fields. The query matches anywhere in the reference or in the example -
+ * (a JSON topic also once per declared field), then the topics heard on the
+ * broker that the project lacks (docs/2026-10-14-topic-discovery.md,
+ * decision 4), then device and project fields. The query matches anywhere in the reference or in the example -
  * `küch` finds the topic whose example is «Küche» - and a namespace
  * typed in front (`topic:kitchen`) keeps to that section.
  */
-export function referenceEntries(query: string, topics: Topic[], combined: readonly { name: string }[] = []): ReferenceEntry[] {
+export function referenceEntries(
+  query: string,
+  topics: Topic[],
+  combined: readonly { name: string }[] = [],
+  heard: readonly HeardReference[] = [],
+): ReferenceEntry[] {
   const all: ReferenceEntry[] = []
   for (const topic of topics) {
     const first = topic.examples?.[0]
@@ -44,6 +59,8 @@ export function referenceEntries(query: string, topics: Topic[], combined: reado
       })
     }
   }
+  const declared = new Set(topics.map((t) => t.topic))
+  for (const h of heard) if (!declared.has(h.topic)) all.push({ section: "heard", reference: `topic:${h.topic}`, detail: h.type, example: h.latest })
   // Combined topics after the topics they are made of (lib/combined-topics.ts).
   for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: "yes / no" })
   for (const namespace of ["device", "project"] as const) {
@@ -63,7 +80,7 @@ export function referenceEntries(query: string, topics: Topic[], combined: reado
   }
   return all.filter(
     (entry) =>
-      (!section || entry.section === section) &&
+      (!section || entry.section === section || (section === "topic" && entry.section === "heard")) &&
       (term === "" ||
         entry.reference.toLowerCase().includes(term) ||
         (entry.example !== undefined && entry.example.toLowerCase().includes(term))),

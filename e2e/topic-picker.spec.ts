@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test"
 import path from "path"
 import { readFile } from "fs/promises"
 import JSZip from "jszip"
-import { loadProject, objectTreeRow } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow, placingFreely } from "./helpers"
 import { ownBroker, useOwnBroker, heardOn, type OwnBroker } from "./own-broker"
 
 // The Topic Picker offers what the designer heard beside the project's
@@ -104,5 +104,46 @@ test.describe("the Topic Picker and what was heard", () => {
     await expect(page.getByText(/^Add topic/)).toHaveCount(0)
     await search(page).fill("pkw tank")
     await expect(page.getByText(/^Add topic/)).toHaveCount(0)
+  })
+})
+
+// The `{` search of a text offers the heard topics after the project's;
+// picking one adds it (topic-picker, decision 6).
+test.describe("the value search of a text and what was heard", () => {
+  let own: OwnBroker
+  test.beforeEach(async ({ page }) => {
+    own = await ownBroker()
+    await own.publish("pkw/tele/water/fresh", "64", true)
+    await useOwnBroker(page, own.url)
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await expect.poll(() => heardOn(page, "pkw/tele/water/fresh"), { timeout: 5000 }).not.toBeNull()
+  })
+  test.afterEach(async () => {
+    await own.close()
+  })
+
+  test("«water/fresh» offers the heard topic under its own heading; picked, it is added and read", async ({ page }) => {
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 220, 224)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await placingFreely(page, async () => {
+      await page.mouse.move(to.x, to.y, { steps: 5 })
+      await page.mouse.up()
+    })
+    await expect(page.locator("#text")).toBeFocused()
+    await page.keyboard.type("Tank ")
+    await page.keyboard.type("{")
+    await expect(page.getByTestId("live-value-search")).toBeFocused()
+    // «fresh» alone finds the project's Freshwater/Level first.
+    await page.keyboard.type("water/fresh")
+    const heardGroup = page.getByTestId("placeholder-picker").getByRole("group", { name: "Heard on the broker" })
+    await expect(heardGroup.getByRole("option", { name: /pkw\/tele\/water\/fresh/ })).toBeVisible()
+    await page.keyboard.press("Enter")
+
+    const saved = await savedProject(page)
+    expect(saved.topics.find((t) => t.topic === "pkw/tele/water/fresh")).toMatchObject({ type: "numeric", examples: ["64"] })
   })
 })

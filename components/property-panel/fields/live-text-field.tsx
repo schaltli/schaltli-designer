@@ -17,7 +17,10 @@
  * so the browser's own undo, which brings the chip back, finds it there.
  */
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useHeardTopics } from "@/lib/broker-store"
+import { TopicAdderContext } from "@/components/topic-adder-context"
+import { topicFromHeard } from "@/components/property-panel/topic-selector"
 import type { Topic } from "@/components/project-editor"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { referenceEntries, placeholderProblems } from "@/lib/placeholder-completion"
@@ -74,7 +77,7 @@ const CLIPBOARD_TYPE = "web application/x-schaltli-live-text"
 
 export const LIVE_TEXT_HINT = "Type { to insert a value. Click a value to set how it shows."
 
-const HEADINGS = { topic: "Topics", combined: "Combined", device: "Device", project: "Project" } as const
+const HEADINGS = { topic: "Topics", heard: "Heard on the broker", combined: "Combined", device: "Device", project: "Project" } as const
 
 /** The stored string the field's DOM stands for. */
 function serialize(root: Node): string {
@@ -259,7 +262,15 @@ export function LiveTextField({
     [value, topics],
   )
 
-  const entries = useMemo(() => referenceEntries(query, topics, combinedTopics), [query, topics, combinedTopics])
+  // Topics heard on the broker, after the project's; picking one adds it
+  // (docs/2026-10-14-topic-discovery.md, decision 4).
+  const addTopic = useContext(TopicAdderContext)
+  const heard = useHeardTopics()
+  const heardReferences = useMemo(
+    () => (addTopic ? [...heard.topics.values()].map((h) => ({ topic: h.topic, type: h.type, latest: h.messages[0]?.payload })) : []),
+    [heard.topics, addTopic],
+  )
+  const entries = useMemo(() => referenceEntries(query, topics, combinedTopics, heardReferences), [query, topics, combinedTopics, heardReferences])
   useEffect(() => setHighlight(0), [query])
   useEffect(() => {
     if (!searching) return
@@ -307,7 +318,11 @@ export function LiveTextField({
     if (!root) return
     const colon = reference.indexOf(":")
     const source: Source = { namespace: reference.slice(0, colon) as Source["namespace"], path: reference.slice(colon + 1) }
-    const topic = source.namespace === "topic" ? topics.find((t) => t.topic === source.path.split("#")[0]) : undefined
+    const bare = source.path.split("#")[0]
+    const declared = source.namespace === "topic" ? topics.find((t) => t.topic === bare) : undefined
+    const fromBroker = source.namespace === "topic" && !declared ? heard.topics.get(bare) : undefined
+    if (fromBroker && addTopic) addTopic(topicFromHeard(fromBroker, false))
+    const topic = declared ?? (fromBroker ? { type: fromBroker.type } : undefined)
     const lv: LiveValue = { id: nextLiveValueId(liveValues), source, rules: [] }
     // A number reads with one decimal unless set otherwise in its editor.
     // An older project writes the type "number".
@@ -553,7 +568,7 @@ export function LiveTextField({
     if (!group) groups.push((group = { heading, entries: [] }))
     group.entries.push({
       reference: entry.reference,
-      text: entry.reference.slice(entry.section.length + 1),
+      text: entry.reference.slice(entry.reference.indexOf(":") + 1),
       detail: entry.detail,
       example: entry.example,
       index: index++,
