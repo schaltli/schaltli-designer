@@ -22,7 +22,7 @@ Push notification on a stop and at the end.
 
 ## Phase 2
 - [x] C6 One broker login (#67) (e2e/broker-login.spec.ts)
-- [ ] C7 The designer's address can be set
+- [x] C7 The designer's address can be set (e2e/device-facing-url.spec.ts @alone)
 - [ ] C8 No mqtts:// in the portal
 - [ ] Checkpoint: test:quick
 

@@ -56,6 +56,7 @@ import { FirmwareUpdateSection, type ReleaseImage } from "./firmware-update-sect
 import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
 import { loadAnnouncedDdf } from "@/lib/announced-ddf"
+import { DeviceAddressLine } from "./device-address-line"
 
 interface DeployDialogProps {
   project: Project
@@ -840,6 +841,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   </div>
                 )}
               </div>
+
+              <DeviceAddressLine />
 
               {switchedNote && (
                 <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="switched-device-note">

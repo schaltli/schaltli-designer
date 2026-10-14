@@ -1,4 +1,5 @@
 import os from "os"
+import { configuredDeviceAddress } from "@/lib/device-address"
 
 // Server-side counterpart to the retired e-paper orchestrator's localLanAddress()
 // helper - same bug, same fix, different caller. app/api/deploy/route.ts
@@ -64,8 +65,19 @@ export function devicePort(request: Request): string {
 }
 
 export function deviceFacingUrl(request: Request, path: string): string {
-  const lanAddress = serverLanAddress()
   const requestUrl = new URL(request.url)
-  const host = lanAddress ? `${lanAddress}:${devicePort(request)}` : requestUrl.host
-  return `${requestUrl.protocol}//${host}${path}`
+  return `${requestUrl.protocol}//${deviceFacingHost(request)}${path}`
+}
+
+// The host[:port] a device downloads from: the one set by hand when there is
+// one (lib/device-address.ts), else the one found here.
+export function deviceFacingHost(request: Request): string {
+  const configured = configuredDeviceAddress()
+  if (configured) return /:\d+$/.test(configured) ? configured : `${configured}:${devicePort(request)}`
+  return detectedDeviceHost(request)
+}
+
+export function detectedDeviceHost(request: Request): string {
+  const lanAddress = serverLanAddress()
+  return lanAddress ? `${lanAddress}:${devicePort(request)}` : new URL(request.url).host
 }
