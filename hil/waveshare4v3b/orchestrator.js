@@ -25,7 +25,7 @@
 //   5. compare strictly, pixel for pixel
 //
 // The project under test defaults to whatever is installed on the device,
-// fetched back from GET /recovery-project. That is deliberate for a first
+// fetched back over the broker (recovery/get). That is deliberate for a first
 // run: it needs no fixture, and it asks the question about the project this
 // board is actually doing its job with. Pass --project to use a zip instead.
 //
@@ -62,6 +62,7 @@ const { buildReport, comparePixels } = require("../report-template")
 const { withEmbeddedAssetData } = require("../waveshare/project-assets")
 const { withDdfFontData } = require("./ddf-fonts")
 const { combinationCount, combinationOverrides } = require("../combinations")
+const { instanceAt, deviceRecovery } = require("../device-mqtt")
 
 const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
@@ -93,11 +94,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // firmware keeps it outside /PROJECT precisely so it survives an install, and
 // serving it is what lets a run compare against reality rather than against a
 // fixture that may have drifted from it.
+//
+// Asked for over the broker (recovery/get), as the designer's «recover»
+// dialog asks since 2026-10-14 (#70).
 async function fetchInstalledProject() {
-  const res = await fetch(`http://${deviceHost}/recovery-project`, { signal: AbortSignal.timeout(30000) })
-  if (res.status === 404) throw new Error("the device has no recovery copy - deploy a project first, or pass --project")
-  if (!res.ok) throw new Error(`GET /recovery-project failed: HTTP ${res.status}`)
-  return Buffer.from(await res.arrayBuffer())
+  const instanceId = await instanceAt(deviceHost, BROKER_URL)
+  if (!instanceId) throw new Error(`no device on ${BROKER_URL} says its test interface is at ${deviceHost}`)
+  const bytes = await deviceRecovery(instanceId, BROKER_URL)
+  if (bytes.length === 0) throw new Error("the device has no recovery copy - deploy a project first, or pass --project")
+  return Buffer.from(bytes)
 }
 
 // Re-exports the editable copy the device carries, through the designer

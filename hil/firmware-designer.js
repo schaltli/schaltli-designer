@@ -40,6 +40,7 @@ const os = require("os")
 const path = require("path")
 const crypto = require("crypto")
 const mqtt = require("mqtt")
+const { instanceAt } = require("./device-mqtt")
 const JSZip = require("jszip")
 const { chromium } = require("playwright")
 const { get, readBoot, waitForBoot, loadBuild } = require("./firmware-common")
@@ -69,7 +70,11 @@ function skip(message, code) {
 
 // The board's MQTT client id - its instance id in the dialog - from its
 // retained hello, matched by the DDF url on its own address.
+// Which instance is this board: the one whose test interface is at its
+// address (its hello names no address since 2026-10-14, #70).
 async function findInstanceId(device) {
+  const wanted = await instanceAt(device, brokerUrl)
+  if (!wanted) throw new Error(`no device on the broker says its test interface is at ${device}`)
   const client = mqtt.connect(brokerUrl, { connectTimeout: 5000, reconnectPeriod: 0 })
   try {
     return await new Promise((resolve, reject) => {
@@ -81,7 +86,7 @@ async function findInstanceId(device) {
         if (!m || payload.length === 0) return
         try {
           const hello = JSON.parse(payload.toString())
-          if (hello.url && hello.url.startsWith(`http://${device}/`)) {
+          if (hello.deviceId && m[1] === wanted) {
             clearTimeout(timer)
             resolve(m[1])
           }

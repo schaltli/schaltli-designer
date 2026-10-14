@@ -27,6 +27,7 @@ const os = require("os")
 const path = require("path")
 const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
+const { instanceAt } = require("./device-mqtt")
 const JSZip = require("jszip")
 const { chromium } = require("playwright")
 const { Jimp } = require("jimp")
@@ -213,13 +214,15 @@ async function main() {
 
   const browser = await chromium.launch()
   try {
-    // The board says it opens popups.
+    // The board says it opens popups. Its hello is found by its test
+    // interface's address (the hello names none since 2026-10-14, #70).
+    const wanted = await instanceAt(device, BROKER_URL)
     const hello = await new Promise((resolve) => {
       const found = []
       const onMessage = (topic, payload) => {
         try {
           const h = JSON.parse(payload.toString())
-          if (String(h.url || "").includes(`//${device}`)) found.push(h)
+          if (topic === `schaltli/${wanted}/hello`) found.push(h)
         } catch {}
       }
       client.on("message", onMessage)

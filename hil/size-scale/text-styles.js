@@ -325,7 +325,7 @@ async function upload(zipPath, host) {
   const deadline = Date.now() + 90000
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`http://${host}/ddf.zip`, { signal: AbortSignal.timeout(4000) })
+      const res = await fetch(`http://${host}/api/debug`, { signal: AbortSignal.timeout(4000) })
       if (res.ok) return true
     } catch {
       // still rebooting

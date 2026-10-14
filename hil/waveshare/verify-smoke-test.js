@@ -26,6 +26,7 @@ const JSZip = require("jszip")
 const http = require("http")
 
 const ip = process.argv[2]
+const { instanceAt, deviceRecovery } = require("../device-mqtt")
 const skipUpload = process.argv.includes("--skip-upload")
 if (!ip) {
   console.error("usage: node hil/waveshare/verify-smoke-test.js <device-ip> [--skip-upload]")
@@ -120,7 +121,7 @@ async function waitForDevice(timeoutMs = 60000) {
     // path on Windows. -f makes curl exit non-zero on an HTTP error too.
     let ok = true
     try {
-      execFileSync("curl", ["-s", "-f", "-m", "4", "-o", probe, `http://${ip}/ddf.zip`], { stdio: "ignore" })
+      execFileSync("curl", ["-s", "-f", "-m", "4", "-o", probe, `http://${ip}/api/debug`], { stdio: "ignore" })
     } catch {
       ok = false
     }
@@ -982,8 +983,16 @@ async function main() {
   // worst possible moment, since this is the copy someone reaches for after
   // losing their project.
   console.log("\n--- recovery copy ---")
-  const recovery = curl(["-s", "-f", "-m", "45", `http://${ip}/recovery-project`], { allowFailure: true })
-  check("GET /recovery-project serves something", recovery.length > 0, `${recovery.length} bytes`)
+  // Asked for over the broker since 2026-10-14 (recovery/get), as the
+  // designer's «recover» dialog asks (#70).
+  let recovery = Buffer.alloc(0)
+  try {
+    const instanceId = await instanceAt(ip)
+    if (instanceId) recovery = await deviceRecovery(instanceId)
+  } catch (e) {
+    console.log(`  (${e.message})`)
+  }
+  check("recovery/get answers with something", recovery.length > 0, `${recovery.length} bytes`)
   if (recovery.length > 0) {
     const zip = await JSZip.loadAsync(recovery)
     const inner = zip.file("_source/project.zip")

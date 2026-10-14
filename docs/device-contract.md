@@ -1383,6 +1383,15 @@ e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
   keeps for recovery (the «recover» dialog): not retained, answered once;
   an empty `recovery` means the device has none. Until 2026-10-14 this was
   `GET /recovery-project` on the test interface.
+- `test-interface` — retained, `{url}`, where this device's test interface
+  answers (§6), for HIL only: published while it is switched on, emptied
+  while it is off. HIL finds a board by it now that `hello` names no
+  address (`hil/device-mqtt.js`).
+- A payload larger than PubSubClient 2.8 can announce (it builds the
+  remaining length from a `uint16_t`, so 64 KB) is written with a header of
+  the device's own: a 293775-byte description went out announced as 31631
+  bytes, and the broker dropped the connection on the rest
+  (schaltli-firmware `MqttClient::beginLargePublish`, 2026-10-14).
   - `systemGeneration` is optional, `"major.minor"`, and declares what this
     firmware can read (`lib/system-generation.ts`). The deploy dialog checks
     it *before* uploading a project zip, so a device on an older major says

@@ -37,6 +37,7 @@
 const http = require("http")
 const crypto = require("crypto")
 const mqtt = require("mqtt")
+const { instanceAt } = require("./device-mqtt")
 const { sleep, get, parseBoot, readBoot, waitForBoot, loadBuild, lanAddress } = require("./firmware-common")
 
 const TOPIC_PREFIX = "schaltli"
@@ -75,9 +76,12 @@ function serveImages(files) {
   })
 }
 
-// The board's MQTT client id, from its retained hello - the one whose DDF
-// url is on this board's address.
-function findClient(client, device) {
+// The board's MQTT client id and its retained hello - the instance whose
+// test interface is at this board's address (its hello names no address
+// since 2026-10-14, #70).
+async function findClient(client, device) {
+  const wanted = await instanceAt(device, brokerUrl)
+  if (!wanted) throw new Error(`no device on the broker says its test interface is at ${device}`)
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`no hello from ${device} on the broker within 15s`)), 15000)
     client.on("message", function onHello(topic, payload) {
@@ -85,7 +89,7 @@ function findClient(client, device) {
       if (!m || payload.length === 0) return
       try {
         const hello = JSON.parse(payload.toString())
-        if (hello.url && hello.url.startsWith(`http://${device}/`)) {
+        if (m[1] === wanted) {
           clearTimeout(timer)
           client.removeListener("message", onHello)
           resolve({ clientId: m[1], hello })

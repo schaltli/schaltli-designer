@@ -39,6 +39,7 @@ const { buildReport, comparePixels } = require("../report-template")
 const { withEmbeddedAssetData } = require("./project-assets")
 const { combinationCount, combinationOverrides } = require("../combinations")
 const { createHash } = require("crypto")
+const { instanceAt, deviceDdf } = require("../device-mqtt")
 
 // The designer computes this in lib/ddf-name.ts, on top of its own
 // lib/sha256.ts - which exists because crypto.subtle is unavailable in the
@@ -104,7 +105,7 @@ async function waitForDevice(timeoutMs = 90000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`http://${deviceHost}/ddf.zip`, { signal: AbortSignal.timeout(4000) })
+      const res = await fetch(`http://${deviceHost}/api/debug`, { signal: AbortSignal.timeout(4000) })
       if (res.ok) return true
     } catch {
       // still rebooting
@@ -387,6 +388,10 @@ async function main() {
   // judge it (lib/sha256.ts exists because crypto.subtle is unavailable
   // over plain HTTP on a LAN address).
   console.log("\n--- retained hello ---")
+  // Which instance this run is about: the one whose test interface is at
+  // deviceHost (its hello names no address since 2026-10-14, #70).
+  const instanceId = await instanceAt(deviceHost, MQTT_URL)
+  if (!instanceId) throw new Error(`no device on ${MQTT_URL} says its test interface is at ${deviceHost}`)
   const hello = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("no retained hello within 10s")), 10000)
     mqttClient.subscribe(`${TOPIC_PREFIX}/+/hello`, (err) => {
@@ -396,16 +401,13 @@ async function main() {
       }
     })
     const onHello = (topic, message) => {
-      if (!topic.endsWith("/hello") || message.length === 0) return
+      if (topic !== `${TOPIC_PREFIX}/${instanceId}/hello` || message.length === 0) return
       let payload
       try {
         payload = JSON.parse(message.toString())
       } catch {
         return
       }
-      // Several devices may be retained on this broker; this run is about
-      // the one it was pointed at.
-      if (!payload.url || !payload.url.includes(deviceHost)) return
       clearTimeout(timer)
       mqttClient.off("message", onHello)
       resolve(payload)
@@ -413,9 +415,8 @@ async function main() {
     mqttClient.on("message", onHello)
   })
 
-  const servedDdf = new Uint8Array(
-    await (await fetch(`http://${deviceHost}/ddf.zip`, { signal: AbortSignal.timeout(15000) })).arrayBuffer(),
-  )
+  // Asked for over the broker, as the designer asks (lib/announced-ddf.ts).
+  const servedDdf = new Uint8Array(await deviceDdf(instanceId, MQTT_URL))
   const servedHash = computeDdfHash(servedDdf)
   const helloChecks = [
     ["announces a ddfHash", typeof hello.ddfHash === "string" && hello.ddfHash.length === 16, hello.ddfHash],
@@ -424,7 +425,9 @@ async function main() {
     // silently treated as absent by the deploy dialog, which is exactly the
     // check it is there to perform.
     ["announces a parseable systemGeneration", /^\d+\.\d+$/.test(hello.systemGeneration || ""), hello.systemGeneration],
-    ["announces a url to fetch the DDF from", typeof hello.url === "string" && hello.url.endsWith("/ddf.zip"), hello.url],
+    // The description goes over the broker; a url would send the designer
+    // to the device directly, which one behind NAT cannot reach (#70).
+    ["announces no url", hello.url === undefined, String(hello.url)],
     // The retired field. Announcing it again would not break anything today
     // - the designer ignores unknown keys - but it is how two sources of
     // truth creep back in.
@@ -454,9 +457,7 @@ async function main() {
   // so this compares the device against the repo it was built from and
   // fails if a stale image is on the board.
   try {
-    const servedZip = Buffer.from(
-      await (await fetch(`http://${deviceHost}/ddf.zip`, { signal: AbortSignal.timeout(15000) })).arrayBuffer(),
-    )
+    const servedZip = Buffer.from(servedDdf)
     const served = JSON.parse(await (await JSZip.loadAsync(servedZip)).file("device.json").async("string"))
     const source = JSON.parse(fs.readFileSync(path.join(DDF_SOURCE_DIR, "device.json"), "utf8"))
     const servedTypes = [...(served.supportedObjectTypes || [])].sort()

@@ -3,9 +3,9 @@
 // board should not require a checked-out firmware repo, a hand-written
 // fixture, or an entry in any table here.
 //
-// A device serves the whole thing at GET /ddf.zip - device.json, the
-// adornment, and the BDF bytes of every font it declares - so one fetch
-// yields the supported object types, the screen geometry, the endpoints to
+// A device hands over the whole thing on the broker (ddf/get -> ddf) -
+// device.json, the adornment, and the BDF bytes of every font it declares -
+// so one request yields the supported object types, the screen geometry, the endpoints to
 // drive, and the fonts a generated project has to reference. --ddf takes a
 // local directory or zip instead, for a board whose HTTP server is not up
 // yet.
@@ -13,6 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 const JSZip = require("jszip");
+const { deviceDdfAt } = require("../device-mqtt");
 
 // The endpoints the harness drives, as the DDF declares them. Templates
 // carry {ip}; nothing else in this file knows a URL.
@@ -149,12 +150,12 @@ async function fromDirectory(dir, deviceHost) {
 // firmware actually loaded, so a board flashed with a stale build is caught
 // here rather than showing up later as a rendering difference nobody can
 // place.
+//
+// Over the broker, as the designer gets it (docs/device-contract.md §4,
+// 2026-10-14): no device serves it over HTTP any more.
 async function fromDevice(deviceHost, { timeoutMs = 30000 } = {}) {
-  const url = `http://${deviceHost}/ddf.zip`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`GET ${url} failed: HTTP ${res.status}`);
-  const buffer = Buffer.from(await res.arrayBuffer());
-  return fromZipBuffer(buffer, deviceHost, url);
+  const buffer = Buffer.from(await deviceDdfAt(deviceHost, undefined, { timeoutMs }));
+  return fromZipBuffer(buffer, deviceHost, `the description ${deviceHost} sent over the broker`);
 }
 
 async function loadDdf(deviceHost, localPath) {

@@ -113,7 +113,9 @@ function connect(net) {
   })
 }
 
-// Retained hellos on one broker: client id -> address from the hello's url.
+// Devices on one broker: client id -> address of its test interface, from
+// the retained `test-interface` topic (a hello names no address since
+// 2026-10-14, #70; contract §6).
 async function hellos(client) {
   const found = new Map()
   client.on("message", (topic, payload) => {
@@ -123,7 +125,7 @@ async function hellos(client) {
       found.set(clientId, url.hostname)
     } catch {}
   })
-  await client.subscribeAsync("schaltli/+/hello")
+  await client.subscribeAsync("schaltli/+/test-interface")
   await new Promise((r) => setTimeout(r, 2000))
   return found
 }
@@ -271,12 +273,14 @@ async function main() {
     const [, clientId, kind] = topic.split("/")
     if (packet.retain) {
       if (kind === "status" && payload.toString() === "online") retainedOnline.add(clientId)
-      if (kind === "hello") try { retainedAt.set(clientId, new URL(JSON.parse(payload.toString()).url).hostname) } catch {}
+      // A phone says where it is in its hello until its app has a test
+      // interface of its own (C10 of tasks/connections-plan.md).
+      if (kind === "test-interface" || kind === "hello") try { retainedAt.set(clientId, new URL(JSON.parse(payload.toString()).url).hostname) } catch {}
       return
     }
     if (kind === "hello" || (kind === "status" && payload.toString() === "online")) arrived.add(clientId)
   })
-  await clients[target].subscribeAsync(["schaltli/+/status", "schaltli/+/hello"])
+  await clients[target].subscribeAsync(["schaltli/+/status", "schaltli/+/hello", "schaltli/+/test-interface"])
   await new Promise((r) => setTimeout(r, 1000))
 
   const moving = []

@@ -35,6 +35,7 @@ const http = require("http")
 const zlib = require("zlib")
 const crypto = require("crypto")
 const mqtt = require("mqtt")
+const { instanceAt } = require("./device-mqtt")
 const { chromium } = require("playwright")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
@@ -155,6 +156,10 @@ async function main() {
   }
 
   try {
+    // Which instance is this board: the one whose test interface is at its
+    // address (its hello names no address since 2026-10-14, #70).
+    const wanted = await instanceAt(device, brokerUrl)
+    if (!wanted) throw new Error(`no device on the broker says its test interface is at ${device}`)
     const clientId = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`no hello from ${device} on the broker within 15s`)), 15000)
       client.on("message", function onHello(topic, payload) {
@@ -162,7 +167,7 @@ async function main() {
         if (!m || payload.length === 0) return
         try {
           const hello = JSON.parse(payload.toString())
-          if (hello.url && hello.url.startsWith(`${base}/`)) {
+          if (hello.deviceId && m[1] === wanted) {
             clearTimeout(timer)
             client.removeListener("message", onHello)
             resolve(m[1])
