@@ -31,6 +31,8 @@ Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <spa
 
 ## Topics vom Broker holen
 
+Der Designer hört im Hintergrund mit, sobald er mit dem Broker verbunden ist, und merkt sich jedes Topic, das vorbeikommt, mit seinen letzten 20 Nachrichten. Der Schalter <span class="ui">Listening</span> unten in der Statusleiste schaltet das aus und wieder ein, der Browser merkt sich die Wahl. Was der Designer gehört hat, behält er nur, solange der Tab offen ist.
+
 <span class="ui">Listen to Broker</span> hört eine Weile mit, was auf dem Broker passiert, und listet alle Topics, die dabei vorkommen. <span class="ui">retained</span> heisst, der Wert lag schon auf dem Broker; <span class="ui">live</span>, er kam erst während des Mithörens. Den Typ erkennt der Designer selbst.
 
 Am Anfang ist keines ausgewählt. Wähle die Topics aus, die du brauchst, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>. Nimm nur, was ein Screen zeigen oder schalten soll: Die Vorschau hört jedes Topic des Projekts mit.
