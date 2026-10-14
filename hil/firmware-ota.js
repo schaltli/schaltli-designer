@@ -41,7 +41,11 @@ const { instanceAt } = require("./device-mqtt")
 const { sleep, get, parseBoot, readBoot, waitForBoot, loadBuild, lanAddress } = require("./firmware-common")
 
 const TOPIC_PREFIX = "schaltli"
-const HTTP_PORT = Number(process.env.HIL_FIRMWARE_PORT || 8898)
+// A free port of the system's choosing unless one is given: test:all runs
+// the boards in parallel lanes, and with a fixed 8898 the knob's update
+// and the 4.3B's collided (EADDRINUSE, 2026-10-14) once the knob had stopped
+// losing its network and kept pace with the others.
+const HTTP_PORT = Number(process.env.HIL_FIRMWARE_PORT || 0)
 const brokerUrl = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 const TERMINAL = ["error", "up_to_date", "busy", "rebooting"]
 
@@ -144,7 +148,7 @@ async function main() {
   const files = { "/own.bin": own.image }
   if (foreign) files["/foreign.bin"] = foreign.image
   const server = await serveImages(files)
-  const host = `http://${lanAddress()}:${HTTP_PORT}`
+  const host = `http://${lanAddress()}:${server.address().port}`
 
   const failures = []
   const check = (ok, what) => {

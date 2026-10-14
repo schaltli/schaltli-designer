@@ -64,9 +64,17 @@ Push notification on a stop and at the end.
   largest block 7156, **minimum 684** after 194 s up. Freshly reset and
   deployed: free 49900, minimum 38284. So the network dies of exhausted
   internal RAM (no room for sockets), not of WiFi; something takes ~37 KB
-  of internal heap under HIL load within minutes. Cause in the firmware
-  open. Every other suite green; the knob's red ones green alone after a
-  hard reset over USB.
+  of internal heap under HIL load within minutes. Every other suite green;
+  the knob's red ones green alone after a hard reset over USB.
+  **Resolved the same evening:** measured suite by suite (hil-diag after
+  each), not a leak - each suite installs a project and restarts the knob,
+  and with a large project (smoke test, energy diagram) and HIL traffic only
+  ~20 KB were left, because 106 KB of internal RAM were static arrays
+  (miniz's unzip buffers 58 KB, LVGL's pool 48 KB). Both in PSRAM now
+  (firmware af44592): static internal RAM 170100 -> 63604 bytes; every knob
+  suite in a row green with a minimum of 104-145 KB free. Guarded by
+  hil/internal-heap.js (no leak over rounds of snapshots and debug
+  requests; minFreeInternalHeap, new in /api/debug, above 32 KB).
 
 ## Weakened checks and tolerances (to report at the end)
 
