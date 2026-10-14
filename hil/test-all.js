@@ -155,6 +155,12 @@ function httpGetStatus(url, timeoutMs = 3000) {
 // core checks, in about ten minutes (npm run test:quick). The full run is
 // for before a release.
 const QUICK = process.argv.includes("--quick")
+
+// Every step's requests to a device carry the test interface's password
+// (hil/device-auth.js, contract §6): loaded into this process and, through
+// NODE_OPTIONS, into every node a step starts.
+require("./device-auth")
+process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS ? process.env.NODE_OPTIONS + " " : ""}--require ${path.join(__dirname, "device-auth.js")}`
 const LOG_DIR = path.join(__dirname, "test-all-logs")
 const laneContext = new AsyncLocalStorage()
 const plainLog = console.log.bind(console)
@@ -744,6 +750,26 @@ async function main() {
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
 
+  // The test interface wants its password (contract §6, #70): refused
+  // without it and with a wrong one, answered with HIL_PASSWORD.
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+    step(name, async () => {
+      console.log(`
+=== ${name} test interface password (device: ${device}) ===`)
+      const exitCode = await run("node", ["hil/test-interface.js", "check", "--device", device], { cwd: REPO_ROOT })
+      summary.push({
+        name: `${name}-test-interface`,
+        status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+        detail:
+          exitCode === 2
+            ? `device unreachable at ${device} - switched on? node hil/test-interface.js on`
+            : exitCode === 0
+              ? "refused without the password and with a wrong one, answered with it"
+              : `exit code ${exitCode} - see output above`,
+      })
+    }, { quick: true })
+  }
+
   // The 4.3B's pixel clock against its own WiFi. At Waveshare's 16 MHz the
   // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
   // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,
@@ -1288,13 +1314,17 @@ async function main() {
       console.warn(`SKIPPED - no committed Android HIL fixture yet (expected at ${path.relative(REPO_ROOT, ANDROID_PROJECT)})`)
       summary.push({ name: "android-HIL", status: "SKIPPED", detail: "no fixture committed yet", report: "hil/android/report/index.html" })
     } else {
+      // The phone is found by its test interface on the broker since
+      // 2026-10-14 (hil/android/phone.js, #70), not on the cable.
+      const phones = [...(await require("./device-mqtt").testInterfaces(undefined, 2000).catch(() => new Map()))]
+        .filter(([id]) => id.startsWith("android-"))
       const serial = await adbConnectedDevice()
-      if (!serial) {
-        console.warn("SKIPPED - no adb-authorized device connected")
-        summary.push({ name: "android-HIL", status: "SKIPPED", detail: "no adb device connected", report: "hil/android/report/index.html" })
+      if (phones.length === 0) {
+        console.warn("SKIPPED - no phone with its test interface on (node hil/android/test-interface.js on)")
+        summary.push({ name: "android-HIL", status: "SKIPPED", detail: "no phone with its test interface on", report: "hil/android/report/index.html" })
       } else {
         clearResults(path.join(__dirname, "android/report"))
-        const exitCode = await run("node", ["hil/android/orchestrator.js", "--project", ANDROID_PROJECT, "--device", serial], { cwd: REPO_ROOT })
+        const exitCode = await run("node", ["hil/android/orchestrator.js", "--project", ANDROID_PROJECT, ...(serial ? ["--device", serial] : [])], { cwd: REPO_ROOT })
         const results = readResults(path.join(__dirname, "android/report"))
         if (!results && exitCode === 2) {
           // On the cable but not on this broker - the phone on another wifi

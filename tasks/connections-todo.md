@@ -24,10 +24,10 @@ Push notification on a stop and at the end.
 - [x] C6 One broker login (#67) (e2e/broker-login.spec.ts)
 - [x] C7 The designer's address can be set (e2e/device-facing-url.spec.ts @alone)
 - [x] C8 No mqtts:// in the portal (schaltli-firmware 4716ece)
-- [ ] Checkpoint: test:quick
+- [x] Checkpoint: test:quick (green after the two e2e fixes in 949336d)
 
 ## Phase 3
-- [ ] C9 Boards: test interface off, with a password
+- [x] C9 Boards: test interface off, with a password (hil/test-interface.js check per board in test:all)
 - [ ] C10 The app: the same test interface
 - [ ] C11 Handbook
 - [ ] Checkpoint: test:all; releases; issues closed; forum draft

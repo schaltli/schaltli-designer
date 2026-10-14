@@ -1767,10 +1767,32 @@ interface is an HTTP server, and in normal operation no device has one
 open. It is switched on at the device - a board in its setup portal's
 device tab, the app in its settings - together with a password, and stays
 on across restarts until switched off. While it is off nothing listens on
-its port. While it is on, every request carries
-`Authorization: Bearer <password>` and is refused with `401` otherwise.
-HIL takes the password from `HIL_PASSWORD` in `.env.local`. The device
-settings a board offered at `/settings` stay in its setup portal.
+its port, and its retained `test-interface` topic is empty. While it is on,
+every request carries `Authorization: Bearer <password>` - or `?pw=` for
+what a person types into a browser, the signal mode say - and is refused
+with `401` otherwise; an upload's bytes are dropped before they reach the
+filesystem.
+
+A board is switched in its setup portal's device tab («Test interface»,
+taking effect with the restart that ends setup mode) or over USB, one line
+at 115200 baud: `hil-on <password>`, `hil-off`, `hil?`
+(schaltli-firmware `TestInterfaceSwitch.h`). Both need the device in
+someone's hands. The password is 4 to 64 characters. HIL takes it from
+`HIL_PASSWORD` in `.env.local` (`hil/device-auth.js` adds it to every
+request; `hil/test-interface.js on` switches the bench's boards on with
+it). The device settings a board offered at `/settings` stay in its setup
+portal.
+
+The Android app has the same switch, in its settings or over the cable
+(`BrokerConfigReceiver`: `--ez testInterface true --es testPassword <pw>`,
+`hil/android/test-interface.js on`), and the same rules on port 8080 - an
+app may not open 80 (schaltli-android `test/AppTestInterface.kt`):
+`GET /snapshot.png` (the app's own window as drawn, PixelCopy - no status
+bar, no notification banner), `POST /api/tap` (`x`, `y`), `POST /api/swipe`
+(`x1`, `y1`, `x2`, `y2`, `ms`), `GET /api/debug` (id, version, size,
+density, awake, broker, window brightness), `POST /api/restart`, `POST
+/api/device-settings` (`displayOffSeconds`) and `POST /api/mqtt`. Since
+2026-10-14 the Android HIL drives the phone through it; adb only installs.
 `"{ip}"` in any URL is a placeholder the orchestrator substitutes with the
 real device address. The e-paper reference exposes all of this at
 `/api/project` (setup-mode only), `/api/screen` (`index=N` form field),
