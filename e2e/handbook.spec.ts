@@ -220,15 +220,17 @@ test.describe("handbook site", () => {
     await expect(page.locator("figcaption a[href*='/betrieb/verbindungen']")).toHaveCount(1)
 
     // The detailed page: the broker is the one focal node, every arrow points
-    // from the side that opens the connection, and the four that only exist
-    // while designing and deploying are dashed.
+    // from the side that opens the connection, and the three that only exist
+    // while designing and deploying are dashed. No arrow from the designer to
+    // a device since 2026-10-14: a device's description goes over the
+    // broker (#70).
     await page.goto(`${site.url}betrieb/verbindungen.html`)
     const diagram = page.locator("svg.schaltli-diagram")
     await expect(diagram).toBeVisible()
     await expect(diagram.locator(".node.focal")).toHaveCount(1)
     await expect(diagram.locator(".node.focal + text.name")).toHaveText("MQTT-Broker")
-    await expect(diagram.locator(".connector")).toHaveCount(6)
-    await expect(diagram.locator(".connector.command")).toHaveCount(4)
+    await expect(diagram.locator(".connector")).toHaveCount(5)
+    await expect(diagram.locator(".connector.command")).toHaveCount(3)
     for (const connector of await diagram.locator(".connector").all()) {
       expect(await connector.getAttribute("marker-end")).toBeTruthy()
       expect(await connector.getAttribute("marker-start")).toBeNull()

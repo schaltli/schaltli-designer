@@ -236,7 +236,10 @@ test("the van's clock: night, dawn, noon, dusk, in a ten-minute day", () => {
   expect(at(0.9)).toMatchObject({ daylight: 0, time: "21:36" })
 })
 
-test("through the real bridge: the lights are announced and published, switched on command, and reset", async () => {
+// @alone: the theme is one topic for the whole broker, and another spec's
+// demo van, reset at the wrong moment, put it back to light between this
+// command and its answer (test:quick, 2026-10-14).
+test("through the real bridge: the lights are announced and published, switched on command, and reset @alone", async () => {
   test.setTimeout(60_000)
   const { client, seen } = await listen(["homeassistant/+/schaltli-vanpi/#", "schaltli/state/#", "schaltli/demo/#"])
   const van = startDemoVan({ broker: BROKER, daySeconds: 60, pollSeconds: 1 })
