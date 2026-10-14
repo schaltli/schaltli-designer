@@ -70,8 +70,13 @@ test.describe("the background listener", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await expect(listeningSwitch(page)).toHaveAttribute("aria-checked", "false")
     await listeningSwitch(page).click()
-    await own.publish("van/heater", "off")
-    await expect.poll(() => heard(page, "van/heater"), { timeout: 5000 }).not.toBeNull()
+    // Sent until heard: when the listener has subscribed again is not
+    // visible here, and a message before that is not delivered (test:quick,
+    // 2026-10-14).
+    await expect(async () => {
+      await own.publish("van/heater", "off")
+      expect(await heard(page, "van/heater")).not.toBeNull()
+    }).toPass({ timeout: 10_000 })
   })
 
   // The user's van sends several messages a second on `pkw` alone. 50 a
