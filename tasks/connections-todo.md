@@ -55,6 +55,9 @@ Push notification on a stop and at the end.
   minutes after their ports were touched, nobody reading. It began today
   because today was the first time HIL touched the boards' USB after boot.
 
+- e2e/demo-van.spec.ts's bridge test switched the bench's boards dark once
+  it ran @alone against their broker: it has a broker of its own now.
+
 ## Weakened checks and tolerances (to report at the end)
 
 - e2e/ddf-over-broker.spec.ts counts the device's ddf/get and recovery/get
@@ -62,7 +65,6 @@ Push notification on a stop and at the end.
   shared broker asks a hello it sees. "Never asked" stays exact.
 - hil/test-all.js: the 4.3B's pixel-clock measurement runs after the lanes
   (it measures the WiFi the parallel boards share); same assertion.
-- e2e/demo-van.spec.ts: the bridge test runs @alone (after the lanes).
 - e2e/ddf-auto-discovery.spec.ts, the gate grouping test: its last check
   reveals the device copy again as revealDevice does, rather than looking
   once - the folded group repartitions when another worker's device

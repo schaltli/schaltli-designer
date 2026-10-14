@@ -5,6 +5,8 @@ import { sceneSvg } from "../integrations/vanpi/demo-scene"
 import JSZip from "jszip"
 import fs from "fs"
 import { COMBINED_TEST_PROJECT } from "./helpers"
+import net from "node:net"
+import { Aedes } from "aedes"
 
 // The van of demo.schaltli.com (docs/2026-10-09-demo-instance.md, decision
 // 6): the real VanPi bridge run outside Node-RED over a fake Pekaway that has
@@ -16,14 +18,33 @@ const BROKER = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 
 test.describe.configure({ mode: "serial" })
 
-function listen(filters: string[]): Promise<{ client: mqtt.MqttClient; seen: Map<string, string> }> {
+function listen(filters: string[], broker = BROKER): Promise<{ client: mqtt.MqttClient; seen: Map<string, string> }> {
   return new Promise((resolve, reject) => {
-    const client = mqtt.connect(BROKER, { clientId: `e2e-demo-van-${Date.now()}`, reconnectPeriod: 0 })
+    const client = mqtt.connect(broker, { clientId: `e2e-demo-van-${Date.now()}`, reconnectPeriod: 0 })
     const seen = new Map<string, string>()
     client.on("message", (topic, payload) => seen.set(topic, payload.toString()))
     client.once("connect", () => client.subscribe(filters, () => resolve({ client, seen })))
     client.once("error", reject)
   })
+}
+
+// A broker of this test's own. The bridge answers schaltli/cmnd/theme on
+// schaltli/state/theme, one topic for every display on a broker: on the
+// shared one another spec's demo van reset it between this test's command
+// and its answer, and in test:all's last steps (where it ran @alone) it
+// switched the bench's boards dark under the navigator check (2026-10-14).
+async function privateBroker(): Promise<{ url: string; close: () => Promise<void> }> {
+  const broker = await Aedes.createBroker()
+  const server = net.createServer(broker.handle as any)
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const url = `mqtt://127.0.0.1:${(server.address() as net.AddressInfo).port}`
+  return {
+    url,
+    close: async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      await new Promise<void>((resolve) => broker.close(() => resolve()))
+    },
+  }
 }
 
 // Clears what the van left retained: the topics it published, emptied.
@@ -236,13 +257,11 @@ test("the van's clock: night, dawn, noon, dusk, in a ten-minute day", () => {
   expect(at(0.9)).toMatchObject({ daylight: 0, time: "21:36" })
 })
 
-// @alone: the theme is one topic for the whole broker, and another spec's
-// demo van, reset at the wrong moment, put it back to light between this
-// command and its answer (test:quick, 2026-10-14).
-test("through the real bridge: the lights are announced and published, switched on command, and reset @alone", async () => {
+test("through the real bridge: the lights are announced and published, switched on command, and reset", async () => {
   test.setTimeout(60_000)
-  const { client, seen } = await listen(["homeassistant/+/schaltli-vanpi/#", "schaltli/state/#", "schaltli/demo/#"])
-  const van = startDemoVan({ broker: BROKER, daySeconds: 60, pollSeconds: 1 })
+  const own = await privateBroker()
+  const { client, seen } = await listen(["homeassistant/+/schaltli-vanpi/#", "schaltli/state/#", "schaltli/demo/#"], own.url)
+  const van = startDemoVan({ broker: own.url, daySeconds: 60, pollSeconds: 1 })
   // What the van itself publishes retained, to clear exactly that afterwards
   // and nothing the broker held before.
   const published = new Set<string>()
@@ -306,6 +325,7 @@ test("through the real bridge: the lights are announced and published, switched 
     await van.stop()
     await clearRetained(client, [...published])
     client.end(true)
+    await own.close()
   }
 })
 
