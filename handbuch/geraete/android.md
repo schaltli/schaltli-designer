@@ -42,7 +42,9 @@ Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekun
 
 Oben in den Einstellungen steht, ob die App mit dem Broker verbunden ist, und unter welchem Namen das Handy im Designer erscheint. Unten unter <span class="ui fw">Project</span> lädt <span class="ui fw">Load project from file…</span> eine Projektdatei, auch wenn schon ein Projekt läuft. Nimm dafür eine Datei, die der Designer für dieses Handy exportiert hat. Ein Export für ein Board lehnt die App ab und sagt, wofür er gemacht ist: Wähl im Designer unter <span class="ui">Settings</span> › <span class="ui">Device</span> dieses Handy, oder stell das Projekt in <span class="ui">Deploy to Device</span> mit <span class="ui">Switch this project to</span> um. Ein Projekt für ein anderes Handy lädt sie, weist aber darauf hin, dass es nicht passen könnte.
 
-Wechselt das Handy das WLAN, meldet es sich mit seiner neuen Adresse neu an. Das geht ab Version 0.8.0 der App; davor musste man die App einmal schliessen und neu öffnen.
+Wechselt das Handy das WLAN, meldet es sich mit seiner neuen Adresse neu an. Das geht ab Version 0.8.0 der App; davor musste man die App einmal schliessen und neu öffnen. Ab Version 0.12.0 gilt das für jedes Netz, auch am Kabel oder über einen USB-Adapter, etwa bei einem Android-Autoradio.
+
+Ganz unten in den Einstellungen steht die <span class="ui fw">Test interface</span>, ab Version 0.13.0 der App. Sie ist ab Werk aus und nur für automatische Tests gedacht, siehe [Test-Schnittstelle](/betrieb/verbindungen#test-schnittstelle).
 
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 

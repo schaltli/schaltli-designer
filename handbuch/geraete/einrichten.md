@@ -39,6 +39,8 @@ Hier stellst du ein, wie sich das Display verhält. Die Einstellungen gehören z
 
 Tippe auf <span class="ui fw">Save Device Settings</span>.
 
+Darunter steht die <span class="ui fw">Test interface</span>, ab Werk aus. Sie ist nur für automatische Tests auf dem Werktisch, siehe [Test-Schnittstelle](/betrieb/verbindungen#test-schnittstelle). Lass sie im Van aus.
+
 ## Einrichtung beenden
 
 Tippe unten auf <span class="ui fw">Finish and restart</span>. Das Board behält, was du gespeichert hast, verlässt den Einrichtungsmodus, startet neu und verbindet sich mit deinem WLAN und dem Broker.

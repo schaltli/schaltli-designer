@@ -91,4 +91,4 @@ Knob, 4.3B und PaperS3 kennen Local topics ab der Firmware fw-2026.10.13.2, die 
 
 ## Welcher Broker?
 
-Der Designer spricht den Broker über WebSocket an, unter derselben Adresse, unter der du den Designer geöffnet hast, auf Port 9001. Auf einem Pekaway-System richtet das [Installationsskript](/installieren/pekaway) das ein. Gibst du in einem der Dialoge eine andere Adresse ein, merkt sich der Browser sie. Benutzername und Passwort speichert er nicht.
+Der Designer spricht den Broker über WebSocket an, unter derselben Adresse, unter der du den Designer geöffnet hast, auf Port 9001. Auf einem Pekaway-System richtet das [Installationsskript](/installieren/pekaway) das ein. Gibst du in einem der Dialoge eine andere Adresse ein, merkt sich der Browser sie. Benutzername und Passwort für den Broker behält der Designer selbst, für jeden Browser, siehe [Anmeldung am Broker](/betrieb/verbindungen#anmeldung).

@@ -17,6 +17,8 @@ Ein Projekt ist für ein bestimmtes Gerät gemacht, mit dessen Bildschirmgrösse
 
 Wählst du ein Gerät mit <span class="ui">Other device</span>, sagt der Dialog, für welches Gerät das Projekt gemacht ist. Mit <span class="ui">Switch this project to</span> stellst du das Projekt auf das gewählte Gerät um, wie unter <span class="ui">Settings</span> › <span class="ui">Device</span>. Bildschirmgrösse, Schriften und Tasten kommen dann vom neuen Gerät, deine Objekte bleiben, wo sie sind. Hat sich die Grösse geändert, sagt der Dialog das: Prüf deine Screens, bevor du überträgst, denn Objekte können jetzt ausserhalb liegen. <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt das Umstellen zurück.
 
+Unter der Liste steht, von welcher Adresse die Geräte Projekt und Firmware herunterladen. Normalerweise findet der Designer sie selbst. Läuft er in einer VM mit NAT, trägst du mit <span class="ui">Change address</span> die richtige ein, siehe [Designer in einer VM](/betrieb/verbindungen#vm).
+
 ## Übertragen
 
 Wähle das Gerät. Unter der Liste steht in einer Zeile, welche Firmware es hat und was <span class="ui">Deploy</span> tun wird, etwa «Firmware fw-2026.10.04.2 · Deploy installs fw-2026.10.09.1 first». Bringt der Designer eine neuere Firmware mit, als das Board hat, spielt er sie zuerst auf, wartet, bis das Board mit ihr zurück ist, und überträgt dann das Projekt. Der Knopf heisst dann <span class="ui">Update & Deploy</span>. Eine neuere Firmware, etwa eine Testversion, ersetzt er dabei nie durch eine ältere. Mehr dazu unter [Firmware-Updates](/geraete/firmware-updates).

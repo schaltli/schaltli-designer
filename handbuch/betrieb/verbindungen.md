@@ -81,13 +81,23 @@ Vor Firmware fw-2026.10.14.1 und App 0.12.0 holte der Designer die Beschreibung 
 
 Neue Geräte findet der Designer auch in einer VM mit NAT, denn das läuft ganz über den Broker.
 
-<!-- handbuch-macke #70: Geräte laden Projekt und Firmware von der eigenen Adresse des Designers -->
-::: warning Geräte müssen den Designer erreichen
-Ein Gerät lädt Projekte und Firmware von der Adresse, die der Designer selbst im Netz hat. Läuft der Designer in einer VM mit NAT, ist das eine Adresse innerhalb der VM, und die Übertragung bleibt hängen. Gib der VM einen Netzwerkadapter im Bridge-Modus, dann hängt sie im selben Netz wie die Geräte.
-:::
+Projekte und Firmware lädt ein Gerät aber von der Adresse, die der Designer selbst im Netz hat. In einer VM mit NAT ist das eine Adresse innerhalb der VM, die kein Gerät erreicht, und die Übertragung bleibt bei <span class="ui">Downloading</span> stehen. Dafür gibt es zwei Wege:
+
+- Leite in der VM-Software einen Port des Rechners an Port 3000 der VM weiter. Klick dann im Dialog <span class="ui">Deploy to Device</span> unter der Geräteliste auf <span class="ui">Change address</span> und trag die Adresse des Rechners mit diesem Port ein, zum Beispiel `192.168.1.20:3000`. Leer gelassen nimmt der Designer wieder die Adresse, die er selbst findet.
+- Oder gib der VM einen Netzwerkadapter im Bridge-Modus. Dann hängt sie im selben Netz wie die Geräte, und der Designer findet die richtige Adresse selbst.
 
 Steht eine Firewall dazwischen, müssen auf dem Rechner mit Designer und Broker die Ports 3000 (oder 80), 1883 und 9001 offen sein. Auf den Geräten muss kein Port offen sein.
 
-## Anmeldung am Broker
+## Anmeldung am Broker {#anmeldung}
 
-Der Broker verlangt heute keine Anmeldung, siehe [MQTT-Broker und Topics](/betrieb/mqtt). Schütze das WLAN des Vans deshalb mit einem Passwort.
+Der Broker auf einem Pekaway-System verlangt keine Anmeldung, siehe [MQTT-Broker und Topics](/betrieb/mqtt). Schütze das WLAN des Vans deshalb mit einem Passwort.
+
+Verlangt dein Broker Benutzer und Passwort, trägst du sie einmal im Designer ein: Unter <span class="ui">Settings</span> › <span class="ui">Topics</span> öffnet <span class="ui">Discover MQTT Topics</span> die Verbindung. Lehnt der Broker ab, sagt der Dialog das und zeigt die Felder für Benutzer und Passwort. Sobald die Verbindung damit klappt, behält der Designer die Anmeldung, für jeden Browser und für alles, was mit dem Broker spricht: Geräte finden, Vorschau, Übertragen. Ein leeres Feld löscht sie wieder. Wer den Designer öffnen kann, bekommt damit auch Zugang zum Broker; der Designer selbst hat keine Anmeldung.
+
+Die Geräte bekommen Benutzer und Passwort bei der Einrichtung: ein Board in seiner [Einrichtungsseite](/geraete/einrichten), die Android-App in ihren [Einstellungen](/geraete/android#mit-dem-broker-verbinden).
+
+Verschlüsselt (TLS) spricht Schaltli nicht mit dem Broker, weder der Designer noch die Geräte. Im Van schützt das WLAN-Passwort die Verbindung.
+
+## Test-Schnittstelle {#test-schnittstelle}
+
+Jedes Gerät hat eine Test-Schnittstelle für automatische Tests auf dem Werktisch: Bild abholen, tippen, Projekt und Firmware einspielen. Sie ist ab Werk aus. Wer sie einschaltet, braucht das Gerät in der Hand, auf der [Einrichtungsseite](/geraete/einrichten#geraet) des Boards oder in den Einstellungen der App, und vergibt dabei ein Passwort. Lass sie im Van aus.

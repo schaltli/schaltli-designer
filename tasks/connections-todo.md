@@ -29,7 +29,7 @@ Push notification on a stop and at the end.
 ## Phase 3
 - [x] C9 Boards: test interface off, with a password (hil/test-interface.js check per board in test:all)
 - [x] C10 The app: the same test interface (Android HIL 22/22 and app-guards without adb; android-test-interface check; snapshot pixel-identical to screencap)
-- [ ] C11 Handbook
+- [x] C11 Handbook (verbindungen, mqtt, topics, deploy, einrichten, android; warnings #67/#68/#70 gone)
 - [ ] Checkpoint: test:all; releases; issues closed; forum draft
 
 ## Findings
