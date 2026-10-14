@@ -15,13 +15,26 @@
 //    free internal heap after the second is not lower than after the first
 //    (the first round's one-time allocations stay out of it);
 //  - room: the low-water mark since boot (minFreeInternalHeap, reported by
-//    the knob's firmware since 2026-10-14) stays above MIN_FREE. A board
-//    whose /api/debug does not report it is checked for the leak only.
+//    the knob's firmware since 2026-10-14) stays above MIN_FREE - also
+//    through an install the board refuses: a large project for another
+//    device, read and turned down without the restart that would reset the
+//    mark. Until 2026-10-14 reading a project's deviceId parsed all of its
+//    project.json, and a 30-page project took ~114 KB of internal RAM for a
+//    moment, on every install, leaving 1 KB (the restart after hid it).
+//    A board whose /api/debug does not report the mark is checked for the
+//    leak only.
 //
 // Run: node hil/internal-heap.js --device <ip>
 // Exit 0 pass, 1 fail, 2 device not reachable (skipped, loudly).
 
 const http = require("http")
+const fs = require("fs")
+const path = require("path")
+const JSZip = require("jszip")
+
+// A project of this many copies of the smoke test's screens, for another
+// device: some 200 KB of project.json, as 30 pages of seven controls.
+const REFUSED_COPIES = 40
 
 const SNAPSHOTS_PER_ROUND = 15
 const DEBUG_PER_ROUND = 100
@@ -77,6 +90,29 @@ async function round(base) {
   return debug(base)
 }
 
+// The smoke test's project, its screens repeated, its deviceId another's.
+async function largeForeignProject() {
+  const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "waveshare", "fixtures", "smoke-test.zip")))
+  const project = JSON.parse(await zip.file("project.json").async("string"))
+  const screens = []
+  for (let i = 0; i < REFUSED_COPIES; i++) {
+    for (const s of project.screens) screens.push({ ...JSON.parse(JSON.stringify(s)), id: `${s.id}-c${i}` })
+  }
+  project.screens = screens
+  project.deviceId = "not-this-device"
+  zip.file("project.json", JSON.stringify(project))
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
+}
+
+async function refusedInstall(base) {
+  const form = new FormData()
+  form.append("file", new Blob([await largeForeignProject()]), "foreign.zip")
+  const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) })
+  const answer = await res.text()
+  if (res.ok) throw new Error(`a project for another device was installed: ${answer.slice(0, 120)}`)
+  return answer
+}
+
 async function main() {
   const { device } = parseArgs(process.argv)
   const base = `http://${device}`
@@ -93,6 +129,12 @@ async function main() {
   }
   const first = await round(base)
   const second = await round(base)
+  let afterRefused = second
+  if (typeof second.minFreeInternalHeap === "number") {
+    const answer = await refusedInstall(base)
+    afterRefused = await debug(base)
+    console.log(`  a large project for another device refused (${answer.slice(0, 80)}); minimum since boot now ${afterRefused.minFreeInternalHeap}`)
+  }
   const fails = []
   const leak = first.freeInternalHeap - second.freeInternalHeap
   console.log(
@@ -100,15 +142,15 @@ async function main() {
       (typeof second.minFreeInternalHeap === "number" ? `; minimum since boot ${second.minFreeInternalHeap}` : ""),
   )
   if (leak > LEAK_TOLERANCE) fails.push(`round 2 left ${leak} bytes less free than round 1 (tolerance ${LEAK_TOLERANCE})`)
-  if (typeof second.minFreeInternalHeap === "number" && second.minFreeInternalHeap < MIN_FREE)
-    fails.push(`the minimum since boot is ${second.minFreeInternalHeap} bytes, under ${MIN_FREE}`)
+  if (typeof afterRefused.minFreeInternalHeap === "number" && afterRefused.minFreeInternalHeap < MIN_FREE)
+    fails.push(`the minimum since boot is ${afterRefused.minFreeInternalHeap} bytes, under ${MIN_FREE}`)
   if (fails.length) {
     console.log(`FAIL - ${device}: ${fails.join("; ")}`)
     process.exit(1)
   }
   console.log(
     `PASS - ${device}: no leak over ${SNAPSHOTS_PER_ROUND} snapshots and ${DEBUG_PER_ROUND} debug requests` +
-      (typeof second.minFreeInternalHeap === "number" ? `, minimum ${second.minFreeInternalHeap} bytes free` : ""),
+      (typeof afterRefused.minFreeInternalHeap === "number" ? `, a large refused install, minimum ${afterRefused.minFreeInternalHeap} bytes free` : ""),
   )
 }
 
