@@ -380,4 +380,6 @@ or changed together with it.
 - Listening is on by default in the demo too: its broker carries only the
   demo van.
 - The 5 000-topic guard is checked against the van's broker (read only:
-  subscribe `#` briefly, count) before `broker-listener` is done.
+  subscribe `#` briefly, count) before `broker-listener` is done. Checked
+  2026-10-14: 361 topics in 8 s (homeassistant 151, schaltli 136, pkw 29,
+  ble 19, zigbee2mqtt 8, tasmota 6, the rest a few each) - ample room.
