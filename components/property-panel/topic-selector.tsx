@@ -2,14 +2,17 @@
 import type { Topic } from "../project-editor"
 import type React from "react"
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { splitTopicPath } from "@/lib/json-path"
 import { SubtopicPicker } from "./subtopic-picker"
-import { ChevronRight, ChevronDown } from "lucide-react"
-import { useState } from "react"
-import { topicTree as buildTopicTree, ancestorPaths, type TopicTreeNode } from "@/lib/topic-tree"
+import { ChevronRight, ChevronDown, ChevronsUpDown, Check, Search, Plus } from "lucide-react"
+import { useContext, useMemo, useState } from "react"
+import { topicTree, searchTopicTree, sortedChildren, ancestorPaths, type TopicTreeNode } from "@/lib/topic-tree"
+import { useHeardTopics } from "@/lib/broker-store"
+import type { HeardTopic } from "@/lib/heard-topic"
+import { TopicAdderContext, type NewTopic } from "../topic-adder-context"
 
 interface TopicSelectorProps {
   selectedTopicId?: string
@@ -29,9 +32,50 @@ interface TopicSelectorProps {
   allowSubtopics?: boolean
 }
 
-// The tree is the one of every topic list (lib/topic-tree.ts,
-// docs/2026-10-14-topic-discovery.md decision 3).
-const depth = (n: TopicTreeNode<Topic>) => n.path.split("/").length
+// The picker shows the one tree of every topic list (lib/topic-tree.ts) over
+// the project's topics and what the designer heard on the broker
+// (docs/2026-10-14-topic-discovery.md, decisions 4-6): a heard topic chosen
+// is added to the project, a name nobody sent is added where it is typed.
+// A popover, not a Select: a Select cannot hold the search field.
+
+interface PickerItem {
+  topic: string
+  project?: Topic
+  heard?: HeardTopic
+}
+
+const TYPE_BADGE: Record<Topic["type"], string> = {
+  numeric: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  json: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  text: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+}
+
+function TypeBadge({ type }: { type: Topic["type"] }) {
+  return <span className={cn("px-2 py-0.5 text-xs rounded-full flex-shrink-0", TYPE_BADGE[type])}>{type}</span>
+}
+
+/** A topic one can publish to: not empty, no wildcard, no spaces. */
+export function isPlainTopicName(name: string): boolean {
+  return name.length > 0 && !/[+#\s]/.test(name)
+}
+
+/**
+ * A heard topic as the project keeps it (decision 4): its guessed type, a
+ * JSON topic's fields, and - for something read - what was heard as its
+ * examples, newest first without repeats. A write topic takes none: what
+ * others sent there is not a command of this display's.
+ */
+export function topicFromHeard(heard: HeardTopic, forWriting: boolean): NewTopic {
+  const examples = forWriting ? [] : [...new Set(heard.messages.map((m) => m.payload))]
+  return {
+    topic: heard.topic,
+    type: heard.type,
+    examples,
+    ...(heard.type === "json" ? { subtopics: heard.fields.map((f) => ({ path: f.path, type: f.type })) } : {}),
+  }
+}
+
+const depth = (n: TopicTreeNode<PickerItem>) => n.path.split("/").length
 
 export function TopicSelector({
   selectedTopicId,
@@ -56,242 +100,269 @@ export function TopicSelector({
   // them - every command destination it owned - all invisible.
   //
   // The damage is not only confusion: an empty-looking field invites being
-  // filled in, and picking anything from the dropdown silently replaces a
-  // value the user was never shown. Or the field reads as "this button is
-  // not wired up" and the search for the fault moves to the firmware.
+  // filled in, and picking anything from the list silently replaces a value
+  // the user was never shown. Or the field reads as "this button is not
+  // wired up" and the search for the fault moves to the firmware.
   const boundButUnregistered = !!selectedRealTopic && !selectedTopic
-  // The tree itself never offers picking a subtopic (see its own comment),
-  // but the stored value can still be composite - set via the Subtopics
-  // Picker beside it - so the closed trigger's own display still needs to
-  // reflect "topic → field" when one's attached, same as before the
-  // redesign moved the picking mechanism out of the tree.
+  // The tree never offers a subtopic (that is the Subtopics Picker beside
+  // it), but the stored value can be composite, so the closed trigger shows
+  // "topic → field" when one is attached.
   const selectedSubtopic = selectedPath ? selectedTopic?.subtopics?.find((s) => s.path === selectedPath) : undefined
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
-  const topicTree = buildTopicTree(topics.map((t) => ({ topic: t.topic, item: t })))
+  const addTopic = useContext(TopicAdderContext)
+  const heard = useHeardTopics()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [projectOnly, setProjectOnly] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const handleToggleExpand = (path: string) => {
-    const newExpanded = new Set(expandedNodes)
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path)
-    } else {
-      newExpanded.add(path)
+  // One item per name: the project's topic, what was heard, or both. Heard
+  // topics only where a topic can be added (inside the editor).
+  const items = useMemo(() => {
+    const byName = new Map<string, PickerItem>()
+    for (const t of topics) byName.set(t.topic, { topic: t.topic, project: t })
+    if (addTopic) {
+      for (const h of heard.topics.values()) {
+        const at = byName.get(h.topic)
+        if (at) at.heard = h
+        else byName.set(h.topic, { topic: h.topic, heard: h })
+      }
     }
-    setExpandedNodes(newExpanded)
+    return [...byName.values()]
+  }, [topics, heard.topics, addTopic])
+  const shown = useMemo(() => (projectOnly ? items.filter((i) => i.project) : items), [items, projectOnly])
+
+  const typed = query.trim()
+  const q = typed.toLowerCase()
+  const fullTree = useMemo(() => topicTree(shown.map((i) => ({ topic: i.topic, item: i, messages: i.heard?.count ?? 0 }))), [shown])
+  const searched = useMemo(() => (q ? searchTopicTree(fullTree, (path) => path.toLowerCase().includes(q)) : null), [fullTree, q])
+  const tree = searched?.tree ?? fullTree
+  const isOpen = (path: string) => expanded.has(path) || !!searched?.open.has(path)
+  const offerAdd = !!addTopic && isPlainTopicName(typed) && !items.some((i) => i.topic === typed)
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) return
+    // Fresh on every open: «All», no search, folded - except the way to
+    // whatever is bound, so the current choice is in view.
+    setQuery("")
+    setProjectOnly(false)
+    setExpanded(selectedRealTopic ? new Set(ancestorPaths(selectedRealTopic)) : new Set())
   }
 
-  // The tree starts fully collapsed on every open - except every ancestor
-  // branch of whatever's currently selected auto-expands, so an existing
-  // selection is visible without manual drilling. A fresh/unset picker
-  // opens fully collapsed, requiring the user to drill down themselves.
-  const handleOpenChange = (open: boolean) => {
-    if (!open) return
-    setExpandedNodes(selectedTopic ? new Set(ancestorPaths(selectedTopic.topic)) : new Set())
-  }
-
-  const renderTreeNodes = (node: TopicTreeNode<Topic>): React.ReactNode[] => {
-    const nodes: React.ReactNode[] = []
-
-    const sortedChildren = Array.from(node.children.values()).sort((a, b) => {
-      // Sort: abstract nodes first, then leaf nodes, alphabetically within each group
-      if ((a.item !== undefined) !== (b.item !== undefined)) {
-        return a.item !== undefined ? 1 : -1
-      }
-      return a.name.localeCompare(b.name)
+  const toggle = (path: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
     })
 
-    sortedChildren.forEach((child) => {
-      const isExpanded = expandedNodes.has(child.path)
-      const hasNestedChildren = child.children.size > 0
-
-      if (child.item) {
-        // Render selectable topic (leaf node) - every registered topic is
-        // a plain, directly-selectable pick here regardless of type,
-        // including "json" ones. A JSON topic's fields are never offered
-        // in this tree at all - that's the separate Subtopics Picker
-        // beside it (see the component's own return below), since a field
-        // path only ever makes sense once you already know which topic
-        // it's relative to, and it can never be a publish destination on
-        // its own either way (see allowSubtopics's own doc comment).
-        nodes.push(
-          <SelectItem key={child.item.topic} value={child.item.topic}>
-            <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${depth(child) * 12}px` }}>
-              <span className="truncate flex-1 min-w-0" title={child.name}>
-                {child.name}
-              </span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                  child.item.type === "numeric"
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                    : child.item.type === "json"
-                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                )}
-              >
-                {child.item.type}
-              </span>
-            </div>
-          </SelectItem>,
-        )
-
-        // This topic's own MQTT path is also a prefix of other registered
-        // topics - list those below, under the same auto-expand rule as
-        // any other branching node (expanded when one of them is the
-        // current selection, collapsed otherwise). Can't be embedded as a
-        // toggle inside the SelectItem above (Radix would treat a click on
-        // it as selecting this item and close the dropdown), so it's a
-        // bare chevron row immediately underneath instead.
-        if (hasNestedChildren) {
-          nodes.push(
-            <div
-              key={`nested-toggle-${child.path}`}
-              className="flex items-center px-2 py-1 cursor-pointer hover:bg-accent"
-              style={{ paddingLeft: `${depth(child) * 12 + 8}px` }}
-              onClick={() => handleToggleExpand(child.path)}
-              role="button"
-              aria-label={`${isExpanded ? "Hide" : "Show"} topics nested under ${child.item.topic}`}
-            >
-              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </div>,
-          )
-
-          if (isExpanded) {
-            nodes.push(...renderTreeNodes(child))
-          }
-        }
-      } else if (hasNestedChildren) {
-        // Render abstract node header (non-selectable) - a path segment
-        // with no topic of its own, purely structural.
-        nodes.push(
-          <div
-            key={`header-${child.path}`}
-            className="flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground cursor-pointer hover:bg-accent"
-            style={{ paddingLeft: `${depth(child) * 12 + 8}px` }}
-            onClick={() => handleToggleExpand(child.path)}
-          >
-            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            <span className="font-medium">{child.name}</span>
-            <span className="text-xs">({child.children.size})</span>
-          </div>,
-        )
-
-        if (isExpanded) {
-          nodes.push(...renderTreeNodes(child))
-        }
-      }
-    })
-
-    return nodes
+  // A heard topic the project lacks is added in the same click as it is
+  // bound: one change, one undo step.
+  const choose = (item: PickerItem) => {
+    if (!item.project && item.heard && addTopic) addTopic(topicFromHeard(item.heard, !allowSubtopics))
+    onTopicChange(item.topic)
+    setOpen(false)
   }
+
+  const addByHand = (type: Topic["type"]) => {
+    if (!addTopic) return
+    addTopic({ topic: typed, type, examples: [] })
+    onTopicChange(typed)
+    setOpen(false)
+  }
+
+  const renderLeaf = (n: TopicTreeNode<PickerItem>) => {
+    const item = n.item!
+    const type = item.project?.type ?? item.heard!.type
+    const latest = item.heard?.messages[0]?.payload
+    const selected = selectedRealTopic === item.topic
+    return (
+      <div
+        key={`topic-${n.path}`}
+        role="option"
+        aria-selected={selected}
+        title={n.path}
+        onClick={() => choose(item)}
+        className={cn(
+          "flex items-center gap-2 min-w-0 w-full pr-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent",
+          selected && "bg-accent/60",
+        )}
+        style={{ paddingLeft: `${depth(n) * 12}px` }}
+      >
+        <span className={cn("truncate min-w-0 flex-1", !item.heard && addTopic && !item.project?.local && "text-muted-foreground")}>{n.name}</span>
+        {latest !== undefined ? (
+          <span className="truncate max-w-[7rem] font-mono text-xs text-muted-foreground">{latest}</span>
+        ) : (
+          addTopic && item.project && !item.project.local && <span className="text-xs text-muted-foreground font-mono">not heard</span>
+        )}
+        <TypeBadge type={type} />
+        <span className="w-4 flex-shrink-0 text-primary text-xs" title={item.project ? "in project" : undefined}>
+          {selected ? <Check className="h-3.5 w-3.5" /> : item.project && addTopic ? "✓" : ""}
+        </span>
+      </div>
+    )
+  }
+
+  const renderNodes = (node: TopicTreeNode<PickerItem>): React.ReactNode[] => {
+    const out: React.ReactNode[] = []
+    // Branches first, then topics, each by name.
+    const children = sortedChildren(node).sort((a, b) => Number(a.children.size === 0) - Number(b.children.size === 0))
+    for (const child of children) {
+      if (child.item) out.push(renderLeaf(child))
+      if (child.children.size === 0) continue
+      const opened = isOpen(child.path)
+      // A topic that is also a branch: its row above, a bare chevron row
+      // under it for what lies below.
+      out.push(
+        <div
+          key={`branch-${child.path}`}
+          role="button"
+          aria-expanded={opened}
+          aria-label={child.item ? `${opened ? "Hide" : "Show"} topics nested under ${child.path}` : undefined}
+          onClick={() => toggle(child.path)}
+          className="flex items-center gap-1 pr-2 py-1.5 text-sm text-muted-foreground cursor-pointer rounded-sm hover:bg-accent"
+          style={{ paddingLeft: `${depth(child) * 12 - 4}px` }}
+        >
+          {opened ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {!child.item && <span className="font-medium">{child.name}</span>}
+          <span className="text-xs">({child.item ? child.topics - 1 : child.topics})</span>
+        </div>,
+      )
+      if (opened) out.push(...renderNodes(child))
+    }
+    return out
+  }
+
+  const triggerText =
+    selectedTopic && selectedPath
+      ? `${selectedTopic.topic} → ${selectedSubtopic?.label || selectedPath}`
+      : (selectedTopic?.topic ?? (boundButUnregistered ? selectedTopicId : undefined))
 
   return (
     <div className={className}>
       <Label className="text-xs">{label}</Label>
       <div className="flex gap-1">
         <div className="flex-1 min-w-0">
-          <Select
-            value={selectedTopic?.topic || "none"}
-            onValueChange={(value) => {
-              if (value === "manage") {
-                onManageTopics()
-              } else if (value === "none") {
-                onTopicChange(undefined)
-              } else {
-                // Picking a topic always replaces the whole stored value,
-                // discarding any previous subtopic - the Subtopics Picker
-                // (if it's about to show again, for a JSON topic) starts
-                // empty rather than trying to carry a field path over that
-                // may not even exist on the newly picked topic.
-                onTopicChange(value)
-              }
-            }}
-            onOpenChange={handleOpenChange}
-          >
-            {/* size="sm" (not just an h-8 className) - SelectTrigger reads
-                its height from data-[size=sm]:h-8 / data-[size=default]:h-9,
-                a data-attribute-scoped selector twMerge doesn't treat as
-                conflicting with a plain h-8 class, so a bare className
-                loses the cascade to the (default) h-9 rule. Needed to
-                actually match the Subtopics Picker beside it, which is a
-                plain Button and doesn't have this quirk. */}
-            <SelectTrigger size="sm" className="w-full">
-              <SelectValue placeholder="Select a topic">
-                {selectedTopic && selectedPath ? (
-                  <div className="flex items-center min-w-0 w-full">
-                    {/* A subtopic path picked/typed in the Subtopics Picker
-                        beside this one - may or may not match one of this
-                        topic's registered subtopics (a freeform path is
-                        valid too, see subtopic-picker.tsx), so fall back to
-                        the raw path text and a generic badge when it's not
-                        a registered one. */}
-                    <span
-                      className="truncate flex-1 min-w-0"
-                      title={`${selectedTopic.topic} → ${selectedSubtopic?.label || selectedPath}`}
-                    >
-                      {selectedTopic.topic} → {selectedSubtopic?.label || selectedPath}
+          <Popover open={open} onOpenChange={handleOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                role="combobox"
+                aria-expanded={open}
+                aria-label={label}
+                className="flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                {triggerText ? (
+                  <>
+                    <span className="truncate flex-1 min-w-0 text-left" title={triggerText}>
+                      {triggerText}
                     </span>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                        selectedSubtopic?.type === "numeric"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                          : selectedSubtopic
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-                      )}
-                    >
-                      {selectedSubtopic?.type || "field"}
-                    </span>
-                  </div>
-                ) : selectedTopic ? (
-                  <div className="flex items-center min-w-0 w-full">
-                    <span className="truncate flex-1 min-w-0" title={selectedTopic.topic}>
-                      {selectedTopic.topic}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                        selectedTopic.type === "numeric"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                          : selectedTopic.type === "json"
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                      )}
-                    >
-                      {selectedTopic.type}
-                    </span>
-                  </div>
-                ) : boundButUnregistered ? (
-                  <div className="flex items-center min-w-0 w-full">
-                    <span className="truncate flex-1 min-w-0" title={selectedTopicId}>
-                      {selectedTopicId}
-                    </span>
-                    <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-                      unregistered
-                    </span>
-                  </div>
+                    {selectedTopic && selectedPath ? (
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 text-xs rounded-full flex-shrink-0",
+                          selectedSubtopic ? TYPE_BADGE[selectedSubtopic.type] : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                        )}
+                      >
+                        {selectedSubtopic?.type || "field"}
+                      </span>
+                    ) : selectedTopic ? (
+                      <TypeBadge type={selectedTopic.type} />
+                    ) : (
+                      <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                        unregistered
+                      </span>
+                    )}
+                  </>
                 ) : (
-                  "No topic selected"
+                  <span className="flex-1 text-left text-muted-foreground">No topic selected</span>
                 )}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="max-h-80">
-              <SelectItem value="none">No topic</SelectItem>
-              {topics.length > 0 && (
-                <>
-                  {renderTreeNodes(topicTree)}
-                  <div className="border-t my-1" />
-                </>
-              )}
-              <SelectItem value="manage">
-                <div className="flex items-center gap-2 text-primary">
+                <ChevronsUpDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(26rem,90vw)] p-0">
+              <div className="p-2 border-b space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search topics..."
+                    aria-label="Search topics"
+                    className="h-8 w-full rounded-md border border-input bg-transparent pl-8 pr-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  />
+                </div>
+                {addTopic && (
+                  <div className="flex rounded-md border text-xs overflow-hidden" role="radiogroup" aria-label="Which topics">
+                    {(
+                      [
+                        [false, `All · ${items.length}`],
+                        [true, `Project only · ${topics.length}`],
+                      ] as const
+                    ).map(([only, text]) => (
+                      <button
+                        key={String(only)}
+                        type="button"
+                        role="radio"
+                        aria-checked={projectOnly === only}
+                        onClick={() => setProjectOnly(only)}
+                        className={cn("flex-1 py-1", projectOnly === only ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground")}
+                      >
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div role="listbox" aria-label={label} className="max-h-80 overflow-y-auto p-1">
+                <div
+                  role="option"
+                  aria-selected={!selectedRealTopic}
+                  onClick={() => {
+                    onTopicChange(undefined)
+                    setOpen(false)
+                  }}
+                  className="px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent"
+                >
+                  No topic
+                </div>
+                {renderNodes(tree)}
+                {q && tree.children.size === 0 && (
+                  <p className="px-2 py-2 text-sm text-muted-foreground">
+                    {projectOnly || !addTopic ? `No topic of the project matches «${typed}».` : `No topic heard or in the project matches «${typed}».`}
+                  </p>
+                )}
+                <div
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    setOpen(false)
+                    onManageTopics()
+                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t text-sm text-primary rounded-sm cursor-pointer hover:bg-accent"
+                >
                   <MqttIcon className="h-4 w-4" />
                   <span>Manage Topics...</span>
                 </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+              </div>
+              {offerAdd && (
+                <div className="flex items-center gap-2 border-t px-2 py-1.5 text-sm">
+                  <Plus className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                  <span className="truncate min-w-0 flex-1 text-primary font-medium" title={typed}>
+                    Add topic «{typed}»
+                  </span>
+                  {(["numeric", "text", "json"] as const).map((type) => (
+                    <button key={type} type="button" onClick={() => addByHand(type)} aria-label={`Add as ${type}`} className="rounded-full">
+                      <TypeBadge type={type} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         {allowSubtopics && selectedTopic?.type === "json" && (

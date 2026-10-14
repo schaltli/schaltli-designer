@@ -110,6 +110,7 @@ import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_COMMAND_TOPIC, THEME_STATE_T
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import { BrokerListener } from "@/components/broker-listener"
+import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-context"
 import { useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
@@ -2914,6 +2915,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setShowMqttDiscovery(true)
   }, [])
 
+  // A topic added where it is chosen (components/topic-adder-context.ts):
+  // ids as Manage Topics gives them; a name the project has stays as it is.
+  const addTopic = useCallback((topic: NewTopic) => {
+    setProject((prev) => {
+      if (prev.topics.some((t) => t.topic === topic.topic)) return prev
+      const id = `topic_${prev.nextId}`
+      const added: Topic = {
+        ...topic,
+        id,
+        subtopics: topic.type === "json" ? (topic.subtopics ?? []).map((s, i) => ({ id: `${id}_sub_${i}`, path: s.path, type: s.type })) : undefined,
+      }
+      return { ...prev, topics: [...prev.topics, added], nextId: prev.nextId + 1 }
+    })
+  }, [])
+
   const handleTopicsSelected = useCallback((discoveredTopics: any[]) => {
 
     setProject((prev) => {
@@ -4048,6 +4064,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   }
 
   return (
+    <TopicAdderContext.Provider value={addTopic}>
     <div className="h-screen w-full bg-background flex flex-col">
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
         <div className="flex items-center gap-1">
@@ -4655,5 +4672,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         localTopics={project.topics.filter((t) => t.local).map((t) => t.topic)}
       />
     </div>
+    </TopicAdderContext.Provider>
   )
 }
