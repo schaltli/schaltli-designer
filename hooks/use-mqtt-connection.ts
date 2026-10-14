@@ -124,7 +124,7 @@ export async function keepBrokerLogin(login: BrokerLogin): Promise<void> {
 function connectionFailure(message: string): string {
   if (/not authori[sz]ed|bad user ?name or password|connection refused: (?:4|5)/i.test(message)) {
     return (
-      "The broker refused the login. Enter its username and password in «Discover MQTT Topics» " +
+      "The broker refused the login. Enter its username and password in «Listen to Broker» " +
       "(Settings › Topics); the designer keeps them for every browser."
     )
   }

@@ -31,7 +31,7 @@ Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <spa
 
 ## Topics vom Broker holen
 
-<span class="ui">Discover MQTT Topics</span> hört eine Weile mit, was auf dem Broker passiert, und listet alle Topics, die dabei vorkommen. <span class="ui">retained</span> heisst, der Wert lag schon auf dem Broker; <span class="ui">live</span>, er kam erst während des Mithörens. Den Typ erkennt der Designer selbst.
+<span class="ui">Listen to Broker</span> hört eine Weile mit, was auf dem Broker passiert, und listet alle Topics, die dabei vorkommen. <span class="ui">retained</span> heisst, der Wert lag schon auf dem Broker; <span class="ui">live</span>, er kam erst während des Mithörens. Den Typ erkennt der Designer selbst.
 
 Am Anfang ist keines ausgewählt. Wähle die Topics aus, die du brauchst, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>. Nimm nur, was ein Screen zeigen oder schalten soll: Die Vorschau hört jedes Topic des Projekts mit.
 
@@ -83,7 +83,7 @@ Local topics stehen unter <span class="ui">Settings</span> › <span class="ui">
 
 In der Auswahl eines Objekts stehen Local topics wie alle anderen. Die [Vorschau](/designer/vorschau) hält sie in der Simulation und im Live-Modus gleich: Ein Tipp setzt den Wert sofort, auf den Broker geht nichts. Rechts in den Topic-Werten sind sie mit <span class="ui">local</span> markiert und lassen sich auch live ändern.
 
-Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Discover MQTT Topics</span> markiert es mit <span class="ui">local topic</span>, bietet es nicht an und sagt das über der Liste.
+Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Listen to Broker</span> markiert es mit <span class="ui">local topic</span>, bietet es nicht an und sagt das über der Liste.
 
 ::: warning Ältere Firmware
 Knob, 4.3B und PaperS3 kennen Local topics ab der Firmware fw-2026.10.13.2, die Android-App ab Version 0.11.0. Eine ältere Version würde eines wie ein gewöhnliches Topic behandeln: Sie abonniert es auf dem Broker und publiziert, was ein Schalter hineinschreibt. Deshalb überträgt <span class="ui">Deploy</span> ein Projekt mit Local topics nur auf ein Gerät, das sie kennt. Ein älteres Board bringt der Designer vorher auf den neuen Stand. Bei der App bittet er um ein Update.

@@ -5,7 +5,7 @@ import { readBrokerLogin, writeBrokerLogin } from "@/lib/broker-login"
 /**
  * GET /api/broker-login - the broker login every browser connects with
  * (lib/broker-login.ts, #67). PUT { username, password } - keeps a login
- * that just connected in «Discover MQTT Topics»; an empty username forgets
+ * that just connected in «Listen to Broker»; an empty username forgets
  * it.
  */
 export const dynamic = "force-dynamic"

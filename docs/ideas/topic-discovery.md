@@ -6,7 +6,8 @@ Schaltli against his own camper control (forum.camper-bauen.de, topic
 Block menu on a broker carrying his Home Assistant discovery configs, and
 stumbled three times in a few minutes.
 
-Status: idea. No spec yet. Issue #71.
+Status: idea, refined 2026-10-14 (entities stay in the Block menu; the
+dialog is renamed «Listen to Broker», done). No spec yet. Issue #71.
 
 ## Problem Statement
 
@@ -42,6 +43,25 @@ real van broker (the user's own: `homeassistant` 453 messages, `pkw` 987,
 every topic is too long to find anything in, whatever the width. The model
 is MQTT Viewer's tree (screenshot of the user's broker, 2026-10-13).
 
+Rajiva objected (forum #16, 2026-10-14): discovery announces only his 6-7
+entities; the flood comes from his control's hundreds of status topics,
+which carry no type and no setter. Someone looking for entities should see
+only what discovery announces, as Home Assistant does. Refined with the
+user the same day: he is right that entities get lost, but the dialog is
+for tinkerers with raw topics (`pkw`, `tasmota`, `zigbee2mqtt`, Node-RED) -
+announced devices are the Block menu's (handbook `designer/topics.md`:
+«Diese Seite ist für alles andere»), and that is where Rajiva did find his
+«Service ID». Entities stay there, topics stay here; the dialog only
+points across.
+
+Part of his objection came from the name. «Discover MQTT Topics» reads, to
+anyone who knows Home Assistant, as MQTT Discovery - the configs under
+`homeassistant/…/config` - while the dialog subscribes to `#` and lists
+what goes by. Renamed on 2026-10-14 to «Listen to Broker» (buttons «Start
+Listening» / «Stop Listening»), as the handbook already described it
+(«hört eine Weile mit»). «Discovery» is now only Home Assistant's: the
+Discovery prefix, the Block menu, the pointer below.
+
 ## Recommended Direction
 
 **A tree, not a list.** The dialog shows the broker as MQTT Viewer does:
@@ -75,7 +95,13 @@ folds it back.
 
 The designer has a topic tree already, in the topic picker of the property
 panel (`buildTopicTree`, `components/property-panel/topic-selector.tsx`);
-the dialog builds on it rather than on a second one.
+the dialog builds on it rather than on a second one: one tree everywhere.
+
+**A pointer to the blocks.** The dialog already listens to the discovery
+prefix. Where configs announce devices, it says so above the tree, «N devices announced via discovery - insert them as
+blocks», leading to the Block menu. Ticking an entity's topics here adds
+topics, not a block; whoever wanted the block should not find that out
+afterwards.
 
 **Never show a made-up value as if it were reported.** Where the broker
 had nothing for a topic, the placed block shows the object's «no value
@@ -90,6 +116,11 @@ becomes a text in the block, typed `text`. The same rule for the
 `readTopicEntry` type, so the topic list does not say «numeric» for an ID.
 
 ## Key Assumptions to Validate
+
+- [ ] **The pointer is enough.** Someone looking for an entity here
+  follows it to the Block menu. Watch Rajiva's next try; if he still
+  looks for his entities in this dialog, reconsider the markers (Not
+  Doing).
 
 - [ ] **Rajiva's state is not retained.** The MQTT Explorer screenshot
   shows `CamperServiceID/state = CamperVan_BiberTest` but not whether it is
@@ -106,7 +137,8 @@ becomes a text in the block, typed `text`. The same rule for the
 
 In: the tree with counts, retained/live and payload preview; rows lighting
 up on a new message, ancestors included; checkboxes on
-branches; the detail pane; the filter over topic and payload; no sample
+branches; the detail pane; the pointer to the Block menu; the picker on
+the same tree; the filter over topic and payload; no sample
 stored where nothing was heard; live values heard in the Block dialog
 counted; Home Assistant's rule for numeric sensors. An e2e spec with
 Rajiva's three configs (from the screenshot) as a fixture under
@@ -122,11 +154,28 @@ Rajiva's three configs (from the screenshot) as a fixture under
 
 - **The Topics list under Settings** - stays as it is (user, 2026-10-13);
   it holds the project's topics, not a whole broker.
+- **Entities only, as Rajiva proposed** - the dialog is for raw topics;
+  entities are the Block menu's.
+- **Entities marked in the tree** (worked out and dropped the same day) -
+  the entity's name and component on each topic its config names, entity
+  counts on branches, topics a config names but nobody sent shown pale,
+  an «Announced only» switch. Topics and entities are many-to-many: one
+  light has state, set and brightness topics; one zigbee2mqtt topic feeds
+  three sensors through value templates; the config itself sits in
+  another branch. Marking that cleanly costs more than it gives someone
+  who knows their own raw topics, and it mixes the two worlds the pointer
+  keeps apart.
+- **Grouping by device instead of by path** (Device › Entity) - that is
+  the Block menu's view.
+- **A wider flat list** - Rajiva's other proposal; it does not help on a
+  broker with 2500 messages.
 - **MQTT Viewer's timeline, charts and publishing** - the dialog picks
   topics for a project; watching and sending stay with the tools made for
   it.
 
 ## Open Questions
 
-- Which branch opens first? Perhaps the discovery prefix and `schaltli/`,
-  since that is where blocks come from.
+- Which branch opens first? Perhaps none, or `schaltli/`.
+- How does a status topic without a type show? Rajiva asked; today the
+  dialog guesses numeric, text or JSON from the payload - say so in the
+  handbook.

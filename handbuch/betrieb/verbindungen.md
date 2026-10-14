@@ -92,7 +92,7 @@ Steht eine Firewall dazwischen, müssen auf dem Rechner mit Designer und Broker 
 
 Der Broker auf einem Pekaway-System verlangt keine Anmeldung, siehe [MQTT-Broker und Topics](/betrieb/mqtt). Schütze das WLAN des Vans deshalb mit einem Passwort.
 
-Verlangt dein Broker Benutzer und Passwort, trägst du sie einmal im Designer ein: Unter <span class="ui">Settings</span> › <span class="ui">Topics</span> öffnet <span class="ui">Discover MQTT Topics</span> die Verbindung. Lehnt der Broker ab, sagt der Dialog das und zeigt die Felder für Benutzer und Passwort. Sobald die Verbindung damit klappt, behält der Designer die Anmeldung, für jeden Browser und für alles, was mit dem Broker spricht: Geräte finden, Vorschau, Übertragen. Ein leeres Feld löscht sie wieder. Wer den Designer öffnen kann, bekommt damit auch Zugang zum Broker; der Designer selbst hat keine Anmeldung.
+Verlangt dein Broker Benutzer und Passwort, trägst du sie einmal im Designer ein: Unter <span class="ui">Settings</span> › <span class="ui">Topics</span> öffnet <span class="ui">Listen to Broker</span> die Verbindung. Lehnt der Broker ab, sagt der Dialog das und zeigt die Felder für Benutzer und Passwort. Sobald die Verbindung damit klappt, behält der Designer die Anmeldung, für jeden Browser und für alles, was mit dem Broker spricht: Geräte finden, Vorschau, Übertragen. Ein leeres Feld löscht sie wieder. Wer den Designer öffnen kann, bekommt damit auch Zugang zum Broker; der Designer selbst hat keine Anmeldung.
 
 Die Geräte bekommen Benutzer und Passwort bei der Einrichtung: ein Board in seiner [Einrichtungsseite](/geraete/einrichten), die Android-App in ihren [Einstellungen](/geraete/android#mit-dem-broker-verbinden).
 

@@ -66,7 +66,7 @@ test("a broker that wants a login says so, and the login typed once connects and
   await loadProject(page, COMBINED_TEST_PROJECT)
   await page.getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByText("Topics", { exact: true }).click()
-  await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+  await page.getByRole("button", { name: "Listen to Broker" }).click()
   await expect(page.getByText(/The broker refused the login/)).toBeVisible({ timeout: 15_000 })
 
   await page.locator("#username").fill(USER)

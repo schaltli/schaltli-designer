@@ -279,7 +279,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
         // subscribed to (not because it happened to publish live right
         // now) - mosquitto sends these immediately on subscribe, so this
         // fires for every currently-retained topic within the first
-        // fraction of a second of clicking "Start Discovery", regardless
+        // fraction of a second of clicking "Start Listening", regardless
         // of whether that topic ever publishes again during the session.
         messageProcessingQueue.push({ topic, message: message.toString(), retained: packet.retain })
         if (!isProcessingQueue) setTimeout(processMessageQueue, 0)
@@ -362,7 +362,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <MqttIcon />
-            Discover MQTT Topics
+            Listen to Broker
           </DialogTitle>
         </DialogHeader>
 
@@ -493,12 +493,12 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
                         {!isDiscovering ? (
                           <Button onClick={handleStartDiscovery} size="sm" className="gap-2">
                             <Play className="h-3 w-3" />
-                            Start Discovery
+                            Start Listening
                           </Button>
                         ) : (
                           <Button onClick={handleStopDiscovery} size="sm" variant="destructive" className="gap-2">
                             <Square className="h-3 w-3" />
-                            Stop Discovery
+                            Stop Listening
                           </Button>
                         )}
                         <Button onClick={handleDisconnect} size="sm" variant="outline">
@@ -530,7 +530,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
                 {discoveredTopics.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-sm text-muted-foreground">
-                      {isDiscovering ? "Listening for MQTT topics..." : "Click 'Start Discovery' to begin"}
+                      {isDiscovering ? "Listening for MQTT topics..." : "Click 'Start Listening' to begin"}
                     </p>
                   </div>
                 ) : (

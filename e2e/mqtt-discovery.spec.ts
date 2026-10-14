@@ -47,12 +47,12 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
 
     // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
     // using the broker URL derived from the page's own host, which is
     // ws://localhost:9001 here, same as BROKER_URL.
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
 
     // The retained topic must show up (and be badged "retained") purely
     // from the guaranteed on-subscribe delivery - no live publish for it
@@ -66,7 +66,7 @@ test.describe("MQTT topic discovery", () => {
     const liveRow = page.locator("text=" + liveTopic).locator("..").locator("..")
     await expect(liveRow.getByText("live", { exact: true })).toBeVisible()
 
-    await page.getByRole("button", { name: "Stop Discovery" }).click()
+    await page.getByRole("button", { name: "Stop Listening" }).click()
   })
 
   test("filtering scopes 'Add Selected Topics' to what's actually visible", async ({ page }, testInfo) => {
@@ -86,15 +86,15 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
     // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
     // using the broker URL derived from the page's own host, which is
     // ws://localhost:9001 here, same as BROKER_URL.
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
     await expect(page.getByText(keepTopic)).toBeVisible()
     await expect(page.getByText(dropTopic)).toBeVisible()
     // Both chosen, then the filter: the hidden one keeps its flag.
-    await page.getByRole("dialog", { name: "Discover MQTT Topics" }).getByRole("button", { name: "Select All", exact: true }).click()
+    await page.getByRole("dialog", { name: "Listen to Broker" }).getByRole("button", { name: "Select All", exact: true }).click()
 
     await page.getByPlaceholder("Filter topics...").fill("keep-me")
     await expect(page.getByText(keepTopic)).toBeVisible()
@@ -126,8 +126,8 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
     await expect(page.getByText(one)).toBeVisible()
     await expect(page.getByText(two)).toBeVisible()
     await expect(page.getByText(/^0 of \d+ topics selected$/)).toBeVisible()
@@ -159,9 +159,9 @@ test.describe("MQTT topic discovery", () => {
     await page.getByText("Topics", { exact: true }).click()
     const settings = page.getByRole("dialog")
     const before = await settings.getByText(existing, { exact: true }).count()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByRole("button", { name: "Start Discovery" }).click()
-    const discovery = page.getByRole("dialog", { name: "Discover MQTT Topics" })
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
+    const discovery = page.getByRole("dialog", { name: "Listen to Broker" })
     await expect(discovery.getByText(fresh)).toBeVisible()
     // Published again while discovering, so it is listed whatever the broker held.
     testClient.publish(existing, "43")
@@ -189,9 +189,9 @@ test.describe("MQTT topic discovery", () => {
     await settings.getByLabel("Local topic name").fill(name)
     await settings.getByLabel("Local topic name").press("Enter")
 
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByRole("button", { name: "Start Discovery" }).click()
-    const discovery = page.getByRole("dialog", { name: "Discover MQTT Topics" })
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
+    const discovery = page.getByRole("dialog", { name: "Listen to Broker" })
     await expect(discovery.getByText(retainedTopic)).toBeVisible()
     testClient.publish(name, "sankey")
     const row = discovery.locator("div.cursor-pointer").filter({ hasText: name }).first()
@@ -232,8 +232,8 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
 
     const derived = "temp, ['sensor-a'].humid, readings[0]"
     const row = page.locator("text=" + jsonTopic).locator("..")
@@ -245,7 +245,7 @@ test.describe("MQTT topic discovery", () => {
     await expect(row.getByText(`${derived}, mode`, { exact: true })).toBeVisible()
 
     await page.getByPlaceholder("Filter topics...").fill(jsonTopic)
-    await page.getByRole("dialog", { name: "Discover MQTT Topics" }).getByRole("button", { name: "Select Shown", exact: true }).click()
+    await page.getByRole("dialog", { name: "Listen to Broker" }).getByRole("button", { name: "Select Shown", exact: true }).click()
     await page.getByRole("button", { name: "Add Selected Topics" }).click()
 
     // The derived fields must land on the project's topic as real
@@ -269,8 +269,8 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
 
     const row = page.locator("text=" + jsonTopic).locator("..")
     await expect(row.getByText("f0", { exact: true })).toBeVisible()
@@ -305,18 +305,18 @@ test.describe("MQTT topic discovery", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
     // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
     // using the broker URL derived from the page's own host, which is
     // ws://localhost:9001 here, same as BROKER_URL.
-    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await page.getByRole("button", { name: "Start Listening" }).click()
     await expect(page.getByText(`${prefix}/t39`)).toBeVisible()
 
     // Playwright's own actionability check requires the button to be
     // within the viewport and not obscured - this fails outright if the
     // dialog clipped it off-screen, exactly reproducing the report.
     await expect(page.getByRole("button", { name: "Add Selected Topics" })).toBeVisible()
-    await page.getByRole("button", { name: "Stop Discovery" }).click()
+    await page.getByRole("button", { name: "Stop Listening" }).click()
 
     for (let i = 0; i < 40; i++) {
       testClient.publish(`${prefix}/t${i}`, "", { retain: true })
@@ -331,7 +331,7 @@ test.describe("the discovery prefix", () => {
   async function openConnectionStep(page: import("@playwright/test").Page) {
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Listen to Broker" }).click()
     // The dialog connects by itself; Connection settings brings the fields back.
     await expect(page.getByRole("button", { name: "Disconnect" })).toBeVisible()
     await page.getByRole("button", { name: "Connection settings" }).click()

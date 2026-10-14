@@ -1296,7 +1296,7 @@ export function ProjectSettingsDialog({
                         </Button>
                         <Button onClick={handleMqttDiscovery} size="sm" variant="outline">
                           <MqttIcon className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
-                          Discover MQTT Topics
+                          Listen to Broker
                         </Button>
                         <Button onClick={openAddTopicDialog} size="sm">
                           <MqttIcon className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
@@ -1312,8 +1312,8 @@ export function ProjectSettingsDialog({
                             <div className="text-center py-12 border-2 border-dashed border-muted rounded-lg">
                               <MqttIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                               <p className="text-sm text-muted-foreground">
-                                No topics configured yet. Click "Add Topic" to manually add a topic or "Discover MQTT
-                                Topics" to automatically find topics from your MQTT broker.
+                                No topics configured yet. Click "Add Topic" to manually add a topic or "Listen to
+                                Broker" to pick the topics your MQTT broker carries.
                               </p>
                             </div>
                           ) : (
