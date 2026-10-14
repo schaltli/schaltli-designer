@@ -249,6 +249,26 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // Nothing on the broker: no example stored, and the editor draws the block
+  // as the device does before the first message - not «60» (#71,
+  // docs/2026-10-14-topic-discovery.md, no-made-up-values).
+  test("Rajiva's «Service ID» with nothing heard: no example, no value drawn", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Service ID")
+      await expect(page.getByTestId("baustein-value")).toHaveCount(0)
+      await page.getByTestId("baustein-insert").click()
+      await drag(page)
+      const { canvas } = await getMainCanvas(page)
+      await canvas.screenshot({ path: testInfo.outputPath("nothing-heard.png") })
+      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "" })
+    } finally {
+      await clear()
+    }
+  })
+
   test("the look chosen in the dialog is the one placed; a switch has no choice, it is buttons", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "z2m-number-calibration"])
     try {
