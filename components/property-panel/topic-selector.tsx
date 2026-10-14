@@ -251,7 +251,9 @@ export function TopicSelector({
                 type="button"
                 role="combobox"
                 aria-expanded={open}
-                aria-label={label}
+                // The row's look comes by this slot, as a Select's trigger
+                // (fields/wrapped-fields.tsx, e2e/property-fields.spec.ts).
+                data-slot="select-trigger"
                 className="flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 {triggerText ? (
