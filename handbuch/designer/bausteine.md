@@ -13,7 +13,7 @@ Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ank
 ## So geht's
 
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten: das Gerät als Überschrift, darunter jedes Ding mit seinem eigenen Namen. Home Assistant nennt den Fühler «Cabin Temperature» des Geräts «van-sensors» «van-sensors Cabin Temperature», das Menü nur «Cabin Temperature». Hat ein Gerät nur ein Ding mit dem Namen des Geräts, steht es ohne Überschrift da.
-2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
+2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und den Wert, sobald der Broker einen meldet: den, der dort liegt, oder einen, der kommt, solange der Dialog offen ist.
 3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, wo es mehr als eine Form gibt, und unter <span class="ui">Icon</span> ein Icon. Ein Eintrag mit mehreren Teilen kommt ganz, siehe [Mehrere Teile](#mehrere-teile). Teilt eine Beschreibung ihn in Abschnitte, wählst du unter <span class="ui">Sections</span> ab, was du nicht brauchst, siehe [Abschnitte](#abschnitte).
 4. Klick auf <span class="ui">Insert</span>. Nach dem Druck auf den Screen hängt der Baustein am Mauszeiger. Du trägst ihn an seinen Platz und lässt los, ein Klick setzt ihn gleich dort ab. Einen Baustein aus einem Teil kannst du auch in eine Tabelle tragen, siehe [In einer Tabelle](#in-einem-container). Sucht der Designer noch nach dem Icon, zeigt der Knopf <span class="ui">Waiting for icon…</span> und setzt den Baustein ab, sobald das Icon da ist. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
 
@@ -94,4 +94,4 @@ Neben den Objekten trägt der Designer die Topics ein, die der Baustein braucht.
 - das Topic, aus dem er liest. Liegt der Wert in einer JSON-Nachricht, etwa `{"state":"ON"}`, ist es ein JSON-Topic mit dem Feld als Subtopic,
 - das Topic, an das er seine Befehle schickt.
 
-Als ersten Beispielwert bekommt jedes Topic, was beim Einfügen auf dem Broker lag. Die Vorschau zeigt so von Anfang an etwas, das nach deiner Anlage aussieht. Ein Topic, das schon im Projekt steht, lässt der Designer, wie es ist, auch wenn du seine Beispiele selbst eingetragen hast.
+Als Beispielwert bekommt jedes Topic, was der Dialog vom Broker gehört hat. Die Vorschau zeigt so von Anfang an etwas, das nach deiner Anlage aussieht. Hat der Broker nichts gemeldet, bekommt das Topic keinen Beispielwert, und der Baustein zeigt keinen Wert, wie das Gerät vor der ersten Nachricht. Einen Wert, den niemand geschickt hat, setzt der Designer nicht ein. Ein Topic, das schon im Projekt steht, lässt der Designer, wie es ist, auch wenn du seine Beispiele selbst eingetragen hast.
