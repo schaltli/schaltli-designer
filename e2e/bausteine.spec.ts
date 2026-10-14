@@ -223,6 +223,30 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // A sensor without unit, state class or measuring device class is text, as
+  // in Home Assistant (docs/2026-10-14-topic-discovery.md, ha-sensor-type;
+  // #71). Rajiva's «Service ID» was placed as a number and showed «60».
+  test("Rajiva's «Service ID»: a text beside its name, its topic typed text with the broker's value", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"], { "CamperServiceID/state": "CamperVan_BiberTest" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Service ID")
+      await expect(page.getByTestId("baustein-value")).toHaveText(": CamperVan_BiberTest")
+      await page.getByTestId("baustein-insert").click()
+      await drag(page)
+
+      const [table] = (await savedScreen(page)).objects.filter(isSnapTable)
+      expect(byCell(table)).toEqual({ "0/0": "text", "0/1": "text" })
+      // The value is the second text's live value (docs/2026-10-07-live-values.md).
+      expect(JSON.stringify(table)).toContain('"path":"CamperServiceID/state"')
+
+      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
+    } finally {
+      await clear()
+    }
+  })
+
   test("the look chosen in the dialog is the one placed; a switch has no choice, it is buttons", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "z2m-number-calibration"])
     try {
