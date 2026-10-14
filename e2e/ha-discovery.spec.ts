@@ -330,6 +330,38 @@ test.describe("an entity as a catalog entry", () => {
   })
 })
 
+// Home Assistant takes a sensor for a number only when its config says so
+// (docs/2026-10-14-topic-discovery.md, module ha-sensor-type; #71): a unit,
+// a state class, or a device class that measures. Rajiva's «Service ID»
+// has none of them and reports `CamperVan_BiberTest`; it was placed as a
+// number showing «60».
+test.describe("a sensor's type, as Home Assistant reads it", () => {
+  const sensor = (config: Record<string, unknown>) =>
+    toCatalogEntry(expandConfig("homeassistant/sensor/x/config", JSON.stringify({ stat_t: "s", name: "S", ...config }))[0])
+
+  test("Rajiva's «Service ID»: no unit, no state class, no device class - a text", () => {
+    const f = fixture("rajiva-service-id")
+    const result = toCatalogEntry(expandConfig(f.topic, JSON.stringify(f.payload))[0])
+    expect(result).toMatchObject({ entry: { label: "Service ID", controls: [{ kind: "text", read: "CamperServiceID/state" }] } })
+  })
+
+  test("a unit, a state class or a measuring device class each make it a number", () => {
+    expect(sensor({ unit_of_meas: "V" })).toMatchObject({ entry: { controls: [{ kind: "value", read: "s", unit: "V" }] } })
+    expect(sensor({ stat_cla: "measurement" })).toMatchObject({ entry: { controls: [{ kind: "value", read: "s" }] } })
+    expect(sensor({ dev_cla: "temperature" })).toMatchObject({ entry: { controls: [{ kind: "value", read: "s" }] } })
+  })
+
+  test("a device class that is not a number - timestamp, date, enum - is a text", () => {
+    for (const dev_cla of ["timestamp", "date", "enum"]) {
+      expect(sensor({ dev_cla })).toMatchObject({ entry: { controls: [{ kind: "text", read: "s" }] } })
+    }
+  })
+
+  test("a text sensor still says what it cannot read", () => {
+    expect(sensor({ val_tpl: "{{ value_json.a / 10 }}" })).toMatchObject({ unsupported: { reason: "the value template: arithmetic (/ 10)" } })
+  })
+})
+
 // Task 4: light, fan and climate - entities with several parts, each a
 // control with its part's name; a part that cannot be used is skipped with
 // its reason, the rest offered.

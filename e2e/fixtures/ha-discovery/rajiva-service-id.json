@@ -1,0 +1,10 @@
+{
+  "source": "Rajiva's camper control (forum.camper-bauen.de, topic 14107, page 2, 2026-10-13; schaltli-designer#71): the sensor «Service ID» of his device BiberTest, which reports the text CamperVan_BiberTest on its state topic. The keys his screenshot shows (name, state topic, entity category) as written down in docs/ideas/topic-discovery.md; unique_id as that page records it",
+  "topic": "homeassistant/sensor/CamperServiceID_BiberTest/config",
+  "payload": {
+    "name": "Service ID",
+    "state_topic": "CamperServiceID/state",
+    "entity_category": "diagnostic",
+    "unique_id": "CamperServiceID_BiberTest"
+  }
+}

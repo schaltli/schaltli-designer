@@ -563,6 +563,25 @@ function valuePart(config: Json, keys: PartKeys, unit: string | undefined, level
   return t.read ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level } } : undefined
 }
 
+// The sensor device classes whose state is not a number - Home Assistant's
+// NON_NUMERIC_DEVICE_CLASSES (homeassistant/components/sensor/const.py,
+// https://www.home-assistant.io/integrations/sensor/#device-class). Every
+// other one measures something.
+const NON_NUMERIC_DEVICE_CLASSES = new Set(["date", "enum", "timestamp"])
+
+/**
+ * Whether Home Assistant takes a sensor's state for a number: only when its
+ * config says so - a unit, a state class, or a device class that measures.
+ * Any other sensor is text: IDs, versions, states. Until 2026-10-14 every
+ * sensor was a number, and Rajiva's «Service ID», which reports
+ * `CamperVan_BiberTest`, was placed as a number block (#71).
+ */
+export function numericSensor(config: Json): boolean {
+  if (unitOf(config)) return true
+  if (typeof config.state_class === "string" && config.state_class) return true
+  return typeof config.device_class === "string" && !!config.device_class && !NON_NUMERIC_DEVICE_CLASSES.has(config.device_class)
+}
+
 function unitOf(config: Json): string | undefined {
   return typeof config.unit_of_measurement === "string" && config.unit_of_measurement ? config.unit_of_measurement : undefined
 }
@@ -704,8 +723,12 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       if (!t.read) return undefined
       return { control: { kind: "state", read: t.read, on: str(config.payload_on, "ON"), off: str(config.payload_off, "OFF") } }
     }
-    case "sensor":
-      return valuePart(config, { read: "state_topic", readTemplate: "value_template" }, unit, unit === "%" || config.device_class === "battery")
+    case "sensor": {
+      if (numericSensor(config)) return valuePart(config, { read: "state_topic", readTemplate: "value_template" }, unit, unit === "%" || config.device_class === "battery")
+      const t = partTopics(config, { read: "state_topic", readTemplate: "value_template" })
+      if ("skipped" in t) return t
+      return t.read ? { control: { kind: "text", read: t.read } } : undefined
+    }
     case "number":
       return levelPart(
         config,
