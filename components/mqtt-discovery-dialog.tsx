@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useMqttConnection } from "@/hooks/use-mqtt-connection"
+import { keepBrokerLogin, useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { flattenJsonFields, type FlattenedJsonField } from "@/lib/json-path"
 import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons"
@@ -255,9 +255,14 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
     }
   }
 
-  const handleConnect = async () => {
+  // `typed`: Connect pressed on the form, so the login in its fields is the
+  // one meant - kept by the designer for every browser once it connects,
+  // and an emptied one forgotten (#67).
+  const handleConnect = async (typed = false) => {
     try {
-      const client = await connectMqtt()
+      const login = { username: connectionConfig.username.trim(), password: connectionConfig.password }
+      const client = await connectMqtt(typed ? login : undefined)
+      if (typed) await keepBrokerLogin(login)
       setStep("discovery")
 
       client.on("offline", () => {
@@ -436,6 +441,9 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
                     placeholder="Enter password"
                     className="mt-1"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Kept by the designer once it connects, for every browser and everything that talks to the broker. Empty forgets it.
+                  </p>
                 </div>
 
                 {connectionError && (
@@ -446,7 +454,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected, existin
               </div>
 
               <Button
-                onClick={handleConnect}
+                onClick={() => handleConnect(true)}
                 disabled={isConnecting || !connectionConfig.websocketUrl}
                 className="w-full"
               >

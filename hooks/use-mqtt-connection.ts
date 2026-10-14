@@ -90,6 +90,47 @@ export function storedBlocksPrefix(): string {
   return typeof stored === "string" && stored.trim() !== "" ? stored.trim() : BLOCKS_PREFIX
 }
 
+// The login the designer keeps for every browser (lib/broker-login.ts, #67):
+// asked once per page, and again after it changed. A designer that cannot
+// say (the demo, an older server) means no login, as before.
+type BrokerLogin = { username: string; password: string }
+let serverLogin: Promise<BrokerLogin> | null = null
+
+export function brokerLogin(): Promise<BrokerLogin> {
+  if (typeof window === "undefined") return Promise.resolve({ username: "", password: "" })
+  if (!serverLogin) {
+    serverLogin = fetch("/api/broker-login", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((body: Partial<BrokerLogin>) => ({ username: body.username ?? "", password: body.password ?? "" }))
+      .catch(() => ({ username: "", password: "" }))
+  }
+  return serverLogin
+}
+
+/**
+ * Keeps a login that just connected, for every browser that opens this
+ * designer. An empty username forgets it.
+ */
+export async function keepBrokerLogin(login: BrokerLogin): Promise<void> {
+  await fetch("/api/broker-login", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(login),
+  }).catch(() => {})
+  serverLogin = Promise.resolve({ username: login.username.trim(), password: login.username.trim() ? login.password : "" })
+}
+
+/** What the broker said, in words a person can act on. */
+function connectionFailure(message: string): string {
+  if (/not authori[sz]ed|bad user ?name or password|connection refused: (?:4|5)/i.test(message)) {
+    return (
+      "The broker refused the login. Enter its username and password in «Discover MQTT Topics» " +
+      "(Settings › Topics); the designer keeps them for every browser."
+    )
+  }
+  return `Connection failed: ${message}`
+}
+
 /** A prefix as typed, or the default where it is empty. */
 export function discoveryPrefixOf(prefix: string | undefined): string {
   const trimmed = (prefix ?? "").trim()
@@ -105,6 +146,17 @@ export function useMqttConnection(clientIdPrefix: string) {
     discoveryPrefix: "",
     ...loadStoredConfig(),
   }))
+  // The designer's login, shown in the fields of whoever has none typed.
+  useEffect(() => {
+    let cancelled = false
+    brokerLogin().then((login) => {
+      if (cancelled || !login.username) return
+      setConfig((prev) => (prev.username ? prev : { ...prev, username: login.username, password: login.password }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [isConnecting, setIsConnecting] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,14 +212,18 @@ export function useMqttConnection(clientIdPrefix: string) {
   }, [])
 
   const connect = useCallback(
-    (overrides?: Partial<MqttConnectionConfig>) => {
+    async (overrides?: Partial<MqttConnectionConfig>) => {
+      // Without a login of its own, every connection uses the designer's:
+      // the device scan, the preview, Deploy - not only the dialog someone
+      // typed one into (#67).
+      const login = config.username || (overrides && "username" in overrides) ? null : await brokerLogin()
       return new Promise<mqtt.MqttClient>((resolve, reject) => {
         // Read the stored address now rather than trusting the one from
         // mount, unless this instance's own field was edited - and show it,
         // so "Found on …" names the broker actually asked.
         const stored = editedRef.current ? undefined : loadStoredConfig().websocketUrl
         if (stored && stored !== config.websocketUrl) setConfig((prev) => ({ ...prev, websocketUrl: stored }))
-        const effective = { ...config, ...(stored ? { websocketUrl: stored } : {}), ...overrides }
+        const effective = { ...config, ...(login?.username ? login : {}), ...(stored ? { websocketUrl: stored } : {}), ...overrides }
         const websocketUrl = effective.websocketUrl.trim()
         if (!websocketUrl.startsWith("ws://") && !websocketUrl.startsWith("wss://")) {
           const message = "WebSocket URL must start with ws:// or wss://"
@@ -220,7 +276,7 @@ export function useMqttConnection(clientIdPrefix: string) {
             clearTimeout(connectTimeoutRef.current)
             connectTimeoutRef.current = null
           }
-          setError(`Connection failed: ${err.message}`)
+          setError(connectionFailure(err.message))
           setIsConnecting(false)
           client.end()
           reject(err)

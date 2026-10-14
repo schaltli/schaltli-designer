@@ -18,10 +18,10 @@ Push notification on a stop and at the end.
 - [x] C3 The designer reads the DDF over the broker; #68 readable (e2e/ddf-over-broker.spec.ts)
 - [x] C4 Boards answer ddf/get and recovery/get (schaltli-firmware ca9e491; seen on all three boards)
 - [x] C5 The app answers; DdfServer gone (Android HIL «over the broker», 3 checks)
-- [ ] Checkpoint: test:all; firmware release; app v0.12.0
+- [x] Checkpoint: test:all (green but for two fixed above); firmware release fw-2026.10.14.1; app v0.12.0
 
 ## Phase 2
-- [ ] C6 One broker login (#67)
+- [x] C6 One broker login (#67) (e2e/broker-login.spec.ts)
 - [ ] C7 The designer's address can be set
 - [ ] C8 No mqtts:// in the portal
 - [ ] Checkpoint: test:quick
