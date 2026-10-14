@@ -121,7 +121,7 @@ export async function keepBrokerLogin(login: BrokerLogin): Promise<void> {
 }
 
 /** What the broker said, in words a person can act on. */
-function connectionFailure(message: string): string {
+export function connectionFailure(message: string): string {
   if (/not authori[sz]ed|bad user ?name or password|connection refused: (?:4|5)/i.test(message)) {
     return (
       "The broker refused the login. Enter its username and password in «Listen to Broker» " +

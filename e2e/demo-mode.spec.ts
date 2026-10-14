@@ -273,11 +273,11 @@ test.describe("the demo in the browser", () => {
   test("Listen to Broker connects to the demo's broker and offers no other", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByTestId("project-title")).toHaveText(START)
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByText("Topics", { exact: true }).click()
-    await page.getByRole("button", { name: "Listen to Broker" }).click()
-    await expect(page.getByRole("button", { name: "Start Listening" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Connection settings" })).toHaveCount(0)
+    // In the top bar since 2026-10-14 (docs/2026-10-14-topic-discovery.md).
+    await page.getByTestId("listen-to-broker").click()
+    const viewer = page.getByRole("dialog", { name: "Listen to Broker" })
+    await expect(viewer.getByRole("switch", { name: "Listening" })).toHaveAttribute("aria-checked", "true")
+    await expect(viewer.getByRole("button", { name: "Connection settings" })).toHaveCount(0)
   })
 
   // Decision 9: a phone gets its own page first - the van, the way on.

@@ -30,7 +30,7 @@ import {
 import { IconSelectorModal } from "./icon-selector-modal"
 import { ScreensPanel } from "./screens-panel/screens-panel"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
-import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
+import { ListenViewer } from "./listen-viewer"
 import { ExportDialog } from "./export-dialog"
 import { DeployDialog } from "./deploy-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
@@ -111,7 +111,7 @@ import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import { BrokerListener } from "@/components/broker-listener"
 import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-context"
-import { useListening } from "@/lib/broker-store"
+import { useHeardTopics, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 
@@ -915,6 +915,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // so it lives in localStorage rather than in the project.
   const [showAdornment, setShowAdornment] = useState(true)
   const [listening, setListening] = useListening()
+  const listenState = useHeardTopics().state
   useEffect(() => {
     setShowAdornment(window.localStorage.getItem("schaltli.showAdornment") !== "false")
   }, [])
@@ -2930,44 +2931,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     })
   }, [])
 
-  const handleTopicsSelected = useCallback((discoveredTopics: any[]) => {
-
-    setProject((prev) => {
-      let currentNextId = prev.nextId
-      // Never a second topic of a name the project has (#37): the dialog
-      // offers none, and this holds whatever it is handed.
-      const have = new Set(prev.topics.map((t) => t.topic))
-      const newTopics: Topic[] = discoveredTopics.filter((topic) => !have.has(topic.topic)).map((topic) => {
-        const newTopic: Topic = {
-          id: `topic_${currentNextId}`,
-          topic: topic.topic,
-          type: topic.type,
-          examples: topic.examples,
-          // Discovery derives these from the payloads it saw (see
-          // MqttDiscoveryDialog's mergeJsonMessage); they stay editable in
-          // Manage Topics like any hand-added subtopic.
-          subtopics:
-            topic.type === "json"
-              ? (topic.subtopics ?? []).map((s: { path: string; type: "numeric" | "text" }, i: number) => ({
-                  id: `topic_${currentNextId}_sub_${i}`,
-                  path: s.path,
-                  type: s.type,
-                }))
-              : undefined,
-        }
-        currentNextId++
-        return newTopic
-      })
-
-      return {
-        ...prev,
-        nextId: currentNextId, // Update nextId after creating all topics
-        topics: [...prev.topics, ...newTopics],
-      }
-    })
-
-  }, [])
-
   // The Projects panel (docs/2026-09-23-explicit-save.md): open, rename and
   // delete a saved project.
 
@@ -4294,7 +4257,27 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </div>
         )}
 
-        <Button variant="ghost" size="sm" className={cn("h-8 px-3 gap-1.5 font-normal", !demo && "ml-auto")} asChild>
+        {/* «Listen to Broker» (docs/2026-10-14-topic-discovery.md, decision
+            7): a window for looking at the broker, its dot green while the
+            designer listens. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("h-8 px-3 gap-1.5 font-normal", !demo && "ml-auto")}
+          onClick={() => setShowMqttDiscovery(true)}
+          data-testid="listen-to-broker"
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "h-2 w-2 rounded-full",
+              listenState === "listening" ? "bg-green-600" : listenState === "connecting" ? "bg-amber-500" : "bg-muted-foreground/40",
+            )}
+          />
+          Listen to Broker
+        </Button>
+
+        <Button variant="ghost" size="sm" className="h-8 px-3 gap-1.5 font-normal" asChild>
           <a href={HANDBOOK_URL} target="_blank" rel="noreferrer" data-testid="help-link">
             <CircleHelp className="w-4 h-4" />
             Help
@@ -4664,12 +4647,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
       />
 
-      <MqttDiscoveryDialog
+      <ListenViewer
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
-        onTopicsSelected={handleTopicsSelected}
-        existingTopics={project.topics.filter((t) => !t.local).map((t) => t.topic)}
-        localTopics={project.topics.filter((t) => t.local).map((t) => t.topic)}
+        projectTopics={project.topics}
+        onUseAsExamples={(topic, examples) =>
+          setProject((prev) => ({ ...prev, topics: prev.topics.map((t) => (t.topic === topic ? { ...t, examples } : t)) }))
+        }
       />
     </div>
     </TopicAdderContext.Provider>

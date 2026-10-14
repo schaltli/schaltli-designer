@@ -341,12 +341,6 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const handleMqttDiscovery = () => {
-    if (setShowMqttDiscovery) {
-      setShowMqttDiscovery(true)
-    }
-  }
-
   // Removed GitHub font loader handler
   
   const handlePreviewFont = (font: any) => {
@@ -1293,10 +1287,6 @@ export function ProjectSettingsDialog({
                           title={unused.length === 0 ? "Every topic is in use" : `${unused.length} topic(s) nothing in the project reads or writes`}
                         >
                           Remove unused topics{unused.length > 0 ? ` (${unused.length})` : ""}
-                        </Button>
-                        <Button onClick={handleMqttDiscovery} size="sm" variant="outline">
-                          <MqttIcon className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
-                          Listen to Broker
                         </Button>
                         <Button onClick={openAddTopicDialog} size="sm">
                           <MqttIcon className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />

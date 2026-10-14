@@ -64,15 +64,17 @@ test("a broker that wants a login says so, and the login typed once connects and
   await request.put("/api/broker-login", { data: { username: "", password: "" } })
   await onThisBroker(page)
   await loadProject(page, COMBINED_TEST_PROJECT)
-  await page.getByRole("button", { name: "Settings", exact: true }).click()
-  await page.getByText("Topics", { exact: true }).click()
-  await page.getByRole("button", { name: "Listen to Broker" }).click()
-  await expect(page.getByText(/The broker refused the login/)).toBeVisible({ timeout: 15_000 })
+  // «Listen to Broker» shows what the background listener was told, and the
+  // fields to answer it (docs/2026-10-14-topic-discovery.md).
+  await page.getByTestId("listen-to-broker").click()
+  await expect(page.getByText(/The broker refused the login/).first()).toBeVisible({ timeout: 15_000 })
 
   await page.locator("#username").fill(USER)
   await page.locator("#password").fill(PASSWORD)
   await page.getByRole("button", { name: "Connect", exact: true }).click()
-  await expect(page.getByText("Connected", { exact: true })).toBeVisible({ timeout: 15_000 })
+  // Connected: the fields go, and the listener hears this broker.
+  await expect(page.locator("#username")).toHaveCount(0, { timeout: 15_000 })
+  await expect(page.getByTestId("listen-totals")).not.toHaveText("No broker", { timeout: 15_000 })
   expect(await (await request.get("/api/broker-login")).json()).toEqual({ username: USER, password: PASSWORD })
 })
 

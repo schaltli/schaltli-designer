@@ -25,6 +25,8 @@ export type ListenState = "off" | "connecting" | "listening" | "no broker"
 export interface HeardSnapshot {
   /** Whether the designer listens, and how far it got. */
   state: ListenState
+  /** Why there is no broker: what the last attempt said. */
+  error?: string
   topics: ReadonlyMap<string, HeardTopic>
   /** Messages heard, all topics together. */
   messages: number
@@ -37,6 +39,7 @@ class BrokerStore {
   private messages = 0
   private overflow = 0
   private state: ListenState = "off"
+  private error: string | undefined
   private snapshot: HeardSnapshot = { state: "off", topics: new Map(), messages: 0, overflow: 0 }
   private listeners = new Set<Listener>()
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -66,9 +69,10 @@ class BrokerStore {
     return () => this.listeners.delete(listener)
   }
 
-  setState(state: ListenState): void {
-    if (state === this.state) return
+  setState(state: ListenState, error?: string): void {
+    if (state === this.state && error === this.error) return
     this.state = state
+    this.error = error
     this.flush()
   }
 
@@ -88,7 +92,7 @@ class BrokerStore {
   private flush(): void {
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
-    this.snapshot = { state: this.state, topics: new Map(this.topics), messages: this.messages, overflow: this.overflow }
+    this.snapshot = { state: this.state, error: this.error, topics: new Map(this.topics), messages: this.messages, overflow: this.overflow }
     for (const l of this.listeners) l()
   }
 }
@@ -125,6 +129,29 @@ export function storedListening(): boolean {
 
 const listeningListeners = new Set<Listener>()
 let listening: boolean | null = null
+let generation = 0
+
+/**
+ * Starts the listener over, on the broker as now stored, forgetting what was
+ * heard - for «Connect» in «Listen to Broker»'s connection settings.
+ */
+export function restartListening(): void {
+  generation++
+  brokerStore.clear()
+  for (const l of listeningListeners) l()
+}
+
+/** Which start of the listener this is; it changes on restartListening(). */
+export function useListenGeneration(): number {
+  return useSyncExternalStore(
+    (l) => {
+      listeningListeners.add(l)
+      return () => listeningListeners.delete(l)
+    },
+    () => generation,
+    () => 0,
+  )
+}
 
 /** The switch, shared by everything that shows it. */
 export function useListening(): [boolean, (on: boolean) => void] {

@@ -12,7 +12,7 @@
  *
  * Device discovery, online/offline liveness, and live deploy progress all
  * ride the same WebSocket MQTT connection (useMqttConnection, shared with
- * components/mqtt-discovery-dialog.tsx) - no separate protocol.
+ * the «Listen to Broker» dialog of the time) - no separate protocol.
  */
 
 import type React from "react"

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, type ComponentType } from "react"
+import { useEffect, useState, type ComponentType } from "react"
+import { OPEN_BLOCK_MENU_EVENT } from "@/components/listen-viewer"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
@@ -91,6 +92,13 @@ export function Toolbar({
 }: ToolbarProps) {
   // The catalog is read while the Block menu is open, afresh each time.
   const [blockMenuOpen, setBlockMenuOpen] = useState(false)
+  // «Listen to Broker» points here when devices announce themselves
+  // (docs/2026-10-14-topic-discovery.md, decision 8).
+  useEffect(() => {
+    const open = () => setBlockMenuOpen(true)
+    window.addEventListener(OPEN_BLOCK_MENU_EVENT, open)
+    return () => window.removeEventListener(OPEN_BLOCK_MENU_EVENT, open)
+  }, [])
   const selectTool: ToolDef = {
     type: "select",
     icon: MousePointer2,
@@ -181,7 +189,7 @@ export function Toolbar({
   const renderBausteinButton = () => {
     const isActive = activeTool === "baustein"
     return (
-      <DropdownMenu key="baustein" onOpenChange={setBlockMenuOpen}>
+      <DropdownMenu key="baustein" open={blockMenuOpen} onOpenChange={setBlockMenuOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>

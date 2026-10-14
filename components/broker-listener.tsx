@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { useMqttConnection } from "@/hooks/use-mqtt-connection"
-import { brokerStore, useListening } from "@/lib/broker-store"
+import { connectionFailure, useMqttConnection } from "@/hooks/use-mqtt-connection"
+import { brokerStore, useListenGeneration, useListening } from "@/lib/broker-store"
 
 // The designer listens to its broker in the background
 // (docs/2026-10-14-topic-discovery.md, decision 1): subscribed to `#` while
@@ -16,6 +16,7 @@ const RETRY_MS = 5000
 
 export function BrokerListener() {
   const [listening] = useListening()
+  const generation = useListenGeneration()
   // For e2e/broker-listener.spec.ts: what was heard, read without a viewer.
   useEffect(() => {
     ;(window as unknown as { __schaltliHeard?: typeof brokerStore }).__schaltliHeard = brokerStore
@@ -29,9 +30,9 @@ export function BrokerListener() {
     }
     let stopped = false
     let retry: ReturnType<typeof setTimeout> | null = null
-    const again = () => {
+    const again = (error?: unknown) => {
       if (stopped || retry) return
-      brokerStore.setState("no broker")
+      brokerStore.setState("no broker", error instanceof Error ? connectionFailure(error.message) : undefined)
       disconnect()
       retry = setTimeout(() => {
         retry = null
@@ -48,8 +49,8 @@ export function BrokerListener() {
             return
           }
           client.on("message", (topic, payload, packet) => brokerStore.hear(topic, payload.toString(), packet.retain))
-          client.on("offline", again)
-          client.on("close", again)
+          client.on("offline", () => again())
+          client.on("close", () => again())
           client.subscribe("#", (err) => {
             if (err) again()
             else brokerStore.setState("listening")
@@ -64,9 +65,10 @@ export function BrokerListener() {
       disconnect()
       brokerStore.setState("off")
     }
-    // connect/disconnect read the stored broker on each call; the switch alone restarts it.
+    // connect/disconnect read the stored broker on each call; the switch,
+    // or a restart for another broker, starts it over.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listening])
+  }, [listening, generation])
 
   return null
 }
