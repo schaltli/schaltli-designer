@@ -120,7 +120,9 @@ test.describe("the background listener", () => {
 
   // The user's van sends several messages a second on `pkw` alone. 50 a
   // second across 300 topics for 30 s, and the editor still answers a click.
-  test("under 50 messages a second across 300 topics, a click selects an object within 200 ms", async ({ page }) => {
+  // @alone: a time, measured with the machine's other workers idle - among
+  // them, the click alone took up to 214 ms (test:quick, 2026-10-14).
+  test("under 50 messages a second across 300 topics, a click selects an object within 200 ms @alone", async ({ page }) => {
     test.setTimeout(90_000)
     await openOn(page, own.url)
     let n = 0
