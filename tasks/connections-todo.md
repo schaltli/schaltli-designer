@@ -48,9 +48,12 @@ Push notification on a stop and at the end.
   S3's USB serial counts as connected once a host has read or written -
   hil-on, hil?, a monitor - and from then on every print with nobody
   reading waited up to 100 ms. The knob logs a lot; its loop starved WiFi
-  and MQTT. Serial.setTxTimeoutMs(0) on every board fixes it (3 runs green
-  in the state that failed every second run before). It began today because
-  today was the first time HIL touched the boards' USB after boot.
+  and MQTT. Serial.setTxTimeoutMs(1) on every board fixes it - not 0:
+  HWCDC::write counts its tries down from the timeout and 0 wraps round,
+  which blocked a print until someone read (the PaperS3's HTTP went silent
+  for minutes). With 1 ms all three boards answered every request for 3
+  minutes after their ports were touched, nobody reading. It began today
+  because today was the first time HIL touched the boards' USB after boot.
 
 ## Weakened checks and tolerances (to report at the end)
 
