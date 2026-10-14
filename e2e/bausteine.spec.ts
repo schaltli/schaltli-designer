@@ -269,6 +269,33 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // A value published while the dialog is open counts as well as a retained
+  // one (docs/2026-10-14-topic-discovery.md, no-made-up-values): Rajiva's
+  // state may well not be retained.
+  test("a value published live while the dialog is open is shown and becomes the example", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
+    const live = await connectBroker()
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Service ID")
+      await expect(page.getByTestId("baustein-value")).toHaveCount(0)
+      // Sent until heard: when the dialog has subscribed is not visible here.
+      await expect(async () => {
+        await new Promise<void>((resolve, reject) =>
+          live.publish("CamperServiceID/state", "CamperVan_BiberTest", { qos: 1, retain: false }, (err) => (err ? reject(err) : resolve())),
+        )
+        await expect(page.getByTestId("baustein-value")).toHaveText(": CamperVan_BiberTest", { timeout: 500 })
+      }).toPass({ timeout: 10_000 })
+      await page.getByTestId("baustein-insert").click()
+      await drag(page)
+      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
+    } finally {
+      live.end(true)
+      await clear()
+    }
+  })
+
   test("the look chosen in the dialog is the one placed; a switch has no choice, it is buttons", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "z2m-number-calibration"])
     try {

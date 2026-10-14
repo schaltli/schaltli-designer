@@ -109,14 +109,16 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
 }
 
 /**
- * What the broker holds on `topics`, as raw payloads by topic: read while the
- * options of a picked entry are being chosen, for the placed block's first
- * examples and for the dialog to show the entry is live. Empty until the
- * retained burst has settled, and where nobody retained anything. Not read
- * by the menu, which closes - and so would stop reading - the moment an
- * entry is picked.
+ * What the broker reports on `topics`, as raw payloads by topic: heard while
+ * the options of a picked entry are being chosen, for the placed block's
+ * examples and for the dialog to show the entry is live. A retained message
+ * and one published while the dialog is open count alike, the latest wins
+ * (docs/2026-10-14-topic-discovery.md, no-made-up-values: until 2026-10-14
+ * only retained ones, and a state nobody retained was placed with a made-up
+ * example). Empty where nothing was heard. Not read by the menu, which
+ * closes - and so would stop listening - the moment an entry is picked.
  */
-export function useRetainedValues(topics: string[] | null): Record<string, string> {
+export function useHeardValues(topics: string[] | null): Record<string, string> {
   const { connect, disconnect } = useMqttConnection("schaltli-values")
   const [values, setValues] = useState<Record<string, string>>({})
   const key = topics ? topics.join("\n") : null
@@ -125,17 +127,25 @@ export function useRetainedValues(topics: string[] | null): Record<string, strin
     setValues({})
     if (!topics || topics.length === 0) return
     let current = true
+    let client: mqtt.MqttClient | null = null
     connect({ clientId: `schaltli-values-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
-      .then(async (client) => {
-        const found = await collectRetained(client, topics, () => !current)
-        client.end(true)
-        if (current) setValues(found)
+      .then((c) => {
+        if (!current) {
+          c.end(true)
+          return
+        }
+        client = c
+        c.on("message", (topic, payload) => {
+          if (current && topics.includes(topic)) setValues((prev) => ({ ...prev, [topic]: payload.toString() }))
+        })
+        c.subscribe(topics)
       })
       .catch(() => {
-        // No broker: no values, and the block takes examples of its own.
+        // No broker: no values, and the block is placed without examples.
       })
     return () => {
       current = false
+      client?.end(true)
       disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

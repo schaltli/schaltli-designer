@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { fetchIconSvgData, loadIcons, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
 import { catalogLooks, lookSupported, stateIconNames, type BausteinOptions, type BlockIcon } from "@/lib/bausteine"
 import { readTopicsOf, type CatalogControl, type CatalogEntry } from "@/lib/ha-discovery"
-import { useRetainedValues } from "@/hooks/use-block-catalog"
+import { useHeardValues } from "@/hooks/use-block-catalog"
 import { splitTopicPath, extractJsonField } from "@/lib/json-path"
 import { cn } from "@/lib/utils"
 
@@ -44,8 +44,8 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   // the search is done, with the icon - not without it (reported
   // 2026-10-03: of two Restart blocks the second came without its icon).
   const [insertWaiting, setInsertWaiting] = useState(false)
-  // Read while the options are chosen: the placed block's first examples.
-  const values = useRetainedValues(entry ? readTopicsOf([entry]) : null)
+  // Heard while the options are chosen: the placed block's examples.
+  const values = useHeardValues(entry ? readTopicsOf([entry]) : null)
 
   useEffect(() => {
     iconRequestRef.current++
