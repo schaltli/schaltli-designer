@@ -24,7 +24,7 @@ Der Entwurf liegt nur in diesem Browser auf diesem Gerät, nicht beim Designer. 
 
 ## Vom Gerät zurückholen {#vom-geraet-zurueckholen}
 
-Jedes Gerät behält eine Kopie des Projekts, das zuletzt übertragen wurde. Hast du das Projekt gelöscht oder ist der Designer neu installiert, holst du es von dort zurück:
+Jedes Gerät behält eine Kopie des Projekts, das zuletzt übertragen wurde, die Android-App ab Version 0.12.0. Hast du das Projekt gelöscht oder ist der Designer neu installiert, holst du es von dort zurück:
 
 1. Auf der Startseite klick auf <span class="ui">Recover from Device...</span>.
 2. Wähle das Gerät aus der Liste der Geräte, die sich gerade melden.

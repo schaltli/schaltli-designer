@@ -5,7 +5,7 @@ Diese Seite zeigt, welche Teile von Schaltli miteinander reden, über welche Por
 <figure>
 <svg class="schaltli-diagram" viewBox="0 0 760 392" role="img" aria-labelledby="verb-titel verb-desc">
   <title id="verb-titel">Wer mit wem redet</title>
-  <desc id="verb-desc">Browser, Geräte und VanPi-Brücke verbinden sich zum MQTT-Broker auf dem Rechner im Van. Der Browser öffnet ausserdem den Designer. Der Designer holt die Beschreibung eines neuen Geräts direkt beim Gerät, und das Gerät holt Projekt und Firmware beim Designer.</desc>
+  <desc id="verb-desc">Browser, Geräte und VanPi-Brücke verbinden sich zum MQTT-Broker auf dem Rechner im Van. Der Browser öffnet ausserdem den Designer. Das Gerät holt Projekt und Firmware beim Designer. Seine Beschreibung schickt es über den Broker.</desc>
   <defs>
     <marker id="pfeil-verb" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto">
       <path class="arrowhead" d="M0,0 L8,3 L0,6 z" />
@@ -32,8 +32,7 @@ Diese Seite zeigt, welche Teile von Schaltli miteinander reden, über welche Por
 
   <rect class="node" x="592" y="44" width="160" height="206" rx="6" />
   <text class="name" x="672" y="150" text-anchor="middle">Geräte</text>
-  <text class="tech" x="672" y="174" text-anchor="middle">BOARD :80</text>
-  <text class="tech" x="672" y="190" text-anchor="middle">ANDROID :8080</text>
+  <text class="tech" x="672" y="174" text-anchor="middle">KEIN PORT OFFEN</text>
 
   <path class="connector command" d="M158,170 H176 V84 H218" marker-end="url(#pfeil-verb)" />
   <text class="tech" x="170" y="120" text-anchor="end">HTTP</text>
@@ -43,8 +42,6 @@ Diese Seite zeigt, welche Teile von Schaltli miteinander reden, über welche Por
   <text class="tech" x="362" y="278">MQTT</text>
   <path class="connector" d="M592,210 H492" marker-end="url(#pfeil-verb)" />
   <text class="tech" x="548" y="202" text-anchor="middle">MQTT</text>
-  <path class="connector command" d="M490,64 H590" marker-end="url(#pfeil-verb)" />
-  <text class="tech" x="548" y="56" text-anchor="middle">BESCHREIBUNG</text>
   <path class="connector command" d="M592,104 H492" marker-end="url(#pfeil-verb)" />
   <text class="tech" x="548" y="122" text-anchor="middle">PROJEKT</text>
   <text class="tech" x="548" y="135" text-anchor="middle">FIRMWARE</text>
@@ -62,15 +59,18 @@ Geräte und VanPi-Brücke reden nur mit dem Broker, über Port 1883. Jedes Gerä
 |---|---|---|---|
 | Browser | Designer | 3000, auf Pekaway 80 | den Designer öffnen, Projekte speichern und laden |
 | Browser | Broker | 9001 (WebSocket) | Werte für die Vorschau, Geräte finden, ein Projekt oder eine Firmware in Auftrag geben |
-| Gerät | Broker | 1883 | Werte lesen, Befehle schicken, sich anmelden, Aufträge empfangen |
+| Gerät | Broker | 1883 | Werte lesen, Befehle schicken, sich anmelden, Aufträge empfangen, seine Beschreibung schicken |
 | VanPi-Brücke | Broker | 1883 | Werte der Anlage ablegen, Befehle weiterreichen |
-| Designer | Gerät | 80 (Board), 8080 (Android) | die Beschreibung eines Geräts holen, das sich zum ersten Mal meldet |
 | Gerät | Designer | wie im Browser | Projekt und Firmware herunterladen |
 | Browser | Internet | 443 | Icon-Suche |
 
 Ein Projekt geht in zwei Schritten aufs Gerät. Der Browser legt auf dem Broker einen Auftrag ab, mit der Adresse der Datei. Das Gerät liest den Auftrag und lädt die Datei dann selbst beim Designer herunter. Mit der Firmware ist es genauso. Der Designer nennt dem Gerät dafür seine eigene Adresse im Netz und den Port, unter dem du ihn im Browser geöffnet hast.
 
+Meldet sich ein Gerät zum ersten Mal, fragt der Browser über den Broker nach seiner Beschreibung: Bildschirmgrösse, Schriften, was es zeichnen kann. Das Gerät legt sie auf dem Broker ab, rund 300 KB, und der Browser gibt sie dem Designer weiter. Auch <span class="ui">Recover from Device...</span> holt die Kopie des Projekts so. Der Designer verbindet sich nie selbst zu einem Gerät, und auf den Geräten ist kein Port offen.
+
 Der Designer-Server selbst hat keine Verbindung zum Broker. Alles, was über MQTT läuft, läuft im Browser.
+
+Vor Firmware fw-2026.10.14.1 und App 0.12.0 holte der Designer die Beschreibung direkt beim Gerät, über Port 80 beim Board und 8080 bei Android. Bei einem Gerät mit älterer Firmware oder App macht er das weiterhin so.
 
 ## Einmal beim Einrichten
 
@@ -79,15 +79,14 @@ Der Designer-Server selbst hat keine Verbindung zum Broker. Alles, was über MQT
 
 ## Designer in einer VM {#vm}
 
-<!-- handbuch-macke #70: Designer muss Geräte direkt erreichen, Geräte den Designer unter seiner eigenen Adresse -->
-::: warning Designer und Geräte müssen sich gegenseitig erreichen
-Der Designer verbindet sich zu jedem Gerät, das sich zum ersten Mal meldet. Das Gerät lädt Projekte und Firmware von der Adresse, die der Designer selbst im Netz hat. Läuft der Designer in einer VM mit NAT, klappt beides nicht. Gib der VM einen Netzwerkadapter im Bridge-Modus, dann hängt sie im selben Netz wie die Geräte.
+Neue Geräte findet der Designer auch in einer VM mit NAT, denn das läuft ganz über den Broker.
+
+<!-- handbuch-macke #70: Geräte laden Projekt und Firmware von der eigenen Adresse des Designers -->
+::: warning Geräte müssen den Designer erreichen
+Ein Gerät lädt Projekte und Firmware von der Adresse, die der Designer selbst im Netz hat. Läuft der Designer in einer VM mit NAT, ist das eine Adresse innerhalb der VM, und die Übertragung bleibt hängen. Gib der VM einen Netzwerkadapter im Bridge-Modus, dann hängt sie im selben Netz wie die Geräte.
 :::
 
-<!-- handbuch-macke #68: Fehler beim Laden einer Gerätebeschreibung erscheint als leeres rotes Kästchen -->
-Kann der Designer ein Gerät nicht erreichen, erscheint im Moment nur ein rotes Kästchen ohne Text.
-
-Steht eine Firewall dazwischen, müssen auf dem Rechner mit Designer und Broker die Ports 3000 (oder 80), 1883 und 9001 offen sein, auf den Geräten 80 und 8080.
+Steht eine Firewall dazwischen, müssen auf dem Rechner mit Designer und Broker die Ports 3000 (oder 80), 1883 und 9001 offen sein. Auf den Geräten muss kein Port offen sein.
 
 ## Anmeldung am Broker
 
