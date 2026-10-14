@@ -29,17 +29,21 @@ Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <spa
 
 <span class="ui">Remove unused topics</span> entfernt auf einmal alle Topics, die nichts im Projekt liest oder schreibt: kein Objekt, keine Aktion, kein Wert im Text und kein Combined topic. Die Zahl in Klammern sagt, wie viele es sind. Der Designer fragt nicht nach, <kbd>Strg</kbd>+<kbd>Z</kbd> holt sie zurück.
 
-## Topics vom Broker holen
+## Was auf dem Broker los ist {#topics-vom-broker-holen}
 
-Der Designer hört im Hintergrund mit, sobald er mit dem Broker verbunden ist, und merkt sich jedes Topic, das vorbeikommt, mit seinen letzten 20 Nachrichten. Der Schalter <span class="ui">Listening</span> unten in der Statusleiste schaltet das aus und wieder ein, der Browser merkt sich die Wahl. Was der Designer gehört hat, behält er nur, solange der Tab offen ist.
+Der Designer hört im Hintergrund mit, sobald er mit dem Broker verbunden ist, und merkt sich jedes Topic, das vorbeikommt, mit seinen letzten 20 Nachrichten. Der Schalter <span class="ui">Listening</span> unten in der Statusleiste schaltet das aus und wieder ein, der Browser merkt sich die Wahl. Was der Designer gehört hat, behält er nur, solange der Tab offen ist. Ins Projekt kommt davon nichts von selbst: Ein Topic trägst du dort ein, wo du es brauchst, siehe [Ein Topic an ein Objekt binden](#ein-topic-an-ein-objekt-binden).
 
-<span class="ui">Listen to Broker</span> hört eine Weile mit, was auf dem Broker passiert, und listet alle Topics, die dabei vorkommen. <span class="ui">retained</span> heisst, der Wert lag schon auf dem Broker; <span class="ui">live</span>, er kam erst während des Mithörens. Den Typ erkennt der Designer selbst.
+<span class="ui">Listen to Broker</span> oben rechts zeigt, was der Designer gehört hat. Der Punkt davor ist grün, solange er mithört. Links steht der Broker als Baum, eine Zeile pro Ebene, beim Öffnen ganz zugeklappt. Jeder Ast sagt, wie viele Topics und Nachrichten darunter liegen. So siehst du, wo viel los ist, bevor du etwas aufklappst. Kommt eine Nachricht, leuchten ihre Zeile und alle Äste darüber kurz auf, auch an einem zugeklappten Ast.
 
-Am Anfang ist keines ausgewählt. Wähle die Topics aus, die du brauchst, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>. Nimm nur, was ein Screen zeigen oder schalten soll: Die Vorschau hört jedes Topic des Projekts mit.
+Ein Topic zeigt den Anfang seines letzten Werts und den Typ, den der Designer aus den Nachrichten erkennt. <span class="ui">retained</span> heisst, der Broker hielt den Wert schon bereit; <span class="ui">live</span>, er kam erst, als jemand ihn schickte. Mit <span class="ui">in project</span> markiert sind Topics, die das Projekt schon hat.
 
-Der Dialog verbindet sich selbst mit dem Broker auf dem Rechner, auf dem der Designer läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. Beides merkt sich der Browser, bis du es änderst.
+Klickst du ein Topic an, steht rechts der ganze Name, der letzte Wert, bei JSON eingerückt, und wann er kam. Darunter liegen die letzten Nachrichten, die du mit den Pfeilen oder per Klick durchgehst. Ist das Topic im Projekt, ersetzt <span class="ui">Use as examples</span> seine Beispielwerte durch diese Nachrichten. <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt das zurück.
 
-Topics, die schon im Projekt sind, stehen mit <span class="ui">in project</span> in der Liste. Du kannst sie nicht noch einmal wählen, und <span class="ui">Add Selected Topics</span> legt sie nie ein zweites Mal an.
+Das Feld <span class="ui">Filter topic or payload</span> sucht im Namen und im letzten Wert und klappt den Baum bis zu den Treffern auf. <span class="ui">Collapse all</span> klappt alles wieder zu.
+
+Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open the Block menu ›</span> führt zu den [Bausteinen](/designer/bausteine), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du im Block-Menü.
+
+Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. <span class="ui">Connect</span> verbindet, merkt sich beides im Browser und hört von da an diesen Broker ab.
 
 ## Ein Topic an ein Objekt binden
 
@@ -93,7 +97,7 @@ Local topics stehen unter <span class="ui">Settings</span> › <span class="ui">
 
 In der Auswahl eines Objekts stehen Local topics wie alle anderen. Die [Vorschau](/designer/vorschau) hält sie in der Simulation und im Live-Modus gleich: Ein Tipp setzt den Wert sofort, auf den Broker geht nichts. Rechts in den Topic-Werten sind sie mit <span class="ui">local</span> markiert und lassen sich auch live ändern.
 
-Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Listen to Broker</span> markiert es mit <span class="ui">local topic</span>, bietet es nicht an und sagt das über der Liste.
+Trägt der Broker ein echtes Topic mit dem Namen eines Local topics, erreicht es das Display nicht. <span class="ui">Listen to Broker</span> markiert es mit <span class="ui">local topic</span> und sagt das über dem Baum.
 
 ::: warning Ältere Firmware
 Knob, 4.3B und PaperS3 kennen Local topics ab der Firmware fw-2026.10.13.2, die Android-App ab Version 0.11.0. Eine ältere Version würde eines wie ein gewöhnliches Topic behandeln: Sie abonniert es auf dem Broker und publiziert, was ein Schalter hineinschreibt. Deshalb überträgt <span class="ui">Deploy</span> ein Projekt mit Local topics nur auf ein Gerät, das sie kennt. Ein älteres Board bringt der Designer vorher auf den neuen Stand. Bei der App bittet er um ein Update.
