@@ -31,6 +31,10 @@ Push notification on a stop and at the end.
 - [x] C10 The app: the same test interface (Android HIL 22/22 and app-guards without adb; android-test-interface check; snapshot pixel-identical to screencap)
 - [x] C11 Handbook (verbindungen, mqtt, topics, deploy, einrichten, android; warnings #67/#68/#70 gone)
 - [ ] Checkpoint: test:all; releases; issues closed; forum draft
+  STOPPED 2026-10-14: test:all red on the knob (network loss at «Raste
+  stellt Regler», see Findings) - releases fw-2026.10.14.2 / app v0.13.0,
+  demo rollout and closing #70/#67/#68 wait for the user. Forum draft in
+  the session's scratchpad (forum-rajiva.md).
 
 ## Findings
 
