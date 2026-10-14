@@ -664,7 +664,14 @@ test.describe("DDF auto-discovery", () => {
       const discoveredName = ddfName(computeDdfHash(new Uint8Array(dataZip)))
       expect(curatedName).not.toBe(discoveredName)
       await expect(page.getByRole("button", { name: `${curatedName} Server Copy ${testInfo.testId}` })).toBeVisible()
-      await expect(page.getByRole("button", { name: `${discoveredName} Device Copy ${testInfo.testId}` })).toBeVisible()
+      // Revealed again with it, not looked at once: the gate repartitions its
+      // groups whenever another worker's device arrives on the shared broker,
+      // and the copy can drop back into the folded group in between
+      // (revealDevice's own note; test:all, 2026-10-14).
+      await expect(async () => {
+        await revealDevice(page, deviceId, "auto-discovered")
+        await expect(page.getByRole("button", { name: `${discoveredName} Device Copy ${testInfo.testId}` })).toBeVisible({ timeout: 2000 })
+      }).toPass({ timeout: 30000 })
     } finally {
       await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })

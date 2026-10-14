@@ -63,3 +63,9 @@ Push notification on a stop and at the end.
 - hil/test-all.js: the 4.3B's pixel-clock measurement runs after the lanes
   (it measures the WiFi the parallel boards share); same assertion.
 - e2e/demo-van.spec.ts: the bridge test runs @alone (after the lanes).
+- e2e/ddf-auto-discovery.spec.ts, the gate grouping test: its last check
+  reveals the device copy again as revealDevice does, rather than looking
+  once - the folded group repartitions when another worker's device
+  arrives. Same assertion.
+- hil/android/phone.js: a restart waits for the window at its full size (a
+  wait, not a looser check).
