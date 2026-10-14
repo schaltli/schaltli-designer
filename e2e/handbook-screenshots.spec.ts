@@ -7,6 +7,7 @@ import { TOPIC_PREFIX } from "../lib/topic-prefix"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
+import { ASSETS as DEMO_ASSETS } from "../deploy/demo/camper-project"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, carryUnderSnapTable, snapTableRect, deleteProject } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
@@ -736,6 +737,91 @@ test.describe("handbook: the homepage showcase", () => {
       for (let i = 1; i <= STATES.length; i++) expect(fs.existsSync(path.join(dir, `start-${board.slug}-${i}.webp`))).toBe(true)
     })
   }
+
+  // The energy diagram's pictures (objekte/anzeigen#energiediagramm): one
+  // moment of a van with two solar chargers and two batteries, as a Flow and
+  // as a Sankey - the handbook says the nodes are free, this shows it. Noon:
+  // 280 + 90 W in, the batteries take 180 and 90, the fridge 45, the rest 55.
+  test("the energy diagram, Flow and Sankey", async ({ page }, testInfo) => {
+    test.setTimeout(300_000)
+    const dir = shotsDir(testInfo)
+    const board = BOARDS[0]
+
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, board.id, "curated")).dblclick()
+    const base = `handbook energy ${Date.now().toString(36)}`
+    await createProject(page, base)
+    await waitForEditorReady(page)
+    await page.keyboard.press("Control+s")
+    let template: any
+    await expect(async () => {
+      const res = await page.request.get(`/api/projects/${encodeURIComponent(base)}`)
+      expect(res.status()).toBe(200)
+      template = (await res.json()).project
+    }).toPass({ timeout: 20000 })
+    const fonts: { id: string; size: number }[] = template.fonts
+    const regular = fonts.filter((ft) => !/B\d\d/.test(ft.id))
+    const f: Font = (px) => regular.reduce((a, b) => (Math.abs(b.size - px) < Math.abs(a.size - px) ? b : a)).id
+    const screen = template.screens.find((s: any) => !s.isMaster)
+    const icons = ["icon-sun", "icon-battery", "icon-load"]
+    template.assets = [...(template.assets ?? []), ...DEMO_ASSETS.filter((a) => icons.includes(a.id))]
+
+    const values: Record<string, string> = {
+      "van/pv/dach/watts": "280",
+      "van/pv/tasche/watts": "90",
+      "van/batterie/1/watts": "180",
+      "van/batterie/1/soc": "64",
+      "van/batterie/2/watts": "90",
+      "van/batterie/2/soc": "82",
+      "van/kuehlschrank/watts": "45",
+    }
+    template.topics = Object.entries(values).map(([topic, v]) => ({ topic, examples: [v] }))
+    const box = { width: 760, height: 440 }
+    const at = (fx: number, fy: number) => ({ x: Math.round(box.width * fx), y: Math.round(box.height * fy) })
+    const WATTS = [{ text: "{watts} W" }]
+    const nodes = [
+      { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.42) },
+      { id: "dach", role: "source", name: "PV Dach", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/pv/dach/watts", lines: WATTS, ...at(0.13, 0.16) },
+      { id: "tasche", role: "source", name: "Solartasche", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/pv/tasche/watts", lines: WATTS, ...at(0.13, 0.66) },
+      { id: "bat1", role: "storage", name: "Batterie 1", iconAssetId: "icon-battery", colorRole: "energyCharge", topic: "van/batterie/1/watts", chargeTopic: "van/batterie/1/soc", lines: WATTS, ...at(0.38, 0.8) },
+      { id: "bat2", role: "storage", name: "Batterie 2", iconAssetId: "icon-battery", colorRole: "energyCharge", topic: "van/batterie/2/watts", chargeTopic: "van/batterie/2/soc", lines: WATTS, ...at(0.64, 0.8) },
+      { id: "kuehlschrank", role: "sink", name: "Kühlschrank", iconAssetId: "icon-load", colorRole: "energyLoad", topic: "van/kuehlschrank/watts", lines: WATTS, ...at(0.87, 0.16) },
+      { id: "rest", role: "rest", name: "Verbraucher", iconAssetId: "icon-load", colorRole: "energyLoad", lines: WATTS, ...at(0.87, 0.66) },
+    ]
+
+    try {
+      for (const mode of ["flow", "sankey"] as const) {
+        screen.objects = [{
+          id: "obj-1", type: "energy-diagram", x: 20, y: 20, ...box, zIndex: 0,
+          properties: { mode, motion: false, fullScale: 500, fontId: f(16), valueFontId: f(22), nodes },
+        }]
+        const project = `${base} ${mode}`
+        expect((await page.request.post("/api/projects", { data: { name: project, project: template } })).status()).toBe(201)
+        try {
+          await page.goto(`/projects/${encodeURIComponent(project)}`)
+          await waitForEditorReady(page)
+          await page.waitForTimeout(600)
+          const { box: canvas } = await getMainCanvas(page)
+          const margin = 120
+          const png = await page.screenshot({
+            clip: {
+              x: canvas.x + canvas.width / 2 - board.screen.width / 2 - margin,
+              y: canvas.y + canvas.height / 2 - board.screen.height / 2 - margin,
+              width: board.screen.width + 2 * margin,
+              height: board.screen.height + 2 * margin,
+            },
+          })
+          fs.writeFileSync(path.join(dir, `energie-${mode}.webp`), await cutOut(page, png, board.width, false))
+        } finally {
+          await deleteProject(page, project)
+        }
+      }
+    } finally {
+      await deleteProject(page, base)
+    }
+    for (const mode of ["flow", "sankey"]) expect(fs.existsSync(path.join(dir, `energie-${mode}.webp`)), mode).toBe(true)
+  })
 
   // The Stile section's picture: the four styles in the typography Technic
   // on the 4.3B, laid out in styles only - the designer picks the fonts once

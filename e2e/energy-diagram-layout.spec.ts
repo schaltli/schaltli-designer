@@ -72,6 +72,37 @@ test.describe("resolve (L1)", () => {
     expect(Object.values(none).every((n) => n.watts === 0)).toBe(true)
   })
 
+  // The handbook (objekte/anzeigen#energiediagramm, 2026-10-14) promises a
+  // van with two batteries, two DC-DC chargers and a measured inverter.
+  test("any number of nodes: two batteries, two chargers, an inverter, the rest", () => {
+    const nodes: EnergyNode[] = [
+      { id: "bus", role: "bus", name: "12 V", x: 300, y: 200 },
+      { id: "sun", role: "source", name: "Sun", x: 80, y: 40 },
+      { id: "dc1", role: "source", name: "Booster 1", x: 80, y: 120 },
+      { id: "dc2", role: "source", name: "Booster 2", x: 80, y: 200 },
+      { id: "bat1", role: "storage", name: "Battery 1", x: 80, y: 300 },
+      { id: "bat2", role: "storage", name: "Battery 2", x: 520, y: 300 },
+      { id: "inv", role: "sink", name: "Inverter", x: 520, y: 40 },
+      { id: "rest", role: "rest", name: "Rest", x: 520, y: 160 },
+    ]
+    // 300 + 200 in, battery 2 gives 50: 550; battery 1 takes 250, the inverter 220: 80 left.
+    const resolved = resolveEnergy(nodes, { sun: { watts: 300 }, dc1: { watts: 200 }, dc2: { watts: 0 }, bat1: { watts: 250, charge: 60 }, bat2: { watts: -50, charge: 90 }, inv: { watts: 220 } })
+    const r = byId(resolved)
+    expect(r.rest.watts).toBe(80)
+    expect([r.bat1.gives, r.bat2.gives]).toEqual([false, true])
+    const sankey = sankeyLayout(resolved, BOX, 1000)
+    expect(sankey.bars.map((b) => [b.id, b.side])).toEqual([
+      ["sun", "left"],
+      ["dc1", "left"],
+      ["bat2", "left"],
+      ["inv", "right"],
+      ["rest", "right"],
+      ["bat1", "right"],
+    ])
+    const flow = flowLayout(nodes, resolved)
+    expect(flow.nodes.filter((n) => n.ring).map((n) => [n.id, n.ring!.fraction])).toEqual([["bat1", 0.6], ["bat2", 0.9]])
+  })
+
   test("the storage carries its charge", () => {
     expect(byId(resolveEnergy(NODES, { battery: { watts: 10, charge: 82 } })).battery.charge).toBe(82)
   })

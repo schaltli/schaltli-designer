@@ -154,6 +154,16 @@ Ohne Wert zeigt der Gauge nur den leeren Ring.
 
 Zeigt, woher die Energie im Van kommt und wohin sie geht: Sonne, Landstrom und Ladebooster auf der einen Seite, Batterie und Verbraucher auf der anderen, alles verbunden über den 12-V-Bus. Ein neues Diagramm bringt den Bus und drei Knoten mit: «Solar», «Storage» und «Consumers».
 
+Diese drei sind nur ein Anfang. Wie viele Knoten das Diagramm zeigt und welche, legst du selbst fest, damit es zu deinem Van passt. Vielleicht hast du zwei Batterien, zwei Ladebooster oder gar keinen, und einige Verbraucher misst du einzeln, etwa den Wechselrichter. Jeder Knoten liest sein eigenes Topic, und das kann jedes Topic auf deinem Broker sein. So bekommt jedes Gerät, das seine Leistung meldet, seinen Knoten.
+
+Ein Van mit zwei Solarladereglern, «PV Dach» und «Solartasche», und zwei Batterien, am Mittag. Derselbe Moment einmal als Flow und einmal als Sankey:
+
+<Screenshot name="energie-flow.webp" alt="Energiediagramm als Flow: PV Dach und Solartasche links, Batterie 1 und Batterie 2 unten, Kühlschrank und Verbraucher rechts, alle mit Linien zum Bus in der Mitte" caption="Flow" />
+
+<Screenshot name="energie-sankey.webp" alt="Dasselbe Energiediagramm als Sankey: PV Dach und Solartasche links, rechts Kühlschrank, Verbraucher und die beiden Batterien, dazwischen der Bus" caption="Sankey" />
+
+Wie die Zahlen darin zustande kommen, steht unter [So rechnet das Diagramm](#energie-rechnung).
+
 ::: info Ab fw-2026.10.13.1 und App 0.10.0
 Das Energiediagramm zeigen der 4.3B, der Knob und das PaperS3 ab der Firmware fw-2026.10.13.1, die Android-App ab Version 0.10.0. Eine ältere Version zeigt es nicht: «Deploy» bringt die Firmware vorher auf den neuen Stand und bittet bei der App um ein Update. Auf dem PaperS3 steht das Diagramm still.
 :::
@@ -180,6 +190,10 @@ Ein Knoten hat eine Rolle:
 | <span class="ui">Rest</span> | was hereinkommt und nirgends gemessen hinausgeht, also was der Van sonst braucht. Der Designer rechnet ihn aus, er hat kein Topic. Höchstens einer pro Diagramm. |
 | <span class="ui">Bus</span> | wo alle Linien zusammenkommen. Genau einer, er lässt sich nicht löschen. |
 
+Der Bus steht für die 12-V-Leitung, an der im Van alles hängt. Er misst nichts und hat kein Topic. Jede Linie führt von einem Knoten zu ihm oder von ihm weg, denn welches Gerät welches speist, misst niemand: Was hereinkommt, landet am Bus, und was genommen wird, kommt von dort. Lädt die Sonne die Batterie und betreibt gleichzeitig den Kühlschrank, siehst du darum drei Linien am Bus, aber keine von der Sonne direkt zum Kühlschrank.
+
+Der Rest steht für alles, was im Van Strom braucht, ohne dass es gemessen wird: Licht, Wasserpumpe, Router. Ein Topic hat er nicht, das Diagramm rechnet ihn aus. Wie, steht unter [So rechnet das Diagramm](#energie-rechnung). Kaum ein Van misst jeden Verbraucher einzeln. Mit dem Rest siehst du trotzdem, was der Van insgesamt braucht, wenn du nur misst, was hereinkommt, und dazu die Batterie. Ist wirklich jeder Verbraucher ein eigener Knoten, bleibt der Rest bei 0 und du kannst ihn löschen.
+
 Seine Felder:
 
 - <span class="ui">Name</span> und <span class="ui">Icon</span>.
@@ -190,3 +204,27 @@ Seine Felder:
 - <span class="ui">Tap</span>: was ein Antippen des Knotens tut, etwa <span class="ui">Open a popup</span> mit den Details zur Batterie. In der Vorschau probierst du es aus.
 
 Solange ein Topic nichts geliefert hat, zählt der Knoten mit 0 W und `{watts}` zeigt einen Bindestrich.
+
+### So rechnet das Diagramm {#energie-rechnung}
+
+Pro Knoten braucht das Diagramm eine einzige Zahl: wie viel Watt gerade fliessen. Woher sie kommt, spielt keine Rolle. Es kann ein Topic deiner Steuerung sein, ein Feld aus einer JSON-Nachricht (`topic#feld`) oder ein Sensor aus Home Assistant. Besondere Entities braucht es nicht. Meldet ein Gerät nur Ampere, rechnest du die Watt dort aus, wo der Wert entsteht, also in deiner Steuerung oder einem Flow. Das Diagramm selbst multipliziert nicht.
+
+Mit diesen Zahlen geht es so um:
+
+1. Ist bei einem Knoten <span class="ui">Reverse sign</span> eingeschaltet, dreht es zuerst sein Vorzeichen um.
+2. Eine <span class="ui">Source</span> gibt ab, ein <span class="ui">Sink</span> nimmt. Ist ihr Wert negativ, zählt er als 0.
+3. Eine Batterie (<span class="ui">Storage</span>) nimmt, solange ihr Wert positiv ist, und gibt ab, solange er negativ ist.
+4. Der <span class="ui">Rest</span> ist alles, was abgegeben wird, weniger dem, was gemessen genommen wird. Unter 0 fällt er nie.
+
+Der Van aus den Bildern oben, am Mittag. Gemessen werden die beiden Solarladeregler, jede Batterie über ihren Shunt und der Kühlschrank:
+
+| Knoten | Rolle | das Topic meldet | im Diagramm |
+|---|---|---|---|
+| PV Dach | <span class="ui">Source</span> | 280 | gibt 280 W ab |
+| Solartasche | <span class="ui">Source</span> | 90 | gibt 90 W ab |
+| Batterie 1 | <span class="ui">Storage</span> | 180 | nimmt 180 W |
+| Batterie 2 | <span class="ui">Storage</span> | 90 | nimmt 90 W |
+| Kühlschrank | <span class="ui">Sink</span> | 45 | nimmt 45 W |
+| Verbraucher | <span class="ui">Rest</span> | (keins) | 280 + 90 − 180 − 90 − 45 = 55 W |
+
+Die 55 W sind alles, was niemand misst: Licht, Wasserpumpe, Router. Am Abend ohne Sonne meldet Batterie 1 −40 und Batterie 2 −20, zusammen geben sie also 60 W ab. Der Kühlschrank nimmt davon 45 W, für den Rest bleiben 15 W.

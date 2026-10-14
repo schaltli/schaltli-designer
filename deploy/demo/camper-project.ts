@@ -42,8 +42,9 @@ const svg = (body: string) =>
   `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
 
 // Icons of its own, drawn here: the pages' bulbs, drops, fan and flame, and
-// the sun and the moon of the theme switch.
-const ASSETS = [
+// the sun and the moon of the theme switch. The handbook's energy pictures
+// borrow them (e2e/handbook-screenshots.spec.ts).
+export const ASSETS = [
   {
     id: "icon-sun",
     name: "Sun",
