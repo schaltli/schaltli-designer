@@ -77,6 +77,7 @@ async function main() {
     ["POST", "/api/projects", { name: "x", project: {} }],
     ["DELETE", "/api/projects/Camper"],
     ["POST", "/api/ddf/fetch", { url: "http://192.0.2.1/ddf.zip" }],
+    ["POST", "/api/ddf/upload?deviceId=x&ddfHash=00", {}],
     ["GET", "/api/translate?q=Licht&tl=en"],
     ["POST", "/api/deploy", {}],
   ]

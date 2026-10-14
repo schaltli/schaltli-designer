@@ -2,9 +2,11 @@
 
 /**
  * Auto-discovers new/updated device DDFs on the broker (2026-08-03,
- * grilling session) - listens for MQTT `hello` messages carrying a DDF
- * `url`, and calls app/api/ddf/fetch for any deviceId whose announced DDF
- * isn't what this instance already has cached. Mounted
+ * grilling session) - listens for MQTT `hello` messages carrying a
+ * `ddfHash`, and brings in the description of any deviceId whose announced
+ * DDF isn't what this instance already has cached: over the broker since
+ * 2026-10-14, from the hello's `url` for an older device
+ * (lib/announced-ddf.ts, #70). Mounted
  * only while the Startup Gate is shown (components/startup-device-gate.tsx),
  * so "bring a new device onto the network, it just shows up" only needs a
  * browser tab open on that gate - matches the only moment a new device's
@@ -14,6 +16,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
+import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 import { Wifi, WifiOff, Loader2 } from "lucide-react"
 
 interface DeviceScanSectionProps {
@@ -36,9 +39,9 @@ interface DeviceScanSectionProps {
 interface HelloPayload {
   deviceId?: string
   name?: string
-  // Identity of the DDF served at `url` - see lib/ddf-name.ts. Optional:
-  // firmware that doesn't announce one is still discoverable, it just
-  // costs a fetch to find out whether anything changed (see below).
+  // Identity of the device's DDF - see lib/ddf-name.ts. A device of the
+  // contract since 2026-10-14 always sends it and hands the DDF over the
+  // broker; an older one may send only a `url` to fetch it from.
   ddfHash?: string
   url?: string
 }
@@ -144,14 +147,15 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
         // offline - in which case it waits for the status that says
         // otherwise.
         const fetchDdfFor = (instanceId: string, hello: HelloPayload) => {
-          if (!hello.deviceId || !hello.url) return
+          if (!hello.deviceId || (!hello.url && !hello.ddfHash)) return
           if (statusByInstanceRef.current.get(instanceId) === "offline") {
             pendingHelloRef.current.set(instanceId, hello)
             return
           }
           pendingHelloRef.current.delete(instanceId)
 
-          const { deviceId, url } = hello as Required<HelloPayload>
+          const deviceId = hello.deviceId as string
+          const url = hello.url
           const announcedHash = hello.ddfHash
           // Without an announced hash there's nothing to compare against, so
           // the url alone keys the attempt: fetch once per mount and let the
@@ -166,18 +170,8 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
           attemptedRef.current.add(attemptKey)
           setFetchingDeviceIds((prev) => new Set(prev).add(deviceId))
 
-          fetch("/api/ddf/fetch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deviceId, ddfHash: announcedHash, url }),
-          })
-            .then(async (res) => {
-              if (!res.ok) {
-                const errBody = await res.json().catch(() => ({}))
-                throw new Error(errBody.error || `Fetch failed (${res.status})`)
-              }
-              onDdfFetchedRef.current()
-            })
+          loadAnnouncedDdf(client, { instanceId, deviceId, name: hello.name, ddfHash: announcedHash, url })
+            .then(() => onDdfFetchedRef.current())
             .catch((err) => {
               // Not while it is gone: a device that went offline between the
               // request and its failure is not a problem to report.
@@ -246,10 +240,10 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
             announcedByInstanceRef.current.set(instanceId, hello.deviceId)
             publishAnnounced()
           }
-          // Older/simpler firmware that doesn't announce a DDF url yet just
-          // isn't eligible for auto-discovery - falls back to the existing
-          // manual public/ddf/ path, no error, nothing to do here.
-          if (!hello.deviceId || !hello.url) return
+          // Firmware that announces no description at all just isn't
+          // eligible for auto-discovery - falls back to the existing manual
+          // public/ddf/ path, no error, nothing to do here.
+          if (!hello.deviceId || (!hello.url && !hello.ddfHash)) return
 
           scheduleFetch(instanceId, hello)
         })

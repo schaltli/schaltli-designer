@@ -55,6 +55,7 @@ import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
 import { FirmwareUpdateSection, type ReleaseImage } from "./firmware-update-section"
 import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
+import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 
 interface DeployDialogProps {
   project: Project
@@ -89,6 +90,7 @@ interface DiscoveredDevice {
   // specific device's actual supportedObjectTypes before deploy -
   // docs/nested-provenance.md's "Version compatibility" > Fall 2, step 3.
   ddfHash?: string
+  // Only from a device older than 2026-10-14 (lib/announced-ddf.ts).
   ddfUrl?: string
   // The Systemstand the device's firmware declares it can read (see
   // lib/system-generation.ts). Checked before uploading anything, so a
@@ -290,7 +292,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const [switchedNote, setSwitchedNote] = useState<string | null>(null)
 
   // Checks the selected device's *live* supportedObjectTypes (fetched
-  // fresh via the same /api/ddf/fetch proxy device-scan-section.tsx uses,
+  // fresh the way device-scan-section.tsx does, lib/announced-ddf.ts,
   // not whatever might already be cached from project creation - a
   // device's DDF can have moved on since then) against what this project
   // actually places, once a device that self-announces its DDF is
@@ -309,17 +311,14 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     const device = devices.get(selectedInstanceId)
     // Another device than the project's: nothing to check against until the
     // project is moved onto it.
-    if (!device?.ddfUrl || device.deviceId !== project.settings.deviceId) return
+    const client = clientRef.current
+    if (!client || !(device?.ddfUrl || device?.ddfHash) || device.deviceId !== project.settings.deviceId) return
 
     let cancelled = false
     ;(async () => {
       try {
-        const fetchRes = await fetch("/api/ddf/fetch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deviceId: device.deviceId, ddfHash: device.ddfHash, url: device.ddfUrl }),
-        })
-        if (!fetchRes.ok || cancelled) return
+        await loadAnnouncedDdf(client, { instanceId: device.instanceId, deviceId: device.deviceId, name: device.name, ddfHash: device.ddfHash, url: device.ddfUrl })
+        if (cancelled) return
 
         const fields = await loadDeviceDescriptionByPath(`/api/ddf/data/${device.deviceId}.ddf.zip`)
         if (cancelled) return
@@ -646,16 +645,9 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     setSwitching(true)
     setSwitchError(null)
     try {
-      if (device.ddfUrl) {
-        const res = await fetch("/api/ddf/fetch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deviceId: device.deviceId, ddfHash: device.ddfHash, url: device.ddfUrl }),
-        })
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
-          throw new Error(body.error || `Could not fetch its device description (${res.status})`)
-        }
+      const client = clientRef.current
+      if (client && (device.ddfUrl || device.ddfHash)) {
+        await loadAnnouncedDdf(client, { instanceId: device.instanceId, deviceId: device.deviceId, name: device.name, ddfHash: device.ddfHash, url: device.ddfUrl })
       }
       const fields = await loadDeviceDescriptionByPath(`/api/ddf/data/${device.deviceId}.ddf.zip`)
       const before = `${project.screenWidth}×${project.screenHeight}`

@@ -15,7 +15,7 @@ Push notification on a stop and at the end.
 ## Phase 1
 - [x] C1 The app on any network (schaltli-android f55a5ca)
 - [x] C2 Contract §1, §4, §6
-- [ ] C3 The designer reads the DDF over the broker; #68 readable
+- [x] C3 The designer reads the DDF over the broker; #68 readable (e2e/ddf-over-broker.spec.ts)
 - [ ] C4 Boards answer ddf/get and recovery/get
 - [ ] C5 The app answers; DdfServer gone
 - [ ] Checkpoint: test:all; firmware release; app v0.12.0

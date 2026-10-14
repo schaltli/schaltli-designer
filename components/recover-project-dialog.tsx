@@ -7,19 +7,19 @@
  * firmware) now retains every verified deploy's full export at
  * RECOVERY_PROJECT_PATH, which itself embeds the editable project as
  * _source/project.zip (which embeds _source/ddf.zip in turn). This dialog
- * finds a device on the broker, fetches that retained copy over plain
- * HTTP (GET /recovery-project on the device's own always-on server), and
- * unwraps it one level to get the editable project zip - the outer
- * export's baked bitmaps aren't useful here, only what's nested inside it.
+ * finds a device on the broker, asks it for that retained copy over the
+ * broker (`recovery/get`, since 2026-10-14 - before, GET /recovery-project
+ * on the device's own always-on server, still used for a device whose
+ * hello names a `url`; docs/device-contract.md §4, #70), and unwraps it
+ * one level to get the editable project zip - the outer export's baked
+ * bitmaps aren't useful here, only what's nested inside it.
  *
  * Lives in the Startup Gate (not a File-menu dialog like Deploy) because
  * the motivating case is "the project file is gone" - there's no project
- * open yet to attach a menu item to. Only offers devices whose "hello"
- * carries a DDF url (the same self-announcing capability
- * device-scan-section.tsx/deploy-dialog.tsx already key off of), since
- * that's the only way this dialog can derive a device's HTTP origin to
- * even ask it for anything - a device that's never announced either just
- * doesn't show up here, no error needed.
+ * open yet to attach a menu item to. Offers every device whose "hello"
+ * announces a description (the same self-announcing capability
+ * device-scan-section.tsx/deploy-dialog.tsx key off of); a device that
+ * never announced just doesn't show up here, no error needed.
  */
 
 import type React from "react"
@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { loadAnnouncedDdf, requestRecoveryCopy } from "@/lib/announced-ddf"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import JSZip from "jszip"
@@ -46,12 +47,17 @@ interface AnnouncedDevice {
   instanceId: string
   deviceId: string
   name?: string
+  ddfHash?: string
+  // Only from a device older than 2026-10-14, which hands its recovery copy
+  // out over HTTP; every newer one answers over the broker
+  // (docs/device-contract.md §4, #70).
   ddfUrl?: string
 }
 
 interface HelloPayload {
   deviceId?: string
   name?: string
+  ddfHash?: string
   url?: string
 }
 
@@ -62,7 +68,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
   const [isRecovering, setIsRecovering] = useState(false)
   const [recoverError, setRecoverError] = useState<string | null>(null)
 
-  const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect } =
+  const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect, clientRef } =
     useMqttConnection("schaltli-recover")
 
   useEffect(() => {
@@ -96,9 +102,9 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
           } catch {
             return
           }
-          // No url means no known way to reach this device's own HTTP
-          // server from here - not an error, just not offered.
-          if (!hello.deviceId || !hello.url) return
+          // A device that announces no description is no schaltli display
+          // - not an error, just not offered.
+          if (!hello.deviceId || (!hello.url && !hello.ddfHash)) return
 
           setDevices((prev) => {
             const next = new Map(prev)
@@ -106,6 +112,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
               instanceId,
               deviceId: hello.deviceId!,
               name: hello.name,
+              ddfHash: hello.ddfHash,
               ddfUrl: hello.url,
             })
             return next
@@ -119,39 +126,18 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
 
   const handleRecover = async () => {
     const device = selectedInstanceId ? devices.get(selectedInstanceId) : null
-    if (!device?.ddfUrl) return
+    const client = clientRef.current
+    if (!device || !client) return
     setIsRecovering(true)
     setRecoverError(null)
 
     try {
-      const origin = new URL(device.ddfUrl).origin
-      // Server-side proxy, not a direct browser fetch to the device's own
-      // IP - see app/api/recovery/fetch/route.ts's header comment for why
-      // (CORS: no device firmware here sends
-      // Access-Control-Allow-Origin, same reasoning as device-scan-
-      // section.tsx going through /api/ddf/fetch instead of fetching a
-      // device directly).
-      const res = await fetch("/api/recovery/fetch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: `${origin}/recovery-project` }),
-      })
-      if (res.status === 404) {
-        // A 404 means the device is not serving a recovery copy. It does
-        // not mean nothing was ever deployed, and saying so was wrong:
-        // the Waveshare firmware saved the copy on every deploy and had no
-        // endpoint to hand it back (fixed 2026-08-23), so this claimed a
-        // device had never been deployed to while it was displaying that
-        // very project. Firmware predating the endpoint, and a copy lost
-        // to a reflash, land here the same way.
+      const exportBytes = device.ddfUrl ? await recoveryOverHttp(device) : await requestRecoveryCopy(client, device)
+      if (!exportBytes) {
         throw new Error(
           `"${device.name || device.deviceId}" isn't offering a recovery copy - nothing to recover. ` +
             `Either nothing has been deployed to it, or its firmware is too old to hand one back.`,
         )
-      }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Fetching the recovery copy failed (${res.status})`)
       }
 
       // The retained file is the *export* (baked bitmaps + object model),
@@ -159,7 +145,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
       // project nested one level in, as _source/project.zip (see
       // lib/project-zip.ts's buildDeviceProjectZip). Unwrap exactly that
       // one entry; the rest of the export is of no use here.
-      const exportZip = await JSZip.loadAsync(await res.arrayBuffer())
+      const exportZip = await JSZip.loadAsync(exportBytes)
       const embeddedProjectEntry = exportZip.file("_source/project.zip")
       if (!embeddedProjectEntry) {
         throw new Error(
@@ -169,42 +155,23 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
       const projectBytes = await embeddedProjectEntry.async("blob")
 
       // Re-sync the embedded DDF to what this device's *currently running*
-      // firmware serves live (docs/nested-provenance.md's Fall 3, revised
+      // firmware describes (docs/nested-provenance.md's Fall 3, revised
       // 2026-08-17), rather than keeping whatever vintage was frozen into
-      // the retained deploy. Fall 1 still opens a plain uploaded project
-      // file strictly against its own frozen DDF - unchanged, and correct
-      // there: you don't want opening a project someone hands you to
-      // quietly rebind against whatever hardware happens to be connected to
-      // your instance right now. Recovery is different - its whole premise
-      // is "the project file is gone, all that's left is this device", so
-      // there's no independent frozen copy worth protecting; the device's
-      // own live DDF is the only thing that can still open successfully
-      // long-term, since a DDF's *format* itself can break (e.g.
-      // 2026-08-16's declarative adornment.drawingArea -> a
-      // <rect id="screen"> in the SVG) without a generation bump to
-      // catch it and gate a fallback parse - a real gap, not yet closed for
-      // Fall 1's plain-upload path either. Old hardware-button-action
-      // bindings that no longer match the current adornment's ids are
-      // silently orphaned by this swap, not fixed up - the same
-      // "gracefully degradable" tolerance Fall 2 step 3 already accepts for
-      // a DDF content mismatch, just reached via a different door.
-      // Reuses hello's own "url" (already http://<ip>/ddf.zip - see
-      // main.cpp's publishHello()) through the same generic proxy the
-      // recovery-project fetch above just used. Best-effort: device.ddfUrl
-      // being unreachable for this second request (unlikely, the same
-      // origin just answered /recovery-project) falls back to the frozen
-      // copy rather than failing the whole recovery.
+      // the retained deploy: recovery's whole premise is "the project file
+      // is gone, all that's left is this device", so the device's own live
+      // DDF is the only thing that can still open successfully long-term.
+      // Old hardware-button-action bindings that no longer match the
+      // current adornment's ids are silently orphaned by this swap, the
+      // same tolerance Fall 2 step 3 accepts. Best-effort: a description
+      // that cannot be loaded leaves the frozen copy in place rather than
+      // failing the whole recovery.
       let finalProjectBytes: Blob = projectBytes
       try {
-        const liveDdfRes = await fetch("/api/recovery/fetch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: device.ddfUrl }),
-        })
+        const live = await loadAnnouncedDdf(client, { ...device, url: device.ddfUrl })
+        const liveDdfRes = await fetch(`/api/ddf/data/${live.deviceId}.ddf.zip`, { cache: "no-store" })
         if (liveDdfRes.ok) {
-          const liveDdfBytes = await liveDdfRes.arrayBuffer()
           const projectZip = await JSZip.loadAsync(projectBytes)
-          projectZip.file("_source/ddf.zip", liveDdfBytes)
+          projectZip.file("_source/ddf.zip", await liveDdfRes.arrayBuffer())
           finalProjectBytes = await projectZip.generateAsync({ type: "blob" })
         }
       } catch {
@@ -219,6 +186,27 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
     } finally {
       setIsRecovering(false)
     }
+  }
+
+  // A device older than 2026-10-14: its recovery copy over HTTP, through
+  // the server - a browser fetch straight to the device's IP is blocked by
+  // CORS (app/api/recovery/fetch/route.ts). Null when it has none.
+  const recoveryOverHttp = async (device: AnnouncedDevice): Promise<ArrayBuffer | null> => {
+    const origin = new URL(device.ddfUrl as string).origin
+    const res = await fetch("/api/recovery/fetch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: `${origin}/recovery-project` }),
+    })
+    // A 404 means the device is not serving a recovery copy. It does not
+    // mean nothing was ever deployed: firmware predating the endpoint, and
+    // a copy lost to a reflash, land here the same way (2026-08-23).
+    if (res.status === 404) return null
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `Fetching the recovery copy failed (${res.status})`)
+    }
+    return res.arrayBuffer()
   }
 
   return (

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
-import { mkdir, readFile, writeFile } from "fs/promises"
-import { join } from "path"
-import { parseDeviceDescriptionFile } from "@/lib/device-description"
 import { isValidDeviceId } from "@/lib/deploy-utils"
 import { refuseInDemo } from "@/lib/demo-mode"
+import { DdfRefused, storeDdf } from "@/lib/ddf-store"
 
 /**
  * POST /api/ddf/fetch { deviceId?, ddfHash?, url } - two trigger paths:
@@ -26,19 +24,15 @@ import { refuseInDemo } from "@/lib/demo-mode"
  *    against, so this is trust-on-first-use - whatever `device.id` the
  *    fetched DDF's own manifest declares is what gets used and cached.
  *
- * Deliberately *not* a device->server request/response over MQTT for path
- * 1 - the device already puts its DDF's `url` straight in its existing
- * retained `hello`, so there's nothing left to ask it for. What "url"
- * resolves to is entirely up to whoever hosts it - an on-device HTTP server
- * for something WiFi-capable like schaltli-eink (which already runs
- * one for snapshot/debug), a GitHub-hosted DDF zip for path 2, a fixed
- * internet-hosted asset for something leaner (e.g. nRF52840-based) that
- * never runs a server at all. This route doesn't care which; it just
- * fetches whatever URL it's given.
+ * Path 1 is only for devices older than 2026-10-14: since then a device
+ * names no `url` and hands its description over the broker instead
+ * (lib/announced-ddf.ts, app/api/ddf/upload, docs/device-contract.md §4,
+ * #70) - the designer then needs to reach no device directly, which one in
+ * a VM behind NAT cannot. The checks on the bytes are shared
+ * (lib/ddf-store.ts).
  */
 export const dynamic = "force-dynamic"
 
-const DATA_DDF_DIR = join(process.cwd(), ".data", "ddf")
 const FETCH_TIMEOUT_MS = 8000
 
 // Blocks only the two ranges that would turn this into a way to make the
@@ -116,62 +110,11 @@ export async function POST(request: Request) {
 
   const bytes = Buffer.from(await response.arrayBuffer())
 
-  // Content validation: the ZIP must actually be a well-formed DDF. When
-  // `announced`, its own device.json must claim the same deviceId the hello
-  // announced - the main defense against a spoofed/malicious hello pointing
-  // this fetch at something that isn't really that device's DDF (see
-  // isBlockedHost above for why this carries more weight than a
-  // network-level allowlist here). When manually imported, there's no prior
-  // announcement to check against - the manifest's own declared id is
-  // trusted directly (trust-on-first-use) and used as the cache key.
-  let manifestDeviceId: string
-  let ddfHash: string
   try {
-    const parsed = await parseDeviceDescriptionFile(bytes)
-    manifestDeviceId = parsed.manifest.device.id
-    ddfHash = parsed.ddfHash
+    const stored = await storeDdf(bytes, announced ? (deviceId as string) : undefined, announcedHash, `The file at "${url}"`)
+    return NextResponse.json({ success: true, ...stored })
   } catch (error) {
-    return NextResponse.json(
-      { error: `Fetched file isn't a valid DDF: ${error instanceof Error ? error.message : "parse failed"}` },
-      { status: 422 },
-    )
+    if (error instanceof DdfRefused) return NextResponse.json({ error: error.message }, { status: error.status })
+    throw error
   }
-  if (announced) {
-    if (manifestDeviceId !== deviceId) {
-      return NextResponse.json(
-        { error: `DDF's own deviceId ("${manifestDeviceId}") doesn't match the announced deviceId ("${deviceId}")` },
-        { status: 422 },
-      )
-    }
-    // Refusing rather than caching-anyway is what makes the announcement
-    // worth anything: a device whose served bytes don't match what it said
-    // it serves is exactly the drift this identity exists to surface. It
-    // self-heals - the device's next hello carries the new hash, and that
-    // triggers a fresh fetch.
-    if (typeof announcedHash === "string" && announcedHash.toLowerCase() !== ddfHash) {
-      return NextResponse.json(
-        { error: `DDF at "${url}" hashes to ${ddfHash}, but the device announced ${announcedHash.toLowerCase()}` },
-        { status: 422 },
-      )
-    }
-  } else if (!isValidDeviceId(manifestDeviceId)) {
-    return NextResponse.json({ error: `DDF's own deviceId ("${manifestDeviceId}") is invalid` }, { status: 422 })
-  }
-
-  const finalDeviceId = announced ? (deviceId as string) : manifestDeviceId
-
-  // Keyed by deviceId, not by hash: a device serves exactly one DDF, so the
-  // cache holds that one and overwrites it when the device's changes.
-  // Hash-named files would instead accumulate one entry per revision a
-  // device ever announced, and the Startup Gate would list the same device
-  // several times with no way to tell which is current.
-  // Written only when it changed: the deploy dialog fetches a device's DDF
-  // afresh every time the device is chosen, and on the Pekaway every write
-  // is one to its SD card (2026-09-28).
-  await mkdir(DATA_DDF_DIR, { recursive: true })
-  const target = join(DATA_DDF_DIR, `${finalDeviceId}.ddf.zip`)
-  const cached = await readFile(target).catch(() => null)
-  if (!cached || !cached.equals(bytes)) await writeFile(target, bytes)
-
-  return NextResponse.json({ success: true, deviceId: finalDeviceId, ddfHash })
 }
