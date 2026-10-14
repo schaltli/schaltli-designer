@@ -659,44 +659,21 @@ function stateWords(on: string, off: string): { on: string; off: string } {
   return ON_WORDS.has(on.toLowerCase()) && OFF_WORDS.has(off.toLowerCase()) ? { on: "An", off: "Aus" } : { on, off }
 }
 
-/** A payload with `value` at `path` (lib/json-path.ts spelling), for an example. */
-function payloadWith(path: string, value: string): string {
-  const keys: (string | number)[] = []
-  const re = /\[(\d+)\]|\['([^']*)'\]|\["([^"]*)"\]|\.?([^.[\]]+)/g
-  for (let m = re.exec(path); m; m = re.exec(path)) keys.push(m[1] !== undefined ? Number(m[1]) : (m[2] ?? m[3] ?? m[4]))
-  const leaf: unknown = Number.isFinite(Number(value)) && value.trim() !== "" ? Number(value) : value
-  let node: unknown = leaf
-  for (let i = keys.length - 1; i >= 0; i--) {
-    const key = keys[i]
-    if (typeof key === "number") {
-      const list: unknown[] = []
-      list[key] = node
-      node = list
-    } else node = { [key]: node }
-  }
-  return JSON.stringify(node)
-}
-
 /**
  * The topic a binding reads from, declared as the project needs it: plain,
  * or a JSON topic with the path as its subtopic. Its example is what the
- * broker reported, else `sample` - a value the control can show.
+ * broker reported, or none: until 2026-10-14 it was a sample the control
+ * could show («60» for a value), and Rajiva took the «Service ID 60» it
+ * placed for a value from his van (#71, docs/2026-10-14-topic-discovery.md,
+ * no-made-up-values). With none, the block shows no value yet, as the
+ * device does before the first message.
  */
-function readTopicEntry(
-  binding: string,
-  type: "numeric" | "text",
-  sample: string,
-  reported?: Record<string, string>,
-): Omit<Topic, "id"> {
+function readTopicEntry(binding: string, type: "numeric" | "text", reported?: Record<string, string>): Omit<Topic, "id"> {
   const { topic, path } = splitTopicPath(binding)
   const heard = reported?.[topic]
-  if (!path) return { topic, type, examples: [heard ?? sample] }
-  return {
-    topic,
-    type: "json",
-    examples: [heard ?? payloadWith(path, sample)],
-    subtopics: [{ id: `sub-${path}`, path, type }],
-  }
+  const examples = heard !== undefined ? [heard] : []
+  if (!path) return { topic, type, examples }
+  return { topic, type: "json", examples, subtopics: [{ id: `sub-${path}`, path, type }] }
 }
 
 /**
@@ -731,7 +708,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       return {
         objects: [...label(), toggleObject(look, control.read ?? "", control.write, states, parts.control, palette, font)],
         topics: [
-          ...(control.read ? [readTopicEntry(control.read, "text", control.on.read, reported)] : []),
+          ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
           { topic: control.write, type: "text", examples: [control.on.write, control.off.write] },
         ],
         assets: [...assets, ...[offIcon, onIcon].flatMap((i) => (i ? [i.asset] : []))],
@@ -741,7 +718,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // The reported word as it is, in a text beside the name.
       const words = stateWords(control.on, control.off)
       const text = labelObject(`{topic:${control.read}}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(words.on, font)) }, palette, font)
-      return { objects: [...label(), text], topics: [readTopicEntry(control.read, "text", control.on, reported)], assets }
+      return { objects: [...label(), text], topics: [readTopicEntry(control.read, "text", reported)], assets }
     }
     case "value": {
       const read = control.read
@@ -750,7 +727,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         const unit = control.unit ? ` ${control.unit}` : ""
         object = labelObject(`${named}{topic:${read}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
       } else object = readLevelObject(look, read, parts.control, palette, font)
-      return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", "60", reported)], assets }
+      return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", reported)], assets }
     }
     case "text": {
       // The text as it comes, across its row: a sentence has no width to
@@ -759,7 +736,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // Small: in the Caption style, which the editor resolves to the
       // device's font when it places the block.
       const object = control.small ? { ...plain, properties: { ...plain.properties, blockTextStyle: "caption" } } : plain
-      return { objects: [...label(), object], topics: [readTopicEntry(control.read, "text", "", reported)], assets }
+      return { objects: [...label(), object], topics: [readTopicEntry(control.read, "text", reported)], assets }
     }
     case "level": {
       // With a measured value beside the setpoint, the fill shows what is
@@ -794,8 +771,8 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       return {
         objects: [...label(), object],
         topics: [
-          ...(control.current ? [readTopicEntry(control.current, "numeric", String(middle), reported)] : []),
-          ...(control.read ? [readTopicEntry(control.read, "numeric", String(middle), reported)] : []),
+          ...(control.current ? [readTopicEntry(control.current, "numeric", reported)] : []),
+          ...(control.read ? [readTopicEntry(control.read, "numeric", reported)] : []),
           { topic: control.write, type: "numeric", examples: [String(middle)] },
         ],
         assets,
@@ -812,7 +789,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       return {
         objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
         topics: [
-          ...(control.read ? [readTopicEntry(control.read, "text", control.options[0], reported)] : []),
+          ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
           { topic: control.write, type: "text", examples: control.options.slice(0, 3) },
         ],
         assets: [...assets, ...icons.flatMap((i) => (i ? [i.asset] : []))],
@@ -969,7 +946,7 @@ function switcherSlot(
       children: [placed],
     } as ScreenObject
   })
-  const topics: BausteinBuildResult["topics"] = [readTopicEntry(topic, "text", values[0] ?? "", reported)]
+  const topics: BausteinBuildResult["topics"] = [readTopicEntry(topic, "text", reported)]
   for (const t of parts.flatMap((p) => p.built.topics)) if (!topics.some((x) => x.topic === t.topic)) topics.push(t)
   return {
     objects: [

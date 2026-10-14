@@ -179,7 +179,8 @@ test.describe("placing a catalog entry", () => {
     await page.mouse.up()
   }
 
-  // What the Topics tab lists for `wanted`: its type and its line of examples.
+  // What the Topics tab lists for `wanted`: its type and its line of examples,
+  // "" where it has none (the line is left out then).
   async function topicsInSettings(page: Page, wanted: string[]): Promise<Record<string, { type: string; examples: string }>> {
     await page.getByRole("button", { name: "Settings", exact: true }).click()
     const dialog = page.getByRole("dialog")
@@ -188,7 +189,8 @@ test.describe("placing a catalog entry", () => {
     const lines = (await dialog.innerText()).split("\n").map((l) => l.trim()).filter(Boolean)
     const found: Record<string, { type: string; examples: string }> = {}
     lines.forEach((line, i) => {
-      if (wanted.includes(line) && lines[i + 2] === "Examples:") found[line] = { type: lines[i + 1], examples: lines[i + 3] }
+      if (wanted.includes(line) && ["numeric", "text", "json"].includes(lines[i + 1]))
+        found[line] = { type: lines[i + 1], examples: lines[i + 2] === "Examples:" ? lines[i + 3] : "" }
     })
     await page.keyboard.press("Escape")
     return found
@@ -838,7 +840,8 @@ test.describe("a block from a catalog entry", () => {
       },
     })
     expect(built.topics).toEqual([
-      { topic: "zigbee2mqtt/Kitchen plug", type: "json", examples: ['{"state":"ON"}'], subtopics: [{ id: "sub-state", path: "state", type: "text" }] },
+      // Nothing heard: no example (docs/2026-10-14-topic-discovery.md, no-made-up-values).
+      { topic: "zigbee2mqtt/Kitchen plug", type: "json", examples: [], subtopics: [{ id: "sub-state", path: "state", type: "text" }] },
       { topic: "zigbee2mqtt/Kitchen plug/set", type: "text", examples: ["ON", "OFF"] },
     ])
   })
@@ -864,14 +867,15 @@ test.describe("a block from a catalog entry", () => {
     const built = build("esphome-sensor-temperature")
     expect(built.objects[1].type).toBe("text")
     expect(asPlaceholders(built.objects[1])).toBe("{topic:van-sensors/sensor/cabin_temperature/state} °C")
-    expect(built.topics).toEqual([{ topic: "van-sensors/sensor/cabin_temperature/state", type: "numeric", examples: ["60"] }])
+    // Nothing heard: no example - until 2026-10-14 a made-up «60» (#71).
+    expect(built.topics).toEqual([{ topic: "van-sensors/sensor/cabin_temperature/state", type: "numeric", examples: [] }])
     const fill = { kind: "value", read: "tank/level", unit: "%", level: true } as const
     expect(catalogLooks(fill).map((l) => l.id)).toEqual(["bar", "gauge", "number"])
     const bar = buildFromCatalog({ entry: { ...entry, controls: [fill] }, control: fill, rect: RECT, palette }).objects[1]
     expect(bar).toMatchObject({ type: "bar", properties: { topic: "tank/level" } })
   })
 
-  test("a level: a slider or dial on the entity's range and step, its middle as the example", () => {
+  test("a level: a slider or dial on the entity's range and step, its middle the write topic's example", () => {
     const built = build("z2m-number-calibration")
     expect(built.objects[1]).toMatchObject({
       type: "slider",
@@ -885,7 +889,8 @@ test.describe("a block from a catalog entry", () => {
         ],
       },
     })
-    expect(built.topics[0]).toMatchObject({ type: "json", examples: ['{"local_temperature_calibration":0}'] })
+    // What it reads: nothing heard, no example. What it writes: the middle.
+    expect(built.topics[0]).toMatchObject({ type: "json", examples: [] })
     expect(built.topics[1]).toEqual({ topic: "zigbee2mqtt/Living room TRV/set/local_temperature_calibration", type: "numeric", examples: ["0"] })
     expect(build("z2m-number-calibration", "dial").objects[1].type).toBe("dial")
   })
