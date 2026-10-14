@@ -58,6 +58,16 @@ Push notification on a stop and at the end.
 - e2e/demo-van.spec.ts's bridge test switched the bench's boards dark once
   it ran @alone against their broker: it has a broker of its own now.
 
+- 2026-10-14 evening, test:all after topic discovery: the knob hung again
+  after an install in knob-layout - pingable, HTTP silent, MQTT down (state
+  -2). hil-diag over USB: wifi up (rssi -85), internal heap free 20484,
+  largest block 7156, **minimum 684** after 194 s up. Freshly reset and
+  deployed: free 49900, minimum 38284. So the network dies of exhausted
+  internal RAM (no room for sockets), not of WiFi; something takes ~37 KB
+  of internal heap under HIL load within minutes. Cause in the firmware
+  open. Every other suite green; the knob's red ones green alone after a
+  hard reset over USB.
+
 ## Weakened checks and tolerances (to report at the end)
 
 - e2e/ddf-over-broker.spec.ts counts the device's ddf/get and recovery/get
