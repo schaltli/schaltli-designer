@@ -109,6 +109,8 @@ import { declaresTouch, migrateProject } from "@/lib/object-types"
 import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
+import { BrokerListener } from "@/components/broker-listener"
+import { useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 
@@ -911,6 +913,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // (see hooks/use-adornment-image.ts). A view preference, not project data,
   // so it lives in localStorage rather than in the project.
   const [showAdornment, setShowAdornment] = useState(true)
+  const [listening, setListening] = useListening()
   useEffect(() => {
     setShowAdornment(window.localStorage.getItem("schaltli.showAdornment") !== "false")
   }, [])
@@ -4569,8 +4572,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       </div>
       </div>
 
+      <BrokerListener />
       <div className="fixed bottom-0 left-0 right-0 z-50 h-8 border-t border-border bg-card flex items-center justify-end px-4">
         <div className="flex items-center gap-4">
+          {/* The designer listening to its broker in the background
+              (docs/2026-10-14-topic-discovery.md, decision 1); off with one
+              click, kept per browser. */}
+          <FooterSwitch
+            label="Listening"
+            checked={listening}
+            onChange={setListening}
+            title="Listen to the broker in the background, for the topic pickers and «Listen to Broker»"
+          />
           <span className="text-xs text-muted-foreground">
             {project.screenWidth} × {project.screenHeight}
           </span>
