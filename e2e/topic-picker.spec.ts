@@ -107,6 +107,26 @@ test.describe("the Topic Picker and what was heard", () => {
   })
 })
 
+// An older project can hold a topic without a type, or with "number": the
+// picker opened on one crashed (reported by the user, 2026-10-14).
+test("a project topic without a type, or typed \"number\", is listed and chosen", async ({ page }, testInfo) => {
+  const zip = await JSZip.loadAsync(await readFile(SWITCH_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  delete project.topics.find((t: { topic: string }) => t.topic === "test/switch-cmd").type
+  project.topics.push({ id: "topic_old_number", topic: "test/old-number", type: "number", examples: ["3"] })
+  zip.file("project.json", JSON.stringify(project))
+  const old = testInfo.outputPath("old-types.zip")
+  const { writeFile } = await import("fs/promises")
+  await writeFile(old, await zip.generateAsync({ type: "nodebuffer" }))
+  await loadProject(page, old)
+  await objectTreeRow(page, "obj-switch-1").click()
+  await picker(page, "Read topic").click()
+  await search(page).fill("test/")
+  await expect(listbox(page).getByRole("option", { name: /^switch-cmd/ })).toBeVisible()
+  await listbox(page).getByRole("option", { name: /^old-number/ }).click()
+  await expect(picker(page, "Read topic")).toContainText("test/old-number")
+})
+
 // The `{` search of a text offers the heard topics after the project's;
 // picking one adds it (topic-picker, decision 6).
 test.describe("the value search of a text and what was heard", () => {

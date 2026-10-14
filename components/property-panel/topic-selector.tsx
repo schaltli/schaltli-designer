@@ -51,7 +51,7 @@ const TYPE_BADGE: Record<Topic["type"], string> = {
 }
 
 function TypeBadge({ type }: { type: Topic["type"] }) {
-  return <span className={cn("px-2 py-0.5 text-xs rounded-full flex-shrink-0", TYPE_BADGE[type])}>{type}</span>
+  return <span className={cn("px-2 py-0.5 text-xs rounded-full flex-shrink-0", TYPE_BADGE[type] ?? TYPE_BADGE.text)}>{type}</span>
 }
 
 /** A topic one can publish to: not empty, no wildcard, no spaces. */
@@ -175,7 +175,9 @@ export function TopicSelector({
 
   const renderLeaf = (n: TopicTreeNode<PickerItem>) => {
     const item = n.item!
-    const type = item.project?.type ?? item.heard!.type
+    // An older project can hold a topic without a type (or "number"):
+    // shown as text rather than taken for a heard one.
+    const type = item.project?.type ?? item.heard?.type ?? "text"
     const latest = item.heard?.messages[0]?.payload
     const selected = selectedRealTopic === item.topic
     return (
