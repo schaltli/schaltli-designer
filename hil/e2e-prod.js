@@ -43,9 +43,15 @@ const SUITE_ENV = {
   E2E_BROKER_WS_PORT: String(BROKER_WS_PORT),
 }
 
+// Quoted again for the shell: `--grep-invert "@alone|@dev"` reaches this
+// script already unquoted (test-all's own shell took the quotes), and cmd
+// then read the | as a pipe into a command "dev" - e2e ended after 2 s
+// (2026-10-14).
+const forShell = (arg) => (/[|&<>^\s]/.test(arg) && !/^".*"$/.test(arg) ? `"${arg}"` : arg)
+
 function run(cmd, args, env) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd: ROOT, stdio: "inherit", shell: true, env: { ...process.env, ...env } })
+    const child = spawn(cmd, args.map(forShell), { cwd: ROOT, stdio: "inherit", shell: true, env: { ...process.env, ...env } })
     child.on("close", (code) => resolve(code))
     child.on("error", () => resolve(1))
   })

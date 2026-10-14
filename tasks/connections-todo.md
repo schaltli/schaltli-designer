@@ -17,7 +17,7 @@ Push notification on a stop and at the end.
 - [x] C2 Contract §1, §4, §6
 - [x] C3 The designer reads the DDF over the broker; #68 readable (e2e/ddf-over-broker.spec.ts)
 - [x] C4 Boards answer ddf/get and recovery/get (schaltli-firmware ca9e491; seen on all three boards)
-- [ ] C5 The app answers; DdfServer gone
+- [x] C5 The app answers; DdfServer gone (Android HIL «over the broker», 3 checks)
 - [ ] Checkpoint: test:all; firmware release; app v0.12.0
 
 ## Phase 2
@@ -31,6 +31,15 @@ Push notification on a stop and at the end.
 - [ ] C10 The app: the same test interface
 - [ ] C11 Handbook
 - [ ] Checkpoint: test:all; releases; issues closed; forum draft
+
+## Findings
+
+- The van's Mosquitto (2026-10-14, read only): no message_size_limit or
+  max_packet_size, so 300 KB pass; Node-RED subscribes schaltli/cmnd/# and
+  schaltli/state/theme only, nothing on # or the descriptions.
+- PubSubClient 2.8 announces a large publish's length as uint16: 293775
+  bytes went out as 31631 and the broker dropped the board. The firmware
+  writes the PUBLISH header itself now.
 
 ## Weakened checks and tolerances (to report at the end)
 

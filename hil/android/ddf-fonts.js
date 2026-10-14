@@ -15,10 +15,11 @@
 // outlived it by a day and failed with "check out schaltli-android
 // alongside this repo" for a directory that was never coming back.
 //
-// So it asks the phone, which is the only thing that knows. Over `adb
-// forward` rather than the network: the app serves its DDF on port 8080, and
-// the cable works whatever wifi either end is on - the phone spent
-// 2026-09-21 on the van's network while this machine stayed at home.
+// So it asks the phone, which is the only thing that knows - over the
+// broker, as the designer asks (ddf/get, device contract §4) since
+// 2026-10-14, when the app stopped serving it on port 8080 (#70). Which
+// phone is the one on the cable: the id its app logs at start (SchaltliId),
+// read over adb - a second phone on the broker is not asked.
 //
 // A project's own font entries carry only metrics (id, internalName, size,
 // ascent, descent); the bytes live in the DDF. Unlike the firmware suites,
@@ -28,6 +29,7 @@
 const path = require("path");
 const { execFile } = require("child_process");
 const JSZip = require("jszip");
+const { deviceDdf } = require("../device-mqtt");
 
 const ADB =
   process.env.ANDROID_ADB_PATH ||
@@ -51,75 +53,74 @@ function adb(args) {
 async function phoneDdf(deviceSerial) {
   if (cached) return cached;
   const prefix = deviceSerial ? ["-s", deviceSerial] : [];
-  // A port nobody else is on: a run that crashed without tidying up leaves
-  // its forward behind, and reusing it would reach a closed socket.
-  const port = 18080 + Math.floor(Math.random() * 500);
+  const instanceId = await cabledInstance(prefix);
+  let bytes;
   try {
-    await adb([...prefix, "forward", `tcp:${port}`, "tcp:8080"]);
+    bytes = await deviceDdf(instanceId, process.env.HIL_MQTT_URL || "mqtt://localhost:1883");
   } catch (err) {
     throw new Error(
-      "Could not reach the phone to ask for its DDF. Connect it over USB with the app running " +
-        `(adb forward failed: ${err.message}).`,
+      `${instanceId} sent no description over the broker (${err.message}). Is the app running and ` +
+        "connected to this machine's broker?",
     );
   }
-  try {
-    // Asked again for a while: the app opens its server some seconds after it
-    // starts, and a run that has just started it met a closed socket
-    // (UND_ERR_SOCKET, 2026-09-28).
-    let res;
-    for (let tries = 0; ; tries++) {
-      try {
-        res = await fetch(`http://127.0.0.1:${port}/ddf.zip`);
-        break;
-      } catch (err) {
-        if (tries >= 20) throw err;
-        await new Promise((r) => setTimeout(r, 1000));
-      }
+  const zip = await JSZip.loadAsync(Buffer.from(bytes));
+  const device = JSON.parse(await zip.file("device.json").async("string"));
+  const fonts = [];
+  for (const font of device.fonts || []) {
+    // `file` is the DDF's own name for it (device-contract.md SS1); the
+    // designer's ProjectFont calls the same thing `path`.
+    const file = font.file ?? font.path;
+    const entry = zip.file(file);
+    if (!entry) throw new Error(`The phone's DDF names a font it does not contain: ${file}`);
+    const base64 = Buffer.from(await entry.async("nodebuffer")).toString("base64");
+    fonts.push({
+      id: font.id,
+      name: font.internalName ?? font.id,
+      displayName: font.displayName ?? font.id,
+      path: file,
+      internalName: font.internalName,
+      size: font.size,
+      ascent: font.ascent,
+      descent: font.descent,
+      format: "ttf",
+      data: `data:font/ttf;base64,${base64}`,
+    });
+  }
+  cached = {
+    screen: device.screen,
+    device: device.device,
+    // What the phone says it can draw. The fixture builder holds itself to
+    // this list: a type declared here and missing from the fixture is a
+    // type the suite reports nothing about, which reads exactly like a
+    // type that works.
+    supportedObjectTypes: device.supportedObjectTypes || [],
+    // And what it keeps beyond object types: local topics (§2.9).
+    supportedFeatures: device.supportedFeatures || [],
+    fonts,
+  };
+  return cached;
+}
+
+// The broker id of the phone on the cable, from the line its app logs at
+// every start (MainActivity: SchaltliId). Asked again for a while: a run that
+// has just started the app may look before it has said it.
+async function cabledInstance(prefix) {
+  for (let tries = 0; ; tries++) {
+    let log = "";
+    try {
+      log = await adb([...prefix, "logcat", "-d", "-s", "SchaltliId:I"]);
+    } catch (err) {
+      throw new Error(`Could not reach the phone over USB (adb logcat failed: ${err.message}).`);
     }
-    if (!res.ok) {
+    const ids = log.match(/android-[A-Za-z0-9]+/g);
+    if (ids) return ids[ids.length - 1];
+    if (tries >= 10) {
       throw new Error(
-        `The phone answered ${res.status} for its own DDF. Is the app in the foreground? It serves this ` +
-          "only while it is running.",
+        "The app on the phone has not said its id since the log began. Start it afresh: " +
+          "adb shell am start -S -n com.schaltli.android/.MainActivity",
       );
     }
-    const zip = await JSZip.loadAsync(Buffer.from(await res.arrayBuffer()));
-    const device = JSON.parse(await zip.file("device.json").async("string"));
-    const fonts = [];
-    for (const font of device.fonts || []) {
-      // `file` is the DDF's own name for it (device-contract.md SS1); the
-      // designer's ProjectFont calls the same thing `path`.
-      const file = font.file ?? font.path;
-      const entry = zip.file(file);
-      if (!entry) throw new Error(`The phone's DDF names a font it does not contain: ${file}`);
-      const base64 = Buffer.from(await entry.async("nodebuffer")).toString("base64");
-      fonts.push({
-        id: font.id,
-        name: font.internalName ?? font.id,
-        displayName: font.displayName ?? font.id,
-        path: file,
-        internalName: font.internalName,
-        size: font.size,
-        ascent: font.ascent,
-        descent: font.descent,
-        format: "ttf",
-        data: `data:font/ttf;base64,${base64}`,
-      });
-    }
-    cached = {
-      screen: device.screen,
-      device: device.device,
-      // What the phone says it can draw. The fixture builder holds itself to
-      // this list: a type declared here and missing from the fixture is a
-      // type the suite reports nothing about, which reads exactly like a
-      // type that works.
-      supportedObjectTypes: device.supportedObjectTypes || [],
-      // And what it keeps beyond object types: local topics (§2.9).
-      supportedFeatures: device.supportedFeatures || [],
-      fonts,
-    };
-    return cached;
-  } finally {
-    await adb([...prefix, "forward", "--remove", `tcp:${port}`]).catch(() => {});
+    await new Promise((r) => setTimeout(r, 1000));
   }
 }
 

@@ -78,6 +78,8 @@ const { Jimp } = require("jimp");
 const JSZip = require("jszip");
 const { buildReport, comparePixelsWithTolerance } = require("../report-template");
 const { phoneDdf } = require("./ddf-fonts");
+const { deviceDdf, deviceRecovery } = require("../device-mqtt");
+const { createHash } = require("crypto");
 const { combinationCount, combinationOverrides } = require("../combinations");
 
 const execFileAsync = promisify(execFile);
@@ -715,13 +717,12 @@ async function discoverPhone(mqttClient, cabledId) {
       if (cabledId && match[1] !== cabledId) return;
       clearTimeout(timer);
       mqttClient.removeListener("message", onMessage);
+      // No address in a hello since 2026-10-14 (#70); an older app's still
+      // names one, which is only logged.
       let host = null;
       try {
         host = new URL(JSON.parse(payload.toString()).url).hostname;
-      } catch {
-        // A hello without a usable url still identifies the phone; only the
-        // address to serve from has to be guessed then.
-      }
+      } catch {}
       resolve({ deviceId: match[1], host });
     }
 
@@ -1082,10 +1083,11 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // do with the app. Said here, once, rather than found later as noise.
   const project = JSON.parse(await (await JSZip.loadAsync(fixture)).file("project.json").async("string"));
   refuseRealCommands(project);
-  // The app serves its DDF only while it runs, and a fresh `adb install -r`
-  // leaves it stopped - which is how a run straight after installing a new
-  // build crashed here with "fetch failed" (2026-09-28). Started first, then.
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
+  // The app hands over its DDF only while it runs, and a fresh `adb install
+  // -r` leaves it stopped - which is how a run straight after installing a
+  // new build crashed here with "fetch failed" (2026-09-28). Started afresh
+  // (-S), so the id it logs at start is in the log for phoneDdf to read.
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-S", "-n", APP_ACTIVITY]));
   await sleep(2000);
   const ddf = await phoneDdf(deviceSerial);
   if (project.screenWidth !== ddf.screen.width || project.screenHeight !== ddf.screen.height) {
@@ -1783,6 +1785,64 @@ function localSwitcher(project, screen) {
   return (screen.objects || []).find((o) => o.type === "switcher" && local.has(o.properties?.topic));
 }
 
+// What the phone says on the broker since 2026-10-14 (device contract §4,
+// #70): a hello without an address, its description handed over on ddf/get
+// with the hash the hello names, and the bundle installed last handed back
+// on recovery/get - the designer's «recover» dialog, which had nothing to
+// ask a phone for before.
+async function checkOverBroker(mqttClient, deviceId, installed) {
+  const checks = [];
+  const check = (what, ok, detail) => {
+    checks.push(ok);
+    console.log(`  [broker] ${ok ? "PASS" : "FAIL"} ${what}${detail ? ` - ${detail}` : ""}`);
+  };
+  const hello = await new Promise((resolve) => {
+    const topic = `schaltli/${deviceId}/hello`;
+    const timer = setTimeout(() => done(null), 5000);
+    const onMessage = (t, payload) => {
+      if (t === topic && payload.length > 0) done(JSON.parse(payload.toString()));
+    };
+    function done(value) {
+      clearTimeout(timer);
+      mqttClient.removeListener("message", onMessage);
+      mqttClient.unsubscribe(topic);
+      resolve(value);
+    }
+    mqttClient.on("message", onMessage);
+    mqttClient.subscribe(topic);
+  });
+  check("1. the hello names no address", !!hello && hello.url === undefined, hello ? String(hello.url) : "no hello");
+  try {
+    const ddf = await deviceDdf(deviceId, MQTT_URL);
+    const hash = createHash("sha256").update(ddf).digest("hex").slice(0, 16);
+    check("2. ddf/get hands over the description the hello names", !!hello && hash === hello.ddfHash, `${ddf.length} bytes, ${hash} vs ${hello?.ddfHash}`);
+  } catch (err) {
+    check("2. ddf/get hands over the description the hello names", false, err.message);
+  }
+  try {
+    const copy = await deviceRecovery(deviceId, MQTT_URL);
+    check("3. recovery/get hands back the bundle installed last", Buffer.compare(Buffer.from(copy), installed) === 0, `${copy.length} of ${installed.length} bytes`);
+  } catch (err) {
+    check("3. recovery/get hands back the bundle installed last", false, err.message);
+  }
+  const pass = checks.every(Boolean);
+  return {
+    landedOn: null,
+    screenIndex: -1,
+    screenName: "over the broker",
+    comboIndex: 0,
+    overrides: {},
+    pass,
+    diffPixels: checks.filter((ok) => !ok).length,
+    totalPixels: checks.length,
+    dimensionMismatch: false,
+    expectedFile: "",
+    actualFile: "",
+    expectedDims: "",
+    actualDims: "",
+  };
+}
+
 async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
   const switcher = localSwitcher(project, screen);
   const name = switcher.properties.topic;
@@ -2078,6 +2138,7 @@ async function main() {
     throw err;
   }
 
+  let brokerResult = null;
   try {
     await checkFollowTheFinger(deviceSerial);
     // Back to a known screen by installing the fixture again, rather than by
@@ -2089,6 +2150,8 @@ async function main() {
     console.log("Back to the first screen...");
     await deployBundle(mqttClient, deviceId, fs.readFileSync(getProjectZipPath()), deviceSerial, "the fixture again");
     await sleep(1500);
+    console.log("\nOver the broker...");
+    brokerResult = await checkOverBroker(mqttClient, deviceId, fs.readFileSync(getProjectZipPath()));
   } catch (err) {
     await clearDeploy();
     await restoreScreenTimeout();
@@ -2112,6 +2175,7 @@ async function main() {
   console.log("Designer render harness ready (fonts preloaded).");
 
   const results = [];
+  if (brokerResult) results.push(brokerResult);
 
   // Where the phone is. The fixture was just reinstalled, which puts it on
   // the first screen; from here on every move is made by this script and has
