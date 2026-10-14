@@ -30,9 +30,12 @@ Die Beschriftung ist der Name des Dings als fester Text, im Stil <span class="ui
 | Schalter (`switch`) | der Name und daneben zwei Knöpfe «Aus» und «An», oder mit den Wörtern des Geräts, wenn es nicht ein und aus meldet | – |
 | Zustand (`binary_sensor`) | der Name und daneben der gemeldete Zustand als Text | – |
 | Messwert (`sensor`) | der Name und der Wert mit seiner Einheit; bei Prozent und Batterie auch als Balken oder Ring | <span class="ui">Number</span>, bei Prozent <span class="ui">Bar</span> und <span class="ui">Gauge</span> |
+| Text (`sensor` ohne Zahl) | der Name und daneben der gemeldete Text, etwa eine ID oder eine Version | – |
 | Zahl (`number`) | der Name und darunter ein Regler im Bereich und in den Schritten des Geräts | <span class="ui">Slider</span>, <span class="ui">Dial</span> |
 | Auswahl (`select`) | der Name und daneben ein Knopf je Möglichkeit | <span class="ui">Buttons</span> |
 | Taste (`button`) | ein Button mit dem Namen, der beim Antippen die Nachricht des Geräts schickt | – |
+
+Ein Sensor gilt wie in Home Assistant nur dann als Zahl, wenn seine Ankündigung eine Einheit, eine Messart (`state_class`) oder eine Geräteklasse nennt, die etwas misst, etwa Temperatur oder Spannung. Sonst zeigt der Baustein den Wert als Text.
 
 Was der Designer nicht setzen kann, steht ausgegraut im Menü, mit dem Grund, etwa «Not supported: the value template: arithmetic (/ 1000)». Das sind Geräte, deren Ankündigung Werte erst umrechnet oder Befehle aus Vorlagen zusammensetzt. Solche Werte bindest du von Hand, siehe [Topics](/designer/topics).
 
