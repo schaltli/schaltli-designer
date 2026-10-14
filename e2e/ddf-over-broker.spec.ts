@@ -229,8 +229,10 @@ test.describe("Device descriptions over the broker", () => {
       await expect(page.getByText(label)).toBeVisible({ timeout: 15_000 })
       await page.getByText(label).click()
       await page.getByRole("button", { name: "Recover", exact: true }).click()
-      await expect(page.getByRole("button", { name: "Recover from Device..." })).not.toBeVisible({ timeout: 20_000 })
-      expect(device.asked.recovery).toBeGreaterThanOrEqual(1)
+      // Asked first, then the editor: the gate's button is hidden behind
+      // the dialog already, so its going away alone said nothing yet.
+      await expect.poll(() => device.asked.recovery, { timeout: 20_000 }).toBeGreaterThanOrEqual(1)
+      await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible({ timeout: 20_000 })
       await page.getByRole("button", { name: "Settings", exact: true }).click()
       await page.getByText("Device", { exact: true }).click()
       await expect(page.getByText("Currently loaded: Recovery Over The Broker")).toBeVisible()

@@ -43,4 +43,8 @@ Push notification on a stop and at the end.
 
 ## Weakened checks and tolerances (to report at the end)
 
-(none yet)
+- e2e/ddf-over-broker.spec.ts counts the device's ddf/get and recovery/get
+  "at least once" rather than exactly once: every worker's page on the
+  shared broker asks a hello it sees. "Never asked" stays exact.
+- hil/test-all.js: the 4.3B's pixel-clock measurement runs after the lanes
+  (it measures the WiFi the parallel boards share); same assertion.

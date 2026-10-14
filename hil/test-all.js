@@ -748,7 +748,10 @@ async function main() {
   // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
   // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,
   // because which clock is kind depends on the access point's channel.
-  step("4v3b", async () => {
+  // After the lanes: it measures the WiFi, and every other board pulling
+  // snapshots at the same time made 12 MHz look no kinder than 16 (319 vs
+  // 301 KB/s, 2026-10-14) while alone it was 783 vs 661.
+  afterLanes(async () => {
     console.log(`\n=== Waveshare 4.3B pixel clock vs WiFi (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
     {
       const exitCode = await run("node", ["hil/waveshare4v3b/pixel-clock-radio.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
