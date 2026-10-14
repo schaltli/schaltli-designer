@@ -165,6 +165,29 @@ Every orchestrator needs the designer dev server running (`npm run dev`,
 get the reference image. They all also need an MQTT broker reachable by
 both this machine and the device under test - see below.
 
+## The test interface, and its password
+
+Since 2026-10-14 a device's test interface is off from the factory and,
+switched on, wants a password (docs/device-contract.md §6, #70). The suites
+send it on every request to a device - `hil/device-auth.js` wraps fetch,
+node's http and every `curl`, and `npm run test:all` loads it into each step
+through `NODE_OPTIONS`. A script run by hand loads it with `node -r
+./hil/device-auth.js hil/<script>.js`. The password is `HIL_PASSWORD` in
+`.env.local`.
+
+Switched on once per device, by someone who has it in hand:
+
+```
+node hil/test-interface.js on            # the boards, over USB (COM3, COM4, COM5); writes HIL_PASSWORD if there is none
+node hil/test-interface.js check --device 192.168.1.117   # 401 without it and with a wrong one, 200 with it
+node hil/android/test-interface.js on    # the app, over the cable
+```
+
+A board's setup portal and the app's settings offer the same switch. A
+device with it on says where it answers on its retained
+`schaltli/<id>/test-interface` topic, which is how the suites find a board's
+or the phone's address now that a hello names none (`hil/device-mqtt.js`).
+
 ## MQTT broker
 
 Every orchestrator used the public `test.mosquitto.org` broker until
@@ -634,13 +657,19 @@ protocol websockets
 node hil/android/orchestrator.js --project hil/android/fixtures/comprehensive-test.zip [--device <adb-serial>]
 ```
 
-Needs the app installed on an unlocked, adb-authorised phone with a broker
-configured in its settings. The project is *not* put there by hand: the run
-installs it over MQTT, the way the designer's deploy dialog does.
+Needs the app installed, started and in front on an unlocked phone, its
+broker set to this machine's and its test interface switched on (`node
+hil/android/test-interface.js on`). The project is *not* put there by hand:
+the run installs it over MQTT, the way the designer's deploy dialog does.
 
-With more than one phone on the cable, `--device` picks which one, and the
-run deploys to the phone whose DDF that is, not to whichever hello arrives
-first.
+Since 2026-10-14 the run drives the phone through the app's own test
+interface on port 8080 (`hil/android/phone.js`): the app's window as drawn
+for a picture, taps and swipes dispatched into it, a restart, its settings.
+adb only installs the app - and starts it after an install, since an install
+leaves it stopped. The picture is the app's window, not the screen, so a
+notification banner is not in it; it was pixel-identical to `adb screencap`
+on the P20. With more than one phone's test interface on the broker,
+`HIL_PHONE_ID` picks one.
 
 ### Android 6 on the emulator
 
@@ -825,20 +854,17 @@ widths in turn and demands that nothing along the bar moves - which is how the
 handle-from-the-clamped-slot defect was caught in the first place.
 
 
-**Precondition**: the app is in the foreground on a connected,
-`adb`-authorized device, and its own MQTT broker (configured in-app via its
-Settings screen, stored via DataStore - separate from the orchestrator's
-`HIL_MQTT_URL`) points at the same broker described above. The fixture
-itself is installed by the run: since 2026-09-21 the app takes a deploy over
-MQTT like any board, so nothing is imported by hand any more. For a phone on
-another network - a phone that lives in a camper, say - the run puts this
-machine's broker on the phone's own loopback over the cable
-(`adb reverse`), which is also what keeps a test run off a real
-installation's topics.
+**Precondition**: the app is in the foreground with its test interface on,
+and its own MQTT broker (configured in-app via its Settings screen, stored
+via DataStore - separate from the orchestrator's `HIL_MQTT_URL`) is this
+machine's: the run refuses a phone pointed anywhere else, which is what
+keeps a test run off a real installation's topics. The fixture itself is
+installed by the run: since 2026-09-21 the app takes a deploy over MQTT like
+any board, so nothing is imported by hand any more.
 
 For each MQTT-value combination on **every screen**: swipes there, publishes
 the values, waits, and
-captures a real device screenshot via `adb exec-out screencap`. That
+captures the app's window through its test interface (`GET /snapshot.png`; `adb exec-out screencap` until 2026-10-14). That
 screenshot is at the phone's own resolution/density, not the reference's
 pixel grid, so it's cropped to the detected screen-content region and
 resized down to match before comparing - and because that resampling

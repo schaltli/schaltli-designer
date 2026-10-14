@@ -18,8 +18,8 @@
 // So it asks the phone, which is the only thing that knows - over the
 // broker, as the designer asks (ddf/get, device contract §4) since
 // 2026-10-14, when the app stopped serving it on port 8080 (#70). Which
-// phone is the one on the cable: the id its app logs at start (SchaltliId),
-// read over adb - a second phone on the broker is not asked.
+// phone: the one whose test interface is on (phone.js) - a second phone on
+// the broker is not asked.
 //
 // A project's own font entries carry only metrics (id, internalName, size,
 // ascent, descent); the bytes live in the DDF. Unlike the firmware suites,
@@ -27,22 +27,11 @@
 // compiled-in copy to fall back on, so `path` is what it loads from.
 
 const path = require("path");
-const { execFile } = require("child_process");
 const JSZip = require("jszip");
 const { deviceDdf } = require("../device-mqtt");
 
-const ADB =
-  process.env.ANDROID_ADB_PATH ||
-  path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe");
-
 /** The phone's DDF, fetched once per process. */
 let cached = null;
-
-function adb(args) {
-  return new Promise((resolve, reject) =>
-    execFile(ADB, args, (err, stdout) => (err ? reject(err) : resolve(stdout))),
-  );
-}
 
 /**
  * The connected phone's DDF: its screen, its identity and its fonts with
@@ -101,27 +90,10 @@ async function phoneDdf(deviceSerial) {
   return cached;
 }
 
-// The broker id of the phone on the cable, from the line its app logs at
-// every start (MainActivity: SchaltliId). Asked again for a while: a run that
-// has just started the app may look before it has said it.
+// The phone under test, by its retained test-interface topic (phone.js):
+// the app with its test interface switched on.
 async function cabledInstance(prefix) {
-  for (let tries = 0; ; tries++) {
-    let log = "";
-    try {
-      log = await adb([...prefix, "logcat", "-d", "-s", "SchaltliId:I"]);
-    } catch (err) {
-      throw new Error(`Could not reach the phone over USB (adb logcat failed: ${err.message}).`);
-    }
-    const ids = log.match(/android-[A-Za-z0-9]+/g);
-    if (ids) return ids[ids.length - 1];
-    if (tries >= 10) {
-      throw new Error(
-        "The app on the phone has not said its id since the log began. Start it afresh: " +
-          "adb shell am start -S -n com.schaltli.android/.MainActivity",
-      );
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
+  return (await require("./phone").phone(process.env.HIL_MQTT_URL || "mqtt://localhost:1883")).deviceId;
 }
 
 /**

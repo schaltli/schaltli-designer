@@ -8,7 +8,7 @@
 //   node hil/test-interface.js on  [--port COM5 ...]   hil-on <HIL_PASSWORD>, then a restart
 //   node hil/test-interface.js off [--port COM5 ...]   hil-off, then a restart
 //   node hil/test-interface.js status [--port ...]     hil?
-//   node hil/test-interface.js check --device <ip>     401 without the password
+//   node hil/test-interface.js check --device <ip[:port]> 401 without the password
 //                                                     and with a wrong one, 200 with it
 //
 // Without --port: every board of this bench (hil/README.md: knob COM4, 4.3B
@@ -79,7 +79,8 @@ sys.stdout.write(out.decode("utf-8", "replace"))
 function rawStatus(host, path, authorization) {
   const net = require("net")
   return new Promise((resolve) => {
-    const socket = net.connect({ host, port: 80 })
+    const [name, port] = host.split(":")
+    const socket = net.connect({ host: name, port: Number(port) || 80 })
     let data = ""
     // What arrived counts even when the connection ends hard: the PaperS3
     // answers a refused request and resets the socket at once.

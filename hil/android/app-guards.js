@@ -12,34 +12,26 @@
 // Not covered here: the address in the announcement after a WiFi change
 // (schaltli-android#6) - Android lets no computer switch a phone's WiFi.
 //
-// Run: node hil/android/app-guards.js [--device <adb serial>]
+// Run: node hil/android/app-guards.js (the phone with its test interface on)
 // Needs the broker (npm run hil:broker) the phone is set to, the app running.
 // Exit 0 pass, 1 fail, 2 no phone.
 const fs = require("fs")
 const path = require("path")
 const http = require("http")
 const crypto = require("crypto")
-const { execFile } = require("child_process")
-const { promisify } = require("util")
 const mqtt = require("mqtt")
+// The phone through the app's test interface, not adb (phone.js, #70).
+const phoneApi = require("./phone")
 const JSZip = require("jszip")
 
-const execFileAsync = promisify(execFile)
-const ADB = process.env.ANDROID_ADB_PATH || path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 const FIXTURE = path.join(__dirname, "fixtures", "comprehensive-test.zip")
-const SET_BROKER = ["shell", "am", "broadcast", "-a", "com.schaltli.android.SET_BROKER", "-n", "com.schaltli.android/.data.BrokerConfigReceiver"]
 
 const arg = (flag) => {
   const i = process.argv.indexOf(flag)
   return i > 0 ? process.argv[i + 1] : null
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-async function adb(serial, args) {
-  const { stdout } = await execFileAsync(ADB, serial ? ["-s", serial, ...args] : args)
-  return stdout
-}
 
 // The phone on this broker: an online android-* hello.
 async function findPhone(client) {
@@ -58,21 +50,19 @@ async function findPhone(client) {
   return id ? { instanceId: id, hello: hellos.get(id) } : null
 }
 
-// A zip served to the phone down the cable (adb reverse).
+// A zip served to the phone over its WiFi.
 async function serve(serial, bytes) {
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { "Content-Type": "application/zip", "Content-Length": bytes.length })
     res.end(bytes)
   })
-  await new Promise((r) => server.listen(0, "127.0.0.1", r))
+  await new Promise((r) => server.listen(0, "0.0.0.0", r))
   const port = server.address().port
-  await adb(serial, ["reverse", `tcp:${port}`, `tcp:${port}`])
+  // Over the phone's WiFi, as from a designer (since 2026-10-14).
+  const host = await phoneApi.addressTowardPhone(MQTT_URL)
   return {
-    url: `http://127.0.0.1:${port}/bundle.zip`,
-    close: async () => {
-      server.close()
-      await adb(serial, ["reverse", "--remove", `tcp:${port}`]).catch(() => {})
-    },
+    url: `http://${host}:${port}/bundle.zip`,
+    close: async () => server.close(),
   }
 }
 
@@ -109,18 +99,19 @@ async function deploy(client, serial, instanceId, bytes) {
   }
 }
 
+// What the app's window asks of the backlight: 0 off (ScreenSleep's dark),
+// -1 the system's own (/api/debug, screenBrightness).
 async function brightnessOverride(serial) {
-  const out = await adb(serial, ["shell", "dumpsys", "power"])
-  const m = /mScreenBrightnessOverrideFromWindowManager=(-?[\d.]+)/.exec(out)
-  return m ? Number(m[1]) : null
+  const value = (await phoneApi.debug()).screenBrightness
+  return typeof value === "number" ? value : null
 }
 
 async function main() {
   const serial = arg("--device")
   try {
-    await adb(serial, ["get-state"])
-  } catch {
-    console.warn("SKIPPED - no adb device connected")
+    await phoneApi.phone(MQTT_URL)
+  } catch (err) {
+    console.warn(`SKIPPED - ${err.message}`)
     process.exit(2)
   }
   const client = mqtt.connect(MQTT_URL, { connectTimeout: 5000, reconnectPeriod: 0 })
@@ -158,23 +149,23 @@ async function main() {
     check(other.state === "applied", `   a bundle made for another phone is installed (state ${other.state})`)
 
     // 2. Dark after the timeout, the backlight off; a touch brings it back.
-    displayOffBefore = (/data="(\d+)"/.exec(await adb(serial, [...SET_BROKER, "--ei", "displayOffSeconds", "3"])) || [])[1] || "0"
+    displayOffBefore = String((await phoneApi.debug()).displayOffSeconds ?? 0)
+    await phoneApi.setDisplayOff(3)
     let dark = null
     for (let i = 0; i < 10 && dark === null; i++) {
       await sleep(1000)
       const value = await brightnessOverride(serial)
       if (value !== null && value >= 0) dark = value
     }
-    // The window asks for the backlight off (0); the phone reports its own
-    // floor for it (4 on the P20). Anything between the floor and a dim
-    // glow is not off.
-    check(dark !== null && dark <= 4, `2. dark after 3 s with the backlight at the device's floor (override ${dark})`)
-    const size = /(\d+)x(\d+)/.exec(await adb(serial, ["shell", "wm", "size"]))
-    await adb(serial, ["shell", "input", "tap", String(Math.round(Number(size[1]) / 2)), String(Math.round(Number(size[2]) * 0.9))])
+    // The window asks for the backlight off: 0, which the phone turns into
+    // its own floor (4 on the P20, as dumpsys said it until 2026-10-14).
+    check(dark !== null && dark === 0, `2. dark after 3 s, the window asking for the backlight off (screenBrightness ${dark})`)
+    const size = await phoneApi.debug()
+    await phoneApi.tap(size.width / 2, size.height * 0.9)
     await sleep(800)
     check((await brightnessOverride(serial)) === -1, "   a touch brings the brightness back")
   } finally {
-    await adb(serial, [...SET_BROKER, "--ei", "displayOffSeconds", displayOffBefore]).catch(() => {})
+    await phoneApi.setDisplayOff(Number(displayOffBefore)).catch(() => {})
     client.end(true)
   }
   if (failures.length) {

@@ -79,6 +79,8 @@ const JSZip = require("jszip");
 const { buildReport, comparePixelsWithTolerance } = require("../report-template");
 const { phoneDdf } = require("./ddf-fonts");
 const { deviceDdf, deviceRecovery } = require("../device-mqtt");
+// The phone through the app's own test interface, not adb (phone.js, #70).
+const phoneApi = require("./phone");
 const { createHash } = require("crypto");
 const { combinationCount, combinationOverrides } = require("../combinations");
 
@@ -366,11 +368,9 @@ function adbArgs(deviceSerial, args) {
 }
 
 async function captureDeviceScreenshot(deviceSerial) {
-  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["exec-out", "screencap", "-p"]), {
-    encoding: "buffer",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return stdout;
+  // The app's own window as drawn (GET /snapshot.png): no status bar, no
+  // notification banner over it, which a screencap had.
+  return phoneApi.screenshot();
 }
 
 // Where the project sits inside a full device screenshot.
@@ -396,12 +396,8 @@ async function captureDeviceScreenshot(deviceSerial) {
 let cachedDensity = null;
 async function deviceDensity(deviceSerial) {
   if (cachedDensity) return cachedDensity;
-  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "density"]));
-  // "Physical density: 480", sometimes with an "Override density:" line after
-  // it - the override is what is in force.
-  const all = [...stdout.matchAll(/density:\s*(\d+)/g)].map((m) => Number(m[1]));
-  if (all.length === 0) throw new Error(`Could not read the screen density from \`wm density\`: ${stdout}`);
-  cachedDensity = all[all.length - 1];
+  // dpi, as `wm density` said it: the app reports its density factor.
+  cachedDensity = Math.round((await phoneApi.debug()).density * 160);
   return cachedDensity;
 }
 
@@ -660,32 +656,27 @@ async function markerBundle(zipBuffer) {
  * development machine has several, and only one of them is ever right.
  */
 function serveBundle(zipBuffer, deviceSerial) {
+  // On this machine's address on the phone's network: the phone downloads
+  // over WiFi since 2026-10-14, as it does from a designer (#70).
   const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/zip", "Content-Length": zipBuffer.length });
     res.end(zipBuffer);
   });
   return new Promise((resolve, reject) => {
     server.on("error", reject);
-    server.listen(0, "127.0.0.1", async () => {
+    server.listen(0, "0.0.0.0", async () => {
       const port = server.address().port;
       try {
-        await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", `tcp:${port}`, `tcp:${port}`]));
+        const host = await phoneApi.addressTowardPhone(MQTT_URL);
+        resolve({ url: `http://${host}:${port}/bundle.zip`, close: async () => server.close() });
       } catch (err) {
         server.close();
-        reject(new Error(`Could not open a reverse port on the phone (adb reverse tcp:${port}): ${err.message}`));
-        return;
+        reject(err);
       }
-      resolve({
-        url: `http://127.0.0.1:${port}/bundle.zip`,
-        close: async () => {
-          server.close();
-          // Left behind, these pile up on the device across runs.
-          await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", "--remove", `tcp:${port}`])).catch(() => {});
-        },
-      });
     });
   });
 }
+
 
 /**
  * The phone, from its own retained announcement. `--device-id` skips the
@@ -769,19 +760,7 @@ function phoneOnline(mqttClient, deviceId) {
  */
 async function appBrokerHost(deviceSerial) {
   try {
-    const { stdout } = await execFileAsync(
-      ADB,
-      adbArgs(deviceSerial, ["exec-out", "run-as", "com.schaltli.android", "cat", "files/datastore/settings.preferences_pb"]),
-      { encoding: "latin1" },
-    );
-    // Protobuf: the key, then the value as a message whose string field 5
-    // (tag 0x2a) holds the host, length-prefixed.
-    const at = stdout.indexOf("broker_host");
-    if (at < 0) return null;
-    const tag = stdout.indexOf("*", at + "broker_host".length);
-    if (tag < 0) return null;
-    const length = stdout.charCodeAt(tag + 1);
-    return stdout.slice(tag + 2, tag + 2 + length);
+    return (await phoneApi.debug()).broker?.host ?? null;
   } catch {
     return null;
   }
@@ -894,33 +873,9 @@ async function frameDifference(aBuffer, bBuffer) {
  * it is put back afterwards. Nothing else about the phone is touched.
  */
 async function silenceBanners(deviceSerial) {
-  const read = async () => {
-    const { stdout } = await execFileAsync(
-      ADB,
-      adbArgs(deviceSerial, ["shell", "settings", "get", "global", "heads_up_notifications_enabled"]),
-    );
-    return stdout.trim();
-  };
-  const before = await read().catch(() => "null");
-  await execFileAsync(
-    ADB,
-    adbArgs(deviceSerial, ["shell", "settings", "put", "global", "heads_up_notifications_enabled", "0"]),
-  ).catch(() => {});
-  // Android 6 to 9 explain full screen once, with a "Viewing full screen ...
-  // GOT IT" panel over the top third of the app that dims the rest - every
-  // case on the Android 6 emulator failed by a third because of it
-  // (2026-10-09). This is what tapping GOT IT stores, so it is not undone.
-  await execFileAsync(
-    ADB,
-    adbArgs(deviceSerial, ["shell", "settings", "put", "secure", "immersive_mode_confirmations", "confirmed"]),
-  ).catch(() => {});
-  return async () => {
-    const back = before && before !== "null" ? before : "1";
-    await execFileAsync(
-      ADB,
-      adbArgs(deviceSerial, ["shell", "settings", "put", "global", "heads_up_notifications_enabled", back]),
-    ).catch(() => {});
-  };
+  // Nothing to silence since 2026-10-14: the app's own window is captured,
+  // and a banner or the "Viewing full screen" panel is not part of it.
+  return async () => {};
 }
 
 /**
@@ -943,11 +898,9 @@ async function silenceBanners(deviceSerial) {
  * error that says what to type.
  */
 async function reverseBrokerPort(deviceSerial, brokerUrl) {
-  const port = Number(new URL(brokerUrl).port || 1883);
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", `tcp:${port}`, `tcp:${port}`]));
-  return async () => {
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", "--remove", `tcp:${port}`])).catch(() => {});
-  };
+  // Over WiFi since 2026-10-14, to this machine's broker, which
+  // appBrokerHost checks before anything is installed.
+  return async () => {};
 }
 
 /**
@@ -997,36 +950,12 @@ function refuseRealCommands(project) {
  * back as it found it.
  */
 async function keepScreenOn(deviceSerial) {
-  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "settings", "get", "global", "stay_on_while_plugged_in"]));
-  const before = stdout.trim();
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "svc", "power", "stayon", "usb"]));
-  // And the app's own sleep (ScreenSleep): after a minute without a touch it
-  // lays black over the screen, and every capture after that is of nothing -
-  // the fixture came out all black on 2026-09-28. Turned off for the run
-  // through the receiver the broker is set with, which answers with the
-  // value it had, so it can be put back.
-  const receiver = ["shell", "am", "broadcast", "-n", "com.schaltli.android/.data.BrokerConfigReceiver",
-    "-a", "com.schaltli.android.SET_BROKER"];
-  // A stopped app - which is what `adb install -r` leaves - is not handed
-  // broadcasts at all, so it is started first and asked until it answers.
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
-  let slept = "";
-  let sleepBefore;
-  for (let tries = 0; tries < 10 && sleepBefore === undefined; tries++) {
-    if (tries > 0) await sleep(1000);
-    ;({ stdout: slept } = await execFileAsync(ADB, adbArgs(deviceSerial, [...receiver, "--ei", "displayOffSeconds", "0"])))
-    sleepBefore = /data="(\d+)"/.exec(slept)?.[1];
-  }
-  if (sleepBefore === undefined) {
-    throw new Error(`The app would not turn its screen sleep off for the run (${slept.trim()}). Is this build older than 2026-09-28?`);
-  }
+  // The app's own sleep (ScreenSleep) off for the run, and back afterwards;
+  // the app holds the screen awake itself (FLAG_KEEP_SCREEN_ON).
+  const before = (await phoneApi.debug()).displayOffSeconds;
+  await phoneApi.setDisplayOff(0);
   return async () => {
-    await execFileAsync(ADB, adbArgs(deviceSerial, [...receiver, "--ei", "displayOffSeconds", sleepBefore])).catch(() => {});
-    if (!/^\d+$/.test(before)) return;
-    await execFileAsync(
-      ADB,
-      adbArgs(deviceSerial, ["shell", "settings", "put", "global", "stay_on_while_plugged_in", before]),
-    ).catch(() => {});
+    if (Number.isInteger(before)) await phoneApi.setDisplayOff(before).catch(() => {});
   };
 }
 
@@ -1040,13 +969,9 @@ async function keepScreenOn(deviceSerial) {
  * find. Said here instead, where it is true.
  */
 async function assertPhoneAwake(deviceSerial) {
-  const { stdout: power } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "dumpsys", "power"]));
-  if (/mWakefulness=(Asleep|Dozing)/.test(power)) {
+  const d = await phoneApi.debug();
+  if (d.interactive === false) {
     throw new Error("The phone's screen is off. Wake it and unlock it - every capture would be of nothing.");
-  }
-  const { stdout: window } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "dumpsys", "window"]));
-  if (/isStatusBarKeyguard=true/.test(window) || /mDreamingLockscreen=true/.test(window)) {
-    throw new Error("The phone is locked. Unlock it - every capture would be of the lock screen.");
   }
 }
 
@@ -1087,7 +1012,7 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // -r` leaves it stopped - which is how a run straight after installing a
   // new build crashed here with "fetch failed" (2026-09-28). Started afresh
   // (-S), so the id it logs at start is in the log for phoneDdf to read.
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-S", "-n", APP_ACTIVITY]));
+  await phoneApi.restart();
   await sleep(2000);
   const ddf = await phoneDdf(deviceSerial);
   if (project.screenWidth !== ddf.screen.width || project.screenHeight !== ddf.screen.height) {
@@ -1113,9 +1038,6 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
     throw absent;
   }
 
-  // A screenshot of a phone showing the launcher proves nothing either.
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
-  await sleep(2000);
 
   console.log("Installing the marker bundle (every screen marker red)...");
   await deployBundle(mqttClient, deviceId, await markerBundle(fixture), deviceSerial, "the marker bundle");
@@ -1206,21 +1128,14 @@ const NAV_SWIPE_MS = 400;
 let cachedScreenSize = null;
 async function screenSize(deviceSerial) {
   if (cachedScreenSize) return cachedScreenSize;
-  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "size"]));
-  const size = /(\d+)x(\d+)/.exec(stdout.split("\n").filter(Boolean).pop() || "");
-  if (!size) throw new Error(`Could not read the screen size from \`wm size\`: ${stdout}`);
-  cachedScreenSize = { width: Number(size[1]), height: Number(size[2]) };
+  const d = await phoneApi.debug();
+  cachedScreenSize = { width: d.width, height: d.height };
   return cachedScreenSize;
 }
 
 /** Runs a swipe without waiting for it, so the screen can be looked at mid-gesture. */
 function startSwipe(deviceSerial, fromX, toX, y, ms) {
-  const child = execFile(
-    ADB,
-    adbArgs(deviceSerial, ["shell", "input", "touchscreen", "swipe", String(fromX), String(y), String(toX), String(y), String(ms)]),
-    () => {},
-  );
-  return new Promise((resolve) => child.on("exit", () => resolve()));
+  return phoneApi.swipe(fromX, y, toX, y, ms).then(() => {});
 }
 
 /** Fraction of pixels that differ between two captures, 0 when identical. */
@@ -1379,7 +1294,7 @@ async function checkNavigator(deviceSerial, page, project, si, mqttClient) {
       mqttClient.on("message", onMessage);
       mqttClient.subscribe("schaltli/cmnd/theme", async () => {
         const p = await devicePointFor(deviceSerial, project, along, stripY);
-        await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+        await phoneApi.tap(p.x, p.y);
       });
       setTimeout(() => {
         mqttClient.removeListener("message", onMessage);
@@ -1392,7 +1307,7 @@ async function checkNavigator(deviceSerial, page, project, si, mqttClient) {
   const first = nav.entries[0];
   const target = project.screens.findIndex((s) => s.id === first.screenId);
   const at = await devicePointFor(deviceSerial, project, nav.entryLength / 2, stripY);
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(at.x), String(at.y)]));
+  await phoneApi.tap(at.x, at.y);
   const landed = await identifyScreen(page, project, {}, await cropDeviceScreenshot(await settledFrame(deviceSerial), project, deviceSerial));
   if (landed[0].screenIndex !== target) {
     throw new Error(`A tap on the navigator's first entry should open "${project.screens[target].name}"; the phone shows "${landed[0].name}".`);
@@ -1543,7 +1458,7 @@ async function checkTouch(deviceSerial, mqttClient, page, project, screen, si) {
   const point = await devicePointFor(deviceSerial, project, dx + atX, dy + atY);
 
   const waiting = nextMessageOn(mqttClient, writeTopic, 8000);
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(point.x), String(point.y)]));
+  await phoneApi.tap(point.x, point.y);
   let got;
   try {
     got = await waiting;
@@ -1598,12 +1513,12 @@ async function checkPopup(deviceSerial, mqttClient, project) {
 
   const tapUnits = async (ux, uy) => {
     const p = await devicePointFor(deviceSerial, project, ux, uy);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+    await phoneApi.tap(p.x, p.y);
   };
   const swipeUnits = async (x0, y0, x1, y1, ms) => {
     const a = await devicePointFor(deviceSerial, project, x0, y0);
     const b = await devicePointFor(deviceSerial, project, x1, y1);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "swipe", String(a.x), String(a.y), String(b.x), String(b.y), String(ms)]));
+    await phoneApi.swipe(a.x, a.y, b.x, b.y, ms);
   };
   const centre = (o) => [o.x + o.width / 2, o.y + o.height / 2];
   // The popup's ground, light, where nothing of it stands: the gap between
@@ -1735,7 +1650,7 @@ async function checkEnergyMotion(deviceSerial, mqttClient, project, screen, si) 
   let opens = false;
   if (node && fence) {
     const p = await devicePointFor(deviceSerial, project, diagram.x + node.x, diagram.y + node.y);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+    await phoneApi.tap(p.x, p.y);
     await sleep(900);
     const img = await cropDeviceScreenshot(await captureDeviceScreenshot(deviceSerial), project, deviceSerial);
     // The popup's light ground, just inside its fence's left edge.
@@ -1743,7 +1658,7 @@ async function checkEnergyMotion(deviceSerial, mqttClient, project, screen, si) 
     opens = img.bitmap.data[i] > 200 && img.bitmap.data[i + 1] > 200 && img.bitmap.data[i + 2] > 200;
     if (!opens) await img.write(path.join(IMG_DIR, `energy-tap-${si}.png`));
     const q = await devicePointFor(deviceSerial, project, fence.x / 2, fence.y + fence.height / 2);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(q.x), String(q.y)]));
+    await phoneApi.tap(q.x, q.y);
     await sleep(800);
   }
   console.log(`  [${si}-0] ${opens ? "PASS" : "FAIL"} a tap on the sun's node opens the popup`);
@@ -1878,7 +1793,7 @@ async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
 
     // The group's first state, «A», is its left half.
     const p = await devicePointFor(deviceSerial, project, group.x + group.width / 4, group.y + group.height / 2);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+    await phoneApi.tap(p.x, p.y);
     await sleep(1000);
     seen = await shown("tapped");
     check("2. a tap on «A» shows «a» within a second", seen === "a", seen);
@@ -1891,9 +1806,7 @@ async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
     seen = await shown("broker-c");
     check("4. a retained «c» from the broker changes nothing", seen === "a", seen);
 
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "force-stop", "com.schaltli.android"]));
-    await sleep(1000);
-    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
+    await phoneApi.restart();
     // The project is read again and the broker reached again before a swipe
     // can be told from a start that is still drawing.
     await sleep(6000);
@@ -1939,7 +1852,7 @@ async function checkSliderDoesNotPage(deviceSerial, project, screen) {
   const before = await settledFrame(deviceSerial);
   const a = await devicePointFor(deviceSerial, project, slider.x + slider.width * 0.9, slider.y + slider.height / 2);
   const b = await devicePointFor(deviceSerial, project, slider.x + slider.width * 0.1, slider.y + slider.height / 2);
-  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "swipe", String(a.x), String(a.y), String(b.x), String(b.y), "250"]));
+  await phoneApi.swipe(a.x, a.y, b.x, b.y, 250);
   await sleep(1200);
   const after = await settledFrame(deviceSerial);
   const changed = await frameChange(before, after);

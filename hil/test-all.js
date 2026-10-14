@@ -750,6 +750,29 @@ async function main() {
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
 
+  // The app's test interface wants its password too (port 8080), found by
+  // its retained test-interface topic (hil/android/phone.js).
+  step("android", async () => {
+    console.log("\n=== android test interface password ===")
+    let exitCode = 2
+    try {
+      const { base } = await require("./android/phone").phone()
+      exitCode = await run("node", ["hil/test-interface.js", "check", "--device", new URL(base).host], { cwd: REPO_ROOT })
+    } catch (err) {
+      console.warn(`SKIPPED - ${err.message}`)
+    }
+    summary.push({
+      name: "android-test-interface",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? "no phone with its test interface on (node hil/android/test-interface.js on)"
+          : exitCode === 0
+            ? "refused without the password and with a wrong one, answered with it"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }, { quick: true })
+
   // The test interface wants its password (contract §6, #70): refused
   // without it and with a wrong one, answered with HIL_PASSWORD.
   for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
