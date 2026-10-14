@@ -1,0 +1,253 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Topic discovery mockups</title>
+<style>
+:root{--fg:#0f172a;--mut:#64748b;--line:#e5e7eb;--soft:#f8fafc;--pri:#5b3fb8;--pri-soft:#efeafc;--lit:#fff4c2;--lit2:#fff9e0}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:#d4d4d8;font:13px/1.35 "Segoe UI",Inter,system-ui,sans-serif;color:var(--fg)}
+.frame{background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.18);margin:0 0 32px;overflow:hidden;display:inline-block;vertical-align:top}
+.hd{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.hd h1{font-size:17px;font-weight:600;margin:0;flex:1;display:flex;gap:8px;align-items:center}
+.x{color:var(--mut);font-size:18px}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--soft)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--pri)}
+.input{border:1px solid var(--line);border-radius:6px;padding:5px 10px 5px 28px;background:#fff;position:relative;min-width:260px;color:var(--fg)}
+.input:before{content:"⌕";position:absolute;left:9px;top:3px;color:var(--mut);font-size:14px}
+.input .ph{color:var(--mut)}
+.caret{display:inline-block;width:1px;height:14px;background:var(--fg);vertical-align:-2px;margin-left:1px}
+.sw{display:inline-flex;align-items:center;gap:7px;font-weight:500}
+.sw i{width:30px;height:17px;border-radius:9px;background:var(--pri);position:relative;display:inline-block}
+.sw i:after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff}
+.sw.off i{background:#cbd5e1}.sw.off i:after{right:auto;left:2px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:#16a34a}
+.pulse{box-shadow:0 0 0 3px rgba(22,163,74,.2)}
+.url{font:11.5px ui-monospace,Consolas,monospace;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:2px 6px;background:#fff}
+.note{margin:10px 20px 0;padding:8px 12px;border-radius:6px;background:var(--pri-soft);color:#3b2a80;display:flex;gap:8px;align-items:center}
+.note b{font-weight:600}
+.note a{margin-left:auto;color:var(--pri);font-weight:600;text-decoration:none}
+.body{display:flex;min-height:0}
+.tree{flex:1.25;border-right:1px solid var(--line);padding:6px 0;min-width:0}
+.pane{flex:1;padding:14px 18px;min-width:0}
+.row{display:flex;align-items:center;gap:6px;height:27px;padding-right:12px;white-space:nowrap;position:relative}
+.row .chev{width:14px;color:var(--mut);font-size:10px;text-align:center}
+.row .name{font-weight:500}
+.row.branch .name{font-weight:600}
+.row .cnt{color:var(--mut);font-size:11.5px;margin-left:6px}
+.row .val{font:11.5px ui-monospace,Consolas,monospace;color:#334155;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.row .sp{flex:1}
+.row.lit{background:var(--lit)}
+.row.lit2{background:var(--lit2)}
+.row.sel{background:var(--pri-soft);box-shadow:inset 3px 0 0 var(--pri)}
+.cb{width:13px;height:13px;border:1.5px solid #94a3b8;border-radius:3px;display:inline-block}
+.b{font-size:11px;border-radius:5px;padding:1px 6px;font-weight:500}
+.ret{background:#fef3c7;color:#b45309}.live{background:#f1f5f9;color:#64748b}
+.num{background:#dbeafe;color:#1d4ed8}.txt{background:#dcfce7;color:#15803d}.json{background:#f3e8ff;color:#7e22ce}
+.inp{border:1px solid var(--line);color:var(--mut)}
+.hit{background:#fde68a;border-radius:2px}
+.path{font:12.5px ui-monospace,Consolas,monospace;word-break:break-all;margin:0 0 8px;color:#334155}
+.path b{color:var(--fg)}
+.big{font:600 28px ui-monospace,Consolas,monospace;margin:8px 0 2px}
+.mut{color:var(--mut)}
+.sec{margin:16px 0 6px;font-size:11.5px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center}
+.sec .sp{flex:1}
+.msgs{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.msg{display:flex;gap:12px;padding:4px 10px;font:12px ui-monospace,Consolas,monospace;border-top:1px solid var(--line)}
+.msg:first-child{border-top:0}
+.msg .t{color:var(--mut);width:84px}
+.msg.cur{background:var(--pri-soft)}
+pre{margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font:12px/1.5 ui-monospace,Consolas,monospace}
+.k{color:#7e22ce}.s{color:#15803d}.n{color:#1d4ed8}
+.foot{display:flex;align-items:center;gap:10px;padding:10px 20px;border-top:1px solid var(--line);background:var(--soft);color:var(--mut)}
+.callout{font:italic 12px "Segoe UI",sans-serif;color:#b91c1c}
+/* picker */
+.panel{width:470px;padding:16px 18px;background:#fff}
+.prow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.prow label{width:96px;color:var(--mut)}
+.trigger{flex:1;border:1px solid var(--pri);border-radius:6px;padding:5px 10px;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 3px var(--pri-soft)}
+.dd{margin-left:106px;border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.14);overflow:hidden;background:#fff}
+.dd .dtop{padding:8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+.dd .input{min-width:0;width:100%}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:12px}
+.seg span{flex:1;text-align:center;padding:3px 0;color:var(--mut)}
+.seg span.on{background:var(--pri-soft);color:var(--pri);font-weight:600}
+.dd .row{height:25px;font-size:12.5px}
+.dd .add{padding:7px 10px;border-top:1px solid var(--line);color:var(--pri);font-weight:600;display:flex;gap:8px;align-items:center}
+.dd .add .types{margin-left:auto;display:flex;gap:4px}
+.inproj{color:var(--pri);font-size:11px;font-weight:600}
+.empty{padding:10px 12px;color:var(--mut)}
+/* chrome */
+.chrome{width:1100px}
+.top{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.top .logo{font-weight:700;font-size:16px}
+.top .m{color:#334155}
+.top .hl{border:1px solid var(--pri);color:var(--pri);border-radius:6px;padding:4px 10px;font-weight:600;display:flex;gap:7px;align-items:center;background:var(--pri-soft)}
+.status{display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:7px 16px;border-top:1px solid var(--line);color:#334155}
+.ann{border:2px dashed #ef4444;border-radius:8px;padding:2px}
+.cards{display:flex;gap:24px;padding:20px}
+.card{width:300px}
+.card h3{margin:0 0 8px;font-size:13px}
+.screen{width:300px;height:110px;border:1px solid #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;font:600 22px "Segoe UI",sans-serif;background:#fff}
+.screen .ph{color:#94a3b8;font-weight:400;font-style:italic}
+</style></head><body>
+
+<!-- 1: the viewer -->
+<div class="frame" id="viewer" style="width:1120px">
+  <div class="hd"><h1>≋ Listen to Broker</h1><span class="x">×</span></div>
+  <div class="bar">
+    <span class="sw"><i></i>Listening</span>
+    <span class="url">ws://192.168.1.10:9001</span>
+    <span class="mut">28 topics · 1 482 messages</span>
+    <span style="flex:1"></span>
+    <span class="input"><span class="ph">Filter topic or payload</span></span>
+    <span class="btn">Collapse all</span>
+    <span class="btn">Connection settings</span>
+  </div>
+  <div class="note">ⓘ <span><b>4 devices</b> are announced via Home Assistant discovery. Their entities are placed as blocks.</span><a>Open the Block menu ›</a></div>
+  <div class="body" style="height:520px;margin-top:8px">
+    <div class="tree">
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">ble</span><span class="cnt">↳ 2 · ✉ 2</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">CamperLightKitchen</span><span class="cnt">↳ 1 · ✉ 1</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">CamperServiceID</span><span class="cnt">↳ 1 · ✉ 1</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">CamperServiceVersion</span><span class="cnt">↳ 1 · ✉ 1</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">homeassistant</span><span class="cnt">↳ 4 · ✉ 4</span></div>
+      <div class="row branch lit" style="padding-left:12px"><span class="chev">▾</span><span class="name">pkw</span><span class="cnt">↳ 13 · ✉ 1 419</span></div>
+      <div class="row branch lit" style="padding-left:30px"><span class="chev">▾</span><span class="name">tele</span><span class="cnt">↳ 13 · ✉ 1 419</span></div>
+      <div class="row branch lit" style="padding-left:48px"><span class="chev">▾</span><span class="name">battery</span><span class="cnt">↳ 3 · ✉ 1 218</span></div>
+      <div class="row sel lit" style="padding-left:66px"><span class="chev"></span><span class="name">current</span><span class="sp"></span><span class="val">-4.6</span><span class="b live">live</span><span class="b num">numeric</span><span class="inproj">✓ in project</span></div>
+      <div class="row" style="padding-left:66px"><span class="chev"></span><span class="name">soc</span><span class="sp"></span><span class="val">87</span><span class="b ret">retained</span><span class="b num">numeric</span></div>
+      <div class="row lit2" style="padding-left:66px"><span class="chev"></span><span class="name">voltage</span><span class="sp"></span><span class="val">13.27</span><span class="b ret">retained</span><span class="b num">numeric</span></div>
+      <div class="row" style="padding-left:48px"><span class="chev"></span><span class="name">doorman</span><span class="sp"></span><span class="val">closed</span><span class="b ret">retained</span><span class="b txt">text</span></div>
+      <div class="row branch" style="padding-left:48px"><span class="chev">▸</span><span class="name">heater</span><span class="cnt">↳ 1 · ✉ 1</span></div>
+      <div class="row branch" style="padding-left:48px"><span class="chev">▸</span><span class="name">relay</span><span class="cnt">↳ 3 · ✉ 3</span></div>
+      <div class="row branch lit2" style="padding-left:48px"><span class="chev">▸</span><span class="name">solar</span><span class="cnt">↳ 1 · ✉ 195</span></div>
+      <div class="row branch" style="padding-left:48px"><span class="chev">▸</span><span class="name">water</span><span class="cnt">↳ 2 · ✉ 2</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">schaltli</span><span class="cnt">↳ 3 · ✉ 3</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">shellies</span><span class="cnt">↳ 1 · ✉ 1</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▸</span><span class="name">tasmota</span><span class="cnt">↳ 2 · ✉ 2</span></div>
+      <div class="row branch lit2" style="padding-left:12px"><span class="chev">▸</span><span class="name">zigbee2mqtt</span><span class="cnt">↳ 2 · ✉ 41</span></div>
+    </div>
+    <div class="pane">
+      <div class="path">pkw/tele/battery/<b>current</b></div>
+      <div><span class="b live">live</span> <span class="b num">numeric</span> <span class="inproj">✓ in project</span></div>
+      <div class="big">-4.6</div>
+      <div class="mut">18:42:07.3 · just now</div>
+      <div class="sec">Messages <span class="mut" style="text-transform:none;font-weight:400;margin-left:6px">last 20 of 412</span><span class="sp"></span><span class="btn" style="text-transform:none">‹</span>&nbsp;<span class="btn" style="text-transform:none">›</span></div>
+      <div class="msgs">
+        <div class="msg cur"><span class="t">18:42:07.3</span>-4.6</div>
+        <div class="msg"><span class="t">18:42:07.0</span>-4.3</div>
+        <div class="msg"><span class="t">18:42:06.7</span>-4.9</div>
+        <div class="msg"><span class="t">18:42:06.4</span>-4.1</div>
+        <div class="msg"><span class="t">18:42:06.1</span>-4.8</div>
+        <div class="msg"><span class="t">18:42:05.8</span>-4.4</div>
+        <div class="msg mut"><span class="t">…</span>14 more</div>
+      </div>
+      <div class="sec">Examples in the project</div>
+      <div class="mut" style="margin-bottom:8px"><span style="font-family:ui-monospace,Consolas,monospace;color:#334155">-4.2</span> · heard 18:31</div>
+      <span class="btn pri">Use as examples</span> <span class="mut" style="margin-left:6px">replaces them with the 20 messages above</span>
+    </div>
+  </div>
+</div>
+
+<!-- 2: filtered, JSON -->
+<div class="frame" id="filtered" style="width:1120px">
+  <div class="hd"><h1>≋ Listen to Broker</h1><span class="x">×</span></div>
+  <div class="bar">
+    <span class="sw"><i></i>Listening</span>
+    <span class="url">ws://192.168.1.10:9001</span>
+    <span class="mut">3 of 28 topics match</span>
+    <span style="flex:1"></span>
+    <span class="input">heat<span class="caret"></span></span>
+    <span class="btn">Collapse all</span>
+    <span class="btn">Connection settings</span>
+  </div>
+  <div class="body" style="height:330px;margin-top:4px">
+    <div class="tree">
+      <div class="row branch" style="padding-left:12px"><span class="chev">▾</span><span class="name">pkw</span><span class="cnt">↳ 1</span></div>
+      <div class="row branch" style="padding-left:30px"><span class="chev">▾</span><span class="name">tele</span><span class="cnt">↳ 1</span></div>
+      <div class="row branch" style="padding-left:48px"><span class="chev">▾</span><span class="name"><span class="hit">heat</span>er</span><span class="cnt">↳ 1</span></div>
+      <div class="row sel" style="padding-left:66px"><span class="chev"></span><span class="name">state</span><span class="sp"></span><span class="val">{"power":"on","target":21,…</span><span class="b ret">retained</span><span class="b json">json</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▾</span><span class="name">tasmota</span><span class="cnt">↳ 1</span></div>
+      <div class="row branch" style="padding-left:30px"><span class="chev">▾</span><span class="name">discovery</span><span class="cnt">↳ 1</span></div>
+      <div class="row branch" style="padding-left:48px"><span class="chev">▾</span><span class="name">C8C9A3F1</span><span class="cnt">↳ 1</span></div>
+      <div class="row" style="padding-left:66px"><span class="chev"></span><span class="name">config</span><span class="sp"></span><span class="val">…"dn":"Boiler","fn":["<span class="hit">Heat</span>…</span><span class="b ret">retained</span><span class="b json">json</span></div>
+      <div class="row branch" style="padding-left:12px"><span class="chev">▾</span><span class="name">zigbee2mqtt</span><span class="cnt">↳ 1</span></div>
+      <div class="row" style="padding-left:30px"><span class="chev"></span><span class="name">bath_<span class="hit">heat</span>ing</span><span class="sp"></span><span class="val">{"state":"OFF"}</span><span class="b live">live</span><span class="b json">json</span></div>
+    </div>
+    <div class="pane">
+      <div class="path">pkw/tele/heater/<b>state</b></div>
+      <div><span class="b ret">retained</span> <span class="b json">json</span></div>
+      <div class="sec">Latest · 18:12:40.1</div>
+<pre>{
+  <span class="k">"power"</span>: <span class="s">"on"</span>,
+  <span class="k">"target"</span>: <span class="n">21</span>,
+  <span class="k">"inside"</span>: <span class="n">19.4</span>,
+  <span class="k">"mode"</span>: <span class="s">"auto"</span>
+}</pre>
+      <div class="sec">Messages <span class="mut" style="text-transform:none;font-weight:400;margin-left:6px">1 heard</span></div>
+    </div>
+  </div>
+</div>
+
+<br>
+<!-- 3: picker, heard on the broker -->
+<div class="frame" id="picker">
+  <div class="panel">
+    <div class="prow"><label>Read topic</label><div class="trigger"><span class="mut">No topic selected</span><span style="flex:1"></span>▾</div></div>
+    <div class="dd">
+      <div class="dtop">
+        <span class="input">water<span class="caret"></span></span>
+        <div class="seg"><span class="on">All · 31</span><span>Project only · 6</span></div>
+      </div>
+      <div style="padding:4px 0">
+        <div class="row branch" style="padding-left:8px"><span class="chev">▾</span><span class="name">pkw</span><span class="cnt">↳ 2</span></div>
+        <div class="row branch" style="padding-left:24px"><span class="chev">▾</span><span class="name">tele</span><span class="cnt">↳ 2</span></div>
+        <div class="row branch" style="padding-left:40px"><span class="chev">▾</span><span class="name"><span class="hit">water</span></span><span class="cnt">↳ 2</span></div>
+        <div class="row" style="padding-left:56px;background:#f1f5f9"><span class="chev"></span><span class="name">fresh</span><span class="sp"></span><span class="val">64</span><span class="b num">numeric</span></div>
+        <div class="row" style="padding-left:56px"><span class="chev"></span><span class="name">grey</span><span class="sp"></span><span class="val">22</span><span class="b num">numeric</span><span class="inproj">✓</span></div>
+        <div class="row branch" style="padding-left:8px"><span class="chev">▾</span><span class="name">van</span><span class="cnt">↳ 1</span></div>
+        <div class="row" style="padding-left:24px;opacity:.6"><span class="chev"></span><span class="name"><span class="hit">water</span>_pump</span><span class="sp"></span><span class="val">not heard</span><span class="b txt">text</span><span class="inproj">✓</span></div>
+      </div>
+      <div class="add">＋ Add topic «water»<span class="types"><span class="b num">numeric</span><span class="b txt">text</span><span class="b json">json</span></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4: picker, nothing heard -->
+<div class="frame" id="picker-new">
+  <div class="panel">
+    <div class="prow"><label>Read topic</label><div class="trigger"><span class="mut">No topic selected</span><span style="flex:1"></span>▾</div></div>
+    <div class="dd">
+      <div class="dtop">
+        <span class="input">pkw/tele/tank/black<span class="caret"></span></span>
+        <div class="seg"><span class="on">All · 31</span><span>Project only · 6</span></div>
+      </div>
+      <div class="empty">No topic heard or in the project matches «pkw/tele/tank/black».</div>
+      <div class="add">＋ Add topic «pkw/tele/tank/black»<span class="types"><span class="b num">numeric</span><span class="b txt">text</span><span class="b json">json</span></span></div>
+    </div>
+  </div>
+</div>
+
+<br>
+<!-- 5: chrome: where it lives -->
+<div class="frame chrome" id="chrome">
+  <div class="dtop"><span class="logo">Schaltli</span><span class="mut">· Van</span><span class="m">File</span><span class="m">Tools</span><span class="m">⚙ Settings</span><span style="flex:1"></span><span class="ann"><span class="hl"><span class="dot pulse"></span>Listen to Broker</span></span><span class="m">? Help</span></div>
+  <div style="height:56px;background:#e4e4e7"></div>
+  <div class="status"><span class="ann"><span class="sw"><i></i>Listening</span></span><span class="sw off"><i></i>Dark</span><span class="sw"><i></i>Adornment</span><span>100%</span></div>
+</div>
+<div class="frame chrome" id="chrome-off">
+  <div class="dtop"><span class="logo">Schaltli</span><span class="mut">· Van</span><span class="m">File</span><span class="m">Tools</span><span class="m">⚙ Settings</span><span style="flex:1"></span><span class="hl" style="background:#fff;border-color:var(--line);color:#334155"><span class="dot" style="background:#cbd5e1"></span>Listen to Broker</span><span class="m">? Help</span></div>
+  <div style="height:56px;background:#e4e4e7"></div>
+  <div class="status"><span class="sw off"><i></i>Listening</span><span class="sw off"><i></i>Dark</span><span class="sw"><i></i>Adornment</span><span>100%</span></div>
+</div>
+
+<br>
+<!-- 6: the block -->
+<div class="frame" id="block">
+  <div class="cards">
+    <div class="card"><h3>Today</h3><div class="screen">Service ID&nbsp;60</div><p class="mut">Nothing retained: the catalog's sample «60», typed numeric, stored as the topic's example.</p></div>
+    <div class="card"><h3>Nothing heard</h3><div class="screen">Service ID&nbsp;<span class="ph">–</span></div><p class="mut">No example stored; the object shows what it shows for a topic with no value yet.</p></div>
+    <div class="card"><h3>Heard (retained or live)</h3><div class="screen" style="font-size:18px">Service ID&nbsp;CamperVan_BiberTest</div><p class="mut">A sensor without unit, state_class or numeric device_class is text.</p></div>
+  </div>
+</div>
+</body></html>
