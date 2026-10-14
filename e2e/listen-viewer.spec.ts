@@ -40,7 +40,7 @@ test.describe("Listen to Broker", () => {
     await openViewer(page)
     for (const root of ["pkw", "tasmota", "zigbee2mqtt"]) await expect(row(page, root)).toBeVisible()
     await expect(row(page, "pkw/tele")).toHaveCount(0)
-    await expect(row(page, "pkw").getByTestId("branch-counts")).toHaveText("↳ 3 · ✉ 3")
+    await expect(row(page, "pkw").getByTestId("branch-counts")).toHaveAttribute("aria-label", "3 topics, 3 messages")
     await expect(viewer(page).getByTestId("listen-totals")).toHaveText("5 topics · 5 messages")
     await expect(viewer(page).getByRole("checkbox")).toHaveCount(0)
     await expect(viewer(page).getByRole("button", { name: "Add Selected Topics" })).toHaveCount(0)

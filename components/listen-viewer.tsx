@@ -13,7 +13,7 @@ import { restartListening, useHeardTopics, useListening, type HeardSnapshot } fr
 import type { HeardTopic } from "@/lib/heard-topic"
 import { topicTree, searchTopicTree, sortedChildren, type TopicTreeNode } from "@/lib/topic-tree"
 import { MqttIcon } from "@/components/icons"
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react"
+import { ChevronDown, ChevronRight, CornerDownRight, Mail, Search, X } from "lucide-react"
 import type { Topic } from "./project-editor"
 
 // «Listen to Broker»: a window for looking at what the broker carries
@@ -221,8 +221,13 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
           </span>
           <span className={cn("relative min-w-0 truncate", branch ? "font-semibold" : "font-medium")}>{child.name}</span>
           {branch && (
-            <span className="relative text-xs text-muted-foreground" data-testid="branch-counts">
-              {`↳ ${child.topics} · ✉ ${child.messages}`}
+            // Topics and messages below - drawn as icons, not ↳ and ✉, which the
+            // UI font lacks.
+            <span className="relative flex items-center gap-0.5 text-xs text-muted-foreground" data-testid="branch-counts" aria-label={`${child.topics} topics, ${child.messages} messages`}>
+              <CornerDownRight className="h-3 w-3" />
+              {child.topics}
+              <Mail className="h-3 w-3 ml-1.5" />
+              {child.messages}
             </span>
           )}
           <span className="flex-1" />
@@ -348,12 +353,12 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
         ) : (
           <>
             {devices > 0 && (
-              <div className="mx-6 mt-3 flex items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm" data-testid="announced-pointer">
+              <div className="mx-6 mt-3 flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--sb-accent)_12%,transparent)] px-3 py-2 text-sm" data-testid="announced-pointer">
                 <span>
                   <b>{devices} device{devices === 1 ? "" : "s"}</b> {devices === 1 ? "is" : "are"} announced via Home Assistant discovery. Their entities are placed as blocks.
                 </span>
                 <button
-                  className="ml-auto font-semibold text-primary whitespace-nowrap"
+                  className="ml-auto font-semibold text-[var(--sb-accent)] whitespace-nowrap"
                   onClick={() => {
                     onClose()
                     window.dispatchEvent(new Event(OPEN_BLOCK_MENU_EVENT))
