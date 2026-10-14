@@ -415,8 +415,9 @@ async function main() {
     mqttClient.on("message", onHello)
   })
 
-  // Asked for over the broker, as the designer asks (lib/announced-ddf.ts).
-  const servedDdf = new Uint8Array(await deviceDdf(instanceId, MQTT_URL))
+  // Over the broker, as the designer takes it (lib/announced-ddf.ts): the
+  // retained copy when it is the announced one, else asked for.
+  const servedDdf = new Uint8Array(await deviceDdf(instanceId, MQTT_URL, { hash: hello.ddfHash }))
   const servedHash = computeDdfHash(servedDdf)
   const helloChecks = [
     ["announces a ddfHash", typeof hello.ddfHash === "string" && hello.ddfHash.length === 16, hello.ddfHash],

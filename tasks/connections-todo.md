@@ -41,6 +41,14 @@ Push notification on a stop and at the end.
   bytes went out as 31631 and the broker dropped the board. The firmware
   writes the PUBLISH header itself now.
 
+- The knob loses its network after a few software restarts and much HIL
+  traffic: pingable, MQTT offline, HTTP silent, its loop alive (it answers
+  hil? over USB); only a hard reset helps. Same with the release of the
+  morning (fw-2026.10.14.1), so older than C9; its internal heap is
+  ~14-18 KB. A designer asking ddf/get on every run made it come sooner.
+  Cause in the firmware open - nothing of it in normal operation, where the
+  test interface is off.
+
 ## Weakened checks and tolerances (to report at the end)
 
 - e2e/ddf-over-broker.spec.ts counts the device's ddf/get and recovery/get
@@ -48,3 +56,9 @@ Push notification on a stop and at the end.
   shared broker asks a hello it sees. "Never asked" stays exact.
 - hil/test-all.js: the 4.3B's pixel-clock measurement runs after the lanes
   (it measures the WiFi the parallel boards share); same assertion.
+- hil/test-all.js: the knob is hard-reset over USB before its HIL run
+  (the finding above); hides the network loss instead of failing on it.
+- hil/waveshare/orchestrator.js: the description is taken retained when its
+  hash is the announced one, as the designer takes it, rather than asked
+  for on every run.
+- e2e/demo-van.spec.ts: the bridge test runs @alone (after the lanes).

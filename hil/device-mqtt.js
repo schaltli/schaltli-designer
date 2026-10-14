@@ -92,9 +92,15 @@ async function deviceDdfOn(client, clientId, { timeoutMs = 30_000, fresh = () =>
 }
 
 // Asked for afresh, ignoring what the broker retained: what the device
-// sends now.
+// sends now. With `hash`, the retained copy is taken when it is exactly that
+// description, as the designer takes it (lib/announced-ddf.ts) - a device is
+// asked once per firmware in real use, and the knob asked on every HIL run
+// lost its network a run later (2026-10-14, tasks/connections-todo.md).
 async function deviceDdf(clientId, url, options = {}) {
-  return withClient(url, (client) => deviceDdfOn(client, clientId, { fresh: () => false, ...options }))
+  const { hash, ...rest } = options
+  const crypto = require("crypto")
+  const fresh = hash ? (payload) => crypto.createHash("sha256").update(payload).digest("hex").slice(0, 16) === hash : () => false
+  return withClient(url, (client) => deviceDdfOn(client, clientId, { fresh, ...rest }))
 }
 
 // The device's description by the address of its test interface.

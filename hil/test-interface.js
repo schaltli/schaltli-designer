@@ -8,6 +8,7 @@
 //   node hil/test-interface.js on  [--port COM5 ...]   hil-on <HIL_PASSWORD>, then a restart
 //   node hil/test-interface.js off [--port COM5 ...]   hil-off, then a restart
 //   node hil/test-interface.js status [--port ...]     hil?
+//   node hil/test-interface.js reset --port COM4         a hard reset, the reset button's
 //   node hil/test-interface.js check --device <ip[:port]> 401 without the password
 //                                                     and with a wrong one, 200 with it
 //
@@ -125,6 +126,19 @@ async function check(device) {
 function main() {
   const args = process.argv.slice(2)
   const what = args[0]
+  if (what === "reset") {
+    // Through esptool, as hil/README.md's PaperS3 note does it by hand.
+    const i = args.indexOf("--port")
+    const port = args[i + 1] || "COM4"
+    const esptool = fs.readdirSync(path.join(os.homedir(), ".platformio", "packages"))
+      .filter((d) => d.startsWith("tool-esptoolpy"))
+      .map((d) => path.join(os.homedir(), ".platformio", "packages", d, "esptool.py"))
+      .find((f) => fs.existsSync(f))
+    if (!esptool) throw new Error("PlatformIO's esptool was not found")
+    execFileSync(python(), [esptool, "--port", port, "--after", "hard_reset", "read_mac"], { stdio: "ignore" })
+    console.log(`ok   ${BENCH[port] ?? "board"} on ${port}: reset`)
+    process.exit(0)
+  }
   if (what === "check") {
     const i = args.indexOf("--device")
     return check(args[i + 1])
