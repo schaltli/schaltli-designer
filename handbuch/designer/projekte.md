@@ -16,6 +16,10 @@ Zuerst wählst du das Gerät:
 
 Ein Klick wählt ein Gerät, <span class="ui">Next</span> führt weiter. Ein Doppelklick erledigt beides.
 
+Oben in der Geräteauswahl steht, auf welchem Broker der Designer nach Geräten sucht, etwa <span class="ui">Scanning for new devices on</span> `ws://192.168.1.10:9001`. Erreicht er den Broker nicht, steht dort <span class="ui">Not connected to</span> mit der Adresse und dem Grund, zum Beispiel ein abgelehntes Login.
+
+Meldet sich ein Gerät beim Broker, aber seine Beschreibung kommt nicht beim Designer an, fehlt es in der Liste. An seiner Stelle erscheint ein gelber Kasten mit seinem Namen und <span class="ui">is on the broker, but its device description could not be loaded.</span> Darin steht auch, woran es liegt und was du prüfen kannst. Oft ist es die Grösse: Eine Gerätebeschreibung hat rund 300 KB, und manche Broker nehmen so grosse Nachrichten nicht an (bei Mosquitto heisst die Einstellung `message_size_limit`). <span class="ui">Try again</span> fragt das Gerät noch einmal.
+
 Dann gibst du dem Projekt einen Namen. <span class="ui">Create Project</span> speichert es und öffnet es im Editor. Ist der Name schon vergeben, sagt der Dialog das und legt nichts an. <span class="ui">Back</span> führt zurück zur Geräteauswahl.
 
 Ein neues Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Lavender und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
