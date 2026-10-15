@@ -17,7 +17,8 @@ import { useEffect, useRef, useState } from "react"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { loadAnnouncedDdf } from "@/lib/announced-ddf"
-import { Wifi, WifiOff, Loader2 } from "lucide-react"
+import { Wifi, WifiOff, Loader2, AlertTriangle } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface DeviceScanSectionProps {
   // deviceId -> hash of the DDF this instance currently holds for it (null
@@ -46,9 +47,32 @@ interface HelloPayload {
   url?: string
 }
 
+// A device that announces itself but whose description could not be
+// brought in, and why.
+interface LoadFailure {
+  label: string
+  message: string
+}
+
 export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDevicesChange }: DeviceScanSectionProps) {
-  const { isConnecting, isConnected, connect, disconnect } = useMqttConnection("schaltli-ddf-scan")
+  const { config, isConnecting, isConnected, error: connectionError, connect, disconnect } = useMqttConnection("schaltli-ddf-scan")
   const [fetchingDeviceIds, setFetchingDeviceIds] = useState<Set<string>>(new Set())
+  // Said here, under the list, rather than in a toast: a toast came up on
+  // every project change for a stale announcement (8b98290), and saying
+  // nothing at all left a device that announced fine but whose description
+  // never arrived looking exactly like one the designer never saw (rajiva in
+  // the forum, 2026-10-15: "findet das Tablet gar nicht mehr").
+  const [failures, setFailures] = useState<Map<string, LoadFailure>>(new Map())
+  const setFailure = (instanceId: string, failure: LoadFailure | null) =>
+    setFailures((prev) => {
+      if (!failure && !prev.has(instanceId)) return prev
+      const next = new Map(prev)
+      if (failure) next.set(instanceId, failure)
+      else next.delete(instanceId)
+      return next
+    })
+  // Set once connected: tries one instance's description again.
+  const retryRef = useRef<((instanceId: string) => void) | null>(null)
 
   // Long-lived MQTT message handler (set up once on mount) needs to see the
   // *current* props on every message, not whatever they were at mount time -
@@ -117,6 +141,8 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
   // permanently-unreachable device's hello would otherwise re-trigger (and
   // re-toast) a failing fetch attempt on every reconnect.
   const attemptedRef = useRef<Set<string>>(new Set())
+  // The hello each instance last sent, for a retry.
+  const helloByInstanceRef = useRef<Map<string, HelloPayload>>(new Map())
 
   useEffect(() => {
     connect()
@@ -150,6 +176,7 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
           if (!hello.deviceId || (!hello.url && !hello.ddfHash)) return
           if (statusByInstanceRef.current.get(instanceId) === "offline") {
             pendingHelloRef.current.set(instanceId, hello)
+            setFailure(instanceId, null)
             return
           }
           pendingHelloRef.current.delete(instanceId)
@@ -165,13 +192,19 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
           // silently invisible.
           const attemptKey = `${deviceId}:${announcedHash ?? url}`
           if (attemptedRef.current.has(attemptKey)) return
-          if (announcedHash !== undefined && knownDdfHashesRef.current.get(deviceId) === announcedHash) return
+          if (announcedHash !== undefined && knownDdfHashesRef.current.get(deviceId) === announcedHash) {
+            setFailure(instanceId, null)
+            return
+          }
 
           attemptedRef.current.add(attemptKey)
           setFetchingDeviceIds((prev) => new Set(prev).add(deviceId))
 
           loadAnnouncedDdf(client, { instanceId, deviceId, name: hello.name, ddfHash: announcedHash, url })
-            .then(() => onDdfFetchedRef.current())
+            .then(() => {
+              setFailure(instanceId, null)
+              onDdfFetchedRef.current()
+            })
             .catch((err) => {
               // Not while it is gone: a device that went offline between the
               // request and its failure is not a problem to report.
@@ -184,10 +217,14 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
               // the broker, chosen or not. A stale announcement - an emulator
               // long gone, still retained as online - put a red toast up on
               // every project change (the user, 2026-10-12, switching to a
-              // phone in the Deploy dialog). Such a device simply stays out
-              // of the list; a device someone picks says why it cannot load
-              // where it is picked.
-              console.warn(`[ddf] couldn't load "${hello.name || deviceId}"'s device description:`, err instanceof Error ? err.message : err)
+              // phone in the Deploy dialog). It is said under the list
+              // instead, where it is in the way of nothing.
+              const message = err instanceof Error ? err.message : String(err)
+              console.warn(`[ddf] couldn't load "${hello.name || deviceId}"'s device description:`, message)
+              // Only for the hello it was about: a newer one may be on its way.
+              if (helloByInstanceRef.current.get(instanceId) === hello) {
+                setFailure(instanceId, { label: hello.name || deviceId, message })
+              }
             })
             .finally(() => {
               setFetchingDeviceIds((prev) => {
@@ -196,6 +233,14 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
                 return next
               })
             })
+        }
+
+        retryRef.current = (instanceId) => {
+          const hello = helloByInstanceRef.current.get(instanceId)
+          if (!hello?.deviceId) return
+          attemptedRef.current.delete(`${hello.deviceId}:${hello.ddfHash ?? hello.url}`)
+          setFailure(instanceId, null)
+          fetchDdfFor(instanceId, hello)
         }
 
         client.on("message", (topic, message) => {
@@ -210,6 +255,7 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
             statusByInstanceRef.current.set(instanceId, status)
             // Going offline takes it out of the list, coming back puts it in.
             if (status !== was) publishAnnounced()
+            if (status === "offline") setFailure(instanceId, null)
             const waiting = pendingHelloRef.current.get(instanceId)
             if (status !== "offline" && was === "offline" && waiting) fetchDdfFor(instanceId, waiting)
             return
@@ -221,6 +267,8 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
           // than being ignored as a malformed message.
           if (message.length === 0) {
             pendingHelloRef.current.delete(instanceId)
+            helloByInstanceRef.current.delete(instanceId)
+            setFailure(instanceId, null)
             const running = graceTimersRef.current.get(instanceId)
             if (running) {
               clearTimeout(running)
@@ -236,6 +284,7 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
           } catch {
             return
           }
+          helloByInstanceRef.current.set(instanceId, hello)
           if (hello.deviceId) {
             announcedByInstanceRef.current.set(instanceId, hello.deviceId)
             publishAnnounced()
@@ -252,6 +301,7 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
         // Connection error surfaced via the status line below.
       })
     return () => {
+      retryRef.current = null
       // Back to "unknown" rather than "nothing announcing": this component
       // unmounting is not evidence about the network.
       onAnnouncedRef.current?.(null)
@@ -265,25 +315,56 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
   }, [])
 
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      {isConnected ? (
-        fetchingDeviceIds.size > 0 ? (
-          <>
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Loading {fetchingDeviceIds.size === 1 ? "a new device" : `${fetchingDeviceIds.size} new devices`}...</span>
-          </>
+    <div className="space-y-2" data-testid="device-scan">
+      <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        {isConnected ? (
+          fetchingDeviceIds.size > 0 ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>
+                Loading {fetchingDeviceIds.size === 1 ? "a new device" : `${fetchingDeviceIds.size} new devices`} from{" "}
+                {config.websocketUrl}...
+              </span>
+            </>
+          ) : (
+            <>
+              <Wifi className="w-3.5 h-3.5 text-green-600 shrink-0" />
+              {/* Which broker: a device announcing on another one is the
+                  first thing to rule out when it does not show up. */}
+              <span>Scanning for new devices on {config.websocketUrl}</span>
+            </>
+          )
         ) : (
           <>
-            <Wifi className="w-3.5 h-3.5 text-green-600" />
-            <span>Scanning the network for new devices...</span>
+            <WifiOff className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {isConnecting
+                ? "Connecting to the broker..."
+                : connectionError
+                  ? `Not connected to ${config.websocketUrl} - new devices won't be detected. ${connectionError}`
+                  : "Not connected - new devices won't be detected."}
+            </span>
           </>
-        )
-      ) : (
-        <>
-          <WifiOff className="w-3.5 h-3.5" />
-          <span>{isConnecting ? "Connecting to the broker..." : "Not connected - new devices won't be detected."}</span>
-        </>
-      )}
+        )}
+      </div>
+      {Array.from(failures, ([instanceId, failure]) => (
+        <div
+          key={instanceId}
+          data-testid="device-load-failure"
+          className="rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 flex items-start gap-2 text-xs"
+        >
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0 break-words">
+            <p className="font-medium text-foreground">
+              «{failure.label}» is on the broker, but its device description could not be loaded.
+            </p>
+            <p className="text-muted-foreground mt-0.5">{failure.message}</p>
+          </div>
+          <Button variant="outline" size="sm" className="h-7 shrink-0" onClick={() => retryRef.current?.(instanceId)}>
+            Try again
+          </Button>
+        </div>
+      ))}
     </div>
   )
 }

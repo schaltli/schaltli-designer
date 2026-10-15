@@ -162,7 +162,7 @@ test.describe("DDF auto-discovery", () => {
       await page.waitForTimeout(3000)
 
       expect(fetchCalls.filter((body) => body.includes(deviceId))).toEqual([])
-      await expect(page.getByText("Couldn't load", { exact: false })).toHaveCount(0)
+      await expect(page.getByTestId("device-load-failure").filter({ hasText: `Gone ${testInfo.testId}` })).toHaveCount(0)
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })
@@ -173,10 +173,11 @@ test.describe("DDF auto-discovery", () => {
 
   // Online by its own word but unreachable: an Android emulator long gone,
   // its hello and "online" still retained (the user, 2026-10-12). Its DDF is
-  // tried - nothing says it is gone - and fails, quietly: this runs for
-  // every device on the broker, and a red toast came up on every project
-  // change, in the Deploy dialog too.
-  test("a device that cannot be reached is tried, and no toast says so", async ({ page }, testInfo) => {
+  // tried - nothing says it is gone - and fails without a toast: this runs
+  // for every device on the broker, and a red toast came up on every project
+  // change, in the Deploy dialog too. It is said under the device list
+  // instead (2026-10-15).
+  test("a device that cannot be reached is tried, and said under the list rather than in a toast", async ({ page }, testInfo) => {
     const deviceId = `e2e-unreachable-${testInfo.testId}`
     const instanceId = `e2e-unreachable-instance-${testInfo.testId}`
     const ddfUrl = "http://127.0.0.1:9/ddf.zip"
@@ -196,8 +197,14 @@ test.describe("DDF auto-discovery", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await expect.poll(() => fetchCalls.filter((body) => body.includes(deviceId)).length, { timeout: 15000 }).toBeGreaterThan(0)
-      await page.waitForTimeout(3000)
-      await expect(page.getByText("Couldn't load", { exact: false })).toHaveCount(0)
+      const notice = page.getByTestId("device-load-failure").filter({ hasText: `Unreachable ${testInfo.testId}` })
+      await expect(notice).toContainText("could not be loaded", { timeout: 15000 })
+      await expect(notice).toContainText(ddfUrl)
+      await expect(page.getByRole("region", { name: /Notifications/ }).locator("li")).toHaveCount(0)
+
+      // Gone for good: the notice goes with its announcement.
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      await expect(notice).toHaveCount(0)
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })

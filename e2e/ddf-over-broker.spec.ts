@@ -45,6 +45,8 @@ async function testDdf(deviceId: string, name: string): Promise<Buffer> {
 type FakeDevice = {
   client: mqtt.MqttClient
   asked: { ddf: number; recovery: number }
+  // What it answers with, changeable while it runs.
+  answers: { ddf?: Buffer | null; recovery?: Buffer | null }
   end: () => Promise<void>
 }
 
@@ -76,6 +78,7 @@ async function fakeDevice(
   return {
     client,
     asked,
+    answers,
     end: async () => {
       for (const leaf of ["hello", "ddf"]) {
         await new Promise<void>((resolve) => client.publish(`${base}/${leaf}`, "", { retain: true }, () => resolve()))
@@ -148,9 +151,12 @@ test.describe("Device descriptions over the broker", () => {
   })
 
   // #68: a description that cannot be loaded never says nothing. It is a
-  // background scan, so it says it in the console, and says what to check.
+  // background scan, so not a toast: it says it under the device list, with
+  // what to check, and in the console. An Android tablet whose description
+  // never came over the broker showed nothing at all (rajiva in the forum,
+  // 2026-10-15).
   test("a device that never answers is not listed, and the reason names the broker's size limit", async ({ page }, testInfo) => {
-    test.setTimeout(90_000)
+    test.setTimeout(150_000)
     const deviceId = `e2e-broker-ddf-silent-${testInfo.testId}`
     const instanceId = `e2e-broker-ddf-silent-instance-${testInfo.testId}`
     const name = `Never Answers ${testInfo.testId}`
@@ -170,8 +176,23 @@ test.describe("Device descriptions over the broker", () => {
       expect(warnings.find((w) => w.includes(name))).toContain("message_size_limit")
       expect(device.asked.ddf).toBeGreaterThanOrEqual(1)
       await expect(page.getByRole("button", { name: `${ddfName(ddfHash)} ${name}` })).toHaveCount(0)
+
+      const notice = page.getByTestId("device-load-failure").filter({ hasText: name })
+      await expect(notice).toContainText(`«${name}» is on the broker, but its device description could not be loaded.`)
+      await expect(notice).toContainText("message_size_limit")
+      await expect(page.getByRole("region", { name: /Notifications/ }).locator("li")).toHaveCount(0)
+
+      // Try again asks the device once more, and once it answers the
+      // notice goes and the device is listed.
+      const askedBefore = device.asked.ddf
+      device.answers.ddf = bytes
+      await notice.getByRole("button", { name: "Try again" }).click()
+      await expect.poll(() => device.asked.ddf, { timeout: 15_000 }).toBeGreaterThan(askedBefore)
+      await expect(page.getByRole("button", { name: `${ddfName(ddfHash)} ${name}` })).toBeVisible({ timeout: 20_000 })
+      await expect(notice).toHaveCount(0)
     } finally {
       await device.end()
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
     }
   })
 

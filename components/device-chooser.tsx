@@ -239,7 +239,7 @@ export function DeviceChooser({
           "Deploy to Device" (components/deploy-dialog.tsx), so gated behind
           the same flag. Off entirely on the public demo instance. */}
       {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
-        <div className="flex justify-end mb-4">
+        <div className="mb-4">
           <DeviceScanSection
             knownDdfHashes={knownDdfHashes}
             onDdfFetched={loadList}
