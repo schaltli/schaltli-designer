@@ -746,7 +746,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Same broker your devices publish to - shared with the MQTT Discovery dialog.
+                  The broker your devices publish to. Connect makes it the designer's broker; change it later in Listen to Broker › Connection settings.
                 </p>
               </div>
               {connectionError && <p className="text-sm text-destructive">{connectionError}</p>}

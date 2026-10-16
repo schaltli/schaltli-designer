@@ -111,7 +111,7 @@ import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import { BrokerListener } from "@/components/broker-listener"
 import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-context"
-import { useHeardTopics, useListening } from "@/lib/broker-store"
+import { useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 
@@ -1298,6 +1298,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         setLiveStatus("unavailable")
       })
   }, [connectPreviewMqtt, disconnectPreviewMqtt, project])
+
+  // Another broker chosen while the preview is live, or was meant to be
+  // (#39): it goes live on that one. Until 2026-10-16 it stayed on the old
+  // broker until Live was pressed again.
+  const listenGeneration = useListenGeneration()
+  const followedGenerationRef = useRef(listenGeneration)
+  useEffect(() => {
+    if (listenGeneration === followedGenerationRef.current) return
+    followedGenerationRef.current = listenGeneration
+    if (isPreviewMode && liveStatus !== "idle") startLive()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listenGeneration])
 
   const choosePreviewSource = useCallback(
     (source: "live" | "simulation") => {

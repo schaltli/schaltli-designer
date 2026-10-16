@@ -11,6 +11,7 @@ import mqtt from "mqtt"
 import { defaultBrokerUrl } from "@/lib/broker-url"
 import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 import { BLOCKS_PREFIX } from "@/lib/block-description"
+import { restartListening, useListenGeneration } from "@/lib/broker-store"
 
 export interface MqttConnectionConfig {
   websocketUrl: string
@@ -50,17 +51,23 @@ function loadStoredConfig(): Partial<MqttConnectionConfig> {
 
 function storeConfig(config: MqttConnectionConfig) {
   if (typeof window === "undefined") return
+  const before = currentBrokerUrl()
+  const websocketUrl = config.websocketUrl.trim()
   try {
     // The broker URL and its discovery prefix are worth remembering across
     // sessions/features - username/password stay session-only, not written
     // to localStorage.
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ websocketUrl: config.websocketUrl, discoveryPrefix: config.discoveryPrefix.trim() }),
+      JSON.stringify({ websocketUrl, discoveryPrefix: config.discoveryPrefix.trim() }),
     )
   } catch {
     // localStorage unavailable (private browsing, quota) - not fatal.
   }
+  // Another broker is followed by everything already talking to the old one
+  // (#39): the listener starts over on it, and with it the live preview and
+  // every connection's shown address (useListenGeneration).
+  if (websocketUrl !== before) restartListening()
 }
 
 // The page's own host decides (lib/broker-url.ts): ws://<host>:9001 over
@@ -69,6 +76,11 @@ function storeConfig(config: MqttConnectionConfig) {
 // different hosts.
 function defaultWebsocketUrl(): string {
   return defaultBrokerUrl(typeof window === "undefined" ? undefined : window.location)
+}
+
+/** The broker the designer talks to: the one chosen, else the page's own. */
+export function currentBrokerUrl(): string {
+  return loadStoredConfig().websocketUrl || defaultWebsocketUrl()
 }
 
 /**
@@ -186,6 +198,18 @@ export function useMqttConnection(clientIdPrefix: string) {
   // the old one the next time a block was placed, and the wizard kept asking
   // localhost while the setting said otherwise.
   const editedRef = useRef(false)
+  // A broker chosen anywhere else (#39) is shown here too, unless this
+  // instance's own field holds something typed and not yet connected.
+  const generation = useListenGeneration()
+  const generationRef = useRef(generation)
+  useEffect(() => {
+    if (generation === generationRef.current) return
+    generationRef.current = generation
+    if (editedRef.current) return
+    const stored = loadStoredConfig()
+    setConfig((prev) => ({ ...prev, websocketUrl: stored.websocketUrl || defaultWebsocketUrl(), discoveryPrefix: stored.discoveryPrefix ?? "" }))
+  }, [generation])
+
   const setConfigTracked = useCallback<typeof setConfig>((next) => {
     setConfig((prev) => {
       const value = typeof next === "function" ? next(prev) : next
@@ -236,7 +260,14 @@ export function useMqttConnection(clientIdPrefix: string) {
         setError(null)
         // Only an address someone chose is remembered; a connection made in
         // the background (the wizard, the device scan) stores nothing.
-        if (editedRef.current || overrides?.websocketUrl) storeConfig(effective)
+        // Once stored it is everyone's, this instance's included: until
+        // 2026-10-16 a dialog whose field had been typed into kept that
+        // address for good, and a broker chosen later elsewhere never
+        // reached it (#39).
+        if (editedRef.current || overrides?.websocketUrl) {
+          storeConfig(effective)
+          editedRef.current = false
+        }
 
         const clientId =
           overrides?.clientId ??

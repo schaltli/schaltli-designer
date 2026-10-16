@@ -169,6 +169,69 @@ test.describe("Listen to Broker", () => {
       await other.close()
     }
   })
+
+  // #39: a broker chosen while things are connected to the old one is
+  // followed by them, not only by the listener.
+  async function chooseBroker(page: Page, url: string) {
+    await openViewer(page)
+    await viewer(page).getByRole("button", { name: "Connection settings" }).click()
+    await viewer(page).locator("#websocketUrl").fill(url)
+    await viewer(page).getByRole("button", { name: "Connect", exact: true }).click()
+    await page.keyboard.press("Escape")
+    await expect(viewer(page)).toHaveCount(0)
+  }
+
+  test("a live preview follows a broker chosen in the connection settings", async ({ page }) => {
+    const other = await ownBroker()
+    try {
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await expect(page.getByTestId("preview-source-status")).toContainText(`Live from ${own.url}`, { timeout: 10_000 })
+      await chooseBroker(page, other.url)
+      await expect(page.getByTestId("preview-source-status")).toContainText(`Live from ${other.url}`, { timeout: 10_000 })
+    } finally {
+      await other.close()
+    }
+  })
+
+  test("an address typed into one dialog is followed by the others, whatever was typed into them before", async ({ page }) => {
+    const other = await ownBroker()
+    const onOther: string[] = []
+    other.broker.on("client", (client) => onOther.push(client.id))
+    const deploy = page.getByRole("dialog", { name: "Deploy to Device" })
+    const openDeploy = async () => {
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+    }
+    try {
+      // Typed here first, and nothing answers: Deploy shows its field.
+      await chooseBroker(page, "ws://127.0.0.1:9")
+      await openDeploy()
+      const field = page.locator("#deploy-broker-url")
+      await expect(field).toBeVisible({ timeout: 10_000 })
+      await field.fill(own.url)
+      await deploy.getByRole("button", { name: "Connect", exact: true }).click()
+      await expect(field).toHaveCount(0, { timeout: 10_000 })
+      await page.keyboard.press("Escape")
+      await expect(deploy).toHaveCount(0)
+      // The File menu the dialog was opened from is still open behind it.
+      await page.keyboard.press("Escape")
+
+      // Until 2026-10-16 this window kept what had been typed into it.
+      await openViewer(page)
+      await expect(viewer(page).getByTitle(own.url)).toBeVisible()
+      await expect.poll(() => heardOn(page, "pkw/tele/battery/soc"), { timeout: 10_000 }).not.toBeNull()
+      await viewer(page).getByRole("button", { name: "Connection settings" }).click()
+      await expect(viewer(page).locator("#websocketUrl")).toHaveValue(own.url)
+      await page.keyboard.press("Escape")
+
+      // And Deploy goes where this window says.
+      await chooseBroker(page, other.url)
+      await openDeploy()
+      await expect.poll(() => onOther.some((id) => id.startsWith("schaltli-deploy")), { timeout: 10_000 }).toBe(true)
+    } finally {
+      await other.close()
+    }
+  })
 })
 
 test.describe("the discovery prefix", () => {
