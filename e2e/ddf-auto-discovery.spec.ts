@@ -396,7 +396,7 @@ test.describe("DDF auto-discovery", () => {
     }
   })
 
-  test("rejects a fetched DDF whose own deviceId doesn't match what was announced", async ({ request }) => {
+  test("rejects a fetched DDF whose own deviceId doesn't match what was announced", async ({ request, baseURL }) => {
     const lanIp = serverLanAddress()
     test.skip(!lanIp, "No LAN-reachable address found on this machine")
 
@@ -407,7 +407,10 @@ test.describe("DDF auto-discovery", () => {
     const res = await request.post("/api/ddf/fetch", {
       data: {
         deviceId: "not-the-real-device-id",
-        url: `http://${lanIp}:3000/ddf/mqtt-epaper-display.ddf.zip`,
+        // The port the suite runs against: until 2026-10-16 this said 3000,
+        // and under test:quick (a production build on another port) the
+        // fetch found no designer there and the route answered 502 (#43).
+        url: `http://${lanIp}:${new URL(baseURL!).port}/ddf/mqtt-epaper-display.ddf.zip`,
       },
     })
     expect(res.status()).toBe(422)
