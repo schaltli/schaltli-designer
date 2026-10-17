@@ -7,7 +7,10 @@
  * and apart from them the hidden screens, the popups and the masters. A click
  * selects a screen and shows its fields at the right - all the project
  * settings' «Screens» tab offered, which this view replaces; a double-click
- * opens it for editing.
+ * opens it for editing. A screen is dragged into the row, onto a free place
+ * above or below a page, or onto «Hidden»; while it is dragged only the
+ * places it may go are lit, and a drop where it may not says why. Each drop
+ * is one undo step.
  */
 
 import { Fragment, useEffect, useState } from "react"
@@ -21,7 +24,8 @@ import { resolveMasterScreen } from "@/lib/master-screen"
 import { projectSeparators } from "@/lib/placeholders"
 import { themeFor, type Variant } from "@/lib/themes"
 import { withScreenType } from "@/lib/popup"
-import { graphLayout, mainRow, withScreenInRow } from "@/lib/screen-graph"
+import { graphLayout, mainRow, withScreenApart, withScreenDocked, withScreenInRow, type ScreenEdge } from "@/lib/screen-graph"
+import { isMainScreen } from "@/lib/popup"
 import { withScreenDeleted, withScreenDuplicated } from "@/lib/screen-actions"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -59,6 +63,9 @@ export function ManageScreens({
   // A card: the thumbnail in its 4 px frame, a 4 px gap and the name's line.
   const cardTotal = cardHeight + 8 + 4 + 16
   const selected = project.screens.find((s) => s.id === selectedId)
+  // The screen being dragged, and the drop target under the pointer.
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overKey, setOverKey] = useState<string | null>(null)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,16 +78,96 @@ export function ManageScreens({
   const update = (screenId: string, change: (screen: ProjectScreen) => ProjectScreen) =>
     onProjectUpdate({ ...project, screens: project.screens.map((s) => (s.id === screenId ? change(s) : s)) })
 
+  const row = mainRow(project.screens)
+
+  // --- Dragging -------------------------------------------------------------
+  // Popups and masters stay where they are: they have no place in the graph.
+  const dragged = dragId ? project.screens.find((s) => s.id === dragId) : undefined
+  const rowMoveOf = (id: string, beforeId: string | null) => {
+    const at = row.findIndex((s) => s.id === id)
+    // Dropped just before or after itself, a row screen stays put.
+    if (at >= 0 && (beforeId === id || beforeId === (row[at + 1]?.id ?? null))) return undefined
+    return withScreenInRow(project.screens, id, beforeId)
+  }
+  const dockOf = (id: string, place: string) => {
+    const [pageId, edge] = place.split(":") as [string, ScreenEdge]
+    return withScreenDocked(project.screens, id, pageId, edge)
+  }
+  const apartCheck = (id: string): { ok: true } | { ok: false; reason: string } => {
+    const screen = project.screens.find((s) => s.id === id)!
+    if (layout.hidden.some((s) => s.id === id)) return { ok: false, reason: `"${screen.name}" is hidden already.` }
+    if (row.length === 1 && row[0].id === id)
+      return { ok: false, reason: `"${screen.name}" is the last screen of the main row: it stays there.` }
+    return { ok: true }
+  }
+  const lit = (key: string): boolean => {
+    if (!dragged) return false
+    if (key.startsWith("row:")) return !!rowMoveOf(dragged.id, key === "row:end" ? null : key.slice(4))
+    if (key === "hidden") return apartCheck(dragged.id).ok
+    return dockOf(dragged.id, key).ok
+  }
+  const dropOn = (key: string) => {
+    const id = dragId
+    setDragId(null)
+    setOverKey(null)
+    if (!id) return
+    const refuse = (reason: string) => toast({ title: "The screen cannot go there", description: reason, variant: "destructive" })
+    let screens: ProjectScreen[] | undefined
+    if (key.startsWith("row:")) screens = rowMoveOf(id, key === "row:end" ? null : key.slice(4))
+    else if (key === "hidden") {
+      const check = apartCheck(id)
+      if (!check.ok) return refuse(check.reason)
+      screens = withScreenApart(project.screens, id)
+    } else {
+      const docked = dockOf(id, key)
+      if (!docked.ok) return refuse(docked.reason)
+      screens = docked.screens
+    }
+    if (!screens) return
+    onProjectUpdate({ ...project, screens })
+    setSelectedId(id)
+  }
+  // A drop target: it takes every drop of a screen, and lit tells where one fits.
+  const dropTarget = (key: string) =>
+    dragged
+      ? {
+          onDragOver: (e: React.DragEvent) => {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "move"
+            if (overKey !== key) setOverKey(key)
+          },
+          onDragLeave: () => setOverKey((k) => (k === key ? null : k)),
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault()
+            dropOn(key)
+          },
+        }
+      : {}
+  const litClass = (key: string) =>
+    dragged && lit(key) ? (overKey === key ? "border-primary bg-primary/25" : "border-primary/70 bg-primary/10") : ""
+
   const card = (screen: ProjectScreen) => {
     const masterScreen = screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens)
     const isSelected = screen.id === selectedId
+    const draggable = isMainScreen(screen)
     return (
       <button
         type="button"
         data-screen-card={screen.id}
         onClick={() => setSelectedId(screen.id)}
         onDoubleClick={() => onOpenScreen(screen.id)}
-        className="flex flex-col gap-1 text-left"
+        draggable={draggable}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move"
+          e.dataTransfer.setData("text/plain", screen.id)
+          setDragId(screen.id)
+          setSelectedId(screen.id)
+        }}
+        onDragEnd={() => {
+          setDragId(null)
+          setOverKey(null)
+        }}
+        className={cn("flex flex-col gap-1 text-left", draggable && "cursor-grab", dragId === screen.id && "opacity-40")}
         style={{ width: CARD_WIDTH }}
         title={screen.name}
       >
@@ -119,18 +206,34 @@ export function ManageScreens({
     <div
       key={key}
       data-empty-place={key}
-      className="rounded border border-dashed border-border/60"
+      data-lit={lit(key) || undefined}
+      {...dropTarget(key)}
+      className={cn("rounded border border-dashed border-border/60", litClass(key))}
       style={{ width: CARD_WIDTH, height: cardTotal }}
     />
   )
 
-  // The join between a page and its row neighbour, or a screen docked on it.
-  const across = <div className="h-0.5 w-6 self-center bg-border" />
+  // A gap in the main row: where a dragged screen goes in, before `beforeId`
+  // or at the end. Between two pages it carries their join.
+  const rowGap = (beforeId: string | null, joined: boolean) => {
+    const key = beforeId === null ? "row:end" : `row:${beforeId}`
+    return (
+      <div
+        data-row-gap={beforeId ?? "end"}
+        data-lit={lit(key) || undefined}
+        {...dropTarget(key)}
+        className={cn("relative w-6 shrink-0 self-stretch rounded border border-transparent", litClass(key))}
+      >
+        {joined && <div className="absolute inset-x-0 h-0.5 bg-border" style={{ top: cardTotal + 16 + (cardHeight + 8) / 2 - 1 }} />}
+      </div>
+    )
+  }
+
+  // The join between a page and a screen docked on it.
   const along = (key: string, shown: boolean) => (
     <div key={key} className={cn("mx-auto h-4 w-0.5", shown ? "bg-border" : "bg-transparent")} />
   )
 
-  const row = mainRow(project.screens)
   const rowIndex = row.findIndex((s) => s.id === selectedId)
   const moveInRow = (delta: -1 | 1) => {
     if (rowIndex < 0) return
@@ -139,8 +242,13 @@ export function ManageScreens({
     onProjectUpdate({ ...project, screens: withScreenInRow(project.screens, selectedId, beforeId) })
   }
 
-  const apartGroup = (title: string, testId: string, screens: ProjectScreen[]) => (
-    <div data-testid={testId} className="flex flex-col gap-2">
+  const apartGroup = (title: string, testId: string, screens: ProjectScreen[], dropKey?: string) => (
+    <div
+      data-testid={testId}
+      data-lit={(dropKey && lit(dropKey)) || undefined}
+      {...(dropKey ? dropTarget(dropKey) : {})}
+      className={cn("-m-2 flex flex-col gap-2 rounded border border-transparent p-2", dropKey && litClass(dropKey))}
+    >
       <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
       <div className="flex flex-wrap gap-4">
         {screens.length > 0 ? screens.map((s) => <Fragment key={s.id}>{card(s)}</Fragment>) : (
@@ -156,7 +264,8 @@ export function ManageScreens({
         <div>
           <h2 className="text-sm font-medium">Manage Screens</h2>
           <p className="text-xs text-muted-foreground">
-            The main row from left to right, with the screens above and below a page. Double-click a screen to edit it.
+            The main row from left to right, with the screens above and below a page. Drag a screen to move it; double-click
+            it to edit it.
           </p>
         </div>
         <Button size="sm" onClick={onClose}>
@@ -170,7 +279,7 @@ export function ManageScreens({
           <div data-testid="screen-comb" className="flex items-start">
             {layout.columns.map((column, i) => (
               <Fragment key={column.page.id}>
-                {i > 0 && <div className="flex flex-col" style={{ paddingTop: cardTotal + 16 + (cardHeight + 8) / 2 - 1 }}>{across}</div>}
+                {rowGap(column.page.id, i > 0)}
                 <div data-column={column.page.id} className="flex flex-col">
                   {column.up ? card(column.up) : place(`${column.page.id}:up`)}
                   {along(`${column.page.id}:up-join`, !!column.up)}
@@ -180,11 +289,12 @@ export function ManageScreens({
                 </div>
               </Fragment>
             ))}
+            {rowGap(null, false)}
           </div>
 
           <div className="border-t border-border pt-4 space-y-4">
             <div className="text-xs font-medium text-muted-foreground">Apart</div>
-            {apartGroup("Hidden", "apart-hidden", layout.hidden)}
+            {apartGroup("Hidden", "apart-hidden", layout.hidden, "hidden")}
             {apartGroup("Popups", "apart-popups", layout.popups)}
             {apartGroup("Masters", "apart-masters", layout.masters)}
           </div>
