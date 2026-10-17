@@ -43,38 +43,76 @@ of its own.
 4. **Swiping goes to the neighbour.** Swiping up shows the screen docked
    below - what lies below is pulled up - swiping left the one docked on
    the right. A swipe with no neighbour in its direction does nothing.
-   A swipe action set by hand comes first, for instance «Show Screen
-   Menu» on swiping up; that neighbour is then reached another way, or
-   not at all.
+   What a swipe does is decided in this order (user, 2026-10-17):
+   1. the screen's own swipe action;
+   2. the neighbour in that direction;
+   3. the swipe action the screen inherits from its master.
+
+   So a master's «Swipe left → Next screen» still works everywhere, and
+   in a single row the neighbour is the screen it would have shown
+   anyway; a master's action never hides a screen docked below.
 5. **The knob swipes too** (user, 2026-10-17): its CST816 reads a swipe as
    the round screens do now; the ring keeps next and previous.
-6. **The navigator lists the main row, and «←» elsewhere** (user,
+6. **No screen menu** (user, 2026-10-17). The device action «Show Screen
+   Menu» goes, on the knob and in the Android app alike:
+   - In the Android app the navigator has taken over its job.
+   - **The knob shows where a swipe leads, while swiping**: as soon as a
+     touch moves far enough to be a swipe, the knob shows at each edge
+     that has a neighbour that screen's icon and name - 12, 3, 6 and 9
+     o'clock on the round display - and they fade as the screen follows
+     the finger. The ring still walks the main row, so every screen of it
+     is a few detents away. (proposed: how far is «far enough», and
+     whether the hints show on touch-down already.)
+   - A tap stays a tap: nothing shows before the touch moves.
+   - **Projects that use it**: the designer removes the action when it
+     opens the project and says so once («The screen menu is gone: swipe,
+     the ring or the navigator change screens now»). A device keeps
+     obeying it until its next deploy, so an older board's project does
+     not break. The device-action mechanism itself (`deviceActions` in
+     the DDF, `docs/device-contract.md`) stays, with no action left for
+     now.
+   - The screen icons stay: the navigator and the knob's hints show them.
+7. **The navigator lists the main row, and «←» elsewhere** (user,
    2026-10-17). On a screen of the main row it lists the main row as it
    does now (`docs/2026-10-08-navigator.md`). On any other screen it
    shows one arrow back, pointing against the swipe that led there:
    swiped up to a history, the arrow points down. (proposed: the main row
    is the first screen and every screen docked left or right of it, in
    order; next and previous walk it.)
-7. **Hidden screens and popups have an area of their own** (user,
-   2026-10-17): in the designer's view of the surface they stand apart,
-   not docked anywhere. A popup opens over a screen as now
+8. **Hidden screens, popups and masters have an area of their own**
+   (user, 2026-10-17): in the designer's view of the
+   surface they stand apart, not docked anywhere. A master is never seen
+   on a device; it is a template. A popup opens over a screen as now
    (`docs/2026-10-06-popup-screens.md`); a hidden screen is reached only
    by an action naming it.
-8. **The pull tab** is drawn by the device on every edge with a neighbour:
+9. **The pull tab** is drawn by the device on every edge with a neighbour:
    a short line centred on that edge, which a colour display nudges
    towards the middle now and then. There is no object for it.
    (proposed)
-9. **Existing projects** load as one row in their present order, so every
+10. **A swipe belongs to what it starts on** (user, 2026-10-17), as a slider's
+    and the navigator's do now (`docs/2026-10-08-navigator.md`, decision
+    13): a horizontal swipe that starts on a scrolling chart scrolls
+    through time, one that starts beside it changes the screen. A
+    vertical swipe changes the screen on a chart too, since a chart
+    scrolls only sideways. No special case for a swipe from the very
+    edge: on Android the edge belongs to the system's back gesture, and
+    on the knob it is too narrow to hit.
+11. **Existing projects** load as one row in their present order, so every
    swipe and every «Next screen» does what it did. (proposed)
-10. **In the designer** the surface is shown as small screens dragged to
+12. **In the designer** the surface is shown as small screens dragged to
     an edge of another to dock them, as in Windows. (proposed)
+13. **The device computes nothing** (user, 2026-10-17), as with charts
+    (`docs/2026-10-16-charts.md`, «Data model»). In the project each
+    screen has `dock: { screenId, edge }`; on export the designer writes
+    out each screen's `neighbours: { up?, down?, left?, right? }`, its
+    `back` (the direction of the screen it is docked on, for the «←») and
+    the main row in order for next and previous. A device follows no
+    tree.
+14. **A feature the device declares** (user, 2026-10-17): `screen-graph` in its
+    DDF. Deploy gates on it only when something is docked off the main
+    row; a single row runs on an older board as it is. Otherwise Deploy
+    brings the board up to date first, as with `local-topics`.
 
 ## Open
 
-- What a master screen is on the surface: in the area apart, as hidden
-  screens are, or not shown at all.
-- Swiping on a screen that scrolls (a chart with scrolling on): a
-  horizontal swipe scrolls the chart and does not change the screen;
-  whether a swipe from the very edge still does.
-- What the device contract and the DDF need: each screen's dock (the
-  screen and the edge), a feature `screen-graph` for an older board.
+- How far a touch must move on the knob before the swipe hints show.
