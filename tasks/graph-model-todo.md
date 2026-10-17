@@ -24,6 +24,10 @@ screen with no swipe action gains swiping to its neighbours: «7 ja»).
   - «Hide screen» only on a screen in the row
   - one place for every way a screen leaves the graph: `setProject` runs `withGraphMended` (lib/screen-graph.ts) - a screen docked on one deleted, hidden or made a popup or master becomes hidden, a toast names it once; a screen itself made a popup or master just loses its dock
   - e2e/screen-graph.spec.ts «Position» (dock by the field, offered places, hide the page → its history hidden, toast) and «a broken dock is mended»
-- [ ] G5 The navigator
+- [x] G5 The navigator
+  - `navigatorScreens` leaves docked screens out: the main row, in the preview and in the device's baked entries alike
+  - `navigatorEntries` (lib/navigator-entries.ts): on a docked screen one entry without a name, an arrow against the way back (four arrow icons, `BACK_ARROW_ASSETS`), whose id is the screen it goes back to - so drawing, layout and a click take it as any entry
+  - e2e/navigator.spec.ts «the navigator and the screen graph»: a docked screen has no entry; on it the single «←» goes back
+  - the device draws its own «←» in graph-firmware; nothing of it is baked yet
 - [ ] G6 Handbook
 - [ ] Checkpoint: test:quick green; the user docks a history below a page in the preview

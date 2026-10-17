@@ -103,11 +103,16 @@ interface ListedScreen {
   isMaster?: boolean
   screenType?: "popup"
   hidden?: boolean
+  dock?: unknown
 }
 
-/** The screens with an entry: main screens that are not hidden, in list order (decisions 2, 3). */
+/**
+ * The screens with an entry: main screens that are not hidden, in list order
+ * (decisions 2, 3) - the main row of the screen graph, so not one docked off
+ * it (docs/2026-10-17-screen-graph.md decision 7).
+ */
 export function navigatorScreens<S extends ListedScreen>(screens: readonly S[]): S[] {
-  return screens.filter((s) => !s.isMaster && s.screenType !== "popup" && !s.hidden)
+  return screens.filter((s) => !s.isMaster && s.screenType !== "popup" && !s.hidden && !s.dock)
 }
 
 /** The strip along an edge of a screen of that size. */

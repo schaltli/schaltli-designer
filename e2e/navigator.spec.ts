@@ -279,7 +279,11 @@ test.describe("the navigator's strip on a screen", () => {
 
 // A navigator project with twelve screens, the last with a button back to
 // the first: built from the designer's own download, loaded again.
-async function twelveScreenProject(page: Page, navigatorProperties: Record<string, unknown> = {}): Promise<string[]> {
+async function twelveScreenProject(
+  page: Page,
+  navigatorProperties: Record<string, unknown> = {},
+  edit: (screens: any[]) => void = () => {},
+): Promise<string[]> {
   const { master } = await newNavigatorProject(page)
   await placeNavigator(page, master)
   await page.getByRole("button", { name: "File" }).click()
@@ -303,6 +307,7 @@ async function twelveScreenProject(page: Page, navigatorProperties: Record<strin
           : [],
     })),
   ]
+  edit(project.screens)
   zip.file("project.json", JSON.stringify(project))
   const out = path.join(os.tmpdir(), `navigator-12-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
   fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
@@ -361,6 +366,53 @@ test.describe("the navigator in the preview", () => {
     await isOpen(page, "Nav 1")
     await press(page, 130)
     await isOpen(page, "Nav 2")
+  })
+})
+
+// The screen graph (docs/2026-10-17-screen-graph.md decision 7): the navigator
+// lists the main row; on a screen docked off it, only the «←» back.
+test.describe("the navigator and the screen graph", () => {
+  test.beforeEach(async () => {
+    test.skip(
+      !(await seedWaveshare4v3bDdf(NAV_DEVICE_ID, (manifest) => {
+        if (!manifest.supportedObjectTypes.includes("navigator")) manifest.supportedObjectTypes.push("navigator")
+      })),
+      "schaltli-firmware not checked out alongside this repo",
+    )
+  })
+
+  const press = async (page: Page, y: number) => {
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, 40, y, SCREEN_43B)
+    await page.mouse.click(at.x, at.y)
+  }
+  const isOpen = (page: Page, name: string) => expect(page.getByRole("button", { name: screenRow(name) }).first()).toHaveClass(/bg-accent/)
+
+  test("a docked screen has no entry, and on it the single «←» goes back", async ({ page }) => {
+    await twelveScreenProject(page, {}, (screens) => {
+      // Nav 2 docked below Nav 1, and a button on Nav 1 that goes there.
+      screens.find((s) => s.id === "nav-2").dock = { screenId: "nav-1", edge: "down" }
+      screens.find((s) => s.id === "nav-1").objects = [
+        { id: "down", type: "button", x: 380, y: 220, width: 80, height: 40, zIndex: 1, properties: { text: "Down", buttonStyle: "tonal", action: { type: "goto-screen", targetScreenId: "nav-2" } } },
+      ]
+    })
+    await page.getByRole("button", { name: "Nav 1", exact: true }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+
+    // The second entry is Nav 3: Nav 2 is off the main row.
+    await press(page, 88 + 40)
+    await isOpen(page, "Nav 3")
+    await press(page, 40)
+    await isOpen(page, "Nav 1")
+
+    const { box } = await getMainCanvas(page)
+    const down = devicePoint(box, 420, 240, SCREEN_43B)
+    await page.mouse.click(down.x, down.y)
+    await isOpen(page, "Nav 2")
+    // The navigator on Nav 2 holds one entry, the way back.
+    await press(page, 40)
+    await isOpen(page, "Nav 1")
   })
 })
 

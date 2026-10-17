@@ -22,6 +22,7 @@ import {
 } from "@/lib/navigator"
 import { COLOR_KEYS, THEME_COMMAND_TOPIC, THEME_STATE_TOPIC } from "@/lib/themes"
 import { switchTrack } from "@/lib/switch-shape"
+import { backOf, oppositeEdge, type GraphScreen, type ScreenEdge } from "@/lib/screen-graph"
 
 /** The icon's side, and the gaps around it and between it and the name. */
 export const ENTRY_ICON = 32
@@ -167,6 +168,37 @@ export const THEME_SWITCH_ASSETS = [
     data: themeSvg('<path fill="currentColor" d="M14.5 2.5a9.5 9.5 0 1 0 7 15.6A8 8 0 0 1 14.5 2.5z"/>'),
   },
 ]
+
+// The way back from a screen off the main row (docs/2026-10-17-screen-graph.md
+// decision 7): one arrow, pointing against the swipe that led there - swiped
+// up to a history below its page, it points down.
+const BACK_ARROW_PATHS: Record<ScreenEdge, string> = {
+  up: "M12 20V4M5 11l7-7 7 7",
+  down: "M12 4v16M5 13l7 7 7-7",
+  left: "M20 12H4M11 5l-7 7 7 7",
+  right: "M4 12h16M13 5l7 7-7 7",
+}
+
+export const backArrowAssetId = (edge: ScreenEdge) => `schaltli-back-${edge}`
+
+export const BACK_ARROW_ASSETS = (Object.keys(BACK_ARROW_PATHS) as ScreenEdge[]).map((edge) => ({
+  id: backArrowAssetId(edge),
+  name: "Back",
+  type: "icon" as const,
+  data: themeSvg(`<path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="${BACK_ARROW_PATHS[edge]}"/>`),
+}))
+
+/**
+ * What a navigator lists on the screen it is shown on: the main row, or on a
+ * screen docked off it the single «←» - an entry without a name whose id is
+ * the screen it goes back to, so a tap on it opens that one as on any entry.
+ */
+export function navigatorEntries<S extends EntryScreen & GraphScreen>(screens: readonly S[], activeScreenId: string | undefined): EntryScreen[] {
+  const back = activeScreenId === undefined ? undefined : backOf(screens, activeScreenId)
+  if (!back) return navigatorScreens(screens)
+  const docked = screens.find((s) => s.id === activeScreenId)!
+  return [{ id: docked.dock!.screenId, name: "", iconAssetId: backArrowAssetId(oppositeEdge(back)) }]
+}
 
 /** The switch as an entry: no name, its icon the moon while dark, the sun otherwise. */
 export const THEME_SWITCH_ENTRY: EntryScreen = {

@@ -33,8 +33,8 @@ import { renderSoftwareButton } from "@/components/canvas/renderers/render-softw
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { applyColorDepth } from "@/lib/color-depth"
-import { barLayout, clampScroll, dividerRect, entryRect, navigatorScreens, scrollToShow } from "@/lib/navigator"
-import { entryLook, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
+import { barLayout, clampScroll, dividerRect, entryRect, scrollToShow } from "@/lib/navigator"
+import { BACK_ARROW_ASSETS, entryLook, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
@@ -401,7 +401,9 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
   ctx.fillRect(strip.x, strip.y, strip.width, strip.height)
   const context = options.navigator
   if (context) {
-    const screens = navigatorScreens(context.screens)
+    // The main row, or on a screen docked off it the single «←».
+    const screens = navigatorEntries(context.screens as any[], context.activeScreenId)
+    const entryOptions = { ...options, projectAssets: [...(options.projectAssets ?? []), ...BACK_ARROW_ASSETS] }
     const { layout, themeSwitch } = barLayout(obj.properties.edge ?? "left", obj.properties.shows ?? "iconsAndText", strip, screens.length, themeSwitchAt(obj))
     const active = screens.findIndex((s) => s.id === context.activeScreenId)
     const scroll = context.scroll !== undefined ? clampScroll(layout, context.scroll) : scrollToShow(layout, Math.max(0, active), 0)
@@ -418,7 +420,7 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
       if (rect.x >= entries.x + entries.width || rect.y >= entries.y + entries.height || rect.x + rect.width <= entries.x || rect.y + rect.height <= entries.y) return
       ctx.save()
       ctx.translate(rect.x, rect.y)
-      renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...options, nested: true, navigator: undefined })
+      renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...entryOptions, nested: true, navigator: undefined })
       ctx.restore()
     })
     ctx.restore()

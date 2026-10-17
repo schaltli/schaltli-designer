@@ -13,7 +13,7 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
     .sort((a, b) => (a.role === "bus" ? -1 : b.role === "bus" ? 1 : 0))
     .find((n) => Math.hypot(at.x - diagram.x - n.x, at.y - diagram.y - n.y) <= (n.role === "bus" ? FLOW_BUS_R + 6 : FLOW_NODE_R))
 }
-import { themeSwitchAt } from "@/lib/navigator-entries"
+import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
 import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
@@ -859,7 +859,7 @@ export function Canvas({
     const navigator = [...(masterObjects ?? []), ...screen.objects].find((o) => o.type === "navigator")
     if (!navigator) return undefined
     const strip = { x: navigator.x, y: navigator.y, width: navigator.width, height: navigator.height }
-    return barLayout(navigator.properties.edge ?? "left", navigator.properties.shows ?? "iconsAndText", strip, navigatorScreens(projectScreens ?? []).length, themeSwitchAt(navigator))
+    return barLayout(navigator.properties.edge ?? "left", navigator.properties.shows ?? "iconsAndText", strip, navigatorEntries(projectScreens ?? [], screen.id).length, themeSwitchAt(navigator))
   }
   const previewNavigatorLayout = (): NavigatorLayout | undefined => previewNavigatorBar()?.layout
   navigatorLatest.current = {
@@ -4175,7 +4175,8 @@ export function Canvas({
       if (!navigatorDrag.moved) {
         const index = entryAt(navigatorDrag.layout, navigatorDrag.start.x, navigatorDrag.start.y, navigatorDrag.scroll)
         const latest = navigatorLatest.current
-        const target = navigatorScreens(latest.screens)[index]
+        // An entry's id is the screen it opens - the «←» too (navigatorEntries).
+        const target = navigatorEntries(latest.screens, latest.screenId)[index]
         if (target && target.id !== latest.screenId) latest.goTo(target.id)
       }
       return
