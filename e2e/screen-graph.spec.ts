@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test"
+import JSZip from "jszip"
+import fs from "fs"
+import { clickButton0, COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import { resolveSwipeAction } from "../lib/hardware-button-actions"
 import { backOf, canDock, mainRow, neighboursOf, pagedScreen, screensCutOff, withCutOffHidden, type GraphScreen } from "../lib/screen-graph"
 
 // The screen graph (docs/2026-10-17-screen-graph.md; tasks/graph-model-todo.md):
@@ -112,5 +116,74 @@ test.describe("screen graph: the core", () => {
     // From a hidden screen, counted from the first, as before.
     expect(pagedScreen(row3, "h", 1)?.id).toBe("b")
     expect(pagedScreen([{ id: "m", isMaster: true }], "m", 1)).toBeUndefined()
+  })
+})
+
+test.describe("screen graph: what a swipe does", () => {
+  // A' below A, a master that swipes up to a popup and left to the next screen.
+  const master = { id: "m", name: "M", isMaster: true, objects: [], buttonActions: {
+    "swipe-up": { type: "open-popup", targetScreenId: "p" },
+    "swipe-left": { type: "next-screen" },
+  } } as any
+  const a = { id: "a", name: "A", objects: [], masterScreenId: "m" } as any
+  const b = { id: "b", name: "B", objects: [], masterScreenId: "m" } as any
+  const a1 = { id: "a1", name: "A'", objects: [], masterScreenId: "m", dock: { screenId: "a", edge: "down" } } as any
+  const screens = [master, a, b, a1]
+
+  test("the screen's own action first, an explicit «Nothing» among them", () => {
+    const own = { ...a, buttonActions: { "swipe-up": { type: "send-mqtt", mqttTopic: "t", mqttMessage: "m" } } }
+    expect(resolveSwipeAction(own, master, "swipe-up", [master, own, b, a1])).toEqual({ type: "send-mqtt", mqttTopic: "t", mqttMessage: "m" })
+    const nothing = { ...a, buttonActions: { "swipe-up": { type: "none" } } }
+    expect(resolveSwipeAction(nothing, master, "swipe-up", [master, nothing, b, a1])).toBeUndefined()
+  })
+
+  test("then the neighbour it pulls in: swiping up shows the screen below, left the one on the right", () => {
+    expect(resolveSwipeAction(a, master, "swipe-up", screens)).toEqual({ type: "goto-neighbour", side: "down" })
+    expect(resolveSwipeAction(a, master, "swipe-left", screens)).toEqual({ type: "goto-neighbour", side: "right" })
+    expect(resolveSwipeAction(a1, master, "swipe-down", screens)).toEqual({ type: "goto-neighbour", side: "up" })
+  })
+
+  test("then the master's, where no neighbour is", () => {
+    expect(resolveSwipeAction(b, master, "swipe-up", screens)).toEqual({ type: "open-popup", targetScreenId: "p" })
+    expect(resolveSwipeAction(b, master, "swipe-left", screens)).toEqual({ type: "next-screen" })
+    expect(resolveSwipeAction(a, master, "swipe-down", screens)).toBeUndefined()
+  })
+
+  test("a button that is no swipe is resolved as before", () => {
+    const withButton = { ...a, buttonActions: { "button-0": { type: "goto-neighbour", side: "down" } } }
+    expect(resolveSwipeAction(withButton, master, "button-0", [master, withButton, b, a1])).toEqual({ type: "goto-neighbour", side: "down" })
+    expect(resolveSwipeAction(a, master, "button-0", screens)).toBeUndefined()
+  })
+})
+
+test.describe("screen graph: «Go to the screen beside»", () => {
+  test("a button picks the side, says when nothing is docked there, and in the preview goes to the neighbour", async ({ page }, testInfo) => {
+    // The combined project with its second screen docked below the first;
+    // until the designer docks by itself (G4), the zip does.
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens.find((s: any) => s.id === "screen-3").dock = { screenId: "screen-1", edge: "down" }
+    zip.file("project.json", JSON.stringify(project))
+    const docked = testInfo.outputPath("docked.zip")
+    fs.writeFileSync(docked, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, docked)
+
+    await clickButton0(page)
+    const actionType = page.locator("#button-10-actionType")
+    await expect(actionType).toBeFocused()
+    await actionType.selectOption("goto-neighbour")
+    const side = page.locator("#button-10-neighbourSide")
+    // A button that is no swipe suggests the next screen.
+    await expect(side).toHaveValue("right")
+    await side.selectOption("up")
+    await expect(page.getByText("No screen is docked there: here it does nothing.")).toBeVisible()
+    await side.selectOption("down")
+    await expect(page.getByText("No screen is docked there: here it does nothing.")).toHaveCount(0)
+
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    await clickButton0(page)
+    await expect(page.getByText("→ Go to the screen below").first()).toBeVisible()
+    await expect(page.getByText("label-tests-black-background").first()).toBeVisible()
   })
 })

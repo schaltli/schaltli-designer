@@ -23,6 +23,7 @@ import { BUTTON_STATUS_COLOR, resolveButtonAction, resolveMasterScreen } from "@
 import { describeDeviceAction } from "@/lib/device-actions"
 import { isMainScreen, isPopup } from "@/lib/popup"
 import { adjustTargetLabel, adjustTargets, suggestedDirection } from "@/lib/adjust-level"
+import { neighboursOf, SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { cn } from "@/lib/utils"
 
 export interface HardwareButtonActionFieldsProps {
@@ -66,6 +67,14 @@ const CONCRETE_ACTION_TYPES: { value: HardwareButtonAction["type"]; label: strin
   { value: "open-popup", label: "Open a popup" },
 ]
 
+// The neighbour a button goes to (docs/2026-10-17-screen-graph.md decision 16).
+const SIDE_OPTIONS: { value: ScreenEdge; label: string }[] = [
+  { value: "up", label: "Above" },
+  { value: "down", label: "Below" },
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+]
+
 const DIRECTION_OPTIONS = [
   { value: "up", label: "One step up" },
   { value: "down", label: "One step down" },
@@ -80,6 +89,7 @@ interface ActionFields {
   deviceActionId: string
   targetObjectId: string
   direction: "up" | "down"
+  side: ScreenEdge
 }
 
 export function HardwareButtonActionFields({
@@ -104,6 +114,9 @@ export function HardwareButtonActionFields({
   const [deviceActionId, setDeviceActionId] = useState<string>("")
   const [targetObjectId, setTargetObjectId] = useState<string>("")
   const [direction, setDirection] = useState<"up" | "down">("up")
+  // A swipe suggests the neighbour it would pull in; a button, the next one.
+  const suggestedSide: ScreenEdge = SWIPE_TO_SIDE[button.id] ?? "right"
+  const [side, setSide] = useState<ScreenEdge>(suggestedSide)
   const rowRef = useRef<HTMLDivElement>(null)
   const [lit, setLit] = useState(false)
 
@@ -128,6 +141,8 @@ export function HardwareButtonActionFields({
   // «Close this popup» only where there is one to close (lib/popup.ts).
   const actionTypeOptions = [
     ...CONCRETE_ACTION_TYPES,
+    // A popup is not in the screen graph: it has no neighbours.
+    ...(isPopup(currentScreen) ? [] : [{ value: "goto-neighbour" as const, label: "Go to the screen beside" }]),
     ...(isPopup(currentScreen) ? [{ value: "close-popup" as const, label: "Close this popup" }] : []),
     ...(deviceActions.length ? [{ value: "device-action" as const, label: "Device Action" }] : []),
   ]
@@ -151,6 +166,7 @@ export function HardwareButtonActionFields({
       setDeviceActionId(resolved.action.deviceActionId || "")
       setTargetObjectId(resolved.action.targetObjectId || "")
       setDirection(resolved.action.direction ?? "up")
+      setSide(resolved.action.side ?? suggestedSide)
     } else {
       setActionType("none")
     }
@@ -164,11 +180,12 @@ export function HardwareButtonActionFields({
       setDeviceActionId("")
       setTargetObjectId("")
       setDirection(suggestedDirection(button.name))
+      setSide(suggestedSide)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [button.id, currentScreen.id, resolved.source, resolved.action?.type])
 
-  const fields: ActionFields = { targetScreenId, mqttTopic, mqttMessage, deviceActionId, targetObjectId, direction }
+  const fields: ActionFields = { targetScreenId, mqttTopic, mqttMessage, deviceActionId, targetObjectId, direction, side }
 
   const saveAction = useCallback(
     (newActionType: DropdownValue, f: ActionFields) => {
@@ -191,6 +208,9 @@ export function HardwareButtonActionFields({
           break
         case "adjust-level":
           action = { type: newActionType, targetObjectId: f.targetObjectId, direction: f.direction }
+          break
+        case "goto-neighbour":
+          action = { type: newActionType, side: f.side }
           break
         default:
           action = { type: newActionType }
@@ -248,6 +268,12 @@ export function HardwareButtonActionFields({
     const next = newDirection === "down" ? "down" : "up"
     setDirection(next)
     saveAction(actionType, { ...fields, direction: next })
+  }
+
+  const handleSideChange = (newSide: string) => {
+    const next = SIDE_OPTIONS.find((o) => o.value === newSide)?.value ?? suggestedSide
+    setSide(next)
+    saveAction(actionType, { ...fields, side: next })
   }
 
   const options = [
@@ -339,6 +365,23 @@ export function HardwareButtonActionFields({
         </>
       ) : null}
 
+      {/* On a master every screen that inherits it has its own
+          neighbours; on a screen the note says when there is none. */}
+      {actionType === "goto-neighbour" ? (
+        <>
+          <SelectField
+            id={`${idPrefix}neighbourSide`}
+            label="Side"
+            value={side}
+            options={SIDE_OPTIONS}
+            onChange={handleSideChange}
+          />
+          {!currentScreen.isMaster && !neighboursOf(allScreens, currentScreen.id)[side] ? (
+            <FieldNote>No screen is docked there: here it does nothing.</FieldNote>
+          ) : null}
+        </>
+      ) : null}
+
       {actionType === "send-mqtt" ? (
         <>
           <TopicField
@@ -360,7 +403,7 @@ export function HardwareButtonActionFields({
       ) : null}
     </>
   )
-  const hasDetails = ["goto-screen", "open-popup", "device-action", "adjust-level", "send-mqtt"].includes(actionType)
+  const hasDetails = ["goto-screen", "open-popup", "device-action", "adjust-level", "goto-neighbour", "send-mqtt"].includes(actionType)
 
   return (
     <div

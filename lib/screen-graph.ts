@@ -170,3 +170,20 @@ export function pagedScreen<S extends GraphScreen>(screens: readonly S[], curren
   const index = Math.max(0, row.findIndex((s) => s.id === from?.id))
   return row[(((index + delta) % row.length) + row.length) % row.length]
 }
+
+/** The swipe that pulls in the neighbour on that side: swiping up shows the screen below (decision 4). */
+export const SWIPE_TO_SIDE: Record<string, ScreenEdge> = {
+  "swipe-up": "down",
+  "swipe-down": "up",
+  "swipe-left": "right",
+  "swipe-right": "left",
+}
+
+/** «Go to the screen above» and so on (decision 16). */
+export function describeNeighbourSide(side: ScreenEdge | undefined): string {
+  if (side === "up") return "Go to the screen above"
+  if (side === "down") return "Go to the screen below"
+  if (side === "left") return "Go to the screen on the left"
+  if (side === "right") return "Go to the screen on the right"
+  return "Go to the screen beside"
+}

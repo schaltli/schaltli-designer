@@ -143,7 +143,7 @@ of its own.
     pause is about 0.4 s, and the map is the designer's view of the
     surface, drawn small)
 16. **Four actions for the neighbours** (user, 2026-10-17): «Go to the
-    screen above», «… below», «… left» and «… right» do what the swipe in
+    screen above», «… below», «… on the left» and «… on the right» do what the swipe in
     that direction would do without the screen's own swipe action. So a
     project can put the screen graph on hardware buttons, one for each
     direction, and work without swiping at all, as «Next screen» and

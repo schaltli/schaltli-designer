@@ -38,7 +38,7 @@ import { DEFAULT_SEPARATORS, type PlaceholderScope, type Separators } from "@/li
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
-import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { resolveButtonAction, resolveSwipeAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
@@ -2756,7 +2756,8 @@ export function Canvas({
         const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
         if (clickedSvgButton) {
           const hardwareButton = hardwareButtons.find((button) => button.id === clickedSvgButton)
-          const action = hardwareButton ? resolveButtonAction(screen, masterScreen, hardwareButton.id).action : undefined
+          // A swipe's neighbour counts too (lib/hardware-button-actions.ts resolveSwipeAction).
+          const action = hardwareButton ? resolveSwipeAction(screen, masterScreen, hardwareButton.id, projectScreens ?? []) : undefined
           if (action) onPreviewButtonAction?.(action)
           return
         }

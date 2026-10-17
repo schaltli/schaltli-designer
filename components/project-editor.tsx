@@ -43,7 +43,7 @@ import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-ord
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
-import { pagedScreen, type ScreenDock } from "@/lib/screen-graph"
+import { describeNeighbourSide, neighboursOf, pagedScreen, type ScreenDock, type ScreenEdge } from "@/lib/screen-graph"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -524,6 +524,7 @@ export interface HardwareButtonAction {
     | "adjust-level"
     | "open-popup"
     | "close-popup"
+    | "goto-neighbour"
     | "none"
   // For goto-screen, and for open-popup: the popup screen it opens
   // (lib/popup.ts). close-popup takes nothing - it closes whatever is open.
@@ -540,6 +541,9 @@ export interface HardwareButtonAction {
   // device knows its buttons by id, not by side.
   targetObjectId?: string
   direction?: "up" | "down"
+  // For goto-neighbour: the side of the screen the neighbour is on
+  // (docs/2026-10-17-screen-graph.md decision 16, lib/screen-graph.ts).
+  side?: ScreenEdge
 }
 
 // Compact one-line summary of an action - used wherever a default/override
@@ -566,6 +570,8 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return `Open popup "${screens.find((s) => s.id === action.targetScreenId)?.name ?? "?"}"`
     case "close-popup":
       return "Close the popup"
+    case "goto-neighbour":
+      return describeNeighbourSide(action.side)
     case "none":
       return "No action"
     default:
@@ -1540,7 +1546,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
       // Any screen change closes an open popup, as it does on the device.
-      if (action.type === "next-screen" || action.type === "previous-screen" || action.type === "goto-screen") {
+      if (
+        action.type === "next-screen" ||
+        action.type === "previous-screen" ||
+        action.type === "goto-screen" ||
+        action.type === "goto-neighbour"
+      ) {
         setPreviewPopupId(null)
       }
       if (action.type === "next-screen" || action.type === "previous-screen") {
@@ -1550,6 +1561,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         if (!target) return
         setPreviewScreenId(target.id)
         toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: target.name })
+      } else if (action.type === "goto-neighbour") {
+        // The neighbour on that side, if one is docked there; else nothing,
+        // as on a device (decision 16).
+        const fromId = previewScreenId ?? currentScreenId
+        const targetId = action.side ? neighboursOf(project.screens, fromId)[action.side] : undefined
+        const target = project.screens.find((s) => s.id === targetId)
+        if (!target) return
+        setPreviewScreenId(target.id)
+        toast({ title: `→ ${describeNeighbourSide(action.side)}`, description: target.name })
       } else if (action.type === "goto-screen") {
         const target = project.screens.find((s) => s.id === action.targetScreenId)
         if (!target) {

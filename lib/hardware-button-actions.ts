@@ -25,6 +25,7 @@
 
 import type { HardwareButtonAction, ProjectScreen } from "@/components/project-editor"
 import { adjustTargetOf } from "@/lib/adjust-level"
+import { neighboursOf, SWIPE_TO_SIDE } from "@/lib/screen-graph"
 // Re-exported for existing importers (project-editor.tsx,
 // hardware-button-action-fields.tsx, lib/project-zip.ts) - the real definition
 // moved to lib/master-screen.ts once background-color/image inheritance
@@ -77,6 +78,26 @@ export function exportedButtonAction(
     return { type: action.type, targetObjectId: action.targetObjectId, direction: action.direction ?? "up" }
   }
   return action
+}
+
+/**
+ * What a swipe does on a screen, in the order of the screen graph
+ * (docs/2026-10-17-screen-graph.md decision 4): the screen's own action - an
+ * explicit «Nothing» among them, which is how a screen says a swipe does
+ * nothing here - else the neighbour it pulls in, else the master's action.
+ * Any other button is resolved as before.
+ */
+export function resolveSwipeAction(
+  screen: ProjectScreen,
+  masterScreen: ProjectScreen | undefined,
+  buttonId: string,
+  screens: readonly ProjectScreen[],
+): HardwareButtonAction | undefined {
+  const resolved = resolveButtonAction(screen, masterScreen, buttonId)
+  const side = SWIPE_TO_SIDE[buttonId]
+  if (!side || resolved.source === "local" || screen.buttonActions?.[buttonId]?.type === "none") return resolved.action
+  if (neighboursOf(screens, screen.id)[side]) return { type: "goto-neighbour", side }
+  return resolved.action
 }
 
 // gray/yellow/red - unbelegt/vererbt/lokal definiert. Read live off the
