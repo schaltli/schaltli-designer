@@ -45,7 +45,7 @@ Beim Einfügen gilt:
 
 <span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht.
 
-Du kannst einen Screen auch ziehen: zwischen zwei Screens der Hauptreihe, auf einen freien Platz über oder unter einem Screen der Reihe oder auf <span class="ui">Hidden</span>. Solange du ziehst, sind nur die Plätze hervorgehoben, an die er passt. Lässt du ihn anderswo los, sagt der Designer, warum er dort nicht hinkann. Popups und Master bleiben, wo sie sind. Ctrl+Z nimmt den letzten Zug zurück.
+Du kannst einen Screen auch ziehen: zwischen zwei Screens der Hauptreihe, auf einen freien Platz über oder unter einem Screen der Reihe oder auf <span class="ui">Hidden</span>. Wie beim Andocken in einer Tabelle zeigt eine türkise Linie, wo er hinkommt, wenn du ihn loslässt. Über <span class="ui">Hidden</span> wird die Fläche grün. Wo er nicht hinpasst, erscheint nichts; lässt du ihn dort los, sagt der Designer, warum. Popups und Master bleiben, wo sie sind. Ctrl+Z nimmt den letzten Zug zurück.
 
 ## Master-Screens
 

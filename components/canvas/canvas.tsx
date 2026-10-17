@@ -586,7 +586,7 @@ const CREATION_PREVIEW_COLOR = "#3b82f6"
 // A layout container at work (docs/2026-10-02-layout.md): its outline and
 // the places it gave what it holds - shown only while it is active, so a
 // screen full of containers does not look like a construction drawing.
-const LAYOUT_HINT_COLOR = "#0d9488"
+export const LAYOUT_HINT_COLOR = "#0d9488"
 const CREATION_PREVIEW_FILL = "rgba(59, 130, 246, 0.1)"
 
 function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, zoom: number): void {

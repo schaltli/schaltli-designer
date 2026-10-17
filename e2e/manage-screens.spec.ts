@@ -28,7 +28,7 @@ const view = (page: Page) => page.getByTestId("manage-screens")
 const columns = (page: Page) => view(page).locator("[data-column]").evaluateAll((els) => els.map((e) => e.getAttribute("data-column")))
 const columnCards = (page: Page, pageId: string) =>
   view(page)
-    .locator(`[data-column="${pageId}"] > *`)
+    .locator(`[data-column="${pageId}"] > :is([data-screen-card], [data-empty-place], [data-join])`)
     .evaluateAll((els) => els.map((e) => e.getAttribute("data-screen-card") ?? e.getAttribute("data-empty-place") ?? "join"))
 
 test.describe("Manage Screens", () => {
@@ -45,6 +45,13 @@ test.describe("Manage Screens", () => {
     // A' above A, nothing below; B' above B.
     expect(await columnCards(page, "screen-1")).toEqual(["screen-3", "join", "screen-1", "join", "screen-1:down"])
     expect((await columnCards(page, "screen-mqtt-white"))[0]).toBe("screen-mqtt-black")
+    // The join from A' to A runs from thumbnail to thumbnail, under the name
+    // between them.
+    const frame = async (id: string) => (await view(page).locator(`[data-screen-card="${id}"] > div`).first().boundingBox())!
+    const joinLine = (await view(page).locator('[data-column="screen-1"] [data-join-line]').boundingBox())!
+    const above = await frame("screen-3")
+    expect(Math.abs(joinLine.y - (above.y + above.height))).toBeLessThan(1)
+    expect(Math.abs(joinLine.y + joinLine.height - (await frame("screen-1")).y)).toBeLessThan(1)
     // A' and B' stand in different columns: side by side, no neighbours.
     await expect(view(page).getByTestId("apart-hidden").locator("[data-screen-card]")).toHaveText(["level-indicator-tests-white-background"])
     await expect(view(page).getByTestId("apart-masters").locator("[data-screen-card]")).toHaveCount(1)
@@ -153,6 +160,14 @@ test.describe("Manage Screens: dragging", () => {
     await view(page).locator('[data-empty-place="screen-level-black:down"]').hover({ position: { x: 10, y: 10 } })
     await expect(view(page).locator('[data-empty-place="screen-level-black:down"]')).not.toHaveAttribute("data-lit")
     await expect(view(page).locator('[data-row-gap="end"]')).toHaveAttribute("data-lit", "true")
+    // No hint where it may not go; over a row gap that gap's line alone, as
+    // a new column of a table on the canvas.
+    await expect(view(page).locator("[data-hint]")).toHaveCount(0)
+    const gap = view(page).locator('[data-row-gap="screen-line-tests"]')
+    await gap.hover()
+    await gap.hover({ position: { x: 12, y: 250 } })
+    await expect(view(page).locator("[data-hint]")).toHaveAttribute("data-hint", "row:screen-line-tests")
+    await view(page).locator('[data-empty-place="screen-level-black:down"]').hover()
     await page.mouse.up()
     await expect(page.getByText(/stays in the main row/).first()).toBeVisible()
     expect(await columnCards(page, "screen-level-black")).toEqual(["screen-level-black:up", "join", "screen-level-black", "join", "screen-level-black:down"])

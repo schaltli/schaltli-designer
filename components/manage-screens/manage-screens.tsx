@@ -9,8 +9,11 @@
  * settings' «Screens» tab offered, which this view replaces; a double-click
  * opens it for editing. A screen is dragged into the row, onto a free place
  * above or below a page, or onto «Hidden»; while it is dragged only the
- * places it may go are lit, and a drop where it may not says why. Each drop
- * is one undo step.
+ * places it may go take it, and a drop where it may not says why. Each drop
+ * is one undo step. The hint is the snapping table's on the canvas
+ * (components/canvas/snap-table-overlay.ts), for the target under the
+ * pointer only: a line where the screen joins, or «Hidden» lit green like an
+ * empty cell.
  */
 
 import { Fragment, useEffect, useState } from "react"
@@ -28,6 +31,8 @@ import { graphLayout, mainRow, withScreenApart, withScreenDocked, withScreenInRo
 import { isMainScreen } from "@/lib/popup"
 import { withScreenDeleted, withScreenDuplicated } from "@/lib/screen-actions"
 import { useToast } from "@/hooks/use-toast"
+import { LAYOUT_HINT_COLOR } from "../canvas/canvas"
+import { SNAP_CELL_COLOR } from "../canvas/snap-table-overlay"
 import { cn } from "@/lib/utils"
 
 interface ManageScreensProps {
@@ -59,9 +64,10 @@ export function ManageScreens({
   const { toast } = useToast()
   const [selectedId, setSelectedId] = useState<string>(currentScreenId)
   const layout = graphLayout(project.screens)
-  const cardHeight = Math.round((CARD_WIDTH * project.screenHeight) / project.screenWidth)
   // A card: the thumbnail in its 4 px frame, a 4 px gap and the name's line.
-  const cardTotal = cardHeight + 8 + 4 + 16
+  // The thumbnail fills the frame's inside at the screen's own ratio.
+  const frameHeight = ((CARD_WIDTH - 8) * project.screenHeight) / project.screenWidth + 8
+  const cardTotal = frameHeight + 4 + 16
   const selected = project.screens.find((s) => s.id === selectedId)
   // The screen being dragged, and the drop target under the pointer.
   const [dragId, setDragId] = useState<string | null>(null)
@@ -143,8 +149,23 @@ export function ManageScreens({
           },
         }
       : {}
-  const litClass = (key: string) =>
-    dragged && lit(key) ? (overKey === key ? "border-primary bg-primary/25" : "border-primary/70 bg-primary/10") : ""
+  // The hint line of the target under the pointer, where the dragged screen
+  // goes when let go - as on the canvas, only that one shows.
+  const hint = (key: string, style: React.CSSProperties) => {
+    if (!dragged || overKey !== key || !lit(key)) return null
+    const across = style.width === undefined
+    return (
+      <div
+        data-hint={key}
+        className="pointer-events-none absolute rounded-full"
+        style={{
+          ...style,
+          ...(across ? { width: 4, marginLeft: -2 } : { height: 4, marginTop: -2 }),
+          background: LAYOUT_HINT_COLOR,
+        }}
+      />
+    )
+  }
 
   const card = (screen: ProjectScreen) => {
     const masterScreen = screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens)
@@ -201,16 +222,27 @@ export function ManageScreens({
     )
   }
 
-  // A place with nothing on it: where a screen could lie.
+  // A place with nothing on it: where a screen could lie. Nothing shows
+  // there but while a screen is dragged, and then only a line along the edge
+  // of the page it would join, as beside a free object on the canvas.
   const place = (key: string) => (
     <div
       key={key}
       data-empty-place={key}
       data-lit={lit(key) || undefined}
       {...dropTarget(key)}
-      className={cn("rounded border border-dashed border-border/60", litClass(key))}
       style={{ width: CARD_WIDTH, height: cardTotal }}
     />
+  )
+  // Where the page's thumbnail lies in its column, and its edges' hints:
+  // in the room between the page and the place, clear of the names.
+  const pageTop = cardTotal + 16
+  const pageBottom = pageTop + frameHeight
+  const placeHints = (pageId: string) => (
+    <>
+      {hint(`${pageId}:up`, { left: 0, width: CARD_WIDTH, top: pageTop - 8 })}
+      {hint(`${pageId}:down`, { left: 0, width: CARD_WIDTH, top: pageTop + cardTotal + 8 })}
+    </>
   )
 
   // A gap in the main row: where a dragged screen goes in, before `beforeId`
@@ -222,16 +254,27 @@ export function ManageScreens({
         data-row-gap={beforeId ?? "end"}
         data-lit={lit(key) || undefined}
         {...dropTarget(key)}
-        className={cn("relative w-6 shrink-0 self-stretch rounded border border-transparent", litClass(key))}
+        className="relative w-6 shrink-0 self-stretch"
       >
-        {joined && <div className="absolute inset-x-0 h-0.5 bg-border" style={{ top: cardTotal + 16 + (cardHeight + 8) / 2 - 1 }} />}
+        {joined && <div className="absolute inset-x-0 h-0.5 bg-border" style={{ top: pageTop + frameHeight / 2 - 1 }} />}
+        {/* As a new column of a table: faint down the comb, strong along the page. */}
+        {dragged && overKey === key && lit(key) && (
+          <div
+            className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -ml-px rounded-full"
+            style={{ background: LAYOUT_HINT_COLOR, opacity: 0.35 }}
+          />
+        )}
+        {hint(key, { left: "50%", top: pageTop, height: frameHeight })}
       </div>
     )
   }
 
-  // The join between a page and a screen docked on it.
-  const along = (key: string, shown: boolean) => (
-    <div key={key} className={cn("mx-auto h-4 w-0.5", shown ? "bg-border" : "bg-transparent")} />
+  // The room between a page and the place above or below it. The join to a
+  // screen docked there is drawn by the column, from thumbnail to thumbnail,
+  // and runs under the name between them.
+  const along = (key: string) => <div key={key} data-join className="h-4" />
+  const join = (top: number) => (
+    <div data-join-line className="pointer-events-none absolute left-1/2 w-0.5 -ml-px bg-border" style={{ top, height: pageTop - frameHeight }} />
   )
 
   const rowIndex = row.findIndex((s) => s.id === selectedId)
@@ -242,12 +285,23 @@ export function ManageScreens({
     onProjectUpdate({ ...project, screens: withScreenInRow(project.screens, selectedId, beforeId) })
   }
 
-  const apartGroup = (title: string, testId: string, screens: ProjectScreen[], dropKey?: string) => (
+  // «Hidden» lit as an empty cell of a table, green.
+  const apartGroup = (title: string, testId: string, screens: ProjectScreen[], dropKey?: string) => {
+    const shown = !!dropKey && !!dragged && overKey === dropKey && lit(dropKey)
+    return (
     <div
       data-testid={testId}
       data-lit={(dropKey && lit(dropKey)) || undefined}
       {...(dropKey ? dropTarget(dropKey) : {})}
-      className={cn("-m-2 flex flex-col gap-2 rounded border border-transparent p-2", dropKey && litClass(dropKey))}
+      className="-m-2 flex flex-col gap-2 rounded border-2 border-transparent p-2"
+      style={
+        shown
+          ? {
+              borderColor: SNAP_CELL_COLOR,
+              background: `${SNAP_CELL_COLOR}40`,
+            }
+          : undefined
+      }
     >
       <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
       <div className="flex flex-wrap gap-4">
@@ -256,7 +310,8 @@ export function ManageScreens({
         )}
       </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div data-testid="manage-screens" className="flex-1 min-h-0 flex flex-col bg-background">
@@ -280,12 +335,15 @@ export function ManageScreens({
             {layout.columns.map((column, i) => (
               <Fragment key={column.page.id}>
                 {rowGap(column.page.id, i > 0)}
-                <div data-column={column.page.id} className="flex flex-col">
+                <div data-column={column.page.id} className="relative flex flex-col">
                   {column.up ? card(column.up) : place(`${column.page.id}:up`)}
-                  {along(`${column.page.id}:up-join`, !!column.up)}
+                  {along(`${column.page.id}:up-join`)}
                   {card(column.page)}
-                  {along(`${column.page.id}:down-join`, !!column.down)}
+                  {along(`${column.page.id}:down-join`)}
                   {column.down ? card(column.down) : place(`${column.page.id}:down`)}
+                  {column.up && join(frameHeight)}
+                  {column.down && join(pageBottom)}
+                  {placeHints(column.page.id)}
                 </div>
               </Fragment>
             ))}
