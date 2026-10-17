@@ -839,6 +839,26 @@ async function main() {
     }
   })
 
+  // The pinch proof of concept (docs/2026-10-16-charts.md, decision 15):
+  // two posted fingers drawn together, apart and side by side, told apart
+  // and never paging.
+  step("4v3b", async () => {
+    console.log(`\n=== Waveshare 4.3B pinch (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+    {
+      const exitCode = await run("node", ["hil/waveshare4v3b/pinch.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      summary.push({
+        name: "waveshare-4v3b-pinch",
+        status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+        detail:
+          exitCode === 2
+            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            : exitCode === 0
+              ? "pinch in, pinch out and a two-finger drag told apart, none paged"
+              : `exit code ${exitCode} - see output above`,
+      })
+    }
+  })
+
   // Pixel parity for the 4.3B.
   //
   // The permanent form of a comparison run by hand on 2026-09-10, which
