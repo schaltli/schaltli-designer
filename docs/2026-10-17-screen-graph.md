@@ -114,7 +114,12 @@ of its own.
     out each screen's `neighbours: { up?, down?, left?, right? }`, its
     `back` (the direction of the screen it is docked on, for the «←») and
     the main row in order for next and previous. A device follows no
-    tree.
+    tree. The order of decision 4 is resolved on export too: no device
+    knows masters (the export already writes their actions into each
+    screen), so the designer writes for each direction the action that
+    wins - the screen's own, else «Go to the screen …» towards the
+    neighbour (decision 16), else the master's. A device runs one action
+    per swipe, as now. (user, 2026-10-17, with the modules)
 14. **A feature the device declares** (user, 2026-10-17): `screen-graph` in its
     DDF. Deploy gates on it only when something is docked off the main
     row; a single row runs on an older board as it is. Otherwise Deploy
@@ -143,8 +148,140 @@ of its own.
     action does nothing. The export already carries `neighbours`
     (decision 13); the device computes nothing for them.
 
+## Modules
+
+Approved by the user on 2026-10-17. Each module gets its plan as
+`tasks/<module>-plan.md` and its tasks as `tasks/<module>-todo.md`, as
+with local topics. Commands, tests, style and boundaries are those of
+`CLAUDE.md` (`npm run test:quick` for every change, ad-hoc checks become
+e2e or HIL tests, the handbook changes with what a user sees) and of the
+firmware's `pio test -e native`.
+
+| Module | Responsibility | Depends on |
+|---|---|---|
+| `graph-model` | `dock` in the project, the tree check (decisions 2 and 3), the main row, loading existing projects as one row, the four actions in the union and the picker, the export of `neighbours`, `back`, the main row and the resolved swipe actions (decision 13), the preview running the actions and «←» | - |
+| `graph-surface` | the designer's surface: docking by dragging, the lines between docked screens, the area for hidden screens, popups and masters, the warning when an own swipe action cuts a neighbour off | `graph-model` |
+| `graph-contract` | `docs/device-contract.md`, the feature `screen-graph`, Deploy's gate (decision 14), «Show Screen Menu» removed with its notice (decision 6) | `graph-model` |
+| `graph-firmware` | 4.3B, PaperS3, knob: reading the export, the four actions, next and previous over the main row, following the finger up and down, the pull tab, the navigator's «←», the knob's screen menu gone, the DDF; native tests and HIL | `graph-contract` |
+| `graph-android` | the app: the same, `ScreenMenuOverlay` gone; the orchestrator's HIL | `graph-contract` |
+| `graph-knob-map` | the knob: the hints at the edges while swiping, the map on a swipe and hold (decision 15) | `graph-firmware` |
+
+Order: `graph-model` → `graph-surface` and `graph-contract` side by side
+→ `graph-firmware` and `graph-android` → `graph-knob-map`. The handbook
+is changed in each module, not at the end.
+
+Taken with the map (user, 2026-10-17):
+
+- Following the finger up and down belongs to the boards and the app
+  that follow it sideways now (knob, 4.3B, Android); «what lies below is
+  pulled up» lives by it. The PaperS3 has no animation and jumps.
+- The designer's preview gets no swipe gesture: the actions and «←» are
+  clicked there, as the hardware buttons are now.
+
+## Where it goes in (from the survey of 2026-10-17)
+
+- **Designer.**
+  - Screens are `ProjectScreen` (`components/project-editor.tsx`), in the
+    order of `project.screens`; `dock` goes beside `masterScreenId`.
+  - Next and previous walk `screens.filter(isPagedScreen)`
+    (`lib/popup.ts`) in the preview (`handlePreviewButtonAction`) and on
+    the devices: that filter becomes the main row.
+  - Masters resolve in `lib/hardware-button-actions.ts`
+    (`resolveButtonAction`, `exportedButtonAction`); the neighbour slots
+    in between.
+  - The action union is `HardwareButtonAction`; the picker is
+    `components/hardware-button-action-fields.tsx`; the swipe fields are
+    in `components/property-panel/screen-properties.tsx`.
+  - The screen list is `components/screens-panel/screens-panel.tsx`
+    (reorder by dragging) and «Manage Screens» in
+    `components/project-settings-dialog.tsx`; the surface takes their
+    place or stands beside them, decided in `graph-surface`.
+  - The navigator lists `navigatorScreens` (`lib/navigator.ts`).
+  - Export: `lib/project-zip.ts` (the per-screen loop) and
+    `lib/android-export.ts`.
+  - Deploy: the features in `components/deploy-dialog.tsx` beside
+    `localTopicsFeature`, and `lib/deploy-plan.ts`.
+  - Migration: `migrateProject` (`lib/object-types.ts`).
+  - «Show Screen Menu» is in `lib/device-actions.ts`,
+    `lib/device-description.ts`, `ProjectSettings.deviceActions`, the
+    contract, `DEVICE_GUIDE.md`, and fixtures in e2e and HIL.
+- **Firmware.**
+  - `ProjectLoader::parseScreenInto` reads the screen; `getButtonAction`
+    picks the action.
+  - Paging is `pagedIndex` in `NavigatorLayout.cpp`. The knob's next and
+    previous (`src/main.cpp`, `dispatchButtonAction`) do not skip hidden
+    screens now; the main row mends that.
+  - Following the finger:
+    - knob: `tryStartDrag`, and `prerenderNeighbours` (±1 index only);
+    - 4.3B: `pagingTargetFor`, sideways only, and `FollowSwipe.h`.
+  - The knob's screen menu is `ScreenNavigatorOverlay` with its hooks in
+    `src/main.cpp`.
+  - The DDFs list `supportedFeatures` in `ddf-source*/device.json`.
+  - A new pure module for the native tests is added to `[env:native]`.
+- **Android.**
+  - The model is `data/ProjectModels.kt`.
+  - Swipes are looked up in `MainActivity.kt`; the slide is
+    `ui/SwipeNavigation.kt` (sideways only); the actions are
+    `mqtt/ButtonActionDispatcher.kt` (`navigationTarget`).
+  - The navigator is `ui/NavigatorStripView.kt`.
+  - The screen menu is `ui/ScreenMenuOverlay.kt`.
+  - The DDF is `ddf/DdfBuilder.kt`.
+
+## Success criteria
+
+1. An existing project opens as one row; its export differs only by the
+   main row, and every swipe and «Next screen» does what it did (e2e,
+   `project-migration`).
+2. With A' docked below A: A's export has `neighbours.down`, A''s
+   `back: "up"`, and A's swipe up is «Go to the screen below». An own
+   swipe up on A wins over it, and a master's swipe up shows only on a
+   screen with no neighbour below (e2e).
+3. A dock that would close a loop, or put a screen above or below one
+   docked above or below, is refused (e2e).
+4. Deploy of a project with a screen docked off the main row to a board
+   without `screen-graph` brings it up to date first, and asks an older
+   app to update; a single row deploys as before (e2e, `deploy-plan`).
+5. A project with «Show Screen Menu» loses it on opening, says so once,
+   and exports without it (e2e, `device-actions`).
+6. In the preview the four actions change screen, and the navigator
+   shows «←» on A' and goes back on a click (e2e).
+7. On the surface a screen dragged to an edge of another docks there;
+   lines join docked screens; hidden screens, popups and masters stand
+   apart; a cut-off neighbour is warned about (e2e).
+8. On the 4.3B, the PaperS3 and the knob (HIL): swiping up on A shows
+   A', down goes back; from A' no sideways swipe reaches B'; next and
+   previous walk the main row and skip hidden screens; a pull tab is
+   drawn where a swipe leads to a neighbour and nowhere else; the
+   navigator shows «←» on A' and goes back on a tap. The main row's
+   paging has a native test.
+9. The Android app as 8 (orchestrator HIL, unit tests).
+10. On the knob (HIL, by `/api/touch`): the hints show while swiping; a
+    swipe and hold opens the map; lifting on a tile jumps there, on the
+    current screen cancels; holding 5 s on the map does not open setup.
+11. Handbook: `designer/screens.md` (the surface, docking),
+    `designer/tasten.md` (the four actions, the screen menu gone),
+    `objekte/anordnen.md` (navigator «←»), `geraete/knob.md` (hints, map,
+    no screen menu), `geraete/android.md`.
+
+## Not doing
+
+- Screens stacked vertically (decision 3), until there is a use.
+- Neighbours by position on the surface (decision 2): only docked ones.
+- The ring for navigating (decision 5): it turns values.
+- The screen menu (decision 6).
+- A swipe gesture in the designer's preview.
+- A special case for a swipe from the very edge (decision 10).
+- A device working anything out from the tree (decision 13).
+- Hidden screens, popups and masters in the graph or on the map
+  (decision 8).
+
 ## Open
 
+- The decisions still marked (proposed): the lines between docked
+  screens (2), the main row (7), the pull tab's look (9), existing
+  projects as one row (11), docking by dragging (12), the map's pause
+  and look (15). Each is settled in the plan of its module at the
+  latest.
 - How far a touch must move on the knob before the swipe hints show.
 - How long the pause is that opens the map (proposed: 0.4 s), tried on
   the knob in a hand.
