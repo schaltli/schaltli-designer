@@ -1,18 +1,18 @@
-﻿# Todo: graph-surface
+# Todo: graph-surface
 
 Plan: `tasks/graph-surface-plan.md`. Approved by the user on 2026-10-17
-(Â«ja, mit S1 anfangenÂ»), with the view replacing Â«Manage ScreensÂ» rather
+(«ja, mit S1 anfangen»), with the view replacing «Manage Screens» rather
 than standing beside it.
 
 - [x] S1 The core
   - lib/screen-graph.ts: `graphLayout` (columns `{ page, up?, down? }`, and apart: hidden, popups, masters), `withScreenInRow`, `withScreenDocked` (shows a hidden screen on the way, refuses in `canDock`'s words), `withScreenApart`
   - lib/hardware-button-actions.ts: `cutOffSides` - the sides where a neighbour lies but the screen's own swipe does something else
-  - e2e/screen-graph.spec.ts Â«what Â«Manage ScreensÂ» lays out and movesÂ» (5 tests)
+  - e2e/screen-graph.spec.ts «what «Manage Screens» lays out and moves» (5 tests)
 - [x] S2 The view, in place of the tab (no dragging yet)
   - components/manage-screens/manage-screens.tsx: the comb (one column per page, the places above and below, dashed when free, joins between neighbours), «Apart» (Hidden, Popups, Masters); a click selects and shows the screen's fields, its number of objects, «Move left» / «Move right» (row screens), «Duplicate», «Delete»; a double-click opens it; «Done» and Esc close
   - «Manage Screens» in the screens panel opens it in place of the canvas and the properties; the project settings' «Screens» tab and its handlers gone
   - lib/screen-actions.ts: duplicate and delete once, for the list and the view; a copy of a docked screen lands in the main row
-  - e2e/manage-screens.spec.ts (layout and double-click; rename, move, duplicate, delete); seven specs that drove the old tab moved onto the view (helpers openManageScreens, manageScreensCard, closeManageScreens)
+  - e2e/manage-screens.spec.ts (layout and double-click; rename, move, duplicate, delete); seven specs that drove the old tab moved onto the view (helpers `openManageScreens`, `manageScreensCard`, `closeManageScreens`)
   - handbook: designer/screens.md describes the view, designer/projekte.md loses the tab's row
   - test:quick 2026-10-17: e2e 1603 passed; 4.3B deploy (download stalled at 50 %) and PaperS3 live values (terminated) red in the run, green alone
 - [ ] S3 Dragging
