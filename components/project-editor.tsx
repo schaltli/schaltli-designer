@@ -43,7 +43,7 @@ import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-ord
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
-import { describeNeighbourSide, neighboursOf, pagedScreen, type ScreenDock, type ScreenEdge } from "@/lib/screen-graph"
+import { describeNeighbourSide, neighboursOf, pagedScreen, withGraphMended, type ScreenDock, type ScreenEdge } from "@/lib/screen-graph"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -827,10 +827,20 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // left empty is gone (lib/object-groups.ts) - without a single call site
   // having to remember. Same reference when there was nothing to fix, so
   // it costs no render and no undo step.
+  // The screens a change cut off from the screen graph, for the toast below.
+  const cutOffScreensRef = useRef<string[]>([])
   const setProject = useCallback<Dispatch<SetStateAction<Project>>>((action) => {
     // Then the layout (lib/layout.ts): every container's children placed
-    // again, with the same promise - nothing moved, same reference.
-    setProjectState((prev) => layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action)))
+    // again, with the same promise - nothing moved, same reference. And the
+    // screen graph mended (lib/screen-graph.ts): a screen docked on one that
+    // left it - deleted, hidden, made a popup or a master - becomes hidden.
+    setProjectState((prev) => {
+      const next = layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+      const mended = withGraphMended(next.screens)
+      if (mended.hidden.length === 0) return next
+      cutOffScreensRef.current = mended.hidden.map((s) => s.name)
+      return { ...next, screens: mended.screens }
+    })
   }, [])
 
   // A TTF font the layout measured wide until it had loaded is there now:
@@ -993,6 +1003,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // but was opened anyway using the data embedded in the project file.
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Said once, after the change that cut them off (setProject above).
+  useEffect(() => {
+    const names = cutOffScreensRef.current
+    if (names.length === 0) return
+    cutOffScreensRef.current = []
+    toast({
+      title: names.length === 1 ? "A screen is hidden now" : `${names.length} screens are hidden now`,
+      description: `${names.map((n) => `"${n}"`).join(", ")}: the screen ${names.length === 1 ? "it was" : "they were"} docked on left the screen graph.`,
+    })
+  }, [project.screens, toast])
 
   // Explicit saving (docs/2026-09-23-explicit-save.md). Taking the saved name
   // is no edit, so it goes in through history.amend like the deploy binding.

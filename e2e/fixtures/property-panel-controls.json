@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-08",
+  "harvestedAt": "2026-10-17",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -550,6 +550,7 @@
         "radio: Fixed",
         "radio: Live",
         "button: Select icon",
+        "select: Position",
         "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",
@@ -597,6 +598,7 @@
         "radio: Fixed",
         "radio: Live",
         "button: Select icon",
+        "select: Position",
         "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",
@@ -628,6 +630,7 @@
         "radio: Fixed",
         "radio: Live",
         "button: Select icon",
+        "select: Position",
         "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",

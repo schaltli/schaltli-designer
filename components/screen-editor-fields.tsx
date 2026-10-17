@@ -15,6 +15,29 @@ import type { CombinedTopic } from "@/lib/combined-topics"
 import type { Topic } from "./project-editor"
 import { LiveValueEditor, type IconTarget } from "./property-panel/live-value-editor"
 import { cn } from "@/lib/utils"
+import { SelectField } from "./property-panel/fields"
+import { canDock, isInGraph, SCREEN_EDGES, type ScreenEdge } from "@/lib/screen-graph"
+
+const EDGE_LABEL: Record<ScreenEdge, string> = { up: "Above", down: "Below", left: "Left of", right: "Right of" }
+
+/**
+ * Where a screen lies in the screen graph (docs/2026-10-17-screen-graph.md,
+ * tasks/graph-model-plan.md decision 9): in the main row, or docked on an
+ * edge of another screen - only the places lib/screen-graph.ts canDock
+ * allows. The value of a dock is "<screen id>:<edge>".
+ */
+function positionOptions(screen: ProjectScreen, allScreens: ProjectScreen[]): { value: string; label: string }[] {
+  const options = [{ value: "row", label: "In the main row" }]
+  for (const other of allScreens) {
+    if (other.id === screen.id || !isInGraph(allScreens, other.id)) continue
+    for (const edge of SCREEN_EDGES) {
+      if (canDock(allScreens, screen.id, other.id, edge).ok) {
+        options.push({ value: `${other.id}:${edge}`, label: `${EDGE_LABEL[edge]} "${other.name}"` })
+      }
+    }
+  }
+  return options
+}
 
 interface ScreenEditorFieldsProps {
   screen: ProjectScreen
@@ -232,9 +255,26 @@ export function ScreenEditorFields({
         </div>
       )}
 
+      {/* In the main row or docked on another screen. A hidden screen
+          stands apart (decision 8): it is shown again first. */}
+      {!screen.isMaster && !popup && !screen.hidden && (
+        <SelectField
+          id={`screen-position-${screen.id}`}
+          label="Position"
+          value={screen.dock ? `${screen.dock.screenId}:${screen.dock.edge}` : "row"}
+          options={positionOptions(screen, allScreens)}
+          onChange={(value) => {
+            if (value === "row") return onPatch({ dock: undefined })
+            const [screenId, edge] = value.split(":")
+            onPatch({ dock: { screenId, edge: edge as ScreenEdge } })
+          }}
+        />
+      )}
+
       {/* Out of next/previous and the navigator, still a «Go to Screen»
-          target (docs/2026-10-08-navigator.md decision 3). */}
-      {!screen.isMaster && !popup && (
+          target (docs/2026-10-08-navigator.md decision 3). A docked screen
+          is out of them already. */}
+      {!screen.isMaster && !popup && !screen.dock && (
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <input
             type="checkbox"

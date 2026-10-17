@@ -3,7 +3,7 @@ import JSZip from "jszip"
 import fs from "fs"
 import { clickButton0, COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { resolveSwipeAction } from "../lib/hardware-button-actions"
-import { backOf, canDock, mainRow, neighboursOf, pagedScreen, screensCutOff, withCutOffHidden, type GraphScreen } from "../lib/screen-graph"
+import { backOf, canDock, mainRow, neighboursOf, pagedScreen, screensCutOff, withCutOffHidden, withGraphMended, type GraphScreen } from "../lib/screen-graph"
 
 // The screen graph (docs/2026-10-17-screen-graph.md; tasks/graph-model-todo.md):
 // the main row is the paged screens in list order, a screen off it is docked
@@ -106,6 +106,18 @@ test.describe("screen graph: the core", () => {
     expect(ids(mainRow(screens))).toEqual(["a", "b"])
   })
 
+  test("a broken dock is mended: deleted or made a master, the screens on it become hidden; one itself made a popup just loses its dock", () => {
+    const deleted = withGraphMended(graph.filter((s) => s.id !== "a"))
+    expect(ids(deleted.hidden)).toEqual(["a1", "a2", "r"])
+    expect(deleted.screens.find((s) => s.id === "r")).toMatchObject({ hidden: true, dock: undefined })
+    const mastered = withGraphMended(graph.map((s) => (s.id === "a1" ? { ...s, isMaster: true } : s)))
+    expect(ids(mastered.hidden)).toEqual(["r"])
+    expect(mastered.screens.find((s) => s.id === "a1")).toMatchObject({ isMaster: true, dock: undefined })
+    expect(mastered.screens.find((s) => s.id === "a1")!.hidden).toBeUndefined()
+    const same = [...graph]
+    expect(withGraphMended(same).screens).toBe(same)
+  })
+
   test("next and previous walk the main row, from a docked screen as from the row screen it hangs from", () => {
     const row3: GraphScreen[] = [...graph.slice(0, 2), { id: "c", name: "C" }, ...graph.slice(2)]
     expect(pagedScreen(row3, "a", 1)?.id).toBe("b")
@@ -185,5 +197,48 @@ test.describe("screen graph: «Go to the screen beside»", () => {
     await clickButton0(page)
     await expect(page.getByText("→ Go to the screen below").first()).toBeVisible()
     await expect(page.getByText("label-tests-black-background").first()).toBeVisible()
+  })
+})
+
+test.describe("screen graph: «Position»", () => {
+  // The screen's own panel: nothing selected on the canvas.
+  async function openScreen(page: import("@playwright/test").Page, name: string) {
+    // A hidden screen's row also says «Hidden».
+    await page.getByRole("button", { name: new RegExp(`^${name}( Hidden)?$`) }).click()
+    await page.keyboard.press("Escape")
+  }
+
+  test("docks a screen where it may, hides the screens docked on one that leaves the graph, and says so", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await openScreen(page, "label-tests-black-background")
+    const position = page.locator("#screen-position-screen-3")
+    await expect(position).toHaveValue("row")
+    const offered = async (locator: import("@playwright/test").Locator) =>
+      locator.locator("option").evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value))
+    // Above and below a row screen, never beside it: that is the row.
+    expect(await offered(position)).toContain("screen-1:down")
+    expect(await offered(position)).not.toContain("screen-1:right")
+
+    await position.selectOption("screen-1:down")
+    await expect(position).toHaveValue("screen-1:down")
+    // A docked screen is out of the paging already: no «Hide screen».
+    await expect(page.getByText("Hide screen", { exact: true })).toHaveCount(0)
+
+    // The place below is taken now, and a screen does not dock on what is docked on it.
+    await openScreen(page, "label-tests-white-background")
+    const first = page.locator("#screen-position-screen-1")
+    expect(await offered(first)).not.toContain("screen-3:up")
+    await openScreen(page, "mqtt-field-tests-white-background")
+    const other = page.locator("#screen-position-screen-mqtt-white")
+    expect(await offered(other)).not.toContain("screen-1:down")
+    expect(await offered(other)).toContain("screen-3:right")
+
+    // The page leaves the graph: its history becomes a hidden screen, said once.
+    await openScreen(page, "label-tests-white-background")
+    await page.getByText("Hide screen", { exact: true }).click()
+    await expect(page.getByText("A screen is hidden now").first()).toBeVisible()
+    await openScreen(page, "label-tests-black-background")
+    await expect(page.locator("#screen-position-screen-3")).toHaveCount(0)
+    await expect(page.getByText("Hide screen", { exact: true }).locator("input")).toBeChecked()
   })
 })

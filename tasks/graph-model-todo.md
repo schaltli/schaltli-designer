@@ -19,7 +19,11 @@ screen with no swipe action gains swiping to its neighbours: «7 ja»).
   - `exportedButtonAction(..., screens)` resolves a swipe as own, neighbour, master; a neighbour in the row beside a row screen goes out as «Next screen» / «Previous screen», one off the row as `goto-neighbour`, none as nothing - a single row exports no `goto-neighbour`
   - Android also writes the four swipes of a screen in the graph, which only a neighbour may fill
   - e2e/screen-graph-export.spec.ts (4 cases, device and Android); e2e/android-export.spec.ts «a master screen is resolved away» now expects the row neighbour's swipe on the screen without a master (decision 7)
-- [ ] G4 «Position» and leaving the graph
+- [x] G4 «Position» and leaving the graph
+  - «Position» in ScreenEditorFields (the screen's panel and Manage Screens): «In the main row» and every place `canDock` allows, e.g. «Below "Energie"»; not on a hidden screen, a popup or a master
+  - «Hide screen» only on a screen in the row
+  - one place for every way a screen leaves the graph: `setProject` runs `withGraphMended` (lib/screen-graph.ts) - a screen docked on one deleted, hidden or made a popup or master becomes hidden, a toast names it once; a screen itself made a popup or master just loses its dock
+  - e2e/screen-graph.spec.ts «Position» (dock by the field, offered places, hide the page → its history hidden, toast) and «a broken dock is mended»
 - [ ] G5 The navigator
 - [ ] G6 Handbook
 - [ ] Checkpoint: test:quick green; the user docks a history below a page in the preview

@@ -187,3 +187,23 @@ export function describeNeighbourSide(side: ScreenEdge | undefined): string {
   if (side === "right") return "Go to the screen on the right"
   return "Go to the screen beside"
 }
+
+/**
+ * The screens with every broken dock mended (plan decision 3): a screen that
+ * is no longer in the graph itself - hidden, a popup or a master - just loses
+ * its dock; one whose chain no longer reaches the main row - the screen it was
+ * docked on deleted, hidden or made a popup or master - becomes a hidden
+ * screen, still a «Go to Screen» target, rather than dropping into the row
+ * unasked. The same array when there was nothing to mend.
+ */
+export function withGraphMended<S extends GraphScreen>(screens: S[]): { screens: S[]; hidden: S[] } {
+  let current = screens
+  const hidden: S[] = []
+  for (;;) {
+    const broken = current.find((s) => s.dock && !isInGraph(current, s.id))
+    if (!broken) return { screens: current, hidden }
+    const mended = canBeInGraph(broken) ? { ...broken, dock: undefined, hidden: true } : { ...broken, dock: undefined }
+    if (canBeInGraph(broken)) hidden.push(mended)
+    current = current.map((s) => (s === broken ? mended : s))
+  }
+}
