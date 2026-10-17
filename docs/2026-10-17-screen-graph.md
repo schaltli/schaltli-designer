@@ -109,8 +109,11 @@ of its own.
 12. **In the designer** the surface is shown as small screens dragged to
     an edge of another to dock them, as in Windows. (proposed)
 13. **The device computes nothing** (user, 2026-10-17), as with charts
-    (`docs/2026-10-16-charts.md`, «Data model»). In the project each
-    screen has `dock: { screenId, edge }`; on export the designer writes
+    (`docs/2026-10-16-charts.md`, «Data model»). In the project a
+    screen off the main row has `dock: { screenId, edge }`; the main row
+    is the paged screens without one, in list order, so an existing
+    project needs no migration (user, 2026-10-17,
+    `tasks/graph-model-plan.md` decision 1). On export the designer writes
     out each screen's `neighbours: { up?, down?, left?, right? }`, its
     `back` (the direction of the screen it is docked on, for the «←») and
     the main row in order for next and previous. A device follows no
