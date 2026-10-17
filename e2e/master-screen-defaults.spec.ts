@@ -5,6 +5,9 @@ import {
   chooseDevice,
   ROUND_FIXTURE_DEVICE_ID,
   createScreen,
+  closeManageScreens,
+  manageScreensCard,
+  openManageScreens,
   waitForDeviceGate,
 } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
@@ -44,10 +47,6 @@ async function createProject(page: Page): Promise<void> {
   await page.waitForTimeout(1500)
 }
 
-async function openManageScreens(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Settings", exact: true }).click()
-  await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
-}
 
 // Left-panel screen row, matched by its visible name text - not by
 // data-screen-id, since the test doesn't know ids ahead of time (they're
@@ -84,15 +83,13 @@ test.describe("Default master screen and deletion guards", () => {
     await createProject(page)
     await openManageScreens(page)
 
-    await page.locator('[data-screen-name="Master 1"]').getByTitle("Delete screen").click()
+    await manageScreensCard(page, "Master 1").click()
+    await page.getByTestId("manage-screens").getByRole("button", { name: "Delete", exact: true }).click()
     // Radix toast renders the same text twice (the visible toast plus an
     // aria-live announcer span) - .first() picks the visible one.
     await expect(page.getByText("Every project needs at least one master screen.").first()).toBeVisible()
 
-    // Close the Manage Screens dialog first - it's still open and modal,
-    // blocking the File menu downloadProjectJson() needs. Escape doesn't
-    // close this dialog (confirmed live), so use its own Close button.
-    await page.getByRole("dialog").getByRole("button", { name: "Close" }).click()
+    await closeManageScreens(page)
     const project = await downloadProjectJson(page)
     expect(project.screens.some((s: any) => s.isMaster)).toBe(true)
   })
@@ -106,16 +103,14 @@ test.describe("Default master screen and deletion guards", () => {
     await createScreen(page, "E2E Empty Master", true)
     await openManageScreens(page)
 
-    await page.locator('[data-screen-name="Master 1"]').getByTitle("Delete screen").click()
+    await manageScreensCard(page, "Master 1").click()
+    await page.getByTestId("manage-screens").getByRole("button", { name: "Delete", exact: true }).click()
     // .first() - see the same-text-twice note in the previous test.
     await expect(
       page.getByText("It still has screens assigned to it - reassign or delete those first.").first(),
     ).toBeVisible()
 
-    // Close the Manage Screens dialog first - it's still open and modal,
-    // blocking the File menu downloadProjectJson() needs. Escape doesn't
-    // close this dialog (confirmed live), so use its own Close button.
-    await page.getByRole("dialog").getByRole("button", { name: "Close" }).click()
+    await closeManageScreens(page)
     const project = await downloadProjectJson(page)
     expect(project.screens.some((s: any) => s.name === "Master 1")).toBe(true)
   })

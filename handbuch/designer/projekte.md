@@ -77,7 +77,6 @@ Ein gelöschtes Projekt ist mit allen Versionen weg, Rückgängig holt es nicht 
 |---|---|
 | <span class="ui">Project Properties</span> | den Namen des Projekts (nur zum Lesen), die Grösse der Screens (vom Gerät vorgegeben) und das Zahlenformat der [Werte im Text](/objekte/anzeigen#platzhalter) |
 | <span class="ui">Device</span> | das Gerät und seine Drehung (<span class="ui">Rotation</span>), falls es sich drehen lässt |
-| <span class="ui">Screens</span> | alle Screens in einer Liste: umbenennen, ordnen, Master zuweisen, löschen |
 | <span class="ui">Assets</span> | alle Icons und Bilder des Projekts, siehe [Icons und Schriften](/designer/icons-schriften) |
 | <span class="ui">Fonts</span> | die Schriften des Geräts, mit Vorschau |
 | <span class="ui">Adornment</span> | den Gerätrahmen |

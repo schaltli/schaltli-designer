@@ -88,6 +88,7 @@ import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
+import { ManageScreens } from "./manage-screens/manage-screens"
 import { DEMO_REFUSES, demoRefusalToast } from "./demo-refusal"
 import { DEMO_COUNTING_URL, trackDemo, useDemoTracking } from "@/hooks/use-demo-tracking"
 import { mergeNeeds, packClipboard, pastedObjects as objectsFromClipboard, pasteScreen, unpackClipboard, type ClipboardPayload } from "@/lib/clipboard-transfer"
@@ -1171,6 +1172,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // it simulates "a message just arrived on this topic" when the preview is
   // not live (see the live preview below).
   const [isPreviewMode, setIsPreviewMode] = useState(false)
+  // «Manage Screens» open in place of the canvas and the properties
+  // (components/manage-screens/manage-screens.tsx).
+  const [manageScreensOpen, setManageScreensOpen] = useState(false)
   // Which variant of the themes the canvas and the thumbnails show. View
   // state, like the zoom: not saved in the project and not an undo step
   // (docs/2026-09-24-themes-model.md, criterion 4).
@@ -4255,7 +4259,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             setShowProjectSettings={setShowProjectSettings}
             setShowMqttDiscovery={setShowMqttDiscovery}
             onDeviceResolved={() => setDeviceStaleWarning(null)}
-            onOpenScreenIconSelector={handleScreenIconSelect}
           />
 
           {/* Undo and redo sit up here rather than in the tools ribbon,
@@ -4397,13 +4400,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
           onCopyScreen={handleCopyScreen}
-          onOpenProjectSettings={handleOpenProjectSettings}
+          onManageScreens={() => setManageScreensOpen(true)}
           previewMode={isPreviewMode}
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
         />
         )}
 
+        {manageScreensOpen && !isPreviewMode ? (
+          <ManageScreens
+            project={project}
+            variant={shownVariant}
+            currentScreenId={currentScreenId}
+            onProjectUpdate={setProject}
+            onScreenChange={setCurrentScreenId}
+            onOpenScreen={(screenId) => {
+              setCurrentScreenId(screenId)
+              setManageScreensOpen(false)
+            }}
+            onOpenScreenIconSelector={handleScreenIconSelect}
+            onClose={() => setManageScreensOpen(false)}
+          />
+        ) : (
+        <>
         <div className="flex-1 min-w-0 flex flex-col">
         <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-auto">
           <Canvas
@@ -4623,6 +4642,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           )}
         </div>
           </>
+        )}
+        </>
         )}
       </div>
       </div>

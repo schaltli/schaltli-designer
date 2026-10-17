@@ -38,7 +38,6 @@ import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { BDFFont } from "@/lib/bdffont"
 // Removed GitHubIcon usage
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
-import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { useToast } from "@/hooks/use-toast"
 import { ddfName } from "@/lib/ddf-name"
 import { NumberFormatField } from "@/components/number-format-field"
@@ -47,7 +46,6 @@ import { projectOnDevice } from "@/lib/project-device"
 import { DeviceScanSection } from "@/components/device-scan-section"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
-import { withScreenType, type ScreenType } from "@/lib/popup"
 import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
@@ -56,16 +54,6 @@ import {
   blobToBase64,
   type DeviceDescriptionListEntry,
 } from "@/lib/device-description"
-
-const ScreensIcon = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 28 28">
-    <g fill="currentColor">
-      <path d="M22.993 6.008A3.24 3.24 0 0 1 24.5 8.75v10.5c0 2.9-2.35 5.25-5.25 5.25H8.75a3.25 3.25 0 0 1-2.744-1.508l.122.006l.122.002h13A3.75 3.75 0 0 0 23 19.25v-13a4 4 0 0 0-.007-.242M6 14.5a2.5 2.5 0 1 1 5 0a2.5 2.5 0 0 1-5 0m2.5-1a1 1 0 1 0 0 2a1 1 0 0 0 0-2" />
-      <path d="M13 14.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75m-7-5a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 6 9.25" />
-      <path d="M18.75 3A3.25 3.25 0 0 1 22 6.25v12.5A3.25 3.25 0 0 1 18.75 22H6.25A3.25 3.25 0 0 1 3 18.75V6.25A3.25 3.25 0 0 1 6.25 3zm0 17.5a1.75 1.75 0 0 0 1.75-1.75V6.25a1.75 1.75 0 0 0-1.75-1.75H6.25A1.75 1.75 0 0 0 4.5 6.25v12.5a1.747 1.747 0 0 0 1.75 1.75z" />
-    </g>
-  </svg>
-)
 
 const DeviceIcon = ({ className }: { className?: string }) => (
   <svg
@@ -83,24 +71,6 @@ const DeviceIcon = ({ className }: { className?: string }) => (
     <line x1="12" y1="18" x2="12.01" y2="18" />
   </svg>
 )
-
-const Copy = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-  </svg>
-)
-
 
 // The real Project type, not a local restatement of it.
 //
@@ -124,10 +94,6 @@ interface ProjectSettingsDialogProps {
   // Called after a device is successfully (re-)loaded here, so the parent
   // can clear any "device not available, using embedded data" warning.
   onDeviceResolved?: () => void
-  // Opens the shared IconSelectorModal (owned by project-editor.tsx, since
-  // it's also used for canvas/object icons) targeting a given screen's own
-  // iconAssetId - see ProjectScreen's own comment for what this is for.
-  onOpenScreenIconSelector?: (screenId: string) => void
 }
 
 export function ProjectSettingsDialog({
@@ -139,7 +105,6 @@ export function ProjectSettingsDialog({
   setShowProjectSettings,
   setShowMqttDiscovery,
   onDeviceResolved,
-  onOpenScreenIconSelector,
 }: ProjectSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
   const [snapGridInput, setSnapGridInput] = useState(project.settings.snapGrid)
@@ -348,154 +313,10 @@ export function ProjectSettingsDialog({
     setFontPreviewOpen(true)
   }
 
-  const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
-    const normalizedName = name.trim().toLowerCase()
-    return project.screens.some(
-      (screen) => screen.id !== excludeScreenId && screen.name.toLowerCase() === normalizedName,
-    )
-  }
-
-  const duplicateScreen = (screenId: string) => {
-    const screenToDuplicate = project.screens.find((s) => s.id === screenId)
-    if (!screenToDuplicate) return
-
-    let currentNextId = project.nextId || 0
-
-    let duplicateName = `${screenToDuplicate.name} Copy`
-    let counter = 1
-    while (isScreenNameDuplicate(duplicateName)) {
-      counter++
-      duplicateName = `${screenToDuplicate.name} Copy ${counter}`
-    }
-
-    const newScreen = {
-      ...screenToDuplicate,
-      id: `screen-${currentNextId}`,
-      name: duplicateName,
-      objects: screenToDuplicate.objects.map((obj) => {
-        currentNextId++
-        return {
-          ...obj,
-          id: `obj-${currentNextId}`,
-        }
-      }),
-    }
-
-    currentNextId++
-
-    onProjectUpdate({
-      ...project,
-      nextId: currentNextId,
-      screens: [...project.screens, newScreen],
-    })
-  }
-
-  const deleteScreen = (screenId: string) => {
-    if (project.screens.length <= 1) return
-
-    if (screenId === currentScreenId) {
-      toast({
-        title: "Cannot delete active screen",
-        description: "Please switch to a different screen before deleting this one.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const screenToDelete = project.screens.find((s) => s.id === screenId)
-    if (screenToDelete?.isMaster) {
-      if (project.screens.filter((s) => s.isMaster).length <= 1) {
-        toast({
-          title: "Can't delete this master screen",
-          description: "Every project needs at least one master screen.",
-          variant: "destructive",
-        })
-        return
-      }
-      if (project.screens.some((s) => s.masterScreenId === screenId)) {
-        toast({
-          title: "Can't delete this master screen",
-          description: "It still has screens assigned to it - reassign or delete those first.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    // A master screen can't reach here with dependents still pointing at it
-    // (guarded above), so this cleanup is now purely defensive rather than
-    // the primary way dangling references were avoided (mirrors
-    // screens-panel.tsx's deleteScreen).
-    const updatedScreens = project.screens
-      .filter((screen) => screen.id !== screenId)
-      .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))
-    onProjectUpdate({
-      ...project,
-      screens: updatedScreens,
-    })
-  }
-
-  const setScreenMaster = (screenId: string, masterScreenId: string | undefined) => {
-    onProjectUpdate({
-      ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, masterScreenId } : screen)),
-    })
-  }
-
-  const setScreenType = (screenId: string, type: ScreenType) => {
-    onProjectUpdate({
-      ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? withScreenType(screen, type) : screen)),
-    })
-  }
-
-  const setScreenShowMaster = (screenId: string, showMaster: boolean) => {
-    onProjectUpdate({
-      ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, showMaster } : screen)),
-    })
-  }
-
-  const clearScreenIcon = (screenId: string) => {
-    onProjectUpdate({
-      ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, iconAssetId: undefined } : screen)),
-    })
-  }
-
-  const moveScreen = (screenId: string, direction: "up" | "down") => {
-    const currentIndex = project.screens.findIndex((s) => s.id === screenId)
-    if (currentIndex === -1) return
-
-    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
-    if (newIndex < 0 || newIndex >= project.screens.length) return
-
-    const newScreens = [...project.screens]
-    const [movedScreen] = newScreens.splice(currentIndex, 1)
-    newScreens.splice(newIndex, 0, movedScreen)
-
-    onProjectUpdate({
-      ...project,
-      screens: newScreens,
-    })
-  }
-
-  // Duplicate-checked by the caller (ScreenEditorFields) before this ever
-  // runs - a plain setter, same as setScreenMaster/setScreenShowMaster
-  // below.
-  const renameScreen = (screenId: string, name: string) => {
-    onProjectUpdate({
-      ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, name } : screen)),
-    })
-  }
-
-  const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
     { id: "device", label: "Device", icon: DeviceIcon }, // Added Device tab (Device Description File import)
-    { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
     { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
@@ -945,100 +766,6 @@ export function ProjectSettingsDialog({
                         }
                       />
 
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "screens" && (
-                  <div className="p-6 flex flex-col h-full min-h-0">
-                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
-                      <div>
-                        <h3 className="text-lg font-medium">Screens</h3>
-                        <p className="text-sm text-muted-foreground">Manage screens in your project</p>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                      <ScrollArea className="h-[calc(600px-200px)]">
-                        <div className="p-3">
-                          <div className="space-y-2">
-                            {project.screens.map((screen, index) => {
-                              return (
-                                <div
-                                  key={screen.id}
-                                  data-screen-name={screen.name}
-                                  className="flex items-center gap-2 p-3 border rounded hover:bg-muted"
-                                >
-                                  <div className="flex-1 min-w-0 space-y-2">
-                                    <ScreenEditorFields
-                                      screen={screen}
-                                      allScreens={project.screens}
-                                      projectAssets={project.assets}
-                                      onRename={(name) => renameScreen(screen.id, name)}
-                                      onSetMaster={(masterScreenId) => setScreenMaster(screen.id, masterScreenId)}
-                                      onSetShowMaster={(showMaster) => setScreenShowMaster(screen.id, showMaster)}
-                                      onPatch={(patch) =>
-                                        onProjectUpdate({
-                                          ...project,
-                                          screens: project.screens.map((s) => (s.id === screen.id ? { ...s, ...patch } : s)),
-                                        })
-                                      }
-                                      onSetScreenType={(type) => setScreenType(screen.id, type)}
-                                      onOpenIconSelector={() => onOpenScreenIconSelector?.(screen.id)}
-                                      onClearIcon={() => clearScreenIcon(screen.id)}
-                                    />
-                                    <div className="text-xs text-muted-foreground">
-                                      {screen.objects.length} {screen.objects.length === 1 ? "object" : "objects"}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => moveScreen(screen.id, "up")}
-                                      disabled={index === 0}
-                                      className="h-8 w-8 p-0"
-                                      title="Move up"
-                                    >
-                                      ↑
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => moveScreen(screen.id, "down")}
-                                      disabled={index === project.screens.length - 1}
-                                      className="h-8 w-8 p-0"
-                                      title="Move down"
-                                    >
-                                      ↓
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => duplicateScreen(screen.id)}
-                                      className="h-8 w-8 p-0"
-                                      title="Duplicate screen"
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                    {project.screens.length > 1 && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => deleteScreen(screen.id)}
-                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                        title="Delete screen"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </ScrollArea>
                     </div>
                   </div>
                 )}

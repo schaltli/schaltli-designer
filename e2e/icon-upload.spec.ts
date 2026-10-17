@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
-import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { closeManageScreens, createProject, chooseDevice, openManageScreens, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Uploading an icon from this computer (2026-09-11), for the icons Iconify
@@ -49,8 +49,7 @@ test.describe("Icon upload", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
     await page.getByRole("button", { name: "Select icon" }).click()
     await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
 
@@ -63,10 +62,9 @@ test.describe("Icon upload", () => {
     // Picking an icon closes the picker and flips the button's label, the
     // same two things a searched icon does.
     await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
 
-    await page.getByRole("dialog").getByRole("button", { name: "Close" }).click()
-    await expect(page.getByRole("dialog")).not.toBeVisible()
+    await closeManageScreens(page)
 
     // The file name, minus its extension, is the asset's name - so the icon
     // is findable again in the picker's own list of what the project already
@@ -92,8 +90,7 @@ test.describe("Icon upload", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
     await page.getByRole("button", { name: "Select icon" }).click()
     await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
 

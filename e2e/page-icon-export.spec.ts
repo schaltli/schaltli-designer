@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { pressDeploy, createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { closeManageScreens, openManageScreens, pressDeploy, createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
@@ -66,9 +66,8 @@ test.describe("Page icon export", () => {
       await createProject(page)
       await page.waitForTimeout(1500)
 
-      // Set an icon on Screen 1 via Settings > Screens (the Phase 1 UI).
-      await page.getByRole("button", { name: "Settings", exact: true }).click()
-      await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+      // Set an icon on Screen 1 in «Manage Screens».
+      await openManageScreens(page)
       await page.getByRole("button", { name: "Select icon" }).click()
       await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
       await page.getByPlaceholder("Search for icons...").fill("home")
@@ -76,16 +75,10 @@ test.describe("Page icon export", () => {
       await expect(firstResult).toBeVisible()
       await firstResult.click()
 
-      // Two dialogs are open at this point, and the icon picker is the one
-      // closing itself. Waiting for it to actually be gone before clicking
-      // "Close" is what makes this deterministic: a bare .first() raced the
-      // picker's own close, hit *its* Close button instead of Settings',
-      // and left the Settings dialog open - whose modal overlay then
-      // swallowed every later click until the test timed out. That only
-      // showed up under parallel workers, where the close is slower.
+      // The picker closes itself; waited for, so «Done» is not clicked
+      // under its overlay.
       await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
-      await page.getByRole("dialog").getByRole("button", { name: "Close" }).click()
-      await expect(page.getByRole("dialog")).not.toBeVisible()
+      await closeManageScreens(page)
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
@@ -171,8 +164,7 @@ test.describe("Page icon export", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
     await expect(page.getByRole("button", { name: "Select icon" })).toBeVisible()
   })
 })

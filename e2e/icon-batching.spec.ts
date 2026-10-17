@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, openManageScreens, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 
@@ -65,8 +65,7 @@ test.describe("Icon search traffic", () => {
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
     await page.getByRole("button", { name: "Select icon" }).click()
     await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
 
@@ -104,7 +103,7 @@ test.describe("Icon search traffic", () => {
     const before = perIcon.length + perCollection.length + searches.length
     await grid.first().click()
     await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
     expect(perIcon.length + perCollection.length + searches.length, "choosing an icon costs no request").toBe(before)
   })
 })

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { pressDeploy, COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint, clickButton0, createScreen } from "./helpers"
+import { manageScreensCard, openManageScreens, pressDeploy, COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint, clickButton0, createScreen } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -50,10 +50,9 @@ test.describe("Master screen mechanism", () => {
     await createScreen(page, "E2E Screen With Master", false)
 
     // Auto-inherited the only (therefore "first") existing master.
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("button", { name: "Screens", exact: true }).click()
-    const row = page.locator('[data-screen-name="E2E Screen With Master"]')
-    await expect(row.getByRole("combobox", { name: "Master" })).toHaveText("E2E Master")
+    await openManageScreens(page)
+    await manageScreensCard(page, "E2E Screen With Master").click()
+    await expect(page.getByTestId("manage-screens").getByRole("combobox", { name: "Master" })).toHaveText("E2E Master")
     await page.keyboard.press("Escape")
 
     // The master's box is visible (merged in, same fixed position) but

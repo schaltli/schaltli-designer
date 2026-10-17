@@ -333,6 +333,25 @@ export async function createScreen(page: Page, name: string, isMaster: boolean):
 
 export const BUTTON_0_OFFSET = { x: -175, y: -170 }
 
+// «Manage Screens» (components/manage-screens/manage-screens.tsx): the view
+// that replaced the project settings' «Screens» tab on 2026-10-17. It opens
+// on the screen being edited, selected.
+export async function openManageScreens(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Manage Screens", exact: true }).click()
+  await page.getByTestId("manage-screens").waitFor()
+}
+
+/** A screen's card in «Manage Screens», by its name. */
+export function manageScreensCard(page: Page, name: string): Locator {
+  const exact = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`)
+  return page.getByTestId("manage-screens").locator("[data-screen-card]").filter({ hasText: exact })
+}
+
+export async function closeManageScreens(page: Page): Promise<void> {
+  await page.getByTestId("manage-screens").getByRole("button", { name: "Done", exact: true }).click()
+  await page.getByTestId("manage-screens").waitFor({ state: "detached" })
+}
+
 export async function clickButton0(page: Page): Promise<void> {
   const { box } = await getMainCanvas(page)
   await page.mouse.click(box.x + box.width / 2 + BUTTON_0_OFFSET.x, box.y + box.height / 2 + BUTTON_0_OFFSET.y)

@@ -17,7 +17,7 @@ Die Screens liegen in einer Reihe, der Hauptreihe, in der Reihenfolge der Liste.
 Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel den Verlauf der Batterie unter den Screen «Energie». Dazu wählst du in den Eigenschaften des Screens unter <span class="ui">Position</span> den Platz, etwa «Below "Energie"». <span class="ui">In the main row</span> holt ihn in die Reihe zurück.
 
 - Nach oben wischen zieht den Screen herauf, der darunter liegt. Nach unten wischen bringt dich zurück.
-- Links und rechts neben einen solchen Screen kannst du weitere legen, darüber oder darunter aber nicht.
+- Ein solcher Screen hat keine weiteren Nachbarn: Neben, über oder unter ihn legst du nichts. Jeder Screen der Hauptreihe hat also höchstens einen Screen darüber und einen darunter.
 - Nachbarn sind nur Screens, die aneinander liegen. Liegen zwei Verläufe unter zwei Screens nebeneinander, wischst du trotzdem nicht vom einen zum anderen.
 - Links und rechts eines Screens der Hauptreihe liegt die Reihe selbst. Dort ordnest du in der Liste.
 - Ein Screen ausserhalb der Hauptreihe wird beim Blättern übersprungen und steht nicht im [Navigator](/objekte/anordnen#navigator). Auf ihm zeigt der Navigator nur einen Pfeil, der zurückführt.
@@ -43,7 +43,7 @@ Beim Einfügen gilt:
 - Was das Projekt schon hat, wird nicht verdoppelt. Ein Icon oder ein Combined Topic, das unter demselben Namen etwas anderes ist, kommt mit einem neuen Namen dazu, etwa `licht_an_2`. Dein eigenes bleibt, wie es ist.
 - Wurde der Screen für ein Gerät mit anderer Grösse gebaut, meldet der Designer das. Verschieben und anpassen musst du die Objekte dann selbst.
 
-<span class="ui">Manage Screens</span> unten in der Liste zeigt alle Screens mit ihren Einstellungen in einer Tabelle.
+<span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht.
 
 ## Master-Screens
 

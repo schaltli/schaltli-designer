@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
 import { defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
 import { projectSeparators } from "@/lib/placeholders"
+import { withScreenDeleted, withScreenDuplicated } from "@/lib/screen-actions"
 
 interface ScreensPanelProps {
   project: Project
@@ -36,7 +37,8 @@ interface ScreensPanelProps {
   // «Copy»: the screen onto the system's clipboard, to paste with Ctrl+V
   // here or into another designer (lib/clipboard-transfer.ts).
   onCopyScreen?: (screenId: string) => void
-  onOpenProjectSettings?: (tab: string) => void
+  // «Manage Screens»: the view that arranges the screens (tasks/graph-surface-plan.md).
+  onManageScreens?: () => void
   // Preview mode simulates runtime behavior - the project itself must stay
   // read-only while it's active, so adding a new screen is disabled.
   previewMode?: boolean
@@ -71,7 +73,7 @@ export function ScreensPanel({
   onScreenChange,
   onProjectUpdate,
   onCopyScreen,
-  onOpenProjectSettings,
+  onManageScreens,
   previewMode = false,
   onAddAsset,
   onIncrementNextId,
@@ -247,34 +249,10 @@ export function ScreensPanel({
   }
 
   const duplicateScreen = (screenId: string) => {
-    const screenToDuplicate = project.screens.find((s) => s.id === screenId)
-    if (!screenToDuplicate) return
-
-    let currentNextId = project.nextId
-    let duplicateName = `${screenToDuplicate.name} Copy`
-    let counter = 1
-    while (isScreenNameDuplicate(duplicateName)) {
-      counter++
-      duplicateName = `${screenToDuplicate.name} Copy ${counter}`
-    }
-
-    const newScreen = {
-      ...screenToDuplicate,
-      id: `screen-${currentNextId}`,
-      name: duplicateName,
-      objects: screenToDuplicate.objects.map((obj) => {
-        currentNextId++
-        return { ...obj, id: `obj-${currentNextId}` }
-      }),
-    }
-    currentNextId++
-
-    onProjectUpdate({
-      ...project,
-      nextId: currentNextId,
-      screens: [...project.screens, newScreen],
-    })
-    onScreenChange(newScreen.id)
+    const duplicated = withScreenDuplicated(project, screenId)
+    if (!duplicated) return
+    onProjectUpdate(duplicated.project)
+    onScreenChange(duplicated.newId)
   }
 
   // The master a new normal screen gets: see addScreen.
@@ -286,38 +264,13 @@ export function ScreensPanel({
   }
 
   const deleteScreen = (screenId: string) => {
-    if (project.screens.length <= 1) return
-
-    const screen = project.screens.find((s) => s.id === screenId)
-    if (screen?.isMaster) {
-      if (masterScreens.length <= 1) {
-        toast({
-          title: "Can't delete this master screen",
-          description: "Every project needs at least one master screen.",
-          variant: "destructive",
-        })
-        return
-      }
-      if (project.screens.some((s) => s.masterScreenId === screenId)) {
-        toast({
-          title: "Can't delete this master screen",
-          description: "It still has screens assigned to it - reassign or delete those first.",
-          variant: "destructive",
-        })
-        return
-      }
+    const deleted = withScreenDeleted(project, screenId)
+    if (!deleted.ok) {
+      toast({ title: deleted.title, description: deleted.description, variant: "destructive" })
+      return
     }
-
-    // A master screen can't reach here with dependents still pointing at it
-    // (guarded above), so this cleanup is now purely defensive rather than
-    // the primary way dangling references were avoided.
-    const updatedScreens = project.screens
-      .filter((screen) => screen.id !== screenId)
-      .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))
-    onProjectUpdate({ ...project, screens: updatedScreens })
-    if (currentScreenId === screenId) {
-      onScreenChange(updatedScreens[0].id)
-    }
+    onProjectUpdate(deleted.project)
+    if (currentScreenId === screenId) onScreenChange(deleted.project.screens[0].id)
   }
 
   // Moves draggedId to sit right before/after targetId in the underlying
@@ -593,7 +546,8 @@ export function ScreensPanel({
           size="sm"
           variant="ghost"
           className="w-full h-7 text-xs justify-start"
-          onClick={() => onOpenProjectSettings?.("screens")}
+          onClick={() => onManageScreens?.()}
+          disabled={previewMode}
         >
           <Settings className="mr-2 h-3.5 w-3.5" />
           Manage Screens

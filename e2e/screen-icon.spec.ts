@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, manageScreensCard, openManageScreens, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 
@@ -18,15 +18,14 @@ test.describe("Per-screen icon", () => {
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
-  test("setting and clearing a screen's icon via Settings > Screens", async ({ page }) => {
+  test("setting and clearing a screen's icon in «Manage Screens»", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
 
     // An outline button with a Search icon + visible text, same style as
     // the New Screen dialog's own picker (screens-panel.tsx) - the earlier
@@ -52,8 +51,8 @@ test.describe("Per-screen icon", () => {
     // background content aria-hidden while the dialog is open), but
     // getByTitle isn't role-scoped and would otherwise match both.
     await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible()
-    const settingsDialog = page.getByRole("dialog")
+    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
+    const settingsDialog = page.getByTestId("manage-screens")
     await expect(settingsDialog.getByTitle("Screen icon: material-symbols:home")).toBeVisible()
     const clearButton = settingsDialog.getByTitle("Clear screen icon")
     await expect(clearButton).toBeVisible()
@@ -76,11 +75,12 @@ test.describe("Per-screen icon", () => {
     await page.getByRole("button", { name: "Create Screen" }).click()
     await page.waitForTimeout(300)
 
-    await page.getByRole("button", { name: "Settings", exact: true }).click()
-    await page.getByRole("dialog").getByRole("button", { name: "Screens", exact: true }).click()
+    await openManageScreens(page)
 
-    // Two rows now (Screen 1 + the new master) - exactly one icon button,
-    // for the non-master screen only.
+    // The new master is selected, being the screen open: no icon picker.
+    // Screen 1 has one.
+    await expect(page.getByRole("button", { name: "Select icon" })).toHaveCount(0)
+    await manageScreensCard(page, "Screen 1").click()
     await expect(page.getByRole("button", { name: "Select icon" })).toHaveCount(1)
   })
 
@@ -121,7 +121,7 @@ test.describe("Per-screen icon", () => {
 
     // Button label flips from "Select icon" to "Change" - this part
     // "worked" even with the bug, so it alone doesn't prove the fix.
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
 
     await page.locator("#screenName").fill("Star Screen")
     await page.getByRole("button", { name: "Create Screen" }).click()
