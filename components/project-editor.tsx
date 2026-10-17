@@ -3808,6 +3808,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         return
       if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return
       const payload = unpackClipboard(event.clipboardData?.getData("text/plain"))
+      // «Manage Screens» shows no screen's objects: only a screen goes in.
+      if (manageScreensOpen && !payload?.screen) return
       if (payload?.screen) {
         event.preventDefault()
         handlePasteScreen(payload)
@@ -3821,7 +3823,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
     document.addEventListener("paste", onPaste)
     return () => document.removeEventListener("paste", onPaste)
-  }, [isPreviewMode, projectOpen, clipboard, handlePaste, handlePasteScreen])
+  }, [isPreviewMode, projectOpen, clipboard, handlePaste, handlePasteScreen, manageScreensOpen])
 
   // Ctrl+G: the selection becomes one group, in the place of its frontmost
   // object, and the group is what is selected afterwards. One setProject, so
@@ -3915,6 +3917,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         else void handleSave()
         return
       }
+      // «Manage Screens» covers the canvas: the keys for objects would work
+      // on a screen out of sight. Undo and redo still do.
+      const undoKey = (event.ctrlKey || event.metaKey) && !event.altKey && ["z", "y"].includes(event.key.toLowerCase())
+      if (manageScreensOpen && !undoKey) return
       // Check for CTRL+C or CMD+C (Mac)
       // Not prevented: the browser's copy or cut event that follows puts
       // the copy onto the system's clipboard (the listener below). Chrome
@@ -4011,7 +4017,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, demo, toast, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool, currentScreen.objects])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, demo, toast, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool, currentScreen.objects, manageScreensOpen])
 
   // A button in the device's frame: the screen's panel, at that button's row
   // - so whatever was selected lets go.
@@ -4357,7 +4363,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
 
         {showToolsRibbon && !isPreviewMode && (
-          <div className="h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto">
+          <div
+            data-testid="tools-ribbon"
+            aria-disabled={manageScreensOpen || undefined}
+            className={cn(
+              "h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto",
+              // Nothing to draw on in «Manage Screens».
+              manageScreensOpen && "pointer-events-none opacity-40",
+            )}
+          >
             <Toolbar
               orientation="horizontal"
               activeTool={activeTool}
@@ -4376,7 +4390,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             its place, in the preview too, where it shows best
             (docs/2026-10-09-demo-instance.md, decision 8). */}
         {demo && <DemoScenePanel wide={isPreviewMode} />}
-        {!isPreviewMode && !demo && (
+        {/* «Manage Screens» takes the room of both lists: it shows the
+            screens better than the list does, as PowerPoint's slide sorter
+            hides the slides beside it (decided by the user 2026-10-17). */}
+        {!isPreviewMode && !demo && !manageScreensOpen && (
           <ProjectsPanel
             openName={save.savedName}
             openUnsaved={save.unsaved}
@@ -4392,7 +4409,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         {/* In the demo's preview no screens list: the device's navigator
             moves between them, and the editor's furniture gone is what tells
             the preview from the designer (2026-10-10). */}
-        {!(demo && isPreviewMode) && (
+        {!(demo && isPreviewMode) && !(manageScreensOpen && !isPreviewMode) && (
         <ScreensPanel
           project={project}
           variant={shownVariant}

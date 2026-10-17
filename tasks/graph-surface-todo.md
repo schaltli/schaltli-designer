@@ -20,7 +20,15 @@ than standing beside it.
   - e2e/manage-screens.spec.ts «Manage Screens: dragging» (2 tests: B before A, a hidden screen below B, A' into the row, Ctrl+Z; B onto «Hidden» with B' hidden and the toast, A refused below another page with only the allowed targets lit)
   - handbook: designer/screens.md, a paragraph on dragging
   - test:quick 2026-10-17: e2e 1605 passed; 4.3B live values terminated in the run, green alone
-- [ ] S4 The list
+- [x] S3b The hints and the room (asked by the user 2026-10-17)
+  - the snapping table's hints in place of the grey places: the target under the pointer alone, a line along the page's edge, a row gap as a new table column, «Hidden» green; the join from thumbnail to thumbnail, under the name
+  - «Manage Screens» covers the projects and screens lists, the tools ribbon greyed out; the keys for objects and pasting objects rest while it is open (undo, redo, save do not)
+  - e2e/manage-screens.spec.ts: the join's ends, the hints, «covers both lists and greys out the tools; the keys for objects rest»
+- [x] S4 The list
+  - components/screens-panel/screens-panel.tsx: the main row in its order, each page followed by its screens above and below, indented and marked ↑/↓ (titles «Above "X"» / «Below "X"»), then the hidden screens; a docked row is not draggable, a drop on it goes after its page and what hangs from it; a main screen dropped on a page goes into the row there (`withScreenInRow`: a hidden one is shown)
+  - e2e/manage-screens.spec.ts «the screens list and the screen graph»
+  - handbook: designer/screens.md, the list's indenting
+  - test:quick 2026-10-17 (S3b and S4 together): e2e 1606 passed; broker-login (EPERM on a rename), knob internal heap and 4.3B conformance red in the run, green alone - conformance after a restart of the 4.3B, which kept losing the broker
 - [ ] S5 The warning
 - [ ] S6 Handbook
 - [ ] Checkpoint: test:quick green; the user arranges a project of their own in the view

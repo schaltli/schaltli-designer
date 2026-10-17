@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, CopyPlus, Trash2, Settings, LayoutTemplate, PictureInPicture2, Search, X, Loader2 } from "lucide-react"
+import { Plus, MoreVertical, Copy, CopyPlus, Trash2, Settings, LayoutTemplate, PictureInPicture2, Search, X, Loader2, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
@@ -25,6 +25,7 @@ import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
 import { defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
 import { projectSeparators } from "@/lib/placeholders"
 import { withScreenDeleted, withScreenDuplicated } from "@/lib/screen-actions"
+import { graphLayout, withScreenInRow } from "@/lib/screen-graph"
 
 interface ScreensPanelProps {
   project: Project
@@ -61,11 +62,16 @@ interface ScreensPanelProps {
 
 // PowerPoint-style slide panel: a scrollable column of live-rendered screen
 // thumbnails on the left. Selecting a screen to edit is
-// now a click here instead of a dropdown - full management (rename,
-// reorder, bulk duplicate/delete) stays in the existing "Manage Screens"
-// dialog (Settings icon below), which already does that well; this panel
-// only adds the two actions PowerPoint's own slide panel exposes inline
-// (duplicate, delete) via a per-thumbnail hover menu.
+// now a click here instead of a dropdown - full management stays in
+// «Manage Screens» (the button below); this panel only adds the actions
+// PowerPoint's own slide panel exposes inline (duplicate, copy, delete) via
+// a per-thumbnail hover menu, and dragging to reorder. The screens of the
+// main row come in their order, each with the screens above and below it
+// indented under it, marked ↑ and ↓ (tasks/graph-surface-plan.md S4).
+// A screen above or below a page of the main row, as the list shows it;
+// `last` when nothing else of the page's comes after it.
+type DockedOn = { page: Project["screens"][number]; edge: "up" | "down"; last: boolean }
+
 export function ScreensPanel({
   variant = "light",
   project,
@@ -118,6 +124,18 @@ export function ScreensPanel({
   const masterScreens = project.screens.filter((s) => s.isMaster)
   const normalScreens = project.screens.filter((s) => isMainScreen(s))
   const popupScreens = project.screens.filter((s) => isPopup(s))
+  // The main row, each page followed by what lies above and below it; then
+  // the hidden screens.
+  const layout = graphLayout(project.screens)
+  const listedScreens: { screen: Project["screens"][number]; dockedOn?: DockedOn }[] = [
+    ...layout.columns.flatMap((column) => [
+      { screen: column.page },
+      ...(column.up ? [{ screen: column.up, dockedOn: { page: column.page, edge: "up" as const, last: !column.down } }] : []),
+      ...(column.down ? [{ screen: column.down, dockedOn: { page: column.page, edge: "down" as const, last: true } }] : []),
+    ]),
+    ...layout.hidden.map((screen) => ({ screen })),
+  ]
+  const hasDocked = (pageId: string) => layout.columns.some((c) => c.page.id === pageId && (c.up || c.down))
 
   const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
     const normalizedName = name.trim().toLowerCase()
@@ -279,8 +297,21 @@ export function ScreensPanel({
   // just repositions the dragged screen within the other group's slice of
   // the same array with no visible effect - harmless, not worth guarding
   // against separately.
+  //
+  // A screen dropped on a page of the main row goes into the row there, as
+  // in «Manage Screens»: a hidden one is shown, and a page takes what lies
+  // above and below it along.
   const reorderScreens = (draggedId: string, targetId: string, position: "before" | "after") => {
     if (draggedId === targetId) return
+    const row = layout.columns.map((c) => c.page.id)
+    const at = row.indexOf(targetId)
+    const draggedScreen = project.screens.find((s) => s.id === draggedId)
+    if (at >= 0 && draggedScreen && isMainScreen(draggedScreen)) {
+      const beforeId = position === "before" ? targetId : (row[at + 1] ?? null)
+      if (beforeId === draggedId) return
+      onProjectUpdate({ ...project, screens: withScreenInRow(project.screens, draggedId, beforeId) })
+      return
+    }
     const screens = [...project.screens]
     const fromIndex = screens.findIndex((s) => s.id === draggedId)
     if (fromIndex === -1) return
@@ -331,27 +362,33 @@ export function ScreensPanel({
     return renderIconData(iconAsset?.data, iconAsset?.name, sizeClass)
   }
 
-  const renderScreenRow = (screen: Project["screens"][number]) => {
+  // A screen above or below a page is not dragged on its own: it goes with
+  // its page. A drop on it goes after the page and what hangs from it, and
+  // the line showing so stands after the last of them.
+  const renderScreenRow = (screen: Project["screens"][number], dockedOn?: DockedOn) => {
     const isSelected = screen.id === currentScreenId
-    const isDropBefore = dropIndicator?.id === screen.id && dropIndicator.position === "before"
-    const isDropAfter = dropIndicator?.id === screen.id && dropIndicator.position === "after"
+    const targetId = dockedOn ? dockedOn.page.id : screen.id
+    const isDropBefore = !dockedOn && dropIndicator?.id === screen.id && dropIndicator.position === "before"
+    const afterLineFor = dockedOn ? (dockedOn.last ? dockedOn.page.id : null) : hasDocked(screen.id) ? null : screen.id
+    const isDropAfter = afterLineFor !== null && dropIndicator?.id === afterLineFor && dropIndicator.position === "after"
     return (
       <div
         key={screen.id}
         data-screen-id={screen.id}
-        className="group relative"
-        draggable={!previewMode}
+        data-dock={dockedOn?.edge}
+        className={cn("group relative", dockedOn && "pl-4")}
+        draggable={!previewMode && !dockedOn}
         onDragStart={(e) => {
           setDraggedScreenId(screen.id)
           e.dataTransfer.effectAllowed = "move"
           e.dataTransfer.setData("text/plain", screen.id)
         }}
         onDragOver={(e) => {
-          if (!draggedScreenId || draggedScreenId === screen.id) return
+          if (!draggedScreenId || draggedScreenId === targetId) return
           e.preventDefault()
           const rect = e.currentTarget.getBoundingClientRect()
-          const position = e.clientY - rect.top < rect.height / 2 ? "before" : "after"
-          setDropIndicator({ id: screen.id, position })
+          const position = dockedOn ? "after" : e.clientY - rect.top < rect.height / 2 ? "before" : "after"
+          setDropIndicator({ id: targetId, position })
         }}
         onDrop={(e) => {
           e.preventDefault()
@@ -381,6 +418,13 @@ export function ScreensPanel({
               title="Master screen"
             >
               <LayoutTemplate className="h-3.5 w-3.5" />
+            </span>
+          ) : dockedOn ? (
+            <span
+              className={cn("w-5 pt-0.5 flex justify-end shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}
+              title={`${dockedOn.edge === "up" ? "Above" : "Below"} "${dockedOn.page.name}"`}
+            >
+              {dockedOn.edge === "up" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
             </span>
           ) : (
             // No index number here (dropped 2026-08-17) - just an empty
@@ -529,7 +573,7 @@ export function ScreensPanel({
               {masterScreens.map((screen) => renderScreenRow(screen))}
             </div>
           )}
-          {normalScreens.map((screen) => renderScreenRow(screen))}
+          {listedScreens.map(({ screen, dockedOn }) => renderScreenRow(screen, dockedOn))}
           {popupScreens.length > 0 && (
             <div data-testid="popup-screens" className="space-y-2 pt-2 mt-2 border-t border-border">
               <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

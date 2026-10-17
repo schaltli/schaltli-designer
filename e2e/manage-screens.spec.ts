@@ -11,13 +11,14 @@ import { closeManageScreens, COMBINED_TEST_PROJECT, loadProject, manageScreensCa
 
 // The combined project with A' above A (screen-3 above screen-1), B' above B
 // (mqtt-black above mqtt-white) and one hidden screen.
-async function combProject(testInfo: { outputPath: (name: string) => string }): Promise<string> {
+async function combProject(testInfo: { outputPath: (name: string) => string }, more?: (screen: (id: string) => any) => void): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const screen = (id: string) => project.screens.find((s: any) => s.id === id)
   screen("screen-3").dock = { screenId: "screen-1", edge: "up" }
   screen("screen-mqtt-black").dock = { screenId: "screen-mqtt-white", edge: "up" }
   screen("screen-level-white").hidden = true
+  more?.(screen)
   zip.file("project.json", JSON.stringify(project))
   const out = testInfo.outputPath("comb.zip")
   fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
@@ -59,6 +60,28 @@ test.describe("Manage Screens", () => {
     await manageScreensCard(page, "mqtt-field-tests-white-background").dblclick()
     await expect(view(page)).toHaveCount(0)
     await expect(page.getByRole("button", { name: /^mqtt-field-tests-white-background/ }).first()).toHaveClass(/bg-accent/)
+  })
+
+  test("covers both lists and greys out the tools; the keys for objects rest", async ({ page }, testInfo) => {
+    await loadProject(page, await combProject(testInfo))
+    await openManageScreens(page)
+
+    await expect(page.getByRole("complementary", { name: "Projects panel" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Manage Screens", exact: true })).toHaveCount(0)
+    await expect(page.getByTestId("tools-ribbon")).toHaveAttribute("aria-disabled", "true")
+
+    // Select all and Delete would empty the screen being edited, out of sight.
+    const count = view(page).getByText(/^\d+ objects?$/)
+    const before = await count.textContent()
+    expect(before).not.toBe("0 objects")
+    await view(page).locator("h2").click()
+    await page.keyboard.press("Control+a")
+    await page.keyboard.press("Delete")
+    await expect(count).toHaveText(before!)
+
+    await closeManageScreens(page)
+    await expect(page.getByRole("complementary", { name: "Projects panel" })).toHaveCount(1)
+    await expect(page.getByTestId("tools-ribbon")).not.toHaveAttribute("aria-disabled")
   })
 
   test("the selected screen's settings: rename, move in the row, duplicate, delete", async ({ page }, testInfo) => {
@@ -172,5 +195,76 @@ test.describe("Manage Screens: dragging", () => {
     await expect(page.getByText(/stays in the main row/).first()).toBeVisible()
     expect(await columnCards(page, "screen-level-black")).toEqual(["screen-level-black:up", "join", "screen-level-black", "join", "screen-level-black:down"])
     expect((await columnCards(page, "screen-1"))[0]).toBe("screen-3")
+  })
+})
+
+// The screens list (tasks/graph-surface-plan.md S4): the main row in its
+// order, each page followed by the screens above and below it, indented and
+// marked ↑ and ↓; then the hidden screens.
+test.describe("the screens list and the screen graph", () => {
+  const listed = (page: Page) =>
+    page.locator("[data-screen-id]").evaluateAll((els) => els.map((e) => e.getAttribute("data-screen-id")))
+  const row = (page: Page, id: string) => page.locator(`[data-screen-id="${id}"]`)
+  // The list scrolls, and dragTo loses a drag that scrolls: the events go in
+  // by hand, as in «Manage Screens: dragging».
+  const dragInList = async (page: Page, sourceId: string, targetId: string) => {
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
+    await row(page, sourceId).dispatchEvent("dragstart", { dataTransfer })
+    await row(page, targetId).dispatchEvent("dragover", { dataTransfer, clientY: 0 })
+    await row(page, targetId).dispatchEvent("drop", { dataTransfer })
+    await row(page, sourceId).dispatchEvent("dragend", { dataTransfer })
+  }
+
+  test("a page's screens above and below stand indented under it, go along with it, and take a drop for it", async ({ page }, testInfo) => {
+    await loadProject(
+      page,
+      await combProject(testInfo, (screen) => {
+        screen("screen-box-black").dock = { screenId: "screen-1", edge: "down" }
+      }),
+    )
+
+    const order = await listed(page)
+    const at = (id: string) => order.indexOf(id)
+    expect(order.slice(at("screen-1"), at("screen-1") + 5)).toEqual([
+      "screen-1",
+      "screen-3",
+      "screen-box-black",
+      "screen-mqtt-white",
+      "screen-mqtt-black",
+    ])
+    // The hidden screen after the row.
+    expect(at("screen-level-white")).toBeGreaterThan(at("screen-box-white"))
+    await expect(row(page, "screen-3")).toHaveAttribute("data-dock", "up")
+    await expect(row(page, "screen-box-black")).toHaveAttribute("data-dock", "down")
+    await expect(row(page, "screen-3").getByTitle('Above "label-tests-white-background"')).toHaveCount(1)
+    await expect(row(page, "screen-3")).toHaveAttribute("draggable", "false")
+    await expect(row(page, "screen-1")).toHaveAttribute("draggable", "true")
+
+    // B before A: B' comes along.
+    await dragInList(page, "screen-mqtt-white", "screen-1")
+    const moved = await listed(page)
+    expect(moved.slice(moved.indexOf("screen-mqtt-white"), moved.indexOf("screen-mqtt-white") + 5)).toEqual([
+      "screen-mqtt-white",
+      "screen-mqtt-black",
+      "screen-1",
+      "screen-3",
+      "screen-box-black",
+    ])
+
+    // A drop on A' goes after A and what hangs from it.
+    await dragInList(page, "screen-level-black", "screen-3")
+    const after = await listed(page)
+    expect(after.slice(after.indexOf("screen-1"), after.indexOf("screen-1") + 4)).toEqual([
+      "screen-1",
+      "screen-3",
+      "screen-box-black",
+      "screen-level-black",
+    ])
+
+    // A hidden screen dropped on a page goes into the row, shown.
+    await dragInList(page, "screen-level-white", "screen-1")
+    const shown = await listed(page)
+    expect(shown[shown.indexOf("screen-1") - 1]).toBe("screen-level-white")
+    await expect(row(page, "screen-level-white").getByText("Hidden", { exact: true })).toHaveCount(0)
   })
 })
