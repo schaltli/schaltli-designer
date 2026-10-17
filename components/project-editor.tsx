@@ -42,7 +42,8 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
-import { firstScreenToOpen, isMainScreen, isPagedScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
+import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
+import { pagedScreen, type ScreenDock } from "@/lib/screen-graph"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -243,6 +244,10 @@ export interface ProjectScreen {
   // next/previous and the navigator, still a «Go to Screen» target. A main
   // screen only. Absent: shown.
   hidden?: boolean
+  // Off the main row: docked on an edge of another screen
+  // (docs/2026-10-17-screen-graph.md, lib/screen-graph.ts). Absent: in the
+  // main row, in list order - or apart, when hidden, a popup or a master.
+  dock?: ScreenDock
 }
 
 export interface ProjectAsset {
@@ -1539,15 +1544,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         setPreviewPopupId(null)
       }
       if (action.type === "next-screen" || action.type === "previous-screen") {
-        // Masters, popups and hidden screens aren't part of the normal screen
-        // sequence - see ProjectScreen.isMaster and lib/popup.ts.
-        const screens = project.screens.filter(isPagedScreen)
-        if (screens.length === 0) return
-        const currentIndex = screens.findIndex((s) => s.id === previewScreenId)
-        const delta = action.type === "next-screen" ? 1 : -1
-        const newIndex = (((currentIndex === -1 ? 0 : currentIndex) + delta) % screens.length + screens.length) % screens.length
-        setPreviewScreenId(screens[newIndex].id)
-        toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: screens[newIndex].name })
+        // The main row: masters, popups, hidden and docked screens aren't in
+        // it - see lib/screen-graph.ts.
+        const target = pagedScreen(project.screens, previewScreenId ?? undefined, action.type === "next-screen" ? 1 : -1)
+        if (!target) return
+        setPreviewScreenId(target.id)
+        toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: target.name })
       } else if (action.type === "goto-screen") {
         const target = project.screens.find((s) => s.id === action.targetScreenId)
         if (!target) {

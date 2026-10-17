@@ -12,6 +12,7 @@ interface TypedScreen {
   screenType?: "popup"
   isMaster?: boolean
   hidden?: boolean
+  dock?: unknown
 }
 
 export function isPopup(screen: TypedScreen | undefined): boolean {
@@ -25,11 +26,11 @@ export function isMainScreen(screen: TypedScreen | undefined): boolean {
 
 /**
  * A screen next/previous pages to: a main screen that is not hidden («Hide
- * screen», docs/2026-10-08-navigator.md decision 3). A hidden one stays a
- * «Go to Screen» target.
+ * screen», docs/2026-10-08-navigator.md decision 3) nor docked off the main
+ * row (lib/screen-graph.ts). A hidden one stays a «Go to Screen» target.
  */
 export function isPagedScreen(screen: TypedScreen | undefined): boolean {
-  return isMainScreen(screen) && !screen!.hidden
+  return isMainScreen(screen) && !screen!.hidden && !screen!.dock
 }
 
 /** The screen a project opens on: its first paged screen, else its first main one, else its first. */
