@@ -29,5 +29,9 @@ screen with no swipe action gains swiping to its neighbours: «7 ja»).
   - `navigatorEntries` (lib/navigator-entries.ts): on a docked screen one entry without a name, an arrow against the way back (four arrow icons, `BACK_ARROW_ASSETS`), whose id is the screen it goes back to - so drawing, layout and a click take it as any entry
   - e2e/navigator.spec.ts «the navigator and the screen graph»: a docked screen has no entry; on it the single «←» goes back
   - the device draws its own «←» in graph-firmware; nothing of it is baked yet
-- [ ] G6 Handbook
-- [ ] Checkpoint: test:quick green; the user docks a history below a page in the preview
+- [x] G6 Handbook
+  - handbuch/designer/screens.md «Screens über- und untereinander» (main row, «Position», the swipe order, cut-off screens hidden, a warning that the devices follow with their next firmware and app) and «Position» among the screen's properties
+  - handbuch/designer/tasten.md: «Go to the screen beside» in the table; swipes go to the neighbours, the master where none is, buttons for each direction
+  - through maettel-humanizer; e2e/handbook-labels.spec.ts green
+  - the screen menu stays in the handbook until graph-contract removes it
+- [ ] Checkpoint: test:quick green (G5 run 2026-10-17: e2e 1597 passed, every device lane green); the user docks a history below a page in the preview

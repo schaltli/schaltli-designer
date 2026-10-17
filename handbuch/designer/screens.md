@@ -6,9 +6,29 @@ Ein Projekt besteht aus Screens, zwischen denen man auf dem Gerät wechselt: ein
 
 Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</span> ein kleines Menü: <span class="ui">Add Screen</span>, <span class="ui">Add Master Screen</span> oder <span class="ui">Add Popup Screen</span>. Im Dialog gibst du einen Namen ein. Für normale Screens schlägt der Designer beim Tippen gleich ein passendes Icon vor. Das Icon brauchen Geräte mit Screen-Menü, etwa der [Knob](/geraete/knob). <span class="ui">Create Screen</span> legt den Screen an.
 
-Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern.
+Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern und in der du wischst, siehe [Screens über- und untereinander](#position).
 
 Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span>, <span class="ui">Copy</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage, <kbd>Strg</kbd>+<kbd>Z</kbd> holt den Screen zurück. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
+
+## Screens über- und untereinander {#position}
+
+Die Screens liegen in einer Reihe, der Hauptreihe, in der Reihenfolge der Liste. Wischst du nach links, kommt der Screen, der rechts daneben liegt, wischst du nach rechts, der links daneben. <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern durch dieselbe Reihe.
+
+Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel den Verlauf der Batterie unter den Screen «Energie». Dazu wählst du in den Eigenschaften des Screens unter <span class="ui">Position</span> den Platz, etwa «Below "Energie"». <span class="ui">In the main row</span> holt ihn in die Reihe zurück.
+
+- Nach oben wischen zieht den Screen herauf, der darunter liegt. Nach unten wischen bringt dich zurück.
+- Links und rechts neben einen solchen Screen kannst du weitere legen, darüber oder darunter aber nicht.
+- Nachbarn sind nur Screens, die aneinander liegen. Liegen zwei Verläufe unter zwei Screens nebeneinander, wischst du trotzdem nicht vom einen zum anderen.
+- Links und rechts eines Screens der Hauptreihe liegt die Reihe selbst. Dort ordnest du in der Liste.
+- Ein Screen ausserhalb der Hauptreihe wird beim Blättern übersprungen und steht nicht im [Navigator](/objekte/anordnen#navigator). Auf ihm zeigt der Navigator nur einen Pfeil, der zurückführt.
+
+Was eine Wischgeste tut, entscheidet sich in dieser Reihenfolge: zuerst die Aktion, die der Screen selbst dafür hat, dann der Screen, der in dieser Richtung liegt, zuletzt die Aktion des Masters. Ein Screen ohne eigene Wischgesten wischt also zu seinen Nachbarn, auch wenn der Master nichts vorgibt. Soll eine Wischgeste nichts tun, wählst du <span class="ui">Nothing</span>.
+
+Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Designer diese zu versteckten Screens und nennt sie. Versteckte Screens, Master und Popups liegen nirgends.
+
+::: warning Geräte
+Die Plätze über und unter einem Screen kennen die Geräte erst mit ihrer nächsten Firmware und App. Bis dahin erreichst du einen solchen Screen dort nur mit einem Button oder einer Taste mit <span class="ui">Go to a screen</span>, und beim Blättern wird er übersprungen.
+:::
 
 ## Einen Screen in ein anderes Projekt übernehmen {#kopieren}
 
@@ -69,6 +89,8 @@ Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. D
   Das Icon ist <span class="ui">Fixed</span> oder <span class="ui">Live</span>. Live zeigt je nach Wert ein anderes Icon, mit denselben Regeln wie ein [Icon mit Live](/objekte/anzeigen#icon): etwa die erleuchtete Glühbirne, solange ein Combined topic «irgendwo brennt Licht» ja sagt. Das bisherige Icon wird zu <span class="ui">Otherwise</span>. Der [Navigator](/objekte/anordnen#navigator) zeigt das Icon, das gerade gilt.
 
   Mit <span class="ui">Hide screen</span> nimmst du einen Screen aus dem Wischen und aus dem Navigator. Ein Button mit <span class="ui">Go to a screen</span> erreicht ihn weiter, das passt etwa für einen Einstellungs-Screen. Das Projekt startet auf dem ersten Screen, der nicht versteckt ist. In der Screen-Liste trägt er die Marke «Hidden».
+
+  Mit <span class="ui">Position</span> legst du den Screen in die Hauptreihe oder über oder unter einen anderen, siehe [Screens über- und untereinander](#position). Ein Screen ausserhalb der Reihe hat kein <span class="ui">Hide screen</span>: Beim Blättern wird er ohnehin übersprungen.
 
   ::: warning Ältere Firmware
   <span class="ui">Hide screen</span> wirkt auf Geräten ab Systemgeneration 1.5. Mit älterer Firmware lässt sich ein versteckter Screen dort per Wischen erreichen, und beim Übertragen nennt der Dialog ihn.

@@ -19,6 +19,7 @@ Zur Wahl stehen diese Aktionen:
 | <span class="ui">Nothing</span> | nichts, auch wenn der Master etwas vorgibt |
 | <span class="ui">Next screen</span>, <span class="ui">Previous screen</span> | zum nächsten oder vorigen Screen blättern |
 | <span class="ui">Go to a screen</span> | zu einem bestimmten Screen springen |
+| <span class="ui">Go to the screen beside</span> | zum Screen, der darüber, darunter, links oder rechts liegt; welcher, wählst du unter <span class="ui">Side</span>. Liegt dort keiner, tut die Taste nichts |
 | <span class="ui">Send an MQTT message</span> | eine Nachricht an ein Topic schicken, etwa einen Befehl |
 | <span class="ui">Enter setup mode</span> | in die [Einrichtung](/geraete/einrichten) des Geräts wechseln |
 | <span class="ui">Adjust a slider or dial</span> | einen Slider oder Dial um eine Stufe verstellen, siehe [unten](#regler) |
@@ -47,7 +48,7 @@ Wird der Regler gelöscht, steht bei der Taste der Hinweis <span class="ui">Targ
 
 Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Jede hat dieselbe Auswahl wie eine Taste, gleich daneben.
 
-Üblich ist, nach links und rechts zwischen den Screens zu blättern. Belegst du das auf dem Master, gilt es für alle Screens.
+Ohne eigene Belegung wischt ein Screen zu seinen Nachbarn, siehe [Screens über- und untereinander](/designer/screens#position). Was du auf dem Master belegst, gilt dort, wo in dieser Richtung kein Nachbar liegt. Willst du statt zu wischen Tasten drücken, legst du auf jede Taste <span class="ui">Go to the screen beside</span> mit einer anderen Richtung.
 
 Auf einem [Popup](/designer/screens#popups) gibt es keine Wischgesten zu belegen. Jede Wischgeste schliesst es.
 
