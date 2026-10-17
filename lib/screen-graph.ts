@@ -1,11 +1,11 @@
 import { isMainScreen, isPagedScreen } from "@/lib/popup"
 
 // The screen graph (docs/2026-10-17-screen-graph.md, tasks/graph-model-plan.md).
-// Screens lie next to, above and under each other. The main row is the paged
-// screens in list order, as «Next screen» has always walked them; a screen
-// off the row is docked on one edge of exactly one other, so the screens form
-// a tree, and a neighbour is a screen joined by a branch of it, never one that
-// merely lies beside (decision 2).
+// A comb (decision 1): the main row is the paged screens in list order, as
+// «Next screen» has always walked them; a screen off the row is docked above
+// or below one of them and has no further neighbour. A neighbour is a screen
+// joined by a dock or by the row, never one that merely lies beside
+// (decision 2) - so every place is a column and a level.
 
 export type ScreenEdge = "up" | "down" | "left" | "right"
 
@@ -45,24 +45,21 @@ export function mainRow<S extends GraphScreen>(screens: readonly S[]): S[] {
 }
 
 /**
- * The row screen a screen hangs from, following its docks: itself for one in
- * the row, undefined for one that is not in the graph or whose chain is broken
- * or loops.
+ * The row screen a screen hangs from: itself for one in the row, the page it
+ * is docked above or below for one off it, undefined for one that is not in
+ * the graph - or docked anywhere else than above or below a row screen.
  */
 export function rowScreenOf<S extends GraphScreen>(screens: readonly S[], id: string): S | undefined {
-  const seen = new Set<string>()
-  let screen = screens.find((s) => s.id === id)
-  while (screen && canBeInGraph(screen)) {
-    if (!screen.dock) return screen
-    if (seen.has(screen.id)) return undefined
-    seen.add(screen.id)
-    const onId: string = screen.dock.screenId
-    screen = screens.find((s) => s.id === onId)
-  }
-  return undefined
+  const screen = screens.find((s) => s.id === id)
+  if (!screen || !canBeInGraph(screen)) return undefined
+  if (!screen.dock) return screen
+  if (!isVertical(screen.dock.edge)) return undefined
+  const onId = screen.dock.screenId
+  const page = screens.find((s) => s.id === onId)
+  return page && canBeInGraph(page) && !page.dock ? page : undefined
 }
 
-/** Whether a screen is in the graph: in the row, or docked by an unbroken chain onto it. */
+/** Whether a screen is in the graph: in the row, or docked above or below a screen of it. */
 export function isInGraph(screens: readonly GraphScreen[], id: string): boolean {
   return rowScreenOf(screens, id) !== undefined
 }
@@ -94,38 +91,6 @@ export function backOf(screens: readonly GraphScreen[], id: string): ScreenEdge 
   return oppositeEdge(screen.dock.edge)
 }
 
-/** The screens docked on this one, and on those, all the way out: what goes with it when it leaves the graph. */
-export function screensCutOff<S extends GraphScreen>(screens: readonly S[], id: string): S[] {
-  const cut: S[] = []
-  const reached = new Set([id])
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const s of screens) {
-      if (s.dock && reached.has(s.dock.screenId) && !reached.has(s.id)) {
-        reached.add(s.id)
-        cut.push(s)
-        grew = true
-      }
-    }
-  }
-  return screens.filter((s) => cut.includes(s))
-}
-
-/**
- * The screens with those docked on `id` made hidden screens, their docks gone
- * (plan decision 3), for when `id` leaves the graph - deleted, made a popup or
- * a master, or hidden. Without it they would drop into the main row unasked.
- */
-export function withCutOffHidden<S extends GraphScreen>(screens: readonly S[], id: string): { screens: S[]; hidden: S[] } {
-  const hidden = screensCutOff(screens, id)
-  const ids = new Set(hidden.map((s) => s.id))
-  return {
-    screens: screens.map((s) => (ids.has(s.id) ? { ...s, dock: undefined, hidden: true } : s)),
-    hidden,
-  }
-}
-
 const EDGE_PLACE: Record<ScreenEdge, string> = { up: "above", down: "below", left: "left of", right: "right of" }
 
 export type DockCheck = { ok: true } | { ok: false; reason: string }
@@ -140,14 +105,11 @@ export function canDock(screens: readonly GraphScreen[], id: string, onId: strin
   if (!canBeInGraph(on) || !isInGraph(screens, onId))
     return { ok: false, reason: `${name(on)} is hidden, a popup or a master: nothing docks on it.` }
   if (id === onId) return { ok: false, reason: "A screen does not dock on itself." }
-  if (screensCutOff(screens, id).some((s) => s.id === onId))
-    return { ok: false, reason: `${name(on)} is docked on ${name(screen)} already.` }
-  if (!on.dock && !isVertical(edge))
+  if (on.dock) return { ok: false, reason: `Nothing docks on ${name(on)}: it is itself above or below a screen of the main row.` }
+  if (!isVertical(edge))
     return { ok: false, reason: `Left and right of ${name(on)} is the main row: put ${name(screen)} there in the list of screens.` }
-  if (isVertical(edge) && on.dock && isVertical(on.dock.edge))
-    return { ok: false, reason: `Nothing docks above or below ${name(on)}: it is itself above or below another screen.` }
-  if (isVertical(edge) && screens.some((s) => s.dock?.screenId === id && isVertical(s.dock.edge)))
-    return { ok: false, reason: `${name(screen)} has a screen above or below it, so it cannot go above or below another.` }
+  if (screens.some((s) => s.dock?.screenId === id && isInGraph(screens, s.id)))
+    return { ok: false, reason: `${name(screen)} has a screen above or below it: it stays in the main row.` }
   // The edge as it is once the screen has left its present place.
   const without = screens.map((s) => (s.id === id ? { ...s, hidden: true } : s))
   const taken = neighboursOf(without, onId)[edge]
@@ -206,4 +168,68 @@ export function withGraphMended<S extends GraphScreen>(screens: S[]): { screens:
     if (canBeInGraph(broken)) hidden.push(mended)
     current = current.map((s) => (s === broken ? mended : s))
   }
+}
+
+// --- «Manage Screens» (tasks/graph-surface-plan.md) ---------------------------
+
+export interface GraphColumn<S> {
+  page: S
+  up?: S
+  down?: S
+}
+
+/**
+ * The comb as «Manage Screens» lays it out: one column per screen of the main
+ * row, with what lies above and below it, and apart from them the hidden
+ * screens, the popups and the masters (decision 8).
+ */
+export function graphLayout<S extends GraphScreen>(
+  screens: readonly S[],
+): { columns: GraphColumn<S>[]; hidden: S[]; popups: S[]; masters: S[] } {
+  const docked = (page: S, edge: ScreenEdge) =>
+    screens.find((s) => s.dock?.screenId === page.id && s.dock.edge === edge && isInGraph(screens, s.id))
+  return {
+    columns: mainRow(screens).map((page) => ({ page, up: docked(page, "up"), down: docked(page, "down") })),
+    hidden: screens.filter((s) => isMainScreen(s) && !isInGraph(screens, s.id)),
+    popups: screens.filter((s) => s.screenType === "popup"),
+    masters: screens.filter((s) => s.isMaster),
+  }
+}
+
+/**
+ * The screen put into the main row before `beforeId`, or at its end when that
+ * is null: its dock and «Hidden» gone, and moved in the list, which is the
+ * row's order. A page moved takes what is docked on it along.
+ */
+export function withScreenInRow<S extends GraphScreen>(screens: readonly S[], id: string, beforeId: string | null): S[] {
+  const screen = screens.find((s) => s.id === id)
+  if (!screen || !isMainScreen(screen) || id === beforeId) return [...screens]
+  const moved = { ...screen, dock: undefined, hidden: undefined }
+  const rest = screens.filter((s) => s.id !== id)
+  const row = mainRow(rest)
+  const at =
+    beforeId !== null && row.some((s) => s.id === beforeId)
+      ? rest.findIndex((s) => s.id === beforeId)
+      : row.length > 0
+        ? rest.indexOf(row[row.length - 1]) + 1
+        : rest.length
+  return [...rest.slice(0, at), moved, ...rest.slice(at)]
+}
+
+/** The screen docked above or below a page - shown first if it was hidden - or why it may not. */
+export function withScreenDocked<S extends GraphScreen>(
+  screens: readonly S[],
+  id: string,
+  pageId: string,
+  edge: ScreenEdge,
+): { ok: true; screens: S[] } | { ok: false; reason: string } {
+  const shown = screens.map((s) => (s.id === id ? { ...s, hidden: undefined } : s))
+  const check = canDock(shown, id, pageId, edge)
+  if (!check.ok) return check
+  return { ok: true, screens: shown.map((s) => (s.id === id ? { ...s, dock: { screenId: pageId, edge } } : s)) }
+}
+
+/** The screen made a hidden one, out of the graph; what was docked on it follows when the graph is mended. */
+export function withScreenApart<S extends GraphScreen>(screens: readonly S[], id: string): S[] {
+  return screens.map((s) => (s.id === id ? { ...s, dock: undefined, hidden: true } : s))
 }

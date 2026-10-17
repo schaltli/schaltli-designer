@@ -25,7 +25,7 @@
 
 import type { HardwareButtonAction, ProjectScreen } from "@/components/project-editor"
 import { adjustTargetOf } from "@/lib/adjust-level"
-import { neighboursOf, SWIPE_TO_SIDE } from "@/lib/screen-graph"
+import { neighboursOf, SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 // Re-exported for existing importers (project-editor.tsx,
 // hardware-button-action-fields.tsx, lib/project-zip.ts) - the real definition
 // moved to lib/master-screen.ts once background-color/image inheritance
@@ -120,6 +120,25 @@ export function resolveSwipeAction(
   if (!side || resolved.source === "local" || screen.buttonActions?.[buttonId]?.type === "none") return resolved.action
   if (neighboursOf(screens, screen.id)[side]) return { type: "goto-neighbour", side }
   return resolved.action
+}
+
+/**
+ * The neighbours a screen's own swipes cut off (docs/2026-10-17-screen-graph.md
+ * decision 9): each side where a screen lies whose swipe does something else -
+ * the screen's own action, «Nothing» among them, comes first (decision 4).
+ */
+export function cutOffSides(
+  screen: ProjectScreen,
+  masterScreen: ProjectScreen | undefined,
+  screens: readonly ProjectScreen[],
+): { swipeId: string; side: ScreenEdge; neighbourId: string }[] {
+  const neighbours = neighboursOf(screens, screen.id)
+  return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) => {
+    const neighbourId = neighbours[side]
+    if (!neighbourId) return []
+    const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
+    return action?.type === "goto-neighbour" && action.side === side ? [] : [{ swipeId, side, neighbourId }]
+  })
 }
 
 // gray/yellow/red - unbelegt/vererbt/lokal definiert. Read live off the

@@ -26,20 +26,21 @@ of its own.
 
 ## Decisions
 
-1. **Free in both directions** (user, 2026-10-17): a screen can lie left,
-   right, above or below another.
+1. **A comb: the main row, and one screen above and one below each page**
+   (user, 2026-10-17, first «free in both directions», narrowed the same
+   day for a view that shows exactly what a swipe does). The main row
+   runs left to right; a screen of it may have one screen docked above
+   and one below; a docked screen has no further neighbour, neither
+   beside nor above or below. Every place is a column and a level, so
+   the designer can lay the graph out as it is (decision 12).
 2. **A neighbour is a screen docked on, not one that happens to lie
    beside** (user, 2026-10-17: with B right of A, A' above A and B' above
-   B, there is no way from A' to B'). Every screen but the first is
-   docked on one edge of exactly one other; the screens form a tree, and
-   swiping follows only its branches. A' and B' lie side by side on the
-   surface and are still not neighbours. (proposed: the designer draws
-   the branches as lines between the screens, so one sees which touch.)
-3. **No screen docked above or below one that is itself docked above or
-   below, for now** (user, 2026-10-17: whether histories may be stacked
-   is not known yet). A page has at most one screen above and one below;
-   those have no further vertical neighbour. To be lifted when there is a
-   use for it.
+   B, there is no way from A' to B'). A' and B' lie side by side in the
+   designer's view and are still not neighbours; the view shows the
+   docks as joins, so one sees which touch.
+3. **No stacking, for now** (user, 2026-10-17: whether histories may be
+   stacked is not known yet). Part of the comb (decision 1); to be lifted
+   when there is a use for it.
 4. **Swiping goes to the neighbour.** Swiping up shows the screen docked
    below - what lies below is pulled up - swiping left the one docked on
    the right. A swipe with no neighbour in its direction does nothing.
@@ -106,8 +107,17 @@ of its own.
     on the knob it is too narrow to hit.
 11. **Existing projects** load as one row in their present order, so every
    swipe and every «Next screen» does what it did. (proposed)
-12. **In the designer** the surface is shown as small screens dragged to
-    an edge of another to dock them, as in Windows. (proposed)
+12. **«Manage Screens» becomes the view that arranges the screens**
+    (user, 2026-10-17: a second view beside it would be one too many), as
+    PowerPoint's slide sorter: the main row as a row of thumbnails, the
+    screens docked above and below each page in the rows over and under
+    it, and apart from them hidden screens, popups and masters (decision
+    8). Dragging orders the row, docks a screen above or below a page, or
+    puts it apart. The list of screens stays, and shows a docked screen
+    indented under its page with ↑ or ↓. Moving the list to the bottom
+    of the window was weighed and left: three levels of thumbnails would
+    cost the canvas its height for good. «Position» in a screen's
+    properties stays as the way without a mouse.
 13. **The device computes nothing** (user, 2026-10-17), as with charts
     (`docs/2026-10-16-charts.md`, «Data model»). In the project a
     screen off the main row has `dock: { screenId, edge }`; the main row
@@ -163,7 +173,7 @@ firmware's `pio test -e native`.
 | Module | Responsibility | Depends on |
 |---|---|---|
 | `graph-model` | `dock` in the project, the tree check (decisions 2 and 3), the main row, loading existing projects as one row, the four actions in the union and the picker, the export of `neighbours`, `back`, the main row and the resolved swipe actions (decision 13), the preview running the actions and «←» | - |
-| `graph-surface` | the designer's surface: docking by dragging, the lines between docked screens, the area for hidden screens, popups and masters, the warning when an own swipe action cuts a neighbour off | `graph-model` |
+| `graph-surface` | the view to arrange the screens (decision 12): the comb as it is, docking and ordering by dragging, the area for hidden screens, popups and masters; docked screens indented in the list of screens; the warning when an own swipe action cuts a neighbour off | `graph-model` |
 | `graph-contract` | `docs/device-contract.md`, the feature `screen-graph`, Deploy's gate (decision 14), «Show Screen Menu» removed with its notice (decision 6) | `graph-model` |
 | `graph-firmware` | 4.3B, PaperS3, knob: reading the export, the four actions, next and previous over the main row, following the finger up and down, the pull tab, the navigator's «←», the knob's screen menu gone, the DDF; native tests and HIL | `graph-contract` |
 | `graph-android` | the app: the same, `ScreenMenuOverlay` gone; the orchestrator's HIL | `graph-contract` |
@@ -248,9 +258,11 @@ Taken with the map (user, 2026-10-17):
    and exports without it (e2e, `device-actions`).
 6. In the preview the four actions change screen, and the navigator
    shows «←» on A' and goes back on a click (e2e).
-7. On the surface a screen dragged to an edge of another docks there;
-   lines join docked screens; hidden screens, popups and masters stand
-   apart; a cut-off neighbour is warned about (e2e).
+7. In the view to arrange the screens: the main row in order, each
+   page's screens above and below it, hidden screens, popups and masters
+   apart; dragging orders the row, docks above or below a page and puts a
+   screen apart; the list of screens shows a docked screen indented under
+   its page; a cut-off neighbour is warned about (e2e).
 8. On the 4.3B, the PaperS3 and the knob (HIL): swiping up on A shows
    A', down goes back; from A' no sideways swipe reaches B'; next and
    previous walk the main row and skip hidden screens; a pull tab is

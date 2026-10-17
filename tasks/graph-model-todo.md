@@ -34,4 +34,9 @@ screen with no swipe action gains swiping to its neighbours: «7 ja»).
   - handbuch/designer/tasten.md: «Go to the screen beside» in the table; swipes go to the neighbours, the master where none is, buttons for each direction
   - through maettel-humanizer; e2e/handbook-labels.spec.ts green
   - the screen menu stays in the handbook until graph-contract removes it
+- [x] G7 A comb (user, 2026-10-17, after G6: «ja, beides so»)
+  - spec decisions 1, 2, 3, 12: the main row and one screen above and one below each page, nothing more; a view of its own to arrange them
+  - `rowScreenOf`: a docked screen is in the graph only above or below a row screen; `canDock` refuses a dock on a docked screen and a row screen with screens on it; `withGraphMended` hides any other dock; `screensCutOff` and `withCutOffHidden` gone
+  - e2e/screen-graph.spec.ts core tests rewritten for the comb; «Position» no longer offers a place beside a docked screen
+  - handbuch/designer/screens.md: a docked screen has no further neighbours
 - [ ] Checkpoint: test:quick green (G5 run 2026-10-17: e2e 1597 passed, every device lane green); the user docks a history below a page in the preview
