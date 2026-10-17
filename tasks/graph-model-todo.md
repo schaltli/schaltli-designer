@@ -14,8 +14,11 @@ screen with no swipe action gains swiping to its neighbours: «7 ja»).
   - the picker: «Go to the screen beside» (not on a popup) and «Side»; a swipe suggests the side it pulls in, a button «Right»; «No screen is docked there: here it does nothing.» on a screen without one
   - the preview moves to the neighbour and closes a popup; a click on a swipe or button resolves through `resolveSwipeAction` (own, «Nothing» included; neighbour; master)
   - e2e/screen-graph.spec.ts «what a swipe does» (4) and «Go to the screen beside» (picker, note, preview)
-- [ ] G3 The export
-  - export a docked screen with `hidden: true` too, so a board of today pages past it and leaves it out of the navigator, as a new one does
+- [x] G3 The export
+  - device zip and Android bundle: `mainRow`, each screen's `neighbours` and `back`; a docked screen also `hidden: true`, so a board of today pages past it
+  - `exportedButtonAction(..., screens)` resolves a swipe as own, neighbour, master; a neighbour in the row beside a row screen goes out as «Next screen» / «Previous screen», one off the row as `goto-neighbour`, none as nothing - a single row exports no `goto-neighbour`
+  - Android also writes the four swipes of a screen in the graph, which only a neighbour may fill
+  - e2e/screen-graph-export.spec.ts (4 cases, device and Android); e2e/android-export.spec.ts «a master screen is resolved away» now expects the row neighbour's swipe on the screen without a master (decision 7)
 - [ ] G4 «Position» and leaving the graph
 - [ ] G5 The navigator
 - [ ] G6 Handbook

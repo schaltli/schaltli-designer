@@ -192,7 +192,13 @@ test.describe("Adjust a slider or dial: the export", () => {
   for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
     test(`${hook}: writes the target and direction, drops an action whose target is gone`, async ({ page }) => {
       const project = await exported(page, hook)
-      const screen = (id: string) => project.screens.find((s: Obj) => s.id === id)
+      // The buttons only: the app also gets each screen's swipes to its
+      // neighbours in the row (docs/2026-10-17-screen-graph.md decision 4).
+      const screen = (id: string) => {
+        const s = project.screens.find((s: Obj) => s.id === id)
+        const buttons = Object.entries(s.buttonActions ?? {}).filter(([id]) => !id.startsWith("swipe-"))
+        return { ...s, buttonActions: buttons.length > 0 ? Object.fromEntries(buttons) : undefined }
+      }
 
       expect(screen("s1").buttonActions).toEqual({
         "button-1": { type: "adjust-level", targetObjectId: "sl", direction: "up" },

@@ -425,9 +425,10 @@ test.describe("Android-Export", () => {
     expect(tank.buttonActions["swipe-left"]).toEqual({ type: "next-screen" })
 
     // The screen with no master keeps its own background and inherits none
-    // of those bindings.
+    // of those bindings. A swipe right still pulls in its neighbour in the
+    // row (docs/2026-10-17-screen-graph.md decision 4), the screen before.
     expect(plain.backgroundColor).toBe("#ffffff")
-    expect(plain.buttonActions).toBeUndefined()
+    expect(plain.buttonActions).toEqual({ "swipe-right": { type: "previous-screen" } })
 
     // A master's text arrives on the screen with {project:name} written in,
     // and a live placeholder left for the app to resolve

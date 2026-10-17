@@ -28,6 +28,7 @@ import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, them
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
+import { backOf, mainRow, neighboursOf } from "@/lib/screen-graph"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -632,6 +633,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     // declared topics.
     topics: exportedTopics(project),
     ...(navigators.length > 0 ? { navigators } : {}),
+    // The screen graph (docs/2026-10-17-screen-graph.md decision 13): the
+    // main row in order, for next and previous. A device computes nothing.
+    mainRow: mainRow(project.screens).map((screen) => screen.id),
     // Combined topics in the order a device computes them
     // (lib/combined-topics.ts); a 1.3 device skips the key.
     ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
@@ -666,9 +670,11 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         const colorDepth = project.settings.colorDepth
         const buttonActions: Record<string, HardwareButtonAction> = {}
         for (const hwButton of project.hardwareButtons ?? []) {
-          const action = exportedButtonAction(screen, masterScreen, hwButton.id)
+          // A swipe resolved as own, neighbour, master (lib/screen-graph.ts).
+          const action = exportedButtonAction(screen, masterScreen, hwButton.id, project.screens)
           if (action) buttonActions[hwButton.id] = action
         }
+        const neighbours = neighboursOf(project.screens, screen.id)
 
         return {
           id: screen.id,
@@ -689,7 +695,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // Which navigator it shows, and whether it is out of the paging
           // (docs/2026-10-08-navigator.md). A device below 1.5 ignores both.
           navigatorId: navigatorOfScreen(screen),
-          hidden: screen.hidden || undefined,
+          // A docked screen is out of the paging as a hidden one is, so a
+          // board of today pages past it too (tasks/graph-model-plan.md).
+          hidden: screen.hidden || !!screen.dock || undefined,
+          // Its neighbours by edge, and for a docked one the edge the way back
+          // lies at - the device draws the «←» the other way round.
+          neighbours: Object.keys(neighbours).length > 0 ? neighbours : undefined,
+          back: backOf(project.screens, screen.id),
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mapObjectsDeep(
             // The navigator goes once, in navigators[] below; a screen says

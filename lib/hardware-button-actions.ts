@@ -71,13 +71,35 @@ export function exportedButtonAction(
   screen: ProjectScreen,
   masterScreen: ProjectScreen | undefined,
   buttonId: string,
+  screens?: readonly ProjectScreen[],
 ): HardwareButtonAction | undefined {
-  const { action } = resolveButtonAction(screen, masterScreen, buttonId)
+  const action = screens
+    ? resolveSwipeAction(screen, masterScreen, buttonId, screens)
+    : resolveButtonAction(screen, masterScreen, buttonId).action
+  if (action?.type === "goto-neighbour") return exportedNeighbourAction(screen, action, screens ?? [])
   if (action?.type === "adjust-level") {
     if (!adjustTargetOf(action, screen, masterScreen)) return undefined
     return { type: action.type, targetObjectId: action.targetObjectId, direction: action.direction ?? "up" }
   }
   return action
+}
+
+/**
+ * A neighbour as the device is told it (tasks/graph-model-plan.md decision 6):
+ * one in the main row beside a row screen as «Next screen» or «Previous
+ * screen», which every board knows, so a single row exports nothing new; one
+ * off the row as `goto-neighbour`; with none on that side, nothing.
+ */
+function exportedNeighbourAction(
+  screen: ProjectScreen,
+  action: HardwareButtonAction,
+  screens: readonly ProjectScreen[],
+): HardwareButtonAction | undefined {
+  const targetId = action.side ? neighboursOf(screens, screen.id)[action.side] : undefined
+  if (!targetId) return undefined
+  const target = screens.find((s) => s.id === targetId)
+  if (!screen.dock && !target?.dock) return { type: action.side === "left" ? "previous-screen" : "next-screen" }
+  return { type: "goto-neighbour", side: action.side }
 }
 
 /**

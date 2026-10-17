@@ -20,6 +20,7 @@ import type { EnergyNode } from "@/lib/energy-diagram"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
+import { backOf, isInGraph, mainRow, neighboursOf } from "@/lib/screen-graph"
 import {
   buttonIconKey,
   buttonIconUrl,
@@ -611,6 +612,8 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // declared topics.
     topics: exportedTopics(project),
     ...(navigators.length > 0 ? { navigators } : {}),
+    // The screen graph, as in the device zip (lib/project-zip.ts).
+    mainRow: mainRow(project.screens).map((screen) => screen.id),
     ...((project.combinedTopics ?? []).length > 0 ? { combinedTopics: evaluationOrder(project.combinedTopics ?? []).order } : {}),
     decimalSeparator: projectSeparators(project.settings).decimal,
     thousandsSeparator: projectSeparators(project.settings).thousands,
@@ -621,18 +624,22 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       // lib/device-description.ts) is not consulted: a binding that exists
       // is a binding the author made, and an id this platform never reports
       // simply never fires.
+      // And the four swipes of a screen in the graph, which a neighbour
+      // fills where nobody bound them (lib/screen-graph.ts).
       const buttonIds = new Set([
         ...Object.keys(screen.buttonActions ?? {}),
         ...Object.keys(masterScreen?.buttonActions ?? {}),
+        ...(isInGraph(project.screens, screen.id) ? ["swipe-left", "swipe-right", "swipe-up", "swipe-down"] : []),
       ])
       const buttonActions: Record<string, unknown> = {}
       for (const buttonId of buttonIds) {
         // Resolves local-override, then master, then nothing - and resolves
         // the explicit "none" away to nothing, which an absent key already
         // means to every consumer.
-        const action = exportedButtonAction(screen, masterScreen, buttonId)
+        const action = exportedButtonAction(screen, masterScreen, buttonId, project.screens)
         if (action) buttonActions[buttonId] = action
       }
+      const neighbours = neighboursOf(project.screens, screen.id)
 
       return {
         id: screen.id,
@@ -641,7 +648,10 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         backgroundColorDark,
         // Which navigator it shows, and whether it is out of the paging.
         navigatorId: masterScreen?.objects.find((o: any) => o.type === "navigator")?.id,
-        hidden: screen.hidden || undefined,
+        // A docked screen is out of the paging as a hidden one is.
+        hidden: screen.hidden || !!screen.dock || undefined,
+        neighbours: Object.keys(neighbours).length > 0 ? neighbours : undefined,
+        back: backOf(project.screens, screen.id),
         buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
         // Deep, not just the top level: a Switch or an MQTTIconField inside
         // a tab-control's panel needs its icon paths written back exactly as
