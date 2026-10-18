@@ -15,8 +15,8 @@ Plan: tasks/navigator-glide-plan.md.
 - [x] Android: core + vectors test, FollowingScreens onFollow/onFollowEnd,
       NavigatorStripView marker, settle in MainActivity, `markerFrames`
       debug; assembleDebug
-- [ ] Android HIL on the phone: checkScreenGraph B to C glide (needs the
-      phone connected)
+- [x] Android HIL on the phone: checkScreenGraph B to C glide, 13/13 (3 of 5
+      frames between, settled in 20 frames; 2026-10-18)
 - [x] Spec decision 14, contract 2.7, handbook objekte/anordnen.md
 
 Also in this piece: the way back's arrow points to where the page lies
