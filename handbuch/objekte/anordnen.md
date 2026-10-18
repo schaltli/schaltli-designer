@@ -78,7 +78,7 @@ Die Farben kommen aus dem Theme. Mit <span class="ui">Panel</span> ist der Grund
 
 **Was er zeigt:** Ist das Icon eines Screens auf <span class="ui">Live</span> gestellt, zeigt der Navigator gleich, wie es dort steht, etwa eine erleuchtete Glühbirne, solange irgendwo ein Licht brennt. Wie das geht, steht unter [Die Eigenschaften eines Screens](/designer/screens#die-eigenschaften-eines-screens).
 
-Auf den Screens, die den Master verwenden, ist sein Streifen beim Bearbeiten schraffiert, damit du nicht aus Versehen etwas darunter legst. Verboten ist es nicht: Der Navigator deckt zu, was darunter liegt, auch ein Hintergrundbild. In der Vorschau probierst du ihn aus. Ein Klick öffnet einen Screen, Ziehen entlang der Leiste scrollt.
+Auf den Screens, die den Master verwenden, ist sein Streifen beim Bearbeiten schraffiert, damit du nicht aus Versehen etwas darunter legst. Verboten ist es nicht: Der Navigator liegt immer zuoberst und deckt zu, was in seinen Streifen ragt, auch ein Hintergrundbild und auch ein Objekt, das weiter vorne liegt. In der Vorschau probierst du ihn aus. Ein Klick öffnet einen Screen, Ziehen entlang der Leiste scrollt.
 
 Auf dem PaperS3 folgt die Leiste dem Finger nicht, das E-Paper reagiert erst beim Loslassen. Ein Wisch auf dem Navigator blättert dort eine ganze Seite Einträge weiter.
 

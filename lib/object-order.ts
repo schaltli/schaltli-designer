@@ -93,9 +93,14 @@ export function sortObjectsByDrawingOrder(objects: ScreenObject[]): ScreenObject
  * already sorts objects by (see the std::sort calls in renderScreen()/
  * renderObjectsPartial()), keeping this one new subtree's ordering
  * consistent between the designer and the device from the start.
+ *
+ * A navigator comes last, whatever its zIndex: the devices draw it over the
+ * screen (ColorScreenRenderer::renderNavigatorOver), so an object reaching
+ * into its strip lies under it (user, 2026-10-18).
  */
 export function sortChildrenByZIndex(children: ScreenObject[]): ScreenObject[] {
-  return [...children].sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
+  const top = (o: ScreenObject) => (o.type === "navigator" ? 1 : 0)
+  return [...children].sort((a, b) => top(a) - top(b) || a.zIndex - b.zIndex || a.id.localeCompare(b.id))
 }
 
 /**

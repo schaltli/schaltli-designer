@@ -208,6 +208,27 @@ test.describe("the navigator, drawn", () => {
     expect(at(100, 240)).toBe("#000000")
   })
 
+  // The devices draw the navigator over the screen: an object reaching into
+  // its strip lies under it, whatever its zIndex (user, 2026-10-18).
+  test("over an object that reaches into its strip, even one with a higher zIndex", async ({ page }) => {
+    const project = drawProject(false)
+    project.screens[0].objects.push({
+      id: "reaching",
+      type: "box",
+      x: 20,
+      y: 200,
+      width: 200,
+      height: 80,
+      zIndex: 99,
+      properties: { fillColor: "#00ff00", strokeColor: "#00ff00", strokeWidth: 0 },
+    })
+    const at = await pixels(page, project)
+    // In the strip: the navigator's ground, not the box.
+    expect(at(40, 270)).toBe(GROUND)
+    // Beside it: the box.
+    expect(at(150, 240)).toBe("#00ff00")
+  })
+
   // On «Surface», as the screen, the strip read as one button, not a bar
   // (2026-10-10, mockup C): a line towards the screen, 2 px, over the entries.
   test("a line in its border colour along the edge towards the screen", async ({ page }) => {
