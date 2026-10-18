@@ -64,8 +64,8 @@ of its own.
      touch moves far enough to be a swipe, the knob shows at each edge
      that has a neighbour that screen's icon and name - 12, 3, 6 and 9
      o'clock on the round display - and they fade as the screen follows
-     the finger. (proposed: how far is «far enough», and whether the
-     hints show on touch-down already.)
+     the finger. From 12 px of movement, where a drag starts, never on
+     touch-down (user, 2026-10-18; tasks/graph-knob-map-plan.md).
    - A tap stays a tap: nothing shows before the touch moves.
    - **Projects that use it**: the designer removes the action when it
      opens the project and says so once («The screen menu is gone: swipe,
@@ -153,9 +153,7 @@ of its own.
     setup hold does not count: a finger resting on a tile is choosing,
     not asking for setup. Only screens of the graph are on the map;
     hidden screens, popups and masters are not (decision 8). Any device
-    may show it; the knob needs it, having no navigator. (proposed: the
-    pause is about 0.4 s, and the map is the designer's view of the
-    surface, drawn small)
+    may show it; the knob needs it, having no navigator. (user, 2026-10-18: a pause of 0.4 s after a swipe of 60 px at least, so the setup hold is never taken for one; the map looks like «Manage Screens» - tiles with icon and name, joins between docked screens, the current one in the middle)
 16. **Four actions for the neighbours** (user, 2026-10-17): «Go to the
     screen above», «… below», «… on the left» and «… on the right» do what the swipe in
     that direction would do without the screen's own swipe action. So a

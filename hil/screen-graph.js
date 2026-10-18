@@ -108,7 +108,14 @@ function graphProject(ddf) {
     name: "HIL screen graph",
     screenWidth: sw,
     screenHeight: sh,
-    settings: { colorDepth, deviceId: ddf.deviceId, supportedObjectTypes: ddf.supportedObjectTypes },
+    // The page icons too, where the device wants them (the knob's hints and
+    // map show them), as a project made from its description has it.
+    settings: {
+      colorDepth,
+      deviceId: ddf.deviceId,
+      supportedObjectTypes: ddf.supportedObjectTypes,
+      ...(ddf.raw.needsPageIconsInSize ? { needsPageIconsInSize: ddf.raw.needsPageIconsInSize } : {}),
+    },
     fonts: ddf.fonts,
     assets: [{ id: "square", name: "square", type: "icon", data: SQUARE }],
     topics: [{ id: "sent", topic: SENT, type: "text", examples: [""] }],
@@ -288,7 +295,11 @@ async function main() {
 
     // Up from the middle of what moves: A1 comes up from below.
     const mx = Math.round(strip + (sw - strip) / 2)
-    if (!eink) {
+    // Not on the knob: fetching the glass mid-swipe holds the finger still for
+    // a second, which is a swipe ending in a pause - the knob opens its map
+    // for it (decision 15). There the swipe is made in one go, and what it
+    // brought up is checked below.
+    if (!eink && withNavigator) {
       const beforeImg = await fetchBmp("snapshot.bmp", "before-swipe-up")
       await press(mx, sh * 0.8, mx, sh * 0.35, 6)
       const glass = await fetchBmp("panel.bmp", "during-swipe-up")
@@ -332,6 +343,72 @@ async function main() {
     await sleep(1000)
     check("a swipe up on C publishes its message", heard.includes("from C"), JSON.stringify(heard))
     await shows("... and stays on C", "C")
+
+    // The knob, which has no navigator, shows where a swipe leads while it is
+    // made, and opens the graph as a map on a swipe that ends in a pause
+    // (decisions 6 and 15; tasks/graph-knob-map-plan.md). Driven through
+    // /api/touch, read back through /api/debug and the glass.
+    const debug = async () => JSON.parse((await get(`${base}/api/debug`)).body)
+    if (!withNavigator && (await debug()).graphMap) {
+      // Held still: every injected touch lasts a moment, so it is sent again.
+      const hold = async (x, y, ms) => {
+        for (const end = Date.now() + ms; Date.now() < end; ) {
+          await touch(x, y, true)
+          await sleep(120)
+        }
+      }
+      await wake()
+      await showScreen(deviceIndex("A"))
+      // A short way up: the hints show, A1 below and B on the right - and on
+      // the glass, not only in the state.
+      const before = await fetchBmp("panel.bmp", "before-hints")
+      await press(mx, sh * 0.6, mx, sh * 0.6 - 30, 3)
+      const hinted = await debug()
+      const glass = await fetchBmp("panel.bmp", "hints")
+      await touch(mx, sh * 0.6 - 30, false)
+      await settle()
+      check("a short swipe shows the hints where it leads: below and on the right", hinted.graphHints === "down right", JSON.stringify(hinted.graphHints))
+      let changed = 0
+      for (let y = sh - 100; y < sh; y += 2) for (let x = sw / 2 - 40; x < sw / 2 + 40; x += 2) if (glass.getPixelColor(x, y) !== before.getPixelColor(x, y)) changed++
+      check("... drawn on the glass at the bottom", changed > 100, `${changed} sampled px changed`)
+      check("... and gone when the finger is lifted", (await debug()).graphHints === "", JSON.stringify((await debug()).graphHints))
+
+      // A swipe that ends in a pause: the map.
+      await press(mx, sh * 0.7, mx, sh * 0.35, 6)
+      await hold(mx, sh * 0.35, 900)
+      const map = (await debug()).graphMap
+      check("a swipe that ends in a pause opens the map", map.open === true && map.tiles.length === 5, JSON.stringify(map).slice(0, 160))
+      // The finger onto B's tile; lifted there, it jumps.
+      const tileB = map.tiles.find((t) => t.id === id("B"))
+      if (tileB) {
+        await press(mx, sh * 0.35, tileB.x, tileB.y, 4)
+        await hold(tileB.x, tileB.y, 300)
+        const lit = (await debug()).graphMap.lit
+        check("... the tile under the finger is lit", lit === id("B"), lit)
+        await touch(tileB.x, tileB.y, false)
+        await settle()
+        const after = await debug()
+        check("... and lifting it there jumps to that screen", after.graphMap.open === false && after.lastReleaseVerdict === "map-jump", after.lastReleaseVerdict)
+        await shows("on B after the map", "B")
+      }
+
+      // Over the current screen: nothing.
+      await press(mx, sh * 0.7, mx, sh * 0.35, 6)
+      await hold(mx, sh * 0.35, 900)
+      const again = (await debug()).graphMap
+      const self = again.tiles.find((t) => t.id === id("B"))
+      if (self) {
+        await press(mx, sh * 0.35, self.x, self.y, 3)
+        await hold(self.x, self.y, 300)
+        await touch(self.x, self.y, false)
+        await settle()
+        const after = await debug()
+        check("lifting over the current screen cancels", after.lastReleaseVerdict === "map-cancel" && after.graphMap.open === false, after.lastReleaseVerdict)
+        await shows("... still on B", "B")
+      } else {
+        check("the map opens a second time", false, JSON.stringify(again).slice(0, 160))
+      }
+    }
   } finally {
     await browser.close()
     client.end()

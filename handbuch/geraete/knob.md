@@ -29,7 +29,11 @@ Auf einem Master-Screen belegt, gilt die Aktion für alle Screens, die diesen Ma
 
 Du wischst zu den Nachbarn eines Screens: nach links und rechts durch die Hauptreihe, nach oben und unten zu einem Screen, der darunter oder darüber liegt, siehe [Screens über- und untereinander](/designer/screens#position). Der Screen folgt dabei dem Finger. Eine kurze Lasche am Rand zeigt, wohin eine Wischgeste führt. Eine andere Belegung wählst du im Designer wie beim Ring, in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>.
 
-Ein eigenes Screen-Menü hat der Knob nicht mehr, siehe [Das Screen-Menü gibt es nicht mehr](/designer/tasten#screen-menue).
+Sobald sich der Finger ein Stück bewegt, zeigt der Knob am Rand, wohin eine Wischgeste führt: Icon und Name des Nachbarn, oben, unten, links oder rechts. Die Hinweise verblassen, während der Screen dem Finger folgt, und verschwinden beim Loslassen. Ein Tipp zeigt keine.
+
+**Die Karte:** Wischst du und hältst den Finger am Ende kurz still, öffnet sich eine Karte aller Screens, angeordnet wie in <span class="ui">Manage Screens</span>. Die Hauptreihe liegt quer, ein Verlauf darunter, dein Screen ist in der Mitte umrandet. Der Finger bleibt auf dem Glas und dient als Zeiger. Die Kachel darunter leuchtet, und lässt du dort los, springt der Knob zu diesem Screen. Lässt du über deinem Screen oder neben allen Kacheln los, bleibt alles, wie es war. Am runden Rand verschiebt sich die Karte, so erreichst du auch Screens weiter weg. Versteckte Screens, Popups und Master stehen nicht darauf. Während die Karte offen ist, zählt das Halten für die Einrichtung nicht.
+
+Die Icons wählst du im Designer in den Eigenschaften jedes Screens. Ein eigenes Screen-Menü hat der Knob nicht mehr, siehe [Das Screen-Menü gibt es nicht mehr](/designer/tasten#screen-menue).
 
 ## Display und Energie
 
