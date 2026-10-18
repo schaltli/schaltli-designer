@@ -526,7 +526,7 @@ export function ScreensPanel({
   }
 
   return (
-    <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col min-h-0">
+    <div data-testid="screens-panel" className="w-60 shrink-0 border-r border-border bg-card flex flex-col min-h-0">
       <div className="h-9 shrink-0 border-b border-border flex items-center justify-between px-2">
         <span className="text-xs font-medium text-muted-foreground">Screens</span>
         {!previewMode && (

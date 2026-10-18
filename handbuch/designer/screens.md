@@ -8,13 +8,15 @@ Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</s
 
 Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern und in der du wischst, siehe [Screens über- und untereinander](#position). Ein Screen, der über oder unter einem anderen liegt, steht eingerückt darunter, mit ↑ oder ↓ markiert. Er geht mit, wenn du den anderen verschiebst, und lässt sich nicht für sich allein ziehen. Die versteckten Screens stehen nach der Hauptreihe. Ziehst du einen versteckten Screen zwischen die Screens der Hauptreihe, kommt er dort hinein und ist nicht mehr versteckt.
 
+<Screenshot narrow name="screen-liste" alt="Die Screen-Liste: Master, dann Energie, eingerückt darunter Verlauf mit einem Pfeil nach unten, dann Licht und Wasser" caption="«Verlauf» liegt unter «Energie» und steht deshalb eingerückt darunter, mit ↓." />
+
 Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span>, <span class="ui">Copy</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage, <kbd>Strg</kbd>+<kbd>Z</kbd> holt den Screen zurück. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
 
 ## Screens über- und untereinander {#position}
 
 Die Screens liegen in einer Reihe, der Hauptreihe, in der Reihenfolge der Liste. Wischst du nach links, kommt der Screen, der rechts daneben liegt, wischst du nach rechts, der links daneben. <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern durch dieselbe Reihe.
 
-Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel den Verlauf der Batterie unter den Screen «Energie». Dazu wählst du in den Eigenschaften des Screens unter <span class="ui">Position</span> den Platz, etwa «Below "Energie"». <span class="ui">In the main row</span> holt ihn in die Reihe zurück.
+Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel den Verlauf der Batterie unter den Screen «Energie». Dazu ziehst du ihn in <span class="ui">Manage Screens</span> auf den freien Platz, siehe [Alle Screens im Überblick](#manage-screens). Oder du wählst in den Eigenschaften des Screens unter <span class="ui">Position</span> den Platz, etwa «Below "Energie"». <span class="ui">In the main row</span> holt ihn in die Reihe zurück.
 
 - Nach oben wischen zieht den Screen herauf, der darunter liegt. Nach unten wischen bringt dich zurück.
 - Ein solcher Screen hat keine weiteren Nachbarn: Neben, über oder unter ihn legst du nichts. Jeder Screen der Hauptreihe hat also höchstens einen Screen darüber und einen darunter.
@@ -32,6 +34,16 @@ Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Design
 Die Plätze über und unter einem Screen kennen die Geräte erst mit ihrer nächsten Firmware und App. Bis dahin erreichst du einen solchen Screen dort nur mit einem Button oder einer Taste mit <span class="ui">Go to a screen</span>, und beim Blättern wird er übersprungen.
 :::
 
+## Alle Screens im Überblick {#manage-screens}
+
+<span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht. Solange sie offen ist, nimmt sie den Platz der Screen-Liste ein, und die Werkzeugleiste ist ausgegraut. Die Projekte links bleiben stehen: Öffnest du dort ein anderes, zeigt die Ansicht dessen Screens.
+
+<Screenshot name="manage-screens" alt="Manage Screens: oben die Hauptreihe Energie, Licht, Wasser, MaxxFan und Heizung, unter Energie der Screen Verlauf, darunter abseits der versteckte Screen Einstellungen, rechts die Einstellungen von Energie" caption="Die Hauptreihe von links nach rechts, «Verlauf» unter «Energie», abseits der versteckte Screen «Einstellungen». Rechts die Einstellungen des gewählten Screens." />
+
+Du kannst einen Screen auch ziehen: zwischen zwei Screens der Hauptreihe, auf einen freien Platz über oder unter einem Screen der Reihe oder auf <span class="ui">Hidden</span>. Wie beim Andocken in einer Tabelle zeigt eine türkise Linie, wo er hinkommt, wenn du ihn loslässt. Über <span class="ui">Hidden</span> wird die Fläche grün. Wo er nicht hinpasst, erscheint nichts; lässt du ihn dort los, sagt der Designer, warum. Popups und Master bleiben, wo sie sind. <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt den letzten Zug zurück.
+
+Eine orange Verbindungslinie heisst, dass eine eigene Wischgeste den Nachbarn abschneidet, siehe [Screens über- und untereinander](#position). Welche es ist, steht beim Screen unter <span class="ui">Swipe navigation</span>.
+
 ## Einen Screen in ein anderes Projekt übernehmen {#kopieren}
 
 <span class="ui">Copy</span> im Menü eines Vorschaubilds legt den Screen in die Zwischenablage, und zwar mit allem, was er braucht: Icons und Bilder, Schriften, Topics und Combined Topics. Öffne dann das andere Projekt, auch in einem anderen Browser-Tab oder einem anderen Designer, klick auf den Screen und drück <kbd>Strg</kbd>+<kbd>V</kbd>. Der Screen kommt als neuer Screen nach dem offenen hinzu.
@@ -44,10 +56,6 @@ Beim Einfügen gilt:
 - Gibt es seinen Namen schon, bekommt er eine Zahl dazu, etwa «Energie 2».
 - Was das Projekt schon hat, wird nicht verdoppelt. Ein Icon oder ein Combined Topic, das unter demselben Namen etwas anderes ist, kommt mit einem neuen Namen dazu, etwa `licht_an_2`. Dein eigenes bleibt, wie es ist.
 - Wurde der Screen für ein Gerät mit anderer Grösse gebaut, meldet der Designer das. Verschieben und anpassen musst du die Objekte dann selbst.
-
-<span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht. Solange sie offen ist, nimmt sie den Platz der Screen-Liste ein, und die Werkzeugleiste ist ausgegraut. Die Projekte links bleiben stehen: Öffnest du dort ein anderes, zeigt die Ansicht dessen Screens.
-
-Du kannst einen Screen auch ziehen: zwischen zwei Screens der Hauptreihe, auf einen freien Platz über oder unter einem Screen der Reihe oder auf <span class="ui">Hidden</span>. Wie beim Andocken in einer Tabelle zeigt eine türkise Linie, wo er hinkommt, wenn du ihn loslässt. Über <span class="ui">Hidden</span> wird die Fläche grün. Wo er nicht hinpasst, erscheint nichts; lässt du ihn dort los, sagt der Designer, warum. Popups und Master bleiben, wo sie sind. Ctrl+Z nimmt den letzten Zug zurück.
 
 ## Master-Screens
 

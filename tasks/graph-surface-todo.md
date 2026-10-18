@@ -30,5 +30,5 @@ than standing beside it.
   - handbook: designer/screens.md, the list's indenting
   - test:quick 2026-10-17 (S3b and S4 together): e2e 1606 passed; broker-login (EPERM on a rename), knob internal heap and 4.3B conformance red in the run, green alone - conformance after a restart of the 4.3B, which kept losing the broker
 - [x] S5 The warning: `cutOffSides` no longer warns where the own action goes there all the same («Go to a screen» naming it, «Next/Previous screen» in the row); a note under «Swipe navigation», the join amber in the view with the note as its title. Tests: `e2e/manage-screens.spec.ts` «a neighbour cut off…», `e2e/screen-graph.spec.ts`
-- [ ] S6 Handbook
+- [x] S6 Handbook: «Alle Screens im Überblick» (#manage-screens) in designer/screens.md with the pictures manage-screens.png and screen-liste.png from e2e/handbook-screenshots.spec.ts «handbook: Manage Screens» (the camper with a history below «Energie»); tasten.md has the cut-off note since S5
 - [ ] Checkpoint: test:quick green; the user arranges a project of their own in the view

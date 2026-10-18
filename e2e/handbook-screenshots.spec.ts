@@ -8,7 +8,9 @@ const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
 import { ASSETS as DEMO_ASSETS } from "../deploy/demo/camper-project"
-import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, carryUnderSnapTable, snapTableRect, deleteProject } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, carryUnderSnapTable, snapTableRect, deleteProject, loadProject, openManageScreens } from "./helpers"
+import { buildCamperProject } from "../deploy/demo/camper-project"
+import { buildEditableProjectZip } from "../lib/project-zip"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -928,5 +930,46 @@ test.describe("handbook: the scale's fields", () => {
     for (const shot of ["feld-size", "feld-text-style", "feld-typography"]) {
       expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)
     }
+  })
+})
+
+// «Manage Screens» and the screens list beside the designer's other furniture
+// (tasks/graph-surface-plan.md S6): the demo's camper, its pages in the main
+// row, a history below «Energie» and a settings screen hidden.
+test.describe("handbook: Manage Screens", () => {
+  test.use({ viewport: { width: 1500, height: 900 }, deviceScaleFactor: 2 })
+
+  test("the comb, and the list's marks", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    const camper: any = await buildCamperProject(new Uint8Array(fs.readFileSync(path.join(ROOT, "public", "ddf", `${DEVICE_ID}.ddf.zip`))))
+    const heizung = camper.screens.find((s: any) => s.id === "screen-heizung")
+    const like = (id: string, name: string, more: object) => ({
+      ...JSON.parse(JSON.stringify(heizung).replace(/"Heizung"/g, JSON.stringify(name)).replace(/"(obj-[^"]*|title-[^"]*)"/g, `"$1-${id}"`)),
+      id,
+      name,
+      ...more,
+    })
+    camper.screens.push(
+      like("screen-verlauf", "Verlauf", { iconAssetId: "icon-battery", dock: { screenId: "screen-energie", edge: "down" } }),
+      like("screen-einstellungen", "Einstellungen", { hidden: true }),
+    )
+    expect(camper.screens.some((s: any) => s.id === "screen-energie")).toBe(true)
+    const zip = testInfo.outputPath("camper.zip")
+    fs.writeFileSync(zip, Buffer.from(await (await buildEditableProjectZip({ ...camper, nextId: 1000 })).arrayBuffer()))
+    await loadProject(page, zip)
+
+    // The list: «Verlauf» indented under «Energie», marked ↓.
+    await expect(page.locator('[data-screen-id="screen-verlauf"]')).toHaveAttribute("data-dock", "down")
+    await page.getByTestId("screens-panel").screenshot({ path: path.join(dir, "screen-liste.png") })
+
+    await openManageScreens(page)
+    const view = page.getByTestId("manage-screens")
+    await expect(view.locator('[data-column="screen-energie"] [data-screen-card="screen-verlauf"]')).toHaveCount(1)
+    await expect(view.getByTestId("apart-hidden").locator('[data-screen-card="screen-einstellungen"]')).toHaveCount(1)
+    await page.waitForTimeout(500)
+    // The view alone: the projects beside it are whatever the server has.
+    await view.screenshot({ path: path.join(dir, "manage-screens.png") })
+
+    for (const shot of ["screen-liste", "manage-screens"]) expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)
   })
 })
