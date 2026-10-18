@@ -60,6 +60,10 @@ fail() { echo "[pekaway-install] ERROR: $*" >&2; exit 1; }
 
 # --- 1. Preflight: fail loudly if this doesn't look like a Pekaway system ---
 command -v node >/dev/null 2>&1 || fail "node not found - this script assumes a Pekaway system with Node.js already installed."
+# Next.js 16 runs on Node.js 20.9 or newer (#61). Checked here, before
+# anything is touched, so an older Node leaves the installed designer running.
+node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>20||(a===20&&b>=9)?0:1)' \
+  || fail "Node.js $(node --version) is too old - the designer needs Node.js 20.9 or newer."
 command -v npm >/dev/null 2>&1 || fail "npm not found - this script assumes a Pekaway system with npm already installed."
 command -v git >/dev/null 2>&1 || fail "git not found."
 systemctl list-unit-files nginx.service >/dev/null 2>&1 || fail "nginx.service not found - this script assumes a Pekaway system with nginx already installed."

@@ -4,7 +4,8 @@ import { allowedInDemo, demoRefusal, isDemo } from "@/lib/demo-mode"
 
 // The demo mode's first gate (lib/demo-mode.ts): every /api request the demo
 // does not do is answered here. Every route handler checks again on its own.
-export function middleware(request: NextRequest) {
+// Was middleware.ts until Next.js 16 renamed the convention to proxy (#61).
+export function proxy(request: NextRequest) {
   if (!isDemo(request)) return NextResponse.next()
   return allowedInDemo(request.method, request.nextUrl.pathname) ? NextResponse.next() : demoRefusal()
 }

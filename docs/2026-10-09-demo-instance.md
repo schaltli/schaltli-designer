@@ -54,8 +54,11 @@ announcement.
    taking anything - accepted (2026-10-09), with decisions 2 and 10 as the
    guard. The move to Next.js 16 and React 19 is its own piece of work, not
    under the announcement's pressure (issue).
+   **Done 2026-10-18 (#61): Next.js 16.4.2, React 19;** `npm audit` lists
+   nothing. `middleware.ts` became `proxy.ts`, Next.js 16's name for it. The
+   designer still builds with webpack (`--webpack`), not Turbopack.
 
-2. **Demo mode is decided per request, on the server, twice.** `middleware.ts`
+2. **Demo mode is decided per request, on the server, twice.** `proxy.ts`
    over `/api/*` asks `isDemo(request)`, and every route handler asks it
    again through the same `refuseInDemo(request)` before it does anything -
    so the guard does not hang on middleware, where half of the open

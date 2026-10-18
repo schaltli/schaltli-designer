@@ -219,3 +219,25 @@ ${end}`], { encoding: "utf8" }).trim().split(NL)
     "[pekaway-install] MQTT WebSocket broker: ws://<IP of this Pi>:9001",
   ])
 })
+
+test("a Node.js too old for Next.js is refused before anything is touched", () => {
+  // Next.js 16 needs Node.js 20.9 (#61). The check is the script's own
+  // expression, run against versions on either side of the line, and it
+  // comes before the script stops or replaces the installed designer.
+  const check = /node -e '([^']+)'/.exec(script)?.[1]
+  expect(check, "the script no longer checks the Node.js version").toBeTruthy()
+  const passes = (version: string) => {
+    try {
+      execFileSync(process.execPath, ["-e", check!.replace("process.versions.node", JSON.stringify(version))])
+      return true
+    } catch {
+      return false
+    }
+  }
+  expect(["18.19.1", "20.8.1"].filter(passes)).toEqual([])
+  expect(["20.9.0", "20.18.3", "22.23.2", "24.1.0"].every(passes)).toBe(true)
+  expect(script.indexOf("node -e '")).toBeLessThan(script.indexOf("git clone"))
+  expect(script.indexOf("node -e '")).toBeLessThan(script.indexOf("systemctl stop"))
+  const engines = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).engines
+  expect(engines?.node, "package.json names a different minimum").toBe(">=20.9.0")
+})

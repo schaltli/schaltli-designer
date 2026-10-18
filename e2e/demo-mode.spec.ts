@@ -80,8 +80,8 @@ test("without demo mode nothing changes", async ({ request }) => {
   }
 })
 
-test("a route handler refuses on its own too, past the middleware", async () => {
-  // Called directly, as if a request had slipped by middleware.ts: each
+test("a route handler refuses on its own too, past the proxy", async () => {
+  // Called directly, as if a request had slipped by proxy.ts: each
   // handler checks again before it does anything.
   const req = (method: string, path: string, body?: unknown) =>
     new Request(`http://localhost:3000${path}`, {

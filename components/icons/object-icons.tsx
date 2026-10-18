@@ -17,6 +17,7 @@
  * are designer chrome, and they have to read on the toolbar's background.
  */
 import type { ObjectType } from "@/lib/object-types"
+import type { JSX } from "react"
 
 // The designer's own accent (app/globals.css). Not --primary: that is the
 // shadcn neutral and near-black, so the second colour would not be one.

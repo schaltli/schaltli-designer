@@ -105,7 +105,7 @@ async function startServer() {
   process.on("exit", () => stop(broker))
 
   console.log(`[e2e-prod] building into ${DIST}...`)
-  const built = await run("npx", ["next", "build"], { NEXT_DIST_DIR: DIST, NEXT_PUBLIC_BROKER_WS_PORT: String(BROKER_WS_PORT) })
+  const built = await run("npx", ["next", "build", "--webpack"], { NEXT_DIST_DIR: DIST, NEXT_PUBLIC_BROKER_WS_PORT: String(BROKER_WS_PORT) })
   if (built !== 0) throw new Error(`the build failed (exit ${built})`)
   console.log(`[e2e-prod] built in ${Math.round((Date.now() - started) / 1000)} s`)
 

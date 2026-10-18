@@ -4,7 +4,7 @@ Der Designer braucht kein Pekaway. Er läuft auf jedem Rechner mit Node.js, zum 
 
 ## Was du brauchst
 
-- Node.js 18.17 oder neuer und git
+- Node.js 20.9 oder neuer und git
 - Einen MQTT-Broker, den der Browser über WebSocket erreicht, auf demselben Rechner wie der Designer und auf Port 9001. Die Geräte sprechen ihn über den normalen Port 1883 an.
 
 Bei Mosquitto reicht dafür eine zusätzliche Datei, etwa `/etc/mosquitto/conf.d/schaltli-websockets.conf`:

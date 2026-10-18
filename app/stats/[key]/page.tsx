@@ -55,9 +55,10 @@ function Figure({ label, value, note }: { label: string; value: string | number;
   )
 }
 
-export default function DemoStatsPage({ params, searchParams }: { params: { key: string }; searchParams: { days?: string } }) {
-  if (!isDemo({ headers: headers() as unknown as Headers }) || !demoReportKeyMatches(params.key)) notFound()
-  const days = PERIODS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 7
+export default async function DemoStatsPage(props: { params: Promise<{ key: string }>; searchParams: Promise<{ days?: string }> }) {
+  const [{ key }, { days: asked }] = await Promise.all([props.params, props.searchParams])
+  if (!isDemo({ headers: (await headers()) as unknown as Headers }) || !demoReportKeyMatches(key)) notFound()
+  const days = PERIODS.includes(Number(asked)) ? Number(asked) : 7
   const s = report.summarize(report.readEvents(demoEventsDir(), days))
   const perDay = [...s.days.entries()].sort().reverse() as [string, { visits: number; seconds: number[]; designer: number; downloads: number }][]
 

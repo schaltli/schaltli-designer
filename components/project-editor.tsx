@@ -5,6 +5,7 @@ import type { LiveValue } from "@/lib/live-value"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
+import { flushSync } from "react-dom"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
 import { splitTopicPath } from "@/lib/json-path"
@@ -2108,7 +2109,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if (objects.length === 0) return
       trackDemo("insert", objects.map((o) => o.type).join(","))
       const created: string[] = []
-      setProject((prev) => {
+      // flushSync: the ids are known once the updater has run, and React 19
+      // runs it at the next render, not at the call as React 18 did (#61).
+      flushSync(() => setProject((prev) => {
         // Reset rather than append: React may run an updater twice, and the
         // ids of the discarded run must not end up in the selection.
         created.length = 0
@@ -2134,7 +2137,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           nextId,
           screens: prev.screens.map((s) => (s.id === currentScreenId ? { ...s, objects: objects_ } : s)),
         }
-      })
+      }))
       setSelectedObjectIds(created)
     },
     [currentScreenId],
@@ -3688,7 +3691,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const origin = childOrigin(currentScreen.objects, targetParentId)
     const pastedIds: string[] = []
 
-    setProject((before) => {
+    // flushSync: the pasted ids are known once the updater has run (see addObjects).
+    flushSync(() => setProject((before) => {
       let prev = before
       let objects = source
       if (foreign) {
@@ -3739,7 +3743,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           return { ...screen, objects: sortObjectsByDrawingOrder([...screen.objects, ...pastedObjects]) }
         }),
       }
-    })
+    }))
     if (leavesTable) setEditingContainerId(targetParentId)
     // Select the pasted objects
     setSelectedObjectIds([...pastedIds])
@@ -3868,7 +3872,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
     const ids = [...selectedObjectIds]
     const created: string[] = []
-    setProject((prev) => {
+    // flushSync: the group's id is known once the updater has run (see addObjects).
+    flushSync(() => setProject((prev) => {
       created.length = 0
       const screen = prev.screens.find((sc) => sc.id === currentScreenId)
       if (!screen) return prev
@@ -3881,7 +3886,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         nextId: prev.nextId + 1,
         screens: prev.screens.map((sc) => (sc.id === currentScreenId ? { ...sc, objects } : sc)),
       }
-    })
+    }))
     if (created.length > 0) setSelectedObjectIds([...created])
   }, [currentScreen.objects, currentScreenId, selectedObjectIds, setProject, toast])
 
@@ -3891,7 +3896,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const groupIds = selectedObjectIds.filter((id) => isGroup(findObjectById(currentScreen.objects, id)))
     if (groupIds.length === 0) return
     const released: string[] = []
-    setProject((prev) => {
+    // flushSync: the released ids are known once the updater has run (see addObjects).
+    flushSync(() => setProject((prev) => {
       released.length = 0
       const screen = prev.screens.find((sc) => sc.id === currentScreenId)
       if (!screen) return prev
@@ -3903,7 +3909,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         released.push(...result.childIds)
       }
       return { ...prev, screens: prev.screens.map((sc) => (sc.id === currentScreenId ? { ...sc, objects } : sc)) }
-    })
+    }))
     const others = selectedObjectIds.filter((id) => !groupIds.includes(id))
     setSelectedObjectIds([...others, ...released])
   }, [currentScreen.objects, currentScreenId, selectedObjectIds, setProject])

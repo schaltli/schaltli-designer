@@ -6,10 +6,10 @@ import { NextResponse } from "next/server"
 // the designer needs to draw it, and the demo's own count of what visitors
 // do; everything else is answered 403.
 //
-// Decided per request and checked twice: in middleware.ts over /api/*, and
+// Decided per request and checked twice: in proxy.ts over /api/*, and
 // again at the top of every route handler through refuseInDemo() - so the
-// guard does not hang on middleware alone, where several of the advisories
-// Next.js 14 still has live (decision 1).
+// guard does not hang on the proxy alone, where several of the advisories
+// Next.js 14 had live lay (decision 1; Next.js 16 since #61).
 
 /** The header that turns demo mode on in development, for the e2e tests. */
 export const DEMO_HEADER = "x-schaltli-demo"

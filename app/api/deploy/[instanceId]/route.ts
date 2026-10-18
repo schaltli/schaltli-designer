@@ -14,10 +14,10 @@ export const dynamic = "force-dynamic"
 // RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
 const DEPLOYS_DIR = volatileDir("deploys")
 
-export async function GET(request: Request, { params }: { params: { instanceId: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ instanceId: string }> }) {
   const refused = refuseInDemo(request)
   if (refused) return refused
-  const { instanceId } = params
+  const { instanceId } = await params
   if (!isValidInstanceId(instanceId)) {
     return NextResponse.json({ error: "Invalid instanceId" }, { status: 400 })
   }

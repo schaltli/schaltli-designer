@@ -49,9 +49,6 @@ const nextConfig = {
     NEXT_PUBLIC_DESIGNER_DATE: stamp.date,
     NEXT_PUBLIC_DESIGNER_DIRTY: stamp.dirty,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     // Was `ignoreBuildErrors: true` until 2026-08-22, which meant the type
     // checker gated nothing: 28 errors had accumulated and the build passed
@@ -63,12 +60,21 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // No AGENTS.md written by `next dev` (Next.js 16): the repo's agent
+  // instructions are CLAUDE.md, and a file that appears on every start
+  // would leave the tree dirty.
+  agentRules: false,
   // The dev server's file watcher keeps out of .data/ (projects, DDFs,
   // seeded fixtures), as Next keeps it out of node_modules, .git and .next.
   // Watched, every saved project recompiled the app, and on Windows the
   // watcher's handles on a project's folder made renaming it fail with
   // EPERM (found 2026-10-02: «Rename» answered 500, e2e
   // project-persistence-api and project-list red).
+  //
+  // Which is why the designer builds and runs with webpack, not Turbopack,
+  // Next.js 16's default (`--webpack` in package.json and hil/e2e-prod.js,
+  // #61): a webpack config fails a Turbopack build, and whether Turbopack
+  // builds on the Pekaway's Pi, and in how much memory, is untried.
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
