@@ -4390,10 +4390,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             its place, in the preview too, where it shows best
             (docs/2026-10-09-demo-instance.md, decision 8). */}
         {demo && <DemoScenePanel wide={isPreviewMode} />}
-        {/* «Manage Screens» takes the room of both lists: it shows the
-            screens better than the list does, as PowerPoint's slide sorter
-            hides the slides beside it (decided by the user 2026-10-17). */}
-        {!isPreviewMode && !demo && !manageScreensOpen && (
+        {/* «Manage Screens» takes the room of the screens list, which it
+            shows better, as PowerPoint's slide sorter hides the slides beside
+            it; the projects stay, and opening one shows its screens there
+            (decided by the user 2026-10-18). */}
+        {!isPreviewMode && !demo && (
           <ProjectsPanel
             openName={save.savedName}
             openUnsaved={save.unsaved}
