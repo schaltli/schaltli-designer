@@ -138,16 +138,35 @@ export function cutOffSides(
   const neighbours = neighboursOf(screens, screen.id)
   return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) => {
     const neighbourId = neighbours[side]
-    if (!neighbourId) return []
-    const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
-    const neighbour = screens.find((s) => s.id === neighbourId)
-    const inRow = !screen.dock && !neighbour?.dock
-    const reaches =
-      (action?.type === "goto-neighbour" && action.side === side) ||
-      (action?.type === "goto-screen" && action.targetScreenId === neighbourId) ||
-      (inRow && action?.type === (side === "right" ? "next-screen" : side === "left" ? "previous-screen" : undefined))
-    return reaches ? [] : [{ swipeId, side, neighbourId }]
+    if (!neighbourId || swipeReachesNeighbour(screen, masterScreen, swipeId, screens)) return []
+    return [{ swipeId, side, neighbourId }]
   })
+}
+
+/**
+ * Whether a swipe takes the screen to the neighbour it pulls in - the rule
+ * the pull tab, the warning above and a slide that follows the finger all
+ * go by (device contract §2.10): «Go to the screen beside» that way, «Go to
+ * a screen» naming it, or «Next screen» and «Previous screen» between two
+ * screens of the main row.
+ */
+export function swipeReachesNeighbour(
+  screen: ProjectScreen,
+  masterScreen: ProjectScreen | undefined,
+  swipeId: string,
+  screens: readonly ProjectScreen[],
+): boolean {
+  const side = SWIPE_TO_SIDE[swipeId]
+  const neighbourId = side ? neighboursOf(screens, screen.id)[side] : undefined
+  if (!neighbourId) return false
+  const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
+  const neighbour = screens.find((s) => s.id === neighbourId)
+  const inRow = !screen.dock && !neighbour?.dock
+  return (
+    (action?.type === "goto-neighbour" && action.side === side) ||
+    (action?.type === "goto-screen" && action.targetScreenId === neighbourId) ||
+    (inRow && action?.type === (side === "right" ? "next-screen" : side === "left" ? "previous-screen" : undefined))
+  )
 }
 
 /**
@@ -160,10 +179,9 @@ export function pullTabSides(
   masterScreen: ProjectScreen | undefined,
   screens: readonly ProjectScreen[],
 ): ScreenEdge[] {
-  return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) => {
-    const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
-    return action?.type === "goto-neighbour" && action.side === side ? [side] : []
-  })
+  return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) =>
+    swipeReachesNeighbour(screen, masterScreen, swipeId, screens) ? [side] : [],
+  )
 }
 
 const SWIPE_NAME: Record<string, string> = {

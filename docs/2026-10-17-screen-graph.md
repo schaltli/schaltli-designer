@@ -136,7 +136,11 @@ of its own.
 14. **A feature the device declares** (user, 2026-10-17): `screen-graph` in its
     DDF. Deploy gates on it only when something is docked off the main
     row; a single row runs on an older board as it is. Otherwise Deploy
-    brings the board up to date first, as with `local-topics`.
+    brings the board up to date first, as with `local-topics`. Hard from
+    the start (user, 2026-10-18): until a device declares it, a docked
+    project deploys nowhere. The contract is `docs/device-contract.md`
+    §2.10; «Show Screen Menu» goes with `graph-firmware`, so the knob is
+    never without a way to its screens (`tasks/graph-contract-plan.md`).
 
 15. **The knob jumps through a map** (user, 2026-10-17). A swipe that
     ends in a pause, the finger still down, opens the screen graph as a

@@ -31,7 +31,7 @@ Belegst du eine Wischgeste selbst, in deren Richtung ein Screen liegt, führt si
 Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Designer diese zu versteckten Screens und nennt sie. Versteckte Screens, Master und Popups liegen nirgends.
 
 ::: warning Geräte
-Die Plätze über und unter einem Screen kennen die Geräte erst mit ihrer nächsten Firmware und App. Bis dahin erreichst du einen solchen Screen dort nur mit einem Button oder einer Taste mit <span class="ui">Go to a screen</span>, und beim Blättern wird er übersprungen.
+Die Plätze über und unter einem Screen kennen die Geräte erst mit ihrer nächsten Firmware und App. Bis dahin überträgt [Deploy](/designer/deploy#wenn-der-dialog-nicht-ubertragt) ein Projekt nicht, in dem ein Screen ausserhalb der Hauptreihe liegt, und nennt diese Screens. Ein Projekt mit nur einer Reihe geht wie bisher auf jedes Gerät.
 :::
 
 ## Alle Screens im Überblick {#manage-screens}

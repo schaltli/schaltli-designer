@@ -1069,6 +1069,99 @@ display has its own value (which look a page shows, which tab is open).
 - **Below it** a device ignores `local` and `initial`: it subscribes the
   topic and publishes its writes, shared by every display.
 
+### 2.10 The screen graph - feature `screen-graph` (designer side 2026-10-18)
+
+Screens lie beside, above and below each other, and a swipe goes to the
+neighbour in its direction - designer `docs/2026-10-17-screen-graph.md`.
+The main row runs left to right; each screen of it may have one screen
+docked above and one below, as a page's history lies below the page. **A
+device computes nothing**: the designer writes out who lies where, and
+what every swipe does.
+
+```json
+"mainRow": ["s-energie", "s-licht", "s-wasser"],
+"screens": [
+  { "id": "s-energie", "neighbours": { "right": "s-licht", "down": "s-verlauf" },
+    "buttonActions": {
+      "swipe-left": { "type": "next-screen" },
+      "swipe-up": { "type": "goto-neighbour", "side": "down" } }, … },
+  { "id": "s-verlauf", "hidden": true, "back": "up", "neighbours": { "up": "s-energie" },
+    "buttonActions": { "swipe-down": { "type": "goto-neighbour", "side": "up" } }, … }
+]
+```
+
+- **The main row:** `mainRow` lists the ids of the screens in it, in
+  order. `next-screen` and `previous-screen` walk it and nothing else,
+  wrapping at its ends; on a screen off it they go from the place of the
+  screen it is docked on. A device starts on `mainRow[0]` (the first
+  screen that is not hidden, as before: a docked screen is exported with
+  `hidden: true`, so a board below this section pages past it).
+- **Neighbours:** a screen's `neighbours` maps `up`, `down`, `left` and
+  `right` to the id of the screen lying there. Only screens docked on
+  each other are neighbours: two histories side by side under two pages
+  are not, and neither lists the other. A screen off the main row has
+  `back`, the edge its way back lies at (`up` for a history below its
+  page).
+- **`goto-neighbour`:** `{ "type": "goto-neighbour", "side": "down" }`
+  shows `neighbours[side]`; with none there it does nothing. The designer
+  writes it only towards a screen off the main row; between two screens of
+  the main row it writes `next-screen` or `previous-screen`, which every
+  device knows. A button or software button may carry it too.
+- **Swipes:** each screen's `swipe-up`, `swipe-down`, `swipe-left` and
+  `swipe-right` in `buttonActions` are already decided - the screen's own
+  action, else the neighbour that swipe pulls in (swiping up shows the
+  screen below), else the master's. A device runs the one action, as for
+  any button; it never looks at `neighbours` to decide a swipe.
+- **Following the finger:** a device that slides the screen sideways now
+  (knob, 4.3B, the app) slides it up and down too, wherever the swipe
+  leads to a neighbour (as for the pull tab, below): the neighbour comes
+  in from that edge. Only what lies
+  beside the navigator moves; the navigator stands still (2.7). Let go
+  short of the threshold, the screen springs back. A device without
+  motion (`screen.motion: false`, the PaperS3) jumps.
+- **A swipe belongs to what it starts on:** one that starts on a slider,
+  a dial or the navigator is theirs, as now; a press on a button or a
+  switch is theirs too. No special case for a swipe from the very edge.
+- **The pull tab:** on every edge a swipe leads to a neighbour from, the
+  device draws a short line over the screen; nowhere else. A swipe leads
+  to `neighbours[side]` when its action is `goto-neighbour` to that side,
+  `goto-screen` naming that screen, or - on a screen of the main row, the
+  neighbour in it too - `next-screen` towards `right` or
+  `previous-screen` towards `left`. So an own swipe action that does
+  something else there has no tab. The same rule says when a slide
+  follows the finger. The area is
+  what moves: the screen less the navigator's strip. A line 32 px long and
+  4 px thick with round ends, centred on that edge of the area, its outer
+  side 6 px from it, in the theme's muted text colour (`textMuted`, its
+  dark variant on a dark screen) at 70 % opacity. A device with motion
+  moves all of them 6 px towards the middle and back once every 5 s, over
+  0.8 s, along a half sine. Numbers and geometry: designer
+  `lib/pull-tabs.ts`, which the designer's preview draws from. The tab
+  slides with the screen.
+- **The navigator's «←»:** on a screen with `back` the navigator lists no
+  screens: it has one entry, an arrow pointing away from `back` (a
+  history below its page: down), and a tap on it shows `neighbours[back]`.
+  The device draws the arrow itself, in the entry's text colour, centred
+  as an entry's icon is, without a name; its outline is the designer's
+  `schaltli-back-<edge>` icon (`lib/navigator-entries.ts`, a 24 × 24
+  stroke 2.5 px wide with round ends: `up` M12 20V4 M5 11l7-7 7 7, `down`
+  M12 4v16 M5 13l7 7 7-7, `left` M20 12H4 M11 5l-7 7 7 7, `right` M4 12h16
+  M13 5l7 7-7 7).
+- **The screen menu goes:** a device that declares `screen-graph` no
+  longer offers the device action `showScreenMenu` (§5); swiping, the
+  navigator and the knob's map (`docs/2026-10-17-screen-graph.md`,
+  decision 15) take its place.
+- **Declare** `"screen-graph"` in the DDF's `supportedFeatures` (§1) once
+  the firmware does all of the above. The deploy dialog asks it of a
+  device for a project with a screen off the main row, as it asks for
+  `local-topics` (2.9): a board without it is brought up to the release
+  first where the designer's copy of its DDF lists it, else refused; an
+  app is asked to update. A project that is one row needs nothing of it.
+  A device that has every part of this contract announces generation
+  **1.9**.
+- **Below it** a device ignores `mainRow`, `neighbours`, `back` and
+  `goto-neighbour`: it pages the screens that are not hidden, as before.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008
@@ -1556,13 +1649,14 @@ already doesn't need to know about master *objects*.
 
 Each `ButtonAction`: `type: "next-screen"|"previous-screen"|"goto-screen"|
 "send-mqtt"|"goto-setup-mode"|"device-action"|"adjust-level"|"open-popup"|
-"close-popup"` (an absent entry for a button
+"close-popup"|"goto-neighbour"` (an absent entry for a button
 = no configured action; every button still sends a generic button-press MQTT
 notification regardless). `goto-screen` needs `targetScreenId`; `send-mqtt`
 needs `mqttTopic`+`mqttMessage`; `device-action` needs `deviceActionId` (see
 the registry below); `adjust-level` needs `targetObjectId` and `direction`
 (see below); `open-popup` needs `targetScreenId`, the id of an entry in
-`popups[]`, and `close-popup` nothing (see below). A software button's
+`popups[]`, `close-popup` nothing (see below), and `goto-neighbour` a `side`
+(`up`, `down`, `left`, `right`; the screen graph, 2.10). A software button's
 `properties.action` takes the same shapes.
 
 ### Opening and closing a popup (`"open-popup"`, `"close-popup"`, 2026-10-06)
@@ -1631,7 +1725,7 @@ speculatively.
 
 | id | Meaning | Offered by |
 |---|---|---|
-| `showScreenMenu` | Open the device's own screen-switching navigator overlay | `waveshare-knob-1v8` |
+| `showScreenMenu` | Open the device's own screen-switching navigator overlay. **Retired with `screen-graph` (2.10):** a device declaring that feature no longer offers it, and the designer takes it out of projects then | `waveshare-knob-1v8`, the Android app |
 
 **Both sides tolerate ids the other doesn't know, and neither may block on
 the other's version:**

@@ -22,6 +22,10 @@ test.describe("the pull tab", () => {
     expect(pullTabSides(a1, master, [master, a, b, a1])).toEqual(["up"])
     const own = { ...a, buttonActions: { "swipe-up": { type: "none" } } }
     expect(pullTabSides(own, master, [master, own, b, a1])).toEqual(["right"])
+    // An own action that goes there all the same keeps its tab, as a device
+    // reading the export decides it (device contract §2.10).
+    const there = { ...a, buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-up": { type: "goto-screen", targetScreenId: "a1" } } }
+    expect(pullTabSides(there, master, [master, there, b, a1]).sort()).toEqual(["down", "right"])
   })
 
   test("is a short line centred on the edge, nudged towards the middle now and then", () => {

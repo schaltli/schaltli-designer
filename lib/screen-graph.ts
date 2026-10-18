@@ -233,3 +233,14 @@ export function withScreenDocked<S extends GraphScreen>(
 export function withScreenApart<S extends GraphScreen>(screens: readonly S[], id: string): S[] {
   return screens.map((s) => (s.id === id ? { ...s, dock: undefined, hidden: true } : s))
 }
+
+// The feature a device declares once it knows the screen graph (device
+// contract §2.10). Deploy asks it only of a project with a screen off the
+// main row; one row runs on any device as it is (decision 14).
+export const SCREEN_GRAPH_FEATURE = "screen-graph"
+
+/** What Deploy asks of a device for these screens, naming those off the main row; nothing for a single row. */
+export function screenGraphFeature(screens: readonly (GraphScreen & { name: string })[]): { feature: string; label: string } | null {
+  const off = screens.filter((s) => s.dock && isInGraph(screens, s.id))
+  return off.length > 0 ? { feature: SCREEN_GRAPH_FEATURE, label: `screens off the main row (${off.map((s) => s.name).join(", ")})` } : null
+}

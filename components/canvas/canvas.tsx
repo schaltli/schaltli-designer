@@ -38,7 +38,7 @@ import { DEFAULT_SEPARATORS, type PlaceholderScope, type Separators } from "@/li
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
-import { resolveButtonAction, resolveSwipeAction, pullTabSides, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { resolveButtonAction, resolveSwipeAction, pullTabSides, swipeReachesNeighbour, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { contentArea, drawPullTabs, pullTabNudge, type Area } from "@/lib/pull-tabs"
 import { SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { resolveBackgroundColor } from "@/lib/master-screen"
@@ -3302,9 +3302,12 @@ export function Canvas({
             // Following the finger only towards a neighbour, and only where
             // the device animates: the PaperS3 jumps.
             const swipeId = swipeIdOf(swipe.axis, swipe.d)
-            const action = popupUnderlay ? undefined : resolveSwipeAction(screen, masterScreen, swipeId, projectScreens ?? [])
             const side = SWIPE_TO_SIDE[swipeId]
-            const follows = deviceAnimates !== false && action?.type === "goto-neighbour" && !!swipeNeighbourCanvas?.(side)
+            const follows =
+              deviceAnimates !== false &&
+              !popupUnderlay &&
+              swipeReachesNeighbour(screen, masterScreen, swipeId, projectScreens ?? []) &&
+              !!swipeNeighbourCanvas?.(side)
             const extent = swipe.axis === "x" ? swipeAreaRef.current.width : swipeAreaRef.current.height
             slideRef.current = follows ? { side, d: Math.max(-extent, Math.min(extent, swipe.d)) } : null
             drawRef.current()

@@ -50,6 +50,7 @@ Kommt ein Board nach dem Neustart nicht innerhalb von drei Minuten zurück, sagt
 - **Die Android-App ist zu alt** für Teile des Projekts, etwa Popups oder den Navigator. Aktualisiere die App, der Dialog verlinkt sie.
 - **Die Firmware ist zu alt, und der Designer bringt keine neuere mit.** Spiel eine neuere über den [Flasher](/geraete/flashen) auf.
 - **Das Gerät kennt einen Objekttyp gar nicht**, etwa einen Navigator auf dem runden Knob. Der Dialog nennt ihn. Entferne ihn aus dem Projekt oder wähle ein anderes Gerät.
+- **Das Gerät kennt keine Screens über oder unter anderen.** Der Dialog nennt die Screens ausserhalb der Hauptreihe. Bringt der Designer eine Firmware mit, die sie kennt, spielt er sie zuerst auf. Sonst holst du die Screens in die Hauptreihe, siehe [Screens über- und untereinander](/designer/screens#position).
 
 ## Nach dem Übertragen
 
