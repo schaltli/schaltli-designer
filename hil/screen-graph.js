@@ -69,6 +69,7 @@ async function get(url, timeoutMs = 10000) {
 }
 
 function graphProject(ddf) {
+  const withNavigator = ddf.supportedObjectTypes.includes("navigator")
   const { width: sw, height: sh, colorDepth } = ddf.screen
   const fonts = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
   const big = fonts[fonts.length - 1]
@@ -122,7 +123,8 @@ function graphProject(ddf) {
         isMaster: true,
         backgroundColor: "#000000",
         buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-right": { type: "previous-screen" } },
-        objects: [navigator],
+        // The knob has no navigator (its description does not list one).
+        objects: withNavigator ? [navigator] : [],
       },
       screen("A"),
       screen("H", { hidden: true }),
@@ -135,8 +137,8 @@ function graphProject(ddf) {
   // The designer's reference draws a screen alone (test-render does not merge
   // masters): each screen with the master's navigator among its own, the
   // master kept for its swipes, which the pull tabs follow.
-  const reference = { ...project, screens: project.screens.map((s) => (s.isMaster ? s : { ...s, objects: [...s.objects, navigator] })) }
-  return { project, reference }
+  const reference = { ...project, screens: project.screens.map((s) => (s.isMaster || !withNavigator ? s : { ...s, objects: [...s.objects, navigator] })) }
+  return { project, reference, withNavigator }
 }
 
 async function main() {
@@ -159,7 +161,8 @@ async function main() {
   }
   fs.mkdirSync(OUT_DIR, { recursive: true })
   const eink = /papers3/i.test(ddf.deviceId || "")
-  const { project, reference } = graphProject(ddf)
+  const { project, reference, withNavigator } = graphProject(ddf)
+  const strip = withNavigator ? 80 : 0
   const { width: sw, height: sh } = ddf.screen
 
   const client = mqtt.connect(BROKER_URL)
@@ -284,13 +287,13 @@ async function main() {
     await shows("starts on the main row's first, a tab on the right and below", "A")
 
     // Up from the middle of what moves: A1 comes up from below.
-    const mx = Math.round(80 + (sw - 80) / 2)
+    const mx = Math.round(strip + (sw - strip) / 2)
     if (!eink) {
       const beforeImg = await fetchBmp("snapshot.bmp", "before-swipe-up")
       await press(mx, sh * 0.8, mx, sh * 0.35, 6)
       const glass = await fetchBmp("panel.bmp", "during-swipe-up")
       check("mid-swipe up the screen beside the strip has moved", besidePixels(glass) !== besidePixels(beforeImg))
-      check("... while the strip's pixels stay as they were", stripPixels(glass) === stripPixels(beforeImg))
+      if (withNavigator) check("... while the strip's pixels stay as they were", stripPixels(glass) === stripPixels(beforeImg))
       await touch(mx, sh * 0.35, false)
       await settle()
     } else {
@@ -299,8 +302,13 @@ async function main() {
     await shows("a swipe up shows the screen below, the way back in the navigator, a tab on top", "A1", true)
 
     // The way back is the navigator's one entry.
-    await tap(40, 30)
-    await shows("a tap on the way back shows the page", "A", true)
+    if (withNavigator) {
+      await tap(40, 30)
+      await shows("a tap on the way back shows the page", "A", true)
+    } else {
+      await drag(mx, sh * 0.2, mx, sh * 0.8)
+      await shows("a swipe down shows the page", "A", true)
+    }
 
     await drag(mx, sh * 0.8, mx, sh * 0.2)
     await shows("up again", "A1")
