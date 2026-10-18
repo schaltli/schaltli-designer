@@ -126,6 +126,9 @@ export function resolveSwipeAction(
  * The neighbours a screen's own swipes cut off (docs/2026-10-17-screen-graph.md
  * decision 9): each side where a screen lies whose swipe does something else -
  * the screen's own action, «Nothing» among them, comes first (decision 4).
+ * An own action that goes there all the same cuts nothing off: «Go to a
+ * screen» naming the neighbour, or «Next screen» and «Previous screen»
+ * between two screens of the main row.
  */
 export function cutOffSides(
   screen: ProjectScreen,
@@ -137,8 +140,28 @@ export function cutOffSides(
     const neighbourId = neighbours[side]
     if (!neighbourId) return []
     const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
-    return action?.type === "goto-neighbour" && action.side === side ? [] : [{ swipeId, side, neighbourId }]
+    const neighbour = screens.find((s) => s.id === neighbourId)
+    const inRow = !screen.dock && !neighbour?.dock
+    const reaches =
+      (action?.type === "goto-neighbour" && action.side === side) ||
+      (action?.type === "goto-screen" && action.targetScreenId === neighbourId) ||
+      (inRow && action?.type === (side === "right" ? "next-screen" : side === "left" ? "previous-screen" : undefined))
+    return reaches ? [] : [{ swipeId, side, neighbourId }]
   })
+}
+
+const SWIPE_NAME: Record<string, string> = {
+  "swipe-up": "Swipe up",
+  "swipe-down": "Swipe down",
+  "swipe-left": "Swipe left",
+  "swipe-right": "Swipe right",
+}
+const SIDE_WORDS: Record<ScreenEdge, string> = { up: "above it", down: "below it", left: "to its left", right: "to its right" }
+
+/** A cut-off neighbour as the designer warns about it, in screen properties and in «Manage Screens». */
+export function cutOffNote(screen: ProjectScreen, cut: { swipeId: string; side: ScreenEdge; neighbourId: string }, screens: readonly ProjectScreen[]): string {
+  const neighbour = screens.find((s) => s.id === cut.neighbourId)
+  return `${SWIPE_NAME[cut.swipeId]} on "${screen.name}" does not lead to "${neighbour?.name ?? cut.neighbourId}" ${SIDE_WORDS[cut.side]}: its own action comes first.`
 }
 
 // gray/yellow/red - unbelegt/vererbt/lokal definiert. Read live off the

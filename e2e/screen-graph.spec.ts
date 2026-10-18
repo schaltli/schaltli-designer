@@ -321,5 +321,11 @@ test.describe("screen graph: what «Manage Screens» lays out and moves", () => 
       { swipeId: "swipe-up", side: "down", neighbourId: "a1" },
       { swipeId: "swipe-left", side: "right", neighbourId: "b" },
     ])
+    // An own action that goes there all the same cuts nothing off.
+    const there = {
+      ...a,
+      buttonActions: { "swipe-up": { type: "goto-screen", targetScreenId: "a1" }, "swipe-left": { type: "next-screen" } },
+    }
+    expect(cutOffSides(there, master, [master, there, b, a1])).toEqual([])
   })
 })

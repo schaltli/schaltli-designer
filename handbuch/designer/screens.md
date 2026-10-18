@@ -24,6 +24,8 @@ Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel d
 
 Was eine Wischgeste tut, entscheidet sich in dieser Reihenfolge: zuerst die Aktion, die der Screen selbst dafür hat, dann der Screen, der in dieser Richtung liegt, zuletzt die Aktion des Masters. Ein Screen ohne eigene Wischgesten wischt also zu seinen Nachbarn, auch wenn der Master nichts vorgibt. Soll eine Wischgeste nichts tun, wählst du <span class="ui">Nothing</span>.
 
+Belegst du eine Wischgeste selbst, in deren Richtung ein Screen liegt, führt sie nicht mehr dorthin. Der Designer weist darauf hin: unter <span class="ui">Swipe navigation</span> mit einem Satz, in <span class="ui">Manage Screens</span> mit einer orangen Verbindungslinie zwischen den beiden Screens. Führt deine Belegung trotzdem dorthin, etwa <span class="ui">Go to a screen</span> mit genau diesem Screen, gibt es keinen Hinweis.
+
 Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Designer diese zu versteckten Screens und nennt sie. Versteckte Screens, Master und Popups liegen nirgends.
 
 ::: warning Geräte
@@ -43,7 +45,7 @@ Beim Einfügen gilt:
 - Was das Projekt schon hat, wird nicht verdoppelt. Ein Icon oder ein Combined Topic, das unter demselben Namen etwas anderes ist, kommt mit einem neuen Namen dazu, etwa `licht_an_2`. Dein eigenes bleibt, wie es ist.
 - Wurde der Screen für ein Gerät mit anderer Grösse gebaut, meldet der Designer das. Verschieben und anpassen musst du die Objekte dann selbst.
 
-<span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht. Solange sie offen ist, nimmt sie den Platz der Listen links ein, und die Werkzeugleiste ist ausgegraut.
+<span class="ui">Manage Screens</span> unten in der Liste zeigt die Screens so, wie das Gerät sie anordnet: die Hauptreihe von links nach rechts, darüber und darunter die Screens, die dort liegen, und abseits davon die versteckten Screens, die Popups und die Master. Klickst du auf einen Screen, stehen rechts seine Einstellungen, dazu <span class="ui">Move left</span> und <span class="ui">Move right</span> für seinen Platz in der Reihe, <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Ein Doppelklick öffnet ihn zum Bearbeiten, <span class="ui">Done</span> schliesst die Ansicht. Solange sie offen ist, nimmt sie den Platz der Screen-Liste ein, und die Werkzeugleiste ist ausgegraut. Die Projekte links bleiben stehen: Öffnest du dort ein anderes, zeigt die Ansicht dessen Screens.
 
 Du kannst einen Screen auch ziehen: zwischen zwei Screens der Hauptreihe, auf einen freien Platz über oder unter einem Screen der Reihe oder auf <span class="ui">Hidden</span>. Wie beim Andocken in einer Tabelle zeigt eine türkise Linie, wo er hinkommt, wenn du ihn loslässt. Über <span class="ui">Hidden</span> wird die Fläche grün. Wo er nicht hinpasst, erscheint nichts; lässt du ihn dort los, sagt der Designer, warum. Popups und Master bleiben, wo sie sind. Ctrl+Z nimmt den letzten Zug zurück.
 

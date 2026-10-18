@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test"
 import JSZip from "jszip"
 import fs from "fs"
-import { closeManageScreens, COMBINED_TEST_PROJECT, loadProject, manageScreensCard, openManageScreens } from "./helpers"
+import { closeManageScreens, COMBINED_TEST_PROJECT, loadProject, manageScreensCard, openManageScreens, saveProjectAs } from "./helpers"
 
 // «Manage Screens» (docs/2026-10-17-screen-graph.md decision 12;
 // tasks/graph-surface-todo.md): the screens laid out as the device has them -
@@ -11,14 +11,14 @@ import { closeManageScreens, COMBINED_TEST_PROJECT, loadProject, manageScreensCa
 
 // The combined project with A' above A (screen-3 above screen-1), B' above B
 // (mqtt-black above mqtt-white) and one hidden screen.
-async function combProject(testInfo: { outputPath: (name: string) => string }, more?: (screen: (id: string) => any) => void): Promise<string> {
+async function combProject(testInfo: { outputPath: (name: string) => string }, more?: (screen: (id: string) => any, project: any) => void): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const screen = (id: string) => project.screens.find((s: any) => s.id === id)
   screen("screen-3").dock = { screenId: "screen-1", edge: "up" }
   screen("screen-mqtt-black").dock = { screenId: "screen-mqtt-white", edge: "up" }
   screen("screen-level-white").hidden = true
-  more?.(screen)
+  more?.(screen, project)
   zip.file("project.json", JSON.stringify(project))
   const out = testInfo.outputPath("comb.zip")
   fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
@@ -62,11 +62,11 @@ test.describe("Manage Screens", () => {
     await expect(page.getByRole("button", { name: /^mqtt-field-tests-white-background/ }).first()).toHaveClass(/bg-accent/)
   })
 
-  test("covers both lists and greys out the tools; the keys for objects rest", async ({ page }, testInfo) => {
+  test("covers the screens list, not the projects, and greys out the tools; the keys for objects rest", async ({ page }, testInfo) => {
     await loadProject(page, await combProject(testInfo))
     await openManageScreens(page)
 
-    await expect(page.getByRole("complementary", { name: "Projects panel" })).toHaveCount(0)
+    await expect(page.getByRole("complementary", { name: "Projects panel" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Manage Screens", exact: true })).toHaveCount(0)
     await expect(page.getByTestId("tools-ribbon")).toHaveAttribute("aria-disabled", "true")
 
@@ -80,8 +80,30 @@ test.describe("Manage Screens", () => {
     await expect(count).toHaveText(before!)
 
     await closeManageScreens(page)
-    await expect(page.getByRole("complementary", { name: "Projects panel" })).toHaveCount(1)
+    await expect(page.getByRole("button", { name: "Manage Screens", exact: true })).toHaveCount(1)
     await expect(page.getByTestId("tools-ribbon")).not.toHaveAttribute("aria-disabled")
+  })
+
+  test("another project opened from the projects list shows its screens in the view", async ({ page }, testInfo) => {
+    const tag = `${testInfo.testId.slice(0, 8)} ${Math.random().toString(36).slice(2, 8)}`
+    const mine = `e2e manage mine ${tag}`
+    const other = `e2e manage other ${tag}`
+    await loadProject(page, await combProject(testInfo))
+    await saveProjectAs(page, mine)
+    // Saved elsewhere, its first screen renamed; the list shows it after a save.
+    const source = (await (await page.request.get(`/api/projects/${encodeURIComponent(mine)}`)).json()).project
+    const project = { ...source, screens: source.screens.map((s: { name: string }, i: number) => (i === 0 ? { ...s, name: "From elsewhere" } : s)) }
+    expect((await page.request.post("/api/projects", { data: { name: other, project } })).ok()).toBe(true)
+    await page.keyboard.press("ControlOrMeta+s")
+
+    await openManageScreens(page)
+    await expect(manageScreensCard(page, "From elsewhere")).toHaveCount(0)
+    await page.locator(`[data-project-name="${other}"]`).click()
+    await expect(page.getByTestId("project-title")).toHaveText(other)
+    await expect(view(page)).toBeVisible()
+    await expect(manageScreensCard(page, "From elsewhere")).toBeVisible()
+
+    for (const name of [mine, other]) await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
   })
 
   test("the selected screen's settings: rename, move in the row, duplicate, delete", async ({ page }, testInfo) => {
@@ -266,5 +288,40 @@ test.describe("the screens list and the screen graph", () => {
     const shown = await listed(page)
     expect(shown[shown.indexOf("screen-1") - 1]).toBe("screen-level-white")
     await expect(row(page, "screen-level-white").getByText("Hidden", { exact: true })).toHaveCount(0)
+  })
+})
+
+// The warning (tasks/graph-surface-plan.md S5, docs/2026-10-17-screen-graph.md
+// decision 9): a screen's own swipe that takes a neighbour's direction cuts
+// the neighbour off; the swipe settings say so, and the view draws the join
+// amber.
+test.describe("a neighbour cut off by a swipe of the screen's own", () => {
+  test("swipe up set to an MQTT message on a page with a screen below: a note, and the join marked", async ({ page }, testInfo) => {
+    await loadProject(
+      page,
+      await combProject(testInfo, (screen, project) => {
+        // Swipes are set on a touch device only.
+        project.settings.supportsSoftwareButtons = true
+        screen("screen-box-black").dock = { screenId: "screen-1", edge: "down" }
+        screen("screen-1").buttonActions = { ...screen("screen-1").buttonActions, "swipe-up": { type: "send-mqtt", mqttTopic: "t", mqttMessage: "m" } }
+      }),
+    )
+    const note = /^Swipe up on "label-tests-white-background" does not lead to ".+" below it: its own action comes first\.$/
+    await expect(page.locator('[data-cut-off="swipe-up"]')).toHaveText(note)
+
+    await openManageScreens(page)
+    const cut = view(page).locator("[data-cut-off]")
+    await expect(cut).toHaveCount(1)
+    await expect(cut).toHaveAttribute("title", note)
+    // The join above screen-1 to screen-3 is not marked: swipe down still leads there.
+    const top = async (l: Locator) => (await l.boundingBox())!.y
+    expect(await top(cut)).toBeGreaterThan(await top(view(page).locator('[data-screen-card="screen-1"]')))
+    await closeManageScreens(page)
+
+    // Back to «Go to the screen beside»: the note goes, and the join is grey.
+    await page.locator("#swipe-up-actionType").selectOption("goto-neighbour")
+    await expect(page.locator("[data-cut-off]")).toHaveCount(0)
+    await openManageScreens(page)
+    await expect(view(page).locator("[data-cut-off]")).toHaveCount(0)
   })
 })

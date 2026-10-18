@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast"
 import { LAYOUT_HINT_COLOR } from "../canvas/canvas"
 import { SNAP_CELL_COLOR } from "../canvas/snap-table-overlay"
 import { cn } from "@/lib/utils"
+import { cutOffNote, cutOffSides } from "@/lib/hardware-button-actions"
 
 interface ManageScreensProps {
   project: Project
@@ -89,6 +90,29 @@ export function ManageScreens({
   // --- Dragging -------------------------------------------------------------
   // Popups and masters stay where they are: they have no place in the graph.
   const dragged = dragId ? project.screens.find((s) => s.id === dragId) : undefined
+
+  // The joins a screen's own swipe cuts (docs/2026-10-17-screen-graph.md
+  // decision 9), by the key of the join: "<page>:up|down" between a page and
+  // what lies above or below it, "row:<id>" in the gap before a page.
+  const cutJoins = new Map<string, string[]>()
+  const cutOn = (key: string, note: string) => cutJoins.set(key, [...(cutJoins.get(key) ?? []), note])
+  layout.columns.forEach((column, i) => {
+    const master = (s: ProjectScreen) => resolveMasterScreen(s, project.screens)
+    for (const cut of cutOffSides(column.page, master(column.page), project.screens)) {
+      const note = cutOffNote(column.page, cut, project.screens)
+      if (cut.side === "up" || cut.side === "down") cutOn(`${column.page.id}:${cut.side}`, note)
+      else if (cut.side === "left") cutOn(`row:${column.page.id}`, note)
+      else if (layout.columns[i + 1]) cutOn(`row:${layout.columns[i + 1].page.id}`, note)
+    }
+    for (const [docked, edge] of [[column.up, "up"], [column.down, "down"]] as const) {
+      if (!docked) continue
+      for (const cut of cutOffSides(docked, master(docked), project.screens)) {
+        if (cut.neighbourId === column.page.id) cutOn(`${column.page.id}:${edge}`, cutOffNote(docked, cut, project.screens))
+      }
+    }
+  })
+  const CUT_COLOR = "#d97706"
+  const cutTitle = (key: string) => cutJoins.get(key)?.join("\n")
   const rowMoveOf = (id: string, beforeId: string | null) => {
     const at = row.findIndex((s) => s.id === id)
     // Dropped just before or after itself, a row screen stays put.
@@ -256,7 +280,14 @@ export function ManageScreens({
         {...dropTarget(key)}
         className="relative w-6 shrink-0 self-stretch"
       >
-        {joined && <div className="absolute inset-x-0 h-0.5 bg-border" style={{ top: pageTop + frameHeight / 2 - 1 }} />}
+        {joined && (
+          <div
+            data-cut-off={cutTitle(key) ? "" : undefined}
+            title={cutTitle(key)}
+            className={cn("absolute inset-x-0 h-0.5", !cutTitle(key) && "bg-border")}
+            style={{ top: pageTop + frameHeight / 2 - 1, ...(cutTitle(key) ? { background: CUT_COLOR } : {}) }}
+          />
+        )}
         {/* As a new column of a table: faint down the comb, strong along the page. */}
         {dragged && overKey === key && lit(key) && (
           <div
@@ -273,8 +304,15 @@ export function ManageScreens({
   // screen docked there is drawn by the column, from thumbnail to thumbnail,
   // and runs under the name between them.
   const along = (key: string) => <div key={key} data-join className="h-4" />
-  const join = (top: number) => (
-    <div data-join-line className="pointer-events-none absolute left-1/2 w-0.5 -ml-px bg-border" style={{ top, height: pageTop - frameHeight }} />
+  // A cut join is drawn amber and names the swipe in its title.
+  const join = (key: string, top: number) => (
+    <div
+      data-join-line
+      data-cut-off={cutTitle(key) ? "" : undefined}
+      title={cutTitle(key)}
+      className={cn("pointer-events-none absolute left-1/2 w-0.5 -ml-px", !cutTitle(key) && "bg-border")}
+      style={{ top, height: pageTop - frameHeight, ...(cutTitle(key) ? { background: CUT_COLOR } : {}) }}
+    />
   )
 
   const rowIndex = row.findIndex((s) => s.id === selectedId)
@@ -341,8 +379,8 @@ export function ManageScreens({
                   {card(column.page)}
                   {along(`${column.page.id}:down-join`)}
                   {column.down ? card(column.down) : place(`${column.page.id}:down`)}
-                  {column.up && join(frameHeight)}
-                  {column.down && join(pageBottom)}
+                  {column.up && join(`${column.page.id}:up`, frameHeight)}
+                  {column.down && join(`${column.page.id}:down`, pageBottom)}
                   {placeHints(column.page.id)}
                 </div>
               </Fragment>

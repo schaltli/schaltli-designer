@@ -48,7 +48,7 @@ Wird der Regler gelöscht, steht bei der Taste der Hinweis <span class="ui">Targ
 
 Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Jede hat dieselbe Auswahl wie eine Taste, gleich daneben.
 
-Ohne eigene Belegung wischt ein Screen zu seinen Nachbarn, siehe [Screens über- und untereinander](/designer/screens#position). Was du auf dem Master belegst, gilt dort, wo in dieser Richtung kein Nachbar liegt. Willst du statt zu wischen Tasten drücken, legst du auf jede Taste <span class="ui">Go to the screen beside</span> mit einer anderen Richtung.
+Ohne eigene Belegung wischt ein Screen zu seinen Nachbarn, siehe [Screens über- und untereinander](/designer/screens#position). Was du auf dem Master belegst, gilt dort, wo in dieser Richtung kein Nachbar liegt. Willst du statt zu wischen Tasten drücken, legst du auf jede Taste <span class="ui">Go to the screen beside</span> mit einer anderen Richtung. Belegst du eine Wischgeste selbst, in deren Richtung ein Nachbar liegt, weist dich der Designer darauf hin, dass sie nicht mehr zu ihm führt.
 
 Auf einem [Popup](/designer/screens#popups) gibt es keine Wischgesten zu belegen. Jede Wischgeste schliesst es.
 

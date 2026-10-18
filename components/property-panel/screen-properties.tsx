@@ -26,6 +26,8 @@ import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import { isPopup, type ScreenType } from "@/lib/popup"
+import { cutOffNote, cutOffSides } from "@/lib/hardware-button-actions"
+import { AlertTriangle } from "lucide-react"
 import type { IconTarget } from "./live-value-editor"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import {
@@ -205,6 +207,14 @@ export function ScreenProperties({
         <PropertySection title="Swipe navigation">
           {SWIPE_BUTTONS.map((button) => (
             <HardwareButtonActionFields key={button.id} button={button} label={button.name} idPrefix={`${button.id}-`} {...actionProps} />
+          ))}
+          {/* A neighbour no swipe of this screen leads to
+              (docs/2026-10-17-screen-graph.md decision 9). */}
+          {cutOffSides(currentScreen, masterScreen, allScreens).map((cut) => (
+            <p key={cut.swipeId} data-cut-off={cut.swipeId} className="flex gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              {cutOffNote(currentScreen, cut, allScreens)}
+            </p>
           ))}
         </PropertySection>
       ) : null}
