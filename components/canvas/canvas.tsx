@@ -39,7 +39,7 @@ import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQua
 import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, resolveSwipeAction, pullTabSides, swipeReachesNeighbour, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
-import { contentArea, drawPullTabs, pullTabNudge, type Area } from "@/lib/pull-tabs"
+import { contentArea, pullTabColor, pullTabNudge, pullTabObjects, type Area } from "@/lib/pull-tabs"
 import { SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
@@ -1420,8 +1420,11 @@ export function Canvas({
 
   // Where the pull tabs stand on the preview's screen: none over a popup.
   const pullTabEdges = useMemo(
-    () => (previewMode && !popupUnderlay && !isPopup(screen) ? pullTabSides(screen, masterScreen, projectScreens ?? []) : []),
-    [previewMode, popupUnderlay, screen, masterScreen, projectScreens],
+    () =>
+      previewMode && !popupUnderlay && !isPopup(screen)
+        ? pullTabSides(screen, masterScreen, projectScreens ?? [], hardwareButtons.map((b) => b.id))
+        : [],
+    [previewMode, popupUnderlay, screen, masterScreen, projectScreens, hardwareButtons],
   )
 
   // What a swipe moves: beside the navigator, which stays (user, 2026-10-18).
@@ -1667,7 +1670,8 @@ export function Canvas({
     // The pull tabs over the screen, then - while a swipe follows the
     // finger - the screen so far moved, its neighbour beside it.
     if (previewMode) {
-      drawPullTabs(ctx, pullTabEdges, swipeArea, resolveColor("textMuted", theme, variant, colorDepth), pullNudgeRef.current)
+      const tabColor = pullTabColor(resolveColor("textMuted", theme, variant, colorDepth), resolvedBackgroundColor, colorDepth)
+      pullTabObjects(pullTabEdges, swipeArea, tabColor, pullNudgeRef.current).forEach((tab) => drawObject(ctx, tab, false, false, zoom, placeholders))
       canvas.dataset.pullTabs = pullTabEdges.join(" ")
       const slide = slideRef.current
       const neighbour = slide ? swipeNeighbourCanvas?.(slide.side) : null
@@ -3306,6 +3310,7 @@ export function Canvas({
             const follows =
               deviceAnimates !== false &&
               !popupUnderlay &&
+              hardwareButtons.some((b) => b.id === swipeId) &&
               swipeReachesNeighbour(screen, masterScreen, swipeId, projectScreens ?? []) &&
               !!swipeNeighbourCanvas?.(side)
             const extent = swipe.axis === "x" ? swipeAreaRef.current.width : swipeAreaRef.current.height
@@ -3992,6 +3997,7 @@ export function Canvas({
       popupUnderlay,
       deviceAnimates,
       swipeNeighbourCanvas,
+      hardwareButtons,
     ],
   )
 
@@ -4311,7 +4317,9 @@ export function Canvas({
       const committed = swipe.axis !== null && Math.abs(swipe.d) >= SWIPE_COMMIT
       const swipeId = swipe.axis ? swipeIdOf(swipe.axis, swipe.d) : undefined
       const run = () => {
-        if (!committed || !swipeId) return
+        // A device without this swipe never sees it (the export writes only
+        // the project's buttons): nothing happens here either.
+        if (!committed || !swipeId || !hardwareButtons.some((b) => b.id === swipeId)) return
         if (popupUnderlay) onClosePopup?.()
         else {
           const action = resolveSwipeAction(screen, masterScreen, swipeId, projectScreens ?? [])
@@ -4502,6 +4510,7 @@ export function Canvas({
     masterScreen,
     projectScreens,
     popupUnderlay,
+    hardwareButtons,
     onClosePopup,
     onPreviewButtonAction,
     screenWidth,

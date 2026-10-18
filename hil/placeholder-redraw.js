@@ -236,6 +236,7 @@ async function main() {
       // reference would draw the topic's first example instead of `??`.
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: ddf.testInterface.snapshotQuantize || "rgb565",
+        pullTabs: ddf.pullTabs,
         project,
         screenIndex: 0,
         topicOverrides: { [LEVEL]: "", [NAME]: "", ...values },

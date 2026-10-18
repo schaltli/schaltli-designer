@@ -320,6 +320,7 @@ async function main() {
       // "" is a topic nothing arrived on yet (see hil/placeholder-redraw.js).
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: ddf.testInterface.snapshotQuantize || "rgb565",
+        pullTabs: ddf.pullTabs,
         project,
         screenIndex: 0,
         topicOverrides: { ...Object.fromEntries(ALL_TOPICS.map((t) => [t, ""])), ...values },

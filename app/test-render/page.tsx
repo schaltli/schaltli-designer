@@ -1,7 +1,7 @@
 "use client"
 
 import { everyEnergyIcon } from "@/components/canvas/renderers/render-energy-diagram"
-import { everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
+import { BACK_ARROW_ASSETS, everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
 import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
@@ -13,6 +13,10 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { projectSeparators } from "@/lib/placeholders"
 import { renderScreenObjects, placeholderScope } from "@/lib/render-screen"
+import { contentArea, pullTabColor, pullTabObjects } from "@/lib/pull-tabs"
+import { pullTabSides } from "@/lib/hardware-button-actions"
+import { resolveMasterScreen, resolveBackgroundColor } from "@/lib/master-screen"
+import { resolveColor, themeFor } from "@/lib/themes"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { exportAndroidProject } from "@/lib/android-export"
 import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COVERAGE_MAX } from "@/lib/arc-raster"
@@ -87,6 +91,8 @@ interface RenderTestProject {
   assets: ProjectAsset[]
   topics: { topic: string; examples?: string[] }[]
   combinedTopics?: CombinedTopic[]
+  // The project's buttons; a swipe not among them is never exported (pullTabs).
+  hardwareButtons?: { id: string }[]
   screens: {
     id: string
     name: string
@@ -135,6 +141,14 @@ interface RenderTestRequest {
    * Omitted, the light fields are drawn, as always.
    */
   variant?: "light" | "dark"
+  /**
+   * Draws the pull tabs (device contract §2.10) as a device that declares
+   * `screen-graph` does, at rest: on the edges a swipe leads to a neighbour
+   * from, worked out from the project's screens and their masters (the
+   * reference keeps `masterScreenId`). A caller passes it when the device's
+   * description lists the feature.
+   */
+  pullTabs?: boolean
 }
 
 // Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
@@ -421,7 +435,7 @@ export default function TestRenderPage() {
         .flatMap((o: ScreenObject) => everyEntryObject(o, project.screens, fonts))
       // An energy diagram's node icons, in each colour a node may have.
       const energyIcons = screen.objects.filter((o: ScreenObject) => o.type === "energy-diagram").flatMap(everyEnergyIcon)
-      await preloadIconImages([...screen.objects, ...entryIcons, ...energyIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS], iconImageCache)
+      await preloadIconImages([...screen.objects, ...entryIcons, ...energyIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS, ...BACK_ARROW_ASSETS], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,
@@ -439,6 +453,33 @@ export default function TestRenderPage() {
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
         navigator: { screens: project.screens, activeScreenId: screen.id, scroll: req.navigatorScroll },
       })
+
+      // The pull tabs, over the screen and beside its navigator, as the device
+      // draws them into its canvas.
+      if (req.pullTabs) {
+        const own = project.screens[screenIndex]
+        const master = resolveMasterScreen(own, project.screens)
+        const sides = pullTabSides(own, master, project.screens, project.hardwareButtons?.map((b) => b.id))
+        if (sides.length > 0) {
+          const variant = req.variant === "dark" ? "dark" : "light"
+          const theme = themeFor(own, project.screens)
+          const background = resolveColor(resolveBackgroundColor(own, master).color, theme, variant, colorDepth)
+          const color = pullTabColor(resolveColor("textMuted", theme, variant, colorDepth), background, colorDepth)
+          const area = contentArea(project.screenWidth, project.screenHeight, screen.objects.find((o: ScreenObject) => o.type === "navigator"))
+          renderScreenObjects(ctx, pullTabObjects(sides, area, color), {
+            fonts,
+            projectAssets: [],
+            topics: project.topics as any,
+            colorDepth,
+            bdfFontCache,
+            iconImageCache,
+            getPreviewValueFromTopic,
+            placeholders,
+            requestRedraw: () => {},
+            screenBackgroundColor: background,
+          })
+        }
+      }
 
       if (quantize === "rgb565") {
         quantizeCanvasToRgb565(ctx, project.screenWidth, project.screenHeight)

@@ -80,6 +80,18 @@ results are directly comparable:
   as a region, a value under the strip leaves it whole - each picture held
   to the designer at 0 px. Installs its own project; needs the dev server
   and the broker.
+- `screen-graph.js --device <ip>` - the screen graph
+  (docs/2026-10-17-screen-graph.md, device contract 2.10, generation 1.9):
+  a master's strip over the main row A, (H hidden), B, C, with A1 below A
+  and C1 below C, cut off by C's own swipe up. The board starts on A; a
+  swipe up brings A1 up from below while the strip stays (`/panel.bmp`
+  mid-swipe); the navigator's way back and a swipe down return; next from
+  A1 goes on from A's place past H; on C the swipe up publishes its message.
+  Every picture, pull tabs and the way back included, held to the designer
+  at 0 px (`pullTabs` in test-render). The nudge stands still while the
+  test interface is on. SKIPPED on a board that does not declare
+  `screen-graph`. Installs its own project; needs the dev server and the
+  broker.
 - `popup.js --device <ip>` - popups (docs/2026-10-06-popup-screens.md) on
   a board that announces generation 1.3: a tap opens one, the screen
   underneath is set back (halved on an RGB board, left on e-ink), the

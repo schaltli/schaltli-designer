@@ -26,9 +26,10 @@ import { exportedEnergyDiagram } from "@/lib/energy-diagram-object"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
-import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
+import { backArrowEdges, backEntryKey, backEntryScreen, darkProperties, exportBackBar, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withBackArrowAssets, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 import { backOf, mainRow, neighboursOf } from "@/lib/screen-graph"
+import { pullTabColor } from "@/lib/pull-tabs"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -279,7 +280,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // A live icon keeps its live value for a 1.4 device and its Otherwise icon
   // is what a 1.3 device draws (lib/object-text.ts withLiveIconFallbacks).
   // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
-  const project = withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored))))
+  const project = withBackArrowAssets(withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authored)))))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -554,6 +555,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       const objects = withDark ? withDarkColours(light, navigatorEntryObjects(screen, width, height, darkLook, active)) : light
       return objects.map((o) => deviceObject(o, entryKey(master.id, screen.id, active)))
     }
+    // The way back (§2.10): its one entry as long as the strip, baked by its own key.
+    const backObjects = (edge: any) => {
+      const { layout: backLayout } = exportBackBar(project, nav)
+      const size = entrySize(backLayout)
+      const light = navigatorEntryObjects(backEntryScreen(edge), size.width, size.height, look, false)
+      const objects = withDark ? withDarkColours(light, navigatorEntryObjects(backEntryScreen(edge), size.width, size.height, darkLook, false)) : light
+      return objects.map((o) => deviceObject(o, backEntryKey(master.id, edge)))
+    }
     // The light/dark switch (contract 2.7, generation 1.6): its place cut off
     // the strip at `at`, `length` long, its objects relative to that place.
     const switchObjects = () => {
@@ -579,6 +588,11 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         normal: entryObjects(screen, false),
         active: entryObjects(screen, true),
       })),
+      // The way back (§2.10): on a screen off the main row the one entry, by
+      // the way its arrow points.
+      ...(backArrowEdges(project.screens).length > 0
+        ? { back: Object.fromEntries(backArrowEdges(project.screens).map((edge) => [edge, backObjects(edge)])) }
+        : {}),
     }
   })
   const navigatorOfScreen = (screen: any): string | undefined => {
@@ -686,6 +700,21 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           backgroundColorDark:
             colorDepth === undefined || colorDepth === "24bit"
               ? resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "dark", colorDepth)
+              : undefined,
+          // The pull tab's colour (§2.10): the theme's muted text mixed into
+          // the background, and its dark variant beside it as above.
+          pullTabColor: pullTabColor(
+            resolveColor("textMuted", theme, "light", colorDepth),
+            resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", colorDepth),
+            colorDepth,
+          ),
+          pullTabColorDark:
+            colorDepth === undefined || colorDepth === "24bit"
+              ? pullTabColor(
+                  resolveColor("textMuted", theme, "dark", colorDepth),
+                  resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "dark", colorDepth),
+                  colorDepth,
+                )
               : undefined,
           // Only present when the target device declared needsPageIconsInSize
           // AND this screen has an icon set - absent otherwise (existing

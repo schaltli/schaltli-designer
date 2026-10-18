@@ -18,9 +18,10 @@ import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { exportedEnergyDiagram, iconLookColour } from "@/lib/energy-diagram-object"
 import type { EnergyNode } from "@/lib/energy-diagram"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
-import { darkProperties, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
+import { backArrowEdges, backEntryKey, backEntryScreen, darkProperties, exportBackBar, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withBackArrowAssets, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 import { backOf, isInGraph, mainRow, neighboursOf } from "@/lib/screen-graph"
+import { pullTabColor } from "@/lib/pull-tabs"
 import {
   buttonIconKey,
   buttonIconUrl,
@@ -68,7 +69,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
   // A live icon keeps its live value (lib/object-text.ts withLiveIconFallbacks);
   // the app draws it from 1.4 on, as it draws no static icon of its own.
   // The navigator's light/dark switch draws icons of its own (lib/navigator-entries.ts).
-  const project = (withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))))
+  const project = withBackArrowAssets(withThemeSwitchAssets(withoutDeadPopupActions(dissolveGroupsInProject(withLiveIconFallbacks(authoredProject)))))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -552,6 +553,15 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       withDarkColours(navigatorEntryObjects(screen, width, height, look, active), navigatorEntryObjects(screen, width, height, darkLook, active)).map((o) =>
         appObject(o, entryKey(master.id, screen.id, active)),
       )
+    // The way back (§2.10): its one entry as long as the strip, baked by its own key.
+    const backObjects = (edge: any) => {
+      const { layout: backLayout } = exportBackBar(project, nav)
+      const size = entrySize(backLayout)
+      return withDarkColours(
+        navigatorEntryObjects(backEntryScreen(edge), size.width, size.height, look, false),
+        navigatorEntryObjects(backEntryScreen(edge), size.width, size.height, darkLook, false),
+      ).map((o) => appObject(o, backEntryKey(master.id, edge)))
+    }
     // The light/dark switch (§2.7, generation 1.6), as for a board.
     const switchObjects = () =>
       themeSwitch
@@ -578,6 +588,11 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         normal: entryObjects(screen, false),
         active: entryObjects(screen, true),
       })),
+      // The way back (§2.10): on a screen off the main row the one entry, by
+      // the way its arrow points.
+      ...(backArrowEdges(project.screens).length > 0
+        ? { back: Object.fromEntries(backArrowEdges(project.screens).map((edge) => [edge, backObjects(edge)])) }
+        : {}),
     }
   })
 
@@ -646,6 +661,9 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         name: screen.name,
         backgroundColor,
         backgroundColorDark,
+        // The pull tab's colour (§2.10), as in the device zip.
+        pullTabColor: pullTabColor(resolveColor("textMuted", themeFor(screen, project.screens), "light", "24bit"), backgroundColor, "24bit"),
+        pullTabColorDark: pullTabColor(resolveColor("textMuted", themeFor(screen, project.screens), "dark", "24bit"), backgroundColorDark, "24bit"),
         // Which navigator it shows, and whether it is out of the paging.
         navigatorId: masterScreen?.objects.find((o: any) => o.type === "navigator")?.id,
         // A docked screen is out of the paging as a hidden one is.

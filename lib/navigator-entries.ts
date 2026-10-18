@@ -191,6 +191,31 @@ export const BACK_ARROW_ASSETS = (Object.keys(BACK_ARROW_PATHS) as ScreenEdge[])
 }))
 
 /**
+ * The way back as an entry of its own, for the export: its arrow pointing
+ * `edge`, no name (device contract §2.10). A device draws it as the one entry
+ * on a screen with `back`, and a tap on it shows `neighbours[back]`.
+ */
+export const backEntryScreen = (edge: ScreenEdge): EntryScreen => ({ id: `back-${edge}`, name: "", iconAssetId: backArrowAssetId(edge) })
+
+/** The arrows the screens off the main row point, each once, in the order up, down, left, right. */
+export function backArrowEdges(screens: readonly GraphScreen[]): ScreenEdge[] {
+  const used = new Set(screens.flatMap((s) => {
+    const back = backOf(screens, s.id)
+    return back ? [oppositeEdge(back)] : []
+  }))
+  return (["up", "down", "left", "right"] as ScreenEdge[]).filter((e) => used.has(e))
+}
+
+/** The project with the arrows' icons among its assets, where a screen lies off the main row - as the switch's (withThemeSwitchAssets). */
+export function withBackArrowAssets<P extends { assets?: any[]; screens: readonly GraphScreen[] }>(project: P): P {
+  const edges = backArrowEdges(project.screens)
+  if (edges.length === 0) return project
+  const have = new Set((project.assets ?? []).map((a) => a.id))
+  const needed = BACK_ARROW_ASSETS.filter((a) => edges.some((e) => a.id === backArrowAssetId(e)) && !have.has(a.id))
+  return { ...project, assets: [...(project.assets ?? []), ...needed] }
+}
+
+/**
  * What a navigator lists on the screen it is shown on: the main row, or on a
  * screen docked off it the single «←» - an entry without a name whose id is
  * the screen it goes back to, so a tap on it opens that one as on any entry.
@@ -300,6 +325,8 @@ export function everyEntryObject(
   return [
     ...navigatorScreens(screens).flatMap((s) => [...navigatorEntryObjects(s, 88, 88, look, false), ...navigatorEntryObjects(s, 88, 88, look, true)]),
     ...(themeSwitchAt(navigator) !== "none" ? themeSwitchObjects(88, 88, look) : []),
+    // The way back's arrows, where a screen lies off the main row.
+    ...backArrowEdges(screens as any).flatMap((edge) => navigatorEntryObjects(backEntryScreen(edge), 88, 88, look, false)),
   ]
 }
 
@@ -351,6 +378,20 @@ export function exportBar(project: NavigatorProject, navigator: ScreenObject): N
 export function exportLayout(project: NavigatorProject, navigator: ScreenObject): NavigatorLayout {
   return exportBar(project, navigator).layout
 }
+
+/**
+ * The way back's bar (device contract §2.10): its one entry as long as the
+ * strip's entries' part, as the designer's preview lays it out.
+ */
+export function exportBackBar(project: NavigatorProject, navigator: ScreenObject): NavigatorBar {
+  const edge = navigator.properties.edge ?? "left"
+  const shows = navigator.properties.shows ?? "iconsAndText"
+  const bar = navigatorStrip(edge, shows, project.screenWidth, project.screenHeight)
+  return barLayout(edge, shows, bar, 1, themeSwitchAt(navigator))
+}
+
+/** The key a way back's bakes go under. */
+export const backEntryKey = (masterId: string, edge: ScreenEdge) => entryKey(masterId, `back-${edge}`, false)
 
 /** An entry's width and height. */
 export function entrySize(layout: NavigatorLayout): { width: number; height: number } {

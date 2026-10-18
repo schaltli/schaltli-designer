@@ -6,3 +6,6 @@
 # and the Android app, whose tests compare the copy with this file. LF on
 # every checkout, as the copies are, or core.autocrlf breaks the comparison.
 lib/placeholders/vectors.json text eol=lf
+
+# The same for the screen graph's vectors (device contract 2.10).
+lib/screen-graph/vectors.json text eol=lf

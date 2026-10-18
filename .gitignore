@@ -45,6 +45,7 @@ next-env.d.ts
 /hil/local-topics-report/
 /hil/live-value-redraw-report/
 /hil/navigator-report/
+/hil/screen-graph-report/
 /hil/size-scale/out/
 /hil/layout/out/
 # What the factory-flash run leaves behind: its verdict and the merged image it

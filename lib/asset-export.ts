@@ -7,7 +7,7 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
-import { entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchKey, themeSwitchObjects, THEME_SWITCH_ENTRY } from "@/lib/navigator-entries"
+import { backArrowEdges, backEntryKey, backEntryScreen, entryKey, entryLook, entrySize, exportBackBar, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchKey, themeSwitchObjects, THEME_SWITCH_ENTRY } from "@/lib/navigator-entries"
 import { navigatorScreens } from "@/lib/navigator"
 import { isLiveIcon, liveIconBranches, liveIconValue } from "@/lib/object-text"
 import { rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
@@ -408,6 +408,14 @@ export class AssetExporter {
       }
       if (themeSwitch) {
         items.push({ screen: THEME_SWITCH_ENTRY, active: false, width: themeSwitch.width, height: themeSwitch.height, objects: themeSwitchObjects(themeSwitch.width, themeSwitch.height, look), key: themeSwitchKey(master.id) })
+      }
+      // The way back's arrows (device contract §2.10), each its one entry as
+      // long as the strip.
+      const { layout: backLayout } = exportBackBar(project, themed)
+      const back = entrySize(backLayout)
+      for (const edge of backArrowEdges(project.screens)) {
+        const screen = backEntryScreen(edge)
+        items.push({ screen, active: false, width: back.width, height: back.height, objects: navigatorEntryObjects(screen, back.width, back.height, look, false), key: backEntryKey(master.id, edge) })
       }
       for (const { screen, width, height, objects, key: itemKey } of items) {
         {

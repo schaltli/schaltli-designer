@@ -1082,6 +1082,7 @@ what every swipe does.
 "mainRow": ["s-energie", "s-licht", "s-wasser"],
 "screens": [
   { "id": "s-energie", "neighbours": { "right": "s-licht", "down": "s-verlauf" },
+    "pullTabColor": "#807d84", "pullTabColorDark": "#96919b",
     "buttonActions": {
       "swipe-left": { "type": "next-screen" },
       "swipe-up": { "type": "goto-neighbour", "side": "down" } }, … },
@@ -1123,30 +1124,37 @@ what every swipe does.
   a dial or the navigator is theirs, as now; a press on a button or a
   switch is theirs too. No special case for a swipe from the very edge.
 - **The pull tab:** on every edge a swipe leads to a neighbour from, the
-  device draws a short line over the screen; nowhere else. A swipe leads
+  device draws a short bar over the screen; nowhere else. A swipe leads
   to `neighbours[side]` when its action is `goto-neighbour` to that side,
   `goto-screen` naming that screen, or - on a screen of the main row, the
   neighbour in it too - `next-screen` towards `right` or
   `previous-screen` towards `left`. So an own swipe action that does
   something else there has no tab. The same rule says when a slide
-  follows the finger. The area is
-  what moves: the screen less the navigator's strip. A line 32 px long and
-  4 px thick with round ends, centred on that edge of the area, its outer
-  side 6 px from it, in the theme's muted text colour (`textMuted`, its
-  dark variant on a dark screen) at 70 % opacity. A device with motion
-  moves all of them 6 px towards the middle and back once every 5 s, over
-  0.8 s, along a half sine. Numbers and geometry: designer
-  `lib/pull-tabs.ts`, which the designer's preview draws from. The tab
-  slides with the screen.
+  follows the finger.
+  - **Where:** in the content area, what moves: the screen less the
+    navigator's strip (its `edge`, `thickness` deep). A box 32 × 4 px
+    (4 × 32 on the left and right edges) with corners round by 2 px - drawn
+    as a `box` with `cornerRadius` 2 is (2.1) - centred on that edge of
+    the area (rounded down), its outer side 6 px from it.
+  - **Colour:** each screen's `pullTabColor` (`pullTabColorDark` on a dark
+    screen, 2.3), solid: the designer mixes the theme's muted text into the
+    background and brings it to the colour depth.
+  - **Nudge:** a device with motion moves all of a screen's tabs towards
+    the middle and back once every 5 s: round(6 × sin(π t / 800 ms)) px
+    for the first 0.8 s of each period, then still. While the test
+    interface is on, the tabs stand still at rest, so a snapshot never
+    catches one half way.
+  - **Drawn into the screen's picture**, so a tab slides with the screen.
+  - The cases: designer `lib/screen-graph/vectors.json` (the edges, the
+    content area, the box, the nudge, the colour) - copy it, do not edit a
+    copy.
 - **The navigator's «←»:** on a screen with `back` the navigator lists no
-  screens: it has one entry, an arrow pointing away from `back` (a
-  history below its page: down), and a tap on it shows `neighbours[back]`.
-  The device draws the arrow itself, in the entry's text colour, centred
-  as an entry's icon is, without a name; its outline is the designer's
-  `schaltli-back-<edge>` icon (`lib/navigator-entries.ts`, a 24 × 24
-  stroke 2.5 px wide with round ends: `up` M12 20V4 M5 11l7-7 7 7, `down`
-  M12 4v16 M5 13l7 7 7-7, `left` M20 12H4 M11 5l-7 7 7 7, `right` M4 12h16
-  M13 5l7 7-7 7).
+  screens: it has one entry, at the place of the first, drawing
+  `navigators[].back["<edge>"]` - ordinary objects (an icon of an arrow,
+  no name) laid out as an entry's `normal` objects are, where `<edge>` is
+  the way the arrow points: away from `back` (a history below its page,
+  `back` up: `down`). A tap on it shows `neighbours[back]`. The export
+  carries `back` on a navigator only for the arrows its screens need.
 - **The screen menu goes:** a device that declares `screen-graph` no
   longer offers the device action `showScreenMenu` (§5); swiping, the
   navigator and the knob's map (`docs/2026-10-17-screen-graph.md`,

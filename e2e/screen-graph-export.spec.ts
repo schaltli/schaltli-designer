@@ -92,6 +92,30 @@ for (const kind of ["device", "android"] as const) {
       expect(screenOf(json, "a1").buttonActions["swipe-left"]).toEqual({ type: "next-screen" })
     })
 
+    // Device contract §2.10: the tab's colour comes along, worked out; and
+    // the way back as an entry of the navigator, by the way its arrow points.
+    test("the pull tab's colour on every screen, and the way back as a navigator entry", async ({ page }) => {
+      const p = project(withHistory)
+      p.screens[0].objects = [{ id: "nav", type: "navigator", x: 0, y: 0, width: 80, height: 480, zIndex: 9, properties: { edge: "left", shows: "icons" } }]
+      const json = await exportedJson(page, p, kind)
+      for (const id of ["a", "b", "a1"]) expect(screenOf(json, id).pullTabColor, id).toMatch(/^#[0-9a-f]{6}$/)
+      expect(screenOf(json, "a").pullTabColorDark).toMatch(/^#[0-9a-f]{6}$/)
+      expect(screenOf(json, "a").pullTabColorDark).not.toBe(screenOf(json, "a").pullTabColor)
+      // A1 lies below its page: back is up, its arrow points down.
+      const nav = json.navigators[0]
+      expect(Object.keys(nav.back)).toEqual(["down"])
+      expect(nav.back.down.map((o: any) => o.type)).toEqual(["icon"])
+      // Baked, as every entry's icon is - a device draws nothing else - and
+      // laid out in one entry as long as the strip (480 here, a 32 px icon
+      // in its middle).
+      if (kind === "device") expect(nav.back.down[0].path).toMatch(/^assets\/.+\.bmp$/)
+      expect(nav.back.down[0].y).toBe(Math.floor((480 - 32) / 2))
+      // One row: no way back to carry.
+      const row = project()
+      row.screens[0].objects = p.screens[0].objects
+      expect((await exportedJson(page, row, kind)).navigators[0].back).toBeUndefined()
+    })
+
     test("a master's swipe shows only where no neighbour is", async ({ page }) => {
       const json = await exportedJson(page, project({ ...withHistory, masterActions: { "swipe-up": { type: "open-popup", targetScreenId: "p" } } }), kind)
       expect(screenOf(json, "a").buttonActions["swipe-up"]).toEqual({ type: "goto-neighbour", side: "down" })

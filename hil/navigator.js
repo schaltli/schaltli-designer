@@ -269,6 +269,7 @@ async function main() {
       const screenIndex = reference.screens.findIndex((s) => s.id === screenId)
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: ddf.testInterface.snapshotQuantize || "rgb565",
+        pullTabs: ddf.pullTabs,
         project: reference,
         screenIndex,
         topicOverrides: { [LIGHT]: "", [NAME]: "", ...overrides },

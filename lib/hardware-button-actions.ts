@@ -178,9 +178,12 @@ export function pullTabSides(
   screen: ProjectScreen,
   masterScreen: ProjectScreen | undefined,
   screens: readonly ProjectScreen[],
+  // The project's buttons, when known: a swipe that is not among them is
+  // never exported, so on the device it leads nowhere and has no tab.
+  buttonIds?: readonly string[],
 ): ScreenEdge[] {
   return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) =>
-    swipeReachesNeighbour(screen, masterScreen, swipeId, screens) ? [side] : [],
+    (!buttonIds || buttonIds.includes(swipeId)) && swipeReachesNeighbour(screen, masterScreen, swipeId, screens) ? [side] : [],
   )
 }
 

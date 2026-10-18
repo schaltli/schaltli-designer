@@ -698,8 +698,9 @@ async function main() {
       screens: chunk.screens.map((s) => {
         const master = s.masterScreenId && chunk.screens.find((m) => m.id === s.masterScreenId);
         if (!master) return s;
-        const { masterScreenId, ...alone } = s;
-        return { ...alone, objects: [...s.objects, ...master.objects] };
+        // masterScreenId stays: test-render draws a screen's own objects
+        // only, and works out the pull tabs from the master's swipes.
+        return { ...s, objects: [...s.objects, ...master.objects] };
       }),
     };
     console.log(
@@ -761,6 +762,7 @@ async function main() {
             project: reference,
             screenIndex: si,
             topicOverrides: overrides,
+            pullTabs: ddf.pullTabs,
           },
         );
         const expectedBuf = Buffer.from(
@@ -945,6 +947,7 @@ async function main() {
               project: reference,
               screenIndex: si,
               topicOverrides: overrides,
+              pullTabs: ddf.pullTabs,
             })
             const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`)
             fs.writeFileSync(expectedPath, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"))

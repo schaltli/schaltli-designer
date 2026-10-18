@@ -103,6 +103,10 @@ function shape(deviceJson, fonts, testInterface, origin, zipBase64) {
       colorDepth: screen.colorDepth || "24bit",
     },
     supportedObjectTypes,
+    supportedFeatures: deviceJson.supportedFeatures || [],
+    // A device that knows the screen graph draws pull tabs (device contract
+    // 2.10): the designer's reference has to, too (app/test-render pullTabs).
+    pullTabs: (deviceJson.supportedFeatures || []).includes("screen-graph"),
     supportsSoftwareButtons: deviceJson.supportsSoftwareButtons === true,
     testInterface,
     fonts,

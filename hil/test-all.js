@@ -724,6 +724,27 @@ async function main() {
     })
   }, { quick: true })
 
+  // The screen graph (docs/2026-10-17-screen-graph.md, device contract 2.10):
+  // a history below its page comes up from below, the navigator's way back
+  // and a swipe down return, next goes on in the row past a hidden screen,
+  // an own swipe cuts its neighbour off - pull tabs and all at 0 px. Skipped
+  // where the board does not declare screen-graph yet. Installs its own project.
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+    console.log(`
+=== ${name} screen graph (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/screen-graph.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-screen-graph`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or no screen-graph yet`
+          : exitCode === 0
+            ? "up to the history and back, the way back, the row past a hidden screen, pull tabs at 0 px"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }, { quick: true })
+
   // Local topics (docs/2026-10-13-local-topics.md, device contract 2.9): a
   // topic the board keeps itself - its initial value, a tap applied at once
   // and never published, a real topic of its name not heard, nothing kept
