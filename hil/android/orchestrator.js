@@ -483,6 +483,10 @@ function matchDeviceScaling(srcImg, dstWidth, dstHeight) {
  * At a fractional ratio none of that is established - the 2026-07-27 finding
  * stands there - so the old path is kept.
  */
+// Whether the phone declares the screen graph (device contract 2.10) and so
+// draws pull tabs: the reference draws them then too (test-render pullTabs).
+let referencePullTabs = false;
+
 async function renderReference(page, project, screenIndex, overrides, dstWidth, dstHeight, navigatorScroll) {
   const sx = dstWidth / project.screenWidth;
   const sy = dstHeight / project.screenHeight;
@@ -492,7 +496,7 @@ async function renderReference(page, project, screenIndex, overrides, dstWidth, 
   const wholeMultiple =
     !process.env.HIL_ANDROID_NO_SCALE && sx === sy && Number.isInteger(sx) && sx >= 1;
 
-  const req = { project, screenIndex, topicOverrides: overrides };
+  const req = { project, screenIndex, topicOverrides: overrides, pullTabs: referencePullTabs };
   if (navigatorScroll !== undefined) req.navigatorScroll = navigatorScroll;
   if (wholeMultiple) req.scale = sx;
 
@@ -1123,6 +1127,8 @@ const SWIPE_MS = 2500;
 // four screens do not cost a minute, long enough that `input swipe` still
 // produces a gesture the app reads as a swipe rather than a flick.
 const NAV_SWIPE_MS = 400;
+// A swipe named at release rather than followed: quick (checkScreenGraph).
+const NAMED_SWIPE_MS = 120;
 
 /** The phone's screen in device pixels, read once. */
 let cachedScreenSize = null;
@@ -1483,6 +1489,12 @@ async function checkTouch(deviceSerial, mqttClient, page, project, screen, si) {
     );
   }
   console.log(`  touch: tapping ${target.type} "${target.id}" published "${got}" on ${writeTopic}, as the designer says it should`);
+  // What the tap asked stands as the level's marker until the installation
+  // answers it or the app's LEVEL_AWAIT_MS (2.5 s) runs out (decision 6c).
+  // Nothing answers here, and the next case publishes other values: without
+  // the wait the dial still showed the asked 50 against a reference of 42,
+  // 0.86% and a red case (2026-10-18).
+  await sleep(3000);
 }
 
 /**
@@ -1997,6 +2009,151 @@ async function checkFollowTheFinger(deviceSerial) {
   );
 }
 
+
+// ---------------------------------------------------------------------------
+// The screen graph (docs/2026-10-17-screen-graph.md, device contract 2.10)
+// ---------------------------------------------------------------------------
+//
+// As hil/screen-graph.js on the boards: a master with a navigator on the left
+// and swipes left and right bound to next and previous, the main row A, (H
+// hidden), B, C, with A1 below A and C1 below C, cut off by C's own swipe up.
+// Installed as a project of its own, walked by swipes and a tap, each
+// picture held to the designer's - pull tabs and the way back included -
+// within the suite's limit. Screens are told apart by their colour.
+
+async function checkScreenGraph(deviceSerial, page, mqttClient, deviceId, fixture) {
+  const sw = fixture.screenWidth;
+  const sh = fixture.screenHeight;
+  const RUN = Date.now().toString(36);
+  const SENT = `hil-graph-${RUN}/sent`;
+  const id = (name) => `graph-${RUN}-${name}`;
+  const SQUARE = "data:image/svg+xml;base64," + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v16H4z"/></svg>').toString("base64");
+  const STRIP = 64;
+  const navigator = {
+    id: "nav", type: "navigator", x: 0, y: 0, width: STRIP, height: sh, zIndex: 50,
+    // A line colour of its own: without one the export takes the theme's
+    // outline, which the reference (drawing the object as it is) does not.
+    properties: { edge: "left", shows: "icons", backgroundColor: "#202020", borderColor: "#808080", textColor: "#c0c0c0", activeColor: "#4060ff", activeTextColor: "#ffffff" },
+  };
+  const COLOURS = { A: "#1f4e79", H: "#555555", B: "#2e7d32", C: "#8e2c2c", A1: "#6a1b9a", C1: "#ef6c00" };
+  const screen = (name, more = {}) => ({ id: id(name), name, masterScreenId: "m", backgroundColor: COLOURS[name], iconAssetId: "square", objects: [], ...more });
+  const project = {
+    name: "HIL screen graph",
+    screenWidth: sw,
+    screenHeight: sh,
+    settings: { ...(fixture.settings || {}), supportsSoftwareButtons: true },
+    fonts: fixture.fonts || [],
+    assets: [{ id: "square", name: "square", type: "icon", data: SQUARE }],
+    topics: [{ id: "sent", topic: SENT, type: "text", examples: [""] }],
+    combinedTopics: [],
+    hardwareButtons: ["swipe-left", "swipe-right", "swipe-up", "swipe-down"].map((b) => ({ id: b, name: b })),
+    screens: [
+      { id: "m", name: "Master", isMaster: true, backgroundColor: "#000000", buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-right": { type: "previous-screen" } }, objects: [navigator] },
+      screen("A"),
+      screen("H", { hidden: true }),
+      screen("B"),
+      screen("C", { buttonActions: { "swipe-up": { type: "send-mqtt", mqttTopic: SENT, mqttMessage: "from C" } } }),
+      screen("A1", { dock: { screenId: id("A"), edge: "down" } }),
+      screen("C1", { dock: { screenId: id("C"), edge: "down" } }),
+    ],
+  };
+  // test-render draws a screen's own objects: the master's navigator among
+  // them, the master kept for its swipes, which the tabs follow.
+  const reference = { ...project, screens: project.screens.map((s) => (s.isMaster ? s : { ...s, objects: [...s.objects, navigator] })) };
+
+  const checks = [];
+  const check = (name, ok, detail = "") => {
+    checks.push({ name, ok });
+    console.log(`  ${ok ? "PASS" : "FAIL"} ${name}${detail ? ` - ${detail}` : ""}`);
+  };
+  const heard = [];
+  const listen = (topic, payload) => { if (topic === SENT) heard.push(payload.toString()); };
+  mqttClient.on("message", listen);
+  await new Promise((resolve) => mqttClient.subscribe(SENT, resolve));
+
+  try {
+    const zip = Buffer.from(await page.evaluate((p) => window.__buildAndroidZipForTest(p), project), "base64");
+    await deployBundle(mqttClient, deviceId, zip, deviceSerial, "the screen graph");
+    await sleep(2500);
+
+    const names = Object.keys(COLOURS);
+    const shows = async (what, name) => {
+      const actual = await cropDeviceScreenshot(await settledFrame(deviceSerial), project, deviceSerial);
+      const fs_ = path.join(IMG_DIR, `graph-${what.replace(/[^\w]+/g, "_")}.png`);
+      await actual.write(fs_);
+      const scores = [];
+      for (const n of names) {
+        const si = reference.screens.findIndex((s) => s.id === id(n));
+        const ref = await renderReference(page, reference, si, { [SENT]: "" }, actual.bitmap.width, actual.bitmap.height);
+        const { diffPixels, totalPixels } = comparePixelsWithTolerance(ref, actual);
+        scores.push({ n, pct: (100 * diffPixels) / totalPixels });
+      }
+      scores.sort((a, b) => a.pct - b.pct);
+      const own = scores.find((x) => x.n === name);
+      {
+        const si = reference.screens.findIndex((s) => s.id === id(name));
+        const ref = await renderReference(page, reference, si, { [SENT]: "" }, actual.bitmap.width, actual.bitmap.height);
+        await ref.write(fs_.replace(/\.png$/, "-expected.png"));
+      }
+      const said = await phoneApi.debug();
+      const on = Object.keys(COLOURS).find((n) => id(n) === said.screen) ?? said.screen;
+      check(
+        `${what}: ${name}`,
+        scores[0].n === name && own.pct <= ANDROID_MISMATCH_LIMIT,
+        `${own.pct.toFixed(2)}% differ, closest ${scores[0].n}; the app says ${on}, last swipe ${String(said.lastSwipe || "-").replace(`graph-${RUN}-`, "")}`,
+      );
+    };
+    const { width, height } = await screenSize(deviceSerial);
+    const mid = await devicePointFor(deviceSerial, project, STRIP + (sw - STRIP) / 2, sh / 2);
+    const up = () => phoneApi.swipe(mid.x, Math.round(mid.y + height * 0.25), mid.x, Math.round(mid.y - height * 0.25), NAV_SWIPE_MS);
+    const down = () => phoneApi.swipe(mid.x, Math.round(mid.y - height * 0.25), mid.x, Math.round(mid.y + height * 0.25), NAV_SWIPE_MS);
+    const left = () => phoneApi.swipe(Math.round(width * 0.85), mid.y, Math.round(width * 0.3), mid.y, NAMED_SWIPE_MS);
+    // A swipe that does not lead to a neighbour is named at release, and only
+    // within SwipeNavigation.kt's 900 ms - which an injected 400 ms gesture
+    // overran on the P20 and was dropped: quick, as a flick is.
+    const upQuick = () => phoneApi.swipe(mid.x, Math.round(mid.y + height * 0.25), mid.x, Math.round(mid.y - height * 0.25), NAMED_SWIPE_MS);
+
+    await shows("starts on the main row's first, tabs on the right and below", "A");
+
+    // Up, captured while it moves: A1 comes up from below.
+    const before = await captureDeviceScreenshot(deviceSerial);
+    const frames = await captureThroughout(deviceSerial, up());
+    const after = await settledFrame(deviceSerial);
+    let between = 0;
+    for (const f of frames) if ((await frameChange(before, f)) > 0.05 && (await frameChange(after, f)) > 0.05) between++;
+    check("a swipe up follows the finger: frames between the two screens", between > 0, `${between} of ${frames.length}`);
+    await shows("a swipe up shows the screen below, the way back in the navigator, a tab on top", "A1");
+
+    const back = await devicePointFor(deviceSerial, project, STRIP / 2, 40);
+    await phoneApi.tap(back.x, back.y);
+    await shows("a tap on the way back shows the page", "A");
+
+    await up();
+    await shows("up again", "A1");
+    await down();
+    await shows("a swipe down goes back", "A");
+
+    await up();
+    await shows("(up once more)", "A1");
+    await left();
+    await shows("from the history, next goes on in the row past the hidden screen", "B");
+
+    await left();
+    await shows("C: its own swipe up cuts C1 off - no tab below", "C");
+    heard.length = 0;
+    await upQuick();
+    await sleep(1000);
+    check("a swipe up on C publishes its message", heard.includes("from C"), JSON.stringify(heard));
+    await shows("... and stays on C", "C");
+  } finally {
+    mqttClient.removeListener("message", listen);
+    await new Promise((resolve) => mqttClient.unsubscribe(SENT, resolve));
+  }
+  const pass = checks.every((c) => c.ok);
+  console.log(`  ${pass ? "PASS" : "FAIL"} - the screen graph on the phone, ${checks.filter((c) => c.ok).length}/${checks.length} checks`);
+  return { pass, failed: checks.filter((c) => !c.ok).length, total: checks.length };
+}
+
 async function main() {
   if (process.argv.includes("--report-only")) {
     const results = JSON.parse(fs.readFileSync(path.join(OUT_DIR, "results.json"), "utf8"));
@@ -2043,6 +2200,7 @@ async function main() {
 
   try {
     deviceId = await installFixture(mqttClient, getProjectZipPath(), deviceSerial, (id) => { deviceId = id; });
+    referencePullTabs = ((await phoneDdf(deviceSerial)).supportedFeatures || []).includes("screen-graph");
   } catch (err) {
     await clearDeploy();
     await restoreScreenTimeout();
@@ -2089,6 +2247,20 @@ async function main() {
 
   const results = [];
   if (brokerResult) results.push(brokerResult);
+
+  // `--only-graph`: the screen graph alone, for working on it.
+  if (process.argv.includes("--only-graph")) {
+    const graph = referencePullTabs ? await checkScreenGraph(deviceSerial, page, mqttClient, deviceId, project) : null;
+    await deployBundle(mqttClient, deviceId, fs.readFileSync(getProjectZipPath()), deviceSerial, "the fixture again");
+    await browser.close();
+    await clearDeploy();
+    await restoreScreenTimeout();
+    await restoreBrokerPort();
+    await restoreBanners();
+    mqttClient.end();
+    if (!graph) console.warn("SKIPPED - the app does not declare screen-graph");
+    process.exit(graph ? (graph.pass ? 0 : 1) : EXIT_PHONE_ABSENT);
+  }
 
   // Where the phone is. The fixture was just reinstalled, which puts it on
   // the first screen; from here on every move is made by this script and has
@@ -2248,6 +2420,21 @@ Screen ${si} "${screen.name}": a local topic - checked, not compared`);
     await swipeToScreen(deviceSerial, currentScreen, popupHome);
     currentScreen = popupHome;
     await checkPopup(deviceSerial, mqttClient, project);
+  }
+
+  // The screen graph, where the app declares it: a project of its own, so
+  // the fixture goes back on afterwards and the phone on its first screen.
+  if (referencePullTabs) {
+    console.log("\nThe screen graph...");
+    const graph = await checkScreenGraph(deviceSerial, page, mqttClient, deviceId, project);
+    results.push({
+      landedOn: null, screenIndex: -1, screenName: "screen graph", comboIndex: 0, overrides: {},
+      pass: graph.pass, diffPixels: graph.failed, totalPixels: graph.total, dimensionMismatch: false,
+      expectedFile: "", actualFile: "", expectedDims: "", actualDims: "",
+    });
+    await deployBundle(mqttClient, deviceId, fs.readFileSync(getProjectZipPath()), deviceSerial, "the fixture again");
+    await sleep(1500);
+    currentScreen = 0;
   }
 
   await browser.close();
