@@ -25,7 +25,7 @@ Zur Wahl stehen diese Aktionen:
 | <span class="ui">Adjust a slider or dial</span> | einen Slider oder Dial um eine Stufe verstellen, siehe [unten](#regler) |
 | <span class="ui">Open a popup</span> | ein [Popup](/designer/screens#popups) über den Screen legen; welches, wählst du unter <span class="ui">Popup</span> |
 | <span class="ui">Close this popup</span> | das Popup schliessen; nur auf einem Popup zu haben |
-| <span class="ui">Device Action</span> | etwas, das nur dieses Gerät kann, etwa <span class="ui">Show Screen Menu</span> |
+| <span class="ui">Device Action</span> | etwas, das nur dieses Gerät kann, etwa an der 4.3B das Display ausschalten (<code>displayOff</code>) |
 
 Ist eine Taste auf dem Master belegt, zeigt die Auswahl dessen Aktion als «Inherit» an. Der Screen übernimmt sie, bis du ihm eine eigene gibst. Ein Popup übernimmt nichts vom Master: Solange es offen ist, gilt nur seine eigene Belegung.
 
@@ -52,9 +52,9 @@ Ohne eigene Belegung wischt ein Screen zu seinen Nachbarn, siehe [Screens über-
 
 Auf einem [Popup](/designer/screens#popups) gibt es keine Wischgesten zu belegen. Jede Wischgeste schliesst es.
 
-## Das Screen-Menü
+## Das Screen-Menü gibt es nicht mehr {#screen-menue}
 
-Knob und Android-App haben ein eigenes Screen-Menü, das alle Screens zeigt. Du öffnest es über die Geräteaktion <span class="ui">Show Screen Menu</span>, zum Beispiel auf «nach oben wischen» gelegt. Das Menü zeigt die Icons der Screens, die du in den Screen-Eigenschaften wählst.
+Früher hatten Knob und Android-App ein eigenes Screen-Menü, die Geräteaktion «Show Screen Menu». An seine Stelle tritt das Wischen zu den Nachbarn, siehe [Screens über- und untereinander](/designer/screens#position), und in der App der [Navigator](/objekte/anordnen#navigator). Öffnest du ein Projekt, das das Menü noch belegt, nimmt der Designer die Belegung heraus und meldet es einmal. Ein Gerät mit einem älteren Projekt öffnet das Menü weiter, bis du das Projekt neu überträgst.
 
 ## Ausprobieren
 

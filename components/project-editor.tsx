@@ -72,6 +72,7 @@ import {
 } from "@/lib/object-groups"
 import { layoutProject, layoutScaleOf } from "@/lib/layout"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
+import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
 import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
 
@@ -811,6 +812,15 @@ function createDefaultProject(): Project {
 }
 
 // initialName: the project to open on mount - the page at /projects/<name>.
+
+// Migrated as every door a project comes in through does (migrateProject),
+// and whether the screen menu went on the way (lib/screen-menu.ts) - the
+// editor says so once, when it opens such a project.
+function migrateOpened<P extends Project>(project: P): { project: P; menuGone: boolean } {
+  const menuGone = usesScreenMenu(project)
+  return { project: migrateProject(project), menuGone }
+}
+
 export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
   // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
@@ -3019,14 +3029,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // or a draft can predate a migration (colours becoming roles). The
       // saved one too, so an old project does not open as "unsaved" merely
       // because it was migrated.
-      const saved: Project = migrateProject(structuredClone(data.project))
+      const { project: saved, menuGone: savedMenuGone } = migrateOpened(structuredClone(data.project as Project))
       // This browser's draft of it, if there is one, is what opens - shown
       // unsaved against the newest saved version.
       const draft = demo === false ? await getDraft(draftKeyForName(data.name)) : undefined
-      const opened: Project = draft
-        ? { ...migrateProject(structuredClone(draft.project as Project)), name: data.name }
-        : saved
+      const fromDraft = draft ? migrateOpened(structuredClone(draft.project as Project)) : undefined
+      const opened: Project = fromDraft ? { ...fromDraft.project, name: data.name } : saved
       history.replace(opened)
+      if (fromDraft ? fromDraft.menuGone : savedMenuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
       save.markSaved(data.name, saved, data.versionId)
       setCurrentScreenId(firstScreenToOpen(opened.screens)!.id)
       setSelectedObjectIds([])
@@ -3044,8 +3054,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const draft = await getDraft(key)
       if (!draft) return
       // Migrated like every other door a project comes in through.
-      const opened = migrateProject(structuredClone(draft.project as Project))
+      const { project: opened, menuGone } = migrateOpened(structuredClone(draft.project as Project))
       history.replace(opened)
+      if (menuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
       save.markUnnamed()
       setUntitledDraftKey(key)
       setCurrentScreenId(firstScreenToOpen(opened.screens)!.id)
@@ -3053,7 +3064,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
     },
-    [save.savedName, save.markUnnamed, untitledDraftKey, projectOpen, confirmLeave, history.replace],
+    [save.savedName, save.markUnnamed, untitledDraftKey, projectOpen, confirmLeave, history.replace, toast],
   )
 
   // The address (docs/2026-09-23-explicit-save.md, "Address"): /projects/<name>
@@ -3269,6 +3280,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const processUploadedProjectFile = useCallback(async (file: File) => {
         try {
           let projectData: any
+          // Whether the screen menu went on the way in (lib/screen-menu.ts).
+          let menuGone = false
           let loadedAssets: ProjectAsset[] = []
           let loadedFonts: ProjectFont[] = []
           // Read back from _source/ddf.zip below if the uploaded zip has
@@ -3291,7 +3304,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             // that, not as whatever its colours look like to this reader.
             projectData = JSON.parse(await file.text())
             validateProjectSchemaVersion(projectData)
-            projectData = migrateProject(projectData)
+            ;({ project: projectData, menuGone } = migrateOpened(projectData))
           } else {
             // Import JSZip for extracting the zip file
             const JSZip = (await import("jszip")).default
@@ -3309,7 +3322,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             const projectJsonContent = await projectJsonFile.async("text")
             projectData = JSON.parse(projectJsonContent)
             validateProjectSchemaVersion(projectData)
-            projectData = migrateProject(projectData)
+            ;({ project: projectData, menuGone } = migrateOpened(projectData))
 
             // Read the embedded DDF back as an opaque blob (zip-in-zip,
             // never unpacked) - round-trips it through save/load so it
@@ -3556,6 +3569,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // DDF may have come with it (docs/2026-09-30-size-scale.md).
           finalProject = resolveScale(finalProject)
           history.replace(withIntegerProjectGeometry(finalProject))
+          if (menuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
           save.markUnnamed()
           setUntitledDraftKey(newUntitledDraftKey())
           setDeviceGateError(null)

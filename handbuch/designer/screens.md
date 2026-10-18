@@ -4,7 +4,7 @@ Ein Projekt besteht aus Screens, zwischen denen man auf dem Gerät wechselt: ein
 
 ## Screens anlegen und ordnen
 
-Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</span> ein kleines Menü: <span class="ui">Add Screen</span>, <span class="ui">Add Master Screen</span> oder <span class="ui">Add Popup Screen</span>. Im Dialog gibst du einen Namen ein. Für normale Screens schlägt der Designer beim Tippen gleich ein passendes Icon vor. Das Icon brauchen Geräte mit Screen-Menü, etwa der [Knob](/geraete/knob). <span class="ui">Create Screen</span> legt den Screen an.
+Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</span> ein kleines Menü: <span class="ui">Add Screen</span>, <span class="ui">Add Master Screen</span> oder <span class="ui">Add Popup Screen</span>. Im Dialog gibst du einen Namen ein. Für normale Screens schlägt der Designer beim Tippen gleich ein passendes Icon vor. Das Icon zeigt der [Navigator](/objekte/anordnen#navigator). <span class="ui">Create Screen</span> legt den Screen an.
 
 Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern und in der du wischst, siehe [Screens über- und untereinander](#position). Ein Screen, der über oder unter einem anderen liegt, steht eingerückt darunter, mit ↑ oder ↓ markiert. Er geht mit, wenn du den anderen verschiebst, und lässt sich nicht für sich allein ziehen. Die versteckten Screens stehen nach der Hauptreihe. Ziehst du einen versteckten Screen zwischen die Screens der Hauptreihe, kommt er dort hinein und ist nicht mehr versteckt.
 
@@ -30,8 +30,10 @@ Belegst du eine Wischgeste selbst, in deren Richtung ein Screen liegt, führt si
 
 Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Designer diese zu versteckten Screens und nennt sie. Versteckte Screens, Master und Popups liegen nirgends.
 
+Auf dem Gerät zeigt eine kurze Lasche am Rand, wohin eine Wischgeste führt, wie in der [Vorschau](/designer/vorschau#wischen). Der Screen folgt dem Finger, auch nach oben und unten. Auf dem PaperS3 springt er.
+
 ::: warning Geräte
-Die Plätze über und unter einem Screen kennen die Geräte erst mit ihrer nächsten Firmware und App. Bis dahin überträgt [Deploy](/designer/deploy#wenn-der-dialog-nicht-ubertragt) ein Projekt nicht, in dem ein Screen ausserhalb der Hauptreihe liegt, und nennt diese Screens. Ein Projekt mit nur einer Reihe geht wie bisher auf jedes Gerät.
+Die Plätze über und unter einem Screen kennen 4.3B, PaperS3 und Knob ab ihrer nächsten Firmware. [Deploy](/designer/deploy#wenn-der-dialog-nicht-ubertragt) spielt sie dann zuerst auf. Die Android-App kennt sie erst mit ihrer nächsten Version. Bis dahin überträgt Deploy ein Projekt, in dem ein Screen ausserhalb der Hauptreihe liegt, nicht auf ein Handy und nennt diese Screens. Ein Projekt mit nur einer Reihe geht wie bisher auf jedes Gerät.
 :::
 
 ## Alle Screens im Überblick {#manage-screens}

@@ -272,16 +272,16 @@ async function main() {
   const bad = switchScreen(9)
   check("out-of-range index refused", bad.success === false, JSON.stringify(bad))
 
-  // --- device action: showScreenMenu -----------------------------------
+  // --- a retired device action: showScreenMenu ------------------------
   //
-  // Dispatched through POST /api/input rather than by faking a swipe: this
-  // asserts that the *action bound to* swipe-up resolves and runs. Whether a
-  // real finger swipe decodes into that input is a separate question that
-  // needs a human, and conflating the two would leave the automatable half
-  // untested too.
-  console.log("\n--- device action ---")
+  // The screen menu went with the screen graph (designer device contract
+  // 2.10): the fixture still binds swipe-up to it, as a project from before
+  // does until the designer opens it again, and the knob skips it like any
+  // device action it does not know - nothing is drawn, nothing breaks.
+  // Dispatched through POST /api/input: the action bound to swipe-up is
+  // resolved and run, without a finger.
+  console.log("\n--- a retired device action ---")
   const beforeMenu = snapshot()
-  const beforePixel = beforeMenu.hex(beforeMenu.px(180, 60))
   const inputRes = JSON.parse(
     curl([
       "-s", "-m", "20", "-X", "POST",
@@ -290,71 +290,11 @@ async function main() {
     ]).toString(),
   )
   check("POST /api/input id=swipe-up accepted", inputRes.success === true, JSON.stringify(inputRes))
-
-  // The overlay redraws itself from scratch every frame and needs the screen
-  // underneath restored first. It used to do that by re-rendering the
-  // screen, which costs whatever that project's screen costs - 183ms on a
-  // real one - so a 250ms fly-in got one or two frames and the menu arrived
-  // late and all at once rather than animating. Reported from hardware as
-  // "sometimes almost a second". It now restores a copy taken when the menu
-  // opened, which is a memcpy.
-  //
-  // Bounded well above the ~20ms this measures and far below a screen
-  // render, so it catches the re-render coming back without failing on a
-  // fixture whose screens are cheap either way - and this fixture's are: at
-  // 13ms a screen, the broken version measured fine here too. That is why
-  // the check is written against the cost of the *mechanism* rather than
-  // against a rendering time.
-  await sleep(400)
-  const menuCost = readDebug()
-  check(
-    "a menu frame restores a copy rather than re-rendering the screen",
-    menuCost.menuFrameMs > 0 && menuCost.menuFrameMs < 80,
-    `${menuCost.menuFrameMs}ms per frame, ${menuCost.menuFrames} frames so far`,
-  )
-  // The fly-in has to be an animation, not one jump: at one frame it is not
-  // animating at all, whatever the clock says.
-  check(
-    "the fly-in gets enough frames to be an animation",
-    menuCost.menuFrames >= 3,
-    `${menuCost.menuFrames} frames`,
-  )
-
-  // The device acks the dispatch before the frame shows it: /api/input is
-  // handled inside webServer_->handleClient(), and the overlay composites
-  // itself in the *next* loop() iteration. Snapshotting the instant the POST
-  // returns therefore streams the pre-menu buffer - measured on hardware
-  // 2026-08-20: 0 px at +0ms, 4429 px at +300ms, with a preceding screen
-  // switch making no difference either way. That looked exactly like "the
-  // action never ran", which is why this samples on a short settle and says
-  // so, rather than asserting on the first frame it can get.
-  //
-  // Settle, then retry once with a longer one instead of a single fixed
-  // delay: a slow iteration should cost a second sample, not a red check.
-  // The second sample lands around 3.2s after the trigger (each snapshot
-  // itself streams for about a second), still inside HOLD_MS (4s) - which is
-  // also why there is no third attempt.
-  // The active tablet is drawn in the adornment's orange accent, #ff6600,
-  // which comes back as #ff6500 after the RGB565 round trip.
-  let menu = null
-  let activeTablet = 0
-  for (const settleMs of [400, 800]) {
-    await sleep(settleMs)
-    menu = snapshot()
-    activeTablet = menu.count(0, 0, 360, 360, (p) => menu.hex(p) === "#ff6500")
-    if (activeTablet > 100) break
-  }
-  check("screen menu overlay drawn", activeTablet > 100, `${activeTablet} px of #ff6500`)
-  check("menu changed the frame", menu.hex(menu.px(180, 60)) !== beforePixel || activeTablet > 100)
-
-  // The menu holds for 4s and then flies out on its own. Waiting it out
-  // rather than dismissing keeps the checks below looking at a clean screen,
-  // and incidentally proves the hold timer expires at all.
-  console.log("  (waiting for the menu to time out)")
-  await sleep(6000) // HOLD_MS (4s) + EXIT_MS, with margin
+  await sleep(800)
   const afterMenu = snapshot()
-  const stillThere = afterMenu.count(0, 0, 360, 360, (p) => afterMenu.hex(p) === "#ff6500")
-  check("menu times out on its own", stillThere === 0, `${stillThere} px of #ff6500 left`)
+  let changed = 0
+  for (let y = 0; y < 360; y += 4) for (let x = 0; x < 360; x += 4) if (afterMenu.hex(afterMenu.px(x, y)) !== beforeMenu.hex(beforeMenu.px(x, y))) changed++
+  check("the screen menu is not drawn: the frame stays as it was", changed === 0, `${changed} sampled px changed`)
 
   const back = switchScreen(0)
   check("switch back to 0 accepted", back.success === true, JSON.stringify(back))
@@ -828,14 +768,17 @@ async function main() {
     `screenIndex ${flick.after.screenIndex}, ${flick.after.lastFlickPxPerSecond}px/s over ${flick.after.lastReleaseDurationMs}ms, verdict ${flick.after.lastReleaseVerdict}`,
   )
 
-  // Vertical, downward - bound to next-screen in the fixture for exactly
-  // this. The same code has to follow the other axis.
+  // Vertical, downward - bound to next-screen in the fixture. Since the
+  // screen graph (designer device contract 2.10) a slide follows the finger
+  // only to the neighbour the swipe pulls in, and in a single row nothing
+  // lies above or below: next-screen runs at release and the screen jumps.
+  // Following up and down, to a screen docked there, is hil/screen-graph.js's.
   await postFast("/api/screen", "index=0")
   const verticalDrag = await synthDrag(180, 60, 180, 300)
   check(
-    "the drag follows the vertical axis too",
-    verticalDrag.midway.dragActive === true && verticalDrag.after.screenIndex === 1,
-    `midway offset ${verticalDrag.midway.dragOffset}, screenIndex ${verticalDrag.after.screenIndex}`,
+    "a vertical swipe bound to next-screen jumps at release: nothing lies above or below",
+    verticalDrag.midway.dragActive === false && verticalDrag.after.screenIndex === 1,
+    `midway dragActive ${verticalDrag.midway.dragActive}, screenIndex ${verticalDrag.after.screenIndex}`,
   )
   check(
     "what is on the panel matches what was drawn, after a vertical drag",
@@ -843,8 +786,9 @@ async function main() {
     `${verticalDrag.after.panelDiffPixels} pixels differ`,
   )
 
-  // Upward on the same axis is bound to the screen menu, not to paging, so
-  // no transition may start - the release classifier handles it as before.
+  // Upward on the same axis is bound to a device action (the retired screen
+  // menu), not to a neighbour, so no transition may start - the release
+  // classifier handles it as before.
   // This is what keeps the animation opt-in rather than something every
   // swipe suddenly does.
   await postFast("/api/screen", "index=0")
@@ -872,39 +816,32 @@ async function main() {
   //
   // The firmware judges the axis again at release, on the whole gesture,
   // and abandons a drag that guessed wrong. This is the check that the
-  // gesture still reaches its action afterwards - asserting on the screen
-  // menu specifically, because "the drag was abandoned" is worthless if the
-  // swipe then does nothing anyway.
-  // The check just above deliberately opens the screen menu, and an open
-  // menu suppresses the drag entirely - so without waiting for it to close
-  // this passes for the wrong reason: no drag is started, nothing needs
-  // abandoning, and the swipe reaches the menu by the ordinary path. Found
-  // exactly that way, with the abandon counter stubbornly at zero.
-  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
+  // gesture still reaches its action afterwards: the release's verdict is
+  // swipe-up, which is what dispatches the action bound to it. (Until the
+  // screen graph this read the screen menu opening; the menu is gone.)
   await postFast("/api/screen", "index=0")
   await sleep(300)
   const beforeState = readDebug()
-  check("the screen menu has closed before the axis check", beforeState.screenMenuActive === false, String(beforeState.screenMenuActive))
   const beforeAbandon = beforeState.dragAxisAbandoned
   const driftedUp = await synthPath([
     [180, 300],
-    [194, 297], // 14px sideways, 3px up: horizontal by any measure so far
-    ...Array.from({ length: 8 }, (_, i) => [194, 290 - 30 * i]),
+    // 14px sideways, to the left: that pulls in the row's next screen, so
+    // a drag starts (a drag to the right pulls in the screen on the left,
+    // and on the row's first one there is none since the screen graph);
+    // 3px up: horizontal by any measure so far.
+    [166, 297],
+    ...Array.from({ length: 8 }, (_, i) => [166, 290 - 30 * i]),
   ])
   check(
-    "a swipe that starts sideways but goes up still opens the screen menu",
-    driftedUp.screenMenuActive === true && driftedUp.lastReleaseVerdict === "swipe-up",
-    `verdict ${driftedUp.lastReleaseVerdict}, menu ${driftedUp.screenMenuActive}, dx ${driftedUp.lastReleaseDx} dy ${driftedUp.lastReleaseDy}`,
+    "a swipe that starts sideways but goes up still counts as a swipe up",
+    driftedUp.lastReleaseVerdict === "swipe-up",
+    `verdict ${driftedUp.lastReleaseVerdict}, dx ${driftedUp.lastReleaseDx} dy ${driftedUp.lastReleaseDy}`,
   )
   check(
     "the wrongly-guessed drag was abandoned rather than settled",
     driftedUp.dragAxisAbandoned === beforeAbandon + 1,
     `${beforeAbandon} -> ${driftedUp.dragAxisAbandoned}`,
   )
-
-  // Let it close again before the next gesture: an open menu swallows
-  // swipes, keeping itself up instead of re-triggering.
-  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
 
   // How straight a swipe has to be is a ratio, not a fixed number of pixels.
   // It was an absolute 70px cap, which contradicted itself on real gestures:
@@ -920,11 +857,9 @@ async function main() {
   ])
   check(
     "a swipe up with proportional sideways drift still counts as a swipe up",
-    drifted.screenMenuActive === true && drifted.lastReleaseVerdict === "swipe-up",
+    drifted.lastReleaseVerdict === "swipe-up",
     `dx ${drifted.lastReleaseDx} dy ${drifted.lastReleaseDy}, verdict ${drifted.lastReleaseVerdict}`,
   )
-
-  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
 
   // And the other side of the same rule, or "accept more drift" would just
   // mean "accept anything": a gesture with no dominant direction is not a
@@ -936,7 +871,7 @@ async function main() {
   ])
   check(
     "a true diagonal is still not a swipe in either direction",
-    diagonal.lastReleaseVerdict === "off-axis" && diagonal.screenMenuActive === false && diagonal.screenIndex === 0,
+    diagonal.lastReleaseVerdict === "off-axis" && diagonal.screenIndex === 0,
     `dx ${diagonal.lastReleaseDx} dy ${diagonal.lastReleaseDy}, verdict ${diagonal.lastReleaseVerdict}, screen ${diagonal.screenIndex}`,
   )
 

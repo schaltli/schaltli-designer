@@ -8,6 +8,7 @@
  */
 
 import JSZip from "jszip"
+import { SCREEN_MENU_ACTION } from "@/lib/screen-menu"
 import type { ProjectFont, HardwareButton } from "@/components/project-editor"
 import type { Rect } from "@/lib/adornment-rotation"
 import { computeDdfHash } from "@/lib/ddf-name"
@@ -489,7 +490,9 @@ export function deviceDescriptionToProjectFields(
     // like. A touchless device's level-indicator becomes a bar and not also
     // a slider; see migrateDeclaredTypes for why that distinction matters.
     supportedObjectTypes: migrateDeclaredTypes(manifest.supportedObjectTypes),
-    deviceActions: manifest.deviceActions ?? [],
+    // Without the screen menu, which a knob's description from before the
+    // screen graph still names (lib/screen-menu.ts).
+    deviceActions: (manifest.deviceActions ?? []).filter((id) => id !== SCREEN_MENU_ACTION),
     supportedFeatures: manifest.supportedFeatures ?? [],
     ddfHash: parsed.ddfHash,
     ddfZipBase64,

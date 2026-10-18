@@ -24,6 +24,7 @@ import { dissolveOldTables } from "@/lib/table"
 import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 import { stillIconData } from "@/lib/svg-still"
+import { withoutScreenMenu } from "@/lib/screen-menu"
 
 export const OBJECT_TYPES = [
   "text",
@@ -388,6 +389,8 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
   // Screens are always free (docs/2026-10-03-free-screens.md): a screen
   // root that laid out its objects becomes an object where it did.
   migrateToFreeScreens(project)
+  // The screen menu is gone (lib/screen-menu.ts): its bindings with it.
+  withoutScreenMenu(project as Parameters<typeof withoutScreenMenu>[0])
   // Old tables are no more (docs/2026-10-09-snap-tables.md, module
   // old-table-removal): each, at any depth - and the stacks, rows and grids
   // before them, and an old screen root - becomes what it held, where it

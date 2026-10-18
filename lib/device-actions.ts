@@ -15,9 +15,11 @@
 // between devices. Grow it only when a second device really offers one - the
 // copy in docs/device-contract.md is the cross-repo half of the same
 // registry and must be updated together with this one.
-export const DEVICE_ACTION_LABELS: Record<string, string> = {
-  showScreenMenu: "Show Screen Menu",
-}
+//
+// Empty since the screen graph: the knob's «Show Screen Menu»
+// (showScreenMenu), the first entry, was retired with it (lib/screen-menu.ts,
+// device contract §2.10). The 4.3B's displayOff is offered under its own id.
+export const DEVICE_ACTION_LABELS: Record<string, string> = {}
 
 // Registry label when the id is known, the raw id otherwise - never an
 // "unknown action" placeholder, which would hide from the user the one piece

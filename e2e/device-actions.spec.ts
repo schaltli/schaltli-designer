@@ -4,18 +4,18 @@ import { createProject, getMainCanvas, chooseDevice, devicePoint, waitForEditorR
 import { seedWaveshareDdf } from "./ddf-seed"
 
 // Covers the designer half of device-specific actions (2026-08-20): a device
-// declares `deviceActions: ["showScreenMenu"]` in its DDF, the designer offers
+// declares `deviceActions: ["displayOff"]` in its DDF, the designer offers
 // exactly those ids as a "Device Action" button action, and writes the choice
 // back as { type: "device-action", deviceActionId } - see
 // docs/device-contract.md §5's registry and lib/device-actions.ts.
 //
-// The firmware half (dispatching the id, and skipping unknown ones) is
-// covered on real hardware by hil/waveshare/verify-smoke-test.js, which fires
-// swipe-up through POST /api/input and asserts the screen menu is actually
-// drawn. What this spec adds is everything upstream of that: that the option
+// The knob's «Show Screen Menu» was the first; it went with the screen graph
+// (lib/screen-menu.ts, device contract §2.10), and the knob declares none
+// now. So the board here is the knob's description declaring the 4.3B's
+// displayOff, under an id of its own. What this spec covers: that the option
 // only exists for a device that declared it, that an id the registry doesn't
-// know is still offered, and that the export carries the exact shape firmware
-// parses.
+// know is still offered, that the export carries the exact shape firmware
+// parses, and that the screen menu is offered no more.
 
 // Swipe up's own row in the screen's panel, where its action is chosen right
 // there (screen-properties.tsx, 2026-10-07): each row's ids start with its
@@ -61,33 +61,41 @@ async function createProjectOn(page: Page, deviceId: string): Promise<void> {
   await waitForEditorReady(page)
 }
 
+// The knob's description with the 4.3B's displayOff, under its own id.
+const DISPLAY_OFF_DEVICE_ID = "e2e-waveshare-display-off"
+const seedDisplayOff = () =>
+  seedWaveshareDdf({
+    deviceId: DISPLAY_OFF_DEVICE_ID,
+    mutateDeviceJson: (manifest) => {
+      manifest.deviceActions = ["displayOff"]
+    },
+  })
+
 test.describe("device-specific actions", () => {
   test("a declared device action is offered, saved, and exported as device-action", async ({ page }) => {
-    test.skip(!(await seedWaveshareDdf()), "schaltli-firmware not checked out alongside this repo")
+    test.skip(!(await seedDisplayOff()), "schaltli-firmware not checked out alongside this repo")
 
-    await createProjectOn(page, WAVESHARE_DEVICE_ID)
+    await createProjectOn(page, DISPLAY_OFF_DEVICE_ID)
     await deselect(page)
 
-    // Swipe-up is what this board actually binds the screen menu to - the
-    // knob is reserved for adjusting values, not navigation.
     await swipeUpType(page).selectOption("device-action")
 
     // Picking the type picks the device's first declared id too: a device
-    // action is never useful unset, unlike "Go to Screen"'s target. The label
-    // comes from the registry, not the raw id.
-    await expect(swipeUpDeviceAction(page)).toHaveValue("showScreenMenu")
-    await expect(swipeUpDeviceAction(page).locator("option:checked")).toHaveText("Show Screen Menu")
+    // action is never useful unset, unlike "Go to Screen"'s target. One the
+    // registry has no label for shows as itself.
+    await expect(swipeUpDeviceAction(page)).toHaveValue("displayOff")
+    await expect(swipeUpDeviceAction(page).locator("option:checked")).toHaveText("displayOff")
 
     // Away and back - must reflect what was actually saved, not just what was typed.
     await page.getByRole("button", { name: "Master 1" }).click()
     await page.getByRole("button", { name: "Screen 1" }).click()
     await deselect(page)
     await expect(swipeUpType(page)).toHaveValue("device-action")
-    await expect(swipeUpDeviceAction(page)).toHaveValue("showScreenMenu")
+    await expect(swipeUpDeviceAction(page)).toHaveValue("displayOff")
 
     const project = await downloadProjectJson(page)
     const screen = project.screens.find((s: { isMaster?: boolean }) => !s.isMaster)
-    expect(screen.buttonActions["swipe-up"]).toEqual({ type: "device-action", deviceActionId: "showScreenMenu" })
+    expect(screen.buttonActions["swipe-up"]).toEqual({ type: "device-action", deviceActionId: "displayOff" })
   })
 
   test("an id the designer's registry doesn't know is still offered, under its raw id", async ({ page }) => {
@@ -122,9 +130,9 @@ test.describe("device-specific actions", () => {
     // ProjectLoader.cpp), so the designer offers device actions on both -
     // this covers the second, separate editor in
     // property-panel/software-button-properties.tsx.
-    test.skip(!(await seedWaveshareDdf()), "schaltli-firmware not checked out alongside this repo")
+    test.skip(!(await seedDisplayOff()), "schaltli-firmware not checked out alongside this repo")
 
-    await createProjectOn(page, WAVESHARE_DEVICE_ID)
+    await createProjectOn(page, DISPLAY_OFF_DEVICE_ID)
 
     // The Button tool is hidden until this project-level flag is on - see
     // software-button-render.spec.ts's own note on why that's separate from
@@ -149,34 +157,40 @@ test.describe("device-specific actions", () => {
     // need to find them through the label beside them
     // (docs/2026-09-20-property-panel.md, round 5).
     await page.locator("#actionType").selectOption("device-action")
-    await expect(page.locator("#deviceActionId")).toHaveValue("showScreenMenu")
+    await expect(page.locator("#deviceActionId")).toHaveValue("displayOff")
 
     const project = await downloadProjectJson(page)
     const button = project.screens
       .flatMap((s: { objects: any[] }) => s.objects)
       .find((o: { type: string }) => o.type === "button")
-    expect(button.properties.action).toEqual({ type: "device-action", deviceActionId: "showScreenMenu" })
+    expect(button.properties.action).toEqual({ type: "device-action", deviceActionId: "displayOff" })
   })
 
-  // The negative case needs a device that declares no deviceActions at all.
-  // That used to be the M5 Dial, simply because it never declared any; when
-  // it was dropped (2026-09-10) the only devices left all declare some, so
-  // this seeds a copy of one with the key stripped. Deriving it from a real
-  // DDF rather than hand-writing a bare one keeps it honest: everything
-  // except the field under test is exactly what a shipping device sends.
-  const NO_ACTIONS_DEVICE_ID = "e2e-no-device-actions"
+  // The negative case: the knob itself, which declares none since its
+  // screen menu went (lib/screen-menu.ts). And a knob description from before
+  // that, still naming showScreenMenu: it is not offered either.
+  const OLD_KNOB_DEVICE_ID = "e2e-knob-with-screen-menu"
 
   test("a device that declares no device actions doesn't offer the type at all", async ({ page }) => {
+    test.skip(!(await seedWaveshareDdf()), "schaltli-firmware not checked out alongside this repo")
+    await createProjectOn(page, WAVESHARE_DEVICE_ID)
+    await deselect(page)
+
+    // Every other type is there - it's specifically the one with nothing to
+    // pick that's absent, rather than the dropdown failing to render.
+    await expect(swipeUpType(page).locator('option[value="send-mqtt"]')).toHaveCount(1)
+    await expect(swipeUpType(page).locator('option[value="device-action"]')).toHaveCount(0)
+  })
+
+  test("a knob's description from before the screen graph still names the screen menu: it is not offered", async ({ page }) => {
     const seeded = await seedWaveshareDdf({
-      deviceId: NO_ACTIONS_DEVICE_ID,
+      deviceId: OLD_KNOB_DEVICE_ID,
       mutateDeviceJson: (manifest) => {
-        if (!manifest.deviceActions) throw new Error("the DDF no longer declares deviceActions for this to strip")
-        delete manifest.deviceActions
+        manifest.deviceActions = ["showScreenMenu"]
       },
     })
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
-
-    await createProjectOn(page, NO_ACTIONS_DEVICE_ID)
+    await createProjectOn(page, OLD_KNOB_DEVICE_ID)
     await deselect(page)
 
     // Every other type is there - it's specifically the one with nothing to

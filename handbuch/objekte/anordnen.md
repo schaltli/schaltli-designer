@@ -60,7 +60,7 @@ Die Reiter gibt es nur im Designer. Auf dem Gerät sieht man immer nur das gerad
 
 Eine Leiste am Rand mit einem Eintrag für jeden Screen. Ein Tipp auf einen Eintrag öffnet diesen Screen, und der Eintrag des offenen Screens ist in der Akzentfarbe des Themes hervorgehoben. So kommst du ohne langes Wischen zur Heizung, auch bei zehn Screens.
 
-Du legst den Navigator auf einen [Master](/designer/screens#master-screens). Jeder Screen, der diesen Master verwendet, zeigt ihn dann. Das Werkzeug <span class="ui">Navigator</span> steht nur auf einem Master, der noch keinen hat, und nur bei Geräten mit rechteckigem Display: 4.3B, PaperS3 und Android-App. Der runde Knob hat dafür sein Screen-Menü.
+Du legst den Navigator auf einen [Master](/designer/screens#master-screens). Jeder Screen, der diesen Master verwendet, zeigt ihn dann. Das Werkzeug <span class="ui">Navigator</span> steht nur auf einem Master, der noch keinen hat, und nur bei Geräten mit rechteckigem Display: 4.3B, PaperS3 und Android-App. Auf dem runden Knob wischst du zu den Nachbarn eines Screens.
 
 Ein Klick auf den Master setzt ihn an den linken Rand. Verschieben oder in der Grösse ändern lässt er sich nicht, das erledigen seine Eigenschaften unter <span class="ui">Layout</span>:
 

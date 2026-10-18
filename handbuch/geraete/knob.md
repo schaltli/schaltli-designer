@@ -21,15 +21,15 @@ Jede Raste des Rings löst eine Aktion aus, und welche, legst du im Designer fes
 - <span class="ui">Adjust a slider or dial</span>: Der Ring stellt einen Slider oder Dial auf dem Screen, eine Stufe pro Raste, und schickt den neuen Wert. Mehr dazu unter [Einen Regler stellen](/designer/tasten#regler).
 - <span class="ui">Send an MQTT message</span>: eine feste Nachricht, zum Beispiel einen Befehl, den die Anlage selbst als «eine Stufe heller» versteht.
 - <span class="ui">Next screen</span> oder <span class="ui">Previous screen</span>: Mit dem Ring blätterst du dann durch die Screens.
-- <span class="ui">Go to a screen</span>, <span class="ui">Enter setup mode</span> und die Geräteaktion <span class="ui">Show Screen Menu</span>.
+- <span class="ui">Go to a screen</span>, <span class="ui">Go to the screen beside</span> und <span class="ui">Enter setup mode</span>.
 
 Auf einem Master-Screen belegt, gilt die Aktion für alle Screens, die diesen Master verwenden.
 
 ## Screens wechseln
 
-Wischgesten belegst du im Designer wie den Ring, in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>. Beim Wischen folgt die Seite dem Finger.
+Du wischst zu den Nachbarn eines Screens: nach links und rechts durch die Hauptreihe, nach oben und unten zu einem Screen, der darunter oder darüber liegt, siehe [Screens über- und untereinander](/designer/screens#position). Der Screen folgt dabei dem Finger. Eine kurze Lasche am Rand zeigt, wohin eine Wischgeste führt. Eine andere Belegung wählst du im Designer wie beim Ring, in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>.
 
-Der Knob hat zusätzlich ein eigenes Screen-Menü, die Geräteaktion <span class="ui">Show Screen Menu</span>, zum Beispiel auf «nach oben wischen» gelegt. Es zeigt alle Screens als Kacheln mit ihrem Screen-Icon. Die Icons wählst du im Designer in den Eigenschaften jedes Screens.
+Ein eigenes Screen-Menü hat der Knob nicht mehr, siehe [Das Screen-Menü gibt es nicht mehr](/designer/tasten#screen-menue).
 
 ## Display und Energie
 

@@ -501,15 +501,14 @@ async function main() {
     }
 
     if (ringBoard) {
-      // Swipe up opens the screen menu on the screen; on an open popup it
-      // closes the popup and opens nothing.
+      // Swipe up is bound on the screen (once to the screen menu, retired
+      // with the screen graph); on an open popup it closes the popup and does
+      // nothing else - the screen underneath comes back exactly.
       await opened("swipe-up")
       const upX = inner.x + Math.round(inner.w * 0.5)
       await drag(upX, inner.y + inner.h * 0.68, upX, inner.y + inner.h * 0.3, 4, 0)
       back = await backToScreen("swipe-up")
-      const menu = JSON.parse((await get(`${base}/api/debug`)).body).screenMenuActive
       check("a swipe up on the popup closes it", /^none open/.test(back.state), back.state)
-      check("... and opens no screen menu", menu === false, `screenMenuActive ${menu}`)
       check("... and the screen underneath is back as it was", back.same, back.diff)
     }
   } catch (err) {

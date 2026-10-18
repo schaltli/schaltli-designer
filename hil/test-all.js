@@ -452,7 +452,7 @@ async function main() {
       summary.push({
         name: "waveshare-smoke",
         status: exitCode === 0 ? "PASS" : "FAIL",
-        detail: exitCode === 0 ? "render colors, screen switch, swipe-up screen menu" : `exit code ${exitCode} - see output above`,
+        detail: exitCode === 0 ? "render colors, screen switch, a retired screen menu skipped" : `exit code ${exitCode} - see output above`,
       })
     }
   })
