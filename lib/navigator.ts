@@ -189,3 +189,76 @@ export function pageScroll(layout: NavigatorLayout, scroll: number, direction: 1
   const page = Math.max(1, Math.floor(layout.length / layout.entryLength)) * layout.entryLength
   return clampScroll(layout, scroll + direction * page)
 }
+
+// ---------------------------------------------- the marker gliding with a swipe
+//
+// While a swipe leads from one entry's screen to another's, the marker - the
+// box an entry's active look puts on it - moves along the strip with the
+// finger, and when the finger lifts it settles on the screen it arrived at
+// (or back), a little past it and back (#59; decision 14 since 2026-10-18).
+// Where the box lies, the entries are drawn in their active look on its
+// colour, elsewhere in their normal one - the change of colour may run
+// through an entry.
+
+/** How long the marker takes to come to rest once the finger has lifted, in ms. */
+export const MARKER_SETTLE_MS = 320
+
+/**
+ * Whether the marker glides from entry `from` to entry `to`: two different
+ * entries, and the strip at the same scroll on the screen it leaves as on
+ * the one it comes to. Otherwise it jumps when the screen has changed, as
+ * before - from or to a screen off the main row, or to an entry the strip
+ * scrolls to.
+ */
+export function markerGlides(from: number, to: number, scrollFrom: number, scrollTo: number): boolean {
+  return from >= 0 && to >= 0 && from !== to && scrollFrom === scrollTo
+}
+
+/**
+ * How far the marker has moved from entry `from`'s place towards `to`'s, in
+ * px along the strip, with a swipe `travel` px of the `span` a screen moves:
+ * in proportion, whole pixels towards `from`.
+ */
+export function markerOffset(layout: NavigatorLayout, from: number, to: number, travel: number, span: number): number {
+  if (span <= 0) return 0
+  const t = Math.min(Math.abs(travel), span)
+  return Math.trunc(((to - from) * layout.entryLength * t) / span)
+}
+
+/**
+ * Where the marker is `elapsed` ms after the finger lifted at `start` px,
+ * on its way to `end` px: an ease-out that runs past `end` by about a tenth
+ * of the way and comes back (ease-out-back, s = 1.7), at rest on `end` from
+ * MARKER_SETTLE_MS. Integer arithmetic, per mille, so every device lands on
+ * the same pixel.
+ */
+export function markerSettle(start: number, end: number, elapsed: number): number {
+  const t = Math.max(0, Math.min(1000, Math.trunc((elapsed * 1000) / MARKER_SETTLE_MS)))
+  const u = t - 1000
+  const f = 1000 + Math.trunc((27 * u * u * u) / 10_000_000) + Math.trunc((17 * u * u) / 10_000)
+  return start + Math.trunc(((end - start) * f) / 1000)
+}
+
+/**
+ * The marker `offset` px along the strip from entry `from`'s place, at
+ * `scroll`: `box` (where the box lies within an entry) moved with it, in
+ * screen coordinates.
+ */
+export function markerRect(layout: NavigatorLayout, from: number, offset: number, scroll: number, box: Rect): Rect {
+  const entry = entryRect(layout, from, scroll - offset)
+  return { x: entry.x + box.x, y: entry.y + box.y, width: box.width, height: box.height }
+}
+
+/**
+ * How far row `row` of a box `width` by `height` with corners of `radius` is
+ * cut in at each end: the arc through the pixels' centres, whole pixels. The
+ * marker is cut so on every device while it glides; at rest the box is drawn
+ * as a box.
+ */
+export function cornerInset(radius: number, width: number, height: number, row: number): number {
+  const r = Math.max(0, Math.min(radius, Math.floor(width / 2), Math.floor(height / 2)))
+  const d = Math.min(row, height - 1 - row)
+  if (d < 0 || d >= r) return 0
+  const k = 2 * r - 2 * d - 1
+  return r - Math.trunc((Math.floor(Math.sqrt(4 * r * r - k * k)) + 1) / 2)
+}

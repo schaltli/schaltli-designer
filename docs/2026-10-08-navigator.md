@@ -101,9 +101,19 @@ Build order: `screen-live-icon` → `navigator-designer` → `navigator-export`
     never pages, even across - as a slider owns its touch from first
     contact today.
 14. **The navigator stands still while swiping.** Only the screen follows
-    the finger, cut off at the navigator's edge; the highlight jumps to the
-    new entry at the end. New for the firmware: today the whole screen
-    slides, the master's objects with it.
+    the finger, cut off at the navigator's edge. New for the firmware:
+    today the whole screen slides, the master's objects with it.
+    **The highlight glides with the swipe** (user, 2026-10-09 in #59, built
+    2026-10-18 «auch im designer»): the whole accent area moves along the
+    strip with the finger, in proportion; the entries are drawn in «Text on
+    accent» where it lies, in «Text» elsewhere - the change may run through
+    an entry. Let go short of paging, it glides back; past it, it settles on
+    the new entry a little past it and back (320 ms). Where the strip would
+    scroll to the new entry, and to or from a screen off the main row, it
+    still jumps at the end. The 4.3B composes it from two strips drawn once
+    per swipe, so no frame draws the strip (14.6 fps measured with it,
+    2026-10-18); the PaperS3 jumps as before. Before 2026-10-18 the
+    highlight jumped at the end, for the 4.3B's frame rate.
 15. **PaperS3.** Gestures act on release there, so the navigator scrolls a
     page of entries at a time, not smoothly.
 16. **Several masters.** Each master's navigator lists every screen that is

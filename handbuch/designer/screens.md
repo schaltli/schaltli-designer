@@ -22,7 +22,7 @@ Einen Screen kannst du auch über oder unter einen anderen legen, zum Beispiel d
 - Ein solcher Screen hat keine weiteren Nachbarn: Neben, über oder unter ihn legst du nichts. Jeder Screen der Hauptreihe hat also höchstens einen Screen darüber und einen darunter.
 - Nachbarn sind nur Screens, die aneinander liegen. Liegen zwei Verläufe unter zwei Screens nebeneinander, wischst du trotzdem nicht vom einen zum anderen.
 - Links und rechts eines Screens der Hauptreihe liegt die Reihe selbst. Dort ordnest du in der Liste.
-- Ein Screen ausserhalb der Hauptreihe wird beim Blättern übersprungen und steht nicht im [Navigator](/objekte/anordnen#navigator). Auf ihm zeigt der Navigator nur einen Pfeil, der zurückführt.
+- Ein Screen ausserhalb der Hauptreihe wird beim Blättern übersprungen und steht nicht im [Navigator](/objekte/anordnen#navigator). Auf ihm zeigt der Navigator nur einen Pfeil, der zurückführt. Er zeigt dorthin, wo der andere Screen liegt: auf einem Screen über «Energie» nach unten, auf einem darunter nach oben.
 
 Was eine Wischgeste tut, entscheidet sich in dieser Reihenfolge: zuerst die Aktion, die der Screen selbst dafür hat, dann der Screen, der in dieser Richtung liegt, zuletzt die Aktion des Masters. Ein Screen ohne eigene Wischgesten wischt also zu seinen Nachbarn, auch wenn der Master nichts vorgibt. Soll eine Wischgeste nichts tun, wählst du <span class="ui">Nothing</span>.
 

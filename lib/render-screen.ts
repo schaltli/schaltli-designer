@@ -33,8 +33,8 @@ import { renderSoftwareButton } from "@/components/canvas/renderers/render-softw
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { applyColorDepth } from "@/lib/color-depth"
-import { barLayout, clampScroll, dividerRect, entryRect, scrollToShow } from "@/lib/navigator"
-import { BACK_ARROW_ASSETS, entryLook, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
+import { barLayout, clampScroll, cornerInset, dividerRect, entryRect, markerRect, scrollToShow } from "@/lib/navigator"
+import { BACK_ARROW_ASSETS, entryLook, markerBox, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
@@ -383,6 +383,12 @@ export interface NavigatorContext {
   screens: readonly (EntryScreen & { isMaster?: boolean; screenType?: "popup"; hidden?: boolean })[]
   activeScreenId?: string
   scroll?: number
+  /**
+   * The marker on its way along the strip (#59): `offset` px from entry
+   * `from`'s place. Every entry is drawn normal, and inside the marker - cut
+   * to its corners row by row, as a device cuts it - active on its colour.
+   */
+  marker?: { from: number; offset: number }
 }
 
 /**
@@ -415,14 +421,34 @@ export function renderNavigator(ctx: CanvasRenderingContext2D, obj: ScreenObject
     ctx.beginPath()
     ctx.rect(entries.x, entries.y, entries.width, entries.height)
     ctx.clip()
-    screens.forEach((screen, i) => {
-      const rect = entryRect(layout, i, scroll)
-      if (rect.x >= entries.x + entries.width || rect.y >= entries.y + entries.height || rect.x + rect.width <= entries.x || rect.y + rect.height <= entries.y) return
+    const marker = context.marker && context.marker.from >= 0 && context.marker.from < screens.length ? context.marker : undefined
+    const drawEntries = (lit: (i: number) => boolean) =>
+      screens.forEach((screen, i) => {
+        const rect = entryRect(layout, i, scroll)
+        if (rect.x >= entries.x + entries.width || rect.y >= entries.y + entries.height || rect.x + rect.width <= entries.x || rect.y + rect.height <= entries.y) return
+        ctx.save()
+        ctx.translate(rect.x, rect.y)
+        renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, lit(i)), { ...entryOptions, nested: true, navigator: undefined })
+        ctx.restore()
+      })
+    drawEntries(marker ? () => false : (i) => i === active)
+    if (marker) {
+      const r = entryRect(layout, 0, 0)
+      const box = markerBox("marker", r.width, r.height, look)
+      const at = markerRect(layout, marker.from, marker.offset, scroll, box)
+      const radius = box.properties.cornerRadius ?? 0
       ctx.save()
-      ctx.translate(rect.x, rect.y)
-      renderScreenObjects(ctx, navigatorEntryObjects(screen, rect.width, rect.height, look, i === active), { ...entryOptions, nested: true, navigator: undefined })
+      ctx.beginPath()
+      for (let row = 0; row < at.height; row++) {
+        const inset = cornerInset(radius, at.width, at.height, row)
+        ctx.rect(at.x + inset, at.y + row, at.width - 2 * inset, 1)
+      }
+      ctx.clip()
+      // The marker's colour under every entry, and each in its active look.
+      renderScreenObjects(ctx, [{ ...box, x: entries.x, y: entries.y, width: entries.width, height: entries.height, properties: { ...box.properties, cornerRadius: 0 } }], { ...entryOptions, nested: true, navigator: undefined })
+      drawEntries(() => true)
       ctx.restore()
-    })
+    }
     ctx.restore()
     if (themeSwitch) {
       ctx.save()

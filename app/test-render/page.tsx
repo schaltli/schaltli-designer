@@ -135,6 +135,9 @@ interface RenderTestRequest {
   // How far a navigator on the screen is scrolled; absent, as far as shows
   // the screen's own entry (docs/2026-10-08-navigator.md).
   navigatorScroll?: number
+  // The navigator's marker on its way along the strip (#59): `offset` px
+  // from entry `from`'s place, as a board composes it mid-swipe.
+  navigatorMarker?: { from: number; offset: number }
   /**
    * "dark" draws an exported project the way a device does while the theme
    * is dark: every XDark in place of its X (lib/themes.ts darkVariantOf).
@@ -451,7 +454,7 @@ export default function TestRenderPage() {
         placeholders,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
-        navigator: { screens: project.screens, activeScreenId: screen.id, scroll: req.navigatorScroll },
+        navigator: { screens: project.screens, activeScreenId: screen.id, scroll: req.navigatorScroll, marker: req.navigatorMarker },
       })
 
       // The pull tabs, over the screen and beside its navigator, as the device

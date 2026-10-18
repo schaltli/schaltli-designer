@@ -12,7 +12,8 @@
 //   - a drag along the strip scrolls it and pages nothing; a tap after it
 //     lands on the entry now under the finger
 //   - a swipe beside the strip pages, and while the screen follows the
-//     finger the strip's pixels on the glass stay as they were
+//     finger the strip stays where it is, its marker gliding along it (#59):
+//     a marker frame on the glass, pixel for pixel against the designer's
 //   - paging back from S2 passes over the hidden S1 to S12
 //   - a live screen icon follows its topic, drawn as a region
 //   - a value whose text lies under the strip leaves the strip whole
@@ -265,7 +266,7 @@ async function main() {
       fs.writeFileSync(file, buf)
       return Jimp.read(file)
     }
-    const expected = async (screenId, overrides = {}, navigatorScroll) => {
+    const expected = async (screenId, overrides = {}, navigatorScroll, navigatorMarker) => {
       const screenIndex = reference.screens.findIndex((s) => s.id === screenId)
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: ddf.testInterface.snapshotQuantize || "rgb565",
@@ -274,6 +275,7 @@ async function main() {
         screenIndex,
         topicOverrides: { [LIGHT]: "", [NAME]: "", ...overrides },
         navigatorScroll,
+        navigatorMarker,
       })
       const file = path.join(OUT_DIR, `${String(shots).padStart(2, "0")}-expected-${screenId}.png`)
       fs.writeFileSync(file, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"))
@@ -294,6 +296,11 @@ async function main() {
         check(`${name}${where}: ${screenId}${scroll !== undefined ? `, scrolled ${scroll}` : ""}`, !dimensionMismatch && diffPixels === 0, dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`)
       }
       return canvas
+    }
+    const switchPixels = (img) => {
+      const out = []
+      for (let y = sh - SWITCH; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
+      return out.join(",")
     }
     const stripPixels = (img) => {
       const out = []
@@ -355,7 +362,24 @@ async function main() {
     await tap(40, 130)
     await showsOpen("a tap after it opens the entry under the finger now")
 
-    // A swipe beside the strip: the strip stands still while the screen moves.
+    // The marker on its way to the next entry (#59), as a swipe shows it:
+    // part of the way, and past it as it settles - the glass against the
+    // designer's frame, pixel for pixel. The canvas keeps the screen.
+    if (!eink) {
+      const next = reference.screens.findIndex((s) => s.id === S(listed[open + 1]))
+      for (const offset of [Math.round(ENTRY * 0.4), ENTRY + 9]) {
+        const said = (await get(`${base}/api/debug?set=${encodeURIComponent(`marker=${next},${offset}`)}`)).body
+        check(`the board shows the marker ${offset} px on`, /marker shown/.test(said), said.split("\n")[0])
+        const want = await expected(S(listed[open]), values, scroll >= 0 ? scroll : undefined, { from: open, offset })
+        const glass = await fetchBmp("panel.bmp", `marker ${offset}`)
+        const { dimensionMismatch, diffPixels } = comparePixels(glass, want)
+        check(`... on the glass as the designer draws it`, !dimensionMismatch && diffPixels === 0, dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`)
+      }
+      await showsOpen("and the canvas kept the screen as it is")
+    }
+
+    // A swipe beside the strip: the strip stands still while the screen
+    // moves, its marker gliding along it.
     if (!eink) {
       const beforeImg = await fetchBmp("snapshot.bmp", "before-swipe")
       const before = stripPixels(beforeImg)
@@ -371,9 +395,15 @@ async function main() {
       await press(sw * 0.8, sh / 2, sw * 0.4, sh / 2, 6)
       const glass = await fetchBmp("panel.bmp", "during-swipe")
       check("mid-swipe the screen beside the strip has moved", besidePixels(glass) !== besidePixels(beforeImg))
-      check("... while the strip's pixels stay as they were", before === stripPixels(glass))
+      check("... and the marker along the strip", before !== stripPixels(glass))
+      // The strip beside the entries - the switch's place - stays.
+      check("... while the switch's place stays", switchPixels(beforeImg) === switchPixels(glass))
       await touch(sw * 0.4, sh / 2, false)
       await settle()
+      const report = (await get(`${base}/api/debug`)).body
+      const settled = /marker settled in (\d+) frames, ([\d.]+) ms\/frame/.exec(report)
+      const swipeLine = /last swipe: (.*)/.exec(report)?.[1] ?? "?"
+      check("the marker settled after the lift, the screen standing", !!settled && Number(settled[1]) > 0, `${settled ? `${settled[1]} frames at ${settled[2]} ms` : "not reported"}; swipe ${swipeLine}`)
     } else {
       await drag(sw * 0.8, sh / 2, sw * 0.2, sh / 2)
     }
@@ -424,11 +454,6 @@ async function main() {
       if (topic === THEME_CMND) asked.push(payload.toString())
     })
     await new Promise((resolve) => client.subscribe(THEME_CMND, { qos: 1 }, resolve))
-    const switchPixels = (img) => {
-      const out = []
-      for (let y = sh - SWITCH; y < sh; y += 2) for (let x = 0; x < 78; x += 2) out.push(img.getPixelColor(x, y))
-      return out.join(",")
-    }
     // Nothing said yet: the track alone. Then light, as a bridge keeps it:
     // the knob on the left with the sun - so the place is not what it was,
     // and its left half differs from its right.

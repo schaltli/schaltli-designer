@@ -1,8 +1,13 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/navigator/vectors.json"
 import {
+  cornerInset,
   entryAt,
   entryRect,
+  markerGlides,
+  markerOffset,
+  markerRect,
+  markerSettle,
   maxScroll,
   navigatorLayout,
   navigatorScreens,
@@ -57,4 +62,42 @@ test.describe("navigator geometry (shared vectors)", () => {
       expect(pageScroll(layoutOf(c.layout), c.scroll, c.direction as 1 | -1)).toBe(c.expected)
     })
   }
+  // The marker gliding with a swipe (#59).
+  for (const c of vectors.markerGlides) {
+    test(`markerGlides: ${c.name}`, () => {
+      expect(markerGlides(c.from, c.to, c.scrollFrom, c.scrollTo)).toBe(c.expected)
+    })
+  }
+  for (const c of vectors.markerOffset) {
+    test(`markerOffset: ${c.name}`, () => {
+      expect(markerOffset(layoutOf(c.layout), c.from, c.to, c.travel, c.span)).toBe(c.expected)
+    })
+  }
+  for (const c of vectors.markerSettle) {
+    test(`markerSettle: ${c.name}`, () => {
+      expect(markerSettle(c.start, c.end, c.elapsed)).toBe(c.expected)
+    })
+  }
+  for (const c of vectors.markerRect) {
+    test(`markerRect: ${c.name}`, () => {
+      expect(markerRect(layoutOf(c.layout), c.from, c.offset, c.scroll, c.box)).toEqual(c.expected)
+    })
+  }
+  for (const c of vectors.cornerInset) {
+    test(`cornerInset: ${c.name}`, () => {
+      expect(cornerInset(c.radius, c.width, c.height, c.row)).toBe(c.expected)
+    })
+  }
+  test("the marker's settle never moves backwards before it overshoots, and stays within a tenth past", () => {
+    let last = 0
+    let most = 0
+    for (let ms = 0; ms <= 400; ms += 5) {
+      const at = markerSettle(0, 1000, ms)
+      most = Math.max(most, at)
+      if (most < 1000) expect(at).toBeGreaterThanOrEqual(last)
+      last = at
+    }
+    expect(most).toBeGreaterThan(1050)
+    expect(most).toBeLessThanOrEqual(1100)
+  })
 })

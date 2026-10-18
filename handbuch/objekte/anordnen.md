@@ -76,11 +76,13 @@ Die Farben kommen aus dem Theme. Mit <span class="ui">Panel</span> ist der Grund
 
 **Die Einträge:** einer pro Screen, in der Reihenfolge der Screen-Liste. Master, Popups und Screens mit <span class="ui">Hide screen</span> fehlen. Einen neuen Screen nimmt der Navigator von selbst auf. Passen alle Einträge hin, teilen sie sich die Kante. Sonst scrollst du den Navigator mit einem Wisch entlang der Leiste, und der letzte sichtbare Eintrag ist angeschnitten, damit man sieht, dass es weitergeht. Nach jedem Screenwechsel scrollt er so weit, dass der offene Eintrag zu sehen ist. Ein Wisch auf dem Navigator scrollt nur und blättert nie, ein Wisch daneben blättert wie bisher.
 
+**Beim Wischen** bleibt der Navigator stehen, nur der Screen daneben gleitet. Die farbige Fläche des offenen Eintrags wandert dabei mit dem Finger zum Eintrag des nächsten Screens. Wo sie gerade liegt, erscheinen Icon und Name so wie im offenen Eintrag, daneben wie in den anderen. Lässt du los, rastet sie auf dem neuen Eintrag ein: Sie schwingt ein wenig darüber hinaus und kommt zurück. Brichst du den Wisch ab, gleitet sie zurück. Erst am Ende springt sie, wenn der Wisch zu einem Screen über oder unter der Reihe führt oder der Navigator für den neuen Eintrag scrollen muss. In der Vorschau siehst du das genauso.
+
 **Was er zeigt:** Ist das Icon eines Screens auf <span class="ui">Live</span> gestellt, zeigt der Navigator gleich, wie es dort steht, etwa eine erleuchtete Glühbirne, solange irgendwo ein Licht brennt. Wie das geht, steht unter [Die Eigenschaften eines Screens](/designer/screens#die-eigenschaften-eines-screens).
 
 Auf den Screens, die den Master verwenden, ist sein Streifen beim Bearbeiten schraffiert, damit du nicht aus Versehen etwas darunter legst. Verboten ist es nicht: Der Navigator liegt immer zuoberst und deckt zu, was in seinen Streifen ragt, auch ein Hintergrundbild und auch ein Objekt, das weiter vorne liegt. In der Vorschau probierst du ihn aus. Ein Klick öffnet einen Screen, Ziehen entlang der Leiste scrollt.
 
-Auf dem PaperS3 folgt die Leiste dem Finger nicht, das E-Paper reagiert erst beim Loslassen. Ein Wisch auf dem Navigator blättert dort eine ganze Seite Einträge weiter.
+Auf dem PaperS3 folgt die Leiste dem Finger nicht, das E-Paper reagiert erst beim Loslassen. Ein Wisch auf dem Navigator blättert dort eine ganze Seite Einträge weiter, und die farbige Fläche springt beim Wechsel auf den neuen Eintrag.
 
 ::: warning Ältere Firmware
 4.3B, PaperS3 und Android-App zeigen den Navigator ab Systemgeneration 1.5. Mit älterer Firmware oder einer älteren App fehlt er, und beim Übertragen nennt der Dialog ihn. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App.

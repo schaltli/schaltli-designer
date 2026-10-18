@@ -78,8 +78,10 @@ of its own.
 7. **The navigator lists the main row, and «←» elsewhere** (user,
    2026-10-17). On a screen of the main row it lists the main row as it
    does now (`docs/2026-10-08-navigator.md`). On any other screen it
-   shows one arrow back, pointing against the swipe that led there:
-   swiped up to a history, the arrow points down. (proposed: the main row
+   shows one arrow back, pointing to where the page lies: on a screen
+   above its page it points down, on a history below it up (user,
+   2026-10-18: «wenn ich im oberen screen bin, bedeutet zurück nach
+   unten»; it pointed the other way before). (proposed: the main row
    is the first screen and every screen docked left or right of it, in
    order; next and previous walk it.)
 8. **Hidden screens, popups and masters have an area of their own**

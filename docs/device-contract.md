@@ -889,7 +889,19 @@ the screens slide beneath it.
   on it closes the popup only.
 - **Swiping:** the navigator stands still; only the screen follows the
   finger, cut off at the navigator's edge. The highlight moves when the
-  swipe completes.
+  swipe completes - or, on a device that animates, glides with it (since
+  2026-10-18, #59; optional, nothing new in the export). The marker is the
+  `box` an entry's `active` objects hold. Where a swipe leads from one
+  entry's screen to another's of the same navigator, at the same scroll on
+  both (`markerGlides`), a frame shows every entry `normal` and, inside the
+  marker - `markerOffset` px along from the open entry's place, cut in at
+  its corners row by row (`cornerInset`) - every entry `active` on the
+  box's `fillColor`. Once the finger lifts it settles on the entry
+  arrived at, or back on its own, over 320 ms a little past it and back
+  (`markerSettle`); at rest the strip is drawn as above. Anywhere else -
+  to or from a screen off the main row (2.10), to an entry the strip
+  scrolls to - the highlight moves at the end. The functions are the
+  designer's `lib/navigator.ts`, the cases `lib/navigator/vectors.json`.
 - **Hidden screens:** `"hidden": true` on a screen takes it out of
   next/previous paging (and it has no entry). It is still a `goto-screen`
   target. A device starts on the first screen that is not hidden.
@@ -1152,8 +1164,10 @@ what every swipe does.
   screens: it has one entry, at the place of the first, drawing
   `navigators[].back["<edge>"]` - ordinary objects (an icon of an arrow,
   no name) laid out as an entry's `normal` objects are, where `<edge>` is
-  the way the arrow points: away from `back` (a history below its page,
-  `back` up: `down`). A tap on it shows `neighbours[back]`. The export
+  the opposite of `back`, the side the screen lies on (a history below its
+  page, `back` up: `down`). The arrow drawn points to `back`, where the page
+  lies (since 2026-10-18; before, it pointed to `<edge>` - the key is the
+  same, a device does not tell). A tap on it shows `neighbours[back]`. The export
   carries `back` on a navigator only for the arrows its screens need.
 - **The screen menu goes:** a device that declares `screen-graph` no
   longer offers the device action `showScreenMenu` (§5); swiping, the

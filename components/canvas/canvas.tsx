@@ -1,6 +1,6 @@
 "use client"
 
-import { barLayout, clampScroll, entryAt, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
+import { barLayout, clampScroll, entryAt, MARKER_SETTLE_MS, markerGlides, markerOffset, markerSettle, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
 import { FLOW_BUS_R, FLOW_NODE_R, defaultDiagram, type EnergyNode } from "@/lib/energy-diagram"
 
 // The node or bus of a Flow diagram under a point, if any: its circle, and a
@@ -40,7 +40,7 @@ import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, resolveSwipeAction, pullTabSides, swipeReachesNeighbour, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { contentArea, pullTabColor, pullTabNudge, pullTabObjects, type Area } from "@/lib/pull-tabs"
-import { SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
+import { neighboursOf, SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
@@ -853,6 +853,11 @@ export function Canvas({
   const swipeRef = useRef<{ start: { x: number; y: number }; axis: "x" | "y" | null; d: number } | null>(null)
   const slideRef = useRef<{ side: ScreenEdge; d: number } | null>(null)
   const slideSnapshotRef = useRef<HTMLCanvasElement | null>(null)
+  // The navigator's marker on its way along the strip while the screen
+  // follows the finger to a neighbour that has an entry (#59): `offset` px
+  // from entry `from`'s place towards `to`'s; once the finger lifts, settling
+  // from `start` to `end` since `begin`.
+  const markerRef = useRef<{ from: number; to: number; offset: number; settle?: { start: number; end: number; begin: number } } | null>(null)
   const pullNudgeRef = useRef(0)
 
   // The navigator in the preview (docs/2026-10-08-navigator.md): how far it
@@ -878,6 +883,7 @@ export function Canvas({
     goTo: (_id: string) => {},
     layout: (): NavigatorLayout | undefined => undefined,
     bar: (): NavigatorBar | undefined => undefined,
+    marker: (_side: ScreenEdge, _travel: number, _span: number): { from: number; to: number; offset: number } | null => null,
   })
   // The bar: its entries' part and, where it has one, the light/dark switch's place.
   const previewNavigatorBar = (): NavigatorBar | undefined => {
@@ -895,6 +901,21 @@ export function Canvas({
     goTo: (id) => onPreviewButtonAction?.({ type: "goto-screen", targetScreenId: id }),
     layout: previewNavigatorLayout,
     bar: previewNavigatorBar,
+    marker: (side, travel, span) => {
+      // Only along the master's navigator, to a screen that shows it too,
+      // between two of its entries at the strip's present scroll: else the
+      // marker jumps once the screen has changed (lib/navigator.ts markerGlides).
+      const layout = previewNavigatorLayout()
+      const toId = neighboursOf(projectScreens ?? [], screen.id)[side]
+      const target = (projectScreens ?? []).find((s) => s.id === toId)
+      if (!layout || !target || !(masterObjects ?? []).some((o) => o.type === "navigator") || target.masterScreenId !== screen.masterScreenId) return null
+      const entries = navigatorEntries(projectScreens ?? [], screen.id)
+      const from = entries.findIndex((e) => e.id === screen.id)
+      const to = entries.findIndex((e) => e.id === toId)
+      const scrollFrom = navigatorScroll ?? scrollToShow(layout, Math.max(0, from), 0)
+      if (!markerGlides(from, to, scrollFrom, scrollToShow(layout, Math.max(0, to), navigatorScroll ?? 0))) return null
+      return { from, to, offset: markerOffset(layout, from, to, travel, span) }
+    },
   }
   const insideStrip = (layout: NavigatorLayout, p: { x: number; y: number }) =>
     p.x >= layout.strip.x && p.y >= layout.strip.y && p.x < layout.strip.x + layout.strip.width && p.y < layout.strip.y + layout.strip.height
@@ -1676,6 +1697,7 @@ export function Canvas({
       const slide = slideRef.current
       const neighbour = slide ? swipeNeighbourCanvas?.(slide.side) : null
       canvas.dataset.slide = slide && neighbour ? `${slide.side} ${Math.round(slide.d)}` : ""
+      canvas.dataset.navigatorMarker = markerRef.current ? `${markerRef.current.from} ${markerRef.current.offset}` : ""
       if (slide && neighbour) {
         const snapshot = (slideSnapshotRef.current ??= document.createElement("canvas"))
         const w = Math.round(screenWidth * zoom)
@@ -2221,6 +2243,7 @@ export function Canvas({
             screens: projectScreens ?? [screen],
             activeScreenId: screen.isMaster ? navigatorScreens(projectScreens ?? [])[0]?.id : screen.id,
             scroll: previewMode ? navigatorScroll : undefined,
+            marker: previewMode && markerRef.current ? { from: markerRef.current.from, offset: markerRef.current.offset } : undefined,
           },
         })
         break
@@ -3315,6 +3338,7 @@ export function Canvas({
               !!swipeNeighbourCanvas?.(side)
             const extent = swipe.axis === "x" ? swipeAreaRef.current.width : swipeAreaRef.current.height
             slideRef.current = follows ? { side, d: Math.max(-extent, Math.min(extent, swipe.d)) } : null
+            markerRef.current = follows ? navigatorLatest.current.marker(side, swipe.d, extent) : null
             drawRef.current()
           }
           return
@@ -4330,6 +4354,23 @@ export function Canvas({
       if (!slide) {
         run()
         return
+      }
+      // The marker settles on the entry arrived at, or back on its own,
+      // a little past it and back - after the screen has, on its own clock.
+      const marker = markerRef.current
+      if (marker) {
+        const layout = navigatorLatest.current.layout()
+        const end = committed && layout ? (marker.to - marker.from) * layout.entryLength : 0
+        const begin = performance.now()
+        marker.settle = { start: marker.offset, end, begin }
+        const settle = (now: number) => {
+          if (markerRef.current !== marker) return
+          marker.offset = markerSettle(marker.settle!.start, end, now - begin)
+          if (now - begin >= MARKER_SETTLE_MS) markerRef.current = null
+          else requestAnimationFrame(settle)
+          drawRef.current()
+        }
+        requestAnimationFrame(settle)
       }
       const extent = slide.side === "left" || slide.side === "right" ? swipeAreaRef.current.width : swipeAreaRef.current.height
       const to = committed ? Math.sign(slide.d) * extent : 0

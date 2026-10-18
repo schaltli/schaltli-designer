@@ -5,7 +5,7 @@ import { barLayout, themeSwitchLength, NAVIGATOR_DIVIDER } from "../lib/navigato
 
 const THEME_SWITCH_LENGTH = themeSwitchLength("left")
 const ALONG_BOTTOM = themeSwitchLength("bottom")
-import { entryLook, navigatorEntryObjects } from "../lib/navigator-entries"
+import { BACK_ARROW_ASSETS, entryLook, navigatorEntries, navigatorEntryObjects } from "../lib/navigator-entries"
 import { THEMES, applyTheme, resolveRole } from "../lib/themes"
 
 // The navigator's options of 2026-10-11: «Background» Panel or Accent, and a
@@ -76,6 +76,23 @@ test.describe("the navigator's bar", () => {
     expect(back.map((o) => o.type)).toEqual(["icon"])
     const named = navigatorEntryObjects({ id: "a", name: "A" }, 80, 120, entryLook(nav, []), false)
     expect(named.map((o) => o.type)).toEqual(["icon", "text"])
+  })
+
+  test("the way back points to where the page lies: down above it, up below it", () => {
+    const screens = [
+      { id: "a", name: "A" },
+      { id: "top", name: "Top", dock: { screenId: "a", edge: "up" } },
+      { id: "low", name: "Low", dock: { screenId: "a", edge: "down" } },
+    ] as any[]
+    // The arrow's shaft and head: from (12,4) down to (12,20), or the other way.
+    const pointsDown = (id: string) => {
+      const [entry] = navigatorEntries(screens, id)
+      expect(entry.id).toBe("a")
+      const svg = Buffer.from(BACK_ARROW_ASSETS.find((a) => a.id === entry.iconAssetId)!.data.split(",")[1], "base64").toString()
+      return svg.includes("M12 4v16") ? true : svg.includes("M12 20V4") ? false : undefined
+    }
+    expect(pointsDown("top")).toBe(true)
+    expect(pointsDown("low")).toBe(false)
   })
 
   test("«Accent»: the strip in the accent, ink on it, the open entry the other way round, no line", () => {

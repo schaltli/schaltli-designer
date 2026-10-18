@@ -2138,8 +2138,31 @@ async function checkScreenGraph(deviceSerial, page, mqttClient, deviceId, fixtur
     await left();
     await shows("from the history, next goes on in the row past the hidden screen", "B");
 
-    await left();
+    // B to C along the row, at a finger's pace: the navigator's marker glides
+    // with it (#59) - frames whose strip is neither B's nor C's - and
+    // settles after the lift, a little past C and back.
+    const stripOf = async (png) => {
+      const img = await cropDeviceScreenshot(png, project, deviceSerial);
+      return img.crop({ x: 0, y: 0, w: Math.round((STRIP * img.bitmap.width) / sw), h: img.bitmap.height });
+    };
+    const differ = (a, b) => {
+      const { diffPixels, totalPixels } = comparePixelsWithTolerance(a, b);
+      return diffPixels / totalPixels;
+    };
+    const stripB = await stripOf(await captureDeviceScreenshot(deviceSerial));
+    const along = await captureThroughout(deviceSerial, phoneApi.swipe(Math.round(width * 0.85), mid.y, Math.round(width * 0.3), mid.y, NAV_SWIPE_MS));
     await shows("C: its own swipe up cuts C1 off - no tab below", "C");
+    const stripC = await stripOf(await captureDeviceScreenshot(deviceSerial));
+    let gliding = 0;
+    for (const f of along) {
+      const strip = await stripOf(f);
+      if (differ(strip, stripB) > 0.005 && differ(strip, stripC) > 0.005) {
+        if (gliding++ === 0) await strip.write(path.join(IMG_DIR, "graph-marker-gliding.png"));
+      }
+    }
+    check("the navigator's marker glides with the finger: strips between B's and C's", gliding > 0, `${gliding} of ${along.length} frames`);
+    const settled = (await phoneApi.debug()).markerFrames;
+    check("... and settles after the lift", settled > 0, `${settled} frames`);
     heard.length = 0;
     await upQuick();
     await sleep(1000);

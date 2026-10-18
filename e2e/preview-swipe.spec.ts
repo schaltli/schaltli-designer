@@ -113,6 +113,61 @@ test.describe("the preview's swipe", () => {
     await expect(shown(page, "MaxxFan")).toHaveClass(/bg-accent/)
   })
 
+  test("the navigator's marker glides with the finger, settles a little past and back; to a screen off the row it jumps", async ({ page }, testInfo) => {
+    await loadProject(page, await camperDocked(testInfo))
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    const { canvas } = await getMainCanvas(page)
+    await expect(shown(page, "Energie")).toHaveClass(/bg-accent/)
+    // Every value the marker takes, frame by frame.
+    await canvas.evaluate((el) => {
+      const seen: string[] = ((window as any).__markers = [])
+      new MutationObserver(() => seen.push(el.getAttribute("data-navigator-marker") ?? "")).observe(el, { attributes: true, attributeFilter: ["data-navigator-marker"] })
+    })
+    const markers = async () => ((await page.evaluate(() => (window as any).__markers)) as string[]).filter(Boolean).map((m) => m.split(" ").map(Number))
+    const strip = async () => (await canvas.screenshot()).toString("base64")
+    const rest = await strip()
+    await canvas.screenshot({ path: testInfo.outputPath("marker-rest.png") })
+
+    // Part of the way beside the strip: part of an entry on.
+    let from = await press(page)
+    await page.mouse.move(from.x - (300 * (await getMainCanvas(page)).box.width) / SCREEN.width, from.y, { steps: 10 })
+    await expect(canvas).toHaveAttribute("data-navigator-marker", /^0 \d+$/)
+    const part = Number((await canvas.getAttribute("data-navigator-marker"))!.split(" ")[1])
+    expect(await strip()).not.toBe(rest)
+    await canvas.screenshot({ path: testInfo.outputPath("marker-mid-swipe.png") })
+    await page.mouse.up()
+    await expect(canvas).toHaveAttribute("data-navigator-marker", "")
+    await expect(shown(page, "Licht")).toHaveClass(/bg-accent/)
+    const offsets = (await markers()).map(([, o]) => o)
+    // At rest one entry on - past it first, and back onto it.
+    const entry = offsets.at(-1)!
+    expect(entry).toBeGreaterThanOrEqual(64)
+    expect(part).toBeGreaterThan(entry / 4)
+    expect(part).toBeLessThan(entry)
+    expect(Math.max(...offsets)).toBeGreaterThan(entry)
+    expect(Math.max(...offsets)).toBeLessThanOrEqual(entry + Math.ceil(entry / 10))
+
+    // A swipe let go short of the threshold: the marker goes back.
+    await page.evaluate(() => ((window as any).__markers.length = 0))
+    from = await press(page)
+    await page.mouse.move(from.x + 20, from.y, { steps: 4 })
+    await expect(canvas).toHaveAttribute("data-navigator-marker", /^1 -\d+$/)
+    await page.mouse.up()
+    await expect(canvas).toHaveAttribute("data-navigator-marker", "")
+    await expect(shown(page, "Licht")).toHaveClass(/bg-accent/)
+    expect((await markers()).at(-1)).toEqual([1, 0])
+
+    // Down to MaxxFan, off the main row: no marker glides, the way back shows at the end.
+    await shown(page, "Energie").click()
+    await page.evaluate(() => ((window as any).__markers.length = 0))
+    from = await press(page)
+    await page.mouse.move(from.x, from.y - 120, { steps: 8 })
+    await expect(canvas).toHaveAttribute("data-slide", "down -120")
+    await page.mouse.up()
+    await expect(shown(page, "MaxxFan")).toHaveClass(/bg-accent/)
+    expect(await markers()).toEqual([])
+  })
+
   test("outside the preview a drag on the screen is no swipe, and no tab is drawn", async ({ page }, testInfo) => {
     await loadProject(page, await camperDocked(testInfo))
     const { canvas } = await getMainCanvas(page)

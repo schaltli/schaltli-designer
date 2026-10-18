@@ -83,6 +83,27 @@ function asText(name: string): string {
  * `active` - a box in the accent behind both, icon and name then in «Text
  * on accent».
  */
+/**
+ * The marker: the box an entry's active look begins with (device contract
+ * §2.7), within an entry `width` by `height`. It is what glides along the
+ * strip with a swipe (lib/navigator.ts markerRect).
+ */
+export function markerBox(id: string, width: number, height: number, look: EntryLook): ScreenObject {
+  // The line lies over the strip's last pixels on the screen's side.
+  const d = NAVIGATOR_DIVIDER
+  const side = look.dividerSide
+  return {
+    id: `${id}-active`,
+    type: "box",
+    x: ACTIVE_INSET + (side === "right" ? d : 0),
+    y: ACTIVE_INSET + (side === "bottom" ? d : 0),
+    width: width - 2 * ACTIVE_INSET - (side === "left" || side === "right" ? d : 0),
+    height: height - 2 * ACTIVE_INSET - (side === "top" || side === "bottom" ? d : 0),
+    zIndex: 0,
+    properties: { fillColor: look.activeColor, strokeColor: look.activeColor, strokeWidth: 0, cornerRadius: ACTIVE_RADIUS },
+  } as ScreenObject
+}
+
 export function navigatorEntryObjects(screen: EntryScreen, width: number, height: number, look: EntryLook, active: boolean): ScreenObject[] {
   const ink = active ? look.activeTextColor : look.textColor
   // An entry without a name - the way back - is its icon alone: an empty
@@ -92,21 +113,7 @@ export function navigatorEntryObjects(screen: EntryScreen, width: number, height
   const top = Math.floor((height - contentHeight) / 2)
   const objects: ScreenObject[] = []
 
-  if (active) {
-    // The line lies over the strip's last pixels on the screen's side.
-    const d = NAVIGATOR_DIVIDER
-    const side = look.dividerSide
-    objects.push({
-      id: `${screen.id}-active`,
-      type: "box",
-      x: ACTIVE_INSET + (side === "right" ? d : 0),
-      y: ACTIVE_INSET + (side === "bottom" ? d : 0),
-      width: width - 2 * ACTIVE_INSET - (side === "left" || side === "right" ? d : 0),
-      height: height - 2 * ACTIVE_INSET - (side === "top" || side === "bottom" ? d : 0),
-      zIndex: 0,
-      properties: { fillColor: look.activeColor, strokeColor: look.activeColor, strokeWidth: 0, cornerRadius: ACTIVE_RADIUS },
-    } as ScreenObject)
-  }
+  if (active) objects.push(markerBox(screen.id, width, height, look))
 
   const icon = screenIconObject(screen, ENTRY_ICON)
   objects.push({
@@ -172,13 +179,14 @@ export const THEME_SWITCH_ASSETS = [
 ]
 
 // The way back from a screen off the main row (docs/2026-10-17-screen-graph.md
-// decision 7): one arrow, pointing against the swipe that led there - swiped
-// up to a history below its page, it points down.
+// decision 7): one arrow, pointing to where its page lies - on a screen above
+// its page, down. Keyed by the side the screen lies on (the opposite of its
+// `back`), as the export's navigators[].back is: the arrow points the other way.
 const BACK_ARROW_PATHS: Record<ScreenEdge, string> = {
-  up: "M12 20V4M5 11l7-7 7 7",
-  down: "M12 4v16M5 13l7 7 7-7",
-  left: "M20 12H4M11 5l-7 7 7 7",
-  right: "M4 12h16M13 5l7 7-7 7",
+  up: "M12 4v16M5 13l7 7 7-7",
+  down: "M12 20V4M5 11l7-7 7 7",
+  left: "M4 12h16M13 5l7 7-7 7",
+  right: "M20 12H4M11 5l-7 7 7 7",
 }
 
 export const backArrowAssetId = (edge: ScreenEdge) => `schaltli-back-${edge}`
@@ -197,7 +205,7 @@ export const BACK_ARROW_ASSETS = (Object.keys(BACK_ARROW_PATHS) as ScreenEdge[])
  */
 export const backEntryScreen = (edge: ScreenEdge): EntryScreen => ({ id: `back-${edge}`, name: "", iconAssetId: backArrowAssetId(edge) })
 
-/** The arrows the screens off the main row point, each once, in the order up, down, left, right. */
+/** The sides the screens off the main row lie on, each once, in the order up, down, left, right: one arrow each, pointing the other way. */
 export function backArrowEdges(screens: readonly GraphScreen[]): ScreenEdge[] {
   const used = new Set(screens.flatMap((s) => {
     const back = backOf(screens, s.id)
