@@ -939,8 +939,8 @@ test.describe("handbook: the scale's fields", () => {
 test.describe("handbook: Manage Screens", () => {
   test.use({ viewport: { width: 1500, height: 900 }, deviceScaleFactor: 2 })
 
-  test("the comb, and the list's marks", async ({ page }, testInfo) => {
-    const dir = shotsDir(testInfo)
+  // The camper with «Verlauf» below «Energie» and «Einstellungen» hidden.
+  async function camperComb(testInfo: import("@playwright/test").TestInfo): Promise<string> {
     const camper: any = await buildCamperProject(new Uint8Array(fs.readFileSync(path.join(ROOT, "public", "ddf", `${DEVICE_ID}.ddf.zip`))))
     const heizung = camper.screens.find((s: any) => s.id === "screen-heizung")
     const like = (id: string, name: string, more: object) => ({
@@ -956,7 +956,12 @@ test.describe("handbook: Manage Screens", () => {
     expect(camper.screens.some((s: any) => s.id === "screen-energie")).toBe(true)
     const zip = testInfo.outputPath("camper.zip")
     fs.writeFileSync(zip, Buffer.from(await (await buildEditableProjectZip({ ...camper, nextId: 1000 })).arrayBuffer()))
-    await loadProject(page, zip)
+    return zip
+  }
+
+  test("the comb, and the list's marks", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    await loadProject(page, await camperComb(testInfo))
 
     // The list: «Verlauf» indented under «Energie», marked ↓.
     await expect(page.locator('[data-screen-id="screen-verlauf"]')).toHaveAttribute("data-dock", "down")
@@ -971,5 +976,33 @@ test.describe("handbook: Manage Screens", () => {
     await view.screenshot({ path: path.join(dir, "manage-screens.png") })
 
     for (const shot of ["screen-liste", "manage-screens"]) expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)
+  })
+
+  // The preview's swipe (S7): «Energie» pushed up half way, «Verlauf» coming
+  // in from below; then «Verlauf» with its pull tab at the top.
+  test("the preview's swipe and the pull tab", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    await loadProject(page, await camperComb(testInfo))
+    await page.evaluate(() => ((window as { __pullTabFrozenNudge?: number }).__pullTabFrozenNudge = 0))
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    const { canvas, box } = await getMainCanvas(page)
+    await expect(canvas).toHaveAttribute("data-pull-tabs", /down/)
+    const from = devicePoint(box, 500, 300, SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x, from.y - 200, { steps: 10 })
+    await expect(canvas).toHaveAttribute("data-slide", "down -200")
+    const device = (await canvas.getAttribute("data-device-bottom"))!
+    const top = devicePoint(box, 0, 0, SCREEN)
+    const clip = { x: top.x, y: top.y - 40, width: SCREEN.width, height: SCREEN.height + 80 }
+    expect(Number(device)).toBeGreaterThan(0)
+    await page.screenshot({ path: path.join(dir, "vorschau-wischen.png"), clip })
+    await page.mouse.move(from.x, from.y - 300, { steps: 4 })
+    await page.mouse.up()
+    await expect(canvas).toHaveAttribute("data-slide", "")
+    await expect(canvas).toHaveAttribute("data-pull-tabs", "up")
+    await page.screenshot({ path: path.join(dir, "vorschau-lasche.png"), clip })
+
+    for (const shot of ["vorschau-wischen", "vorschau-lasche"]) expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)
   })
 })

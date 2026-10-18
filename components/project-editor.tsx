@@ -44,6 +44,7 @@ import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
 import { describeNeighbourSide, neighboursOf, pagedScreen, withGraphMended, type ScreenDock, type ScreenEdge } from "@/lib/screen-graph"
+import { SwipeNeighbours } from "./canvas/swipe-neighbours"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -1568,8 +1569,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [liveValues, project.topics],
   )
 
+  // `swiped`: a swipe on the screen ran it, and the screen sliding over
+  // says where it went - no toast for that.
   const handlePreviewButtonAction = useCallback(
-    (action: HardwareButtonAction) => {
+    (action: HardwareButtonAction, swiped?: boolean) => {
       // Any screen change closes an open popup, as it does on the device.
       if (
         action.type === "next-screen" ||
@@ -1585,7 +1588,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const target = pagedScreen(project.screens, previewScreenId ?? undefined, action.type === "next-screen" ? 1 : -1)
         if (!target) return
         setPreviewScreenId(target.id)
-        toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: target.name })
+        if (!swiped) toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: target.name })
       } else if (action.type === "goto-neighbour") {
         // The neighbour on that side, if one is docked there; else nothing,
         // as on a device (decision 16).
@@ -1594,7 +1597,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const target = project.screens.find((s) => s.id === targetId)
         if (!target) return
         setPreviewScreenId(target.id)
-        toast({ title: `→ ${describeNeighbourSide(action.side)}`, description: target.name })
+        if (!swiped) toast({ title: `→ ${describeNeighbourSide(action.side)}`, description: target.name })
       } else if (action.type === "goto-screen") {
         const target = project.screens.find((s) => s.id === action.targetScreenId)
         if (!target) {
@@ -1736,6 +1739,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
+
+  // The preview's neighbours, drawn out of sight for a swipe to slide against.
+  const swipeNeighboursRef = useRef<HTMLDivElement>(null)
+  const swipeNeighbourCanvas = useCallback(
+    (side: ScreenEdge) => swipeNeighboursRef.current?.querySelector<HTMLCanvasElement>(`[data-swipe-neighbour="${side}"] canvas`) ?? null,
+    [],
+  )
 
   // The variant the canvas and the thumbnails show: in the preview, light or
   // dark as the installation says (THEME_STATE_TOPIC), as a colour device
@@ -4514,12 +4524,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             canUngroup={canUngroupSelection}
             previewMode={isPreviewMode}
             onPreviewButtonAction={handlePreviewButtonAction}
+            swipeNeighbourCanvas={swipeNeighbourCanvas}
             onPreviewPublish={handlePreviewPublish}
             onPreviewAsk={handlePreviewAsk}
             onPreviewSetLevel={handlePreviewSetLevel}
             liveValues={isPreviewMode && previewSource === "live" ? liveValuesWithTheme : null}
             askedValues={isPreviewMode ? shownAskedValues : null}
           />
+          {isPreviewMode && !previewPopup && (
+            <SwipeNeighbours ref={swipeNeighboursRef} project={project} screenId={previewScreen.id} variant={shownVariant} />
+          )}
           {demoSwitchAt !== null && (
             <DemoModeSwitch preview={isPreviewMode} onPreview={enterPreviewMode} onDesigner={exitPreviewMode} floatAt={demoSwitchAt} felt={!!demo} />
           )}

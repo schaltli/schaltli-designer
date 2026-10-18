@@ -85,7 +85,9 @@ function asText(name: string): string {
  */
 export function navigatorEntryObjects(screen: EntryScreen, width: number, height: number, look: EntryLook, active: boolean): ScreenObject[] {
   const ink = active ? look.activeTextColor : look.textColor
-  const withText = look.shows === "iconsAndText"
+  // An entry without a name - the way back - is its icon alone: an empty
+  // text would draw the text's stand-in «Label».
+  const withText = look.shows === "iconsAndText" && screen.name !== ""
   const contentHeight = withText ? ENTRY_ICON + GAP + look.fontSize : ENTRY_ICON
   const top = Math.floor((height - contentHeight) / 2)
   const objects: ScreenObject[] = []

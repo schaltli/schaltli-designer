@@ -379,8 +379,9 @@ test.describe("Popup screens: the preview", () => {
   const markShown = ([r, g, b]: [number, number, number]) => r + g + b < 450
   const brightness = ([r, g, b]: [number, number, number]) => r + g + b
   const markCentre = { x: MARK.x + MARK.width / 2, y: MARK.y + MARK.height / 2 }
-  // Outside the Knob's fence (radius 161 round 180,180) but on its glass.
-  const outsideFence = { x: 8, y: 180 }
+  // Outside the Knob's fence (radius 161 round 180,180) but on its glass;
+  // above the middle, where the pull tab of the screen beside stands.
+  const outsideFence = { x: 8, y: 150 }
 
   test("a button opens the popup over the screen, dimmed outside the fence; its own button closes it", async ({ page }) => {
     await loadProject(page, await projectWithPopupFirst())

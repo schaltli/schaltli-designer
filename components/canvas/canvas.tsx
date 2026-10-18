@@ -38,7 +38,9 @@ import { DEFAULT_SEPARATORS, type PlaceholderScope, type Separators } from "@/li
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
-import { resolveButtonAction, resolveSwipeAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { resolveButtonAction, resolveSwipeAction, pullTabSides, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { contentArea, drawPullTabs, pullTabNudge, type Area } from "@/lib/pull-tabs"
+import { SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
@@ -115,6 +117,16 @@ const NEW_OBJECT = "__new-object__"
 const SPAN_HANDLE_HIT = 9
 // How near a table's column or row line a press takes it, in screen pixels.
 const SIZE_LINE_HIT = 4
+// A swipe in the preview, in screen pixels: it takes an axis once it has
+// moved this far, and does something when let go this far from its start.
+const SWIPE_LOCK = 8
+const SWIPE_COMMIT = 40
+// How long the screen takes to slide the rest of the way, or back.
+const SWIPE_SETTLE_MS = 180
+// The swipe a movement along an axis is: to the left is «Swipe left».
+function swipeIdOf(axis: "x" | "y", d: number): string {
+  return axis === "x" ? (d < 0 ? "swipe-left" : "swipe-right") : d < 0 ? "swipe-up" : "swipe-down"
+}
 
 // A column's or row's line of a table put together by snapping (Task 8).
 type SizeLine = { kind: "column" | "row"; index: number; x1: number; y1: number; x2: number; y2: number; byHand: boolean }
@@ -406,7 +418,11 @@ export interface CanvasProps {
   // SoftwareButton or hardware-button SVG overlay dispatches its action via
   // onPreviewButtonAction instead of opening the property/config panel.
   previewMode?: boolean
-  onPreviewButtonAction?: (action: HardwareButtonAction) => void
+  // `swiped` when a swipe on the screen ran it, which shows itself.
+  onPreviewButtonAction?: (action: HardwareButtonAction, swiped?: boolean) => void
+  // Preview mode: the neighbour on a side, drawn at the screen's size, for
+  // the screen to slide against while a swipe follows the finger.
+  swipeNeighbourCanvas?: (side: ScreenEdge) => HTMLCanvasElement | null
   // Preview mode with a popup open (lib/popup.ts): `screen` is the popup, and
   // this is the screen it was opened over - drawn first, dimmed outside the
   // popup's fence. A click outside the fence calls onClosePopup.
@@ -803,6 +819,7 @@ export function Canvas({
   previewMode = false,
   projectScreens,
   onPreviewButtonAction,
+  swipeNeighbourCanvas,
   popupUnderlay,
   onClosePopup,
   onPreviewPublish,
@@ -828,6 +845,15 @@ export function Canvas({
   // The level a finger holds in the preview, at its place on the screen - it
   // may sit in a switcher's panel, where its own x/y are the panel's.
   const levelDragRef = useRef<{ id: string; value: number; object: ScreenObject } | null>(null)
+  // A swipe on the preview's screen (docs/2026-10-17-screen-graph.md, the
+  // preview's swipe, user 2026-10-18): pressed where nothing else owns the
+  // gesture, it locks to an axis once it has moved, and a release far enough
+  // runs what that swipe does. `slide` is how far the screen stands moved
+  // while it follows the finger to a neighbour.
+  const swipeRef = useRef<{ start: { x: number; y: number }; axis: "x" | "y" | null; d: number } | null>(null)
+  const slideRef = useRef<{ side: ScreenEdge; d: number } | null>(null)
+  const slideSnapshotRef = useRef<HTMLCanvasElement | null>(null)
+  const pullNudgeRef = useRef(0)
 
   // The navigator in the preview (docs/2026-10-08-navigator.md): how far it
   // is scrolled, and a press on it - a drag along it scrolls, a press that
@@ -1392,6 +1418,20 @@ export function Canvas({
     [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight, adornmentRotation],
   )
 
+  // Where the pull tabs stand on the preview's screen: none over a popup.
+  const pullTabEdges = useMemo(
+    () => (previewMode && !popupUnderlay && !isPopup(screen) ? pullTabSides(screen, masterScreen, projectScreens ?? []) : []),
+    [previewMode, popupUnderlay, screen, masterScreen, projectScreens],
+  )
+
+  // What a swipe moves: beside the navigator, which stays (user, 2026-10-18).
+  const swipeArea = useMemo(
+    () => contentArea(screenWidth, screenHeight, previewObjects.find((o) => o.type === "navigator")),
+    [screenWidth, screenHeight, previewObjects],
+  )
+  const swipeAreaRef = useRef<Area>(swipeArea)
+  swipeAreaRef.current = swipeArea
+
   const liveValueTest = useLiveValueTest()
   const reportedDeviceBottomRef = useRef({ bottom: -1, height: -1 })
   const draw = useCallback(() => {
@@ -1624,6 +1664,45 @@ export function Canvas({
       ctx.restore()
     }
 
+    // The pull tabs over the screen, then - while a swipe follows the
+    // finger - the screen so far moved, its neighbour beside it.
+    if (previewMode) {
+      drawPullTabs(ctx, pullTabEdges, swipeArea, resolveColor("textMuted", theme, variant, colorDepth), pullNudgeRef.current)
+      canvas.dataset.pullTabs = pullTabEdges.join(" ")
+      const slide = slideRef.current
+      const neighbour = slide ? swipeNeighbourCanvas?.(slide.side) : null
+      canvas.dataset.slide = slide && neighbour ? `${slide.side} ${Math.round(slide.d)}` : ""
+      if (slide && neighbour) {
+        const snapshot = (slideSnapshotRef.current ??= document.createElement("canvas"))
+        const w = Math.round(screenWidth * zoom)
+        const h = Math.round(screenHeight * zoom)
+        if (snapshot.width !== w || snapshot.height !== h) {
+          snapshot.width = w
+          snapshot.height = h
+        }
+        const sctx = snapshot.getContext("2d")!
+        sctx.clearRect(0, 0, w, h)
+        sctx.drawImage(canvas, Math.round(screenX * zoom), Math.round(screenY * zoom), w, h, 0, 0, w, h)
+        const along = slide.side === "left" || slide.side === "right"
+        const ox = along ? slide.d : 0
+        const oy = along ? 0 : slide.d
+        const sx = slide.side === "right" ? 1 : slide.side === "left" ? -1 : 0
+        const sy = slide.side === "down" ? 1 : slide.side === "up" ? -1 : 0
+        // Only the area beside the navigator moves, and of the neighbour only
+        // that area comes in: its own navigator is the one standing still.
+        const a = swipeArea
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(a.x, a.y, a.width, a.height)
+        ctx.clip()
+        ctx.fillStyle = resolvedBackgroundColor
+        ctx.fillRect(a.x, a.y, a.width, a.height)
+        ctx.drawImage(snapshot, a.x * zoom, a.y * zoom, a.width * zoom, a.height * zoom, a.x + ox, a.y + oy, a.width, a.height)
+        ctx.drawImage(neighbour, a.x, a.y, a.width, a.height, a.x + ox + sx * a.width, a.y + oy + sy * a.height, a.width, a.height)
+        ctx.restore()
+      }
+    }
+
     // Hardware buttons are now drawn as part of the adornment SVG
 
     // Draw adornment if present (after the drawing area) - this is also what
@@ -1828,6 +1907,9 @@ export function Canvas({
     screenShape,
     popupCloseRadius,
     popupUnderlay,
+    pullTabEdges,
+    swipeArea,
+    swipeNeighbourCanvas,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     theme,
@@ -1908,6 +1990,27 @@ export function Canvas({
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [movingDiagrams])
+
+  // The pull tabs' nudge, on a display that animates. Under test automation
+  // it stands still unless a test sets it: a tab now here, now 6 px further,
+  // under a pixel a test reads made that test fail by chance.
+  const nudging = previewMode && deviceAnimates !== false && pullTabEdges.length > 0
+  useEffect(() => {
+    pullNudgeRef.current = 0
+    if (!nudging) return
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      frame = requestAnimationFrame(tick)
+      const frozen = (window as { __pullTabFrozenNudge?: number }).__pullTabFrozenNudge ?? (navigator.webdriver ? 0 : undefined)
+      const nudge = typeof frozen === "number" ? frozen : pullTabNudge(now - start)
+      if (nudge === pullNudgeRef.current) return
+      pullNudgeRef.current = nudge
+      drawRef.current()
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [nudging])
 
   // Whatever draw() reads is in its dependencies, so a new draw is a picture
   // to paint - once. A hovered hardware button is among them; it used to
@@ -2800,6 +2903,7 @@ export function Canvas({
           // A node's action, as a button's (docs/2026-10-11-energy-diagram.md decision 13).
           const action = energyNodeAtTap(clickedObject, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
+          else swipeRef.current = { start: coords, axis: null, d: 0 }
         } else if (isSwitchType(clickedObject?.type)) {
           // Same two steps the firmware takes: work out which state the
           // finger picked, then publish that state's writeValue to the write
@@ -2828,6 +2932,9 @@ export function Canvas({
           const value = settableValueAt(clickedObject, coords.x, coords.y)
           levelDragRef.current = { id: clickedObject.id, value, object: clickedObject }
           onPreviewSetLevel?.(clickedObject, value, false)
+        } else {
+          // Nothing here owns the gesture: it may be a swipe (decision 10).
+          swipeRef.current = { start: coords, axis: null, d: 0 }
         }
         return
       }
@@ -3184,6 +3291,25 @@ export function Canvas({
             return
           }
           levelDragRef.current = null
+        }
+        const swipe = swipeRef.current
+        if (swipe) {
+          const dx = coords.x - swipe.start.x
+          const dy = coords.y - swipe.start.y
+          if (!swipe.axis && Math.hypot(dx, dy) > SWIPE_LOCK) swipe.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y"
+          if (swipe.axis) {
+            swipe.d = swipe.axis === "x" ? dx : dy
+            // Following the finger only towards a neighbour, and only where
+            // the device animates: the PaperS3 jumps.
+            const swipeId = swipeIdOf(swipe.axis, swipe.d)
+            const action = popupUnderlay ? undefined : resolveSwipeAction(screen, masterScreen, swipeId, projectScreens ?? [])
+            const side = SWIPE_TO_SIDE[swipeId]
+            const follows = deviceAnimates !== false && action?.type === "goto-neighbour" && !!swipeNeighbourCanvas?.(side)
+            const extent = swipe.axis === "x" ? swipeAreaRef.current.width : swipeAreaRef.current.height
+            slideRef.current = follows ? { side, d: Math.max(-extent, Math.min(extent, swipe.d)) } : null
+            drawRef.current()
+          }
+          return
         }
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
         if (hoveredSvgButton) {
@@ -3858,6 +3984,11 @@ export function Canvas({
       polylineDraft,
       previewObjects,
       textScale,
+      masterScreen,
+      projectScreens,
+      popupUnderlay,
+      deviceAnimates,
+      swipeNeighbourCanvas,
     ],
   )
 
@@ -4168,6 +4299,47 @@ export function Canvas({
   }
 
   const handleMouseUp = useCallback(() => {
+    // The end of a swipe: far enough, it does what that swipe does - over a
+    // popup it closes it, as every swipe does there; a screen following the
+    // finger slides the rest of the way first, or back.
+    const swipe = swipeRef.current
+    if (swipe) {
+      swipeRef.current = null
+      const committed = swipe.axis !== null && Math.abs(swipe.d) >= SWIPE_COMMIT
+      const swipeId = swipe.axis ? swipeIdOf(swipe.axis, swipe.d) : undefined
+      const run = () => {
+        if (!committed || !swipeId) return
+        if (popupUnderlay) onClosePopup?.()
+        else {
+          const action = resolveSwipeAction(screen, masterScreen, swipeId, projectScreens ?? [])
+          if (action) onPreviewButtonAction?.(action, true)
+        }
+      }
+      const slide = slideRef.current
+      if (!slide) {
+        run()
+        return
+      }
+      const extent = slide.side === "left" || slide.side === "right" ? swipeAreaRef.current.width : swipeAreaRef.current.height
+      const to = committed ? Math.sign(slide.d) * extent : 0
+      const from = slide.d
+      const begin = performance.now()
+      const step = (now: number) => {
+        const t = Math.min(1, (now - begin) / SWIPE_SETTLE_MS)
+        slideRef.current = { side: slide.side, d: from + (to - from) * (1 - (1 - t) * (1 - t)) }
+        if (t < 1) {
+          drawRef.current()
+          requestAnimationFrame(step)
+          return
+        }
+        // The neighbour is the screen now: drawn as itself, not slid in.
+        slideRef.current = null
+        run()
+        drawRef.current()
+      }
+      requestAnimationFrame(step)
+      return
+    }
     // Off the navigator: a press that did not move opens its entry's screen.
     const navigatorDrag = navigatorDragRef.current
     if (navigatorDrag) {
@@ -4323,6 +4495,14 @@ export function Canvas({
       canvas.style.cursor = activeTool !== "select" ? "crosshair" : "default"
     }
   }, [
+    screen,
+    masterScreen,
+    projectScreens,
+    popupUnderlay,
+    onClosePopup,
+    onPreviewButtonAction,
+    screenWidth,
+    screenHeight,
     onMoveObject,
     onSnapDrop,
     snapDrop,

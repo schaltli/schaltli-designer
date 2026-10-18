@@ -28,6 +28,18 @@ In der Liste kannst du jeden Wert ändern, als käme er gerade vom Broker. So pr
 
 Tippst du einen Schalter an, beantwortet die Simulation den Befehl. Für Schalter weiss sie selbst, welcher Zustand zu welchem Befehl gehört. Für andere Befehle legst du die Antwort beim Topic unter <span class="ui">Mock Responses</span> fest, siehe [MQTT-Topics](/designer/topics#topics-im-projekt).
 
+## Wischen {#wischen}
+
+Du wischst mit gedrückter Maustaste über den Screen, auf einem Touchscreen mit dem Finger, so wie auf dem Gerät. Liegt in dieser Richtung ein Nachbar, folgt dir der Screen, und der Nachbar schiebt sich herein. Der [Navigator](/objekte/anordnen#navigator) bleibt dabei stehen, nur der Bereich daneben bewegt sich. Lässt du nach etwa 40 Pixeln los, zeigt die Vorschau den Nachbarn. Lässt du früher los, springt der Screen zurück. Hat die Wischgeste eine eigene Aktion, etwa ein Popup, löst sie diese beim Loslassen aus. Über einem offenen Popup schliesst jede Wischgeste das Popup.
+
+<Screenshot name="vorschau-wischen" alt="Die Vorschau mitten im Wischen: Energie oben halb hinausgeschoben, Verlauf kommt von unten herein" caption="Nach oben gewischt: «Energie» geht hinauf, «Verlauf» kommt von unten." />
+
+Wo eine Wischgeste zu einem Nachbarn führt, steht am Rand ein kurzer Strich, die Lasche, wie auf dem Gerät. Neben einem Navigator steht sie am Rand des Bereichs, der sich bewegt. Alle paar Sekunden rückt sie kurz zur Mitte hin. Belegst du eine Wischgeste selbst, fehlt an diesem Rand die Lasche, siehe [Screens über- und untereinander](/designer/screens#position).
+
+<Screenshot name="vorschau-lasche" alt="Der Screen Verlauf mit der Lasche oben in der Mitte und dem Pfeil zurück im Navigator" caption="«Verlauf» liegt unter «Energie»: Die Lasche oben zeigt, dass du nach unten zurückwischen kannst." />
+
+Eine Geste gehört dem, worauf sie beginnt. Auf einem Regler stellst du den Wert, auf dem Navigator scrollst du ihn, und auf einem Button oder Schalter löst schon der Druck dessen Aktion aus. Auf dem PaperS3 folgt der Screen nicht dem Finger und die Lasche bewegt sich nicht, denn das Gerät zeichnet keine Bewegung.
+
 ## Gut zu wissen
 
 - Ein [Popup](/designer/screens#popups) legt die Vorschau über den Screen und dunkelt den Rest ab. Ein Klick daneben oder auf das ✕ oben rechts am Fenster schliesst es. Startest du die Vorschau, während du ein Popup bearbeitest, liegt es offen über dem ersten Screen.

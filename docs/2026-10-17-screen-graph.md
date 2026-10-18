@@ -96,7 +96,7 @@ of its own.
    tab promises what the gesture does (user, 2026-10-17). The navigator's
    «←» stays even then, since it is tapped, not swiped. The designer
    warns when an own swipe action cuts a neighbour off, so that no swipe
-   and no action reaches it. (proposed: the look of the tab)
+   and no action reaches it. The look was settled with the designer's preview (user, 2026-10-18): 32 by 4 px with round ends, 6 px from the edge, the theme's muted text at 70 %, nudged 6 px towards the middle for 0.8 s every 5 s where the screen moves (`lib/pull-tabs.ts`). A swipe moves what lies beside the navigator, which stays, as on the devices (user, 2026-10-18); the tabs stand on the edges of that area.
 10. **A swipe belongs to what it starts on** (user, 2026-10-17), as a slider's
     and the navigator's do now (`docs/2026-10-08-navigator.md`, decision
     13): a horizontal swipe that starts on a scrolling chart scrolls
@@ -188,8 +188,11 @@ Taken with the map (user, 2026-10-17):
 - Following the finger up and down belongs to the boards and the app
   that follow it sideways now (knob, 4.3B, Android); «what lies below is
   pulled up» lives by it. The PaperS3 has no animation and jumps.
-- The designer's preview gets no swipe gesture: the actions and «←» are
-  clicked there, as the hardware buttons are now.
+- The designer's preview swipes after all (user, 2026-10-18, overturning
+  the decision of 2026-10-17): a drag where nothing else owns the press,
+  the screen following it to a neighbour, and the pull tab drawn there,
+  nudging as on the device - so the tab's look is settled before the
+  boards draw it.
 
 ## Where it goes in (from the survey of 2026-10-17)
 
@@ -284,7 +287,6 @@ Taken with the map (user, 2026-10-17):
 - Neighbours by position on the surface (decision 2): only docked ones.
 - The ring for navigating (decision 5): it turns values.
 - The screen menu (decision 6).
-- A swipe gesture in the designer's preview.
 - A special case for a swipe from the very edge (decision 10).
 - A device working anything out from the tree (decision 13).
 - Hidden screens, popups and masters in the graph or on the map

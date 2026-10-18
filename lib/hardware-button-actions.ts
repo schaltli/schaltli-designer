@@ -150,6 +150,22 @@ export function cutOffSides(
   })
 }
 
+/**
+ * The edges a swipe leads to a neighbour from, where the pull tab stands
+ * (docs/2026-10-17-screen-graph.md decision 9): not where the screen's own
+ * swipe takes that direction.
+ */
+export function pullTabSides(
+  screen: ProjectScreen,
+  masterScreen: ProjectScreen | undefined,
+  screens: readonly ProjectScreen[],
+): ScreenEdge[] {
+  return Object.entries(SWIPE_TO_SIDE).flatMap(([swipeId, side]) => {
+    const action = resolveSwipeAction(screen, masterScreen, swipeId, screens)
+    return action?.type === "goto-neighbour" && action.side === side ? [side] : []
+  })
+}
+
 const SWIPE_NAME: Record<string, string> = {
   "swipe-up": "Swipe up",
   "swipe-down": "Swipe down",

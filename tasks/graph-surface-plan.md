@@ -146,6 +146,14 @@ beside `graph-contract`.
   - `designer/tasten.md`: the cut-off note.
 
   Through maettel-humanizer, with labels in `<span class="ui">`.
+- **S7 The preview swipes** (user, 2026-10-18). A drag in the preview
+  where nothing else owns the press is a swipe; towards a neighbour the
+  screen follows it, and far enough it goes there. The pull tab on each
+  edge a swipe leads to a neighbour from, nudging where the screen moves.
+  Test: e2e - the slide, the spring back, the tabs, the PaperS3 jumping
+  is the `deviceAnimates` gate; the handbook pictures mid-swipe.
+  Files: `lib/pull-tabs.ts`, `canvas.tsx`, `canvas/swipe-neighbours.tsx`,
+  `project-editor.tsx`, `e2e/preview-swipe.spec.ts`.
 - **Checkpoint:** `npm run test:quick` green; the user arranges a project
   of their own in the view.
 

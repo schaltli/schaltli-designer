@@ -70,6 +70,14 @@ test.describe("the navigator's bar", () => {
     expect(80 - (plain.x + plain.width)).toBe(4)
   })
 
+  test("the way back has no name, and shows its arrow alone - no text drawn as «Label»", () => {
+    const nav = { id: "n", type: "navigator", x: 0, y: 0, width: 80, height: 480, zIndex: 0, properties: { edge: "left", shows: "iconsAndText" } } as any
+    const back = navigatorEntryObjects({ id: "a", name: "", iconAssetId: "schaltli-back-down" }, 80, 120, entryLook(nav, []), false)
+    expect(back.map((o) => o.type)).toEqual(["icon"])
+    const named = navigatorEntryObjects({ id: "a", name: "A" }, 80, 120, entryLook(nav, []), false)
+    expect(named.map((o) => o.type)).toEqual(["icon", "text"])
+  })
+
   test("«Accent»: the strip in the accent, ink on it, the open entry the other way round, no line", () => {
     for (const theme of THEMES) {
       for (const variant of ["light", "dark"] as const) {
