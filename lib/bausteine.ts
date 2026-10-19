@@ -765,7 +765,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
             { value: control.min, barSizePercent: 0 },
             { value: control.max, barSizePercent: 100 },
           ],
-          displayValue: "value",
+          displayValue: control.percent ? "percentage" : "value",
         },
       }
       return {

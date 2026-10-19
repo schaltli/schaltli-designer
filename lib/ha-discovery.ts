@@ -382,8 +382,10 @@ export type CatalogControl = (
    * A number set by a finger, within min and max in steps. `current` is the
    * measured value beside the setpoint `read` (a block description's
    * `current_topic`): placed, it is the fill and `read` the handle.
+   * `percent`: its number is the fill in percent, not the value - a light's
+   * brightness, which Home Assistant shows so whatever its scale (#72).
    */
-  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string; current?: string }
+  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string; current?: string; percent?: true }
   /** A text shown as it comes (a block description's; Home Assistant has none). */
   | { kind: "text"; read: string }
   /**
@@ -534,11 +536,11 @@ function switchPart(config: Json, keys: PartKeys, on: { read: string; write: str
 }
 
 /** A number: a level where it can be written, a value where it can only be read. */
-function levelPart(config: Json, keys: PartKeys, range: { min: number; max: number; step: number }, unit?: string): PartResult {
+function levelPart(config: Json, keys: PartKeys, range: { min: number; max: number; step: number }, unit?: string, percent?: true): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
   const withUnit = unit ? { unit } : {}
-  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit } }
+  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit, ...(percent ? { percent } : {}) } }
   if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
 }
@@ -620,6 +622,8 @@ function partsOf(component: string, config: Json): [string, PartResult][] | unde
             config,
             { read: "brightness_state_topic", readTemplate: "brightness_value_template", write: "brightness_command_topic", writeTemplate: "brightness_command_template" },
             { min: 0, max: num(config.brightness_scale, BRIGHTNESS_SCALE), step: 1 },
+            undefined,
+            true,
           ),
         ],
       ]

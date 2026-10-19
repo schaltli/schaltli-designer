@@ -438,7 +438,7 @@ test.describe("an entity with several parts", () => {
   test("the docs' basic light: power and brightness on its default scale of 255", () => {
     expect(entryOf("ha-docs-light-office").controls).toEqual([
       { part: "Power", kind: "switch", read: "office/light/status", write: "office/light/switch", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
-      { part: "Brightness", kind: "level", read: "office/light/brightness", write: "office/light/brightness/set", min: 0, max: 255, step: 1 },
+      { part: "Brightness", kind: "level", read: "office/light/brightness", write: "office/light/brightness/set", min: 0, max: 255, step: 1, percent: true },
     ])
   })
 
@@ -452,7 +452,7 @@ test.describe("an entity with several parts", () => {
         on: { read: "ON", write: "ON" },
         off: { read: "OFF", write: "OFF" },
       },
-      { part: "Brightness", kind: "level", read: "tele/tasmota_4D5E6F/STATE#Dimmer", write: "cmnd/tasmota_4D5E6F/Dimmer", min: 0, max: 100, step: 1 },
+      { part: "Brightness", kind: "level", read: "tele/tasmota_4D5E6F/STATE#Dimmer", write: "cmnd/tasmota_4D5E6F/Dimmer", min: 0, max: 100, step: 1, percent: true },
     ])
   })
 

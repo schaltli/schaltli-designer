@@ -270,7 +270,7 @@ test.describe("VanPi bridge logic", () => {
         off: { read: "off", write: "off" },
         part: "Power",
       },
-      { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, part: "Brightness" },
+      { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, percent: true, part: "Brightness" },
     ])
     expect(byLabel["Theme"].controls).toEqual([
       {

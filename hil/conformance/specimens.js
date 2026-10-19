@@ -326,7 +326,9 @@ const SPECIMENS = {
         properties: {
           ...withTarget.properties,
           setpointTopic: undefined,
-          displayValue: "none",
+          // None written: the number shows, as the designer draws it. The
+          // firmware took a missing one for "none" until 2026-10-19 (#72).
+          displayValue: undefined,
           ...shaded(c),
         },
       };

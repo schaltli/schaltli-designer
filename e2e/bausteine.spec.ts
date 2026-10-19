@@ -833,6 +833,17 @@ test.describe("a catalog block's layout", () => {
     expect(controlL.x).toBe(labelL.x)
   })
 
+  // #72: a light's brightness on a scale of 32767 showed «32767» beside a
+  // full slider. Marked percent, its number is the fill, as Home Assistant
+  // shows it; other levels keep their value (a setpoint in °C).
+  test("a slider marked percent shows its fill in percent, others their value", () => {
+    const percent = { ...level, max: 32767, percent: true } as const
+    const shown = (control: any) =>
+      buildFromCatalog({ entry: entry(control), control, rect: RECT, palette, font }).objects[1].properties.displayValue
+    expect(shown(percent)).toBe("percentage")
+    expect(shown(level)).toBe("value")
+  })
+
   test("an icon comes first, as tall as the name's line, and the name moves over for it", () => {
     const icon = { name: "mdi:water-pump", data: "<svg/>", size: 10 }
     const [image, label, control] = buildFromCatalog({ entry: entry(sw), control: sw, rect: RECT, palette, font, options: { icon } }).objects
