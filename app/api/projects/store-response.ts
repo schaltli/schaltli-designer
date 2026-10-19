@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib"
 import { NextResponse } from "next/server"
 import { createProjectStore, ProjectStoreError } from "@/lib/project-store"
 
@@ -22,6 +23,17 @@ export function storeErrorResponse(error: unknown): NextResponse {
     return NextResponse.json(body, { status: STATUS[error.code] })
   }
   throw error
+}
+
+// A whole project as JSON, gzipped when the browser takes it. Next's own
+// compression leaves route handlers' responses alone, and a project with its
+// fonts and images runs to a few MB, halved by gzip - which matters over the
+// van's router on a weak link, where a long download gets cut (2026-10-19).
+export function projectJson(request: Request, body: unknown): Response {
+  if (!/\bgzip\b/.test(request.headers.get("accept-encoding") ?? "")) return NextResponse.json(body)
+  return new Response(new Uint8Array(gzipSync(JSON.stringify(body))), {
+    headers: { "Content-Type": "application/json", "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
+  })
 }
 
 // A project as the client sends it: a JSON object, nothing else.

@@ -101,6 +101,7 @@ import { DemoPhoneStart, useDemoPhonePage } from "./demo-phone-start"
 import { ProjectList } from "./project-list"
 import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft } from "@/lib/project-draft"
 import { sameProjectName } from "@/lib/project-name"
+import { couldNotOpen, readSavedProject, type SavedProjectRead } from "@/lib/saved-project-read"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -3018,16 +3019,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // Opens a saved project, its newest version, saved. A load: undo starts
   // afresh. Asks about unsaved changes first; the open one is left alone.
+  // `fetched` is the project when the caller has read it already (the
+  // address's open), so a large one does not come over the wire twice.
   const openSavedProject = useCallback(
-    async (name: string) => {
+    async (name: string, fetched?: SavedProjectRead) => {
       if (save.savedName !== null && sameProjectName(name, save.savedName)) return
       if (!(await confirmLeave())) return
-      const res = await fetch(`/api/projects/${encodeURIComponent(name)}`).catch(() => null)
-      const data = res?.ok ? await res.json() : null
-      if (!data) {
-        toast({ title: "Could not open", description: `"${name}" could not be read.`, variant: "destructive" })
+      const read = fetched ?? (await readSavedProject(name))
+      if (!("data" in read)) {
+        toast({ title: "Could not open", description: couldNotOpen(name, read), variant: "destructive" })
         return
       }
+      const data = read.data
       // Migrated like every other door a project comes in through: a version
       // or a draft can predate a migration (colours becoming roles). The
       // saved one too, so an old project does not open as "unsaved" merely
@@ -3098,15 +3101,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       return
     }
     let current = true
-    fetch(`/api/projects/${encodeURIComponent(initialToOpen)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .catch(() => null)
-      .then(async (data) => {
-        if (!current) return
-        if (data) await openSavedProject(data.name)
-        else setDeviceGateError(`No project "${initialToOpen}"`)
-        setOpeningInitial(false)
-      })
+    readSavedProject(initialToOpen).then(async (read) => {
+      if (!current) return
+      if ("data" in read) await openSavedProject(read.data.name, read)
+      else setDeviceGateError(couldNotOpen(initialToOpen, read))
+      setOpeningInitial(false)
+    })
     return () => {
       current = false
     }
@@ -3176,10 +3176,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // 2026-09-25): the newest version as a project file, before anything
       // goes. If it cannot be made, nothing is deleted.
       if (backup) {
-        const res = await fetch(`/api/projects/${encodeURIComponent(name)}`).catch(() => null)
-        const data = res?.ok ? await res.json() : null
-        if (!data) throw new Error("The backup could not be downloaded, so nothing was deleted.")
-        await downloadEditableProject(data.project)
+        const read = await readSavedProject(name)
+        if (!("data" in read)) throw new Error("The backup could not be downloaded, so nothing was deleted.")
+        await downloadEditableProject(read.data.project as Project)
       }
       const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => null)
       if (!res?.ok) throw new Error(`"${name}" could not be deleted.`)

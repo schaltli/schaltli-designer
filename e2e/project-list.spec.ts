@@ -197,6 +197,52 @@ test.describe("Projects panel", () => {
     await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
   })
 
+  // A large project over the van's router on a weak link: the response was
+  // 200 and its body broke off (2026-10-19). The click used to do nothing.
+  test("a project whose download breaks off says so instead of doing nothing", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "cut")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+
+    await page.goto("/")
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible()
+    await page.route(`**/api/projects/${encodeURIComponent(name)}`, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: `{"name":"${name}","project":{"scr` }),
+    )
+    await entry(page, name).click()
+    await expect(page.getByText(`"${name}" could not be loaded: the connection broke off. Try again.`).first()).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible()
+
+    await page.unroute(`**/api/projects/${encodeURIComponent(name)}`)
+    await entry(page, name).click()
+    await expect(title(page)).toHaveText(name)
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  // gzip halves a project with fonts and images; Next leaves route handlers
+  // uncompressed, so the route does it (app/api/projects/store-response.ts).
+  test("a project comes gzipped to a browser that takes it, plain otherwise", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "gzip")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+    const url = `/api/projects/${encodeURIComponent(name)}`
+
+    const gzipped = await page.request.get(url, { headers: { "Accept-Encoding": "gzip" } })
+    expect(gzipped.headers()["content-encoding"]).toBe("gzip")
+    expect((await gzipped.json()).name).toBe(name)
+    const versionId = (await gzipped.json()).versionId
+    const version = await page.request.get(`${url}/versions/${encodeURIComponent(versionId)}`, {
+      headers: { "Accept-Encoding": "gzip" },
+    })
+    expect(version.headers()["content-encoding"]).toBe("gzip")
+    expect((await version.json()).project.screens.length).toBeGreaterThan(0)
+
+    const plain = await page.request.get(url, { headers: { "Accept-Encoding": "identity" } })
+    expect(plain.headers()["content-encoding"]).toBeUndefined()
+    expect((await plain.json()).name).toBe(name)
+    await page.request.delete(url)
+  })
+
   test("collapses to a strip, and stays collapsed after a reload", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Hide projects" }).click()
@@ -257,5 +303,31 @@ test.describe("Project address", () => {
     await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(`No project "${missing}"`)).toBeVisible()
     await expect.poll(() => pathOf(page)).toBe("/")
+  })
+
+  test("an address's project comes over the wire once; a broken download is not «No project»", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "once")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+    const api = `/api/projects/${encodeURIComponent(name)}`
+
+    const reads: string[] = []
+    page.on("request", (r) => {
+      if (r.method() === "GET" && new URL(r.url()).pathname === api) reads.push(r.url())
+    })
+    await page.goto(path(name))
+    await expect(title(page)).toHaveText(name, { timeout: 20_000 })
+    expect(reads).toHaveLength(1)
+
+    await page.route(`**${api}`, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: `{"name":"${name}","pro` }),
+    )
+    await page.goto(path(name))
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(`"${name}" could not be loaded: the connection broke off. Try again.`)).toBeVisible()
+    await expect(page.getByText(`No project "${name}"`)).toHaveCount(0)
+
+    await page.unroute(`**${api}`)
+    await page.request.delete(api)
   })
 })

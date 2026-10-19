@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { projectStore, storeErrorResponse } from "../store-response"
+import { projectJson, projectStore, storeErrorResponse } from "../store-response"
 import { refuseInDemo } from "@/lib/demo-mode"
 
 // One project by name: its newest version, or deleting it with all its
@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: Params) {
   if (refused) return refused
   const { name } = await params
   try {
-    return NextResponse.json(await projectStore.readNewest(name))
+    return projectJson(request, await projectStore.readNewest(name))
   } catch (error) {
     return storeErrorResponse(error)
   }
