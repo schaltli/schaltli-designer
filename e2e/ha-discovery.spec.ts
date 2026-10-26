@@ -326,7 +326,7 @@ test.describe("an entity as a catalog entry", () => {
     })
     expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("lock", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component lock" } })
+    expect(one("humidifier", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component humidifier" } })
   })
 })
 
@@ -621,6 +621,51 @@ test.describe("an entity with several parts", () => {
         },
       })
     }
+  })
+
+  // A lock (Home Assistant's lock.py): its state on its own, Lock and Unlock a switch.
+  test("a central locking: its state, Lock and Unlock a switch with those words", () => {
+    const entry = entryOf("schaltli-zentralverriegelung")
+    expect(entry.controls).toEqual([
+      { part: "State", kind: "text", read: "van/zv/state" },
+      {
+        part: "Lock",
+        kind: "switch",
+        read: "van/zv/state",
+        write: "van/zv/set",
+        on: { read: "LOCKED", write: "LOCK", label: "Lock" },
+        off: { read: "UNLOCKED", write: "UNLOCK", label: "Unlock" },
+      },
+    ])
+  })
+
+  test("the docs' front door asks for a code: nothing written; its state template not readable either, so not supported", () => {
+    const [config] = expand("ha-docs-lock-frontdoor")
+    expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "State: the value template: `.x`; Lock: a code" } })
+  })
+
+  test("a lock's defaults, Open where its payload is set, a code leaving only the state", () => {
+    const lock = (config: object) => {
+      const [c] = expandConfig("homeassistant/lock/l/config", JSON.stringify(config))
+      return toCatalogEntry(c)
+    }
+    expect(lock({ cmd_t: "l/set", stat_t: "l/state", pl_open: "OPEN" })).toMatchObject({
+      entry: {
+        controls: [
+          { part: "State", kind: "text", read: "l/state" },
+          { part: "Lock", kind: "switch", on: { read: "LOCKED", write: "LOCK" }, off: { read: "UNLOCKED", write: "UNLOCK" } },
+          { part: "Open", kind: "button", write: "l/set", payload: "OPEN" },
+        ],
+      },
+    })
+    // Only read: the state alone, no second reading of it as a switch.
+    expect(lock({ stat_t: "l/state" })).toMatchObject({ entry: { controls: [{ part: "State", kind: "text" }] } })
+    const coded = lock({ cmd_t: "l/set", stat_t: "l/state", code_format: "^\d{4}$", pl_open: "OPEN" })
+    expect(coded).toMatchObject({ entry: { controls: [{ part: "State", kind: "text", read: "l/state" }] } })
+    expect((coded as { entry: { skipped: unknown } }).entry.skipped).toEqual([
+      { part: "Lock", reason: "a code" },
+      { part: "Open", reason: "a code" },
+    ])
   })
 
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {

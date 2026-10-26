@@ -582,6 +582,25 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a central locking: its state beside the name, Lock and Unlock as buttons", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-zentralverriegelung"], { "van/zv/state": "LOCKED" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Zentralverriegelung")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button-group"])
+      expect(asPlaceholders(parts[0])).toBe("State {topic:van/zv/state}")
+      const group = JSON.stringify(parts[1].properties)
+      for (const word of ['"Lock"', '"Unlock"', '"LOCK"', '"UNLOCK"', '"LOCKED"', '"UNLOCKED"', '"van/zv/set"']) expect(group).toContain(word)
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.

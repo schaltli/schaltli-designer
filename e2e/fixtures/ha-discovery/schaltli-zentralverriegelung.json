@@ -1,0 +1,15 @@
+{
+  "source": "the central locking of the 2026-10-26 overview of Home Assistant entities for Schaltli: written for it, every key as lock.mqtt documents it",
+  "topic": "homeassistant/lock/van/van_zv/config",
+  "payload": {
+    "name": "Zentralverriegelung",
+    "unique_id": "van_zv",
+    "command_topic": "van/zv/set",
+    "state_topic": "van/zv/state",
+    "payload_lock": "LOCK",
+    "payload_unlock": "UNLOCK",
+    "state_locked": "LOCKED",
+    "state_unlocked": "UNLOCKED",
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}

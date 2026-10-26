@@ -527,7 +527,9 @@ function partTopics(config: Json, keys: PartKeys): { read?: string; write?: stri
 }
 
 /** Two states: a switch where it can be written, a state where it can only be read. */
-function switchPart(config: Json, keys: PartKeys, on: { read: string; write: string }, off: { read: string; write: string }): PartResult {
+type SwitchState = { read: string; write: string; label?: string }
+
+function switchPart(config: Json, keys: PartKeys, on: SwitchState, off: SwitchState): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
   if (t.write) return { control: { kind: "switch", ...(t.read ? { read: t.read } : {}), write: t.write, on, off } }
@@ -556,6 +558,11 @@ function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult 
   // 2026-10-01 - the spec's limit of four was dropped).
   if (list.length === 0) return { skipped: "no options" }
   return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list } }
+}
+
+/** A part only where it can be written: what it would read, the State part shows already. */
+function writtenOnly(part: PartResult): PartResult {
+  return part && "control" in part && part.control.kind === "state" ? undefined : part
 }
 
 /** A text only read, shown as it comes. */
@@ -828,6 +835,31 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
             { min: num(config.tilt_min, COVER_TILT.min), max: num(config.tilt_max, COVER_TILT.max) },
           ),
         ],
+      ]
+    }
+    case "lock": {
+      // The state on its own, a lock reports more than two (jammed,
+      // locking …); Lock and Unlock as a switch; Open where its payload is
+      // set, it has no default (Home Assistant's lock.py). A lock asking for
+      // a code is only read: Home Assistant checks the code before it
+      // sends, a button here would not.
+      const coded = typeof config.code_format === "string" && config.code_format !== ""
+      const command: PartKeys = coded ? {} : { write: "command_topic", writeTemplate: "command_template" }
+      const open = typeof config.payload_open === "string" ? config.payload_open : null
+      return [
+        ["State", textPart(config, { read: "state_topic", readTemplate: "value_template" })],
+        [
+          "Lock",
+          coded ? { skipped: "a code" } : writtenOnly(
+            switchPart(
+              config,
+              { read: "state_topic", readTemplate: "value_template", ...command },
+              { read: str(config.state_locked, "LOCKED"), write: str(config.payload_lock, "LOCK"), label: "Lock" },
+              { read: str(config.state_unlocked, "UNLOCKED"), write: str(config.payload_unlock, "UNLOCK"), label: "Unlock" },
+            ),
+          ),
+        ],
+        ["Open", coded && open !== null ? { skipped: "a code" } : buttonPart(config, command, open)],
       ]
     }
     case "valve": {

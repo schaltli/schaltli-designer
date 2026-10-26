@@ -1,0 +1,22 @@
+{
+  "source": "home-assistant.io/integrations/lock.mqtt, 'Full configuration' (source/_integrations/lock.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; code_format with its YAML escape resolved",
+  "topic": "homeassistant/lock/frontdoor/config",
+  "payload": {
+    "name": "Frontdoor",
+    "state_topic": "home-assistant/frontdoor/state",
+    "code_format": "^\\d{4}$",
+    "command_topic": "home-assistant/frontdoor/set",
+    "command_template": "{ \"action\": \"{{ value }}\", \"code\":\"{{ code }}\" }",
+    "payload_lock": "LOCK",
+    "payload_unlock": "UNLOCK",
+    "state_locked": "LOCK",
+    "state_unlocked": "UNLOCK",
+    "state_locking": "LOCKING",
+    "state_unlocking": "UNLOCKING",
+    "state_jammed": "MOTOR_JAMMED",
+    "optimistic": false,
+    "qos": 1,
+    "retain": true,
+    "value_template": "{{ value.x }}"
+  }
+}
