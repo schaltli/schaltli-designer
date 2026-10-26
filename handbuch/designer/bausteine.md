@@ -34,6 +34,7 @@ Die Beschriftung ist der Name des Dings als fester Text, im Stil <span class="ui
 | Zahl (`number`) | der Name und darunter ein Regler im Bereich und in den Schritten des Geräts | <span class="ui">Slider</span>, <span class="ui">Dial</span> |
 | Auswahl (`select`) | der Name und daneben ein Knopf je Möglichkeit | <span class="ui">Buttons</span> |
 | Taste (`button`) | ein Button mit dem Namen, der beim Antippen die Nachricht des Geräts schickt | – |
+| Szene (`scene`) | wie eine Taste: ein Button mit dem Namen, der beim Antippen die Szene einschaltet | – |
 | Abdeckung (`cover`) | der Name mit dem gemeldeten Zustand, darunter je ein Button «Open», «Stop» und «Close» und ein Regler für die Position, wenn das Gerät sie setzen lässt | <span class="ui">Slider</span>, <span class="ui">Dial</span> für die Position |
 | Ventil (`valve`) | wie eine Abdeckung: der Name mit dem Zustand und die Buttons «Open» und «Close», «Stop» nur, wenn das Gerät es kann; meldet das Ventil eine Position, statt des Zustands ein Regler | <span class="ui">Slider</span>, <span class="ui">Dial</span> für die Position |
 

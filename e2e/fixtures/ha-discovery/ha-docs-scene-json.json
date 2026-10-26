@@ -1,0 +1,10 @@
+{
+  "source": "home-assistant.io/integrations/scene.mqtt, 'Use with a JSON Payload' (source/_integrations/scene.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/scene/living_room_blue_scene/config",
+  "payload": {
+    "name": "Living Room Blue Scene",
+    "unique_id": "living_room_blue_scene",
+    "command_topic": "home/living_room/set",
+    "payload_on": "{\"activate_scene\": \"Blue Scene\"}"
+  }
+}

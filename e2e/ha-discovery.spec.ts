@@ -284,6 +284,24 @@ test.describe("an entity as a catalog entry", () => {
     expect(entry.controls).toEqual([{ kind: "button", write: "van-sensors/button/restart/command", payload: "PRESS" }])
   })
 
+  // A scene (Home Assistant's scene.py): a press like a button's.
+  test("the docs' scenes: a press publishing their payload, a JSON one as it is", () => {
+    const one = (name: string) => {
+      const [config] = expand(name)
+      return toCatalogEntry(config)
+    }
+    expect(one("ha-docs-scene-party")).toMatchObject({
+      entry: { name: "Living Room Party Scene", label: "Party Scene", controls: [{ kind: "button", write: "home/living_room/party_scene/set", payload: "ON" }] },
+    })
+    expect(one("ha-docs-scene-json")).toMatchObject({
+      entry: { controls: [{ kind: "button", write: "home/living_room/set", payload: '{"activate_scene": "Blue Scene"}' }] },
+    })
+    const [bare] = expandConfig("homeassistant/scene/s/config", JSON.stringify({ name: "Night", cmd_t: "s/set" }))
+    expect(toCatalogEntry(bare)).toMatchObject({ entry: { controls: [{ kind: "button", payload: "ON" }] } })
+    const [none] = expandConfig("homeassistant/scene/n/config", JSON.stringify({ name: "Night" }))
+    expect(toCatalogEntry(none)).toMatchObject({ unsupported: { reason: "no command topic" } })
+  })
+
   test("a select with five options is a choice with five, no limit", () => {
     const entry = entryOf("esphome-select-five")
     expect(entry.name).toBe("van-sensors Light scene")

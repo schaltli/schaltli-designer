@@ -923,6 +923,10 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
     case "button":
       return buttonPart(config, { write: "command_topic", writeTemplate: "command_template" }, str(config.payload_press, "PRESS"))
+    // A scene is a press too. Its payload defaults to "ON" as the docs say;
+    // scene.py itself has no default (2026-10-26).
+    case "scene":
+      return buttonPart(config, { write: "command_topic" }, str(config.payload_on, "ON"))
     default:
       return { unknown: true }
   }
@@ -936,6 +940,7 @@ const MISSING: Record<string, string> = {
   number: "no command topic",
   select: "no command topic",
   button: "no command topic",
+  scene: "no command topic",
 }
 
 /**

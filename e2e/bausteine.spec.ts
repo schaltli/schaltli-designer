@@ -601,6 +601,24 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a scene: a button named after it, sending its payload", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-scene-party"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Party Scene")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const buttons = block.children.filter((c: { type: string }) => c.type === "button")
+      expect(buttons.map((b: any) => [b.properties.text, b.properties.action])).toEqual([
+        ["Party Scene", { type: "send-mqtt", mqttTopic: "home/living_room/party_scene/set", mqttMessage: "ON" }],
+      ])
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.

@@ -1,0 +1,13 @@
+{
+  "source": "home-assistant.io/integrations/scene.mqtt, 'Full configuration' (source/_integrations/scene.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out",
+  "topic": "homeassistant/scene/living_room_party_scene/config",
+  "payload": {
+    "unique_id": "living_room_party_scene",
+    "name": "Party Scene",
+    "command_topic": "home/living_room/party_scene/set",
+    "payload_on": "ON",
+    "qos": 0,
+    "retain": true,
+    "device": { "name": "Living Room", "identifiers": "livingroom_lights" }
+  }
+}
