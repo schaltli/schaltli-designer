@@ -32,6 +32,18 @@
 
 import { ABBREVIATIONS, DEVICE_ABBREVIATIONS, ORIGIN_ABBREVIATIONS } from "@/lib/ha-abbreviations"
 import { BLOCKS_PREFIX, readDescription } from "@/lib/block-description"
+import {
+  Dict,
+  namesUsed,
+  parseTemplate,
+  payloadVariables,
+  readSource,
+  renderTemplate,
+  str as pythonStr,
+  TemplateError,
+  type Template,
+  type Value,
+} from "@/lib/ha-template"
 
 export const DEFAULT_DISCOVERY_PREFIX = "homeassistant"
 
@@ -212,9 +224,10 @@ export function expandConfig(topic: string, payload: string, prefix: string = DE
  *
  * The path is Schaltli's own (lib/json-path.ts): `a.b`, `a[0]`, `['a b']`;
  * empty for the raw payload. The filters are dropped - rounding is the
- * object's own number format.
+ * object's own number format: `decimals` where the last of them rounds,
+ * `round(1)`, for a number shown as text to take as `F1`.
  */
-export type TemplateRead = { path: string } | { unsupported: string }
+export type TemplateRead = { path: string; decimals?: number } | { unsupported: string }
 
 // The filters that change nothing a display needs (docs/2026-09-30-block-discovery.md).
 const HARMLESS_FILTERS = new Set(["int", "float", "round", "lower", "upper", "is_defined", "default"])
@@ -292,12 +305,19 @@ export function readPath(template: string | undefined): TemplateRead {
   }
 
   skip()
+  let decimals: number | undefined
   while (src[i] === "|") {
     i++
     skip()
     const filter = word()
     if (!HARMLESS_FILTERS.has(filter)) return { unsupported: `the filter ${filter || rest(i)}` }
     skip()
+    // round, round(n): the decimals a number keeps. Another method - floor,
+    // ceil, half - is not the format's rounding, so it keeps none.
+    if (filter === "round") {
+      const args = /^\(\s*(\d+)?\s*(?:,\s*(?:method\s*=\s*)?["']common["']\s*)?\)/.exec(src.slice(i))
+      decimals = src[i] !== "(" ? 0 : args ? Number(args[1] ?? 0) : undefined
+    } else if (filter !== "float") decimals = undefined
     if (src[i] === "(") {
       // Arguments, however many: nested brackets and quoted text skipped whole.
       let depth = 0
@@ -322,7 +342,7 @@ export function readPath(template: string | undefined): TemplateRead {
     if (/^(if|and|or|not|in)\b/.test(tail)) return { unsupported: `an expression (${tail})` }
     return { unsupported: `\`${tail}\`` }
   }
-  return { path: root === "value" ? "" : formatPath(segments) }
+  return { path: root === "value" ? "" : formatPath(segments), ...(decimals !== undefined ? { decimals } : {}) }
 }
 
 /**
@@ -376,8 +396,12 @@ export type CatalogControl = (
     }
   /** Two states only read: shown as text. */
   | { kind: "state"; read: string; on: string; off: string }
-  /** A value only read, with its unit; `level` when it reads as a fill (%, device class battery). */
-  | { kind: "value"; read: string; unit?: string; level: boolean }
+  /**
+   * A value only read, with its unit; `level` when it reads as a fill (%,
+   * device class battery); `decimals` where its template rounds, for the
+   * number shown as text.
+   */
+  | { kind: "value"; read: string; unit?: string; level: boolean; decimals?: number }
   /**
    * A number set by a finger, within min and max in steps. `current` is the
    * measured value beside the setpoint `read` (a block description's
@@ -392,8 +416,10 @@ export type CatalogControl = (
    * One of its options, read and written: a button group, one button each.
    * `labels`, beside `options` and as long, are the buttons' words where the
    * values are not, `icons` their `mdi:…` icons (a block description's).
+   * `writes`, as long, what each button sends where it is not the option -
+   * a command template's rendering.
    */
-  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[] }
+  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[]; writes?: string[] }
   /** A press that publishes one payload. */
   | { kind: "button"; write: string; payload: string }
 ) & {
@@ -494,17 +520,17 @@ function num(value: unknown, fallback: number): number {
 }
 
 /** A topic and a template as one Schaltli binding, or why they cannot be. */
-function binding(topic: unknown, template: unknown): { read: string } | { unsupported: string } | undefined {
+function binding(topic: unknown, template: unknown): { read: string; decimals?: number } | { unsupported: string } | undefined {
   if (typeof topic !== "string" || topic === "") return undefined
   const read = readPath(typeof template === "string" ? template : undefined)
   if ("unsupported" in read) return { unsupported: `the value template: ${read.unsupported}` }
-  return { read: read.path ? `${topic}#${read.path}` : topic }
+  return { read: read.path ? `${topic}#${read.path}` : topic, ...(read.decimals !== undefined ? { decimals: read.decimals } : {}) }
 }
 
 /**
  * One part of an entity, as the keys of its config name it: where it is read
- * (a topic and its template), where it is written (a topic and the command
- * template that would make writing unsupported).
+ * (a topic and its template), where it is written (a topic and its command
+ * template).
  */
 interface PartKeys {
   read?: string
@@ -516,27 +542,171 @@ interface PartKeys {
 /** A part made, a part that cannot be, or no part at all (none of its keys set). */
 type PartResult = { control: CatalogControl } | { skipped: string } | undefined
 
-/** What the keys of one part give: the topics, or why they cannot be used. */
-function partTopics(config: Json, keys: PartKeys): { read?: string; write?: string; writeRefused?: string } | { skipped: string } {
+/**
+ * What a part sends for a value: the payload its command template renders, as
+ * Home Assistant would render it, or why it cannot be sent
+ * (docs/2026-10-26-ha-templates.md). `extra` are the variables Home Assistant
+ * passes beside `value` - a siren's tone.
+ */
+type Send = (value: Value, extra?: Record<string, Value>) => { payload: string } | { refused: string }
+
+const AS_IT_IS: Send = (value) => ({ payload: typeof value === "string" ? value : pythonStr(value) })
+
+/**
+ * A command template as a Send; `{{ value }}` and none send the value as it
+ * is. A template the subset does not know, or one reading a name Home
+ * Assistant fills from what the designer cannot know - a lock's code, the
+ * entity id - is refused, with what it lacks.
+ */
+function commandOf(template: unknown, variables: string[] = []): { send: Send; templated: boolean } | { refused: string } {
+  if (template === undefined || template === null || isPayloadTemplate(template)) return { send: AS_IT_IS, templated: false }
+  if (typeof template !== "string") return { refused: "a command template" }
+  const parsed = parseTemplate(template)
+  if ("unsupported" in parsed) return { refused: `the command template: ${parsed.unsupported}` }
+  const known = new Set(["value", ...variables])
+  const lacking = [...namesUsed(parsed)].find((name) => !known.has(name))
+  if (lacking) return { refused: `the command template: \`${lacking}\`` }
+  return { send: (value, extra) => render(parsed, { value, ...extra }), templated: true }
+}
+
+function render(template: Template, variables: Record<string, Value>): { payload: string } | { refused: string } {
+  try {
+    return { payload: renderTemplate(template, variables) }
+  } catch (e) {
+    if (e instanceof TemplateError) return { refused: `the command template: ${e.message}` }
+    throw e
+  }
+}
+
+/** What the keys of one part give: the topics and how to send, or why they cannot be used. */
+function partTopics(
+  config: Json,
+  keys: PartKeys,
+): { read?: string; decimals?: number; write?: string; send?: Send; templated?: boolean; writeRefused?: string } | { skipped: string } {
   const read = keys.read ? binding(config[keys.read], keys.readTemplate ? config[keys.readTemplate] : undefined) : undefined
   if (read && "unsupported" in read) return { skipped: read.unsupported }
   const topic = keys.write ? config[keys.write] : undefined
   const write = typeof topic === "string" && topic !== "" ? topic : undefined
-  // `{{ value }}` sends the payload as it is, the same as no template.
-  const template = keys.writeTemplate ? config[keys.writeTemplate] : undefined
-  const writeRefused = write && template !== undefined && !isPayloadTemplate(template) ? "a command template" : undefined
-  return { ...(read ? { read: read.read } : {}), ...(write && !writeRefused ? { write } : {}), ...(writeRefused ? { writeRefused } : {}) }
+  const command = write ? commandOf(keys.writeTemplate ? config[keys.writeTemplate] : undefined) : undefined
+  const readPart = read ? { read: read.read, ...(read.decimals !== undefined ? { decimals: read.decimals } : {}) } : {}
+  if (!write || !command) return readPart
+  if ("refused" in command) return { ...readPart, writeRefused: command.refused }
+  return { ...readPart, write, send: command.send, templated: command.templated }
+}
+
+/** Each value sent, or the first reason one cannot be. */
+function sendAll(send: Send, values: Value[]): { payloads: string[] } | { refused: string } {
+  const payloads: string[] = []
+  for (const value of values) {
+    const sent = send(value)
+    if ("refused" in sent) return sent
+    payloads.push(sent.payload)
+  }
+  return { payloads }
 }
 
 /** Two states: a switch where it can be written, a state where it can only be read. */
 type SwitchState = { read: string; write: string; label?: string }
 
 function switchPart(config: Json, keys: PartKeys, on: SwitchState, off: SwitchState): PartResult {
-  const t = partTopics(config, keys)
+  // A state template that maps the payload onto the two states: read the
+  // payload itself, and the values that give each state.
+  const mapped = mappedState(config, keys, on.read, off.read)
+  if (mapped && "skipped" in mapped) return mapped
+  const t = partTopics(config, mapped ? { ...keys, read: undefined, readTemplate: undefined } : keys)
   if ("skipped" in t) return t
-  if (t.write) return { control: { kind: "switch", ...(t.read ? { read: t.read } : {}), write: t.write, on, off } }
-  if (t.read) return { control: { kind: "state", read: t.read, on: on.read, off: off.read } }
+  const read = mapped ? mapped.read : t.read
+  const reads = mapped ? { on: mapped.on, off: mapped.off } : { on: seenInField(t.read, on.read), off: seenInField(t.read, off.read) }
+  if (t.write && t.send) {
+    const sent = sendAll(t.send, [on.write, off.write])
+    if ("payloads" in sent) {
+      const [onWrite, offWrite] = sent.payloads
+      return {
+        control: { kind: "switch", ...(read ? { read } : {}), write: t.write, on: { ...on, read: reads.on, write: onWrite }, off: { ...off, read: reads.off, write: offWrite } },
+      }
+    }
+    if (read) return { control: { kind: "state", read, on: reads.on, off: reads.off } }
+    return { skipped: sent.refused }
+  }
+  if (read) return { control: { kind: "state", read, on: reads.on, off: reads.off } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
+}
+
+/**
+ * A two-state read template run backwards (docs/2026-10-26-ha-templates.md):
+ * `{% if value_json.output %}ON{% else %}OFF{% endif %}` reads `output`, and
+ * true is ON, false OFF. Tried with true, false and every constant the
+ * template compares the payload with; it must give each state from exactly
+ * one of them. Undefined where the template is a plain path, or there is none.
+ */
+function mappedState(config: Json, keys: PartKeys, onState: string, offState: string): { read: string; on: string; off: string } | { skipped: string } | undefined {
+  const topic = keys.read ? config[keys.read] : undefined
+  const template = keys.readTemplate ? config[keys.readTemplate] : undefined
+  if (typeof topic !== "string" || topic === "" || typeof template !== "string") return undefined
+  const plain = readPath(template)
+  if ("path" in plain) return undefined
+  const reason = { skipped: `the value template: ${plain.unsupported}` }
+  const parsed = parseTemplate(template)
+  if ("unsupported" in parsed) return { skipped: `the value template: ${parsed.unsupported}` }
+  const source = readSource(parsed)
+  if (!source) return reason
+  const candidates: Value[] = source.path === "value" ? source.constants.map((c) => (typeof c === "string" ? c : pythonStr(c))) : [true, false, ...source.constants]
+  const gives = new Map<string, Set<string>>([
+    [onState, new Set()],
+    [offState, new Set()],
+  ])
+  for (const candidate of candidates) {
+    let variables: Record<string, Value>
+    if (source.path === "value") variables = payloadVariables(candidate as string)
+    else {
+      let json: Value = candidate
+      for (const key of [...source.path].reverse()) {
+        if (typeof key === "number") return reason
+        json = new Dict(new Map([[key, json]]))
+      }
+      variables = { value: JSON.stringify(toPlain(json)), value_json: json }
+    }
+    try {
+      gives.get(renderTemplate(parsed, variables))?.add(seenAs(candidate))
+    } catch (e) {
+      if (!(e instanceof TemplateError)) throw e
+    }
+  }
+  const [on, off] = [gives.get(onState)!, gives.get(offState)!]
+  // Neither state from anything: not a mapping at all, so say what is in the way.
+  if (on.size === 0 && off.size === 0) return reason
+  for (const [state, inputs] of [[onState, on], [offState, off]] as const) {
+    if (inputs.size === 0) return { skipped: `the value template: no value gives ${state}` }
+    if (inputs.size > 1) return { skipped: `the value template: more than one value gives ${state}` }
+  }
+  const path = source.path === "value" ? "" : formatPath(source.path.map((key) => ({ name: String(key) })))
+  return { read: path ? `${topic}#${path}` : topic, on: [...on][0], off: [...off][0] }
+}
+
+/**
+ * A state as a device reads it from a JSON field. Home Assistant writes a
+ * field's true as Python does, "True"; the device reads the JSON, "true" -
+ * so a Shelly's `{{ value_json.output }}` with state_on "True" never lit
+ * before 2026-10-26. Read from the payload itself, the state stays as it is.
+ */
+function seenInField(read: string | undefined, state: string): string {
+  if (!read?.includes("#")) return state
+  return state === "True" ? "true" : state === "False" ? "false" : state
+}
+
+/** A value as a device reads it from a JSON field (lib/json-path.ts): true as "true", 2.0 as "2". */
+function seenAs(value: Value): string {
+  if (typeof value === "string") return value
+  if (typeof value === "boolean") return value ? "true" : "false"
+  if (value !== null && typeof value === "object" && "num" in value) return String(value.num)
+  return pythonStr(value)
+}
+
+function toPlain(value: Value): unknown {
+  if (value instanceof Dict) return Object.fromEntries([...value.entries].map(([k, v]) => [k, toPlain(v)]))
+  if (Array.isArray(value)) return value.map(toPlain)
+  if (value !== null && typeof value === "object" && "num" in value) return value.num
+  return typeof value === "symbol" ? null : value
 }
 
 /** A number: a level where it can be written, a value where it can only be read. */
@@ -544,8 +714,11 @@ function levelPart(config: Json, keys: PartKeys, range: { min: number; max: numb
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
   const withUnit = unit ? { unit } : {}
+  // A number through a command template needs the device to render it: not yet.
+  const rounded = t.decimals !== undefined ? { decimals: t.decimals } : {}
+  if (t.templated) return t.read ? { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded } } : { skipped: "a command template" }
   if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit, ...(percent ? { percent } : {}) } }
-  if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false } }
+  if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
 }
 
@@ -553,13 +726,16 @@ function levelPart(config: Json, keys: PartKeys, range: { min: number; max: numb
 function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
-  if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
+  if (!t.write || !t.send) return t.writeRefused ? { skipped: t.writeRefused } : undefined
   const list = Array.isArray(options) ? options.map((o: unknown) => str(o, "")).filter(Boolean) : []
   // As many buttons as options: whether a wide group fits a screen is the
   // placing's to say, not a reason to leave the entity out (user,
   // 2026-10-01 - the spec's limit of four was dropped).
   if (list.length === 0) return { skipped: "no options" }
-  return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list } }
+  const sent = sendAll(t.send, list)
+  if ("refused" in sent) return { skipped: sent.refused }
+  const writes = sent.payloads.some((payload, i) => payload !== list[i]) ? { writes: sent.payloads } : {}
+  return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list, ...writes } }
 }
 
 /** A template that gives the payload itself: `{{ value }}`. */
@@ -579,20 +755,26 @@ function textPart(config: Json, keys: PartKeys): PartResult {
   return t.read ? { control: { kind: "text", read: t.read } } : undefined
 }
 
-/** A press that publishes `payload`; none where the payload is null, as Home Assistant drops the feature. */
-function buttonPart(config: Json, keys: PartKeys, payload: string | null): PartResult {
+/**
+ * A press that publishes `payload`; none where the payload is null, as Home
+ * Assistant drops the feature. `value`: what its command template is given,
+ * where that is not the payload - a valve's position, a number.
+ */
+function buttonPart(config: Json, keys: PartKeys, payload: string | null, value?: Value): PartResult {
   if (payload === null) return undefined
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
-  if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
-  return { control: { kind: "button", write: t.write, payload } }
+  if (!t.write || !t.send) return t.writeRefused ? { skipped: t.writeRefused } : undefined
+  const sent = t.send(value ?? payload)
+  if ("refused" in sent) return { skipped: sent.refused }
+  return { control: { kind: "button", write: t.write, payload: sent.payload } }
 }
 
 /** A value only read. */
 function valuePart(config: Json, keys: PartKeys, unit: string | undefined, level: boolean): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
-  return t.read ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level } } : undefined
+  return t.read ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level, ...(t.decimals !== undefined ? { decimals: t.decimals } : {}) } } : undefined
 }
 
 // The sensor device classes whose state is not a number - Home Assistant's
@@ -653,6 +835,7 @@ function coverPayload(config: Json, key: string, fallback: string): string | nul
 function positionPart(config: Json, keys: PartKeys, range: { min: number; max: number }): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
+  if (t.templated) return t.read ? { control: { kind: "value", read: t.read, unit: "%", level: true } } : { skipped: "a command template" }
   if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, step: 1, percent: true } }
   if (t.read) return { control: { kind: "value", read: t.read, unit: "%", level: true } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
@@ -789,33 +972,43 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
     }
     case "siren": {
       // Power: Home Assistant sends JSON - {"state":"ON"} - unless a command
-      // template makes something else of it; of the templates only `{{ value }}`,
-      // the payload itself, can be followed here. The off command takes
-      // command_off_template, else command_template (siren.py). Where JSON goes,
-      // each of its tones is a button turning it on with that tone.
-      const onTemplate = config.command_template
-      const offTemplate = config.command_off_template ?? onTemplate
-      const send = (template: unknown, payload: string): string | undefined =>
-        template === undefined ? JSON.stringify({ state: payload }) : isPayloadTemplate(template) ? payload : undefined
+      // template makes something else of it, given the payload and whichever
+      // of tone, duration and volume were asked for. The off command takes
+      // command_off_template, else command_template (siren.py). Each tone is
+      // a button turning it on with that tone.
+      const SIREN_VARIABLES = ["tone", "duration", "volume_level"]
+      const json: Send = (value, extra) => ({ payload: JSON.stringify({ state: value, ...(extra?.tone !== undefined ? { tone: extra.tone } : {}) }) })
+      const commandFor = (template: unknown) => (template === undefined ? { send: json } : commandOf(template, SIREN_VARIABLES))
+      const onCommand = commandFor(config.command_template)
+      const offCommand = commandFor(config.command_off_template ?? config.command_template)
       const payloadOn = str(config.payload_on, "ON")
       const payloadOff = str(config.payload_off, "OFF")
-      const on = send(onTemplate, payloadOn)
-      const off = send(offTemplate, payloadOff)
+      const sentOn = "send" in onCommand ? onCommand.send(payloadOn) : onCommand
+      const sentOff = "send" in offCommand ? offCommand.send(payloadOff) : offCommand
       const states = { on: str(config.state_on, payloadOn), off: str(config.state_off, payloadOff) }
       const read: PartKeys = { read: "state_topic", readTemplate: "state_value_template" }
       const command = typeof config.command_topic === "string" && config.command_topic !== "" ? config.command_topic : undefined
       // A template it cannot follow leaves it to be read, as everywhere.
-      const writable = command !== undefined && on !== undefined && off !== undefined
+      const writable = command !== undefined && "payload" in sentOn && "payload" in sentOff
+      const refused = "refused" in sentOn ? sentOn.refused : "refused" in sentOff ? sentOff.refused : undefined
       const power: PartResult =
-        switchPart(config, { ...read, write: writable ? "command_topic" : undefined }, { read: states.on, write: on ?? payloadOn }, { read: states.off, write: off ?? payloadOff }) ??
-        (command ? { skipped: "a command template" } : undefined)
-      const tones = Array.isArray(config.available_tones) ? config.available_tones.map((t: unknown) => str(t, "")).filter(Boolean) : []
-      const tone: PartResult =
-        tones.length === 0 || !command
-          ? undefined
-          : onTemplate !== undefined
-            ? { skipped: "a command template" }
-            : { control: { kind: "choice", write: command, options: tones.map((t: string) => JSON.stringify({ state: payloadOn, tone: t })), labels: tones } }
+        switchPart(
+          config,
+          { ...read, write: writable ? "command_topic" : undefined },
+          { read: states.on, write: "payload" in sentOn ? sentOn.payload : payloadOn },
+          { read: states.off, write: "payload" in sentOff ? sentOff.payload : payloadOff },
+        ) ?? (command && refused ? { skipped: refused } : undefined)
+      const tones: string[] = Array.isArray(config.available_tones) ? config.available_tones.map((t: unknown) => str(t, "")).filter(Boolean) : []
+      let tone: PartResult
+      if (tones.length > 0 && command) {
+        const sent = "send" in onCommand ? tones.map((t) => onCommand.send(payloadOn, { tone: t })) : [onCommand]
+        const failed = sent.find((x): x is { refused: string } => "refused" in x)
+        const payloads = sent.map((x) => (x as { payload: string }).payload)
+        // A template that leaves the tone out would make each button the same.
+        if (failed) tone = { skipped: failed.refused }
+        else if (new Set(payloads).size < tones.length) tone = { skipped: "the command template leaves out the tone" }
+        else tone = { control: { kind: "choice", write: command, options: payloads, labels: tones } }
+      }
       return [
         ["Power", power],
         ["Tone", tone],
@@ -967,9 +1160,9 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
       if (config.reports_position === true) {
         const range = { min: num(config.position_closed, COVER_POSITION.closed), max: num(config.position_open, COVER_POSITION.open) }
         return [
-          ["Open", buttonPart(config, command, String(range.max))],
+          ["Open", buttonPart(config, command, String(range.max), { num: range.max, int: Number.isInteger(range.max) })],
           ["Stop", buttonPart(config, command, stop)],
-          ["Close", buttonPart(config, command, String(range.min))],
+          ["Close", buttonPart(config, command, String(range.min), { num: range.min, int: Number.isInteger(range.min) })],
           ["Position", positionPart(config, { read: "state_topic", readTemplate: "value_template", ...command }, range)],
         ]
       }
@@ -996,10 +1189,16 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       return switchPart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, on, off)
     }
     case "binary_sensor": {
-      const t = partTopics(config, { read: "state_topic", readTemplate: "value_template" })
+      const keys: PartKeys = { read: "state_topic", readTemplate: "value_template" }
+      const on = str(config.payload_on, "ON")
+      const off = str(config.payload_off, "OFF")
+      // A template mapping the payload onto the two: read the payload, run backwards.
+      const mapped = mappedState(config, keys, on, off)
+      if (mapped) return "skipped" in mapped ? mapped : { control: { kind: "state", read: mapped.read, on: mapped.on, off: mapped.off } }
+      const t = partTopics(config, keys)
       if ("skipped" in t) return t
       if (!t.read) return undefined
-      return { control: { kind: "state", read: t.read, on: str(config.payload_on, "ON"), off: str(config.payload_off, "OFF") } }
+      return { control: { kind: "state", read: t.read, on: seenInField(t.read, on), off: seenInField(t.read, off) } }
     }
     case "sensor": {
       if (numericSensor(config)) return valuePart(config, { read: "state_topic", readTemplate: "value_template" }, unit, unit === "%" || config.device_class === "battery")

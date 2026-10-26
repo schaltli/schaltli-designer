@@ -1,0 +1,244 @@
+{
+  "about": "Home Assistant templates rendered by Jinja2 3.1.6 with Home Assistant's filters (scripts/ha-template-vectors.py); lib/ha-template.ts must agree (e2e/ha-template.spec.ts).",
+  "cases": [
+    {
+      "template": "{{ value_json.temperature }}",
+      "payload": "{\"temperature\": 21.5}",
+      "result": "21.5"
+    },
+    {
+      "template": "{{ value_json[\"a b\"] }}",
+      "payload": "{\"a b\": \"x\"}",
+      "result": "x"
+    },
+    {
+      "template": "{{ value_json.list[1] }}",
+      "payload": "{\"list\": [1, 2.0]}",
+      "result": "2.0"
+    },
+    {
+      "template": "{{ value_json.missing }}",
+      "payload": "{}",
+      "result": ""
+    },
+    {
+      "template": "{{ value_json.a.b }}",
+      "payload": "{}",
+      "error": "UndefinedError"
+    },
+    {
+      "template": "{{ value }}",
+      "payload": "ON",
+      "result": "ON"
+    },
+    {
+      "template": "{{ 7 / 2 }} {{ 4 / 2 }} {{ 7 // 2 }} {{ -7 // 2 }} {{ -7 % 3 }} {{ 2 ** 10 }}",
+      "variables": {},
+      "result": "3.5 2.0 3 -4 2 1024"
+    },
+    {
+      "template": "{{ 0.1 + 0.2 }} {{ 1e-5 }} {{ 1e16 }} {{ 123456789012345678.0 }} {{ 1.5e300 * 1.0 }}",
+      "variables": {},
+      "result": "0.30000000000000004 1e-05 1e+16 1.2345678901234568e+17 1.5e+300"
+    },
+    {
+      "template": "{{ True }} {{ None }} {{ [1, 'a', None] }} {{ {'a': 1} }}",
+      "variables": {},
+      "result": "True None [1, 'a', None] {'a': 1}"
+    },
+    {
+      "template": "{{ 1 == True }} {{ 0 == False }} {{ '1' == 1 }} {{ 1.0 == 1 }}",
+      "variables": {},
+      "result": "True True False True"
+    },
+    {
+      "template": "{{ 'a' ~ 1 ~ True }} {{ 'ab' + 'c' }}",
+      "variables": {},
+      "result": "a1True abc"
+    },
+    {
+      "template": "{{ 'a' < 1 }}",
+      "variables": {},
+      "error": "TypeError"
+    },
+    {
+      "template": "{{ x }}|{{ x | default('d') }}|{{ '' | default('e', true) }}",
+      "variables": {},
+      "result": "|d|e"
+    },
+    {
+      "template": "{{ 2.5 | round }} {{ 3.5 | round }} {{ 2.675 | round(2) }} {{ 21.437 | round(1) }} {{ '7' | round }}",
+      "variables": {},
+      "result": "2 4 2.67 21.4 7"
+    },
+    {
+      "template": "{{ 21.44 | round(1, 'floor') }} {{ 21.41 | round(1, 'ceil') }} {{ 21.3 | round(0, 'half') }}",
+      "variables": {},
+      "result": "21.4 21.5 21"
+    },
+    {
+      "template": "{{ 'abc' | float }}",
+      "variables": {},
+      "error": "TemplateFailed"
+    },
+    {
+      "template": "{{ 'abc' | float(0) }} {{ '1.7' | int }} {{ 3.9 | int }} {{ true | int }}",
+      "variables": {},
+      "result": "0 1 3 1"
+    },
+    {
+      "template": "{{ 'abc' | int }}",
+      "variables": {},
+      "error": "TemplateFailed"
+    },
+    {
+      "template": "{{ 50 | multiply(2.55) | round(0) }} {{ 10 | add(0.5) }}",
+      "variables": {},
+      "result": "127 10.5"
+    },
+    {
+      "template": "{{ 'on' | bool }} {{ 'no' | bool }} {{ 0 | bool }} {{ 'x' | bool(false) }}",
+      "variables": {},
+      "result": "True False False False"
+    },
+    {
+      "template": "{{ is_number('1.5') }} {{ 'x' is is_number }} {{ float('2') }} {{ max(1, 3, 2) }} {{ [4, 1] | min }}",
+      "variables": {},
+      "result": "True False 2.0 3 1"
+    },
+    {
+      "template": "{{ {'b': 1, 'a': 'ü<'} | tojson }} {{ {'b': 1, 'a': 'ü<'} | to_json }}",
+      "variables": {},
+      "result": "{\"a\": \"\\u00fc\\u003c\", \"b\": 1} {\"b\":1,\"a\":\"ü<\"}"
+    },
+    {
+      "template": "{{ value_json | to_json }}",
+      "payload": "{\"z\": 1.0, \"a\": [true, null]}",
+      "result": "{\"z\":1.0,\"a\":[true,null]}"
+    },
+    {
+      "template": "{{ value_json.x is defined }} {{ value_json.y is not defined }} {{ value_json.x is number }} {{ none is none }}",
+      "payload": "{\"x\": 1}",
+      "result": "True True True True"
+    },
+    {
+      "template": "{{ 'on' if value_json.output else 'off' }}",
+      "payload": "{\"output\": false}",
+      "result": "off"
+    },
+    {
+      "template": "{{ 'yes' if value == 'ON' }}|",
+      "variables": {
+        "value": "OFF"
+      },
+      "result": "|"
+    },
+    {
+      "template": "{% if value_json.output %}ON{% else %}OFF{% endif %}",
+      "payload": "{\"output\": true}",
+      "result": "ON"
+    },
+    {
+      "template": "{%if value_json.effect==1%}Meteor Shower{%elif value_json.effect==2%}Gradual Change{%else%}Off{%endif%}",
+      "payload": "{\"effect\": 2}",
+      "result": "Gradual Change"
+    },
+    {
+      "template": "  {%- if value == 'a' -%}  A  {%- endif -%}  !",
+      "variables": {
+        "value": "a"
+      },
+      "result": "A!"
+    },
+    {
+      "template": "{% set v = value | float * 10 %}{{ v }}{# a comment #}",
+      "variables": {
+        "value": "1.5"
+      },
+      "result": "15.0"
+    },
+    {
+      "template": "{{ 'x' in value_json }} {{ 2 in value_json.l }} {{ 'b' not in 'abc' }} {{ value_json.get('x') }} {{ value_json.get('n', 5) }}",
+      "payload": "{\"x\": \"y\", \"l\": [1, 2]}",
+      "result": "True True False y 5"
+    },
+    {
+      "template": "{\"interval\":{{value*1000}}}",
+      "variables": {
+        "value": 30
+      },
+      "result": "{\"interval\":30000}"
+    },
+    {
+      "template": "{\"gain\":{{value|float|multiply(0.3922)|round(0)}}}",
+      "variables": {
+        "value": 255
+      },
+      "result": "{\"gain\":100}"
+    },
+    {
+      "template": "{%if value==\"ON\"%}{\"id\":1,\"src\":\"shellies/s\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":true}}{%else%}{\"id\":1,\"src\":\"shellies/s\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":false}}{%endif%}",
+      "variables": {
+        "value": "OFF"
+      },
+      "result": "{\"id\":1,\"src\":\"shellies/s\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":false}}"
+    },
+    {
+      "template": "{%if value==\"off\"%}{%set output=false%}{%else%}{%set output=true%}{%endif%}{{ {\"id\":1,\"src\":\"s\",\"method\":\"Boolean.Set\",\"params\":{\"id\":202,\"value\":output}}|tojson }}",
+      "variables": {
+        "value": "heat"
+      },
+      "result": "{\"id\": 1, \"method\": \"Boolean.Set\", \"params\": {\"id\": 202, \"value\": true}, \"src\": \"s\"}"
+    },
+    {
+      "template": "{%if value==\"fan_only\"%}{%set value=\"ventilation\"%}{%endif%}{{ {\"id\":1,\"method\":\"Enum.Set\",\"params\":{\"id\":201,\"value\":value}}|tojson }}",
+      "variables": {
+        "value": "fan_only"
+      },
+      "result": "{\"id\": 1, \"method\": \"Enum.Set\", \"params\": {\"id\": 201, \"value\": \"ventilation\"}}"
+    },
+    {
+      "template": "{ \"action\": \"{{ value }}\", \"code\":\"{{ code }}\" }",
+      "variables": {
+        "value": "LOCK"
+      },
+      "result": "{ \"action\": \"LOCK\", \"code\":\"\" }"
+    },
+    {
+      "template": "{{ ((float(value) * 99)|round(0)) + 1 }}",
+      "variables": {
+        "value": "0.5"
+      },
+      "result": "51"
+    },
+    {
+      "template": "{{ \"OFF\" if value_json.value == 0 else \"ON\" }}",
+      "payload": "{\"value\": 255}",
+      "result": "ON"
+    },
+    {
+      "template": "{% for x in [1, 2] %}{{ x }}{% endfor %}",
+      "variables": {},
+      "unsupported": true
+    },
+    {
+      "template": "{{ states('sensor.x') }}",
+      "variables": {},
+      "unsupported": true
+    },
+    {
+      "template": "{{ value | regex_replace('a', 'b') }}",
+      "variables": {
+        "value": "a"
+      },
+      "unsupported": true
+    },
+    {
+      "template": "{{ value.split(',')[0] }}",
+      "variables": {
+        "value": "a,b"
+      },
+      "unsupported": true
+    }
+  ]
+}

@@ -182,9 +182,20 @@ test.describe("reading a template", () => {
   ]
   for (const [from, template, path] of read) {
     test(`${from}: ${template}`, () => {
-      expect(readPath(template)).toEqual({ path })
+      expect(readPath(template)).toMatchObject({ path })
     })
   }
+
+  test("a value rounded by its template keeps the decimals, for its number's format", () => {
+    expect(readPath("{{ value_json.tempc  | round(1)}}")).toEqual({ path: "tempc", decimals: 1 })
+    expect(readPath("{{ value|float|round(2) }}")).toEqual({ path: "", decimals: 2 })
+    expect(readPath("{{ value | round }}")).toEqual({ path: "", decimals: 0 })
+    expect(readPath("{{ value | round(1, 'common') }}")).toEqual({ path: "", decimals: 1 })
+    // Another way of rounding, or a filter after it: no format to take.
+    expect(readPath("{{ value | round(1, 'floor') }}")).toEqual({ path: "" })
+    expect(readPath("{{ value | round(1) | int }}")).toEqual({ path: "" })
+    expect(readPath("{{ value_json.a }}")).toEqual({ path: "a" })
+  })
 
   const refused: [string, string, RegExp][] = [
     ["Zigbee2MQTT boolean switch", `{% if value_json["state"] %}true{% else %}false{% endif %}`, /\{% if %\}/],
@@ -326,10 +337,19 @@ test.describe("an entity as a catalog entry", () => {
     ])
   })
 
-  test("a switch whose command is a JSON-building template is offered to read only", () => {
+  test("a switch whose command template builds a JSON-RPC call sends what it renders for ON and for OFF", () => {
     const entry = entryOf("shelly-rpc-switch-command-template")
     expect(entry.name).toBe("Shelly Plus 1PM Pump")
-    expect(entry.controls).toEqual([{ kind: "state", read: "shellyplus1pm-441793a1b2c3/status/switch:0#output", on: "True", off: "False" }])
+    expect(entry.controls).toEqual([
+      {
+        kind: "switch",
+        read: "shellyplus1pm-441793a1b2c3/status/switch:0#output",
+        write: "shellyplus1pm-441793a1b2c3/rpc",
+        // state_on "True" is how Home Assistant writes the field's true; the device reads "true".
+        on: { read: "true", write: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":true}}' },
+        off: { read: "false", write: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":false}}' },
+      },
+    ])
   })
 
   test("defaults, device-class names, battery and percentage levels, and what cannot be read", () => {
@@ -353,7 +373,9 @@ test.describe("an entity as a catalog entry", () => {
     expect(one("sensor", { stat_t: "s", val_tpl: "{{ value_json.a / 10 }}" })).toMatchObject({
       unsupported: { reason: "the value template: arithmetic (/ 10)" },
     })
-    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value | upper }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
+    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value | regex_replace('a', 'b') }}" })).toMatchObject({
+      unsupported: { reason: "the command template: the filter regex_replace" },
+    })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
     expect(one("alarm_control_panel", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component alarm_control_panel" } })
   })
@@ -435,9 +457,11 @@ test.describe("an entity with several parts", () => {
     expect(entry.skipped).toBeUndefined()
   })
 
-  test("the docs' climate: every part it describes, the mode skipped for its command template", () => {
+  test("the docs' climate: every part it describes, each mode sending what its command template renders", () => {
     const entry = entryOf("ha-docs-climate-study")
     expect(entry.controls).toEqual([
+      // {{ value if value=="off" else "on" }}
+      { part: "Mode", kind: "choice", write: "study/ac/mode/set", options: ["off", "cool", "fan_only"], writes: ["off", "on", "on"] },
       { part: "Target temperature", kind: "level", write: "study/ac/temperature/set", min: 7, max: 35, step: 1 },
       { part: "Power", kind: "switch", write: "study/ac/power/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
       { part: "Preset", kind: "choice", write: "study/ac/preset_mode/set", options: ["eco", "sleep", "activity"] },
@@ -445,7 +469,7 @@ test.describe("an entity with several parts", () => {
       { part: "Swing", kind: "choice", write: "study/ac/swing/set", options: ["on", "off"] },
       { part: "Swing horizontal", kind: "choice", write: "study/ac/swingH/set", options: ["on", "off"] },
     ])
-    expect(entry.skipped).toEqual([{ part: "Mode", reason: "a command template" }])
+    expect(entry.skipped).toBeUndefined()
   })
 
   test("a climate's current temperature, its unit and its default modes", () => {
@@ -560,19 +584,26 @@ test.describe("an entity with several parts", () => {
     expect(entry.skipped).toBeUndefined()
   })
 
-  test("the docs' valve: its state read from JSON, every button skipped for the command template", () => {
+  test("the docs' valve: its state read from JSON, each button sending what the command template renders", () => {
     const entry = entryOf("ha-docs-valve-state")
-    expect(entry.controls).toEqual([{ part: "State", kind: "text", read: "heater/valve/state#x" }])
-    expect(entry.skipped).toEqual([
-      { part: "Open", reason: "a command template" },
-      { part: "Stop", reason: "a command template" },
-      { part: "Close", reason: "a command template" },
+    // {"x": {{ value }} } - as the docs write it, the payload goes in unquoted.
+    expect(entry.controls).toEqual([
+      { part: "State", kind: "text", read: "heater/valve/state#x" },
+      { part: "Open", kind: "button", write: "heater/valve/set", payload: '{"x": OPEN }' },
+      { part: "Stop", kind: "button", write: "heater/valve/set", payload: '{"x": STOP }' },
+      { part: "Close", kind: "button", write: "heater/valve/set", payload: '{"x": CLOSE }' },
     ])
+    expect(entry.skipped).toBeUndefined()
   })
 
-  test("the docs' valve reporting a position: the position only read, as a fill", () => {
+  test("the docs' valve reporting a position: Open and Close render the positions; the position itself only read, as a fill", () => {
     const entry = entryOf("ha-docs-valve-position")
-    expect(entry.controls).toEqual([{ part: "Position", kind: "value", read: "heater/valve/state#x", unit: "%", level: true }])
+    expect(entry.controls).toEqual([
+      { part: "Open", kind: "button", write: "heater/valve/set", payload: '{"x": 100 }' },
+      { part: "Close", kind: "button", write: "heater/valve/set", payload: '{"x": 0 }' },
+      // A number through a command template waits for the devices (stage 2).
+      { part: "Position", kind: "value", read: "heater/valve/state#x", unit: "%", level: true },
+    ])
   })
 
   test("the docs' valve without close: a null payload leaves its button out", () => {
@@ -610,13 +641,14 @@ test.describe("an entity with several parts", () => {
     expect(entry.skipped).toBeUndefined()
   })
 
-  test("the docs' boiler: the mode skipped for its command template, the temperature on the default range, a step of its precision", () => {
+  test("the docs' boiler: each mode sending what its command template renders, the temperature on the default range, a step of its precision", () => {
     const entry = entryOf("ha-docs-water-heater-boiler")
     expect(entry.controls).toEqual([
+      { part: "Mode", kind: "choice", read: "basement/boiler/mode", write: "basement/boiler/mode/set", options: ["off", "eco", "performance"], writes: ["off", "on", "on"] },
       { part: "Target temperature", kind: "level", read: "basement/boiler/temperature", write: "basement/boiler/temperature/set", min: 43.3, max: 60, step: 1 },
       { part: "Current temperature", kind: "value", read: "basement/boiler/current_temperature", level: false },
     ])
-    expect(entry.skipped).toEqual([{ part: "Mode", reason: "a command template" }])
+    expect(entry.skipped).toBeUndefined()
   })
 
   test("a water heater's default modes, its range in °F, its power", () => {
@@ -761,16 +793,41 @@ test.describe("an entity with several parts", () => {
     ])
   })
 
-  test("a siren whose command template builds something else is only read, its tones too", () => {
-    const [config] = expandConfig(
-      "homeassistant/siren/s/config",
-      JSON.stringify({ stat_t: "s/state", cmd_t: "s/set", cmd_tpl: '{"on": "{{ value }}"}', available_tones: ["a"] }),
-    )
-    expect(toCatalogEntry(config)).toMatchObject({
-      entry: { controls: [{ part: "Power", kind: "state", read: "s/state", on: "ON", off: "OFF" }], skipped: [{ part: "Tone", reason: "a command template" }] },
+  test("a siren's command template rendered for on, off and each tone; one leaving the tone out has no tones", () => {
+    const siren = (config: Record<string, unknown>) => toCatalogEntry(expandConfig("homeassistant/siren/s/config", JSON.stringify(config))[0])
+    // Zigbee2MQTT's warning: the tone where one is asked for, its own default otherwise.
+    const warning = '{"warning": {"mode": "{{ tone | default(\'emergency\') if value == \'ON\' else \'stop\' }}", "duration": {{ duration | default(10) }}}}'
+    expect(siren({ stat_t: "s/state", cmd_t: "s/set", cmd_tpl: warning, available_tones: ["burglar", "fire"] })).toMatchObject({
+      entry: {
+        controls: [
+          {
+            part: "Power",
+            kind: "switch",
+            on: { write: '{"warning": {"mode": "emergency", "duration": 10}}' },
+            off: { write: '{"warning": {"mode": "stop", "duration": 10}}' },
+          },
+          {
+            part: "Tone",
+            kind: "choice",
+            options: ['{"warning": {"mode": "burglar", "duration": 10}}', '{"warning": {"mode": "fire", "duration": 10}}'],
+            labels: ["burglar", "fire"],
+          },
+        ],
+      },
     })
-    const [blind] = expandConfig("homeassistant/siren/b/config", JSON.stringify({ cmd_t: "b/set", cmd_tpl: "{{ value | upper }}" }))
-    expect(toCatalogEntry(blind)).toMatchObject({ unsupported: { reason: "Power: a command template" } })
+    expect(siren({ stat_t: "s/state", cmd_t: "s/set", cmd_tpl: '{"on": "{{ value }}"}', available_tones: ["a", "b"] })).toMatchObject({
+      entry: { controls: [{ part: "Power", kind: "switch", on: { write: '{"on": "ON"}' } }], skipped: [{ part: "Tone", reason: "the command template leaves out the tone" }] },
+    })
+    // A template it cannot follow: only read, or nothing.
+    expect(siren({ stat_t: "s/state", cmd_t: "s/set", cmd_tpl: "{{ value | regex_replace('O', 'o') }}", available_tones: ["a"] })).toMatchObject({
+      entry: {
+        controls: [{ part: "Power", kind: "state", read: "s/state", on: "ON", off: "OFF" }],
+        skipped: [{ part: "Tone", reason: "the command template: the filter regex_replace" }],
+      },
+    })
+    expect(siren({ cmd_t: "b/set", cmd_tpl: "{{ value | regex_replace('O', 'o') }}" })).toMatchObject({
+      unsupported: { reason: "Power: the command template: the filter regex_replace" },
+    })
   })
 
   // An update (Home Assistant's update.py): the installed and the latest version, Install where set.
@@ -806,9 +863,65 @@ test.describe("an entity with several parts", () => {
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {
     const [config] = expandConfig(
       "homeassistant/fan/f/config",
-      JSON.stringify({ cmd_t: "f/set", cmd_tpl: '{"on": "{{ value }}"}', pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value * 2 }}" }),
+      JSON.stringify({ cmd_t: "f/set", cmd_tpl: "{{ states('fan.x') }}", pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value * 2 }}" }),
     )
-    expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "Power: a command template; Speed: a command template" } })
+    expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "Power: the command template: states(); Speed: a command template" } })
+  })
+
+  test("Shelly gen2's relay as a fan: the state template run backwards to the output field, the RPC call rendered for ON and OFF", () => {
+    const entry = entryOf("shellies-gen2-relay-fan")
+    expect(entry.controls).toEqual([
+      {
+        part: "Power",
+        kind: "switch",
+        // {%if value_json.output%}ON{%else%}OFF{%endif%}: true is ON, false OFF.
+        read: "shellyplus1pm-441793a1b2c3/status/switch:0#output",
+        write: "shellyplus1pm-441793a1b2c3/rpc",
+        on: { read: "true", write: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":true}}' },
+        off: { read: "false", write: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":false}}' },
+      },
+    ])
+  })
+
+  test("a state template run backwards: each state from exactly one value, or why not", () => {
+    const one = (component: string, config: Record<string, unknown>) =>
+      toCatalogEntry(expandConfig(`homeassistant/${component}/x/config`, JSON.stringify(config))[0])
+    // Compared with constants: those are what the device reads.
+    expect(one("binary_sensor", { stat_t: "d/state", val_tpl: "{{ 'ON' if value_json.contact == 'open' else 'OFF' if value_json.contact == 'closed' }}" })).toMatchObject({
+      entry: { controls: [{ kind: "state", read: "d/state#contact", on: "open", off: "closed" }] },
+    })
+    expect(one("switch", { stat_t: "r/state", cmd_t: "r/set", val_tpl: "{% if value == '1' %}ON{% elif value == '0' %}OFF{% endif %}" })).toMatchObject({
+      entry: { controls: [{ kind: "switch", read: "r/state", on: { read: "1", write: "ON" }, off: { read: "0", write: "OFF" } }] },
+    })
+    // Z-Wave JS: OFF for 0 and for false, ON for anything else - no one value each.
+    expect(one("binary_sensor", { stat_t: "z/state", val_tpl: '{{ "OFF" if value_json.value == 0 else "ON" }}' })).toMatchObject({
+      unsupported: { reason: "the value template: more than one value gives OFF" },
+    })
+    // Reading what only Home Assistant knows.
+    expect(one("binary_sensor", { stat_t: "z/state", val_tpl: "{{ 'ON' if is_state('sun.sun', 'above_horizon') else 'OFF' }}" })).toMatchObject({
+      unsupported: { reason: "the value template: is_state()" },
+    })
+  })
+
+  test("a command template reading what the designer cannot know is refused, naming it", () => {
+    const one = (component: string, config: Record<string, unknown>) =>
+      toCatalogEntry(expandConfig(`homeassistant/${component}/x/config`, JSON.stringify(config))[0])
+    // A lock's code comes from whoever presses: only its state is shown.
+    expect(one("lock", { stat_t: "l/state", cmd_t: "l/set", cmd_tpl: '{"action": "{{ value }}", "code": "{{ code }}"}' })).toMatchObject({
+      entry: { controls: [{ part: "State", kind: "text", read: "l/state" }] },
+    })
+    const lock = one("lock", { cmd_t: "l/set", cmd_tpl: '{"action": "{{ value }}", "code": "{{ code }}"}', pl_open: "OPEN" })
+    expect(lock).toMatchObject({ unsupported: { reason: "Lock: the command template: `code`; Open: the command template: `code`" } })
+    expect(one("switch", { cmd_t: "s/set", cmd_tpl: '{"entity": "{{ entity_id }}", "state": "{{ value }}"}' })).toMatchObject({
+      unsupported: { reason: "the command template: `entity_id`" },
+    })
+    // A select's options each rendered; one that fails for an option is refused whole.
+    expect(one("select", { cmd_t: "m/set", cmd_tpl: '{"mode": "{{ value | lower }}"}', ops: ["Eco", "Boost"] })).toMatchObject({
+      entry: { controls: [{ kind: "choice", options: ["Eco", "Boost"], writes: ['{"mode": "eco"}', '{"mode": "boost"}'] }] },
+    })
+    expect(one("select", { cmd_t: "m/set", cmd_tpl: "{{ value | float }}", ops: ["1", "x"] })).toMatchObject({
+      unsupported: { reason: "the command template: float(x)" },
+    })
   })
 
   test("`{{ value }}` as a command template sends the payload as it is, the same as none", () => {
@@ -824,10 +937,10 @@ test.describe("an entity with several parts", () => {
     expect(one("number", { stat_t: "n", cmd_t: "n/set", cmd_tpl: "{{ value }}", min: 0, max: 10 })).toMatchObject({
       entry: { controls: [{ kind: "level", read: "n", write: "n/set", min: 0, max: 10 }] },
     })
-    // A part of several: the fan's speed written, its power still refused.
+    // A part of several: the fan's speed written as it is beside its power's rendered JSON.
     const fan = one("fan", { cmd_t: "f/set", cmd_tpl: '{"on": "{{ value }}"}', pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value }}" })
     expect(fan).toMatchObject({
-      entry: { controls: [{ part: "Speed", kind: "level", write: "f/pct" }], skipped: [{ part: "Power", reason: "a command template" }] },
+      entry: { controls: [{ part: "Power", kind: "switch", on: { write: '{"on": "ON"}' } }, { part: "Speed", kind: "level", write: "f/pct" }] },
     })
     // A cover's position, a climate's target temperature.
     expect(one("cover", { set_pos_t: "c/pos", set_pos_tpl: "{{ value }}" })).toMatchObject({

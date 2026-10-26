@@ -1079,6 +1079,38 @@ test.describe("a block from a catalog entry", () => {
     return buildFromCatalog({ entry, control: entry.controls[0], rect: RECT, palette, ...(look ? { options: { look } } : {}), ...extra })
   }
 
+  test("modes through a command template: each button reads its mode and sends what the template rendered", () => {
+    // {{ value if value=="off" else "on" }} (docs/2026-10-26-ha-templates.md)
+    const built = build("ha-docs-climate-study")
+    expect(built.objects[1]).toMatchObject({
+      type: "button-group",
+      properties: {
+        writeTopic: "study/ac/mode/set",
+        states: [
+          { label: "off", readValue: "off", writeValue: "off" },
+          { label: "cool", readValue: "cool", writeValue: "on" },
+          { label: "fan_only", readValue: "fan_only", writeValue: "on" },
+        ],
+      },
+    })
+    expect(built.topics).toContainEqual({ topic: "study/ac/mode/set", type: "text", examples: ["off", "on", "on"] })
+  })
+
+  test("Shelly's relay as a fan: buttons reading its output field, true and false, and sending the RPC call", () => {
+    const built = build("shellies-gen2-relay-fan")
+    expect(built.objects[1]).toMatchObject({
+      type: "button-group",
+      properties: {
+        topic: "shellyplus1pm-441793a1b2c3/status/switch:0#output",
+        writeTopic: "shellyplus1pm-441793a1b2c3/rpc",
+        states: [
+          { id: "off", readValue: "false", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":false}}' },
+          { id: "on", readValue: "true", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":true}}' },
+        ],
+      },
+    })
+  })
+
   test("a switch: the name as fixed text, buttons reading its JSON field, An and Aus", () => {
     const entry = catalogEntry("z2m-switch-plug")
     // Always buttons (decided 2026-10-01).
@@ -1113,10 +1145,12 @@ test.describe("a block from a catalog entry", () => {
       { label: "forward", readValue: "forward", writeValue: "forward" },
     ])
     const shelly = catalogEntry("shelly-rpc-switch-command-template")
-    // Read only: a state, its word as a text.
-    const state = buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1]
-    expect(state.type).toBe("text")
-    expect(asPlaceholders(state)).toBe("{topic:shellyplus1pm-441793a1b2c3/status/switch:0#output}")
+    // Reads the field's true, which Home Assistant writes "True"; sends the RPC call.
+    const states = buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1].properties.states
+    expect(states).toMatchObject([
+      { readValue: "false", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":false}}' },
+      { readValue: "true", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":true}}' },
+    ])
   })
 
   test("a value: a number with its unit, and a bar or gauge only where it is a fill", () => {

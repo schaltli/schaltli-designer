@@ -5,7 +5,7 @@ templates need (`docs/2026-10-26-template-survey.md`). The user asked whether
 a Jinja interpreter on the devices could do it; this spec says why not, and
 what instead.
 
-Status: draft, for the user's decision.
+Status: approved by the user on 2026-10-26; stage 1 built the same day (see «Stage 1 as built»).
 
 ## Objective
 
@@ -129,6 +129,29 @@ are literal braces, as in placeholders.
    over RPC, Zigbee2MQTT's cover position.
 
 Stage 1 stands on its own: stage 2 can wait for a need.
+
+## Stage 1 as built (2026-10-26)
+
+- `lib/ha-template.ts`: the subset, parsed and rendered as Python and Home
+  Assistant's filters do; its cases in `lib/ha-template/vectors.json`,
+  rendered by Jinja itself (`scripts/ha-template-vectors.py`).
+- Writes rendered by the designer: a switch's two states, a button, each
+  option of a choice (`writes` beside `options`), a siren's on, off and
+  tones (a template that leaves the tone out has no tones). A command
+  template reading a name the designer cannot fill - a lock's `code`,
+  `entity_id` - is refused, naming it.
+- Two-state reads run backwards, for a switch and a binary sensor: tried
+  with true, false and the constants compared; each state from exactly one
+  value, else the reason says which state was ambiguous.
+- `round(n)` as the last filter: the number shown as text takes `Fn`.
+- Found on the way: a JSON field's true reaches Home Assistant's
+  `{{ value_json.x }}` as "True", but a device reads "true". A state read
+  from a JSON field now takes "true"/"false" for "True"/"False"; before, a
+  Shelly switch so announced never showed its state.
+
+Not built in stage 1: a text whose template maps values (live value
+rules), `default` as `??` (open question 2), `int` as `F0`. Numbers through
+a command template stay read-only until stage 2.
 
 ## Testing strategy
 

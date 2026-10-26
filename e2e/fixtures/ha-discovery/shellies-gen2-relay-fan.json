@@ -1,0 +1,17 @@
+{
+  "source": "bieniu/ha-shellies-discovery-gen2, python_scripts/shellies_discovery_gen2.py get_relay_fan (2026-10-26): a relay set as a fan, its keys as the script writes them - command and state templates verbatim, ^ already turned into quotes, source_topic 'homeassistant', relay 0; the topic prefix, the name and the device are example values, availability, origin and qos left out",
+  "topic": "homeassistant/fan/shellyplus1pm-441793a1b2c3-0/config",
+  "payload": {
+    "name": "Vent",
+    "cmd_t": "~rpc",
+    "cmd_tpl": "{%if value==\"ON\"%}{\"id\":1,\"src\":\"homeassistant\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":true}}{%else%}{\"id\":1,\"src\":\"homeassistant\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":false}}{%endif%}",
+    "stat_t": "~status/switch:0",
+    "stat_val_tpl": "{%if value_json.output%}ON{%else%}OFF{%endif%}",
+    "uniq_id": "shellyplus1pm-441793a1b2c3-0",
+    "~": "shellyplus1pm-441793a1b2c3/",
+    "dev": {
+      "ids": ["shellyplus1pm-441793a1b2c3"],
+      "name": "Shelly Plus 1PM"
+    }
+  }
+}

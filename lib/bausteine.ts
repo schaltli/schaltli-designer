@@ -725,7 +725,9 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       let object: Omit<ScreenObject, "id" | "zIndex">
       if (look === "number") {
         const unit = control.unit ? ` ${control.unit}` : ""
-        object = labelObject(`${named}{topic:${read}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
+        // The decimals its template rounds to, as the text's number format.
+        const format = control.decimals !== undefined ? `:F${control.decimals}` : ""
+        object = labelObject(`${named}{topic:${read}${format}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
       } else object = readLevelObject(look, read, parts.control, palette, font)
       return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", reported)], assets }
     }
@@ -784,13 +786,14 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         id: `option-${i}`,
         label: control.labels?.[i] ?? option,
         value: option,
+        ...(control.writes ? { writeValue: control.writes[i] } : {}),
         ...(icons[i] ? { iconAssetId: icons[i]!.assetId } : {}),
       }))
       return {
         objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
         topics: [
           ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
-          { topic: control.write, type: "text", examples: control.options.slice(0, 3) },
+          { topic: control.write, type: "text", examples: (control.writes ?? control.options).slice(0, 3) },
         ],
         assets: [...assets, ...icons.flatMap((i) => (i ? [i.asset] : []))],
       }
