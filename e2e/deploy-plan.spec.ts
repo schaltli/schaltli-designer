@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { APP_RELEASES, FLASHER, planDeploy, type PlanDevice, type ProjectNeed } from "../lib/deploy-plan"
+import { scaledValuesFeature } from "../lib/scaled-values"
 
 // What Deploy does with a device (docs/2026-10-10-deploy-simple.md, #66):
 // at once, complete, or not at all.
@@ -78,6 +79,38 @@ test("object types the device does not declare at all block, named", () => {
 
 // Local topics are a feature a device's description declares, not a
 // generation (device contract §2.9; tasks/local-contract-plan.md, C3).
+// Scaled values (tasks/ha-templates-stage2-plan.md, S5): asked as local
+// topics are, naming each scaled topic and each write format.
+test("scaled values: named, and a board without the feature is updated first where its release has it, else blocked", () => {
+  const project = {
+    combinedTopics: [
+      { name: "wind_kmh", mode: "scale" },
+      { name: "glaette", mode: "all" },
+    ],
+    screens: [
+      {
+        name: "Wohnen",
+        objects: [
+          { type: "slider", properties: { writeTopic: "lamp/set", writeFormat: { text: '{"brightness":{value}}' } } },
+          { type: "tab-control", children: [{ type: "dial", properties: { writeTopic: "heat/set", writeFormat: { text: "{value}", offset: "0.5", decimals: 1 } } }] },
+          { type: "slider", properties: { writeTopic: "fan/set" } },
+        ],
+      },
+    ],
+  }
+  const types = ["text", "slider", "dial"]
+  const knob = board({ name: "Knob", systemGeneration: "1.4" })
+  const scaled = scaledValuesFeature(project)!
+  expect(scaled).toEqual({ feature: "scaled-values", label: "scaled values (wind_kmh, the slider's write format on Wohnen, the dial's write format on Wohnen)" })
+  expect(scaledValuesFeature({ combinedTopics: [{ name: "glaette", mode: "all" }], screens: [{ name: "S", objects: [{ type: "slider", properties: { writeTopic: "x" } }] }] })).toBeNull()
+
+  expect(planDeploy({ device: knob, release, needs: [], unsupportedFeatures: [scaled], releaseTypes: types, releaseFeatures: ["scaled-values"] }).kind).toBe("update-and-deploy")
+  expect(planDeploy({ device: knob, release, needs: [], unsupportedFeatures: [scaled], releaseTypes: types, releaseFeatures: [] })).toEqual({
+    kind: "blocked",
+    reason: `"Knob" cannot show ${scaled.label}. Remove it from the project, or choose another device.`,
+  })
+})
+
 test("local topics: a board without the feature is updated first where its release has it, else blocked; an app asked to update", () => {
   const local = [{ feature: "local-topics", label: "local topics (local/energie/view)" }]
   const types = ["text", "switch"]

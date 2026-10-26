@@ -48,6 +48,7 @@ import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { liveValuesNotOnDevices } from "@/lib/object-text"
 import { localTopicsFeature } from "@/lib/local-topics"
 import { screenGraphFeature } from "@/lib/screen-graph"
+import { scaledValuesFeature } from "@/lib/scaled-values"
 import { STATIC_OBJECTS_FEATURE, staticObjectsFeature } from "@/lib/static-objects"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
 import { popupOpeners } from "@/lib/popup"
@@ -681,11 +682,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const localFeature = localTopicsFeature(project.topics)
   // So is the screen graph, once a screen lies off the main row (§2.10).
   const graphFeature = screenGraphFeature(project.screens)
+  // And scaled topics and write formats (§2.11).
+  const scaledFeature = scaledValuesFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [
