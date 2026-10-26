@@ -22,6 +22,7 @@ import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
 import { placeholdersToLiveValues } from "@/lib/live-value"
+import type { CombinedTopic } from "@/lib/combined-topics"
 
 export interface BausteinFont {
   id: string
@@ -179,6 +180,12 @@ export interface BausteinBuildResult {
   objects: Omit<ScreenObject, "id" | "zIndex">[]
   /** Topics the objects bind to, to be registered if the project lacks them. */
   topics: Omit<Topic, "id">[]
+  /**
+   * Scaled topics the objects read as `combined:<name>`, a template's scaling
+   * (tasks/ha-templates-stage2-plan.md, decision 5): adoptCombinedTopics()
+   * brings them into the project.
+   */
+  combinedTopics?: Omit<CombinedTopic, "id">[]
   /**
    * Icons the objects draw, added to the project if it lacks one with the
    * same id - so a block placed twice brings its icon once.
@@ -722,14 +729,17 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
     }
     case "value": {
       const read = control.read
+      const scaled = scaledTopic(entry, control)
       let object: Omit<ScreenObject, "id" | "zIndex">
       if (look === "number") {
         const unit = control.unit ? ` ${control.unit}` : ""
         // The decimals its template rounds to, as the text's number format.
-        const format = control.decimals !== undefined ? `:F${control.decimals}` : ""
+        const decimals = control.decimals ?? control.scale?.decimals
+        const format = decimals !== undefined ? `:F${decimals}` : ""
         object = labelObject(`${named}{topic:${read}${format}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
-      } else object = readLevelObject(look, read, parts.control, palette, font)
-      return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", reported)], assets }
+        if (scaled) object = readingCombined(object, read, scaled.name)
+      } else object = readLevelObject(look, scaled ? `${COMBINED}${scaled.name}` : read, parts.control, palette, font)
+      return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
     }
     case "text": {
       // The text as it comes, across its row: a sentence has no width to
@@ -744,7 +754,11 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // With a measured value beside the setpoint, the fill shows what is
       // measured and the handle what is asked for (docs/2026-09-17-settable-level.md
       // 6b/6c): «Topic» is the measured value, «Setpoint topic» the setpoint.
-      const fillTopic = control.current ?? control.read ?? ""
+      // A read its template scales is read through a scaled topic: the
+      // setpoint's beside a measured value, else the fill's.
+      const scaled = scaledTopic(entry, control)
+      const setpoint = control.read && scaled ? `${COMBINED}${scaled.name}` : control.read
+      const fillTopic = control.current ?? setpoint ?? ""
       // A dial as a row of several parts has only a row's height to go by,
       // which made it 64 px on the 4.3B (reported 2026-10-05): six lines of
       // the block's font instead, 144 px there. The table keeps it within its
@@ -760,7 +774,8 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         properties: {
           ...base.properties,
           writeTopic: control.write,
-          ...(control.current && control.read ? { setpointTopic: control.read } : {}),
+          ...(control.writeFormat ? { writeFormat: control.writeFormat } : {}),
+          ...(control.current && setpoint ? { setpointTopic: setpoint } : {}),
           step: control.step,
           // The entity's own range, end to end.
           calibrationPoints: [
@@ -777,6 +792,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           ...(control.read ? [readTopicEntry(control.read, "numeric", reported)] : []),
           { topic: control.write, type: "numeric", examples: [String(middle)] },
         ],
+        ...(scaled ? { combinedTopics: [scaled] } : {}),
         assets,
       }
     }
@@ -896,6 +912,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       topics[i] = { ...topics[i], subtopics }
     }
   }
+  const combinedTopics = mergedCombined(built)
   // A slot is one object (a part bare, or a switcher), so the columns go
   // with the slots; the first part of a switcher decides its column.
   const firstOf = (slot: (typeof slots)[number]) => entry.controls[(Array.isArray(slot) ? slot[0] : slot.parts[0]).control]
@@ -905,6 +922,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
     ...(partColumns.includes(2) ? { partColumns, partRows } : {}),
     topics,
+    ...(combinedTopics.length > 0 ? { combinedTopics } : {}),
     // The block's icon, and each button's (a description's), once each.
     assets: [...iconAssets(options), ...built.flatMap((b) => b.assets ?? [])].filter(
       (asset, i, all) => all.findIndex((other) => other.id === asset.id) === i,
@@ -964,8 +982,85 @@ function switcherSlot(
       },
     ],
     topics,
+    ...(mergedCombined(parts.map((p) => p.built)).length > 0 ? { combinedTopics: mergedCombined(parts.map((p) => p.built)) } : {}),
     assets: parts.flatMap((p) => p.built.assets ?? []),
   }
+}
+
+// --- Scaled topics a block brings (tasks/ha-templates-stage2-plan.md, decision 5)
+
+const COMBINED = "combined:"
+
+/** A name a live value can read as `combined:<name>`: letters, digits and `_`. */
+function combinedName(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "_")
+      .replace(/^_+|_+$/g, "") || "scaled"
+  )
+}
+
+/** The scaled topic a control reads through, named after its entity and its part: `cabin_temperature`. */
+function scaledTopic(entry: CatalogEntry, control: CatalogControl): Omit<CombinedTopic, "id"> | undefined {
+  if ((control.kind !== "value" && control.kind !== "level") || !control.scale || !control.read) return undefined
+  return {
+    name: combinedName(`${entry.label} ${control.part ?? ""}`),
+    mode: "scale",
+    conditions: [],
+    scale: { source: { namespace: "topic", path: control.read }, ...control.scale },
+  }
+}
+
+/** A text whose live value reads `read`, reading the scaled topic `name` instead. */
+function readingCombined(object: Omit<ScreenObject, "id" | "zIndex">, read: string, name: string): Omit<ScreenObject, "id" | "zIndex"> {
+  const liveValues = (object.properties?.liveValues ?? []).map((lv: { source: { namespace: string; path: string } }) =>
+    lv.source.namespace === "topic" && lv.source.path === read ? { ...lv, source: { namespace: "combined", path: name } } : lv,
+  )
+  return { ...object, properties: { ...object.properties, liveValues } }
+}
+
+function mergedCombined(built: BausteinBuildResult[]): Omit<CombinedTopic, "id">[] {
+  const out: Omit<CombinedTopic, "id">[] = []
+  for (const ct of built.flatMap((b) => b.combinedTopics ?? [])) if (!out.some((x) => x.name === ct.name)) out.push(ct)
+  return out
+}
+
+/**
+ * A block's scaled topics brought into a project's: one the project has
+ * already, the same, is used as it is; one whose name is taken by another
+ * comes in under the name and a number (`cabin_temperature_2`), every object
+ * of the block reading it along. What to add, and the block as it then reads.
+ */
+export function adoptCombinedTopics(
+  built: BausteinBuildResult,
+  existing: readonly CombinedTopic[] | undefined,
+): { built: BausteinBuildResult; add: Omit<CombinedTopic, "id">[] } {
+  const there = [...(existing ?? [])] as Omit<CombinedTopic, "id">[]
+  const add: Omit<CombinedTopic, "id">[] = []
+  const renamed = new Map<string, string>()
+  const same = (a: Omit<CombinedTopic, "id">, b: Omit<CombinedTopic, "id">) => a.mode === b.mode && JSON.stringify(a.scale) === JSON.stringify(b.scale)
+  for (const ct of built.combinedTopics ?? []) {
+    const taken = (name: string) => [...there, ...add].find((x) => x.name === name)
+    let name = ct.name
+    for (let n = 2; taken(name) && !same(taken(name)!, ct); n++) name = `${ct.name}_${n}`
+    if (name !== ct.name) renamed.set(ct.name, name)
+    if (!taken(name)) add.push({ ...ct, name })
+  }
+  if (renamed.size === 0) return { built, add }
+  const rename = (value: unknown, key = ""): unknown => {
+    if (typeof value === "string") return (key === "topic" || key === "setpointTopic") && value.startsWith(COMBINED) && renamed.has(value.slice(COMBINED.length)) ? COMBINED + renamed.get(value.slice(COMBINED.length)) : value
+    if (Array.isArray(value)) return value.map((v) => rename(v, key))
+    if (value && typeof value === "object") {
+      const o = value as Record<string, unknown>
+      const out: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(o)) out[k] = rename(v, k)
+      if (o.namespace === "combined" && typeof o.path === "string" && renamed.has(o.path)) out.path = renamed.get(o.path)
+      return out
+    }
+    return value
+  }
+  return { built: { ...built, objects: rename(built.objects) as BausteinBuildResult["objects"], combinedTopics: add }, add }
 }
 
 /**

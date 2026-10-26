@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import vectors from "../lib/ha-template/vectors.json"
-import { fromJson, namesUsed, parseTemplate, payloadVariables, readSource, renderTemplate, TemplateError, type Value } from "../lib/ha-template"
+import { fromJson, linearForm, namesUsed, parseTemplate, payloadVariables, readSource, renderTemplate, TemplateError, type Template, type Value } from "../lib/ha-template"
 
 // Home Assistant's templates as the designer evaluates them
 // (docs/2026-10-26-ha-templates.md). The expected results are Jinja's own,
@@ -71,5 +71,47 @@ test.describe("what a template needs", () => {
     // Two fields, or a field it computes the name of: no one source.
     expect(source("{{ value_json.a if value_json.b else 'x' }}")).toBeUndefined()
     expect(source("{{ value_json[value_json.k] }}")).toBeUndefined()
+  })
+})
+
+// Stage 2 (tasks/ha-templates-stage2-plan.md, decision 5): a template that is
+// x × a / b + c of one value, as the scale a device computes - exact, the
+// literals read as the decimals they are written as - or why it is not one.
+test.describe("a linear template", () => {
+  const form = (source: string, variable?: string) => linearForm(parseTemplate(source) as Template, variable)
+
+  test("a path, a factor, an offset and a rounding last", () => {
+    expect(form("{{ value_json.a.b * 3.6 }}")).toEqual({ path: ["a", "b"], numerator: 18, denominator: 5, offset: "0", before: "", after: "" })
+    expect(form("{{ (float(value|float) * 3.6) | round(2) }}")).toMatchObject({ path: "value", numerator: 18, denominator: 5, decimals: 2 })
+    expect(form("{{ (value | float(0) / 2.55) | round(0) }}")).toMatchObject({ path: "value", numerator: 20, denominator: 51, decimals: 0 })
+    expect(form('{{ value_json["temp"] - 273.15 }}')).toMatchObject({ path: ["temp"], numerator: 1, denominator: 1, offset: "-273.15" })
+    expect(form("{{ -(value_json.x / 4) + 1 }}")).toMatchObject({ numerator: -1, denominator: 4, offset: "1" })
+    expect(form("{{ value | float | multiply(0.3922) | round(0) }}")).toMatchObject({ numerator: 1961, denominator: 5000, decimals: 0 })
+  })
+
+  test("a command template: the text around the one expression of its variable", () => {
+    expect(form('{"interval":{{value*1000}},"save":true}', "value")).toEqual({
+      path: "value",
+      numerator: 1000,
+      denominator: 1,
+      offset: "0",
+      before: '{"interval":',
+      after: ',"save":true}',
+    })
+    expect(form('{ "position": {{ position }} }', "position")).toMatchObject({ numerator: 1, denominator: 1, before: '{ "position": ', after: " }" })
+  })
+
+  test("what a device cannot compute, and why", () => {
+    expect(form("{{ value_json.x * value_json.x }}")).toEqual({ unsupported: "a value times itself" })
+    expect(form("{{ value_json.a + value_json.b }}")).toEqual({ unsupported: "more than one value" })
+    expect(form("{{ value_json.x | int }}")).toEqual({ unsupported: "the filter int, which cuts off" })
+    expect(form("{{ 10 / value_json.x }}")).toEqual({ unsupported: "a division by the value" })
+    expect(form("{{ ((value_json.f - 32) * 5 / 9) | round(1) }}")).toEqual({ unsupported: "an offset too fine for a device" })
+    expect(form("{{ value_json.x * 0.0000001 }}")).toEqual({ unsupported: "a factor too fine for a device" })
+    expect(form("{{ (value_json.x - 273.15) | round(1) }}")).toEqual({ unsupported: "a rounding coarser than its offset" })
+    expect(form("{{ value_json.x | round(1, 'floor') }}")).toEqual({ unsupported: "a rounding a device does not do" })
+    expect(form("{{ 42 }}")).toEqual({ unsupported: "no value in it" })
+    expect(form("x {{ value_json.x }}")).toEqual({ unsupported: "text outside {{ … }}" })
+    expect(form("{{ value_json.x }} {{ value_json.y }}")).toEqual({ unsupported: "more than one {{ … }}" })
   })
 })

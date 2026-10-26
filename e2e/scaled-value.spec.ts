@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import vectors from "../lib/scaled-value/vectors.json"
 import { formatWrite, scaleValue, type WriteFormat } from "../lib/scaled-value"
 import { combinedReadableFrom, combinedUsage, computeCombined, dependentsOf, evaluationOrder, renameCombined, type CombinedTopic } from "../lib/combined-topics"
-import { placeholderScope, previewHeardTopics } from "../lib/render-screen"
+import { placeholderScope, previewHeardTopics, projectSubscriptionTopics, withCombinedBindings } from "../lib/render-screen"
 import { referenceEntries } from "../lib/placeholder-completion"
 import { mergeNeeds, packClipboard, unpackClipboard } from "../lib/clipboard-transfer"
 
@@ -110,5 +110,28 @@ test.describe("a scaled topic on the clipboard", () => {
     const merged = mergeNeeds(into, payload).project.combinedTopics!
     expect(merged.map((c) => c.name).sort()).toEqual(["celsius", "celsius_2", "fahrenheit"])
     expect(merged.find((c) => c.name === "fahrenheit")!.scale!.source).toEqual({ namespace: "combined", path: "celsius_2" })
+  })
+})
+
+// A bar or a gauge reads a scaled topic as `combined:<name>`, as a device
+// does through ProjectLoader::getTopicValue (S6): the preview computes it,
+// "" before its source has a value, and nothing subscribes the name.
+test.describe("an object bound to a scaled topic", () => {
+  const [fahrenheit, celsius] = combinedVectors.find((v) => v.name.startsWith("a scaled topic reading another"))!.combinedTopics
+  const topics = [{ id: "1", topic: "kelvin", type: "numeric" as const, examples: ["300"] }]
+  const separators = { decimal: ".", thousands: "'" }
+
+  test("reads it in the preview, from the examples and from what arrived", () => {
+    const fromTopic = (t: string | undefined) => `topic ${t}`
+    const examples = withCombinedBindings(fromTopic, placeholderScope({ topics, combinedTopics: [fahrenheit, celsius], separators }))
+    expect(examples("combined:fahrenheit")).toBe("80.3")
+    expect(examples("kelvin")).toBe("topic kelvin")
+    const arrived = withCombinedBindings(fromTopic, placeholderScope({ topics, liveValues: {}, combinedTopics: [fahrenheit, celsius], separators }))
+    expect(arrived("combined:celsius")).toBe("")
+  })
+
+  test("is not subscribed as a topic", () => {
+    const bar = { id: "b", type: "bar", x: 0, y: 0, width: 100, height: 20, zIndex: 0, properties: { topic: "combined:celsius" } }
+    expect(projectSubscriptionTopics({ topics: [], screens: [{ objects: [bar as any] }] })).toEqual([])
   })
 })

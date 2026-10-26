@@ -1,0 +1,14 @@
+{
+  "source": "1technophile/OpenMQTTGateway, main/mqttDiscovery.cpp btScanParametersDiscovery (development, 2026-10-27): the number «BT: Interval between scans», its value and command templates verbatim; no min, max or step, as the gateway sends none; the gateway's topics and device are example values in createDiscovery's shape",
+  "topic": "homeassistant/number/0C8B95F2A1B4-interval/config",
+  "payload": {
+    "name": "BT: Interval between scans",
+    "stat_t": "home/OMG_ESP32_BLE/SYStoMQTT",
+    "val_tpl": "{{ value_json.interval/1000 }}",
+    "cmd_t": "home/OMG_ESP32_BLE/commands/MQTTtoBT/config",
+    "cmd_tpl": "{\"interval\":{{value*1000}},\"save\":true}",
+    "unit_of_meas": "s",
+    "uniq_id": "0C8B95F2A1B4-interval",
+    "dev": { "ids": ["0C8B95F2A1B4"], "name": "OMG_ESP32_BLE", "mf": "OMG_community" }
+  }
+}

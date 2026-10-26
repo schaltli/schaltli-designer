@@ -32,8 +32,11 @@
 
 import { ABBREVIATIONS, DEVICE_ABBREVIATIONS, ORIGIN_ABBREVIATIONS } from "@/lib/ha-abbreviations"
 import { BLOCKS_PREFIX, readDescription } from "@/lib/block-description"
+import { type Scale, type WriteFormat } from "@/lib/scaled-value"
 import {
+  decimalPlaces,
   Dict,
+  linearForm,
   namesUsed,
   parseTemplate,
   payloadVariables,
@@ -401,7 +404,7 @@ export type CatalogControl = (
    * device class battery); `decimals` where its template rounds, for the
    * number shown as text.
    */
-  | { kind: "value"; read: string; unit?: string; level: boolean; decimals?: number }
+  | { kind: "value"; read: string; unit?: string; level: boolean; decimals?: number; scale?: Scale }
   /**
    * A number set by a finger, within min and max in steps. `current` is the
    * measured value beside the setpoint `read` (a block description's
@@ -409,7 +412,21 @@ export type CatalogControl = (
    * `percent`: its number is the fill in percent, not the value - a light's
    * brightness, which Home Assistant shows so whatever its scale (#72).
    */
-  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string; current?: string; percent?: true }
+  | {
+      kind: "level"
+      read?: string
+      write: string
+      min: number
+      max: number
+      step: number
+      unit?: string
+      current?: string
+      percent?: true
+      /** `read` scaled, where its template scales it (tasks/ha-templates-stage2-plan.md, decision 5). */
+      scale?: Scale
+      /** What is published, where its command template puts the value into a text or scales it. */
+      writeFormat?: WriteFormat
+    }
   /** A text shown as it comes: a sensor that is not a number, a cover's state, a block description's. */
   | { kind: "text"; read: string }
   /**
@@ -521,12 +538,87 @@ function num(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback
 }
 
-/** A topic and a template as one Schaltli binding, or why they cannot be. */
-function binding(topic: unknown, template: unknown): { read: string; decimals?: number } | { unsupported: string } | undefined {
+/**
+ * A topic and a template as one Schaltli binding, or why they cannot be.
+ * `scalable`: a number, which a template may scale - read then through a
+ * scaled topic the device computes (tasks/ha-templates-stage2-plan.md,
+ * decision 5).
+ */
+function binding(topic: unknown, template: unknown, scalable = false): { read: string; decimals?: number; scale?: Scale } | { unsupported: string } | undefined {
   if (typeof topic !== "string" || topic === "") return undefined
   const read = readPath(typeof template === "string" ? template : undefined)
-  if ("unsupported" in read) return { unsupported: `the value template: ${read.unsupported}` }
+  if ("unsupported" in read) {
+    const scaled = scalable && typeof template === "string" ? linearRead(template) : undefined
+    if (scaled) return { read: scaled.path ? `${topic}#${scaled.path}` : topic, scale: scaled.scale, ...(scaled.decimals !== undefined ? { decimals: scaled.decimals } : {}) }
+    return { unsupported: `the value template: ${read.unsupported}` }
+  }
   return { read: read.path ? `${topic}#${read.path}` : topic, ...(read.decimals !== undefined ? { decimals: read.decimals } : {}) }
+}
+
+// Without a round(n) of its own a scaled number keeps two decimals, or the
+// offset's where it has more: a chip's own format rounds further.
+const SCALED_DECIMALS = 2
+
+/** A read template that scales one value linearly: the path, the scale, the decimals it rounds to. */
+function linearRead(template: string): { path: string; scale: Scale; decimals?: number } | undefined {
+  const parsed = parseTemplate(template)
+  if ("unsupported" in parsed) return undefined
+  const form = linearForm(parsed)
+  if ("unsupported" in form) return undefined
+  const offsetPlaces = (form.offset.split(".")[1] ?? "").length
+  const path = form.path === "value" ? "" : formatPath(form.path.map((key) => (typeof key === "number" ? { index: key } : { name: key })))
+  return {
+    path,
+    scale: { numerator: form.numerator, denominator: form.denominator, ...(form.offset !== "0" ? { offset: form.offset } : {}), decimals: form.decimals ?? Math.max(SCALED_DECIMALS, offsetPlaces) },
+    ...(form.decimals !== undefined ? { decimals: form.decimals } : {}),
+  }
+}
+
+/** A write format that changes what is sent; `{value}` alone sends the number as it is. */
+function needed(format: WriteFormat | undefined): { writeFormat?: WriteFormat } {
+  if (!format) return {}
+  const plain = format.text === "{value}" && format.numerator === undefined && format.denominator === undefined && format.offset === undefined && format.decimals === undefined
+  return plain ? {} : { writeFormat: format }
+}
+
+/**
+ * What a number's command template publishes, as a write format a device
+ * fills in itself (decision 5): text around one linear expression of
+ * `variable`, or - a dict through tojson, say - a rendering that puts the
+ * value in one place as it is. Undefined where it is neither.
+ */
+function writeFormatOf(template: Template, variable: string, step: number): WriteFormat | undefined {
+  const form = linearForm(template, variable)
+  if (!("unsupported" in form)) {
+    if ((form.before + form.after).includes("{value}")) return undefined
+    const text = form.before + "{value}" + form.after
+    const identity = form.numerator === 1 && form.denominator === 1 && form.offset === "0"
+    if (identity && form.decimals === undefined) return { text }
+    // Without a rounding of its own: the step's places and the factor's.
+    const offsetPlaces = (form.offset.split(".")[1] ?? "").length
+    const stepPlaces = (String(step).split(".")[1] ?? "").length
+    const decimals = form.decimals ?? Math.min(6, Math.max(offsetPlaces, stepPlaces + (decimalPlaces(form.numerator, form.denominator) ?? SCALED_DECIMALS)))
+    return { text, numerator: form.numerator, denominator: form.denominator, ...(form.offset !== "0" ? { offset: form.offset } : {}), decimals }
+  }
+  // The value put in once, unchanged: a whole number and a fraction both
+  // come out as themselves, in the same place.
+  const probe = (num: number, int: boolean) => {
+    try {
+      return renderTemplate(template, { [variable]: { num, int } })
+    } catch (e) {
+      if (e instanceof TemplateError) return undefined
+      throw e
+    }
+  }
+  const whole = probe(1234567, true)
+  const fraction = probe(12.5, false)
+  if (whole === undefined || fraction === undefined) return undefined
+  const at = whole.indexOf("1234567")
+  if (at < 0 || whole.indexOf("1234567", at + 1) >= 0) return undefined
+  const before = whole.slice(0, at)
+  const after = whole.slice(at + "1234567".length)
+  if (fraction !== before + "12.5" + after || (before + after).includes("{value}")) return undefined
+  return { text: before + "{value}" + after }
 }
 
 /**
@@ -539,6 +631,10 @@ interface PartKeys {
   readTemplate?: string
   write?: string
   writeTemplate?: string
+  /** A number: its read template may scale it. */
+  scalable?: boolean
+  /** The name its command template is given the value as, where not `value` - a cover's `position`. */
+  variable?: string
 }
 
 /** A part made, a part that cannot be, or no part at all (none of its keys set). */
@@ -560,7 +656,7 @@ const AS_IT_IS: Send = (value) => ({ payload: typeof value === "string" ? value 
  * Assistant fills from what the designer cannot know - a lock's code, the
  * entity id - is refused, with what it lacks.
  */
-function commandOf(template: unknown, variables: string[] = []): { send: Send; templated: boolean } | { refused: string } {
+function commandOf(template: unknown, variables: string[] = []): { send: Send; templated: boolean; template?: Template } | { refused: string } {
   if (template === undefined || template === null || isPayloadTemplate(template)) return { send: AS_IT_IS, templated: false }
   if (typeof template !== "string") return { refused: "a command template" }
   const parsed = parseTemplate(template)
@@ -568,7 +664,7 @@ function commandOf(template: unknown, variables: string[] = []): { send: Send; t
   const known = new Set(["value", ...variables])
   const lacking = [...namesUsed(parsed)].find((name) => !known.has(name))
   if (lacking) return { refused: `the command template: \`${lacking}\`` }
-  return { send: (value, extra) => render(parsed, { value, ...extra }), templated: true }
+  return { send: (value, extra) => render(parsed, { value, ...extra }), templated: true, template: parsed }
 }
 
 function render(template: Template, variables: Record<string, Value>): { payload: string } | { refused: string } {
@@ -584,16 +680,18 @@ function render(template: Template, variables: Record<string, Value>): { payload
 function partTopics(
   config: Json,
   keys: PartKeys,
-): { read?: string; decimals?: number; write?: string; send?: Send; templated?: boolean; writeRefused?: string } | { skipped: string } {
-  const read = keys.read ? binding(config[keys.read], keys.readTemplate ? config[keys.readTemplate] : undefined) : undefined
+):
+  | { read?: string; decimals?: number; scale?: Scale; write?: string; send?: Send; templated?: boolean; template?: Template; writeRefused?: string }
+  | { skipped: string } {
+  const read = keys.read ? binding(config[keys.read], keys.readTemplate ? config[keys.readTemplate] : undefined, keys.scalable) : undefined
   if (read && "unsupported" in read) return { skipped: read.unsupported }
   const topic = keys.write ? config[keys.write] : undefined
   const write = typeof topic === "string" && topic !== "" ? topic : undefined
-  const command = write ? commandOf(keys.writeTemplate ? config[keys.writeTemplate] : undefined) : undefined
-  const readPart = read ? { read: read.read, ...(read.decimals !== undefined ? { decimals: read.decimals } : {}) } : {}
+  const command = write ? commandOf(keys.writeTemplate ? config[keys.writeTemplate] : undefined, keys.variable ? [keys.variable] : []) : undefined
+  const readPart = read ? { read: read.read, ...(read.decimals !== undefined ? { decimals: read.decimals } : {}), ...(read.scale ? { scale: read.scale } : {}) } : {}
   if (!write || !command) return readPart
   if ("refused" in command) return { ...readPart, writeRefused: command.refused }
-  return { ...readPart, write, send: command.send, templated: command.templated }
+  return { ...readPart, write, send: command.send, templated: command.templated, ...(command.template ? { template: command.template } : {}) }
 }
 
 /** Each value sent, or the first reason one cannot be. */
@@ -725,14 +823,21 @@ function toPlain(value: Value): unknown {
 
 /** A number: a level where it can be written, a value where it can only be read. */
 function levelPart(config: Json, keys: PartKeys, range: { min: number; max: number; step: number }, unit?: string, percent?: true): PartResult {
-  const t = partTopics(config, keys)
+  const t = partTopics(config, { ...keys, scalable: true })
   if ("skipped" in t) return t
   const withUnit = unit ? { unit } : {}
-  // A number through a command template needs the device to render it: not yet.
   const rounded = t.decimals !== undefined ? { decimals: t.decimals } : {}
-  if (t.templated) return t.read ? { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded } } : { skipped: "a command template" }
-  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit, ...(percent ? { percent } : {}) } }
-  if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded } }
+  const scaled = t.scale ? { scale: t.scale } : {}
+  // A number through a command template: a write format where the device can
+  // fill it in, else only read.
+  const writeFormat = t.templated && t.template ? writeFormatOf(t.template, keys.variable ?? "value", range.step) : undefined
+  if (t.templated && !writeFormat) return t.read ? { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded, ...scaled } } : { skipped: "a command template" }
+  if (t.write) {
+    return {
+      control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit, ...(percent ? { percent } : {}), ...scaled, ...needed(writeFormat) },
+    }
+  }
+  if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false, ...rounded, ...scaled } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
 }
 
@@ -792,9 +897,11 @@ function buttonPart(config: Json, keys: PartKeys, payload: string | null, value?
 
 /** A value only read. */
 function valuePart(config: Json, keys: PartKeys, unit: string | undefined, level: boolean): PartResult {
-  const t = partTopics(config, keys)
+  const t = partTopics(config, { ...keys, scalable: true })
   if ("skipped" in t) return t
-  return t.read ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level, ...(t.decimals !== undefined ? { decimals: t.decimals } : {}) } } : undefined
+  return t.read
+    ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level, ...(t.decimals !== undefined ? { decimals: t.decimals } : {}), ...(t.scale ? { scale: t.scale } : {}) } }
+    : undefined
 }
 
 // The sensor device classes whose state is not a number - Home Assistant's
@@ -853,11 +960,13 @@ function coverPayload(config: Json, key: string, fallback: string): string | nul
  * fill - a cover's position always is one.
  */
 function positionPart(config: Json, keys: PartKeys, range: { min: number; max: number }): PartResult {
-  const t = partTopics(config, keys)
+  const t = partTopics(config, { ...keys, scalable: true })
   if ("skipped" in t) return t
-  if (t.templated) return t.read ? { control: { kind: "value", read: t.read, unit: "%", level: true } } : { skipped: "a command template" }
-  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, step: 1, percent: true } }
-  if (t.read) return { control: { kind: "value", read: t.read, unit: "%", level: true } }
+  const scaled = t.scale ? { scale: t.scale } : {}
+  const writeFormat = t.templated && t.template ? writeFormatOf(t.template, keys.variable ?? "value", 1) : undefined
+  if (t.templated && !writeFormat) return t.read ? { control: { kind: "value", read: t.read, unit: "%", level: true, ...scaled } } : { skipped: "a command template" }
+  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, step: 1, percent: true, ...scaled, ...needed(writeFormat) } }
+  if (t.read) return { control: { kind: "value", read: t.read, unit: "%", level: true, ...scaled } }
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
 }
 
@@ -1129,7 +1238,7 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
           "Position",
           positionPart(
             config,
-            { read: "position_topic", readTemplate: "position_template", write: "set_position_topic", writeTemplate: "set_position_template" },
+            { read: "position_topic", readTemplate: "position_template", write: "set_position_topic", writeTemplate: "set_position_template", variable: "position" },
             { min: num(config.position_closed, COVER_POSITION.closed), max: num(config.position_open, COVER_POSITION.open) },
           ),
         ],
@@ -1137,7 +1246,7 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
           "Tilt",
           positionPart(
             config,
-            { read: "tilt_status_topic", readTemplate: "tilt_status_template", write: "tilt_command_topic", writeTemplate: "tilt_command_template" },
+            { read: "tilt_status_topic", readTemplate: "tilt_status_template", write: "tilt_command_topic", writeTemplate: "tilt_command_template", variable: "tilt_position" },
             { min: num(config.tilt_min, COVER_TILT.min), max: num(config.tilt_max, COVER_TILT.max) },
           ),
         ],

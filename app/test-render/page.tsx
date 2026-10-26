@@ -12,7 +12,7 @@ import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/proje
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { projectSeparators } from "@/lib/placeholders"
-import { renderScreenObjects, placeholderScope } from "@/lib/render-screen"
+import { renderScreenObjects, placeholderScope, withCombinedBindings } from "@/lib/render-screen"
 import { contentArea, pullTabColor, pullTabObjects } from "@/lib/pull-tabs"
 import { pullTabSides } from "@/lib/hardware-button-actions"
 import { resolveMasterScreen, resolveBackgroundColor } from "@/lib/master-screen"
@@ -447,7 +447,7 @@ export default function TestRenderPage() {
         colorDepth,
         bdfFontCache,
         iconImageCache,
-        getPreviewValueFromTopic,
+        getPreviewValueFromTopic: withCombinedBindings(getPreviewValueFromTopic, placeholders),
         // What a finger asked for and nothing has answered yet, if the caller
         // says so: a level's marker, a switch's ring.
         getAskedValueFromTopic: (topicName) => (topicName && askedValues ? askedValues[topicName] || "" : ""),

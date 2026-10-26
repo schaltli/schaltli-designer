@@ -1,0 +1,14 @@
+{
+  "source": "merbanan/rtl_433, examples/rtl_433_mqtt_hass.py, mappings[\"wind_avg_m_s\"] (master, 2026-10-27): name, device class, unit, value template and state class verbatim; the state topic, unique id and device are example values in the script's shape",
+  "topic": "homeassistant/sensor/Fineoffset-WH24-147-WS/Fineoffset-WH24-147-WS/config",
+  "payload": {
+    "device_class": "wind_speed",
+    "name": "Wind Average",
+    "unit_of_measurement": "km/h",
+    "value_template": "{{ (float(value|float) * 3.6) | round(2) }}",
+    "state_class": "measurement",
+    "state_topic": "rtl_433/9b13b3f4-rtl433/devices/Fineoffset-WH24/147/wind_avg_m_s",
+    "unique_id": "Fineoffset-WH24-147-WS",
+    "device": { "identifiers": ["Fineoffset-WH24-147"], "name": "Fineoffset-WH24-147", "model": "WH24", "manufacturer": "rtl_433" }
+  }
+}

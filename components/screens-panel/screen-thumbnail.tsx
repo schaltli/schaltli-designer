@@ -6,7 +6,7 @@ import type { ProjectScreen, ProjectFont, ProjectAsset, Topic, ScreenObject } fr
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { DEFAULT_SEPARATORS, type Separators } from "@/lib/placeholders"
-import { renderScreenObjects, getPreviewValueFromTopic, placeholderScope } from "@/lib/render-screen"
+import { renderScreenObjects, getPreviewValueFromTopic, placeholderScope, withCombinedBindings } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
 import { resolveBackgroundColor } from "@/lib/master-screen"
@@ -118,7 +118,7 @@ export function ScreenThumbnail({
         colorDepth,
         bdfFontCache: bdfFontCacheRef.current,
         iconImageCache: iconImageCacheRef.current,
-        getPreviewValueFromTopic: (topicName) => getPreviewValueFromTopic(topicName, topics),
+        getPreviewValueFromTopic: withCombinedBindings((topicName) => getPreviewValueFromTopic(topicName, topics), placeholders),
         placeholders,
         requestRedraw: render,
         screenBackgroundColor: background,

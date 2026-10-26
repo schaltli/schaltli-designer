@@ -69,6 +69,7 @@ import {
 import {
   getPreviewValueFromTopic as getSharedPreviewValueFromTopic,
   getLiveValueFromTopic,
+  withCombinedBindings,
   placeholderScope,
   getActivePanel,
 } from "@/lib/render-screen"
@@ -2164,8 +2165,11 @@ export function Canvas({
     [SNAP_TOLERANCE, snapGuides],
   )
 
-  const getPreviewValueFromTopic = (topicName: string | undefined): string =>
-    liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics)
+  const getPreviewValueFromTopic = withCombinedBindings(
+    (topicName: string | undefined): string =>
+      liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics),
+    placeholderScope({ topics, liveValues, separators: numberSeparators, combinedTopics, test: liveValueTest }),
+  )
   // The same, for a handler that outlives a render: which panel a switcher
   // shows must follow the values as they are now.
   const previewValueRef = useRef(getPreviewValueFromTopic)

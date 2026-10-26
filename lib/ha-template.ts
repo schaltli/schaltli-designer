@@ -1213,3 +1213,181 @@ export function namesUsed(template: Template): Set<string> {
   walk(template.nodes)
   return used
 }
+
+// --- Linear templates (stage 2) -------------------------------------------------
+
+/**
+ * A template whose value is `x × numerator / denominator + offset` of one
+ * value x, as a device scales it (lib/scaled-value.ts;
+ * tasks/ha-templates-stage2-plan.md, decision 5). `decimals` where it rounds
+ * last, `round(n)`; absent, the caller chooses. `before` and `after` are the
+ * text around the one `{{ … }}` - empty for a value template.
+ */
+export interface LinearForm {
+  /** The payload path it reads, or "value"; for a command template, the variable it writes. */
+  path: (string | number)[] | "value"
+  numerator: number
+  denominator: number
+  offset: string
+  decimals?: number
+  before: string
+  after: string
+}
+
+// A fraction n / d, d > 0, kept reduced.
+type Q = { n: bigint; d: bigint }
+const ZERO_Q: Q = { n: BigInt(0), d: BigInt(1) }
+
+function gcd(a: bigint, b: bigint): bigint {
+  if (a < BigInt(0)) a = -a
+  if (b < BigInt(0)) b = -b
+  while (b !== BigInt(0)) [a, b] = [b, a % b]
+  return a
+}
+function q(n: bigint, d: bigint): Q {
+  if (d < BigInt(0)) [n, d] = [-n, -d]
+  const g = gcd(n, d) || BigInt(1)
+  return { n: n / g, d: d / g }
+}
+const add = (a: Q, b: Q) => q(a.n * b.d + b.n * a.d, a.d * b.d)
+const mul = (a: Q, b: Q) => q(a.n * b.n, a.d * b.d)
+const neg = (a: Q): Q => ({ n: -a.n, d: a.d })
+const isZero = (a: Q) => a.n === BigInt(0)
+
+// A number literal as the exact decimal it is written as: 3.6 is 36/10, not
+// the float nearest it.
+function exact(v: Num): Q | undefined {
+  if (!Number.isFinite(v.num)) return undefined
+  const text = String(v.num)
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([-+]\d+))?$/.exec(text)
+  if (!m) return undefined
+  const digits = BigInt(m[2] + (m[3] ?? ""))
+  let places = (m[3] ?? "").length - Number(m[4] ?? 0)
+  let n = m[1] ? -digits : digits
+  let d = BigInt(1)
+  for (; places > 0; places--) d *= BigInt(10)
+  for (; places < 0; places++) n *= BigInt(10)
+  return q(n, d)
+}
+
+/** How many places `x` needs as a decimal, or undefined where it does not end. */
+export function decimalPlaces(n: number | bigint, d: number | bigint): number | undefined {
+  let den = BigInt(d) / (gcd(BigInt(n), BigInt(d)) || BigInt(1))
+  let twos = 0
+  let fives = 0
+  while (den % BigInt(2) === BigInt(0)) (den /= BigInt(2)), twos++
+  while (den % BigInt(5) === BigInt(0)) (den /= BigInt(5)), fives++
+  return den === BigInt(1) ? Math.max(twos, fives) : undefined
+}
+
+/**
+ * The linear form of a template, or why it is not one. `variable`: the name a
+ * command template writes ("value", "position"); absent, it reads the payload
+ * - `value` or one path into `value_json`.
+ */
+export function linearForm(template: Template, variable?: string): LinearForm | { unsupported: string } {
+  const outs = template.nodes.filter((n) => n.t !== "text")
+  if (outs.length !== 1 || outs[0].t !== "out") return { unsupported: outs.length === 1 ? "a {% … %} block" : "more than one {{ … }}" }
+  const at = template.nodes.indexOf(outs[0])
+  const textOf = (nodes: Node[]) => nodes.map((n) => (n as { text: string }).text).join("")
+  const before = textOf(template.nodes.slice(0, at))
+  const after = textOf(template.nodes.slice(at + 1))
+  if (variable === undefined && (before.trim() !== "" || after.trim() !== "")) return { unsupported: "text outside {{ … }}" }
+
+  let expr = outs[0].expr
+  let decimals: number | undefined
+  if (expr.t === "filter" && expr.name === "round") {
+    const [places, method] = expr.args.positional
+    const p = places === undefined ? 0 : places.t === "lit" && isNum(places.v) && places.v.int ? places.v.num : -1
+    const common = method === undefined || (method.t === "lit" && method.v === "common")
+    if (p < 0 || p > 6 || !common || expr.args.named.length > 0) return { unsupported: "a rounding a device does not do" }
+    decimals = p
+    expr = expr.of
+  }
+
+  let path: (string | number)[] | "value" | undefined
+  const sourceOf = (e: Expr): (string | number)[] | "value" | undefined => {
+    if (variable !== undefined) return e.t === "name" && e.name === variable ? "value" : undefined
+    if (e.t === "name") return e.name === "value" ? "value" : undefined
+    if (e.t === "attr" || (e.t === "item" && e.key.t === "lit" && (typeof e.key.v === "string" || isNum(e.key.v)))) {
+      let of: Expr = e
+      const keys: (string | number)[] = []
+      while (of.t === "attr" || of.t === "item") {
+        if (of.t === "attr") keys.unshift(of.name)
+        else if (of.key.t === "lit" && (typeof of.key.v === "string" || isNum(of.key.v))) keys.unshift(typeof of.key.v === "string" ? of.key.v : of.key.v.num)
+        else return undefined
+        of = of.of
+      }
+      return of.t === "name" && of.name === "value_json" ? keys : undefined
+    }
+    return undefined
+  }
+  // a × x + b, where `x` says whether x is in it at all.
+  type L = { a: Q; b: Q; x: boolean } | { unsupported: string }
+  const lin = (e: Expr): L => {
+    const source = sourceOf(e)
+    if (source !== undefined) {
+      if (path !== undefined && JSON.stringify(path) !== JSON.stringify(source)) return { unsupported: "more than one value" }
+      path = source
+      return { a: q(BigInt(1), BigInt(1)), b: ZERO_Q, x: true }
+    }
+    if (e.t === "lit") {
+      const v = isNum(e.v) ? exact(e.v) : undefined
+      return v ? { a: ZERO_Q, b: v, x: false } : { unsupported: `\`${str(e.v)}\`` }
+    }
+    if (e.t === "unary" && e.op !== "not") {
+      const of = lin(e.of)
+      if ("unsupported" in of || e.op === "+") return of
+      return { a: neg(of.a), b: neg(of.b), x: of.x }
+    }
+    if (e.t === "filter") {
+      if (e.name === "float" || e.name === "multiply") {
+        const of = lin(e.of)
+        if ("unsupported" in of || e.name === "float") return of
+        const [by] = e.args.positional
+        const factor = by ? lin(by) : undefined
+        if (!factor || "unsupported" in factor || factor.x) return { unsupported: "the filter multiply" }
+        return { a: mul(of.a, factor.b), b: mul(of.b, factor.b), x: of.x }
+      }
+      return { unsupported: e.name === "int" ? "the filter int, which cuts off" : e.name === "round" ? "a rounding before the end" : `the filter ${e.name}` }
+    }
+    // float(x), as rtl_433 writes it: the number itself.
+    if (e.t === "call" && e.name === "float" && e.args.positional.length >= 1) return lin(e.args.positional[0])
+    if (e.t === "bin" && ["+", "-", "*", "/"].includes(e.op)) {
+      const a = lin(e.a)
+      if ("unsupported" in a) return a
+      const b = lin(e.b)
+      if ("unsupported" in b) return b
+      if (e.op === "+") return { a: add(a.a, b.a), b: add(a.b, b.b), x: a.x || b.x }
+      if (e.op === "-") return { a: add(a.a, neg(b.a)), b: add(a.b, neg(b.b)), x: a.x || b.x }
+      if (e.op === "*") {
+        if (a.x && b.x) return { unsupported: "a value times itself" }
+        const [v, c] = a.x ? [a, b.b] : [b, a.b]
+        return { a: mul(v.a, c), b: mul(v.b, c), x: v.x }
+      }
+      if (b.x || isZero(b.b)) return { unsupported: b.x ? "a division by the value" : "a division by 0" }
+      const by = q(b.b.d, b.b.n)
+      return { a: mul(a.a, by), b: mul(a.b, by), x: a.x }
+    }
+    if (e.t === "bin") return { unsupported: `arithmetic (${e.op})` }
+    return { unsupported: "an expression a device does not compute" }
+  }
+
+  const form = lin(expr)
+  if ("unsupported" in form) return form
+  if (!form.x || isZero(form.a) || path === undefined) return { unsupported: "no value in it" }
+  const limit = BigInt(1_000_000)
+  if (form.a.n > limit || -form.a.n > limit || form.a.d > limit) return { unsupported: "a factor too fine for a device" }
+  const offsetPlaces = decimalPlaces(form.b.n, form.b.d)
+  if (offsetPlaces === undefined || offsetPlaces > 6) return { unsupported: "an offset too fine for a device" }
+  if (form.b.n / form.b.d >= BigInt(1e12) || -form.b.n / form.b.d >= BigInt(1e12)) return { unsupported: "an offset too large for a device" }
+  let scaled = form.b.n
+  for (let i = 0; i < offsetPlaces; i++) scaled *= BigInt(10)
+  const units = scaled / form.b.d
+  const negative = units < BigInt(0)
+  let digits = (negative ? -units : units).toString()
+  while (digits.length <= offsetPlaces) digits = "0" + digits
+  const offset = (negative ? "-" : "") + digits.slice(0, digits.length - offsetPlaces) + (offsetPlaces > 0 ? "." + digits.slice(digits.length - offsetPlaces) : "")
+  if (decimals !== undefined && decimals < offsetPlaces) return { unsupported: "a rounding coarser than its offset" }
+  return { path, numerator: Number(form.a.n), denominator: Number(form.a.d), offset, ...(decimals !== undefined ? { decimals } : {}), before, after }
+}

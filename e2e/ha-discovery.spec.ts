@@ -567,7 +567,12 @@ test.describe("an entity with several parts", () => {
       },
     })
     expect(cover({ pos_t: "c/pos" })).toMatchObject({ entry: { controls: [{ part: "Position", kind: "value", read: "c/pos", unit: "%", level: true }] } })
-    expect(cover({ pos_t: "c/pos", set_pos_t: "c/pos/set", set_pos_tpl: "{{ position }}" })).toMatchObject({
+    // {{ position }}: the number as it is, so no write format (stage 2).
+    expect(cover({ pos_t: "c/pos", set_pos_t: "c/pos/set", set_pos_tpl: "{{ position }}" })).toEqual({
+      entry: expect.objectContaining({ controls: [{ part: "Position", kind: "level", read: "c/pos", write: "c/pos/set", min: 0, max: 100, step: 1, percent: true }] }),
+    })
+    // One a device cannot fill in stays read, as a fill.
+    expect(cover({ pos_t: "c/pos", set_pos_t: "c/pos/set", set_pos_tpl: "{{ (position / 3) | int }}" })).toMatchObject({
       entry: { controls: [{ part: "Position", kind: "value", read: "c/pos", level: true }] },
     })
     expect(cover({ name: "x" })).toMatchObject({ unsupported: { reason: "no part it can show" } })
@@ -596,13 +601,13 @@ test.describe("an entity with several parts", () => {
     expect(entry.skipped).toBeUndefined()
   })
 
-  test("the docs' valve reporting a position: Open and Close render the positions; the position itself only read, as a fill", () => {
+  test("the docs' valve reporting a position: Open and Close render the positions; the position a level writing through the template's text", () => {
     const entry = entryOf("ha-docs-valve-position")
     expect(entry.controls).toEqual([
       { part: "Open", kind: "button", write: "heater/valve/set", payload: '{"x": 100 }' },
       { part: "Close", kind: "button", write: "heater/valve/set", payload: '{"x": 0 }' },
-      // A number through a command template waits for the devices (stage 2).
-      { part: "Position", kind: "value", read: "heater/valve/state#x", unit: "%", level: true },
+      // The number put into the template's text by the device (stage 2).
+      { part: "Position", kind: "level", read: "heater/valve/state#x", write: "heater/valve/set", min: 0, max: 100, step: 1, percent: true, writeFormat: { text: '{"x": {value} }' } },
     ])
   })
 
@@ -863,7 +868,7 @@ test.describe("an entity with several parts", () => {
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {
     const [config] = expandConfig(
       "homeassistant/fan/f/config",
-      JSON.stringify({ cmd_t: "f/set", cmd_tpl: "{{ states('fan.x') }}", pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value * 2 }}" }),
+      JSON.stringify({ cmd_t: "f/set", cmd_tpl: "{{ states('fan.x') }}", pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ (value / 3) | int }}" }),
     )
     expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "Power: the command template: states(); Speed: a command template" } })
   })
@@ -883,7 +888,7 @@ test.describe("an entity with several parts", () => {
     ])
   })
 
-  test("Shelly gen2's thermostat: its modes read from enable and sent as RPC calls, the target only read until devices render numbers", () => {
+  test("Shelly gen2's thermostat: its modes read from enable and sent as RPC calls, the target a level the device puts into the RPC call", () => {
     const entry = entryOf("shellies-gen2-thermostat")
     expect(entry.controls).toEqual([
       {
@@ -898,7 +903,18 @@ test.describe("an entity with several parts", () => {
         ],
         reads: ["false", "true"],
       },
-      { part: "Target temperature", kind: "value", read: "shelly-blu-gateway/status/thermostat:0#target_C", level: false },
+      {
+        part: "Target temperature",
+        kind: "level",
+        read: "shelly-blu-gateway/status/thermostat:0#target_C",
+        write: "shelly-blu-gateway/rpc",
+        min: 5,
+        max: 35,
+        step: 0.5,
+        // The dict through tojson, the value in its place: what Home
+        // Assistant renders for 21.5, the device writes too.
+        writeFormat: { text: '{"id": 1, "method": "Thermostat.SetConfig", "params": {"config": {"id": 0, "target_C": {value}}}, "src": "homeassistant"}' },
+      },
       { part: "Current temperature", kind: "value", read: "shelly-blu-gateway/status/thermostat:0#current_C", level: false },
     ])
   })
@@ -985,5 +1001,72 @@ test.describe("an entity with several parts", () => {
     expect(one("climate", { temp_cmd_t: "k/temp", temp_cmd_tpl: "{{ value }}" })).toMatchObject({
       entry: { controls: [{ part: "Target temperature", kind: "level", write: "k/temp" }] },
     })
+  })
+})
+
+// Stage 2 (tasks/ha-templates-stage2-plan.md, S6): a template that scales a
+// number - read or written - becomes a scaled topic or a write format the
+// device computes, from the survey's projects.
+test.describe("templates that scale a number", () => {
+  function entryOf(name: string) {
+    const [config] = expand(name)
+    const result = toCatalogEntry(config)
+    if (!("entry" in result)) throw new Error(`${name}: ${result.unsupported.reason}`)
+    return result.entry
+  }
+
+  test("rtl_433's wind in km/h: m/s read through a scale, rounded to its two decimals", () => {
+    expect(entryOf("rtl433-wind-average").controls).toEqual([
+      {
+        kind: "value",
+        read: "rtl_433/9b13b3f4-rtl433/devices/Fineoffset-WH24/147/wind_avg_m_s",
+        unit: "km/h",
+        level: false,
+        decimals: 2,
+        scale: { numerator: 18, denominator: 5, decimals: 2 },
+      },
+    ])
+  })
+
+  test("OpenMQTTGateway's scan interval: ms read as s, s written as ms inside its JSON", () => {
+    expect(entryOf("omg-bt-scan-interval").controls).toEqual([
+      {
+        kind: "level",
+        read: "home/OMG_ESP32_BLE/SYStoMQTT#interval",
+        write: "home/OMG_ESP32_BLE/commands/MQTTtoBT/config",
+        min: 1,
+        max: 100,
+        step: 1,
+        unit: "s",
+        scale: { numerator: 1, denominator: 1000, decimals: 2 },
+        writeFormat: { text: '{"interval":{value},"save":true}', numerator: 1000, denominator: 1, decimals: 0 },
+      },
+    ])
+  })
+
+  test("Zigbee2MQTT's cover: the position written as the cover's own variable into its JSON", () => {
+    expect(entryOf("z2m-cover-position").controls).toContainEqual({
+      part: "Position",
+      kind: "level",
+      read: "zigbee2mqtt/Markise#position",
+      write: "zigbee2mqtt/Markise/set",
+      min: 0,
+      max: 100,
+      step: 1,
+      percent: true,
+      writeFormat: { text: '{ "position": {value} }' },
+    })
+  })
+
+  test("a template that is not linear stays as it was", () => {
+    const one = (config: Record<string, unknown>) => toCatalogEntry(expandConfig("homeassistant/sensor/x/config", JSON.stringify(config))[0])
+    expect(one({ stat_t: "s", unit_of_meas: "W", val_tpl: "{{ value_json.a * value_json.a }}" })).toMatchObject({
+      unsupported: { reason: "the value template: arithmetic (* value_json.a)" },
+    })
+    expect(one({ stat_t: "s", unit_of_meas: "W", val_tpl: "{{ (value_json.a | int) * 2 }}" })).toMatchObject({ unsupported: {} })
+    // A number scaled is not a state: a switch keeps its reason.
+    expect(
+      toCatalogEntry(expandConfig("homeassistant/switch/x/config", JSON.stringify({ stat_t: "s", cmd_t: "c", val_tpl: "{{ value_json.a * 2 }}" }))[0]),
+    ).toMatchObject({ unsupported: {} })
   })
 })

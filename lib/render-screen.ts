@@ -77,6 +77,17 @@ export function getPreviewValueFromTopic(topicName: string | undefined, topics: 
   return extracted !== undefined ? extracted : `Field "${path}" not found in ${topic.topic}`
 }
 
+// A bar, a gauge or a chip may read a combined topic - a scaled topic's
+// number (device contract §2.11) - as `combined:<name>`, which a device reads
+// through the same door as a topic (ProjectLoader::getTopicValue). Its value
+// is the scope's, from the same examples or arrived values; none yet reads
+// as "", as a device draws it.
+export const COMBINED_BINDING = "combined:"
+
+export function withCombinedBindings(get: (topicName: string | undefined) => string, scope: PlaceholderScope): (topicName: string | undefined) => string {
+  return (topicName) => (topicName?.startsWith(COMBINED_BINDING) ? (scope.combined?.(topicName.slice(COMBINED_BINDING.length)) ?? "") : get(topicName))
+}
+
 // The live preview's counterpart of getPreviewValueFromTopic: what the
 // broker last delivered on the topic, and "" - no value - until something
 // has (docs/2026-09-15-live-data.md, decisions 5 and 6). No placeholders and
@@ -200,7 +211,9 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
   const walk = (objects: ScreenObject[]) => {
     for (const obj of objects) {
       for (const binding of [obj.properties?.topic, obj.properties?.setpointTopic]) {
-        if (typeof binding === "string" && binding) set.add(splitTopicPath(binding).topic)
+        // A combined topic is the display's own; what it reads is subscribed
+        // as its own (previewHeardTopics, exportedTopics).
+        if (typeof binding === "string" && binding && !binding.startsWith(COMBINED_BINDING)) set.add(splitTopicPath(binding).topic)
       }
       // And every topic a placeholder in its text or label names
       // (docs/2026-09-25-text-placeholders.md).

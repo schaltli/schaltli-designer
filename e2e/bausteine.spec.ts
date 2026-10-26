@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
-import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockRow, blockTable } from "../lib/bausteine"
+import { adoptCombinedTopics, blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockRow, blockTable } from "../lib/bausteine"
 import { isSnapTable, snapCellOf } from "../lib/snap-table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
@@ -551,6 +551,41 @@ test.describe("placing a catalog entry", () => {
         ["Open", { type: "send-mqtt", mqttTopic: "van/grau/set", mqttMessage: "OPEN" }],
         ["Close", { type: "send-mqtt", mqttTopic: "van/grau/set", mqttMessage: "CLOSE" }],
       ])
+    } finally {
+      await clear()
+    }
+  })
+
+  // Stage 2 (tasks/ha-templates-stage2-plan.md, S6): the block brings the
+  // scaled topic it reads into the project, and its slider the write format.
+  test("OpenMQTTGateway's scan interval: a slider reading the scaled topic it brings, writing ms through its format", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["omg-bt-scan-interval"], { "home/OMG_ESP32_BLE/SYStoMQTT": '{"interval":30000}' })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "BT: Interval between scans")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      await page.getByRole("button", { name: "File" }).click()
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+      const project = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+      const scaled = (project.combinedTopics ?? []).filter((ct: any) => ct.mode === "scale")
+      expect(scaled).toEqual([
+        expect.objectContaining({
+          scale: { source: { namespace: "topic", path: "home/OMG_ESP32_BLE/SYStoMQTT#interval" }, numerator: 1, denominator: 1000, decimals: 2 },
+        }),
+      ])
+      const slider = (function find(objects: any[]): any {
+        for (const o of objects) {
+          if (o.type === "slider") return o
+          const inner = o.children ? find(o.children) : undefined
+          if (inner) return inner
+        }
+      })(project.screens[0].objects)
+      expect(slider.properties.topic).toBe(`combined:${scaled[0].name}`)
+      expect(slider.properties.writeFormat).toEqual({ text: '{"interval":{value},"save":true}', numerator: 1000, denominator: 1, decimals: 0 })
+      // Its source declared as a topic, so the device subscribes it.
+      expect(project.topics.map((t: any) => t.topic)).toContain("home/OMG_ESP32_BLE/SYStoMQTT")
     } finally {
       await clear()
     }
@@ -1721,5 +1756,58 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     await page.waitForTimeout(400)
     await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue(setByFinger)
     await expect(value("schaltli/cmnd/maxxfan/temperature")).toHaveValue("19")
+  })
+})
+
+// Stage 2 (tasks/ha-templates-stage2-plan.md, S6): a block whose template
+// scales brings its scaled topic and reads it; one whose command template
+// puts the value into a text carries the write format.
+test.describe("a block that scales", () => {
+  const entryFrom = (name: string) => {
+    const f = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "ha-discovery", `${name}.json`), "utf8"))
+    const result = toCatalogEntry(expandConfig(f.topic, JSON.stringify(f.payload))[0])
+    if (!("entry" in result)) throw new Error(`${name}: ${result.unsupported.reason}`)
+    return result.entry
+  }
+  const rect = { x: 10, y: 10, width: 300, height: 40 }
+  const palette = controlPalette("24bit")
+
+  test("as a number: a text whose live value reads the scaled topic it brings, the source among its topics", () => {
+    const entry = entryFrom("rtl433-wind-average")
+    const built = buildFromCatalog({ entry, control: entry.controls[0], rect, palette, options: { look: "number" } })
+    const read = "rtl_433/9b13b3f4-rtl433/devices/Fineoffset-WH24/147/wind_avg_m_s"
+    expect(built.combinedTopics).toEqual([
+      { name: expect.stringMatching(/^[a-z0-9_]+$/), mode: "scale", conditions: [], scale: { source: { namespace: "topic", path: read }, numerator: 18, denominator: 5, decimals: 2 } },
+    ])
+    const name = built.combinedTopics![0].name
+    const text = built.objects.find((o) => o.type === "text" && o.properties?.liveValues)!
+    expect(text.properties!.liveValues).toEqual([expect.objectContaining({ source: { namespace: "combined", path: name }, format: { kind: "number", decimals: 2, grouped: false } })])
+    expect(built.topics.map((t) => t.topic)).toEqual([read])
+  })
+
+  test("as a bar, and as a slider with its write format", () => {
+    const wind = entryFrom("rtl433-wind-average")
+    // A bar where the value is a fill: offered for a percentage, here forced.
+    const bar = buildFromCatalog({ entry: wind, control: { ...wind.controls[0], level: true } as typeof wind.controls[0], rect, palette, options: { look: "bar" } })
+    expect(bar.objects.find((o) => o.type === "bar")!.properties!.topic).toBe(`combined:${bar.combinedTopics![0].name}`)
+
+    const interval = entryFrom("omg-bt-scan-interval")
+    const slider = buildFromCatalog({ entry: interval, control: interval.controls[0], rect, palette, options: { look: "slider" } })
+    const object = slider.objects.find((o) => o.type === "slider")!
+    expect(object.properties!.topic).toBe(`combined:${slider.combinedTopics![0].name}`)
+    expect(object.properties!.writeTopic).toBe("home/OMG_ESP32_BLE/commands/MQTTtoBT/config")
+    expect(object.properties!.writeFormat).toEqual({ text: '{"interval":{value},"save":true}', numerator: 1000, denominator: 1, decimals: 0 })
+  })
+
+  test("placed again it uses the scaled topic there; one of the name that scales otherwise comes in under another", () => {
+    const entry = entryFrom("rtl433-wind-average")
+    const built = buildFromCatalog({ entry, control: { ...entry.controls[0], level: true } as typeof entry.controls[0], rect, palette, options: { look: "bar" } })
+    const ct = { ...built.combinedTopics![0], id: "c1" }
+    expect(adoptCombinedTopics(built, [ct])).toEqual({ built, add: [] })
+
+    const other = { ...ct, scale: { ...ct.scale!, numerator: 1 } }
+    const adopted = adoptCombinedTopics(built, [other])
+    expect(adopted.add.map((c) => c.name)).toEqual([`${ct.name}_2`])
+    expect(adopted.built.objects.find((o) => o.type === "bar")!.properties!.topic).toBe(`combined:${ct.name}_2`)
   })
 })

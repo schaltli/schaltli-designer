@@ -1,0 +1,19 @@
+{
+  "source": "Koenkk/zigbee2mqtt, lib/extension/homeassistant.ts, case \"cover\" (master, 2026-10-27): a cover with position and no motor state, its value, position and set position templates as the extension writes them for the property position; topics filled in as it fills them; the device and its name are example values",
+  "topic": "homeassistant/cover/0xa4c138d2b1e5f001/cover/config",
+  "payload": {
+    "name": null,
+    "command_topic": "zigbee2mqtt/Markise/set",
+    "state_topic": "zigbee2mqtt/Markise",
+    "value_template": "{{ value_json[\"state\"] }}",
+    "state_open": "OPEN",
+    "state_closed": "CLOSE",
+    "state_stopped": "STOP",
+    "position_template": "{{ value_json[\"position\"] }}",
+    "set_position_template": "{ \"position\": {{ position }} }",
+    "set_position_topic": "zigbee2mqtt/Markise/set",
+    "position_topic": "zigbee2mqtt/Markise",
+    "unique_id": "0xa4c138d2b1e5f001_cover_zigbee2mqtt",
+    "device": { "identifiers": ["zigbee2mqtt_0xa4c138d2b1e5f001"], "name": "Markise", "model": "Curtain motor", "manufacturer": "Tuya" }
+  }
+}

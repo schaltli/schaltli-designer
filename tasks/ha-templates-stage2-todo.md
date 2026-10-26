@@ -16,7 +16,7 @@ Plan: `tasks/ha-templates-stage2-plan.md`. Approved by the user 2026-10-26.
 - [x] Checkpoint: test:quick, native firmware tests, Android unit tests (the new app is built, not installed: the phone's adb asks for confirmation on the phone)
 - [ ] S4 The editor (third kind in Add combined topic, «Send as»)
 - [x] S5 Deploy asks `"scaled-values"`
-- [ ] S6 The import (`linearForm`, scaled topics and write formats from templates)
+- [x] S6 The import (`linearForm`, scaled topics and write formats from templates)
 - [ ] Checkpoint: test:quick
 - [ ] H1 HIL fixtures on every lane
 - [ ] H2 Handbook

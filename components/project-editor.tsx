@@ -13,7 +13,7 @@ import { splitTopicPath } from "@/lib/json-path"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, blockRow, blockTable, buildEntry, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
+import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -2190,7 +2190,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const existingIcon = options.icon
         ? project.assets.find((asset) => asset.type === "icon" && asset.name === options.icon!.name)
         : undefined
-      const built = buildEntry({
+      // The scaled topics it brings, under a free name where theirs is taken.
+      const { built, add: addCombined } = adoptCombinedTopics(buildEntry({
         entry,
         options: existingIcon && options.icon ? { ...options, icon: { ...options.icon, assetId: existingIcon.id } } : options,
         rect,
@@ -2199,19 +2200,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         // elsewhere sized against the panel - see blockFont().
         font: labelFont ?? blockFont(project.fonts, project.screenWidth, project.screenHeight),
         reported: values,
-      })
+      }), project.combinedTopics)
 
       const register = () => setProject((prev) => {
         const missing = built.topics.filter((topic) => !prev.topics.some((t) => t.topic === topic.topic))
         // Icons the block draws, once each, however often it is placed.
         const missingAssets = (built.assets ?? []).filter((asset) => !prev.assets.some((a) => a.id === asset.id))
-        if (missing.length === 0 && missingAssets.length === 0) return prev
+        const missingCombined = addCombined.filter((ct) => !(prev.combinedTopics ?? []).some((c) => c.name === ct.name))
+        if (missing.length === 0 && missingAssets.length === 0 && missingCombined.length === 0) return prev
         return {
           ...prev,
           // Same id shape the Topics settings and MQTT discovery produce
           // (`topic_<ms>`); nextId belongs to objects.
           topics: [...prev.topics, ...missing.map((topic, index) => ({ ...topic, id: `topic_${Date.now() + index}` }))],
           assets: [...prev.assets, ...missingAssets],
+          ...(missingCombined.length > 0
+            ? { combinedTopics: [...(prev.combinedTopics ?? []), ...missingCombined.map((ct, index) => ({ ...ct, id: `ct_${Date.now() + index}` }))] }
+            : {}),
         }
       })
       // Every text the block writes in the Label font is in the Label style,
