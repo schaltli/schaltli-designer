@@ -8,6 +8,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { flushSync } from "react-dom"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
+import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { splitTopicPath } from "@/lib/json-path"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
@@ -1524,7 +1525,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // A finger setting a level: hold what it is set to so the canvas follows the
   // hand, and publish it - while dragging at most every 250 ms, and always on
-  // release (docs/2026-09-17-settable-level.md, decisions 2, 3 and 6).
+  // release (docs/2026-09-17-settable-level.md, decisions 2, 3 and 6). A
+  // write format shapes what is published, never what is held
+  // (tasks/ha-templates-stage2-plan.md, decision 3).
   const handlePreviewSetLevel = useCallback(
     (obj: ScreenObject, value: number, final: boolean) => {
       const topic = obj.properties.topic as string | undefined
@@ -1563,7 +1566,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const last = lastLevelPublishRef.current.get(writeTopic) ?? 0
       if (!final && now - last < LEVEL_PUBLISH_MIN_MS) return
       lastLevelPublishRef.current.set(writeTopic, now)
-      handlePreviewPublish(writeTopic, payload)
+      const sent = formatWrite(payload, obj.properties.writeFormat as WriteFormat | undefined)
+      if (sent !== undefined) handlePreviewPublish(writeTopic, sent)
     },
     [handlePreviewPublish, liveValues, previewSource, project.topics],
   )

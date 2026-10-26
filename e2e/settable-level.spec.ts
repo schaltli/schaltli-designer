@@ -58,7 +58,7 @@ const BAR = { x: 40, y: 40, width: 200, height: 40 }
 // The same rectangle as an object, for the geometry helpers.
 const BAR_OBJECT = { id: "probe", type: "slider", zIndex: 0, ...BAR, properties: { barDirection: "left-to-right" } } as any
 
-async function projectWithSettableBar(prefix: string): Promise<string> {
+async function projectWithSettableBar(prefix: string, extra: Record<string, unknown> = {}): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   project.topics.push(
@@ -90,6 +90,7 @@ async function projectWithSettableBar(prefix: string): Promise<string> {
       markerColor: "#000000",
       markerWidth: 4,
       markerStyle: "line",
+      ...extra,
     },
   })
   zip.file("project.json", JSON.stringify(project))
@@ -298,6 +299,53 @@ test.describe("a level with a write topic can be set", () => {
         .poll(async () => isDark(await colourAt(page, box, atFraction(0.6), rowY)), { timeout: 5000 })
         .toBe(false)
       expect(isDark(await colourAt(page, box, atFraction(0.3), rowY)), "fill at 30% of the reported 42").toBe(true)
+    } finally {
+      await publish(broker, `${prefix}/level`, "").catch(() => {})
+      broker.end(true)
+      fs.unlinkSync(zipPath)
+    }
+  })
+
+  // A write format (tasks/ha-templates-stage2-plan.md, decision 3): the
+  // payload is the format's text around the scaled value; the value on the
+  // screen and the one asked for stay what the finger set.
+  test("publishes through its write format", async ({ page }) => {
+    const prefix = `e2e-set/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const broker = await connectBroker()
+    const zipPath = await projectWithSettableBar(prefix, { writeFormat: { text: '{"brightness":{value}}', numerator: 255, denominator: 100, decimals: 0 } })
+    const commands: string[] = []
+    try {
+      await publish(broker, `${prefix}/level`, "10")
+      await new Promise<void>((resolve) => broker.subscribe(`${prefix}/cmd`, () => resolve()))
+      broker.on("message", (topic, payload) => {
+        if (topic === `${prefix}/cmd`) commands.push(payload.toString())
+      })
+
+      await loadProject(page, zipPath)
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 15000 })
+      await expect(valueField(page, `${prefix}/level`)).toHaveValue("10")
+
+      const { box } = await getMainCanvas(page)
+      const trackRect = levelTrackRect(BAR_OBJECT)
+      const at = (fraction: number) => devicePoint(box, trackRect.x + trackRect.w * fraction, BAR.y + BAR.height / 2)
+      const from = at(0.25)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      const to = at(0.8)
+      await page.mouse.move(to.x, to.y, { steps: 4 })
+      await page.mouse.up()
+
+      await expect.poll(() => commands.length).toBeGreaterThan(0)
+      // Each a step of 5 times 2.55, rounded half away from zero.
+      for (const command of commands) {
+        const brightness = JSON.parse(command).brightness
+        expect(Number.isInteger(brightness), command).toBe(true)
+        expect([...Array(21)].map((_, i) => Math.floor((i * 5 * 255) / 100 + 0.5)), command).toContain(brightness)
+      }
+      const last = JSON.parse(commands[commands.length - 1]).brightness
+      expect(last).toBeGreaterThanOrEqual(191)
+      expect(last).toBeLessThanOrEqual(217)
     } finally {
       await publish(broker, `${prefix}/level`, "").catch(() => {})
       broker.end(true)
@@ -1056,5 +1104,43 @@ test.describe("the shape of a level", () => {
     expect(segments[0].role).toBe("fill")
     expect(segments[1].role).toBe("track")
     expect(segments[0].x + segments[0].w).toBe(segments[1].x)
+  })
+})
+
+// The write format travels to the boards and the app as it is: the device
+// scales and fills it in itself (tasks/ha-templates-stage2-plan.md, S3).
+test.describe("a write format in the export", () => {
+  test("both device exports carry it", async ({ page }) => {
+    const writeFormat = { text: '{"brightness":{value}}', numerator: 255, denominator: 100, decimals: 0 }
+    const project = {
+      name: "write-format",
+      screenWidth: 320,
+      screenHeight: 240,
+      fonts: [],
+      assets: [],
+      topics: [
+        { id: "t1", topic: "lamp/level", type: "numeric", examples: ["40"] },
+        { id: "t2", topic: "lamp/set", type: "numeric", examples: ["40"] },
+      ],
+      hardwareButtons: [],
+      settings: { colorDepth: "24bit", exportFormat: "esp32", gridSize: 10, snapTolerance: 5, snapGrid: "{}" },
+      nextId: 10,
+      screens: [
+        {
+          id: "s",
+          name: "S",
+          objects: [{ id: "lamp", type: "slider", zIndex: 1, ...BAR, properties: { topic: "lamp/level", writeTopic: "lamp/set", writeFormat } }],
+        },
+      ],
+    }
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true, undefined, { timeout: 60000 })
+    for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"]) {
+      const base64: string = await page.evaluate(([name, arg]) => (window as any)[name as string](arg), [hook, project] as const)
+      const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
+      const exported = JSON.parse(await zip.file("project.json")!.async("string"))
+      const lamp = exported.screens.flatMap((sc: any) => sc.objects).find((o: any) => o.id === "lamp")
+      expect(lamp?.properties.writeFormat, hook).toEqual(writeFormat)
+    }
   })
 })
