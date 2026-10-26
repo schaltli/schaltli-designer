@@ -16,5 +16,5 @@ Decisions beyond the cover's:
 - [x] V2 Placed from the broker
   - e2e/bausteine.spec.ts «a grey water valve: its state beside the name, Open and Close a button each sending its payload»
 - [x] V3 Handbook
-  - handbuch/designer/bausteine.md: row «Ventil (`valve`)» and a paragraph under «Mehrere Teile»; through maettel-humanizer
+  - handbuch/designer/bausteine.md: row «Ventil (`valve`)» and a paragraph under «Mehrere Teile»; checked against the maettel-humanizer catalog, the skill itself not run (corrected 2026-10-26)
 - [x] Checkpoint: test:quick 2026-10-26: e2e 1687 passed; papers3 lane green; knob, 4v3b and the phone not reachable, skipped

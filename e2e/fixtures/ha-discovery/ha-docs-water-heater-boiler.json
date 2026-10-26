@@ -1,0 +1,15 @@
+{
+  "source": "home-assistant.io/integrations/water_heater.mqtt, 'Example' (source/_integrations/water_heater.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/water_heater/basement_boiler/config",
+  "payload": {
+    "name": "Boiler",
+    "modes": ["off", "eco", "performance"],
+    "mode_state_topic": "basement/boiler/mode",
+    "mode_command_topic": "basement/boiler/mode/set",
+    "mode_command_template": "{{ value if value==\"off\" else \"on\" }}",
+    "temperature_state_topic": "basement/boiler/temperature",
+    "temperature_command_topic": "basement/boiler/temperature/set",
+    "current_temperature_topic": "basement/boiler/current_temperature",
+    "precision": 1.0
+  }
+}

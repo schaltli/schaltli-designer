@@ -619,6 +619,10 @@ const BRIGHTNESS_SCALE = 255
 const SPEED_RANGE = { min: 1, max: 100 }
 const CLIMATE_TEMPERATURE = { min: 7, max: 35, step: 1 }
 const CLIMATE_MODES = ["auto", "off", "cool", "heat", "dry", "fan_only"]
+// A `water_heater`'s range is 110 to 140 °F (water_heater/const.py), in its
+// unit; in °C to one decimal, as its slider then steps.
+const WATER_HEATER_TEMPERATURE = { F: { min: 110, max: 140, step: 1 }, C: { min: 43.3, max: 60, step: 0.1 } }
+const WATER_HEATER_MODES = ["eco", "electric", "gas", "heat_pump", "high_demand", "performance", "off"]
 const COVER_POSITION = { closed: 0, open: 100 }
 const COVER_TILT = { min: 0, max: 100 }
 
@@ -639,13 +643,40 @@ function positionPart(config: Json, keys: PartKeys, range: { min: number; max: n
   return t.writeRefused ? { skipped: t.writeRefused } : undefined
 }
 
+// The read templates for which `value_template` stands in where they are not
+// set (VALUE_TEMPLATE_KEYS of Home Assistant's climate.py and
+// water_heater.py, 2026-10-26); those of a climate it does not offer as parts
+// are left out.
+const VALUE_TEMPLATE_FALLBACK: Record<string, string[]> = {
+  climate: [
+    "current_temperature_template",
+    "fan_mode_state_template",
+    "mode_state_template",
+    "preset_mode_value_template",
+    "swing_horizontal_mode_state_template",
+    "swing_mode_state_template",
+    "temperature_state_template",
+  ],
+  water_heater: ["current_temperature_template", "mode_state_template", "temperature_state_template"],
+}
+
+/** The config with `value_template` in each read template it stands in for. */
+function withValueTemplate(component: string, config: Json): Json {
+  const keys = VALUE_TEMPLATE_FALLBACK[component]
+  if (!keys || config.value_template === undefined) return config
+  const filled: Json = { ...config }
+  for (const key of keys) if (filled[key] === undefined) filled[key] = config.value_template
+  return filled
+}
+
 /**
  * The parts of an entity with several controls - light, fan, climate - by
  * name, in the order a block shows them (block plan Task 4). A part none of
  * whose keys are set is absent; one that cannot be used is skipped, with
  * its reason, and the others stay.
  */
-function partsOf(component: string, config: Json): [string, PartResult][] | undefined {
+function partsOf(component: string, raw: Json): [string, PartResult][] | undefined {
+  const config = withValueTemplate(component, raw)
   switch (component) {
     case "light": {
       const { on, off } = onOff(config, "payload_on", "payload_off", "ON", "OFF")
@@ -739,6 +770,36 @@ function partsOf(component: string, config: Json): [string, PartResult][] | unde
         ["Fan mode", choice("fan_mode", config.fan_modes)],
         ["Swing", choice("swing_mode", config.swing_modes)],
         ["Swing horizontal", choice("swing_horizontal_mode", config.swing_horizontal_modes)],
+      ]
+    }
+    case "water_heater": {
+      // Climate's keys, fewer of them (Home Assistant's water_heater.py).
+      // Without a unit, °C: Home Assistant would take its own system's unit,
+      // which the designer cannot know.
+      const fahrenheit = config.temperature_unit === "F"
+      const unit = fahrenheit ? "°F" : config.temperature_unit === "C" ? "°C" : undefined
+      const range = fahrenheit ? WATER_HEATER_TEMPERATURE.F : WATER_HEATER_TEMPERATURE.C
+      const power = onOff(config, "payload_on", "payload_off", "ON", "OFF")
+      return [
+        [
+          "Mode",
+          choicePart(
+            config,
+            { read: "mode_state_topic", readTemplate: "mode_state_template", write: "mode_command_topic", writeTemplate: "mode_command_template" },
+            config.modes ?? WATER_HEATER_MODES,
+          ),
+        ],
+        [
+          "Target temperature",
+          levelPart(
+            config,
+            { read: "temperature_state_topic", readTemplate: "temperature_state_template", write: "temperature_command_topic", writeTemplate: "temperature_command_template" },
+            { min: num(config.min_temp, range.min), max: num(config.max_temp, range.max), step: num(config.precision, range.step) },
+            unit,
+          ),
+        ],
+        ["Current temperature", valuePart(config, { read: "current_temperature_topic", readTemplate: "current_temperature_template" }, unit, false)],
+        ["Power", switchPart(config, { write: "power_command_topic", writeTemplate: "power_command_template" }, power.on, power.off)],
       ]
     }
     case "cover": {

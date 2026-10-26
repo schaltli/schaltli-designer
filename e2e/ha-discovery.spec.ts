@@ -570,6 +570,59 @@ test.describe("an entity with several parts", () => {
     })
   })
 
+  // A water heater: climate's keys, fewer of them (Home Assistant's water_heater.py).
+  test("a boiler: its modes, the target temperature in its range and steps, the current temperature", () => {
+    const entry = entryOf("schaltli-boiler")
+    expect(entry.controls).toEqual([
+      { part: "Mode", kind: "choice", read: "van/boiler/mode", write: "van/boiler/mode/set", options: ["off", "eco", "electric", "gas"] },
+      { part: "Target temperature", kind: "level", read: "van/boiler/soll", write: "van/boiler/soll/set", min: 40, max: 60, step: 1, unit: "°C" },
+      { part: "Current temperature", kind: "value", read: "van/boiler/ist", unit: "°C", level: false },
+    ])
+    expect(entry.skipped).toBeUndefined()
+  })
+
+  test("the docs' boiler: the mode skipped for its command template, the temperature on the default range, a step of its precision", () => {
+    const entry = entryOf("ha-docs-water-heater-boiler")
+    expect(entry.controls).toEqual([
+      { part: "Target temperature", kind: "level", read: "basement/boiler/temperature", write: "basement/boiler/temperature/set", min: 43.3, max: 60, step: 1 },
+      { part: "Current temperature", kind: "value", read: "basement/boiler/current_temperature", level: false },
+    ])
+    expect(entry.skipped).toEqual([{ part: "Mode", reason: "a command template" }])
+  })
+
+  test("a water heater's default modes, its range in °F, its power", () => {
+    const [config] = expandConfig(
+      "homeassistant/water_heater/w/config",
+      JSON.stringify({ mode_cmd_t: "w/mode", temp_cmd_t: "w/temp", temp_unit: "F", pow_cmd_t: "w/power" }),
+    )
+    expect(toCatalogEntry(config)).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Mode", kind: "choice", write: "w/mode", options: ["eco", "electric", "gas", "heat_pump", "high_demand", "performance", "off"] },
+          { part: "Target temperature", kind: "level", write: "w/temp", min: 110, max: 140, step: 1, unit: "°F" },
+          { part: "Power", kind: "switch", write: "w/power", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
+        ],
+      },
+    })
+  })
+
+  test("`value_template` stands in for each read template not set, of a climate and a water heater", () => {
+    for (const component of ["climate", "water_heater"]) {
+      const [config] = expandConfig(
+        `homeassistant/${component}/t/config`,
+        JSON.stringify({ val_tpl: "{{ value_json.v }}", mode_stat_t: "t/mode", mode_cmd_t: "t/mode/set", modes: ["off", "heat"], curr_temp_t: "t/now", curr_temp_tpl: "{{ value_json.now }}" }),
+      )
+      expect(toCatalogEntry(config)).toMatchObject({
+        entry: {
+          controls: [
+            { part: "Mode", read: "t/mode#v" },
+            { part: "Current temperature", read: "t/now#now" },
+          ],
+        },
+      })
+    }
+  })
+
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {
     const [config] = expandConfig(
       "homeassistant/fan/f/config",

@@ -556,6 +556,32 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a boiler: its modes as buttons, the target temperature a slider, the current temperature named in its row", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-boiler"], { "van/boiler/mode": "eco", "van/boiler/soll": "50", "van/boiler/ist": "38" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Boiler")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "slider", "text"])
+      expect(parts[1].properties).toMatchObject({
+        topic: "van/boiler/soll",
+        writeTopic: "van/boiler/soll/set",
+        step: 1,
+        calibrationPoints: [
+          { value: 40, barSizePercent: 0 },
+          { value: 60, barSizePercent: 100 },
+        ],
+      })
+      expect(asPlaceholders(parts[2])).toBe("Current temperature {topic:van/boiler/ist} °C")
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.

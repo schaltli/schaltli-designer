@@ -1,0 +1,19 @@
+{
+  "source": "the boiler of the 2026-10-26 overview of Home Assistant entities for Schaltli: written for it, every key as water_heater.mqtt documents it",
+  "topic": "homeassistant/water_heater/van/van_boiler/config",
+  "payload": {
+    "name": "Boiler",
+    "unique_id": "van_boiler",
+    "modes": ["off", "eco", "electric", "gas"],
+    "mode_state_topic": "van/boiler/mode",
+    "mode_command_topic": "van/boiler/mode/set",
+    "temperature_state_topic": "van/boiler/soll",
+    "temperature_command_topic": "van/boiler/soll/set",
+    "current_temperature_topic": "van/boiler/ist",
+    "min_temp": 40,
+    "max_temp": 60,
+    "precision": 1.0,
+    "temperature_unit": "C",
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}
