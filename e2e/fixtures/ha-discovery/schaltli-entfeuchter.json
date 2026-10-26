@@ -1,0 +1,17 @@
+{
+  "source": "the dehumidifier of the 2026-10-26 overview of Home Assistant entities for Schaltli: written for it, every key as humidifier.mqtt documents it",
+  "topic": "homeassistant/humidifier/van/van_entfeuchter/config",
+  "payload": {
+    "name": "Entfeuchter",
+    "unique_id": "van_entfeuchter",
+    "device_class": "dehumidifier",
+    "command_topic": "van/entf/set",
+    "state_topic": "van/entf/state",
+    "target_humidity_command_topic": "van/entf/ziel/set",
+    "target_humidity_state_topic": "van/entf/ziel",
+    "current_humidity_topic": "van/entf/ist",
+    "min_humidity": 30,
+    "max_humidity": 80,
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}

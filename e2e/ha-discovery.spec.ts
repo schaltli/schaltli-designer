@@ -344,7 +344,7 @@ test.describe("an entity as a catalog entry", () => {
     })
     expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("humidifier", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component humidifier" } })
+    expect(one("siren", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component siren" } })
   })
 })
 
@@ -684,6 +684,43 @@ test.describe("an entity with several parts", () => {
       { part: "Lock", reason: "a code" },
       { part: "Open", reason: "a code" },
     ])
+  })
+
+  // A humidifier (Home Assistant's humidifier.py): as a fan, its humidity in percent.
+  test("the docs' humidifier: power, modes, the target humidity in its range, the current one as a fill", () => {
+    const entry = entryOf("ha-docs-humidifier-bedroom")
+    expect(entry.controls).toEqual([
+      {
+        part: "Power",
+        kind: "switch",
+        read: "bedroom_humidifier/on/state",
+        write: "bedroom_humidifier/on/set",
+        on: { read: "true", write: "true" },
+        off: { read: "false", write: "false" },
+      },
+      {
+        part: "Mode",
+        kind: "choice",
+        read: "bedroom_humidifier/mode/state",
+        write: "bedroom_humidifier/preset/preset_mode",
+        options: ["normal", "eco", "away", "boost", "comfort", "home", "sleep", "auto", "baby"],
+      },
+      { part: "Target humidity", kind: "level", read: "bedroom_humidifier/humidity/state", write: "bedroom_humidifier/humidity/set", min: 30, max: 80, step: 1, unit: "%" },
+      { part: "Current humidity", kind: "value", read: "bedroom_humidifier/humidity/current", unit: "%", level: true },
+    ])
+    expect(entry.skipped).toBeUndefined()
+  })
+
+  test("a humidifier's defaults: ON and OFF, 0 to 100 %, no modes without a list", () => {
+    const [config] = expandConfig("homeassistant/humidifier/h/config", JSON.stringify({ cmd_t: "h/set", hum_cmd_t: "h/target" }))
+    expect(toCatalogEntry(config)).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Power", kind: "switch", write: "h/set", on: { write: "ON" }, off: { write: "OFF" } },
+          { part: "Target humidity", kind: "level", write: "h/target", min: 0, max: 100, step: 1, unit: "%" },
+        ],
+      },
+    })
   })
 
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {

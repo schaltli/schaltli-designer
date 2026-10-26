@@ -630,6 +630,7 @@ const CLIMATE_MODES = ["auto", "off", "cool", "heat", "dry", "fan_only"]
 // unit; in °C to one decimal, as its slider then steps.
 const WATER_HEATER_TEMPERATURE = { F: { min: 110, max: 140, step: 1 }, C: { min: 43.3, max: 60, step: 0.1 } }
 const WATER_HEATER_MODES = ["eco", "electric", "gas", "heat_pump", "high_demand", "performance", "off"]
+const HUMIDITY = { min: 0, max: 100 }
 const COVER_POSITION = { closed: 0, open: 100 }
 const COVER_TILT = { min: 0, max: 100 }
 
@@ -777,6 +778,39 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
         ["Fan mode", choice("fan_mode", config.fan_modes)],
         ["Swing", choice("swing_mode", config.swing_modes)],
         ["Swing horizontal", choice("swing_horizontal_mode", config.swing_horizontal_modes)],
+      ]
+    }
+    case "humidifier": {
+      // As a fan: on or off, the mode, then the humidity it aims for and the
+      // one it measures (Home Assistant's humidifier.py, 0 to 100 % unless
+      // its config says). Its action - humidifying, drying, idle - is left
+      // out, as a climate's is.
+      const power = onOff(config, "payload_on", "payload_off", "ON", "OFF")
+      return [
+        ["Power", switchPart(config, { read: "state_topic", readTemplate: "state_value_template", write: "command_topic", writeTemplate: "command_template" }, power.on, power.off)],
+        [
+          "Mode",
+          choicePart(
+            config,
+            { read: "mode_state_topic", readTemplate: "mode_state_template", write: "mode_command_topic", writeTemplate: "mode_command_template" },
+            config.modes,
+          ),
+        ],
+        [
+          "Target humidity",
+          levelPart(
+            config,
+            {
+              read: "target_humidity_state_topic",
+              readTemplate: "target_humidity_state_template",
+              write: "target_humidity_command_topic",
+              writeTemplate: "target_humidity_command_template",
+            },
+            { min: num(config.min_humidity, HUMIDITY.min), max: num(config.max_humidity, HUMIDITY.max), step: 1 },
+            "%",
+          ),
+        ],
+        ["Current humidity", valuePart(config, { read: "current_humidity_topic", readTemplate: "current_humidity_template" }, "%", true)],
       ]
     }
     case "water_heater": {

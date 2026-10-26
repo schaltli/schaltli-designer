@@ -619,6 +619,31 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a dehumidifier: power as buttons, the target humidity a slider in its range, the current humidity a fill", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-entfeuchter"], { "van/entf/state": "ON", "van/entf/ziel": "55", "van/entf/ist": "68" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Entfeuchter")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "slider", "bar"])
+      expect(parts[1].properties).toMatchObject({
+        topic: "van/entf/ziel",
+        writeTopic: "van/entf/ziel/set",
+        calibrationPoints: [
+          { value: 30, barSizePercent: 0 },
+          { value: 80, barSizePercent: 100 },
+        ],
+      })
+      expect(parts[2].properties).toMatchObject({ topic: "van/entf/ist" })
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.
