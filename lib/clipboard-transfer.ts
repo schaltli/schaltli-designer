@@ -105,7 +105,8 @@ function needs(what: Json, project: Project) {
     if (seen.has(name)) continue
     seen.add(name)
     const before = new Set(combined)
-    look(combinedByName.get(name)!.conditions)
+    const ct = combinedByName.get(name)!
+    look([ct.conditions, ct.scale ?? null])
     for (const c of combined) if (!before.has(c)) pending.push(c)
   }
   return {
@@ -198,7 +199,7 @@ export function mergeNeeds(project: Project, payload: ClipboardPayload): { proje
   const incoming: CombinedTopic[] = []
   for (const c of payload.combinedTopics) {
     const there = combined.find((x) => x.name === c.name)
-    if (there && same(there.mode, c.mode) && same(there.conditions, c.conditions)) {
+    if (there && same(there.mode, c.mode) && same(there.conditions, c.conditions) && same(there.scale, c.scale)) {
       combinedNames.set(c.name, c.name)
       continue
     }
@@ -214,7 +215,7 @@ export function mergeNeeds(project: Project, payload: ClipboardPayload): { proje
   }
   for (const c of incoming) {
     const id = unique(c.id, new Set(combined.map((x) => x.id)), "-")
-    combined.push({ ...c, id, conditions: renameSources(c.conditions, combinedNames) })
+    combined.push({ ...c, id, conditions: renameSources(c.conditions, combinedNames), ...(c.scale ? { scale: renameSources(c.scale, combinedNames) } : {}) })
   }
 
   return { project: { ...project, assets, fonts, topics, combinedTopics: combined }, rename }

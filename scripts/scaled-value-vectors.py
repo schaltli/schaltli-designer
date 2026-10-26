@@ -10,8 +10,12 @@ beside it.
 
     python scripts/scaled-value-vectors.py
 
-Add a case to SCALE or WRITE and run the script again; e2e/scaled-value.spec.ts,
-the firmware's test_scaled_value and the app's ScaledValueTest run them all.
+Add a case to SCALE, WRITE or COMBINED and run the script again;
+e2e/scaled-value.spec.ts, the firmware's test_scaled_value and the app's
+ScaledValueTest run them all. COMBINED holds scaled topics in a project
+(decision 2), in the shape of lib/live-value/vectors.json's «combined»: here
+rather than there so that the devices' copies of the live value vectors stay
+what they run until they compute scaled topics.
 """
 
 import json
@@ -154,6 +158,54 @@ WRITE = [
 ]
 
 
+def scaled(id, name, namespace, path, numerator, denominator, offset, decimals):
+    return {
+        "id": id,
+        "name": name,
+        "mode": "scale",
+        "conditions": [],
+        "scale": {
+            "source": {"namespace": namespace, "path": path},
+            "numerator": numerator,
+            "denominator": denominator,
+            "offset": offset,
+            "decimals": decimals,
+        },
+    }
+
+
+wind = scaled("c1", "wind_kmh", "topic", "weather#wind", 18, 5, "0", 1)
+fahrenheit = scaled("c2", "fahrenheit", "combined", "celsius", 9, 5, "32", 1)
+celsius = scaled("c3", "celsius", "topic", "kelvin", 1, 1, "-273.15", 2)
+windy = {
+    "id": "c4",
+    "name": "windy",
+    "mode": "any",
+    "conditions": [{"source": {"namespace": "combined", "path": "wind_kmh"}, "op": ">", "operand": "50"}],
+}
+
+# (name, combined topics in the project's order, topic values, expected or circular)
+COMBINED = [
+    ("a scaled topic: m/s to km/h", [wind], {"weather#wind": "12.5"}, {"wind_kmh": scale("12.5", 18, 5, "0", 1)}),
+    ("a source without a value: no value yet", [wind], {}, {"wind_kmh": None}),
+    ("a source that is not a number: no value", [wind], {"weather#wind": "calm"}, {"wind_kmh": None}),
+    (
+        "a scaled topic reading another, listed before it",
+        [fahrenheit, celsius],
+        {"kelvin": "294.15"},
+        {"celsius": scale("294.15", 1, 1, "-273.15", 2), "fahrenheit": scale(scale("294.15", 1, 1, "-273.15", 2), 9, 5, "32", 1)},
+    ),
+    ("a condition on a scaled topic", [windy, wind], {"weather#wind": "15"}, {"wind_kmh": scale("15", 18, 5, "0", 1), "windy": "true"}),
+    ("a condition on a scaled topic, below", [windy, wind], {"weather#wind": "13.8"}, {"wind_kmh": scale("13.8", 18, 5, "0", 1), "windy": "false"}),
+    (
+        "two scaled topics reading each other: circular",
+        [scaled("c1", "b", "combined", "a", 1, 1, "0", 0), scaled("c2", "a", "combined", "b", 1, 1, "0", 0)],
+        {},
+        ["a", "b", "a"],
+    ),
+]
+
+
 def main():
     cases = {
         "scale": [
@@ -161,6 +213,10 @@ def main():
             for (v, n, d, o, k) in SCALE
         ],
         "write": [{"value": v, "format": f, "result": write(v, f)} for (v, f) in WRITE],
+        "combined": [
+            {"name": n, "combinedTopics": cts, "values": values, **({"circular": e} if isinstance(e, list) else {"expected": e})}
+            for (n, cts, values, e) in COMBINED
+        ],
     }
     path = os.path.join(os.path.dirname(__file__), "..", "lib", "scaled-value", "vectors.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)

@@ -11,7 +11,7 @@
  */
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
-import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
+import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
 import type { LiveValue } from "@/lib/live-value"
@@ -229,7 +229,7 @@ export function previewHeardTopics(
   const screens = onView.filter((s): s is { objects: ScreenObject[] } => !!s)
   const set = new Set(projectSubscriptionTopics({ screens }))
   for (const ct of combinedTopics ?? []) {
-    for (const c of ct.conditions) if (c.source.namespace === "topic" && c.source.path) set.add(splitTopicPath(c.source.path).topic)
+    for (const s of combinedSources(ct)) if (s.namespace === "topic" && s.path) set.add(splitTopicPath(s.path).topic)
   }
   for (const screen of allScreens) {
     if (screen.iconLive?.source.namespace === "topic" && screen.iconLive.source.path) set.add(splitTopicPath(screen.iconLive.source.path).topic)

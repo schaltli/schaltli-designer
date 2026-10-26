@@ -1,12 +1,15 @@
 // Combined topics: a topic the project defines and the device computes - yes
 // when all, or any, of its conditions apply (docs/2026-10-07-live-values.md,
-// decisions 10-15). A condition may read another combined topic, so they nest
-// by name; a circular reference is refused, and so is more than 8 levels.
+// decisions 10-15), or a number scaled from one source (a scaled topic,
+// tasks/ha-templates-stage2-plan.md, decision 2). A condition or a scale may
+// read another combined topic, so they nest by name; a circular reference is
+// refused, and so is more than 8 levels.
 //
 // Written to be ported, like lib/live-value.ts; the cases are in
 // lib/live-value/vectors.json («combined»).
 
 import { matches, type RuleOperator, type Source } from "@/lib/live-value"
+import { scaleValue, type Scale } from "@/lib/scaled-value"
 
 export interface CombinedCondition {
   source: Source
@@ -14,23 +17,40 @@ export interface CombinedCondition {
   operand?: string
 }
 
+/** A scaled topic's one source, scaled as lib/scaled-value.ts says. */
+export interface CombinedScale extends Scale {
+  source: Source
+}
+
 export interface CombinedTopic {
   id: string
   /** What a live value reads it as: `combined:<name>`. */
   name: string
-  mode: "all" | "any"
+  mode: "all" | "any" | "scale"
+  /** None for "scale". */
   conditions: CombinedCondition[]
+  /** "scale" only. */
+  scale?: CombinedScale
 }
 
 /** More levels than this, and the export refuses: what a device recomputes per message stays small. */
 export const MAX_COMBINED_DEPTH = 8
 
-/** What a combined topic reads as, as any topic value: "true", "false", or undefined for no value yet. */
-export type CombinedValue = "true" | "false" | undefined
+/**
+ * What a combined topic reads as, as any topic value: "true" or "false" for
+ * all and any, a plain decimal ("21.5") for a scaled topic, or undefined for
+ * no value yet.
+ */
+export type CombinedValue = string | undefined
+
+/** Everything a combined topic reads: its conditions' sources, or its scale's. */
+export function combinedSources(ct: CombinedTopic): Source[] {
+  return ct.mode === "scale" ? (ct.scale ? [ct.scale.source] : []) : ct.conditions.map((c) => c.source)
+}
 
 function combinedUses(ct: CombinedTopic): string[] {
   const names: string[] = []
-  for (const c of ct.conditions) if (c.source.namespace === "combined" && !names.includes(c.source.path)) names.push(c.source.path)
+  for (const s of combinedSources(ct)) if (s.namespace === "combined" && !names.includes(s.path)) names.push(s.path)
   return names
 }
 
@@ -83,9 +103,16 @@ export function evaluationOrder(cts: readonly CombinedTopic[]): { order: Combine
 /**
  * One combined topic from the values its conditions read: «any» is yes as
  * soon as one condition is yes, «all» is no as soon as one is no; otherwise
- * no value until every source has one. No conditions: no value.
+ * no value until every source has one. No conditions: no value. A scaled
+ * topic: its source scaled, no value while the source has none or is not a
+ * number the scale takes.
  */
 export function evaluateCombined(ct: CombinedTopic, read: (source: Source) => string | undefined): CombinedValue {
+  if (ct.mode === "scale") {
+    if (!ct.scale) return undefined
+    const value = read(ct.scale.source)
+    return value === undefined ? undefined : scaleValue(value, ct.scale)
+  }
   if (ct.conditions.length === 0) return undefined
   let unknown = false
   for (const condition of ct.conditions) {
@@ -129,7 +156,7 @@ export function dependentsOf(cts: readonly CombinedTopic[], name: string, namesp
     source.namespace === "combined"
       ? affected.has(source.path) || (namespace === "combined" && source.path === name)
       : namespace === "topic" && source.namespace === "topic" && source.path.split("#")[0] === name
-  for (const ct of order) if (ct.conditions.some((c) => reads(c.source))) affected.add(ct.name)
+  for (const ct of order) if (combinedSources(ct).some(reads)) affected.add(ct.name)
   return order.filter((ct) => affected.has(ct.name)).map((ct) => ct.name)
 }
 
@@ -179,7 +206,7 @@ export function combinedUsage(project: ProjectLike, name: string): string[] {
     }
   })
   for (const ct of project.combinedTopics ?? []) {
-    if (ct.name !== name && ct.conditions.some((c) => readsCombined(c.source, name))) users.push(`combined ${ct.name}`)
+    if (ct.name !== name && combinedSources(ct).some((s) => readsCombined(s, name))) users.push(`combined ${ct.name}`)
   }
   return users
 }
@@ -192,7 +219,7 @@ export function renameCombined<T extends ProjectLike>(project: T, from: string, 
   }
   for (const ct of copy.combinedTopics ?? []) {
     if (ct.name === from) ct.name = to
-    ct.conditions.forEach((c) => rename(c.source))
+    combinedSources(ct).forEach(rename)
   }
   forEachObject(copy, (obj) => {
     if (Array.isArray(obj.properties?.liveValues)) obj.properties!.liveValues.forEach((lv: { source?: Source }) => rename(lv.source))

@@ -3,7 +3,7 @@
 Plan: `tasks/ha-templates-stage2-plan.md`. Approved by the user 2026-10-26.
 
 - [x] S1 The arithmetic and its vectors (`lib/scaled-value.ts`, vectors, e2e)
-- [ ] S2 Scaled topics in the project (combined kind `scale`, vectors, export)
+- [x] S2 Scaled topics in the project (combined kind `scale`, vectors, export)
 - [ ] S3 Write formats on levels (property, preview publish, export)
 - [ ] S7 Contract (§1 feature, §2.6 scale kind, write format)
 - [ ] Checkpoint: test:quick

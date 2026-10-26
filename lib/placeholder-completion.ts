@@ -43,7 +43,7 @@ export interface HeardReference {
 export function referenceEntries(
   query: string,
   topics: Topic[],
-  combined: readonly { name: string }[] = [],
+  combined: readonly { name: string; mode?: string }[] = [],
   heard: readonly HeardReference[] = [],
 ): ReferenceEntry[] {
   const all: ReferenceEntry[] = []
@@ -62,7 +62,7 @@ export function referenceEntries(
   const declared = new Set(topics.map((t) => t.topic))
   for (const h of heard) if (!declared.has(h.topic)) all.push({ section: "heard", reference: `topic:${h.topic}`, detail: h.type, example: h.latest })
   // Combined topics after the topics they are made of (lib/combined-topics.ts).
-  for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: "yes / no" })
+  for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: ct.mode === "scale" ? "number" : "yes / no" })
   for (const namespace of ["device", "project"] as const) {
     for (const field of FIELDS[namespace]) {
       const reference = `${namespace}:${field}`

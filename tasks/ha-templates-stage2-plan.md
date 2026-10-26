@@ -26,8 +26,10 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
    C++ `int64_t`, Kotlin `Long`). A value that is not a plain decimal or
    exceeds the bounds gives no value, never a wrong one.
 2. **A scaled topic is a third kind of combined topic.** Beside `all` and
-   `any`: `{ mode: "scale", source, numerator, denominator, offset?,
-   decimals }`, one source (a topic, a JSON field, another combined topic),
+   `any`: `{ mode: "scale", conditions: [], scale: { source, numerator,
+   denominator, offset?, decimals } }` (built so in S2: one object the
+   arithmetic takes as it is), one source (a topic, a JSON field, another
+   combined topic),
    read as `combined:<name>` like the others - so the evaluation order,
    the circular-reference check, «no value yet», delete and rename are the
    ones combined topics already have. Its value is the number as text in
@@ -78,11 +80,12 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
   value yet» (a source without a value has none), the preview computing it
   from its source's examples and test value. The export carries it as the
   other kinds.
-  Test: the `combined` section of `lib/live-value/vectors.json` gains scale
-  cases (the firmware and app run them there too); an e2e that a scaled
-  topic reading another combined topic is ordered after it, a circle
-  refused.
-  Files: `lib/combined-topics.ts`, `lib/live-value/vectors.json`,
+  Test: scale cases in the shape of the `combined` section of
+  `lib/live-value/vectors.json`, but in `lib/scaled-value/vectors.json`
+  (changed in S2: the devices' copies of the live value vectors would fail
+  until F1 and A1); an e2e that a scaled topic reading another combined
+  topic is ordered after it, a circle refused.
+  Files: `lib/combined-topics.ts`, `lib/scaled-value/vectors.json`,
   `e2e/combined-topics.spec.ts`, the export.
 - **S3 Write formats on levels.** `writeFormat` on slider, dial, settable
   bar and arc; the designer's preview publishes through it where it
@@ -128,8 +131,8 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
 - **F1 Port.** `src/project/ScaledValue.{h,cpp}` from `lib/scaled-value.ts`;
   `CombinedTopics` evaluates the scale kind; `test/test_scaled_value`
   runs `lib/scaled-value/vectors.json` (a copy, checked byte for byte
-  against the designer's, as the live value vectors are);
-  `test_live_value` gains the combined scale cases with the vectors.
+  against the designer's, as the live value vectors are), its `combined`
+  section through `CombinedTopics`.
 - **F2 Writing.** Every place a board publishes a set level - 4.3B
   (`levelDragWriteTopic`), Knob, PaperS3 - goes through one
   `formatWrite()`; the asked value stays the unscaled number.

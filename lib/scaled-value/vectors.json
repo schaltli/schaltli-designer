@@ -489,5 +489,259 @@
       },
       "result": "1.8"
     }
+  ],
+  "combined": [
+    {
+      "name": "a scaled topic: m/s to km/h",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "wind_kmh",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "weather#wind"
+            },
+            "numerator": 18,
+            "denominator": 5,
+            "offset": "0",
+            "decimals": 1
+          }
+        }
+      ],
+      "values": {
+        "weather#wind": "12.5"
+      },
+      "expected": {
+        "wind_kmh": "45.0"
+      }
+    },
+    {
+      "name": "a source without a value: no value yet",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "wind_kmh",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "weather#wind"
+            },
+            "numerator": 18,
+            "denominator": 5,
+            "offset": "0",
+            "decimals": 1
+          }
+        }
+      ],
+      "values": {},
+      "expected": {
+        "wind_kmh": null
+      }
+    },
+    {
+      "name": "a source that is not a number: no value",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "wind_kmh",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "weather#wind"
+            },
+            "numerator": 18,
+            "denominator": 5,
+            "offset": "0",
+            "decimals": 1
+          }
+        }
+      ],
+      "values": {
+        "weather#wind": "calm"
+      },
+      "expected": {
+        "wind_kmh": null
+      }
+    },
+    {
+      "name": "a scaled topic reading another, listed before it",
+      "combinedTopics": [
+        {
+          "id": "c2",
+          "name": "fahrenheit",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "combined",
+              "path": "celsius"
+            },
+            "numerator": 9,
+            "denominator": 5,
+            "offset": "32",
+            "decimals": 1
+          }
+        },
+        {
+          "id": "c3",
+          "name": "celsius",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "kelvin"
+            },
+            "numerator": 1,
+            "denominator": 1,
+            "offset": "-273.15",
+            "decimals": 2
+          }
+        }
+      ],
+      "values": {
+        "kelvin": "294.15"
+      },
+      "expected": {
+        "celsius": "21.00",
+        "fahrenheit": "69.8"
+      }
+    },
+    {
+      "name": "a condition on a scaled topic",
+      "combinedTopics": [
+        {
+          "id": "c4",
+          "name": "windy",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "wind_kmh"
+              },
+              "op": ">",
+              "operand": "50"
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "name": "wind_kmh",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "weather#wind"
+            },
+            "numerator": 18,
+            "denominator": 5,
+            "offset": "0",
+            "decimals": 1
+          }
+        }
+      ],
+      "values": {
+        "weather#wind": "15"
+      },
+      "expected": {
+        "wind_kmh": "54.0",
+        "windy": "true"
+      }
+    },
+    {
+      "name": "a condition on a scaled topic, below",
+      "combinedTopics": [
+        {
+          "id": "c4",
+          "name": "windy",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "wind_kmh"
+              },
+              "op": ">",
+              "operand": "50"
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "name": "wind_kmh",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "topic",
+              "path": "weather#wind"
+            },
+            "numerator": 18,
+            "denominator": 5,
+            "offset": "0",
+            "decimals": 1
+          }
+        }
+      ],
+      "values": {
+        "weather#wind": "13.8"
+      },
+      "expected": {
+        "wind_kmh": "49.7",
+        "windy": "false"
+      }
+    },
+    {
+      "name": "two scaled topics reading each other: circular",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "b",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "combined",
+              "path": "a"
+            },
+            "numerator": 1,
+            "denominator": 1,
+            "offset": "0",
+            "decimals": 0
+          }
+        },
+        {
+          "id": "c2",
+          "name": "a",
+          "mode": "scale",
+          "conditions": [],
+          "scale": {
+            "source": {
+              "namespace": "combined",
+              "path": "b"
+            },
+            "numerator": 1,
+            "denominator": 1,
+            "offset": "0",
+            "decimals": 0
+          }
+        }
+      ],
+      "values": {},
+      "circular": [
+        "a",
+        "b",
+        "a"
+      ]
+    }
   ]
 }
