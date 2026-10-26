@@ -84,7 +84,7 @@ device.json
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 ├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
-├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content)
+├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content), "screen-graph" (§2.10), "scaled-values" (§2.11)
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -1184,6 +1184,65 @@ what every swipe does.
 - **Below it** a device ignores `mainRow`, `neighbours`, `back` and
   `goto-neighbour`: it pages the screens that are not hidden, as before.
 
+### 2.11 Scaled values - feature `scaled-values` (designer side 2026-10-26)
+
+A number the device scales itself, read or written - designer
+`tasks/ha-templates-stage2-plan.md` (decisions 1-4), from Home Assistant
+templates such as `{{ value_json.speed * 3.6 | round(2) }}` or
+`{"brightness":{{ value * 2.55 }}}` (`docs/2026-10-26-ha-templates.md`).
+No template reaches a device: only a fraction, an offset and a number of
+decimals.
+
+- **The arithmetic** (`lib/scaled-value.ts`, to be ported line by line):
+  `value × numerator / denominator + offset`, rounded half away from zero
+  to `decimals`, written as a plain decimal (`"45.0"`, `"-3"`, never
+  `"-0"`, never the project's separators). Integers only, no float:
+  - `numerator`, `denominator`: integers, |each| ≤ 1 000 000,
+    `denominator` ≥ 1.
+  - `offset` (absent: `"0"`): a plain decimal of at most 6 places, |whole
+    part| < 10^12. `decimals`: 0-6, at least the offset's places.
+  - The value: a plain decimal (`[+-]digits[.digits]`, spaces around
+    allowed; no exponent, no comma) of at most 12 significant digits and 9
+    after the point.
+  - The product and the result stay below 10^12.
+  A value or a scale outside any of this gives **no value** - never a
+  wrong one. Every step fits in a signed 64-bit integer.
+- **A scaled topic** is a third kind of combined topic (2.6), in
+  `combinedTopics` and its evaluation order like the others:
+  ```json
+  { "id": "c1", "name": "wind_kmh", "mode": "scale", "conditions": [],
+    "scale": { "source": { "namespace": "topic", "path": "weather#wind" },
+               "numerator": 18, "denominator": 5, "offset": "0", "decimals": 1 } }
+  ```
+  Its value is its source's scaled; no value while the source has none or
+  scales to none. It is read as `combined:wind_kmh` wherever a combined
+  topic is - a live value, a condition (which may compare it as a number),
+  another scaled topic - and is never published.
+- **A write format** on a `slider` or a `dial`
+  (`properties.writeFormat`, beside `writeTopic`):
+  ```json
+  "writeFormat": { "text": "{\"brightness\":{value}}", "numerator": 255, "denominator": 100, "decimals": 0 }
+  ```
+  What is published to `writeTopic` is `text` with every `{value}` replaced
+  by the value set - scaled first where any of `numerator`,
+  `denominator`, `offset` is present (absent ones: 1, 1, `"0"`; `decimals`
+  absent: 0). Only `{value}` is special; every other brace is written as it
+  stands. A value that scales to none publishes nothing. What is drawn and
+  the asked value (§4, «A level a finger can set») stay the unscaled
+  number. No write format: the number alone, as before.
+- **Conformance:** `lib/scaled-value/vectors.json` (sections `scale`,
+  `write`, `combined`) is the set of cases every implementation must pass.
+  Copy it byte for byte; do not edit a copy.
+- **Declare** `"scaled-values"` in the DDF's `supportedFeatures` (§1) once
+  the firmware does all of the above. The deploy dialog asks it of a device
+  for a project with a scaled topic or a write format, as it asks for
+  `local-topics` (2.9): a board without it is brought up to the release
+  first where the designer's copy of its DDF lists it, else refused; an
+  app is asked to update. Not a generation.
+- **Below it** a device does not know `mode: "scale"` - such a combined
+  topic has no value there - and publishes the bare number: why the
+  deploy dialog asks first.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008
@@ -1331,6 +1390,7 @@ the write topic alone decided (2026-09-17,
 | Property | Meaning |
 |---|---|
 | `writeTopic` | Where a set value is published, not retained. Absent: the object is read-only, and must not catch a touch at all - a finger on it belongs to whatever gesture the screen makes of it. |
+| `writeFormat` | What is published: a text around the value, the value scaled first (§2.11, feature `scaled-values`). Absent: the number alone. |
 | `step` | What a set value snaps to (default 1). A fan that takes tens gets 10, a heater's target 0.5. Only what a *finger* sets snaps; a reported value is drawn as it arrives. |
 | `setpointTopic` | The marker's own value: the installation's target, where it has one. |
 | `markerColor`, `markerWidth`, `markerStyle` | **Arc only, and gone from the bar.** A bar's handle has no look to choose: it is the fill's own colour and always the same shape (see "The shape of a level"). A bar carrying these properties from an older project simply ignores them. |
