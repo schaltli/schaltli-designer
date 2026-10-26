@@ -644,6 +644,69 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a siren: power sending JSON, a button per tone", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-siren-intrusion"], { "home/alarm/siren1": "OFF" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Intrusion siren")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group"])
+      const [power, tones] = parts.map((p: any) => JSON.stringify(p.properties))
+      expect(power).toContain(JSON.stringify('{"state":"ON"}'))
+      expect(power).toContain(JSON.stringify('{"state":"OFF"}'))
+      for (const t of ["ping", "siren"]) {
+        expect(tones).toContain(`"${t}"`)
+        expect(tones).toContain(JSON.stringify(`{"state":"ON","tone":"${t}"}`))
+      }
+    } finally {
+      await clear()
+    }
+  })
+
+  test("an update: both versions named in their rows, Install a button sending its payload", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-display-firmware"], {
+      "van/display/fw": '{"installed_version":"2026.10.11.2","latest_version":"2026.10.24.1"}',
+    })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Display-Firmware")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "text", "button"])
+      expect(asPlaceholders(parts[0])).toBe("Installed version {topic:van/display/fw#installed_version}")
+      expect(asPlaceholders(parts[1])).toBe("Latest version {topic:van/display/fw#latest_version}")
+      expect([parts[2].properties.text, parts[2].properties.action]).toEqual([
+        "Install",
+        { type: "send-mqtt", mqttTopic: "van/display/fw/install", mqttMessage: "install" },
+      ])
+    } finally {
+      await clear()
+    }
+  })
+
+  test("an event: the type of the last one beside its name", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-event-doorbell"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Doorbell")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const texts = block.children.filter((c: { type: string }) => c.type === "text").map((c: any) => asPlaceholders(c))
+      expect(texts).toEqual(["Doorbell", "{topic:home/doorbell/state#event_type}"])
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.

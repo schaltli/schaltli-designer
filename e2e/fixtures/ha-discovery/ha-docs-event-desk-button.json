@@ -1,0 +1,11 @@
+{
+  "source": "home-assistant.io/integrations/event.mqtt, 'Example: processing event data using a value template' (source/_integrations/event.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/event/desk_button/config",
+  "payload": {
+    "name": "Desk button",
+    "state_topic": "desk/button/state",
+    "event_types": ["single", "double"],
+    "device_class": "button",
+    "value_template": "{ {% for key in value_json %}\n{% if value_json[key].get(\"Action\") %}\n\"button\": \"{{ key }}\",\n\"event_type\": \"{{ value_json[key].Action | lower }}\"\n{% endif %}\n{% endfor %} }\n"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "source": "home-assistant.io/integrations/event.mqtt, 'Full configuration with JSON data' (source/_integrations/event.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out, a name added for the menu",
+  "topic": "homeassistant/event/doorbell/config",
+  "payload": {
+    "name": "Doorbell",
+    "state_topic": "home/doorbell/state",
+    "event_types": ["press", "hold"],
+    "qos": 0,
+    "device_class": "doorbell"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "source": "the display firmware of the 2026-10-26 overview of Home Assistant entities for Schaltli: written for it, every key as update.mqtt documents it; its state is the JSON form with installed_version and latest_version",
+  "topic": "homeassistant/update/van/van_display_fw/config",
+  "payload": {
+    "name": "Display-Firmware",
+    "unique_id": "van_display_fw",
+    "state_topic": "van/display/fw",
+    "command_topic": "van/display/fw/install",
+    "payload_install": "install",
+    "device_class": "firmware",
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}

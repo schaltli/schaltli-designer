@@ -1,0 +1,18 @@
+{
+  "source": "home-assistant.io/integrations/siren.mqtt, 'Full configuration' (source/_integrations/siren.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out",
+  "topic": "homeassistant/siren/custom_siren/config",
+  "payload": {
+    "unique_id": "custom_siren",
+    "name": "Intrusion siren",
+    "state_topic": "home/alarm/siren1",
+    "command_topic": "home/alarm/siren1/set",
+    "available_tones": ["ping", "siren"],
+    "payload_on": "ON",
+    "payload_off": "OFF",
+    "state_on": "ON",
+    "state_off": "OFF",
+    "optimistic": false,
+    "qos": 0,
+    "retain": true
+  }
+}

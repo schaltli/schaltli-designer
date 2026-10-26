@@ -1,0 +1,17 @@
+{
+  "source": "home-assistant.io/integrations/update.mqtt, 'Examples', the Shelly Gen1 entity (source/_integrations/update.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/update/shellyplug-s-112233/config",
+  "payload": {
+    "name": "Shelly Plug S Firmware Update",
+    "title": "Shelly Plug S Firmware",
+    "release_url": "https://shelly-api-docs.shelly.cloud/gen1/#changelog",
+    "entity_picture": "https://brands.home-assistant.io/_/shelly/icon.png",
+    "state_topic": "shellies/shellyplug-s-112233/info",
+    "value_template": "{{ value_json['update'].old_version }}",
+    "latest_version_topic": "shellies/shellyplug-s-112233/info",
+    "latest_version_template": "{% if value_json['update'].new_version %}{{ value_json['update'].new_version }}{% else %}{{ value_json['update'].old_version }}{% endif %}",
+    "device_class": "firmware",
+    "command_topic": "shellies/shellyplug-s-112233/command",
+    "payload_install": "update_fw"
+  }
+}

@@ -560,6 +560,11 @@ function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult 
   return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list } }
 }
 
+/** A template that gives the payload itself: `{{ value }}`. */
+function isPayloadTemplate(template: unknown): boolean {
+  return typeof template === "string" && /^\{\{\s*value\s*\}\}$/.test(template.trim())
+}
+
 /** A part only where it can be written: what it would read, the State part shows already. */
 function writtenOnly(part: PartResult): PartResult {
   return part && "control" in part && part.control.kind === "state" ? undefined : part
@@ -780,6 +785,58 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
         ["Swing horizontal", choice("swing_horizontal_mode", config.swing_horizontal_modes)],
       ]
     }
+    case "siren": {
+      // Power: Home Assistant sends JSON - {"state":"ON"} - unless a command
+      // template makes something else of it; of the templates only `{{ value }}`,
+      // the payload itself, can be followed here. The off command takes
+      // command_off_template, else command_template (siren.py). Where JSON goes,
+      // each of its tones is a button turning it on with that tone.
+      const onTemplate = config.command_template
+      const offTemplate = config.command_off_template ?? onTemplate
+      const send = (template: unknown, payload: string): string | undefined =>
+        template === undefined ? JSON.stringify({ state: payload }) : isPayloadTemplate(template) ? payload : undefined
+      const payloadOn = str(config.payload_on, "ON")
+      const payloadOff = str(config.payload_off, "OFF")
+      const on = send(onTemplate, payloadOn)
+      const off = send(offTemplate, payloadOff)
+      const states = { on: str(config.state_on, payloadOn), off: str(config.state_off, payloadOff) }
+      const read: PartKeys = { read: "state_topic", readTemplate: "state_value_template" }
+      const command = typeof config.command_topic === "string" && config.command_topic !== "" ? config.command_topic : undefined
+      // A template it cannot follow leaves it to be read, as everywhere.
+      const writable = command !== undefined && on !== undefined && off !== undefined
+      const power: PartResult =
+        switchPart(config, { ...read, write: writable ? "command_topic" : undefined }, { read: states.on, write: on ?? payloadOn }, { read: states.off, write: off ?? payloadOff }) ??
+        (command ? { skipped: "a command template" } : undefined)
+      const tones = Array.isArray(config.available_tones) ? config.available_tones.map((t: unknown) => str(t, "")).filter(Boolean) : []
+      const tone: PartResult =
+        tones.length === 0 || !command
+          ? undefined
+          : onTemplate !== undefined
+            ? { skipped: "a command template" }
+            : { control: { kind: "choice", write: command, options: tones.map((t: string) => JSON.stringify({ state: payloadOn, tone: t })), labels: tones } }
+      return [
+        ["Power", power],
+        ["Tone", tone],
+      ]
+    }
+    case "update": {
+      // Its state is the installed version, or JSON with installed_version
+      // and latest_version beside it (update.py). Without a template and
+      // without a topic of its own for the latest version, only the JSON can
+      // say both, so both are read from it; otherwise each as it comes.
+      // Install only where payload_install is set: it has no default.
+      const json = config.value_template === undefined && config.latest_version_topic === undefined
+      const field = (name: string): PartResult => {
+        const topic = config.state_topic
+        return typeof topic === "string" && topic !== "" ? { control: { kind: "text", read: `${topic}#${name}` } } : undefined
+      }
+      const install = typeof config.payload_install === "string" ? config.payload_install : null
+      return [
+        ["Installed version", json ? field("installed_version") : textPart(config, { read: "state_topic", readTemplate: "value_template" })],
+        ["Latest version", json ? field("latest_version") : textPart(config, { read: "latest_version_topic", readTemplate: "latest_version_template" })],
+        ["Install", buttonPart(config, { write: "command_topic" }, install)],
+      ]
+    }
     case "humidifier": {
       // As a fan: on or off, the mode, then the humidity it aims for and the
       // one it measures (Home Assistant's humidifier.py, 0 to 100 % unless
@@ -957,6 +1014,14 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
     case "button":
       return buttonPart(config, { write: "command_topic", writeTemplate: "command_template" }, str(config.payload_press, "PRESS"))
+    // An event: the type of the last one, from the JSON Home Assistant
+    // reads it from (event.py). A value template giving that JSON from
+    // deeper in the payload is not followed.
+    case "event": {
+      if (config.value_template !== undefined && !isPayloadTemplate(config.value_template)) return { skipped: "the value template" }
+      const topic = config.state_topic
+      return typeof topic === "string" && topic !== "" ? { control: { kind: "text", read: `${topic}#event_type` } } : undefined
+    }
     // A scene is a press too. Its payload defaults to "ON" as the docs say;
     // scene.py itself has no default (2026-10-26).
     case "scene":
@@ -975,6 +1040,7 @@ const MISSING: Record<string, string> = {
   select: "no command topic",
   button: "no command topic",
   scene: "no command topic",
+  event: "no state topic",
 }
 
 /**

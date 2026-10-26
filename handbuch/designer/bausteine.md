@@ -35,6 +35,7 @@ Die Beschriftung ist der Name des Dings als fester Text, im Stil <span class="ui
 | Auswahl (`select`) | der Name und daneben ein Knopf je Möglichkeit | <span class="ui">Buttons</span> |
 | Taste (`button`) | ein Button mit dem Namen, der beim Antippen die Nachricht des Geräts schickt | – |
 | Szene (`scene`) | wie eine Taste: ein Button mit dem Namen, der beim Antippen die Szene einschaltet | – |
+| Ereignis (`event`) | der Name und daneben die Art des letzten Ereignisses, etwa «press» oder «hold» | – |
 | Abdeckung (`cover`) | der Name mit dem gemeldeten Zustand, darunter je ein Button «Open», «Stop» und «Close» und ein Regler für die Position, wenn das Gerät sie setzen lässt | <span class="ui">Slider</span>, <span class="ui">Dial</span> für die Position |
 | Ventil (`valve`) | wie eine Abdeckung: der Name mit dem Zustand und die Buttons «Open» und «Close», «Stop» nur, wenn das Gerät es kann; meldet das Ventil eine Position, statt des Zustands ein Regler | <span class="ui">Slider</span>, <span class="ui">Dial</span> für die Position |
 
@@ -61,6 +62,10 @@ Ein Boiler (`water_heater`) hat die Teile eines Klimageräts, nur weniger: die B
 Ein Schloss (`lock`), etwa eine Zentralverriegelung, zeigt seinen Zustand und darunter die Knöpfe «Lock» und «Unlock». Kann es auch öffnen, kommt ein Button «Open» dazu. Verlangt ein Schloss einen Code, zeigt der Baustein nur den Zustand. Home Assistant prüft den Code, bevor es den Befehl schickt, ein Knopf auf dem Screen könnte das nicht.
 
 Ein Luftbefeuchter oder -entfeuchter (`humidifier`) ist gebaut wie ein Lüfter: der Schalter (Power), die Betriebsarten (Mode), die gewünschte Feuchte (Target humidity) als Regler und die gemessene (Current humidity) als Balken, beide in Prozent.
+
+Eine Sirene (`siren`) hat einen Schalter (Power). Kennt sie mehrere Töne, kommt je Ton ein Knopf dazu (Tone), der sie mit diesem Ton einschaltet. Wie Home Assistant schickt der Baustein dabei JSON, etwa `{"state":"ON"}`, ausser die Ankündigung verlangt den Wert allein.
+
+Ein Update (`update`) zeigt die installierte Version (Installed version) und die neueste (Latest version). Kann sich das Gerät selbst aktualisieren, kommt ein Button «Install» dazu.
 
 Ein solcher Baustein ist eine eigene [Tabelle](/objekte/anordnen#zusammenstecken). In ihrer ersten Zeile stehen das Icon, der Name und der erste Teil, der Name oben bündig mit dem ersten Teil. Jeder weitere Teil kommt in eine Zeile darunter, in die Spalte der Bedienelemente. Die Teile füllen diese Spalte und enden an derselben Kante. Bedienelemente tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Die Helligkeit eines Lichts zeigt er wie Home Assistant in Prozent, gleich auf welcher Skala das Licht sie meldet. Willst du den Wert so, wie er ankommt, stellst du beim Regler <span class="ui">Show value</span> auf <span class="ui">Value</span>. Was nur angezeigt wird, steht dagegen mit seinem Namen da, etwa «Spannung 13.3 V». Eine Zahl allein sagt nicht, was sie ist. Auf einem Gerät mit Grössen XS bis L kommen die Bedienelemente in der Grösse M, ausser die Beschreibung will für einen Teil eine andere, etwa XS für eine Taste wie «Nullen». So ist derselbe Baustein überall gleich gross.
 

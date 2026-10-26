@@ -1,0 +1,17 @@
+{
+  "source": "home-assistant.io/integrations/siren.mqtt, 'On/Off only siren controlling a Tasmota relay' (source/_integrations/siren.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/siren/tasmota_siren/config",
+  "payload": {
+    "unique_id": "tasmota_siren",
+    "name": "garage",
+    "state_topic": "stat/SIREN/RESULT",
+    "command_topic": "cmnd/SIREN/POWER",
+    "availability_topic": "tele/SIREN/LWT",
+    "command_template": "{{ value }}",
+    "state_value_template": "{{ value_json.POWER }}",
+    "payload_on": "ON",
+    "payload_off": "OFF",
+    "payload_available": "Online",
+    "payload_not_available": "Offline"
+  }
+}

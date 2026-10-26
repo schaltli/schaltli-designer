@@ -302,6 +302,17 @@ test.describe("an entity as a catalog entry", () => {
     expect(toCatalogEntry(none)).toMatchObject({ unsupported: { reason: "no command topic" } })
   })
 
+  // An event (Home Assistant's event.py): the type of the last one.
+  test("the docs' doorbell event: the type of the last event, from its JSON", () => {
+    const [config] = expand("ha-docs-event-doorbell")
+    expect(toCatalogEntry(config)).toMatchObject({ entry: { label: "Doorbell", controls: [{ kind: "text", read: "home/doorbell/state#event_type" }] } })
+  })
+
+  test("the docs' desk button builds its JSON in a template: not supported, and says so", () => {
+    const [config] = expand("ha-docs-event-desk-button")
+    expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "the value template" } })
+  })
+
   test("a select with five options is a choice with five, no limit", () => {
     const entry = entryOf("esphome-select-five")
     expect(entry.name).toBe("van-sensors Light scene")
@@ -344,7 +355,7 @@ test.describe("an entity as a catalog entry", () => {
     })
     expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("siren", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component siren" } })
+    expect(one("alarm_control_panel", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component alarm_control_panel" } })
   })
 })
 
@@ -718,6 +729,75 @@ test.describe("an entity with several parts", () => {
         controls: [
           { part: "Power", kind: "switch", write: "h/set", on: { write: "ON" }, off: { write: "OFF" } },
           { part: "Target humidity", kind: "level", write: "h/target", min: 0, max: 100, step: 1, unit: "%" },
+        ],
+      },
+    })
+  })
+
+  // A siren (Home Assistant's siren.py): sent JSON unless a template says otherwise.
+  test("the docs' intrusion siren: power sends JSON with the state, a button per tone turns it on with that tone", () => {
+    expect(entryOf("ha-docs-siren-intrusion").controls).toEqual([
+      {
+        part: "Power",
+        kind: "switch",
+        read: "home/alarm/siren1",
+        write: "home/alarm/siren1/set",
+        on: { read: "ON", write: '{"state":"ON"}' },
+        off: { read: "OFF", write: '{"state":"OFF"}' },
+      },
+      {
+        part: "Tone",
+        kind: "choice",
+        write: "home/alarm/siren1/set",
+        options: ['{"state":"ON","tone":"ping"}', '{"state":"ON","tone":"siren"}'],
+        labels: ["ping", "siren"],
+      },
+    ])
+  })
+
+  test("the docs' Tasmota siren: `{{ value }}` as its command template sends the payload itself", () => {
+    expect(entryOf("ha-docs-siren-tasmota").controls).toEqual([
+      { part: "Power", kind: "switch", read: "stat/SIREN/RESULT#POWER", write: "cmnd/SIREN/POWER", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
+    ])
+  })
+
+  test("a siren whose command template builds something else is only read, its tones too", () => {
+    const [config] = expandConfig(
+      "homeassistant/siren/s/config",
+      JSON.stringify({ stat_t: "s/state", cmd_t: "s/set", cmd_tpl: '{"on": "{{ value }}"}', available_tones: ["a"] }),
+    )
+    expect(toCatalogEntry(config)).toMatchObject({
+      entry: { controls: [{ part: "Power", kind: "state", read: "s/state", on: "ON", off: "OFF" }], skipped: [{ part: "Tone", reason: "a command template" }] },
+    })
+    const [blind] = expandConfig("homeassistant/siren/b/config", JSON.stringify({ cmd_t: "b/set", cmd_tpl: "{{ value | upper }}" }))
+    expect(toCatalogEntry(blind)).toMatchObject({ unsupported: { reason: "Power: a command template" } })
+  })
+
+  // An update (Home Assistant's update.py): the installed and the latest version, Install where set.
+  test("an update with JSON state: both versions read from it, Install sending its payload", () => {
+    expect(entryOf("schaltli-display-firmware").controls).toEqual([
+      { part: "Installed version", kind: "text", read: "van/display/fw#installed_version" },
+      { part: "Latest version", kind: "text", read: "van/display/fw#latest_version" },
+      { part: "Install", kind: "button", write: "van/display/fw/install", payload: "install" },
+    ])
+  })
+
+  test("the docs' Shelly update: the installed version by its template, the latest skipped for its {% if %}", () => {
+    const entry = entryOf("ha-docs-update-shelly")
+    expect(entry.controls).toEqual([
+      { part: "Installed version", kind: "text", read: "shellies/shellyplug-s-112233/info#update.old_version" },
+      { part: "Install", kind: "button", write: "shellies/shellyplug-s-112233/command", payload: "update_fw" },
+    ])
+    expect(entry.skipped).toEqual([{ part: "Latest version", reason: "the value template: a {% if %} block" }])
+  })
+
+  test("an update with a topic of its own for the latest version reads each as it comes; no Install without its payload", () => {
+    const [config] = expandConfig("homeassistant/update/u/config", JSON.stringify({ stat_t: "u/installed", l_ver_t: "u/latest", cmd_t: "u/cmd" }))
+    expect(toCatalogEntry(config)).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Installed version", kind: "text", read: "u/installed" },
+          { part: "Latest version", kind: "text", read: "u/latest" },
         ],
       },
     })
