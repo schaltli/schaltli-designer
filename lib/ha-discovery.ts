@@ -522,7 +522,9 @@ function partTopics(config: Json, keys: PartKeys): { read?: string; write?: stri
   if (read && "unsupported" in read) return { skipped: read.unsupported }
   const topic = keys.write ? config[keys.write] : undefined
   const write = typeof topic === "string" && topic !== "" ? topic : undefined
-  const writeRefused = write && keys.writeTemplate && config[keys.writeTemplate] !== undefined ? "a command template" : undefined
+  // `{{ value }}` sends the payload as it is, the same as no template.
+  const template = keys.writeTemplate ? config[keys.writeTemplate] : undefined
+  const writeRefused = write && template !== undefined && !isPayloadTemplate(template) ? "a command template" : undefined
   return { ...(read ? { read: read.read } : {}), ...(write && !writeRefused ? { write } : {}), ...(writeRefused ? { writeRefused } : {}) }
 }
 
@@ -1045,9 +1047,9 @@ const MISSING: Record<string, string> = {
 
 /**
  * What an expanded config becomes: a catalog entry, or the reason it cannot
- * be one. A `command_template` makes a part's writing unsupported: what can
- * still be read is offered read-only - a switch that cannot switch is a
- * state, a number a value. Of an entity with several parts, those that
+ * be one. A `command_template` makes a part's writing unsupported, unless it
+ * is `{{ value }}`, the payload as it is: what can still be read is offered
+ * read-only - a switch that cannot switch is a state, a number a value. Of an entity with several parts, those that
  * cannot be used are skipped with their reason and the rest offered; only
  * when none is left is the entity unsupported.
  */

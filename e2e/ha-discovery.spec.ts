@@ -353,7 +353,7 @@ test.describe("an entity as a catalog entry", () => {
     expect(one("sensor", { stat_t: "s", val_tpl: "{{ value_json.a / 10 }}" })).toMatchObject({
       unsupported: { reason: "the value template: arithmetic (/ 10)" },
     })
-    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
+    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value | upper }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
     expect(one("alarm_control_panel", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component alarm_control_panel" } })
   })
@@ -806,8 +806,35 @@ test.describe("an entity with several parts", () => {
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {
     const [config] = expandConfig(
       "homeassistant/fan/f/config",
-      JSON.stringify({ cmd_t: "f/set", cmd_tpl: "{{ value }}", pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value }}" }),
+      JSON.stringify({ cmd_t: "f/set", cmd_tpl: '{"on": "{{ value }}"}', pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value * 2 }}" }),
     )
     expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "Power: a command template; Speed: a command template" } })
+  })
+
+  test("`{{ value }}` as a command template sends the payload as it is, the same as none", () => {
+    const one = (component: string, config: Record<string, unknown>) =>
+      toCatalogEntry(expandConfig(`homeassistant/${component}/x/config`, JSON.stringify(config))[0])
+    // Spaces inside the braces or around them change nothing.
+    for (const template of ["{{ value }}", "{{value}}", " {{  value  }} "]) {
+      expect(one("switch", { stat_t: "s", cmd_t: "s/set", cmd_tpl: template })).toMatchObject({
+        entry: { controls: [{ kind: "switch", read: "s", write: "s/set", on: { write: "ON" }, off: { write: "OFF" } }] },
+      })
+    }
+    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ entry: { controls: [{ kind: "button", write: "b", payload: "PRESS" }] } })
+    expect(one("number", { stat_t: "n", cmd_t: "n/set", cmd_tpl: "{{ value }}", min: 0, max: 10 })).toMatchObject({
+      entry: { controls: [{ kind: "level", read: "n", write: "n/set", min: 0, max: 10 }] },
+    })
+    // A part of several: the fan's speed written, its power still refused.
+    const fan = one("fan", { cmd_t: "f/set", cmd_tpl: '{"on": "{{ value }}"}', pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value }}" })
+    expect(fan).toMatchObject({
+      entry: { controls: [{ part: "Speed", kind: "level", write: "f/pct" }], skipped: [{ part: "Power", reason: "a command template" }] },
+    })
+    // A cover's position, a climate's target temperature.
+    expect(one("cover", { set_pos_t: "c/pos", set_pos_tpl: "{{ value }}" })).toMatchObject({
+      entry: { controls: [{ part: "Position", kind: "level", write: "c/pos", percent: true }] },
+    })
+    expect(one("climate", { temp_cmd_t: "k/temp", temp_cmd_tpl: "{{ value }}" })).toMatchObject({
+      entry: { controls: [{ part: "Target temperature", kind: "level", write: "k/temp" }] },
+    })
   })
 })
