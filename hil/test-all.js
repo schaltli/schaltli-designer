@@ -771,6 +771,28 @@ async function main() {
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
 
+  // Scaled values (device contract 2.11, tasks/ha-templates-stage2-plan.md
+  // H1): a scaled topic the board computes, and a slider publishing through
+  // its write format. Installs its own project.
+  const scaledValues = async (name, device) => {
+    console.log(`
+=== ${name} scaled values (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/scaled-values.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-scaled-values`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or no scaled-values yet`
+          : exitCode === 0
+            ? "the scaled topic computed on the board, none for a non-number, a set level published through its write format"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+    step(name, () => scaledValues(name, device), { quick: true })
+  }
+
   // The app's test interface wants its password too (port 8080), found by
   // its retained test-interface topic (hil/android/phone.js).
   step("android", async () => {
