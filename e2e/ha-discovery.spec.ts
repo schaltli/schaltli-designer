@@ -326,7 +326,7 @@ test.describe("an entity as a catalog entry", () => {
     })
     expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("valve", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component valve" } })
+    expect(one("lock", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component lock" } })
   })
 })
 
@@ -518,6 +518,56 @@ test.describe("an entity with several parts", () => {
       entry: { controls: [{ part: "Position", kind: "value", read: "c/pos", level: true }] },
     })
     expect(cover({ name: "x" })).toMatchObject({ unsupported: { reason: "no part it can show" } })
+  })
+
+  // A valve: as a cover, one topic each way (Home Assistant's valve.py).
+  test("a grey water valve: its state, Open and Close; no Stop without its payload", () => {
+    const entry = entryOf("schaltli-grauwasser")
+    expect(entry.controls).toEqual([
+      { part: "State", kind: "text", read: "van/grau/state" },
+      { part: "Open", kind: "button", write: "van/grau/set", payload: "OPEN" },
+      { part: "Close", kind: "button", write: "van/grau/set", payload: "CLOSE" },
+    ])
+    expect(entry.skipped).toBeUndefined()
+  })
+
+  test("the docs' valve: its state read from JSON, every button skipped for the command template", () => {
+    const entry = entryOf("ha-docs-valve-state")
+    expect(entry.controls).toEqual([{ part: "State", kind: "text", read: "heater/valve/state#x" }])
+    expect(entry.skipped).toEqual([
+      { part: "Open", reason: "a command template" },
+      { part: "Stop", reason: "a command template" },
+      { part: "Close", reason: "a command template" },
+    ])
+  })
+
+  test("the docs' valve reporting a position: the position only read, as a fill", () => {
+    const entry = entryOf("ha-docs-valve-position")
+    expect(entry.controls).toEqual([{ part: "Position", kind: "value", read: "heater/valve/state#x", unit: "%", level: true }])
+  })
+
+  test("the docs' valve without close: a null payload leaves its button out", () => {
+    expect(entryOf("ha-docs-valve-no-close").controls).toEqual([
+      { part: "Open", kind: "button", write: "tap/set", payload: "on" },
+      { part: "Stop", kind: "button", write: "tap/set", payload: "on" },
+    ])
+  })
+
+  test("a valve reporting its position: Open and Close send the open and closed position, the position a level on the same topics", () => {
+    const [config] = expandConfig(
+      "homeassistant/valve/v/config",
+      JSON.stringify({ cmd_t: "v/set", stat_t: "v/state", pos: true, pos_open: 255, pos_clsd: 5, pl_stop: "STOP" }),
+    )
+    expect(toCatalogEntry(config)).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Open", kind: "button", write: "v/set", payload: "255" },
+          { part: "Stop", kind: "button", write: "v/set", payload: "STOP" },
+          { part: "Close", kind: "button", write: "v/set", payload: "5" },
+          { part: "Position", kind: "level", read: "v/state", write: "v/set", min: 5, max: 255, step: 1, percent: true },
+        ],
+      },
+    })
   })
 
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {

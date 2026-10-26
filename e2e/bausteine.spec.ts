@@ -535,6 +535,27 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a grey water valve: its state beside the name, Open and Close a button each sending its payload", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-grauwasser"], { "van/grau/state": "closed" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Grauwasser ablassen")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button", "button"])
+      expect(asPlaceholders(parts[0])).toBe("State {topic:van/grau/state}")
+      expect(parts.slice(1).map((b: any) => [b.properties.text, b.properties.action])).toEqual([
+        ["Open", { type: "send-mqtt", mqttTopic: "van/grau/set", mqttMessage: "OPEN" }],
+        ["Close", { type: "send-mqtt", mqttTopic: "van/grau/set", mqttMessage: "CLOSE" }],
+      ])
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.

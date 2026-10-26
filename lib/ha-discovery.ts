@@ -769,6 +769,31 @@ function partsOf(component: string, config: Json): [string, PartResult][] | unde
         ],
       ]
     }
+    case "valve": {
+      // As a cover's, but one topic each way (Home Assistant's valve.py):
+      // a valve without a position is sent its payloads and reports its
+      // state; one that reports a position is sent the position - Open and
+      // Close the open and the closed one - and reports it on the state
+      // topic, where its state is that number: no State part beside it.
+      // Stop only where its payload is set, it has no default.
+      const command: PartKeys = { write: "command_topic", writeTemplate: "command_template" }
+      const stop = typeof config.payload_stop === "string" ? config.payload_stop : null
+      if (config.reports_position === true) {
+        const range = { min: num(config.position_closed, COVER_POSITION.closed), max: num(config.position_open, COVER_POSITION.open) }
+        return [
+          ["Open", buttonPart(config, command, String(range.max))],
+          ["Stop", buttonPart(config, command, stop)],
+          ["Close", buttonPart(config, command, String(range.min))],
+          ["Position", positionPart(config, { read: "state_topic", readTemplate: "value_template", ...command }, range)],
+        ]
+      }
+      return [
+        ["State", textPart(config, { read: "state_topic", readTemplate: "value_template" })],
+        ["Open", buttonPart(config, command, coverPayload(config, "payload_open", "OPEN"))],
+        ["Stop", buttonPart(config, command, stop)],
+        ["Close", buttonPart(config, command, coverPayload(config, "payload_close", "CLOSE"))],
+      ]
+    }
     default:
       return undefined
   }

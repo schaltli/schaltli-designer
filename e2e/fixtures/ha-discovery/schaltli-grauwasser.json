@@ -1,0 +1,15 @@
+{
+  "source": "the grey water valve of the 2026-10-26 overview of Home Assistant entities for Schaltli: written for it, every key as valve.mqtt documents it",
+  "topic": "homeassistant/valve/van/van_grauwasser/config",
+  "payload": {
+    "name": "Grauwasser ablassen",
+    "unique_id": "van_grauwasser",
+    "device_class": "water",
+    "command_topic": "van/grau/set",
+    "state_topic": "van/grau/state",
+    "payload_open": "OPEN",
+    "payload_close": "CLOSE",
+    "reports_position": false,
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}

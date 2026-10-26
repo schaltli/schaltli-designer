@@ -1,0 +1,11 @@
+{
+  "source": "home-assistant.io/integrations/valve.mqtt, 'Configuration for disabling valve commands' (source/_integrations/valve.mqtt.markdown, 2026-10-26): the example's payloads verbatim, payload_close null as its text says a discovery message needs; the example has no topics, so command_topic is added, abbreviated as a device would send it",
+  "topic": "homeassistant/valve/tap/config",
+  "payload": {
+    "name": "Tap",
+    "cmd_t": "tap/set",
+    "payload_open": "on",
+    "payload_close": null,
+    "payload_stop": "on"
+  }
+}

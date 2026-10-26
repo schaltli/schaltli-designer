@@ -1,0 +1,12 @@
+{
+  "source": "home-assistant.io/integrations/valve.mqtt, 'Sample configuration of a valve that reports the position' (source/_integrations/valve.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out",
+  "topic": "homeassistant/valve/heater_valve_position/config",
+  "payload": {
+    "name": "MQTT valve",
+    "command_template": "{\"x\": {{ value }} }",
+    "command_topic": "heater/valve/set",
+    "state_topic": "heater/valve/state",
+    "reports_position": true,
+    "value_template": "{{ value_json.x }}"
+  }
+}

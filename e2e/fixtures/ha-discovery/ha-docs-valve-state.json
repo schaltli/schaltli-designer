@@ -1,0 +1,24 @@
+{
+  "source": "home-assistant.io/integrations/valve.mqtt, 'Full configuration for a valve that does not report position' (source/_integrations/valve.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out",
+  "topic": "homeassistant/valve/heater_valve/config",
+  "payload": {
+    "name": "MQTT valve",
+    "command_template": "{\"x\": {{ value }} }",
+    "command_topic": "heater/valve/set",
+    "state_topic": "heater/valve/state",
+    "qos": 0,
+    "reports_position": false,
+    "retain": true,
+    "payload_open": "OPEN",
+    "payload_close": "CLOSE",
+    "payload_stop": "STOP",
+    "state_open": "open",
+    "state_opening": "opening",
+    "state_closed": "closed",
+    "state_closing": "closing",
+    "payload_available": "online",
+    "payload_not_available": "offline",
+    "optimistic": false,
+    "value_template": "{{ value_json.x }}"
+  }
+}
