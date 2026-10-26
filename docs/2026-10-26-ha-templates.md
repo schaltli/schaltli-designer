@@ -140,9 +140,11 @@ Stage 1 stands on its own: stage 2 can wait for a need.
   tones (a template that leaves the tone out has no tones). A command
   template reading a name the designer cannot fill - a lock's `code`,
   `entity_id` - is refused, naming it.
-- Two-state reads run backwards, for a switch and a binary sensor: tried
-  with true, false and the constants compared; each state from exactly one
-  value, else the reason says which state was ambiguous.
+- State reads run backwards, for a switch, a binary sensor and a choice:
+  tried with true, false and the constants compared, and a state nothing
+  gives tried as itself (a template passing most values through). Each
+  state from one value; a switch needs both, a choice's option no value
+  gives is never lit (`reads` ""); a state from two is a reason naming it.
 - `round(n)` as the last filter: the number shown as text takes `Fn`.
 - Found on the way: a JSON field's true reaches Home Assistant's
   `{{ value_json.x }}` as "True", but a device reads "true". A state read
@@ -150,7 +152,7 @@ Stage 1 stands on its own: stage 2 can wait for a need.
   Shelly switch so announced never showed its state.
 
 Not built in stage 1: a text whose template maps values (live value
-rules), `default` as `??` (open question 2), `int` as `F0`. Numbers through
+rules), `int` as `F0`; `default` as `??` not at all (open question 2). Numbers through
 a command template stay read-only until stage 2.
 
 ## Testing strategy
@@ -181,7 +183,13 @@ a command template stay read-only until stage 2.
    are not. Proposed: factor as a fraction (numerator, denominator), the
    result rounded to the decimals the import takes from `round(n)` or the
    unit, else 3.
-2. **`default` and a missing JSON field.** `?? x` applies while nothing has
+2. *(answered 2026-10-26: not mapped.)* A device reads a missing field as
+   "" (`ProjectLoader::extractJsonField`), and `??` stands only while
+   nothing has arrived on the topic at all (`arrived`, firmware
+   `ProjectTypes.h`) - never for a field missing from a message that did.
+   `default` is dropped, as before.
+
+   **`default` and a missing JSON field.** `?? x` applies while nothing has
    arrived; Jinja's `default` applies when the field is missing from a
    message that did. What a device shows today for a missing field is to
    check before stage 1 maps one onto the other.

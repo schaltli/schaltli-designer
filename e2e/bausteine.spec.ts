@@ -1096,6 +1096,20 @@ test.describe("a block from a catalog entry", () => {
     expect(built.topics).toContainEqual({ topic: "study/ac/mode/set", type: "text", examples: ["off", "on", "on"] })
   })
 
+  test("a thermostat's modes through both templates: each button lit by the value read, sending the call rendered", () => {
+    const built = build("shellies-gen2-thermostat")
+    expect(built.objects[1]).toMatchObject({
+      type: "button-group",
+      properties: {
+        topic: "shelly-blu-gateway/status/thermostat:0#enable",
+        states: [
+          { label: "off", readValue: "false", writeValue: expect.stringContaining('"enable": false') },
+          { label: "heat", readValue: "true", writeValue: expect.stringContaining('"enable": true') },
+        ],
+      },
+    })
+  })
+
   test("Shelly's relay as a fan: buttons reading its output field, true and false, and sending the RPC call", () => {
     const built = build("shellies-gen2-relay-fan")
     expect(built.objects[1]).toMatchObject({

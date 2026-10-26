@@ -883,6 +883,42 @@ test.describe("an entity with several parts", () => {
     ])
   })
 
+  test("Shelly gen2's thermostat: its modes read from enable and sent as RPC calls, the target only read until devices render numbers", () => {
+    const entry = entryOf("shellies-gen2-thermostat")
+    expect(entry.controls).toEqual([
+      {
+        part: "Mode",
+        kind: "choice",
+        read: "shelly-blu-gateway/status/thermostat:0#enable",
+        write: "shelly-blu-gateway/rpc",
+        options: ["off", "heat"],
+        writes: [
+          '{"id": 1, "method": "Thermostat.SetConfig", "params": {"config": {"enable": false, "id": 0}}, "src": "homeassistant"}',
+          '{"id": 1, "method": "Thermostat.SetConfig", "params": {"config": {"enable": true, "id": 0}}, "src": "homeassistant"}',
+        ],
+        reads: ["false", "true"],
+      },
+      { part: "Target temperature", kind: "value", read: "shelly-blu-gateway/status/thermostat:0#target_C", level: false },
+      { part: "Current temperature", kind: "value", read: "shelly-blu-gateway/status/thermostat:0#current_C", level: false },
+    ])
+  })
+
+  test("a choice's state template run backwards: an option passed through stands for itself, one no value gives is never lit", () => {
+    const one = (config: Record<string, unknown>) => toCatalogEntry(expandConfig("homeassistant/select/x/config", JSON.stringify(config))[0])
+    // Shelly's TPL_HVAC_MODE: ventilation is reported for fan_only, the rest as they are.
+    expect(
+      one({ stat_t: "m/state", cmd_t: "m/set", ops: ["off", "heat", "fan_only"], val_tpl: '{{"fan_only" if value_json.value == "ventilation" else value_json.value}}' }),
+    ).toMatchObject({ entry: { controls: [{ kind: "choice", read: "m/state#value", reads: ["off", "heat", "ventilation"] }] } })
+    // auto is in the list but nothing reads as it: its button never lights.
+    expect(one({ stat_t: "m/state", cmd_t: "m/set", ops: ["off", "heat", "auto"], val_tpl: "{%if value_json.enable%}heat{%else%}off{%endif%}" })).toMatchObject({
+      entry: { controls: [{ kind: "choice", read: "m/state#enable", reads: ["false", "true", ""] }] },
+    })
+    // A template that passes everything through needs nothing run backwards.
+    expect(one({ stat_t: "m/state", cmd_t: "m/set", ops: ["a", "b"], val_tpl: "{{ value_json.mode }}" })).toEqual(
+      expect.objectContaining({ entry: expect.objectContaining({ controls: [{ kind: "choice", read: "m/state#mode", write: "m/set", options: ["a", "b"] }] }) }),
+    )
+  })
+
   test("a state template run backwards: each state from exactly one value, or why not", () => {
     const one = (component: string, config: Record<string, unknown>) =>
       toCatalogEntry(expandConfig(`homeassistant/${component}/x/config`, JSON.stringify(config))[0])

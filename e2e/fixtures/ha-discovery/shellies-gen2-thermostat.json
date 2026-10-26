@@ -1,0 +1,24 @@
+{
+  "source": "bieniu/ha-shellies-discovery-gen2, python_scripts/shellies_discovery_gen2.py get_thermostat (2026-10-26): a heating thermostat, its templates verbatim (TPL_THERMOSTAT_MODE with action heat, TPL_SET_THERMOSTAT_MODE, TPL_SET_TARGET_TEMPERATURE, ^ already turned into quotes), its modes ['off', 'heat'] as the script sets them; keys written out, the topic prefix, the range and the device are example values, availability, action, origin and qos left out",
+  "topic": "homeassistant/climate/s3ld-aabbccddeeff-0/config",
+  "payload": {
+    "name": "Thermostat",
+    "~": "shelly-blu-gateway/",
+    "current_temperature_topic": "~status/thermostat:0",
+    "current_temperature_template": "{{value_json.current_C}}",
+    "temperature_state_topic": "~status/thermostat:0",
+    "temperature_state_template": "{{value_json.target_C}}",
+    "temperature_command_topic": "~rpc",
+    "temperature_command_template": "{{ {\"id\":1,\"src\":\"homeassistant\",\"method\":\"Thermostat.SetConfig\",\"params\":{\"config\":{\"id\":0,\"target_C\":value}}}|tojson }}",
+    "temp_step": 0.5,
+    "min_temp": 5,
+    "max_temp": 35,
+    "mode_state_topic": "~status/thermostat:0",
+    "mode_state_template": "{%if value_json.enable%}heat{%else%}off{%endif%}",
+    "mode_command_topic": "~rpc",
+    "mode_command_template": "{%if value==\"off\"%}{%set enable=false%}{%else%}{%set enable=true%}{%endif%}{{ {\"id\":1,\"src\":\"homeassistant\",\"method\":\"Thermostat.SetConfig\",\"params\":{\"config\":{\"id\":0,\"enable\":enable}}}|tojson }}",
+    "modes": ["off", "heat"],
+    "unique_id": "s3ld-aabbccddeeff-0",
+    "device": { "identifiers": ["s3ld-aabbccddeeff"], "name": "Shelly Thermostat" }
+  }
+}

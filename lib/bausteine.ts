@@ -785,8 +785,8 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       const states: SwitchStateSpec[] = control.options.map((option, i) => ({
         id: `option-${i}`,
         label: control.labels?.[i] ?? option,
-        value: option,
-        ...(control.writes ? { writeValue: control.writes[i] } : {}),
+        value: control.reads?.[i] ?? option,
+        writeValue: control.writes?.[i] ?? option,
         ...(icons[i] ? { iconAssetId: icons[i]!.assetId } : {}),
       }))
       return {

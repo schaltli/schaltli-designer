@@ -417,9 +417,11 @@ export type CatalogControl = (
    * `labels`, beside `options` and as long, are the buttons' words where the
    * values are not, `icons` their `mdi:…` icons (a block description's).
    * `writes`, as long, what each button sends where it is not the option -
-   * a command template's rendering.
+   * a command template's rendering; `reads` what lights it where that is
+   * not the option - a state template's, run backwards - "" for an option
+   * no reported value gives.
    */
-  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[]; writes?: string[] }
+  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[]; writes?: string[]; reads?: string[] }
   /** A press that publishes one payload. */
   | { kind: "button"; write: string; payload: string }
 ) & {
@@ -633,13 +635,17 @@ function switchPart(config: Json, keys: PartKeys, on: SwitchState, off: SwitchSt
 }
 
 /**
- * A two-state read template run backwards (docs/2026-10-26-ha-templates.md):
- * `{% if value_json.output %}ON{% else %}OFF{% endif %}` reads `output`, and
- * true is ON, false OFF. Tried with true, false and every constant the
- * template compares the payload with; it must give each state from exactly
- * one of them. Undefined where the template is a plain path, or there is none.
+ * A read template that maps the payload onto states, run backwards
+ * (docs/2026-10-26-ha-templates.md): `{% if value_json.output %}ON{% else %}OFF{% endif %}`
+ * reads `output`, and true is ON, false OFF. Tried with true, false and every
+ * constant the template compares the payload with; a state none of them
+ * gives is tried as itself, for a template that passes most values through
+ * (`"fan_only" if value_json.value == "ventilation" else value_json.value`).
+ * Each state comes from one value or from none (`undefined`); a state from
+ * two is no state to light, and the reason says which. Undefined where the
+ * template is a plain path, or there is none.
  */
-function mappedState(config: Json, keys: PartKeys, onState: string, offState: string): { read: string; on: string; off: string } | { skipped: string } | undefined {
+function mappedStates(config: Json, keys: PartKeys, states: string[]): { read: string; reads: (string | undefined)[] } | { skipped: string } | undefined {
   const topic = keys.read ? config[keys.read] : undefined
   const template = keys.readTemplate ? config[keys.readTemplate] : undefined
   if (typeof topic !== "string" || topic === "" || typeof template !== "string") return undefined
@@ -650,37 +656,45 @@ function mappedState(config: Json, keys: PartKeys, onState: string, offState: st
   if ("unsupported" in parsed) return { skipped: `the value template: ${parsed.unsupported}` }
   const source = readSource(parsed)
   if (!source) return reason
-  const candidates: Value[] = source.path === "value" ? source.constants.map((c) => (typeof c === "string" ? c : pythonStr(c))) : [true, false, ...source.constants]
-  const gives = new Map<string, Set<string>>([
-    [onState, new Set()],
-    [offState, new Set()],
-  ])
-  for (const candidate of candidates) {
-    let variables: Record<string, Value>
-    if (source.path === "value") variables = payloadVariables(candidate as string)
-    else {
-      let json: Value = candidate
-      for (const key of [...source.path].reverse()) {
-        if (typeof key === "number") return reason
-        json = new Dict(new Map([[key, json]]))
-      }
-      variables = { value: JSON.stringify(toPlain(json)), value_json: json }
+  const path = source.path
+  const variablesFor = (candidate: Value): Record<string, Value> | undefined => {
+    if (path === "value") return payloadVariables(typeof candidate === "string" ? candidate : pythonStr(candidate))
+    let json: Value = candidate
+    for (const key of [...path].reverse()) {
+      if (typeof key === "number") return undefined
+      json = new Dict(new Map([[key, json]]))
     }
+    return { value: JSON.stringify(toPlain(json)), value_json: json }
+  }
+  const renders = (candidate: Value): string | undefined => {
+    const variables = variablesFor(candidate)
+    if (!variables) return undefined
     try {
-      gives.get(renderTemplate(parsed, variables))?.add(seenAs(candidate))
+      return renderTemplate(parsed, variables)
     } catch (e) {
       if (!(e instanceof TemplateError)) throw e
+      return undefined
     }
   }
-  const [on, off] = [gives.get(onState)!, gives.get(offState)!]
-  // Neither state from anything: not a mapping at all, so say what is in the way.
-  if (on.size === 0 && off.size === 0) return reason
-  for (const [state, inputs] of [[onState, on], [offState, off]] as const) {
-    if (inputs.size === 0) return { skipped: `the value template: no value gives ${state}` }
-    if (inputs.size > 1) return { skipped: `the value template: more than one value gives ${state}` }
-  }
-  const path = source.path === "value" ? "" : formatPath(source.path.map((key) => ({ name: String(key) })))
-  return { read: path ? `${topic}#${path}` : topic, on: [...on][0], off: [...off][0] }
+  const gives = new Map(states.map((state) => [state, new Set<string>()]))
+  const candidates: Value[] = path === "value" ? source.constants.map((c) => (typeof c === "string" ? c : pythonStr(c))) : [true, false, ...source.constants]
+  for (const candidate of candidates) gives.get(renders(candidate) ?? "\u0000")?.add(seenAs(candidate))
+  for (const state of states) if (gives.get(state)!.size === 0 && renders(state) === state) gives.get(state)!.add(state)
+  // Not one state from anything: not a mapping, so say what is in the way.
+  if (states.every((state) => gives.get(state)!.size === 0)) return reason
+  for (const state of states) if (gives.get(state)!.size > 1) return { skipped: `the value template: more than one value gives ${state}` }
+  const field = path === "value" ? "" : formatPath(path.map((key) => ({ name: String(key) })))
+  return { read: field ? `${topic}#${field}` : topic, reads: states.map((state) => [...gives.get(state)!][0]) }
+}
+
+/** Two states run backwards: both must come from a value. */
+function mappedState(config: Json, keys: PartKeys, onState: string, offState: string): { read: string; on: string; off: string } | { skipped: string } | undefined {
+  const mapped = mappedStates(config, keys, [onState, offState])
+  if (!mapped || "skipped" in mapped) return mapped
+  const [on, off] = mapped.reads
+  if (on === undefined) return { skipped: `the value template: no value gives ${onState}` }
+  if (off === undefined) return { skipped: `the value template: no value gives ${offState}` }
+  return { read: mapped.read, on, off }
 }
 
 /**
@@ -724,10 +738,14 @@ function levelPart(config: Json, keys: PartKeys, range: { min: number; max: numb
 
 /** One of several options, read and written. */
 function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult {
-  const t = partTopics(config, keys)
+  const list = Array.isArray(options) ? options.map((o: unknown) => str(o, "")).filter(Boolean) : []
+  // A state template mapping the payload onto the options: read the payload,
+  // each option lit by the value that gives it - none where nothing does.
+  const mapped = list.length > 0 ? mappedStates(config, keys, list) : undefined
+  if (mapped && "skipped" in mapped) return mapped
+  const t = partTopics(config, mapped ? { ...keys, read: undefined, readTemplate: undefined } : keys)
   if ("skipped" in t) return t
   if (!t.write || !t.send) return t.writeRefused ? { skipped: t.writeRefused } : undefined
-  const list = Array.isArray(options) ? options.map((o: unknown) => str(o, "")).filter(Boolean) : []
   // As many buttons as options: whether a wide group fits a screen is the
   // placing's to say, not a reason to leave the entity out (user,
   // 2026-10-01 - the spec's limit of four was dropped).
@@ -735,7 +753,9 @@ function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult 
   const sent = sendAll(t.send, list)
   if ("refused" in sent) return { skipped: sent.refused }
   const writes = sent.payloads.some((payload, i) => payload !== list[i]) ? { writes: sent.payloads } : {}
-  return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list, ...writes } }
+  const read = mapped ? mapped.read : t.read
+  const reads = mapped && mapped.reads.some((r, i) => r !== list[i]) ? { reads: mapped.reads.map((r) => r ?? "") } : {}
+  return { control: { kind: "choice", ...(read ? { read } : {}), write: t.write, options: list, ...writes, ...reads } }
 }
 
 /** A template that gives the payload itself: `{{ value }}`. */
