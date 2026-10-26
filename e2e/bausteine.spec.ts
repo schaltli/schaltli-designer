@@ -507,6 +507,34 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // tasks/ha-cover-plan.md: a cover's actions are a button each, named by
+  // its part - three saying «Markise» would not say which is which.
+  test("an awning: its state beside the name, Open, Stop and Close a button each sending its payload, the position a slider", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["schaltli-awning"], { "van/markise/state": "open", "van/markise/pos": "70" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Markise")
+      await expect(page.getByTestId("baustein-chosen")).toContainText("van/markise/pos/set")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const parts = partsOf(block)
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button", "button", "button", "slider"])
+      expect(asPlaceholders(parts[0])).toBe("State {topic:van/markise/state}")
+      expect(parts.slice(1, 4).map((b: any) => [b.properties.text, b.properties.action])).toEqual([
+        ["Open", { type: "send-mqtt", mqttTopic: "van/markise/set", mqttMessage: "OPEN" }],
+        ["Stop", { type: "send-mqtt", mqttTopic: "van/markise/set", mqttMessage: "STOP" }],
+        ["Close", { type: "send-mqtt", mqttTopic: "van/markise/set", mqttMessage: "CLOSE" }],
+      ])
+      const name = block.children.find((c: { type: string; properties: { text?: string } }) => c.type === "text" && c.properties.text === "Markise")
+      expect(name.properties.cell).toMatchObject({ row: 0 })
+      expect(snapCellOf(parts[0]).row).toBe(0)
+    } finally {
+      await clear()
+    }
+  })
+
   // bridge-blocks Task 3: a description of somebody else's device, read
   // beside the Home Assistant configs - under a blocks prefix of this test's
   // own, so the others on the shared broker never see it.
