@@ -1,0 +1,17 @@
+{
+  "source": "the awning of the 2026-10-26 overview of Home Assistant entities for Schaltli (tasks/ha-cover-plan.md): written for it, every key as cover.mqtt documents it",
+  "topic": "homeassistant/cover/van/van_markise/config",
+  "payload": {
+    "name": "Markise",
+    "unique_id": "van_markise",
+    "device_class": "awning",
+    "command_topic": "van/markise/set",
+    "state_topic": "van/markise/state",
+    "position_topic": "van/markise/pos",
+    "set_position_topic": "van/markise/pos/set",
+    "payload_open": "OPEN",
+    "payload_close": "CLOSE",
+    "payload_stop": "STOP",
+    "device": { "identifiers": ["van-bus"], "name": "Van" }
+  }
+}

@@ -326,7 +326,7 @@ test.describe("an entity as a catalog entry", () => {
     })
     expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("cover", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component cover" } })
+    expect(one("valve", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component valve" } })
   })
 })
 
@@ -461,6 +461,63 @@ test.describe("an entity with several parts", () => {
       const [config] = expand(name)
       expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: `the light schema ${schema}` } })
     }
+  })
+
+  // tasks/ha-cover-plan.md: the state, each action on its own, position and tilt.
+  test("an awning: its state, Open, Stop and Close each a button, the position a level in percent", () => {
+    const entry = entryOf("schaltli-awning")
+    expect(entry.label).toBe("Markise")
+    expect(entry.controls).toEqual([
+      { part: "State", kind: "text", read: "van/markise/state" },
+      { part: "Open", kind: "button", write: "van/markise/set", payload: "OPEN" },
+      { part: "Stop", kind: "button", write: "van/markise/set", payload: "STOP" },
+      { part: "Close", kind: "button", write: "van/markise/set", payload: "CLOSE" },
+      { part: "Position", kind: "level", read: "van/markise/pos", write: "van/markise/pos/set", min: 0, max: 100, step: 1, percent: true },
+    ])
+    expect(entry.skipped).toBeUndefined()
+  })
+
+  test("the docs' cover with tilt: tilt in its range read from JSON; state and position skipped for their templates", () => {
+    const entry = entryOf("ha-docs-cover-tilt")
+    expect(entry.controls).toEqual([
+      { part: "Open", kind: "button", write: "living-room-cover/set", payload: "OPEN" },
+      { part: "Stop", kind: "button", write: "living-room-cover/set", payload: "STOP" },
+      { part: "Close", kind: "button", write: "living-room-cover/set", payload: "CLOSE" },
+      { part: "Tilt", kind: "level", read: "living-room-cover/tilt-state#PWM.PWM1", write: "living-room-cover/tilt", min: 0, max: 180, step: 1, percent: true },
+    ])
+    expect(entry.skipped).toEqual([
+      { part: "State", reason: "the value template: `.x`" },
+      { part: "Position", reason: "the value template: `.y`" },
+    ])
+  })
+
+  test("the docs' cover without close: a null payload leaves its button out", () => {
+    expect(entryOf("ha-docs-cover-no-close").controls).toEqual([
+      { part: "Open", kind: "button", write: "gate/set", payload: "on" },
+      { part: "Stop", kind: "button", write: "gate/set", payload: "on" },
+    ])
+  })
+
+  test("a cover's defaults, a position only read as a fill, and one it cannot set", () => {
+    const cover = (config: object) => {
+      const [c] = expandConfig("homeassistant/cover/c/config", JSON.stringify(config))
+      return toCatalogEntry(c)
+    }
+    expect(cover({ cmd_t: "c/set", pos_t: "c/pos", pos_open: 255, pos_clsd: 5, set_pos_t: "c/pos/set" })).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Open", payload: "OPEN" },
+          { part: "Stop", payload: "STOP" },
+          { part: "Close", payload: "CLOSE" },
+          { part: "Position", kind: "level", min: 5, max: 255, percent: true },
+        ],
+      },
+    })
+    expect(cover({ pos_t: "c/pos" })).toMatchObject({ entry: { controls: [{ part: "Position", kind: "value", read: "c/pos", unit: "%", level: true }] } })
+    expect(cover({ pos_t: "c/pos", set_pos_t: "c/pos/set", set_pos_tpl: "{{ position }}" })).toMatchObject({
+      entry: { controls: [{ part: "Position", kind: "value", read: "c/pos", level: true }] },
+    })
+    expect(cover({ name: "x" })).toMatchObject({ unsupported: { reason: "no part it can show" } })
   })
 
   test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {

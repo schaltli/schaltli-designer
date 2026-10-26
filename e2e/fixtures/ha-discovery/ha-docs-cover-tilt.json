@@ -1,0 +1,31 @@
+{
+  "source": "home-assistant.io/integrations/cover.mqtt, 'Full configuration for position, state and tilt' (source/_integrations/cover.mqtt.markdown, 2026-10-26): the YAML example's keys and values verbatim, as a discovery payload; the availability list left out",
+  "topic": "homeassistant/cover/living_room_cover/config",
+  "payload": {
+    "name": "MQTT Cover",
+    "command_topic": "living-room-cover/set",
+    "state_topic": "living-room-cover/state",
+    "position_topic": "living-room-cover/position",
+    "qos": 0,
+    "retain": true,
+    "payload_open": "OPEN",
+    "payload_close": "CLOSE",
+    "payload_stop": "STOP",
+    "state_open": "open",
+    "state_opening": "opening",
+    "state_closed": "closed",
+    "state_closing": "closing",
+    "payload_available": "online",
+    "payload_not_available": "offline",
+    "optimistic": false,
+    "value_template": "{{ value.x }}",
+    "position_template": "{{ value.y }}",
+    "tilt_command_topic": "living-room-cover/tilt",
+    "tilt_status_topic": "living-room-cover/tilt-state",
+    "tilt_status_template": "{{ value_json[\"PWM\"][\"PWM1\"] }}",
+    "tilt_min": 0,
+    "tilt_max": 180,
+    "tilt_closed_value": 70,
+    "tilt_opened_value": 180
+  }
+}

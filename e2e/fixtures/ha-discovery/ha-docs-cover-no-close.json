@@ -1,0 +1,11 @@
+{
+  "source": "home-assistant.io/integrations/cover.mqtt, 'Configuration for disabling cover commands' (source/_integrations/cover.mqtt.markdown, 2026-10-26): the discovery example's payloads verbatim; the example has no topics, so command_topic is added, abbreviated as a device would send it",
+  "topic": "homeassistant/cover/gate/config",
+  "payload": {
+    "name": "Gate",
+    "cmd_t": "gate/set",
+    "payload_open": "on",
+    "payload_close": null,
+    "payload_stop": "on"
+  }
+}

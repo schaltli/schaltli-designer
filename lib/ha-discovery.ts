@@ -386,7 +386,7 @@ export type CatalogControl = (
    * brightness, which Home Assistant shows so whatever its scale (#72).
    */
   | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string; current?: string; percent?: true }
-  /** A text shown as it comes (a block description's; Home Assistant has none). */
+  /** A text shown as it comes: a sensor that is not a number, a cover's state, a block description's. */
   | { kind: "text"; read: string }
   /**
    * One of its options, read and written: a button group, one button each.
@@ -558,6 +558,22 @@ function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult 
   return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list } }
 }
 
+/** A text only read, shown as it comes. */
+function textPart(config: Json, keys: PartKeys): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  return t.read ? { control: { kind: "text", read: t.read } } : undefined
+}
+
+/** A press that publishes `payload`; none where the payload is null, as Home Assistant drops the feature. */
+function buttonPart(config: Json, keys: PartKeys, payload: string | null): PartResult {
+  if (payload === null) return undefined
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
+  return { control: { kind: "button", write: t.write, payload } }
+}
+
 /** A value only read. */
 function valuePart(config: Json, keys: PartKeys, unit: string | undefined, level: boolean): PartResult {
   const t = partTopics(config, keys)
@@ -603,6 +619,25 @@ const BRIGHTNESS_SCALE = 255
 const SPEED_RANGE = { min: 1, max: 100 }
 const CLIMATE_TEMPERATURE = { min: 7, max: 35, step: 1 }
 const CLIMATE_MODES = ["auto", "off", "cool", "heat", "dry", "fan_only"]
+const COVER_POSITION = { closed: 0, open: 100 }
+const COVER_TILT = { min: 0, max: 100 }
+
+/** A cover's payload: its own, the default where it has none, null where it drops the action. */
+function coverPayload(config: Json, key: string, fallback: string): string | null {
+  return config[key] === null ? null : str(config[key], fallback)
+}
+
+/**
+ * A position or a tilt: a level in percent where it can be set; only read, a
+ * fill - a cover's position always is one.
+ */
+function positionPart(config: Json, keys: PartKeys, range: { min: number; max: number }): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, step: 1, percent: true } }
+  if (t.read) return { control: { kind: "value", read: t.read, unit: "%", level: true } }
+  return t.writeRefused ? { skipped: t.writeRefused } : undefined
+}
 
 /**
  * The parts of an entity with several controls - light, fan, climate - by
@@ -706,6 +741,34 @@ function partsOf(component: string, config: Json): [string, PartResult][] | unde
         ["Swing horizontal", choice("swing_horizontal_mode", config.swing_horizontal_modes)],
       ]
     }
+    case "cover": {
+      // The state first, beside the name; then each action on its own, so
+      // one can be left out or made large; then the detail (decided
+      // 2026-10-26, tasks/ha-cover-plan.md).
+      const command: PartKeys = { write: "command_topic" }
+      return [
+        ["State", textPart(config, { read: "state_topic", readTemplate: "value_template" })],
+        ["Open", buttonPart(config, command, coverPayload(config, "payload_open", "OPEN"))],
+        ["Stop", buttonPart(config, command, coverPayload(config, "payload_stop", "STOP"))],
+        ["Close", buttonPart(config, command, coverPayload(config, "payload_close", "CLOSE"))],
+        [
+          "Position",
+          positionPart(
+            config,
+            { read: "position_topic", readTemplate: "position_template", write: "set_position_topic", writeTemplate: "set_position_template" },
+            { min: num(config.position_closed, COVER_POSITION.closed), max: num(config.position_open, COVER_POSITION.open) },
+          ),
+        ],
+        [
+          "Tilt",
+          positionPart(
+            config,
+            { read: "tilt_status_topic", readTemplate: "tilt_status_template", write: "tilt_command_topic", writeTemplate: "tilt_command_template" },
+            { min: num(config.tilt_min, COVER_TILT.min), max: num(config.tilt_max, COVER_TILT.max) },
+          ),
+        ],
+      ]
+    }
     default:
       return undefined
   }
@@ -729,9 +792,7 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
     }
     case "sensor": {
       if (numericSensor(config)) return valuePart(config, { read: "state_topic", readTemplate: "value_template" }, unit, unit === "%" || config.device_class === "battery")
-      const t = partTopics(config, { read: "state_topic", readTemplate: "value_template" })
-      if ("skipped" in t) return t
-      return t.read ? { control: { kind: "text", read: t.read } } : undefined
+      return textPart(config, { read: "state_topic", readTemplate: "value_template" })
     }
     case "number":
       return levelPart(
@@ -742,12 +803,8 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       )
     case "select":
       return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
-    case "button": {
-      const t = partTopics(config, { write: "command_topic", writeTemplate: "command_template" })
-      if ("skipped" in t) return t
-      if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
-      return { control: { kind: "button", write: t.write, payload: str(config.payload_press, "PRESS") } }
-    }
+    case "button":
+      return buttonPart(config, { write: "command_topic", writeTemplate: "command_template" }, str(config.payload_press, "PRESS"))
     default:
       return { unknown: true }
   }
