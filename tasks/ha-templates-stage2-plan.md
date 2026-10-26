@@ -17,8 +17,11 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
    `/ 60000` and `/ 2.55` (= × 20 / 51) are exact. The offset is a decimal
    with at most 6 places. A value is read as a plain decimal (the
    formats' own reading, contract «never through a float») of at most 12
-   significant digits; the result is rounded half away from zero to
-   `decimals` (0-6), as `F0`-`F6` round. With those bounds every step fits
+   significant digits, at most 9 after the point; the result is rounded
+   half away from zero to `decimals` (0-6), as `F0`-`F6` round, and is
+   below 10^12. `decimals` is at least the offset's places (273.15 needs
+   2): a chip's own format rounds further where a template rounded to
+   fewer. With those bounds every step fits
    in a signed 64-bit integer on all three platforms (TypeScript BigInt,
    C++ `int64_t`, Kotlin `Long`). A value that is not a plain decimal or
    exceeds the bounds gives no value, never a wrong one.
@@ -34,8 +37,10 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
    bar or arc gets an optional `writeFormat`: `{ text, numerator?,
    denominator?, offset?, decimals? }`. `text` holds `{value}` once, e.g.
    `{"brightness":{value}}`; the value set by the finger is scaled first,
-   then put in, in plain decimal. `{{` and `}}` are literal braces, as in
-   placeholders. Absent: the number alone, as today. What is drawn and the
+   then put in, in plain decimal. Only `{value}` is special: every other
+   brace is written as it stands - not `{{`/`}}` as in placeholders, since
+   a JSON payload ends in `}}` all the time (changed while building S1,
+   2026-10-26). Absent: the number alone, as today. What is drawn and the
    asked value (the handle until the state comes back) stay the unscaled
    number.
 4. **One feature in the DDF: `"scaled-values"`.** As local topics (a

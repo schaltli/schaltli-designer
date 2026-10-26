@@ -1,8 +1,8 @@
 # Todo: ha-templates stage 2
 
-Plan: `tasks/ha-templates-stage2-plan.md`. Waiting for the user's approval.
+Plan: `tasks/ha-templates-stage2-plan.md`. Approved by the user 2026-10-26.
 
-- [ ] S1 The arithmetic and its vectors (`lib/scaled-value.ts`, vectors, e2e)
+- [x] S1 The arithmetic and its vectors (`lib/scaled-value.ts`, vectors, e2e)
 - [ ] S2 Scaled topics in the project (combined kind `scale`, vectors, export)
 - [ ] S3 Write formats on levels (property, preview publish, export)
 - [ ] S7 Contract (§1 feature, §2.6 scale kind, write format)
