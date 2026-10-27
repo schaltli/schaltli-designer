@@ -14,4 +14,5 @@ Plan: `tasks/ha-alarm-plan.md`, approved by the user 2026-10-27 («los»).
   - ButtonValues.h + test_button_values, ProjectLoader::pressedMessage, all three boards; the HIL went into hil/text-field.js as checks 7-8 rather than a new script (one project, one upload); green on 4.3B, knob, PaperS3
 - [x] A1 Android: the same, the number pad; Android HIL screen
   - ButtonValues.kt + test, the dispatcher (typed text sent `literal`, never read for {topic:…}), NumberPassword; Android HIL screen-13 «Alarm», checkAlarm: 31/31
-- [ ] Checkpoint: test:all (detached), COM3 logged
+- [x] Checkpoint: test:all (detached), COM3 logged
+  - 2026-10-27: e2e 1901 + 2 flaky (mock-simulator, green alone); the 4.3B timed out from the text field on at -84 dBm (COM3: no panic, no restart, snapshots dropped by the host), the PaperS3 unreachable for a while. Every red suite green when run again one by one, the 4.3B's text styles 6/6
