@@ -1079,7 +1079,7 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
 }
 
 // What fills its cell's width in a block, so its parts end on one edge.
-const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher"])
+const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field"])
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
 type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; alignY?: "top" | "bottom" }

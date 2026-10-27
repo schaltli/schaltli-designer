@@ -123,6 +123,8 @@ function fixtureObjects(): Obj[] {
         { id: "v-group-box", type: "box", x: 0, y: 0, width: 40, height: 20, zIndex: 0, properties: { fillColor: "transparent", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0 } },
       ],
     }),
+    // Last, so the variants before it keep their places (2026-10-27).
+    place("v-text-field", "text-field", { topic: READ_TOPIC, writeTopic: WRITE_TOPIC, minLength: 0, maxLength: 255 }, { width: 40, height: 20 }),
   ]
 }
 
@@ -425,6 +427,7 @@ test.describe("property panel: every control of every object", () => {
       ["button-device", "Button"],
       ["switch-group", "Button Group"],
       ["switch-knob", "Switch"],
+      ["text-field", "Text field"],
       ["tab-control", "Switcher"],
       ["panel", "Panel"],
       ["group", "Group"],

@@ -144,6 +144,16 @@ export const ButtonIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// A field with the accent line under it and a text cursor: Material's
+// filled text field.
+export const TextFieldIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <path d="M5 18h14" stroke={ACCENT} />
+    <path d="M7 9v6" />
+  </Glyph>
+)
+
 const Polyline = ({ accent }: { accent?: boolean }) => (
   <>
     <path d="M3 18 9 7l5 8 7-9" stroke={accent ? ACCENT : undefined} />
@@ -253,6 +263,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   switch: SwitchIcon,
   "button-group": ButtonGroupIcon,
   button: ButtonIcon,
+  "text-field": TextFieldIcon,
   line: LineIcon,
   "live-line": LiveLineIcon,
   box: BoxIcon,

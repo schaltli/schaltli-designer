@@ -505,6 +505,32 @@
         "input:number: H"
       ]
     },
+    "text-field": {
+      "header": "Text field v-text-field",
+      "controls": [
+        "heading: Text field v-text-field",
+        "button: Data",
+        "combobox: Topic",
+        "combobox: Write topic",
+        "button: Typing",
+        "input:number: Min length",
+        "input:number: Max length",
+        "caption: Hide text",
+        "input:checkbox: Dots instead of letters",
+        "button: Text",
+        "select: Text style",
+        "button: Snap to Caption",
+        "button: Colour",
+        "combobox: Field",
+        "combobox: Line",
+        "combobox: Text",
+        "button: Frame 145, 145 · 40 × 20",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: W",
+        "input:number: H"
+      ]
+    },
     "tab-control": {
       "header": "Switcher v-tab-control",
       "controls": [

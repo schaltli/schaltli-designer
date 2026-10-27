@@ -59,6 +59,8 @@ import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
+import { renderTextField, textFieldValue } from "./renderers/render-text-field"
+import { TextFieldEntry } from "./text-field-entry"
 import {
   renderSwitch,
   minSwitchWidth,
@@ -940,6 +942,11 @@ export function Canvas({
   // bitmap while a finger is on it (docs/2026-09-19-button-look.md). Until
   // 2026-09-19 the preview never showed a pressed button at all.
   const [pressedButtonId, setPressedButtonId] = useState<string | null>(null)
+  // A text field tapped in the preview: its input line is open (text-field-entry.tsx).
+  const [typingField, setTypingField] = useState<{ obj: ScreenObject; initial: string } | null>(null)
+  useEffect(() => {
+    if (!previewMode) setTypingField(null)
+  }, [previewMode])
   // The same for a Switch, which needs the state under the finger as well as
   // the object - a group marks that one segment (docs/2026-09-20-switch-look.md).
   const [pressedSwitch, setPressedSwitch] = useState<{ id: string; index: number } | null>(null)
@@ -2364,6 +2371,19 @@ export function Canvas({
         })
         break
 
+      case "text-field":
+        renderTextField({
+          ctx,
+          obj,
+          fonts,
+          bdfFontCache: bdfFontCacheRef.current,
+          getPreviewValueFromTopic,
+          getAskedValueFromTopic,
+          colorDepth,
+          requestRedraw: draw,
+        })
+        break
+
       case "switch":
 
       case "button-group":
@@ -2930,6 +2950,18 @@ export function Canvas({
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
+        } else if (clickedObject?.type === "text-field") {
+          // The keyboard opens on what the field shows; nothing is sent
+          // until OK, as on a device (tasks/ha-text-plan.md).
+          if (clickedObject.properties.writeTopic) {
+            // The press would otherwise move the focus to the canvas, away
+            // from the input line that is about to take it.
+            e.preventDefault()
+            setTypingField({
+              obj: clickedObject,
+              initial: textFieldValue(clickedObject, previewValueRef.current, getAskedValueFromTopic),
+            })
+          }
         } else if (clickedObject?.type === "energy-diagram") {
           // A node's action, as a button's (docs/2026-10-11-energy-diagram.md decision 13).
           const action = energyNodeAtTap(clickedObject, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined
@@ -4903,6 +4935,24 @@ export function Canvas({
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       />
+
+      {previewMode && typingField ? (
+        <TextFieldEntry
+          key={typingField.obj.id}
+          obj={typingField.obj}
+          initial={typingField.initial}
+          onCancel={() => setTypingField(null)}
+          onSend={(text) => {
+            const { topic, writeTopic } = typingField.obj.properties
+            setTypingField(null)
+            if (!writeTopic) return
+            onPreviewPublish?.(writeTopic, text)
+            // Shown until the topic answers; without one, the write
+            // topic is read (render-text-field.ts textFieldValue).
+            onPreviewAsk?.(topic || writeTopic, text)
+          }}
+        />
+      ) : null}
 
       {contextMenuPosition && (
         <>

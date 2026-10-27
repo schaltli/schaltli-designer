@@ -16,6 +16,7 @@ import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
 import { ArcLevelProperties } from "./arc-level-properties"
 import { SoftwareButtonProperties } from "./software-button-properties"
+import { TextFieldProperties } from "./text-field-properties"
 import { SwitchProperties } from "./switch-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
@@ -466,6 +467,19 @@ export function PropertyPanel({
                   deviceActions={deviceActions}
                   onPopup={isPopup(currentScreen)}
                   currentScreenId={currentScreen?.id}
+                />
+              )}
+
+              {selectedObject.type === "text-field" && (
+                <TextFieldProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                  fonts={fonts}
+                  textScale={textScale}
+                  colorDepth={colorDepth}
+                  onManageFonts={handleManageFonts}
                 />
               )}
 

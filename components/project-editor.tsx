@@ -2985,6 +2985,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             },
           })
           break
+        case "text-field":
+          addObject({
+            type: "text-field",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              topic: undefined,
+              writeTopic: undefined,
+              // Home Assistant's own bounds for a text (lib/text-field.ts).
+              minLength: 0,
+              maxLength: 255,
+              fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
+            },
+          })
+          break
         default:
           console.warn("[v0] Unknown active tool:", activeTool)
       }

@@ -154,6 +154,9 @@ export const COLOR_KEYS = [
   "idleColor",
   "chargeColor",
   "dischargeColor",
+  // The text field's container and the line under it (tasks/ha-text-plan.md).
+  "fieldColor",
+  "lineColor",
 ] as const
 
 // The energy roles of every colour theme, from the target picture the user
@@ -612,6 +615,7 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   gauge: { fillColor: "accent", trackColor: "track", trackEdgeColor: "trackEdge" },
   dial: { fillColor: "accent", trackColor: "track", trackEdgeColor: "trackEdge" },
   button: { buttonColor: "accent" },
+  "text-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
   switch: { switchColor: "accent" },
   "button-group": { switchColor: "accent" },
   "energy-diagram": {

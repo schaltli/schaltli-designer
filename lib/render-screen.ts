@@ -31,6 +31,7 @@ import { renderMqttDataLine } from "@/components/canvas/renderers/render-mqtt-da
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
+import { renderTextField } from "@/components/canvas/renderers/render-text-field"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { applyColorDepth } from "@/lib/color-depth"
 import { barLayout, clampScroll, cornerInset, dividerRect, entryRect, markerRect, scrollToShow } from "@/lib/navigator"
@@ -637,6 +638,10 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           colorDepth,
           screenBackgroundColor,
         })
+        break
+
+      case "text-field":
+        renderTextField({ ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, getAskedValueFromTopic, colorDepth, requestRedraw })
         break
 
       case "switch":

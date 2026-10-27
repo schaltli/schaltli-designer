@@ -139,6 +139,7 @@ export function Toolbar({
         tool("switch", "Switch", "On or off: a knob in a track, bound to a read and a write topic"),
         tool("button-group", "Button Group", "One of several states, side by side, bound to a read and a write topic"),
         tool("button", "Button", "Does something when pressed"),
+        tool("text-field", "Text field", "A text a finger types on a keyboard, bound to a read and a write topic"),
       ],
     },
     {

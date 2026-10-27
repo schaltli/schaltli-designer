@@ -14,7 +14,7 @@ import { ButtonGroupRow, FieldNote, PropertySection, SelectField, ToggleRow } fr
 
 // What can fill its cell's width or height (open question 1, proposed): a
 // text, an icon, a switch or a ring keeps its own size.
-const FILLS_WIDTH = new Set(["button", "button-group", "bar", "slider", "box", "free"])
+const FILLS_WIDTH = new Set(["button", "button-group", "bar", "slider", "box", "free", "text-field"])
 const FILLS_HEIGHT = new Set(["button", "box", "free"])
 
 const ALIGN: Array<{ value: SnapAlign; label: string }> = [
