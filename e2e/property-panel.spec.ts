@@ -125,6 +125,7 @@ function fixtureObjects(): Obj[] {
     }),
     // Last, so the variants before it keep their places (2026-10-27).
     place("v-text-field", "text-field", { topic: READ_TOPIC, writeTopic: WRITE_TOPIC, minLength: 0, maxLength: 255 }, { width: 40, height: 20 }),
+    place("v-time-field", "time-field", { topic: READ_TOPIC, writeTopic: WRITE_TOPIC, minuteStep: 5 }, { width: 40, height: 20 }),
   ]
 }
 
@@ -428,6 +429,7 @@ test.describe("property panel: every control of every object", () => {
       ["switch-group", "Button Group"],
       ["switch-knob", "Switch"],
       ["text-field", "Text field"],
+      ["time-field", "Time field"],
       ["tab-control", "Switcher"],
       ["panel", "Panel"],
       ["group", "Group"],

@@ -616,6 +616,7 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   dial: { fillColor: "accent", trackColor: "track", trackEdgeColor: "trackEdge" },
   button: { buttonColor: "accent" },
   "text-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
+  "time-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
   switch: { switchColor: "accent" },
   "button-group": { switchColor: "accent" },
   "energy-diagram": {

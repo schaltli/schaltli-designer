@@ -61,6 +61,8 @@ import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { renderTextField, textFieldValue } from "./renderers/render-text-field"
 import { TextFieldEntry } from "./text-field-entry"
+import { renderTimeField } from "./renderers/render-time-field"
+import { TimeFieldEntry } from "./time-field-entry"
 import {
   renderSwitch,
   minSwitchWidth,
@@ -2371,6 +2373,19 @@ export function Canvas({
         })
         break
 
+      case "time-field":
+        renderTimeField({
+          ctx,
+          obj,
+          fonts,
+          bdfFontCache: bdfFontCacheRef.current,
+          getPreviewValueFromTopic,
+          getAskedValueFromTopic,
+          colorDepth,
+          requestRedraw: draw,
+        })
+        break
+
       case "text-field":
         renderTextField({
           ctx,
@@ -2950,7 +2965,7 @@ export function Canvas({
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
-        } else if (clickedObject?.type === "text-field") {
+        } else if (clickedObject?.type === "text-field" || clickedObject?.type === "time-field") {
           // The keyboard opens on what the field shows; nothing is sent
           // until OK, as on a device (tasks/ha-text-plan.md).
           if (clickedObject.properties.writeTopic) {
@@ -4936,7 +4951,22 @@ export function Canvas({
         onContextMenu={handleContextMenu}
       />
 
-      {previewMode && typingField ? (
+      {previewMode && typingField?.obj.type === "time-field" ? (
+        <TimeFieldEntry
+          key={typingField.obj.id}
+          obj={typingField.obj}
+          initial={typingField.initial}
+          onCancel={() => setTypingField(null)}
+          onSend={(payload) => {
+            const { topic, writeTopic } = typingField.obj.properties
+            setTypingField(null)
+            if (!writeTopic) return
+            onPreviewPublish?.(writeTopic, payload)
+            onPreviewAsk?.(topic || writeTopic, payload)
+          }}
+        />
+      ) : null}
+      {previewMode && typingField && typingField.obj.type !== "time-field" ? (
         <TextFieldEntry
           key={typingField.obj.id}
           obj={typingField.obj}

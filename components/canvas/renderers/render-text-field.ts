@@ -50,6 +50,15 @@ export function textFieldValue(
 }
 
 export function renderTextField(options: RenderTextFieldOptions): void {
+  const value = textFieldValue(options.obj, options.getPreviewValueFromTopic, options.getAskedValueFromTopic ?? (() => ""))
+  drawField(options, value, options.obj.properties.hidden === true)
+}
+
+/**
+ * The field and `value` in it - a text field's, and a time field's
+ * (render-time-field.ts), which shows its time the same way.
+ */
+export function drawField(options: RenderTextFieldOptions, value: string, hidden: boolean): void {
   const { ctx, obj, fonts, bdfFontCache, colorDepth } = options
   const x = Math.round(obj.x)
   const y = Math.round(obj.y)
@@ -63,13 +72,12 @@ export function renderTextField(options: RenderTextFieldOptions): void {
   fillRoundRect(ctx, x, y, w, h, g.radius, field)
   if (w > 2 * g.radius) fillRoundRect(ctx, x + g.radius, y + g.lineY, w - 2 * g.radius, g.lineHeight, 0, line)
 
-  const value = textFieldValue(obj, options.getPreviewValueFromTopic, options.getAskedValueFromTopic ?? (() => ""))
   if (value === "") return
 
   const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const bdfFont = loadBdfFont(obj, fonts, bdfFontCache)
   const hasBullet = bdfFont ? Boolean(bdfFont.glyphs[HIDDEN_CHAR.codePointAt(0)!]) : true
-  const text = shownText(value, obj.properties.hidden === true, hasBullet)
+  const text = shownText(value, hidden, hasBullet)
   const m = fontMetricsOf(fontMeta, 14)
   const baseline = y + textFieldBaseline(h, m.ascent, m.descent)
 

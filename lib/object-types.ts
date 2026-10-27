@@ -39,6 +39,8 @@ export const OBJECT_TYPES = [
   "button",
   // A topic's text, typed anew and sent (tasks/ha-text-plan.md).
   "text-field",
+  // A topic's time of day, set on a picker and sent (tasks/ha-time-plan.md).
+  "time-field",
   "line",
   "live-line",
   "box",
@@ -62,7 +64,7 @@ export const OBJECT_TYPES = [
 export type ObjectType = (typeof OBJECT_TYPES)[number]
 
 /** What a person can put a finger on. Also the line an e-paper DDF stops at. */
-export const OPERATE_TYPES: readonly ObjectType[] = ["slider", "dial", "switch", "button-group", "button", "text-field"]
+export const OPERATE_TYPES: readonly ObjectType[] = ["slider", "dial", "switch", "button-group", "button", "text-field", "time-field"]
 
 export function isObjectType(type: string): type is ObjectType {
   return (OBJECT_TYPES as readonly string[]).includes(type)
@@ -128,6 +130,8 @@ export function objectTypeLabel(type: string): string {
       return "Button"
     case "text-field":
       return "Text field"
+    case "time-field":
+      return "Time field"
     case "line":
       return "Line"
     case "live-line":

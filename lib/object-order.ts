@@ -38,6 +38,7 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     switch: 8,
     "button-group": 8,
     "text-field": 8,
+    "time-field": 8,
     // Only affects where a newly-inserted top-level switcher lands relative
     // to other top-level objects (insertObjectInOrder) - a switcher
     // typically wraps controls added after the screen's basic furniture is

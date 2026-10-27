@@ -3002,6 +3002,22 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             },
           })
           break
+        case "time-field":
+          addObject({
+            type: "time-field",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              topic: undefined,
+              writeTopic: undefined,
+              // Five minutes unless set (tasks/ha-time-plan.md, decision 1).
+              minuteStep: 5,
+              fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
+            },
+          })
+          break
         default:
           console.warn("[v0] Unknown active tool:", activeTool)
       }

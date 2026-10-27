@@ -50,6 +50,8 @@ export function placedSize(tool: string, pixelsPerMm: number): { width: number; 
       return { width: mm(CONTROL_WIDTH_MM), height: control }
     case "text-field":
       return { width: mm(LEVEL_LENGTH_MM), height: control }
+    case "time-field":
+      return { width: mm(CONTROL_WIDTH_MM), height: control }
     case "box":
       return { width: mm(BOX_MM.width), height: mm(BOX_MM.height) }
     case "free":

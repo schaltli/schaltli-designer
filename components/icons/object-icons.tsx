@@ -154,6 +154,16 @@ export const TextFieldIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// The text field's field with a clock in it, its hand in the accent.
+export const TimeFieldIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <circle cx="8" cy="12" r="3" />
+    <path d="M8 10.5V12l1 1" stroke={ACCENT} />
+    <path d="M13 12h6" />
+  </Glyph>
+)
+
 const Polyline = ({ accent }: { accent?: boolean }) => (
   <>
     <path d="M3 18 9 7l5 8 7-9" stroke={accent ? ACCENT : undefined} />
@@ -264,6 +274,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   "button-group": ButtonGroupIcon,
   button: ButtonIcon,
   "text-field": TextFieldIcon,
+  "time-field": TimeFieldIcon,
   line: LineIcon,
   "live-line": LiveLineIcon,
   box: BoxIcon,
