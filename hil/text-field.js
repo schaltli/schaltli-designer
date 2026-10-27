@@ -114,8 +114,16 @@ async function buildZip(project) {
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage()
-    await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" })
-    await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
+    // Right after a board restarts, the dev server answered test-render with
+    // a 500 now and then («Unexpected end of JSON input», 2026-10-27) and the
+    // page never got ready; a second load was fine. So up to three.
+    for (let attempt = 1; ; attempt++) {
+      const res = await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" })
+      const ready = res && res.ok() && (await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 }).then(() => true, () => false))
+      if (ready) break
+      if (attempt === 3) throw new Error(`test-render did not get ready (HTTP ${res ? res.status() : "none"})`)
+      await sleep(2000)
+    }
     return Buffer.from(await page.evaluate((p) => window.__buildDeviceZipForTest(p), project), "base64")
   } finally {
     await browser.close()
