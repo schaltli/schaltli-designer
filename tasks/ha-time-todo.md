@@ -18,4 +18,4 @@ no ring; step 5 by default, rounded onto; 24 hours).
   - schaltli-firmware f2b9ec4 (TimePicker, 4.3B), 7abc94e (knob), PaperS3 after; test/test_time_picker; hil/time-field.js 6/6 on .117 and .114, 5/5 on .118; in test:all
 - [x] A1 Android: drawing, system time picker, HIL screen
   - schaltli-android commit after 9af1038; TimeFieldTest, DdfBuilderTest; hil/android screen-12 and checkTimeField: 30/30, OK sends 06:30:00 from 06:32, Cancel nothing (the dial is Android's, not driven)
-- [ ] Checkpoint: test:all (detached), COM3 logged
+- [x] Checkpoint: test:all 2026-10-27 (detached): e2e 1889 passed; android, papers3 green; knob-time-field 5/6 - the flick ran on only two under the full run's load (the test's flick made plain: three values in two moves, run on past three; 6/6 alone); 4v3b layout, energy motion, local topics and the dial's drag failed under load with snapshots 'terminated' - each green alone afterwards (3/3, PASS, 5/5, 6/6). The 4.3B's internal heap was 76 KB after the run; opening, dragging and cancelling the picker 20 times left it at 154 KB, no leak there. COM3: no panic

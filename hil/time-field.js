@@ -9,7 +9,7 @@
 //   3. a tap on the hour's neighbour below brings 07 to the middle, one
 //      above takes it back (buttons: the hour's up and down);
 //   4. OK sends 06:45:00 on the write topic and closes it;
-//   5. a quick flick on the hour runs on further than the finger went
+//   5. a quick flick on the hour (three values' worth) runs on past them
 //      (wheels only);
 //   6. Cancel sends nothing and closes it.
 //
@@ -228,11 +228,14 @@ async function main() {
     await sleep(eink ? 3000 : 800)
     p = await open()
     if (wheels) {
-      // Two values' worth in about 60 ms: the wheel must run on past them.
+      // Three values' worth in two moves, let go at once: the wheel must run
+      // on past them. Each move is an HTTP request, slower under a full
+      // test:all (2026-10-27: two values in three moves ran on only to two
+      // on the knob), so the flick is made plain rather than barely one.
       const before = Number(p.value.slice(0, 2))
-      p = await drag(p.hour, -2 * p.itemH, 3, 20, 0)
+      p = await drag(p.hour, -3 * p.itemH, 2, 10, 0)
       const ran = (Number(p.value.slice(0, 2)) - before + 24) % 24
-      check("5. a quick flick runs on further than the finger went", ran > 2, `${before} -> ${p.value} (${ran} on)`)
+      check("5. a quick flick runs on further than the finger went", ran > 3, `${before} -> ${p.value} (${ran} on)`)
     }
 
     await tap(middle(p.cancel).x, middle(p.cancel).y)
