@@ -130,6 +130,13 @@ test.describe("an object bound to a scaled topic", () => {
     expect(arrived("combined:celsius")).toBe("")
   })
 
+  test("is in use while a bar reads it, and the bar is renamed along", () => {
+    const bar = { id: "b", type: "bar", x: 0, y: 0, width: 100, height: 20, zIndex: 0, properties: { topic: "combined:celsius" } }
+    const project = { combinedTopics: [celsius], screens: [{ name: "Home", objects: [bar] }] }
+    expect(combinedUsage(project, "celsius")).toEqual(["a bar on Home"])
+    expect(renameCombined(project, "celsius", "temperature").screens[0].objects[0].properties.topic).toBe("combined:temperature")
+  })
+
   test("is not subscribed as a topic", () => {
     const bar = { id: "b", type: "bar", x: 0, y: 0, width: 100, height: 20, zIndex: 0, properties: { topic: "combined:celsius" } }
     expect(projectSubscriptionTopics({ topics: [], screens: [{ objects: [bar as any] }] })).toEqual([])

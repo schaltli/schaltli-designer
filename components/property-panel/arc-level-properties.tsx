@@ -26,6 +26,7 @@
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { isSettableLevel } from "@/lib/object-types"
+import { WriteFormatField } from "@/components/property-panel/fields/write-format-field"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import { formatClock } from "@/lib/arc-raster"
@@ -158,6 +159,14 @@ export function ArcLevelProperties({
             allowSubtopics={false}
           />
         )}
+        {settable && props.writeTopic ? (
+          <WriteFormatField
+            value={props.writeFormat}
+            // The top of its range: what a finger can set at most.
+            example={String(points.length ? Math.max(...points.map((p) => p.value)) : 100)}
+            onChange={(format) => updateProperty("writeFormat", format)}
+          />
+        ) : null}
 
         <TopicField
           label="Setpoint topic"

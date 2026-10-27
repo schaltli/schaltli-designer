@@ -188,6 +188,9 @@ function forEachObject(project: ProjectLike, visit: (obj: ObjectLike, screen: { 
 
 const readsCombined = (source: Source | undefined, name: string) => source?.namespace === "combined" && source.path === name
 
+// The properties an object reads a value through, which may name a combined topic.
+const BINDING_KEYS = ["topic", "setpointTopic"] as const
+
 /**
  * What reads a combined topic: texts (named by their text, a chip as "…"),
  * icons, and other combined topics - so one still in use is not deleted and
@@ -197,6 +200,11 @@ export function combinedUsage(project: ProjectLike, name: string): string[] {
   const users: string[] = []
   forEachObject(project, (obj, screen) => {
     const liveValues: { source?: Source }[] = Array.isArray(obj.properties?.liveValues) ? obj.properties!.liveValues : []
+    // A bar, a gauge, a slider bound to it (`combined:<name>`, device contract 2.11).
+    if (BINDING_KEYS.some((key) => obj.properties?.[key] === `combined:${name}`)) {
+      users.push(`a ${obj.type} on ${screen.name}`)
+      return
+    }
     if (!liveValues.some((lv) => readsCombined(lv.source, name))) return
     if (obj.type === "screen-icon") users.push(`the screen icon of ${screen.name}`)
     else if (obj.type === "icon") users.push(`an icon on ${screen.name}`)
@@ -223,6 +231,7 @@ export function renameCombined<T extends ProjectLike>(project: T, from: string, 
   }
   forEachObject(copy, (obj) => {
     if (Array.isArray(obj.properties?.liveValues)) obj.properties!.liveValues.forEach((lv: { source?: Source }) => rename(lv.source))
+    for (const key of BINDING_KEYS) if (obj.properties?.[key] === `combined:${from}`) obj.properties[key] = `combined:${to}`
   })
   return copy
 }

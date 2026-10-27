@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-17",
+  "harvestedAt": "2026-10-27",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -199,6 +199,11 @@
         "button: Data",
         "combobox: Topic",
         "combobox: Write topic",
+        "input:text: Send as",
+        "input:text: Send times",
+        "input:text: Send divided by",
+        "input:text: Send plus",
+        "input:text: Send decimals",
         "input:number: Step",
         "button: Shape",
         "select: Size",
@@ -276,6 +281,11 @@
         "button: Data",
         "combobox: Topic",
         "combobox: Write topic",
+        "input:text: Send as",
+        "input:text: Send times",
+        "input:text: Send divided by",
+        "input:text: Send plus",
+        "input:text: Send decimals",
         "combobox: Setpoint topic",
         "input:number: Step",
         "button: Shape",

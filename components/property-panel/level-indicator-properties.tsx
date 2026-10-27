@@ -32,6 +32,7 @@
 import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
+import { WriteFormatField } from "@/components/property-panel/fields/write-format-field"
 import { stepUpdates, type TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import {
@@ -161,6 +162,14 @@ export function LevelIndicatorProperties({
             allowSubtopics={false}
           />
         )}
+        {settable && selectedObject.properties.writeTopic ? (
+          <WriteFormatField
+            value={selectedObject.properties.writeFormat}
+            // The top of its range: what a finger can set at most.
+            example={String(points.length ? Math.max(...points.map((p) => p.value)) : 100)}
+            onChange={(format) => updateProperty("writeFormat", format)}
+          />
+        ) : null}
 
         {settable && (
           <>

@@ -3,7 +3,9 @@
 /**
  * Combined topics in Project Settings › Topics (docs/2026-10-07-live-values.md,
  * decisions 10-15): a topic the project computes - yes when all, or any, of
- * its conditions apply. A condition reads a topic or another combined topic;
+ * its conditions apply, or a number scaled from one source
+ * (tasks/ha-templates-stage2-plan.md, decision 2). A condition reads a topic
+ * or another combined topic;
  * what would close a circular reference is not offered, and one written by
  * hand is shown in red. One still read is not deleted, and the refusal says
  * where; a rename carries every reference.
@@ -17,6 +19,7 @@ import { RULE_OPERATORS, type RuleOperator } from "@/lib/comparison-operators"
 import {
   MAX_COMBINED_DEPTH,
   combinedReadableFrom,
+  computeCombined,
   combinedUsage,
   evaluationOrder,
   renameCombined,
@@ -24,6 +27,7 @@ import {
   type CombinedTopic,
 } from "@/lib/combined-topics"
 import { referenceEntries } from "@/lib/placeholder-completion"
+import type { Source } from "@/lib/live-value"
 import { cn } from "@/lib/utils"
 
 const OPERATOR_LABELS: Record<RuleOperator, string> = {
@@ -79,6 +83,24 @@ export function CombinedTopicsSection({ project, onProjectUpdate }: { project: P
   const updateCondition = (ct: CombinedTopic, index: number, patch: Partial<CombinedCondition>) =>
     update(ct.id, { conditions: ct.conditions.map((c, i) => (i === index ? { ...c, ...patch } : c)) })
 
+  // A scaled topic's own value from its source's example, for the form to show.
+  const exampleOf = new Map(topicEntries.map((e) => [e.reference.slice("topic:".length), e.example]))
+  const fromExamples = computeCombined(cts, (path) => exampleOf.get(path))
+  const sourceValue = (source: Source) => (source.namespace === "topic" ? exampleOf.get(source.path) : fromExamples.get(source.path))
+
+  // The kind changed: a scaled topic reads one source, the first topic; back
+  // to yes/no it has conditions again.
+  const setMode = (ct: CombinedTopic, mode: CombinedTopic["mode"]) => {
+    if (mode === "scale") {
+      const first = topicEntries[0]?.reference.slice("topic:".length) ?? ""
+      update(ct.id, { mode, conditions: [], scale: ct.scale ?? { source: { namespace: "topic", path: first }, numerator: 1, denominator: 1, decimals: 1 } })
+    } else {
+      const { scale: _scale, ...rest } = ct
+      setTopics(cts.map((c) => (c.id === ct.id ? { ...rest, mode } : c)))
+    }
+  }
+  const setScale = (ct: CombinedTopic, patch: Partial<NonNullable<CombinedTopic["scale"]>>) => update(ct.id, { scale: { ...ct.scale!, ...patch } })
+
   const add = () => {
     let n = cts.length + 1
     while (cts.some((ct) => ct.name === `combined${n}`)) n++
@@ -129,14 +151,24 @@ export function CombinedTopicsSection({ project, onProjectUpdate }: { project: P
               </Button>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <span>Is yes when</span>
-              <select aria-label="All or any" className={SELECT} value={ct.mode} onChange={(e) => update(ct.id, { mode: e.target.value as CombinedTopic["mode"] })}>
+              <span>{ct.mode === "scale" ? "Is" : "Is yes when"}</span>
+              <select aria-label="All or any" className={SELECT} value={ct.mode} onChange={(e) => setMode(ct, e.target.value as CombinedTopic["mode"])}>
                 <option value="all">all</option>
                 <option value="any">any</option>
+                <option value="scale">a scaled number</option>
               </select>
-              <span>of these apply:</span>
+              <span>{ct.mode === "scale" ? "of:" : "of these apply:"}</span>
             </div>
-            {ct.conditions.map((condition, index) => {
+            {ct.mode === "scale" && ct.scale ? (
+              <ScaleForm
+                scale={ct.scale}
+                choices={[...topicEntries.map((e) => e.reference), ...readable.map((n) => `combined:${n}`)]}
+                example={sourceValue(ct.scale.source)}
+                value={fromExamples.get(ct.name)}
+                onChange={(patch) => setScale(ct, patch)}
+              />
+            ) : null}
+            {ct.mode === "scale" ? null : ct.conditions.map((condition, index) => {
               const reference = `${condition.source.namespace}:${condition.source.path}`
               return (
                 <div key={index} className="flex items-center gap-2" data-testid="combined-condition">
@@ -208,6 +240,7 @@ export function CombinedTopicsSection({ project, onProjectUpdate }: { project: P
                 </div>
               )
             })}
+            {ct.mode === "scale" ? null : (
             <button
               type="button"
               className="rounded border border-dashed px-2 py-1 text-sm hover:bg-muted"
@@ -220,9 +253,65 @@ export function CombinedTopicsSection({ project, onProjectUpdate }: { project: P
             >
               + Add condition
             </button>
+            )}
           </div>
         )
       })}
     </section>
+  )
+}
+
+/**
+ * A scaled topic's source and its scale (lib/scaled-value.ts): times,
+ * divided by, plus, rounded to decimals - and what its source's example
+ * comes out as.
+ */
+function ScaleForm({
+  scale,
+  choices,
+  example,
+  value,
+  onChange,
+}: {
+  scale: NonNullable<CombinedTopic["scale"]>
+  choices: string[]
+  example: string | undefined
+  value: string | undefined
+  onChange: (patch: Partial<NonNullable<CombinedTopic["scale"]>>) => void
+}) {
+  const reference = `${scale.source.namespace}:${scale.source.path}`
+  const number = (raw: string, fallback: number) => (raw.trim() === "" ? fallback : Number(raw))
+  return (
+    <div className="space-y-2" data-testid="combined-scale">
+      <select
+        aria-label="Scaled topic reads"
+        className={cn(SELECT, "w-full font-mono text-xs")}
+        value={reference}
+        onChange={(e) => {
+          const colon = e.target.value.indexOf(":")
+          onChange({ source: { namespace: e.target.value.slice(0, colon) as "topic" | "combined", path: e.target.value.slice(colon + 1) } })
+        }}
+      >
+        {choices.includes(reference) ? null : <option value={reference}>{reference}</option>}
+        {choices.map((choice) => (
+          <option key={choice} value={choice}>
+            {choice.startsWith("topic:") ? choice.slice("topic:".length) : choice}
+          </option>
+        ))}
+      </select>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>×</span>
+        <input aria-label="Times" className={cn(SELECT, "w-20")} inputMode="numeric" defaultValue={scale.numerator} onBlur={(e) => onChange({ numerator: number(e.target.value, 1) })} />
+        <span>÷</span>
+        <input aria-label="Divided by" className={cn(SELECT, "w-20")} inputMode="numeric" defaultValue={scale.denominator} onBlur={(e) => onChange({ denominator: number(e.target.value, 1) })} />
+        <span>+</span>
+        <input aria-label="Plus" className={cn(SELECT, "w-20")} inputMode="decimal" defaultValue={scale.offset ?? "0"} onBlur={(e) => onChange({ offset: e.target.value.trim() || "0" })} />
+        <span>Decimals</span>
+        <input aria-label="Decimals" className={cn(SELECT, "w-14")} inputMode="numeric" defaultValue={scale.decimals} onBlur={(e) => onChange({ decimals: number(e.target.value, 0) })} />
+      </div>
+      <p className="text-xs text-muted-foreground" data-testid="combined-scale-preview">
+        {example === undefined ? "Its source has no example to scale." : value === undefined ? `${example} gives no value: not a number this scale takes.` : `${example} gives ${value}`}
+      </p>
+    </div>
   )
 }

@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
+import fs from "fs"
+import os from "os"
+import path from "path"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, placingFreely } from "./helpers"
 
 // Combined topics in the designer (docs/2026-10-07-live-values.md, decisions
@@ -180,5 +183,92 @@ test.describe("a combined topic is drawn", () => {
     expect(await render(project, { outside_temp: "-2", rain: "true" })).toBe(await render(plain("Strasse GLATT")))
     expect(await render(project, { outside_temp: "-2", rain: "false" })).toBe(await render(plain("Strasse ok")))
     expect(await render(project, { outside_temp: "-2", rain: "" })).toBe(await render(plain("Strasse ?")))
+  })
+})
+
+// Stage 2 (tasks/ha-templates-stage2-plan.md, S4): a scaled topic made in the
+// form - its source's example scaled beside it - read by a chip; a write
+// format set on a slider, saved with it.
+test.describe("a scaled topic and a write format in the editor", () => {
+  test("made in Topics, previewed from its source's example, read by a chip", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await openTopics(page)
+    await page.getByRole("button", { name: "Add combined topic" }).click()
+    const card = cards(page).last()
+    await card.getByLabel("Combined topic name").fill("fahrenheit")
+    await card.getByLabel("Combined topic name").press("Enter")
+    await card.getByLabel("All or any").selectOption("scale")
+    await card.getByLabel("Scaled topic reads").selectOption("topic:test/fan-setpoint")
+    for (const [label, value] of [["Times", "9"], ["Divided by", "5"], ["Plus", "32"], ["Decimals", "1"]]) {
+      await card.getByLabel(label, { exact: true }).fill(value)
+      await card.getByLabel(label, { exact: true }).blur()
+    }
+    // fan-setpoint's example is 45: 45 × 9 / 5 + 32.
+    await expect(card.getByTestId("combined-scale-preview")).toHaveText("45 gives 113.0")
+    await expect(card.getByRole("button", { name: "+ Add condition" })).toHaveCount(0)
+    await page.keyboard.press("Escape")
+
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, 20, 200)
+    const b = devicePoint(box, 220, 224)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await placingFreely(page, async () => {
+      await page.mouse.move(b.x, b.y, { steps: 5 })
+      await page.mouse.up()
+    })
+    await page.keyboard.type("{")
+    await expect(page.getByRole("group", { name: "Combined" })).toContainText("fahrenheit")
+    await page.keyboard.type("combined:fahrenheit")
+    await page.keyboard.press("Enter")
+    await expect(page.locator("#text").getByTestId("live-chip")).toContainText("113.0")
+    await page.locator("#text").press("Enter")
+
+    const project = await downloadProjectJson(page)
+    expect(project.combinedTopics).toEqual([
+      expect.objectContaining({
+        name: "fahrenheit",
+        mode: "scale",
+        conditions: [],
+        scale: { source: { namespace: "topic", path: "test/fan-setpoint" }, numerator: 9, denominator: 5, offset: "32", decimals: 1 },
+      }),
+    ])
+  })
+
+  test("a slider's «Send as» with its scale, saved with it", async ({ page }) => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const base = JSON.parse(await zip.file("project.json")!.async("string"))
+    base.topics.push({ id: "t-lamp", topic: "lamp/level", type: "numeric", examples: ["40"] }, { id: "t-lamp-set", topic: "lamp/set", type: "numeric", examples: ["40"] })
+    base.screens[0].objects.push({
+      id: "lamp",
+      type: "slider",
+      zIndex: 99,
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 40,
+      properties: { topic: "lamp/level", writeTopic: "lamp/set", step: 1, barDirection: "left-to-right", calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 100, barSizePercent: 100 }] },
+    })
+    zip.file("project.json", JSON.stringify(base))
+    const file = path.join(os.tmpdir(), `send-as-${Date.now()}.zip`)
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    try {
+      await loadProject(page, file)
+      const { box } = await getMainCanvas(page)
+      const at = devicePoint(box, 140, 60)
+      await page.mouse.click(at.x, at.y)
+      await page.getByLabel("Send as", { exact: true }).fill('{"brightness":{value}}')
+      await page.getByLabel("Send times").fill("255")
+      await page.getByLabel("Send divided by").fill("100")
+      await page.getByLabel("Send decimals").fill("0")
+      // The top of its range, 100, as the device would send it.
+      await expect(page.getByTestId("write-format-preview")).toHaveText('100 is sent as {"brightness":255}')
+      const project = await downloadProjectJson(page)
+      const lamp = project.screens[0].objects.find((o: any) => o.id === "lamp")
+      expect(lamp.properties.writeFormat).toEqual({ text: '{"brightness":{value}}', numerator: 255, denominator: 100, decimals: 0 })
+    } finally {
+      fs.unlinkSync(file)
+    }
   })
 })
