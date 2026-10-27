@@ -781,6 +781,26 @@ async function main() {
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
 
+  // A text field typed on the board's own keyboard (tasks/ha-text-plan.md,
+  // F3): de-CH and de-DE, max, min, Cancel - each key pressed where
+  // /api/keyboard says it lies. Installs its own project; skipped on a
+  // firmware without the keyboard.
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+    console.log(`
+=== ${name} text field (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/text-field.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-text-field`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or no keyboard yet`
+          : exitCode === 0
+            ? "the keyboard opens on the field's text; «Grüezi 1» (de-CH) and «Straße» (de-DE) typed and sent; max, min and Cancel kept"
+            : `exit code ${exitCode} - see output above`,
+    })
+  })
+
   // Scaled values (device contract 2.11, tasks/ha-templates-stage2-plan.md
   // H1): a scaled topic the board computes, and a slider publishing through
   // its write format. Installs its own project.
