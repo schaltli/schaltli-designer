@@ -32,10 +32,11 @@ Trag unter <span class="ui fw">Host</span> die IP-Adresse deines Pekaway-Systems
 
 ### Device {#geraet}
 
-Hier stellst du ein, wie sich das Display verhält. Die Einstellungen gehören zum Gerät, nicht zum Projekt, und bleiben bei jedem neuen Projekt erhalten.
+Hier stellst du ein, wie sich das Display und die Tastatur verhalten. Die Einstellungen gehören zum Gerät, nicht zum Projekt, und bleiben bei jedem neuen Projekt erhalten.
 
 - <span class="ui fw">Turn the display off after</span>: Sekunden ohne Berührung, bis das Display ausgeht. Voreingestellt sind 15, 0 lässt es immer an. Werte, die über MQTT ankommen, zählen nicht als Aktivität.
 - <span class="ui fw">When it goes dark, return to</span>: der Screen, den das Board beim Ausgehen und nach jedem Start zeigt. Nimm dafür etwas Harmloses, zum Beispiel die Übersicht, damit ein versehentlicher Griff ans Display nichts Wichtiges auslöst.
+- <span class="ui fw">Keyboard</span>: die Tasten, die ein [Text field](/objekte/bedienen#text-field) auf diesem Board öffnet. <span class="ui fw">German (Switzerland)</span> hat QWERTZ mit ü, ö, ä und mit Shift è, é, à, <span class="ui fw">German (Germany)</span> QWERTZ mit ß, <span class="ui fw">English (US)</span> QWERTY. Solange du nichts wählst, nimmt das Board die Sprache des Browsers, mit dem du diese Seite zum ersten Mal öffnest. Hat es noch keinen gesehen, gilt <span class="ui fw">English (US)</span>.
 
 Tippe auf <span class="ui fw">Save Device Settings</span>.
 
