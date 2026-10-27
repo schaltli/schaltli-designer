@@ -17,7 +17,7 @@
  * off and supplies the label itself - otherwise a row would have two.
  */
 
-import type { ReactNode } from "react"
+import { useId, type ReactNode } from "react"
 import type { ProjectAsset, ProjectFont, Topic } from "../../project-editor"
 import { RolePicker } from "../role-picker"
 import { ThemePicker, type ThemePickerProps } from "../theme-picker"
@@ -151,13 +151,16 @@ export interface TopicFieldProps {
  * are down to two.
  */
 export function TopicField({ label, hint, ...selector }: TopicFieldProps) {
+  // The row's name points at the picker: what a screen reader says, and how a
+  // test finds it.
+  const id = useId()
   return (
-    <PropertyRow label={label} hint={hint}>
+    <PropertyRow label={label} hint={hint} htmlFor={id}>
       <Bare>
         {/* The row's name goes down as well as up: the picker's own label is
             only hidden, not removed, and it defaults to "Topic" - so a write
             topic would tell a screen reader it was the read one. */}
-        <TopicSelector label={label} {...selector} className="w-full" />
+        <TopicSelector label={label} {...selector} id={id} className="w-full" />
       </Bare>
     </PropertyRow>
   )

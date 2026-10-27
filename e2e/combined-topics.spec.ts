@@ -298,12 +298,11 @@ test.describe("a scaled topic and a write format in the editor", () => {
       const { box } = await getMainCanvas(page)
       const at = devicePoint(box, 140, 60)
       await page.mouse.click(at.x, at.y)
-      // The picker has no name of its own: found by what it shows.
-      await page.getByRole("combobox").filter({ hasText: "weather/wind" }).click()
+      await page.getByRole("combobox", { name: "Topic", exact: true }).click()
       const group = page.getByRole("group", { name: "Combined topics" })
       await expect(group.getByRole("option")).toHaveText(["kmh"])
       await group.getByRole("option", { name: "kmh" }).click()
-      await expect(page.getByRole("combobox").filter({ hasText: "kmh" })).toContainText("combined")
+      await expect(page.getByRole("combobox", { name: "Topic", exact: true })).toContainText("kmhcombined")
       const project = await downloadProjectJson(page)
       expect(project.screens[0].objects.find((o: any) => o.id === "wind-bar").properties.topic).toBe("combined:kmh")
     } finally {

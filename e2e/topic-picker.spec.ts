@@ -20,7 +20,7 @@ async function savedProject(page: Page): Promise<{ topics: SavedTopic[]; screens
 }
 const switchOf = async (page: Page) => (await savedProject(page)).screens[0].objects.find((o) => o.id === "obj-switch-1")!
 
-const field = (page: Page, row: string) => page.locator("[data-row-label]", { hasText: row }).locator("..")
+const field = (page: Page, row: string) => page.locator("label[for]", { hasText: row }).locator("..")
 const picker = (page: Page, row: string) => field(page, row).getByRole("combobox").first()
 const listbox = (page: Page) => page.getByRole("listbox")
 const search = (page: Page) => page.getByRole("textbox", { name: "Search topics" })

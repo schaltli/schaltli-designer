@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { splitTopicPath } from "@/lib/json-path"
 import { SubtopicPicker } from "./subtopic-picker"
 import { ChevronRight, ChevronDown, ChevronsUpDown, Check, Search, Plus } from "lucide-react"
-import { useContext, useMemo, useState } from "react"
+import { useContext, useId, useMemo, useState } from "react"
 import { topicTree, searchTopicTree, sortedChildren, ancestorPaths, type TopicTreeNode } from "@/lib/topic-tree"
 import { useHeardTopics } from "@/lib/broker-store"
 import type { HeardTopic } from "@/lib/heard-topic"
@@ -33,6 +33,8 @@ interface TopicSelectorProps {
   // Scaled combined topics the field may read, bound as `combined:<name>`
   // (device contract 2.11) - a bar's or a dial's value, never a destination.
   combined?: string[]
+  // The picker's id, for a row's label to point at (fields/wrapped-fields.tsx).
+  id?: string
 }
 
 const COMBINED = "combined:"
@@ -91,6 +93,7 @@ export function TopicSelector({
   className,
   allowSubtopics = true,
   combined = [],
+  id,
 }: TopicSelectorProps) {
   const selectedCombined = selectedTopicId?.startsWith(COMBINED) ? selectedTopicId.slice(COMBINED.length) : undefined
   const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedCombined === undefined ? selectedTopicId || "" : "")
@@ -116,6 +119,8 @@ export function TopicSelector({
   // "topic → field" when one is attached.
   const selectedSubtopic = selectedPath ? selectedTopic?.subtopics?.find((s) => s.path === selectedPath) : undefined
 
+  const ownId = useId()
+  const triggerId = id ?? ownId
   const addTopic = useContext(TopicAdderContext)
   const heard = useHeardTopics()
   const [open, setOpen] = useState(false)
@@ -254,12 +259,17 @@ export function TopicSelector({
 
   return (
     <div className={className}>
-      <Label className="text-xs">{label}</Label>
+      {/* Named by its label - or by the row's, given an id: a screen reader
+          says which topic it is, and a test finds it by that. */}
+      <Label htmlFor={id ? undefined : triggerId} className="text-xs">
+        {label}
+      </Label>
       <div className="flex gap-1">
         <div className="flex-1 min-w-0">
           <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
               <button
+                id={triggerId}
                 type="button"
                 role="combobox"
                 aria-expanded={open}

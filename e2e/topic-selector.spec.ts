@@ -63,9 +63,8 @@ test.describe("TopicSelector + SubtopicPicker", () => {
       await loadProject(page, zipPath)
       await objectTreeRow(page, "obj-switch-1").click()
 
-      // The row's own name since the rebuild - a span, not a <label>, because
-      // the picker it names cannot be reached with `for`.
-      const writeTopicField = page.locator("[data-row-label]", { hasText: "Write topic" }).locator("..")
+      // The row's own name, a <label> pointing at the picker (2026-10-27).
+      const writeTopicField = page.locator("label[for]", { hasText: "Write topic" }).locator("..")
 
       // The stored value verbatim, flagged rather than swallowed.
       await expect(writeTopicField.getByRole("combobox").first()).toContainText(UNREGISTERED)
@@ -74,7 +73,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
 
       // And the flag does not fire for a topic that IS registered - the read
       // topic beside it is bound to one of the project's own.
-      const readTopicField = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..")
+      const readTopicField = page.locator("label[for]", { hasText: "Read topic" }).locator("..")
       await expect(readTopicField.getByRole("combobox").first()).toContainText("test/switch-mode")
       await expect(readTopicField.getByText("unregistered")).toHaveCount(0)
 
@@ -148,7 +147,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicSelect = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
+    const readTopicSelect = page.locator("label[for]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
     await readTopicSelect.click()
     const readListbox = page.getByRole("listbox")
     await readListbox.getByText("diag", { exact: true }).click()
@@ -163,7 +162,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
 
     // Same tree, same rule, in the write-context picker too (allowSubtopics
     // only ever gates the separate Subtopics Picker, never the tree).
-    const writeTopicSelect = page.locator("[data-row-label]", { hasText: "Write topic" }).locator("..").getByRole("combobox").first()
+    const writeTopicSelect = page.locator("label[for]", { hasText: "Write topic" }).locator("..").getByRole("combobox").first()
     await writeTopicSelect.click()
     const writeListbox = page.getByRole("listbox")
     await writeListbox.getByText("diag", { exact: true }).click()
@@ -177,7 +176,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicContainer = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..")
+    const readTopicContainer = page.locator("label[for]", { hasText: "Read topic" }).locator("..")
     const readTopicSelect = readTopicContainer.getByRole("combobox").first()
     await readTopicSelect.click()
     await page.getByRole("listbox").getByText("diag", { exact: true }).click()
@@ -196,7 +195,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     // Scoped to Write Topic's own container specifically - Read Topic's
     // Subtopics Picker (asserted above) is still on the page at this point
     // too, so an unscoped page-wide lookup here would find the wrong one.
-    const writeTopicContainer = page.locator("[data-row-label]", { hasText: "Write topic" }).locator("..")
+    const writeTopicContainer = page.locator("label[for]", { hasText: "Write topic" }).locator("..")
     const writeTopicSelect = writeTopicContainer.getByRole("combobox").first()
     await writeTopicSelect.click()
     await page.getByRole("listbox").getByText("diag", { exact: true }).click()
@@ -221,7 +220,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicContainer = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..")
+    const readTopicContainer = page.locator("label[for]", { hasText: "Read topic" }).locator("..")
     const readTopicSelect = readTopicContainer.getByRole("combobox").first()
     await readTopicSelect.click()
     await page.getByRole("listbox").getByText("diag", { exact: true }).click()
@@ -244,7 +243,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicSelect = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
+    const readTopicSelect = page.locator("label[for]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
     await readTopicSelect.click()
     await page.getByRole("listbox").getByText("diag", { exact: true }).click()
     await page.getByRole("listbox").getByRole("option", { name: "json" }).click()
@@ -270,7 +269,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicSelect = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
+    const readTopicSelect = page.locator("label[for]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
     await readTopicSelect.click()
     await page.getByRole("listbox").getByText("diag", { exact: true }).click()
     await page.getByRole("listbox").getByRole("option", { name: "json" }).click()
@@ -295,7 +294,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const readTopicSelect = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
+    const readTopicSelect = page.locator("label[for]", { hasText: "Read topic" }).locator("..").getByRole("combobox").first()
     await readTopicSelect.click()
     const listbox = page.getByRole("listbox")
     await listbox.getByText("diag", { exact: true }).click()

@@ -109,7 +109,7 @@ test.describe("local topics: the list", () => {
 
     // A topic picker offers it as any topic.
     await objectTreeRow(page, "obj-switch-1").click()
-    const readTopicField = page.locator("[data-row-label]", { hasText: "Read topic" }).locator("..")
+    const readTopicField = page.locator("label[for]", { hasText: "Read topic" }).locator("..")
     await readTopicField.getByRole("combobox").first().click()
     // The picker is a tree of the names' segments.
     await expect(page.getByText("local", { exact: true })).toBeVisible()

@@ -118,10 +118,9 @@ test.describe("Hardware button master-screen inheritance", () => {
     await clickButton0(page)
     await actionTypeSelect(page).selectOption("send-mqtt")
 
-    // The row is called "Topic" since the panel rebuild, and its name is a
-    // span rather than a <label> - the picker it names cannot be reached
-    // with `for`.
-    const writeTopicSelect = page.locator("[data-row-label]", { hasText: "Topic" }).first().locator("..").getByRole("combobox")
+    // The row is called "Topic" since the panel rebuild; its name points at
+    // the picker (2026-10-27).
+    const writeTopicSelect = page.getByRole("combobox", { name: "Topic", exact: true })
     await writeTopicSelect.click()
     // COMBINED_TEST_PROJECT's topics all live under a "test/..." prefix
     // (plus one unrelated "Freshwater/Level") - the tree starts fully
