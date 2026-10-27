@@ -20,4 +20,4 @@ ist gem. Browser. Rest ok. Leg los»).
   - 84095ea (4.3B), 0df96dd (knob), PaperS3 commit after; hil/text-field.js 6/6 on .117, .114, .118; PaperS3 138 ms from press to the panel; GET /api/keyboard on the test interface
 - [x] A1 Android: drawing, system keyboard, HIL fixture screen
   - schaltli-android 9af1038; TextFieldTest, DdfBuilderTest; hil/android screen-11 and checkTextField: 28/28, «Hallo Welt» typed through adb and sent, back sends nothing (adb types ASCII only: the umlauts are the compared pictures')
-- [ ] Checkpoint: test:all, COM3 logged
+- [x] Checkpoint: test:all 2026-10-27 (third run; the first two were spoilt by the memory reaper and what it left behind): every lane green, the text field on knob, 4v3b and papers3; e2e 1873 passed, 4 failed - pekaway-install, `bash` not on the PATH of the detached run, 10/10 run again from bash. COM3: no panic
