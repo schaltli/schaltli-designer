@@ -1953,6 +1953,89 @@ async function checkTextField(deviceSerial, mqttClient, project, screen, si) {
 }
 
 /**
+ * An alarm panel's code (tasks/ha-alarm-plan.md, A1): a hidden field for
+ * digits on a local topic, and a Disarm button whose message holds
+ * `{topic:…}`, sent «Only when» a combined topic is yes, «Then clear» the
+ * field. The field opens the phone's number pad (an input type of the number
+ * class, 0x2); Disarm sends nothing with a wrong code, the right one in its
+ * message, and the field is empty after - its line opens empty again.
+ */
+async function checkAlarm(deviceSerial, mqttClient, project, screen, si) {
+  const field = (screen.objects || []).find((o) => o.type === "text-field" && o.properties?.keyboard === "digits");
+  const button = (screen.objects || []).find((o) => o.type === "button" && o.properties?.action?.onlyWhen);
+  if (!field || !button) return;
+  const commandTopic = button.properties.action.mqttTopic;
+  const shell = (...args) => execFileSync(ADB, adbArgs(deviceSerial, ["shell", ...args]), { encoding: "utf8" });
+  const heard = [];
+  const listen = (topic, payload, packet) => {
+    if (topic === commandTopic && !packet.retain) heard.push(payload.toString("utf8"));
+  };
+  mqttClient.on("message", listen);
+  await new Promise((resolve) => mqttClient.subscribe(commandTopic, resolve));
+  const at = (o) => devicePointFor(deviceSerial, project, o.x + o.width / 2, o.y + o.height / 2);
+  const f = await at(field);
+  const b = await at(button);
+  // The line's own Cancel: Back, once the number pad has closed on its
+  // own, would close the app.
+  const glass = () => {
+    shell("uiautomator", "dump", "/sdcard/schaltli-ui.xml");
+    return execFileSync(ADB, adbArgs(deviceSerial, ["exec-out", "cat", "/sdcard/schaltli-ui.xml"]), { encoding: "utf8" });
+  };
+  const cancelEntry = async () => {
+    const m = /text="Cancel"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(glass());
+    if (!m) throw new Error("alarm: no «Cancel» on the code's line");
+    shell("input", "tap", String(Math.round((Number(m[1]) + Number(m[3])) / 2)), String(Math.round((Number(m[2]) + Number(m[4])) / 2)));
+    await sleep(1000);
+  };
+  const type = async (code) => {
+    await phoneApi.tap(f.x, f.y);
+    await sleep(1500);
+    shell("input", "keyevent", ...Array(10).fill("67"));
+    shell("input", "text", code);
+    await sleep(500);
+    shell("input", "keyevent", "66");
+    await sleep(1500);
+  };
+  try {
+    await phoneApi.tap(f.x, f.y);
+    await sleep(1500);
+    // The keyboard's own record of the line it types into now - dumpsys
+    // lists every editor before it as well.
+    const inputType = /mInputEditorInfo:\s*inputType=0x([0-9a-f]+)/.exec(shell("dumpsys", "input_method"));
+    const numeric = !!inputType && (parseInt(inputType[1], 16) & 0xf) === 2;
+    console.log(`  [${si}-a] ${numeric ? "PASS" : "FAIL"} the code field opens the number pad - inputType ${inputType ? `0x${inputType[1]}` : "none"}`);
+    await cancelEntry();
+    if (!numeric) throw new Error(`alarm: the code field's keyboard is not the number pad (inputType ${inputType ? `0x${inputType[1]}` : "none"})`);
+
+    await type("1111");
+    await phoneApi.tap(b.x, b.y);
+    await sleep(2000);
+    const heldBack = heard.length === 0;
+    await type("1234");
+    await phoneApi.tap(b.x, b.y);
+    const deadline = Date.now() + 8000;
+    while (heard.length === 0 && Date.now() < deadline) await sleep(100);
+    const sentRight = heldBack && heard.length === 1 && heard[0] === '{"action":"DISARM","code":"1234"}';
+    console.log(`  [${si}-a] ${sentRight ? "PASS" : "FAIL"} Disarm: nothing with a wrong code, the right one in its message - ${JSON.stringify(heard)}`);
+    if (!sentRight) throw new Error(`alarm: expected only {"action":"DISARM","code":"1234"} on ${commandTopic}, heard ${JSON.stringify(heard)}`);
+
+    // Cleared: its line opens empty, OK greyed out or not.
+    await sleep(1000);
+    await phoneApi.tap(f.x, f.y);
+    await sleep(1500);
+    const xml = glass();
+    const count = /text="(\d+)\/\d+"/.exec(xml);
+    const empty = !!count && count[1] === "0";
+    await cancelEntry();
+    console.log(`  [${si}-a] ${empty ? "PASS" : "FAIL"} the field is empty after - count ${count ? count[0] : "not found"}`);
+    if (!empty) throw new Error(`alarm: the code field was not cleared (${count ? count[0] : "no count on the glass"})`);
+  } finally {
+    mqttClient.removeListener("message", listen);
+    await new Promise((resolve) => mqttClient.unsubscribe(commandTopic, resolve));
+  }
+}
+
+/**
  * A long sideways drag on a slider on a screen is the slider's and pages
  * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
  * app's swipe navigation never asked whether a control had taken the touch.
@@ -2518,7 +2601,8 @@ Screen ${si} "${screen.name}": a local topic - checked, not compared`);
       // clear it.
       if (!touchedThisScreen) {
         touchedThisScreen = true;
-        if ((screen.objects || []).some((o) => o.type === "text-field")) await checkTextField(deviceSerial, mqttClient, project, screen, si);
+        if ((screen.objects || []).some((o) => o.type === "button" && o.properties?.action?.onlyWhen)) await checkAlarm(deviceSerial, mqttClient, project, screen, si);
+        else if ((screen.objects || []).some((o) => o.type === "text-field")) await checkTextField(deviceSerial, mqttClient, project, screen, si);
         else if ((screen.objects || []).some((o) => o.type === "time-field")) await checkTimeField(deviceSerial, mqttClient, project, screen, si);
         else await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
       }

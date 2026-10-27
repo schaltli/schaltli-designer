@@ -50,7 +50,12 @@
 //   screen-12 a time field (tasks/ha-time-plan.md, A1): compared over what
 //             Home Assistant writes and an ISO date and time; then opened on
 //             06:32, OK sending 06:30:00 (orchestrator.js checkTimeField)
-//   (screen-7 to -12 stand before screen-6: the run ends on the navigator)
+//   screen-13 an alarm panel's code (tasks/ha-alarm-plan.md, A1): a hidden
+//             field for digits on a local topic and a Disarm button with
+//             {topic:…}, Only when and Then clear; the code typed on the
+//             phone's number pad, Disarm sending only the right one
+//             (orchestrator.js checkAlarm)
+//   (screen-7 to -13 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -208,6 +213,9 @@ function buildProject(fonts) {
       // screen-12: what Home Assistant writes, and an ISO date and time.
       { id: "t-start", topic: "hil/time/start", type: "text", examples: ["06:32:00", "2026-10-27T18:05:00+01:00"] },
       { id: "t-start-set", topic: "hil/time/start/set", type: "text", examples: ["06:30:00"] },
+      // screen-13: the code kept on the phone, and the panel's command.
+      { id: "t-code", topic: "local/hil/alarm/code", type: "text", examples: [], local: true, initial: "" },
+      { id: "t-alarm-set", topic: "hil/alarm/set", type: "text", examples: ["DISARM"] },
     ],
     combinedTopics: [
       {
@@ -227,6 +235,13 @@ function buildProject(fonts) {
           { source: { namespace: "combined", path: "warm" }, op: "yes" },
           { source: { namespace: "topic", path: "hil/live/night" }, op: "yes" },
         ],
+      },
+      // screen-13: yes while the code typed is the right one.
+      {
+        id: "c-code-ok",
+        name: "code_ok",
+        mode: "all",
+        conditions: [{ source: { namespace: "topic", path: "local/hil/alarm/code" }, op: "==", operand: "1234" }],
       },
       // screen-10: m/s to km/h, computed by the app.
       {
@@ -1206,6 +1221,56 @@ function buildProject(fonts) {
               lineColor: ACCENT,
               textColor: BLACK,
               fontId: "font-roboto-24",
+            },
+          },
+        ],
+      },
+      {
+        id: "screen-13",
+        name: "Alarm",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          {
+            id: "a-code",
+            type: "text-field",
+            zIndex: 1,
+            x: 24,
+            y: 100,
+            width: 312,
+            height: 56,
+            properties: {
+              topic: "local/hil/alarm/code",
+              writeTopic: "local/hil/alarm/code",
+              hidden: true,
+              keyboard: "digits",
+              fieldColor: "#e5e5e5",
+              lineColor: ACCENT,
+              textColor: BLACK,
+              fontId: "font-roboto-20",
+            },
+          },
+          {
+            id: "a-disarm",
+            type: "button",
+            zIndex: 2,
+            x: 60,
+            y: 220,
+            width: 240,
+            height: 56,
+            properties: {
+              text: "Disarm",
+              fontId: "font-roboto-16",
+              backgroundColor: "#202020",
+              textColor: WHITE,
+              cornerRadius: 6,
+              action: {
+                type: "send-mqtt",
+                mqttTopic: "hil/alarm/set",
+                mqttMessage: '{"action":"DISARM","code":"{topic:local/hil/alarm/code}"}',
+                onlyWhen: "code_ok",
+                clears: "local/hil/alarm/code",
+              },
             },
           },
         ],

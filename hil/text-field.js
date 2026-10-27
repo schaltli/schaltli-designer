@@ -9,7 +9,15 @@
 //   3. the keys stop at max (12 characters, counted as characters);
 //   4. Cancel sends nothing;
 //   5. below min (2) OK sends nothing and the keyboard stays;
-//   6. with de-DE, «Straße» typed and sent - the ß is a key there.
+//   6. with de-DE, «Straße» typed and sent - the ß is a key there;
+//   7. an alarm panel's code (tasks/ha-alarm-plan.md, F1): a field set to
+//      «Digits» opens the keyboard on its digits;
+//   8. its Disarm button - `{topic:…}` in the message, «Only when» a
+//      combined topic, «Then clear» the local topic the code is typed into -
+//      sends nothing without the code or with a wrong one, sends the right
+//      one in its message, and the field is empty after.
+//   7 and 8 need the DDF feature "button-values"; without it they are
+//   skipped, loudly.
 //
 // The board's «Keyboard» setting is put back as it was afterwards.
 //
@@ -34,6 +42,8 @@ const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = Date.now().toString(36)
 const STATE = `hil-text-${RUN}/state`
 const SET = `hil-text-${RUN}/set`
+const CODE = `local/hil-text-${RUN}/code`
+const ALARM = `hil-text-${RUN}/alarm`
 const OUT_DIR = path.join(__dirname, "text-field-report", deviceTag())
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -56,20 +66,22 @@ async function post(url, fields) {
   return { status: res.status, body: await res.text() }
 }
 
-// The field across the top of what the glass shows: on a round display the
-// square inside its circle.
-function fieldRect(ddf) {
+// A row of what the glass shows, `top` down from its top as a share: on a
+// round display of the square inside its circle. The field at 0.1, the
+// alarm's code at 0.4 and its Disarm at 0.7.
+function rowRect(ddf, top) {
   const { width: sw, height: sh } = ddf.screen
   const round = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const side = round ? Math.floor(Math.min(sw, sh) / Math.SQRT2) : null
   const inner = round ? { x: Math.round((sw - side) / 2), y: Math.round((sh - side) / 2), w: side, h: side } : { x: 0, y: 0, w: sw, h: sh }
   return {
     x: Math.round(inner.x + inner.w * 0.1),
-    y: Math.round(inner.y + inner.h * 0.1),
+    y: Math.round(inner.y + inner.h * top),
     width: Math.round(inner.w * 0.8),
     height: Math.round(Math.max(40, inner.h * 0.18)),
   }
 }
+const fieldRect = (ddf) => rowRect(ddf, 0.1)
 
 function textProject(ddf, stamp) {
   const { project } = buildProject(ddf, { topicPrefix: `hil-text-${RUN}` })
@@ -77,10 +89,12 @@ function textProject(ddf, stamp) {
   const font = sorted[Math.floor(sorted.length * 0.4)]
   project.name = "HIL text field"
   project.fonts = ddf.fonts
-  project.combinedTopics = []
+  project.combinedTopics = [{ id: "code-ok", name: "code_ok", mode: "all", conditions: [{ source: { namespace: "topic", path: CODE }, op: "==", operand: "1234" }] }]
   project.topics = [
     { id: "state", topic: STATE, type: "text", examples: ["Hallo"] },
     { id: "set", topic: SET, type: "text", examples: ["Hallo"] },
+    { id: "code", topic: CODE, type: "text", examples: [], local: true, initial: "" },
+    { id: "alarm", topic: ALARM, type: "text", examples: ["DISARM"] },
   ]
   project.screens = [
     {
@@ -102,6 +116,25 @@ function textProject(ddf, stamp) {
             lineColor: "#6750a4",
             textColor: "#000000",
             fontId: font.id,
+          },
+        },
+        {
+          id: "code",
+          type: "text-field",
+          zIndex: 2,
+          ...rowRect(ddf, 0.4),
+          properties: { topic: CODE, writeTopic: CODE, hidden: true, keyboard: "digits", fieldColor: "#e5e5e5", lineColor: "#6750a4", textColor: "#000000", fontId: font.id },
+        },
+        {
+          id: "disarm",
+          type: "button",
+          zIndex: 3,
+          ...rowRect(ddf, 0.7),
+          properties: {
+            text: "Disarm",
+            buttonStyle: "filled",
+            fontId: font.id,
+            action: { type: "send-mqtt", mqttTopic: ALARM, mqttMessage: `{"action":"DISARM","code":"{topic:${CODE}}"}`, onlyWhen: "code_ok", clears: CODE },
           },
         },
       ],
@@ -168,10 +201,12 @@ async function main() {
     setTimeout(() => reject(new Error(`no broker at ${BROKER_URL}`)), 10000)
   })
   const sent = []
+  const alarm = []
   client.on("message", (topic, payload) => {
     if (topic === SET) sent.push(payload.toString("utf8"))
+    if (topic === ALARM) alarm.push(payload.toString("utf8"))
   })
-  await new Promise((resolve) => client.subscribe(SET, resolve))
+  await new Promise((resolve) => client.subscribe([SET, ALARM], resolve))
   const publish = (topic, value) => new Promise((resolve) => client.publish(topic, value, { retain: true }, resolve))
 
   const settings = JSON.parse((await get(`${base}/api/device-settings`)).body)
@@ -299,6 +334,49 @@ async function main() {
     await pressKind("ok")
     await waitSent(2)
     check("6. de-DE: «Straße» typed with its ß and sent", kb.layout === "de-DE" && sent[1] === "Straße", `layout ${kb.layout}, sent ${JSON.stringify(sent)}`)
+
+    const features = ddf.raw?.supportedFeatures ?? ddf.supportedFeatures ?? []
+    if (!features.includes("button-values")) {
+      console.warn(`  SKIPPED 7-8 - ${args.device}'s DDF has no "button-values": a firmware from before the alarm panel`)
+    } else {
+      const codeRect = rowRect(ddf, 0.4)
+      const disarmRect = rowRect(ddf, 0.7)
+      const tapCode = () => tap(codeRect.x + codeRect.width / 2, codeRect.y + codeRect.height / 2, eink ? 4000 : 800)
+      const tapDisarm = () => tap(disarmRect.x + disarmRect.width / 2, disarmRect.y + disarmRect.height / 2, eink ? 4000 : 800)
+      const typeCode = async (code) => {
+        await tapCode()
+        await clear()
+        await typeText(code)
+        await pressKind("ok")
+        await sleep(eink ? 3000 : 800)
+      }
+
+      await tapCode()
+      kb = await keyboard()
+      check("7. a field for digits opens the keyboard on its digits", kb.open && kb.layer === "symbols", `open ${kb.open}, layer ${kb.layer}`)
+      await snapshot("7-digits")
+      await pressKind("cancel")
+      await sleep(eink ? 3000 : 800)
+
+      await tapDisarm()
+      await typeCode("1111")
+      await tapDisarm()
+      await sleep(1500)
+      const heldBack = alarm.length === 0
+      await typeCode("1234")
+      await tapDisarm()
+      const deadline = Date.now() + 5000
+      while (alarm.length < 1 && Date.now() < deadline) await sleep(100)
+      await sleep(eink ? 3000 : 800)
+      await tapCode()
+      kb = await keyboard()
+      check(
+        "8. Disarm: nothing without the code or with a wrong one; the right one in its message, the field empty after",
+        heldBack && alarm.length === 1 && alarm[0] === '{"action":"DISARM","code":"1234"}' && kb.text === "",
+        `sent ${JSON.stringify(alarm)}, field «${kb.text}»`,
+      )
+      await pressKind("cancel")
+    }
   } finally {
     if (layoutBefore) await post(`${base}/api/device-settings`, { keyboardLayout: layoutBefore }).catch(() => {})
     client.end(true)
