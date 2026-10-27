@@ -55,9 +55,10 @@ function combinedInputs(project, name, depth = 1, out = new Set()) {
   if (depth > 8) return out;
   for (const t of project.combinedTopics || []) {
     if (t.name !== name) continue;
-    for (const c of t.conditions || []) {
-      if (c.source?.namespace === "combined") combinedInputs(project, c.source.path, depth + 1, out);
-      else if (c.source?.namespace === "topic") out.add(baseTopic(c.source.path));
+    // A scaled one reads its one source (device contract 2.11).
+    for (const source of [...(t.conditions || []).map((c) => c.source), t.scale?.source]) {
+      if (source?.namespace === "combined") combinedInputs(project, source.path, depth + 1, out);
+      else if (source?.namespace === "topic") out.add(baseTopic(source.path));
     }
   }
   return out;
@@ -75,8 +76,14 @@ function screenTopics(project, screen) {
       // up as a constant 216-pixel difference on every combination of one
       // screen, which reads as a rendering bug rather than as a topic that
       // was never sent (2026-08-23, first arc-level HIL run).
-      if (obj.properties && obj.properties.topic) set.add(baseTopic(obj.properties.topic));
-      if (obj.properties && obj.properties.setpointTopic) set.add(baseTopic(obj.properties.setpointTopic));
+      // A bar bound to `combined:<name>` reads what that combined topic reads.
+      const bind = (binding) => {
+        if (!binding) return;
+        if (binding.startsWith("combined:")) for (const t of combinedInputs(project, binding.slice("combined:".length))) set.add(t);
+        else set.add(baseTopic(binding));
+      };
+      bind(obj.properties?.topic);
+      bind(obj.properties?.setpointTopic);
       if (obj.type === "text" && typeof obj.properties?.text === "string") {
         for (const topic of placeholderTopics(obj.properties.text)) set.add(baseTopic(topic));
       }

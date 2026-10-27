@@ -53,6 +53,7 @@ import {
   switchTrack,
 } from "@/lib/switch-shape"
 import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
+import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
 import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
 import { renderLine } from "@/components/canvas/renderers/render-line"
@@ -990,8 +991,10 @@ export default function TestRenderPage() {
       }
       // A ring answers by angle and a bar by position: two mappings, and the
       // designer checks the type before it chooses one, so this does too.
-      if (isArcType(req.type)) return { value: arcValueFromPoint(obj, req.atX, req.atY) }
-      return { value: levelValueFromPoint(obj, req.atX, req.atY, fonts) }
+      const value = isArcType(req.type) ? arcValueFromPoint(obj, req.atX, req.atY) : levelValueFromPoint(obj, req.atX, req.atY, fonts)
+      // What is published, where a write format shapes it (device contract 2.11).
+      const format = req.properties?.writeFormat as WriteFormat | undefined
+      return format ? { value, writeValue: formatWrite(String(value), format) ?? null } : { value }
     }
     ;(window as any).__buildAndroidZipForTest = async (project: any): Promise<string> => {
       const blob = await exportAndroidProject(project)

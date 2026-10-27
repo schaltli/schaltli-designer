@@ -40,7 +40,11 @@
 //             local/hil/view (initial "b"), a switcher reads it - panel «a»
 //             a dark text, «b» a light one, on a mid-grey screen; checked,
 //             not compared (orchestrator.js checkLocalTopics)
-//   (screen-7, -8 and -9 stand before screen-6: the run ends on the navigator)
+//   screen-10 scaled values (device contract 2.11): a live value and a bar
+//             on a scaled topic, m/s times 18/5 - a number, «calm» (no
+//             value), another number - and a slider whose tap publishes
+//             {"brightness":N} through its write format
+//   (screen-7 to -10 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -183,6 +187,15 @@ function buildProject(fonts) {
       { id: "t-soc", topic: "hil/energy/soc", type: "numeric", examples: ["82", "15", "50"] },
       // screen-9: kept by the app itself, never on the broker.
       { id: "t-local", topic: "local/hil/view", type: "text", examples: ["a"], local: true, initial: "b" },
+      // screen-10: a source that is no number in combination 1.
+      {
+        id: "t-weather",
+        topic: "hil/scaled/weather",
+        type: "json",
+        examples: ['{"wind":12.5}', '{"wind":"calm"}', '{"wind":25}'],
+        subtopics: [{ id: "s-wind", path: "wind", type: "numeric" }],
+      },
+      { id: "t-lamp", topic: "hil/scaled/level", type: "numeric", examples: ["50", "20", "80"] },
     ],
     combinedTopics: [
       {
@@ -202,6 +215,14 @@ function buildProject(fonts) {
           { source: { namespace: "combined", path: "warm" }, op: "yes" },
           { source: { namespace: "topic", path: "hil/live/night" }, op: "yes" },
         ],
+      },
+      // screen-10: m/s to km/h, computed by the app.
+      {
+        id: "c-kmh",
+        name: "wind_kmh",
+        mode: "scale",
+        conditions: [],
+        scale: { source: { namespace: "topic", path: "hil/scaled/weather#wind" }, numerator: 18, denominator: 5, offset: "0", decimals: 1 },
       },
     ],
     screens: [
@@ -1061,6 +1082,89 @@ function buildProject(fonts) {
               ],
             })),
           },
+        ],
+      },
+      // Scaled values: compared like any screen, and the slider's tap checked
+      // against what the designer would publish (orchestrator.js checkTouch).
+      {
+        id: "screen-10",
+        name: "Skaliert",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          {
+            id: "k-text",
+            type: "text",
+            zIndex: 1,
+            x: 12,
+            y: 80,
+            width: 336,
+            height: 28,
+            properties: {
+              text: "Wind {live:kmh} km/h",
+              fontId: "font-roboto-20",
+              color: WHITE,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+              liveValues: [
+                {
+                  id: "kmh",
+                  source: { namespace: "combined", path: "wind_kmh" },
+                  format: { kind: "number", decimals: 1, grouped: false },
+                  rules: [],
+                  noValueYet: { kind: "text", parts: ["--"] },
+                },
+              ],
+            },
+          },
+          {
+            id: "k-bar",
+            type: "bar",
+            zIndex: 2,
+            x: 24,
+            y: 140,
+            width: 312,
+            height: 44,
+            properties: {
+              topic: "combined:wind_kmh",
+              backgroundColor: "#202020",
+              borderColor: ACCENT,
+              fillColor: FILL,
+              displayValue: "value",
+              barDirection: "left-to-right",
+              fontId: "font-roboto-16",
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+            },
+          },
+          {
+            id: "k-slider",
+            type: "slider",
+            zIndex: 3,
+            x: 24,
+            y: 260,
+            width: 312,
+            height: 64,
+            properties: {
+              topic: "hil/scaled/level",
+              writeTopic: "hil/scaled/set",
+              // A step of 5: the middle is 50 with room either side, so the
+              // payload is one string whatever pixel the tap lands on.
+              step: 5,
+              writeFormat: { text: '{"brightness":{value}}', numerator: 255, denominator: 100, decimals: 0 },
+              displayValue: "value",
+              fillColor: FILL,
+              fontId: "font-roboto-16",
+              textColor: WHITE,
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+            },
+          },
+          { id: "k-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 150, width: SCREEN_W, height: 150, properties: { fillColor: "#1a3326", strokeColor: "transparent" } },
         ],
       },
       {

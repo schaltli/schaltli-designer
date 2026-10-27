@@ -18,6 +18,6 @@ Plan: `tasks/ha-templates-stage2-plan.md`. Approved by the user 2026-10-26.
 - [x] S5 Deploy asks `"scaled-values"`
 - [x] S6 The import (`linearForm`, scaled topics and write formats from templates)
 - [x] Checkpoint: test:quick (papers3-live-values timed out under load, passed alone)
-- [ ] H1 HIL fixtures on every lane (boards done; Android waits for the new app on the phone)
+- [x] H1 HIL fixtures on every lane (Android: screen-10 «Skaliert» in the comprehensive fixture, 26/26 on the P20)
 - [x] H2 Handbook
 - [x] Checkpoint: test:all (2026-10-27: all PASS but two @alone timings - 230/200 ms and 1103/1000 ms - that fail as much at 2d1cb76 before stage 2, and pair-local-topics, which passed once the 4.3B left an AP at -92 dBm; Android lanes on the old app)

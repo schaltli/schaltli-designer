@@ -150,6 +150,18 @@ test.describe("hil combination generation", () => {
     expect(combinationOverrides(p, screenOf(p), 1)).toEqual({ "van/timer": "0", "van/heat": "false", "van/boiler": '{"on":true}', "van/night": "true" })
   })
 
+  // A bar bound to a scaled topic (device contract 2.11) reads that topic's
+  // one source; `combined:wind_kmh` itself is nothing to publish.
+  test("a bar on a scaled topic publishes its source, not the binding", () => {
+    const p: any = project([topic("weather", ['{"wind":12.5}', '{"wind":"calm"}'])], [{ id: "b", type: "bar", properties: { topic: "combined:wind_kmh" } }])
+    p.combinedTopics = [
+      { id: "c1", name: "wind_kmh", mode: "scale", conditions: [], scale: { source: { namespace: "topic", path: "weather#wind" }, numerator: 18, denominator: 5, decimals: 1 } },
+    ]
+
+    expect(screenTopics(p, screenOf(p))).toEqual(["weather"])
+    expect(combinationOverrides(p, screenOf(p), 1)).toEqual({ weather: '{"wind":"calm"}' })
+  })
+
   test("a screen that binds nothing still runs once", () => {
     const p = project([], [{ id: "lbl", type: "text", properties: { text: "static" } }])
 
