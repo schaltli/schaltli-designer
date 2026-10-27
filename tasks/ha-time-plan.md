@@ -27,42 +27,43 @@ keyboard's way of taking every contact while it is open, `/api/keyboard`'s
 idea for a test (here: the open picker as JSON), the import's rule for a
 command template other than `{{ value }}` (read only).
 
-## Decisions taken here (to approve - the artifact is for trying them)
+## Decisions (settled with the user 2026-10-27, after trying the artifact)
 
 1. **A new object: «Time field».** `type: "time-field"`, among the
    operating objects: the time in a field like the text field's, tapped it
    opens a picker. Properties: Topic, Write topic, «Minute step» (1, 5, 10,
-   15, 30; default 1 - a heater's start is set in 15), the field's colours
-   and font. No seconds anywhere.
+   15, 30; **default 5**, the user: «standard 5 minuten, aber auf eine
+   änderbar»), the field's colours and font. No seconds anywhere.
 2. **What is read.** `HH:MM`, `HH:MM:SS` (a fraction ignored) or an ISO
    date and time, of which the time as written is kept. Anything else
-   shows «--:--», as nothing heard yet does. Shown in 24 hours, `14:30`.
-3. **What is sent.** `HH:MM:00`, Home Assistant's own `isoformat()`. A
-   minute step only limits what the picker offers; what is reported off
-   the step is shown as it is.
-4. **The picker per device** - the question the artifact asks:
-   - 4.3B, PaperS3: hour and minute side by side, each with a button
-     above and below (A), or each a wheel a finger drags (B); OK, Cancel.
-     On e-paper A, whatever the 4.3B gets: a dragged wheel is a refresh per
-     step.
-   - Knob: the ring sets it - turning changes the selected part, a tap on
-     the hours or the minutes selects that part, OK below. As a dial sets a
-     level.
-   - Phone: Android's own time picker, as the text field uses Android's
-     keyboard.
+   shows «--:--», as nothing heard yet does. **Always 24 hours** (`14:30`,
+   «military time»), whatever the keyboard's language.
+3. **What is sent.** `HH:MM:00`, Home Assistant's own `isoformat()`. The
+   minute is **rounded onto the step** - on every device, the phone too,
+   whose picker knows no step: OK rounds what it took. A reported minute
+   off the step opens the picker on the nearest one.
+4. **The picker per device.**
+   - 4.3B and Knob: **two wheels**, hours and minutes, that follow the
+     finger **continuously** and **snap on release**, the way a swipe
+     between screens settles; a quick flick runs on a few steps. A tap on a
+     neighbour brings it to the middle. OK, Cancel. The Knob's ring takes
+     no part (the user: «der Ring ist nicht nötig»).
+   - PaperS3: a button above and below hours and minutes (A): a wheel that
+     follows a finger would cost a refresh per pixel step on e-paper.
+   - Phone: Android's own time picker (24 hours), OK rounding onto the step.
 5. **Gated by the type.** `"time-field"` in each DDF's
    `supportedObjectTypes`, as the text field.
 6. **The import.** An MQTT `time` becomes a catalog control `{ kind:
-   "time-field", read?, write }`, a placed block a Time field with step 1.
-   A `command_template` other than `{{ value }}` leaves it read-only, a
-   text showing the time.
+   "time-field", read?, write }`, a placed block a Time field with the
+   default step. A `command_template` other than `{{ value }}` leaves it
+   read-only, a text showing the time.
 
 ## Tasks
 
 ### Designer
 
-- **T0 The artifact.** The four pickers to try in a browser, the board
-  variants A and B side by side; the decisions above settled with the user.
+- **T0 The artifact.** https://claude.ai/artifact/9uyxiLRN9YDUYtzkUX25cZ -
+  the pickers to try; decisions settled 2026-10-27.
 - **D1 The object.** Type, drawing, panel, the preview's picker (the
   browser's own time input), lib/time-field.ts (parse, format, step) with
   its cases. Test: e2e/time-field.spec.ts; property-panel-controls.json.
@@ -76,8 +77,8 @@ command template other than `{{ value }}` (read only).
 - **F1 Drawing** on the three boards (TimeField.h ported from
   lib/time-field.ts, native tests), DDFs, a conformance specimen.
 - **F2 The picker** per board as decided in T0; `/api/picker` for tests;
-  a HIL script that sets 06:45 by taps (by turns on the Knob), sends
-  `06:45:00` and cancels.
+  a HIL script that sets 06:45 by drags (4.3B, Knob) or taps (PaperS3),
+  sends `06:45:00` and cancels.
 
 ### Android
 

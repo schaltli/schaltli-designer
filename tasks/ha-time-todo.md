@@ -1,9 +1,10 @@
 # Todo: ha-time
 
-Plan: `tasks/ha-time-plan.md`, written 2026-10-27; decisions 1-6 open until
-the user has tried the pickers.
+Plan: `tasks/ha-time-plan.md`, written 2026-10-27; decisions settled 2026-10-27
+(«räder … kontinuierlichem ziehen, das beim loslassen einrastet»; Knob the same,
+no ring; step 5 by default, rounded onto; 24 hours).
 
-- [ ] T0 The artifact: https://claude.ai/artifact/9uyxiLRN9YDUYtzkUX25cZ (4.3B A buttons, 4.3B B wheels, knob ring, PaperS3 A, phone's own picker); decisions settled
+- [x] T0 The artifact: https://claude.ai/artifact/9uyxiLRN9YDUYtzkUX25cZ (4.3B A buttons, 4.3B B wheels, knob ring, PaperS3 A, phone's own picker); decisions settled
 - [ ] D1 The object: type, drawing, panel, preview picker, lib/time-field.ts
 - [ ] D2 Export
 - [ ] D3 The import: `case "time"`, block
