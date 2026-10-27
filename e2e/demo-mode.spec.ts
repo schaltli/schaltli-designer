@@ -206,8 +206,14 @@ test.describe("the demo in the browser", () => {
       .toBeLessThan(4)
     await page.setViewportSize({ width: 1280, height: 480 })
     await expect(place).toHaveAttribute("data-place", "strip")
-    const box = (await canvas.boundingBox())!
-    expect((await modes.boundingBox())!.y).toBeGreaterThanOrEqual(box.y + box.height)
+    // Polled: the place changes at once, the canvas follows the window a frame
+    // later - measured in between, the strip was 56 px into it (1 run in 5).
+    await expect
+      .poll(async () => {
+        const box = (await canvas.boundingBox())!
+        return (await modes.boundingBox())!.y - (box.y + box.height)
+      })
+      .toBeGreaterThanOrEqual(0)
 
     await designer.click()
     await expect(designer).toHaveAttribute("aria-pressed", "true")
