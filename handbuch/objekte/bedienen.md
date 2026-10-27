@@ -10,6 +10,7 @@ Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Ein [Baus
 
 - <span class="ui">Write topic</span>: wohin der eingestellte Wert geht. Immer das ganze Topic, nie ein JSON-Feld.
 - <span class="ui">Step</span>: in welchen Schritten der Wert springt, etwa 5 für einen Dimmer oder 0.5 für eine Temperatur. Der Designer zeigt darunter, wie viele Stufen das ergibt und ob der Schritt zum Bereich passt.
+- <span class="ui">Send as</span>: was der Slider schickt, wenn die Anlage mehr als die blosse Zahl erwartet, etwa `{"brightness":{value}}`. Das Gerät setzt den eingestellten Wert an die Stelle von `{value}`. Mit ×, ÷, + und <span class="ui">Decimals</span> rechnet es ihn vorher um, etwa von Prozent auf 0 bis 255. Darunter steht, was für den höchsten Wert gesendet würde. Bleibt das Feld leer, schickt der Slider die Zahl allein. Die Anzeige bleibt beim eingestellten Wert.
 
 Der einstellbare Bereich reicht vom kleinsten bis zum grössten [Kalibrierpunkt](/objekte/gemeinsames#kalibrierung).
 
@@ -26,7 +27,7 @@ Ein Wischen, das auf einem Slider beginnt, gehört dem Slider und blättert nich
 
 ## Dial {#dial}
 
-Wie Slider, aber als Ring, etwa für eine Heizung. Er hat dieselben Eigenschaften wie der [Gauge](/objekte/anzeigen#gauge), dazu <span class="ui">Write topic</span> und <span class="ui">Step</span>. Am Gerät verhält er sich wie ein Slider auf einem Kreisbogen.
+Wie Slider, aber als Ring, etwa für eine Heizung. Er hat dieselben Eigenschaften wie der [Gauge](/objekte/anzeigen#gauge), dazu <span class="ui">Write topic</span>, <span class="ui">Step</span> und <span class="ui">Send as</span>. Am Gerät verhält er sich wie ein Slider auf einem Kreisbogen.
 
 ## Switch {#switch}
 
