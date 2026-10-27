@@ -106,3 +106,7 @@ Ein Feld mit einer Uhrzeit, die du am Gerät neu einstellst, etwa die Startzeit 
 Das Feld zeigt die Zeit immer mit 24 Stunden, etwa 18:30. Es liest eine Zeit wie `06:45` oder `06:45:00` und auch ein Datum mit Zeit wie `2026-10-27T06:45:00+01:00`, davon die Zeit, wie sie dasteht. Steht nichts Lesbares im Topic, zeigt es «--:--». Gesendet wird die Zeit so, wie Home Assistant sie schreibt: `06:45:00`.
 
 In der Vorschau öffnet ein Klick auf das Feld unten die Zeiteingabe des Browsers mit der jetzigen Zeit, auf den Schritt gerundet. <span class="ui">OK</span> oder die Eingabetaste schickt die Zeit, <span class="ui">Cancel</span> oder Escape schickt nichts.
+
+**Am Gerät:** Ein Tippen auf das Feld öffnet einen Wähler mit der jetzigen Zeit, auf den Schritt gerundet. Auf dem 4.3B und dem Knob stehen Stunden und Minuten auf zwei Rädern. Sie folgen dem Finger und rasten beim Loslassen ein, schnell angestossen laufen sie ein paar Werte weiter. Tippst du auf einen Wert über oder unter der Mitte, rückt er in die Mitte. Der Drehring des Knobs tut nichts, solange der Wähler offen ist. Auf dem PaperS3 hat jede Zahl einen Knopf darüber und darunter. <span class="ui fw">OK</span> schickt die Zeit, <span class="ui fw">Cancel</span> nichts.
+
+Auf dem Handy öffnet sich der Zeitwähler von Android mit 24 Stunden. Er kennt keinen Schritt: <span class="ui fw">OK</span> rundet die gewählte Minute auf den Schritt, bevor die Zeit geht.

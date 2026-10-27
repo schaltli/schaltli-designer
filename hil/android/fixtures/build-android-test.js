@@ -47,7 +47,10 @@
 //   screen-11 a text field (tasks/ha-text-plan.md, A1): a text, a hidden
 //             one, compared over two texts; then typed on the phone's own
 //             keyboard and sent (orchestrator.js checkTextField)
-//   (screen-7 to -11 stand before screen-6: the run ends on the navigator)
+//   screen-12 a time field (tasks/ha-time-plan.md, A1): compared over what
+//             Home Assistant writes and an ISO date and time; then opened on
+//             06:32, OK sending 06:30:00 (orchestrator.js checkTimeField)
+//   (screen-7 to -12 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -202,6 +205,9 @@ function buildProject(fonts) {
       // screen-11: umlauts and a euro, and one too long for the field.
       { id: "t-name", topic: "hil/text/name", type: "text", examples: ["Grüße 10€", "Ein viel zu langer Name für dieses Feld"] },
       { id: "t-name-set", topic: "hil/text/name/set", type: "text", examples: ["Hallo"] },
+      // screen-12: what Home Assistant writes, and an ISO date and time.
+      { id: "t-start", topic: "hil/time/start", type: "text", examples: ["06:32:00", "2026-10-27T18:05:00+01:00"] },
+      { id: "t-start-set", topic: "hil/time/start/set", type: "text", examples: ["06:30:00"] },
     ],
     combinedTopics: [
       {
@@ -1176,6 +1182,34 @@ function buildProject(fonts) {
       // A text field: compared like any screen, then typed on the phone's
       // keyboard (orchestrator.js checkTextField). Two fields on one topic,
       // the second hidden, so its dots are compared too.
+      // A time field: compared like any screen, then opened and OK pressed
+      // (orchestrator.js checkTimeField).
+      {
+        id: "screen-12",
+        name: "Zeit",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          {
+            id: "z-field",
+            type: "time-field",
+            zIndex: 1,
+            x: 80,
+            y: 120,
+            width: 200,
+            height: 64,
+            properties: {
+              topic: "hil/time/start",
+              writeTopic: "hil/time/start/set",
+              minuteStep: 5,
+              fieldColor: "#e5e5e5",
+              lineColor: ACCENT,
+              textColor: BLACK,
+              fontId: "font-roboto-24",
+            },
+          },
+        ],
+      },
       {
         id: "screen-11",
         name: "Text",

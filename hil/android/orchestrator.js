@@ -1853,6 +1853,56 @@ async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
 }
 
 /**
+ * A time field set on the phone's own picker (tasks/ha-time-plan.md, A1):
+ * a tap opens Android's time picker on the field's time, put on the step -
+ * 06:32 reported, step 5: 06:30 - and OK sends it as Home Assistant writes a
+ * time, 06:30:00. Cancel sends nothing. The buttons are found by their text
+ * in a uiautomator dump; the dial itself is Android's, not tested here.
+ */
+async function checkTimeField(deviceSerial, mqttClient, project, screen, si) {
+  const field = (screen.objects || []).find((o) => o.type === "time-field" && o.properties?.writeTopic)
+  if (!field) return
+  const writeTopic = field.properties.writeTopic
+  const adb = (...args) => execFileSync(ADB, adbArgs(deviceSerial, args), { encoding: "utf8" })
+  const button = (label) => {
+    adb("shell", "uiautomator", "dump", "/sdcard/schaltli-ui.xml")
+    const xml = adb("exec-out", "cat", "/sdcard/schaltli-ui.xml")
+    const m = new RegExp(String.raw`text="${label}"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"`).exec(xml)
+    if (!m) throw new Error(`time field: no «${label}» on the glass`)
+    return { x: (Number(m[1]) + Number(m[3])) / 2, y: (Number(m[2]) + Number(m[4])) / 2 }
+  }
+  const heard = []
+  const listen = (topic, payload, packet) => {
+    if (topic === writeTopic && !packet.retain) heard.push(payload.toString("utf8"))
+  }
+  mqttClient.on("message", listen)
+  await new Promise((resolve) => mqttClient.subscribe(writeTopic, resolve))
+  const p = await devicePointFor(deviceSerial, project, field.x + field.width / 2, field.y + field.height / 2)
+  try {
+    await phoneApi.tap(p.x, p.y)
+    await sleep(1500)
+    const ok = button("OK")
+    adb("shell", "input", "tap", String(Math.round(ok.x)), String(Math.round(ok.y)))
+    const deadline = Date.now() + 8000
+    while (heard.length === 0 && Date.now() < deadline) await sleep(100)
+    console.log(`  [${si}-t] ${heard[0] === "06:30:00" ? "PASS" : "FAIL"} opened on 06:32 put on the step, OK sends 06:30:00 - ${JSON.stringify(heard)}`)
+    if (heard[0] !== "06:30:00") throw new Error(`time field: expected "06:30:00" on ${writeTopic}, heard ${JSON.stringify(heard)}`)
+
+    await sleep(1000)
+    await phoneApi.tap(p.x, p.y)
+    await sleep(1500)
+    const cancel = button("Cancel")
+    adb("shell", "input", "tap", String(Math.round(cancel.x)), String(Math.round(cancel.y)))
+    await sleep(2000)
+    console.log(`  [${si}-t] ${heard.length === 1 ? "PASS" : "FAIL"} Cancel sends nothing - ${JSON.stringify(heard)}`)
+    if (heard.length !== 1) throw new Error(`time field: Cancel sent ${JSON.stringify(heard.slice(1))}`)
+  } finally {
+    mqttClient.removeListener("message", listen)
+    await new Promise((resolve) => mqttClient.unsubscribe(writeTopic, resolve))
+  }
+}
+
+/**
  * A text field typed on the phone's own keyboard (tasks/ha-text-plan.md,
  * A1): a tap opens the line with what the field shows; what adb types into
  * it goes through the system keyboard as a finger's would, and Enter - the
@@ -2469,6 +2519,7 @@ Screen ${si} "${screen.name}": a local topic - checked, not compared`);
       if (!touchedThisScreen) {
         touchedThisScreen = true;
         if ((screen.objects || []).some((o) => o.type === "text-field")) await checkTextField(deviceSerial, mqttClient, project, screen, si);
+        else if ((screen.objects || []).some((o) => o.type === "time-field")) await checkTimeField(deviceSerial, mqttClient, project, screen, si);
         else await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
       }
     }
