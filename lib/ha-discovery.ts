@@ -33,6 +33,7 @@
 import { ABBREVIATIONS, DEVICE_ABBREVIATIONS, ORIGIN_ABBREVIATIONS } from "@/lib/ha-abbreviations"
 import { BLOCKS_PREFIX, readDescription } from "@/lib/block-description"
 import { type Scale, type WriteFormat } from "@/lib/scaled-value"
+import { TEXT_FIELD_MAX_LENGTH } from "@/lib/text-field"
 import {
   decimalPlaces,
   Dict,
@@ -429,6 +430,12 @@ export type CatalogControl = (
     }
   /** A text shown as it comes: a sensor that is not a number, a cover's state, a block description's. */
   | { kind: "text"; read: string }
+  /**
+   * A text typed on the device and sent as it is: an MQTT `text`
+   * (tasks/ha-text-plan.md, decision 8). Its bounds count characters;
+   * `hidden` is Home Assistant's `password` mode.
+   */
+  | { kind: "text-field"; read?: string; write: string; minLength: number; maxLength: number; hidden?: true }
   /**
    * One of its options, read and written: a button group, one button each.
    * `labels`, beside `options` and as long, are the buttons' words where the
@@ -874,6 +881,39 @@ function writtenOnly(part: PartResult): PartResult {
 }
 
 /** A text only read, shown as it comes. */
+/**
+ * An MQTT text (text.py): typed on the device and sent as it is, read back
+ * from its state topic. Where it cannot be written as typed it is only
+ * read, as a text - a switch that cannot switch is a state, too:
+ * - a command template other than `{{ value }}`: a typed text put into
+ *   JSON would need escaping, which Home Assistant does not do either;
+ * - a `pattern`: Home Assistant checks it before it sends, a device does
+ *   not run a regular expression, and sending what HA would refuse is
+ *   worse than not sending (the same choice as a lock with a code).
+ */
+function textFieldPart(config: Json): PartResult {
+  const t = partTopics(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" })
+  if ("skipped" in t) return t
+  const onlyRead = (reason: string | undefined): PartResult =>
+    t.read ? { control: { kind: "text", read: t.read } } : reason ? { skipped: reason } : undefined
+  if (!t.write || !t.send) return onlyRead(t.writeRefused)
+  if (t.templated) return onlyRead("the command template")
+  if (typeof config.pattern === "string" && config.pattern !== "") return onlyRead("a pattern")
+  const bound = (value: unknown, fallback: number) => Math.max(0, Math.min(TEXT_FIELD_MAX_LENGTH, Math.trunc(num(value, fallback))))
+  const maxLength = Math.max(1, bound(config.max, TEXT_FIELD_MAX_LENGTH))
+  const minLength = Math.min(maxLength, bound(config.min, 0))
+  return {
+    control: {
+      kind: "text-field",
+      ...(t.read ? { read: t.read } : {}),
+      write: t.write,
+      minLength,
+      maxLength,
+      ...(config.mode === "password" ? { hidden: true as const } : {}),
+    },
+  }
+}
+
 function textPart(config: Json, keys: PartKeys): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
@@ -1340,6 +1380,8 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
         { min: num(config.min, 1), max: num(config.max, 100), step: num(config.step, 1) },
         unit,
       )
+    case "text":
+      return textFieldPart(config)
     case "select":
       return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
     case "button":
@@ -1367,6 +1409,7 @@ const MISSING: Record<string, string> = {
   binary_sensor: "no state topic",
   sensor: "no state topic",
   number: "no command topic",
+  text: "no command topic",
   select: "no command topic",
   button: "no command topic",
   scene: "no command topic",

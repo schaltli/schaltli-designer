@@ -1,0 +1,13 @@
+{
+  "source": "home-assistant.io/integrations/text.mqtt, 'Examples' (source/_integrations/text.mqtt.markdown, read 2026-10-27): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/text/lcd/config",
+  "payload": {
+    "name": "Remote LCD screen",
+    "icon": "mdi:ab-testing",
+    "mode": "text",
+    "command_topic": "txt/cmd",
+    "state_topic": "txt/state",
+    "min": 2,
+    "max": 20
+  }
+}

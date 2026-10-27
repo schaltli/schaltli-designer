@@ -626,6 +626,8 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
       return [{ id: "text", label: "Text", objectTypes: [] }]
     case "button":
       return [{ id: "button", label: "Button", objectTypes: ["button"] }]
+    case "text-field":
+      return [{ id: "text-field", label: "Text field", objectTypes: ["text-field"] }]
   }
 }
 
@@ -793,6 +795,37 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           { topic: control.write, type: "numeric", examples: [String(middle)] },
         ],
         ...(scaled ? { combinedTopics: [scaled] } : {}),
+        assets,
+      }
+    }
+    case "text-field": {
+      // Typed on the device and sent as it is (tasks/ha-text-plan.md); its
+      // look is the theme's, so only what it reads and writes is set here.
+      const box = parts.control
+      const object: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "text-field",
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.round(Math.abs(box.width)),
+        height: Math.max(Math.round(Math.abs(box.height)), SWITCH_MIN_HEIGHT),
+        properties: {
+          topic: control.read,
+          writeTopic: control.write,
+          minLength: control.minLength,
+          maxLength: control.maxLength,
+          ...(control.hidden ? { hidden: true } : {}),
+          fontId: font?.id,
+        },
+      }
+      const heard = control.read ? reported?.[splitTopicPath(control.read).topic] : undefined
+      return {
+        objects: [...label(), object],
+        topics: [
+          // A hidden one's examples would be the password in the clear, saved
+          // in the project.
+          ...(control.read ? [readTopicEntry(control.read, "text", control.hidden ? undefined : reported)] : []),
+          { topic: control.write, type: "text", examples: heard !== undefined && !control.hidden ? [heard] : [] },
+        ],
         assets,
       }
     }

@@ -636,6 +636,22 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a text: a text field beside the name, reading its state and writing its command", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-text-lcd"], { "txt/state": "Hallo" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Remote LCD screen")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const field = partsOf(block).find((c: { type: string }) => c.type === "text-field")
+      expect(field?.properties).toMatchObject({ topic: "txt/state", writeTopic: "txt/cmd", minLength: 2, maxLength: 20 })
+    } finally {
+      await clear()
+    }
+  })
+
   test("a scene: a button named after it, sending its payload", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-scene-party"])
     try {

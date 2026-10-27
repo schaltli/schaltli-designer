@@ -734,6 +734,35 @@ test.describe("an entity with several parts", () => {
     ])
   })
 
+  // A text (Home Assistant's text.py): typed on the device and sent as it is
+  // (tasks/ha-text-plan.md, decision 8).
+  test("the docs' remote LCD screen: a text field with its bounds", () => {
+    const entry = entryOf("ha-docs-text-lcd")
+    expect(entry.controls).toEqual([{ kind: "text-field", read: "txt/state", write: "txt/cmd", minLength: 2, maxLength: 20 }])
+  })
+
+  test("a text's defaults, a password hidden, and what leaves it only read", () => {
+    const text = (config: object) => {
+      const [c] = expandConfig("homeassistant/text/t/config", JSON.stringify(config))
+      return toCatalogEntry(c)
+    }
+    // Home Assistant's own bounds; no state topic: nothing read back.
+    expect(text({ cmd_t: "t/set" })).toMatchObject({ entry: { controls: [{ kind: "text-field", write: "t/set", minLength: 0, maxLength: 255 }] } })
+    expect(text({ cmd_t: "t/set", stat_t: "t/state", mode: "password" })).toMatchObject({
+      entry: { controls: [{ kind: "text-field", read: "t/state", write: "t/set", hidden: true }] },
+    })
+    // Out of range: kept within 0-255, min never above max.
+    expect(text({ cmd_t: "t/set", min: 300, max: 999 })).toMatchObject({ entry: { controls: [{ minLength: 255, maxLength: 255 }] } })
+    // A template around the value, a pattern: read as a text where there is a state topic ...
+    for (const extra of [{ cmd_tpl: '{"text":"{{ value }}"}' }, { pattern: "^[a-z]+$" }]) {
+      expect(text({ cmd_t: "t/set", stat_t: "t/state", ...extra })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
+    }
+    // ... and not offered without one, saying why.
+    expect(text({ cmd_t: "t/set", pattern: "^[a-z]+$" })).toMatchObject({ unsupported: { reason: "a pattern" } })
+    expect(text({ cmd_t: "t/set", cmd_tpl: '{"text":"{{ value }}"}' })).toMatchObject({ unsupported: { reason: "the command template" } })
+    expect(text({ stat_t: "t/state" })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
+  })
+
   // A humidifier (Home Assistant's humidifier.py): as a fan, its humidity in percent.
   test("the docs' humidifier: power, modes, the target humidity in its range, the current one as a fill", () => {
     const entry = entryOf("ha-docs-humidifier-bedroom")
