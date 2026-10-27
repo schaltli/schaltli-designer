@@ -261,6 +261,8 @@ async function main() {
     await clear()
     await typeText("Grüezi 1")
     kb = await keyboard()
+    // The PaperS3 says how long its last key took from press to glass.
+    if (typeof kb.lastKeyMs === "number") console.log(`  key press to glass: ${kb.lastKeyMs} ms`)
     await snapshot("2-typed")
     await pressKind("ok")
     await waitSent(1)
