@@ -9,7 +9,8 @@ ist gem. Browser. Rest ok. Leg los»).
   - both exports pass it through with its colours resolved (fieldColor/lineColor in COLOR_KEYS, dff4995); e2e/text-field.spec.ts «in the exports». The type itself goes into the DDFs in F1 and A1; deploy's type check is the energy diagram's
 - [x] D3 The import: `case "text"`, block places a Text field
   - e2e/ha-discovery.spec.ts (docs' «Remote LCD screen», defaults, password, template, pattern), e2e/bausteine.spec.ts «a text: a text field beside the name»; fixture ha-docs-text-lcd.json. A hidden field's topics keep no examples (no password saved in the project)
-- [ ] D4 Handbook: bedienen.md, einrichten.md (Keyboard), bausteine.md
+- [x] D4 Handbook (designer part): objekte/bedienen.md «Text field», bausteine.md table row, objekte/index.md and designer/index.md lists; checked against the maettel-humanizer catalog
+  - the device part («Am Gerät», «Keyboard» in geraete/einrichten.md) follows with F2/F3 and A1
 - [ ] Checkpoint: test:quick
 - [ ] F1 Firmware: drawing on all three boards, conformance specimen
 - [ ] F2 Firmware: shared keyboard, layouts, «Keyboard» setting with the browser default, unit tests

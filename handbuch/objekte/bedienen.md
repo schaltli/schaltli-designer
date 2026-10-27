@@ -76,3 +76,16 @@ Eine Schaltfläche, die beim Antippen etwas tut.
 Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder aus ist, nimm einen [Switch](#switch).
 
 Den gedrückten Zustand zeigt derzeit nur der [4.3B](/geraete/waveshare-4-3b).
+
+## Text field {#text-field}
+
+Ein Feld mit einem Text, den du am Gerät neu eintippst, etwa den Namen, den ein Display im Van anzeigt, oder ein Passwort. Der Text kommt von einem Topic und geht an ein anderes.
+
+- <span class="ui">Topic</span>: was im Feld steht. Ohne Topic zeigt das Feld, was zuletzt gesendet wurde.
+- <span class="ui">Write topic</span>: wohin der getippte Text geht.
+- <span class="ui">Min length</span> und <span class="ui">Max length</span>: wie viele Zeichen der Text haben darf, höchstens 255. Gezählt werden Zeichen, ein «ü» zählt also einmal.
+- <span class="ui">Hide text</span>: Punkte statt Buchstaben, für ein Passwort.
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie beim [Button](#button).
+- <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: die Farben des Feldes, der Linie darunter und der Schrift. Ohne eigene Wahl nimmt das Feld die Farben des Themes.
+
+Klickst du in der Vorschau auf das Feld, öffnet sich unten eine Eingabezeile mit dem jetzigen Text, und du tippst auf der Tastatur des Computers. <span class="ui">OK</span> oder die Eingabetaste schickt den Text so, wie er ist, <span class="ui">Cancel</span> oder Escape schickt nichts. Unter der Mindestlänge bleibt <span class="ui">OK</span> grau, bei der Höchstlänge nimmt die Zeile nichts mehr an. Bis das Topic den neuen Text meldet, zeigt das Feld den gesendeten.
