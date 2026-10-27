@@ -668,6 +668,34 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("an alarm panel with a code: its state in words, a hidden code field on a local topic, buttons sending only when it matches", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-alarm-local"], { "alarmdecoder/panel": '{"state":"disarmed"}' })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Alarm Panel With Numeric Keypad")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      await page.getByRole("button", { name: "File" }).click()
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+      const project = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+      const parts = partsOf(project.screens[0].objects.find(isSnapTable))
+      const code = "local/alarmdecoder/panel/code"
+
+      const state = parts.find((c: any) => c.type === "text" && (c.properties.liveValues ?? []).some((lv: any) => lv.rules?.length))
+      expect(state.properties.liveValues[0].rules).toContainEqual({ op: "==", operand: "armed_away", result: { kind: "text", parts: ["Armed away"] } })
+      expect(parts.find((c: any) => c.type === "text-field")?.properties).toMatchObject({ topic: code, writeTopic: code, hidden: true })
+      const disarm = parts.find((c: any) => c.type === "button" && c.properties.text === "Disarm")
+      expect(disarm.properties.action).toEqual({ type: "send-mqtt", mqttTopic: "alarmdecoder/panel/set", mqttMessage: "DISARM", onlyWhen: "alarmdecoder_panel_code_ok", clears: code })
+      expect(project.topics).toContainEqual(expect.objectContaining({ topic: code, local: true, initial: "" }))
+      expect(project.combinedTopics).toContainEqual(
+        expect.objectContaining({ name: "alarmdecoder_panel_code_ok", mode: "all", conditions: [{ source: { namespace: "topic", path: code }, op: "==", operand: "mys3cretc0de" }] }),
+      )
+    } finally {
+      await clear()
+    }
+  })
+
   test("a scene: a button named after it, sending its payload", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-scene-party"])
     try {

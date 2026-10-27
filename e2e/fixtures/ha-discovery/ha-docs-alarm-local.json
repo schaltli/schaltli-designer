@@ -1,0 +1,5 @@
+{
+  "source": "home-assistant.io/integrations/alarm_control_panel.mqtt (source/_integrations/alarm_control_panel.mqtt.markdown, read 2026-10-27), 'Configuration with local code validation': the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/alarm_control_panel/local/config",
+  "payload": { "name": "Alarm Panel With Numeric Keypad", "state_topic": "alarmdecoder/panel", "value_template": "{{value_json.state}}", "command_topic": "alarmdecoder/panel/set", "code": "mys3cretc0de" }
+}

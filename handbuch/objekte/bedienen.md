@@ -73,6 +73,13 @@ Eine Schaltfläche, die beim Antippen etwas tut.
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.
 
+Bei <span class="ui">Send an MQTT message</span> darf die <span class="ui">Message</span> `{topic:…}` enthalten. Beim Antippen steht an dieser Stelle, was das Topic gerade hält, etwa der Code, den jemand in ein [Text field](#text-field) getippt hat. Alle anderen geschweiften Klammern bleiben stehen, ein JSON-Befehl geht also unverändert hinaus. Zwei Felder gehören dazu:
+
+- <span class="ui">Only when</span>: ein [Combined topic](/designer/topics#combined). Der Button schickt nur, wenn es «ja» ist, etwa wenn der Code stimmt.
+- <span class="ui">Then clear</span>: ein [Local topic](/designer/topics#local), das nach dem Senden leer wird. So bleibt ein Code nicht im Feld stehen.
+
+Das können nur Geräte mit neuer Firmware. Kann es eines nicht, sagt dir das der Deploy.
+
 Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder aus ist, nimm einen [Switch](#switch).
 
 Den gedrückten Zustand zeigt derzeit nur der [4.3B](/geraete/waveshare-4-3b).
@@ -84,6 +91,7 @@ Ein Feld mit einem Text, den du am Gerät neu eintippst, etwa den Namen, den ein
 - <span class="ui">Topic</span>: was im Feld steht. Ohne Topic zeigt das Feld, was zuletzt gesendet wurde.
 - <span class="ui">Write topic</span>: wohin der getippte Text geht.
 - <span class="ui">Min length</span> und <span class="ui">Max length</span>: wie viele Zeichen der Text haben darf, höchstens 255. Gezählt werden Zeichen, ein «ü» zählt also einmal.
+- <span class="ui">Keyboard</span>: <span class="ui">Letters</span> oder <span class="ui">Digits</span>. Mit <span class="ui">Digits</span> öffnet die Tastatur bei den Ziffern, für einen Code aus Zahlen.
 - <span class="ui">Hide text</span>: Punkte statt Buchstaben, für ein Passwort.
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie beim [Button](#button).
 - <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: die Farben des Feldes, der Linie darunter und der Schrift. Ohne eigene Wahl nimmt das Feld die Farben des Themes.

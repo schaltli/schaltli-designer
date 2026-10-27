@@ -1080,7 +1080,11 @@ export function renderTemplate(template: Template, variables: Record<string, Val
     }
   }
   run(template.nodes)
-  return out
+  // As Home Assistant's Template.async_render: the result stripped of blanks
+  // at either end, whatever it is for - a YAML folded block (`>`) ends a
+  // command template in a newline, which it never sends (2026-10-27, the
+  // docs' alarm panels).
+  return out.trim()
 }
 
 /** The variables of a value template for one payload: `value` and, where it is JSON, `value_json`. */

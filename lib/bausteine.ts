@@ -748,7 +748,21 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
     case "text": {
       // The text as it comes, across its row: a sentence has no width to
       // guess, so it takes what the row has.
-      const plain = labelObject(`${named}{topic:${control.read}}`, parts.control, palette, font)
+      let plain = labelObject(`${named}{topic:${control.read}}`, parts.control, palette, font)
+      // A word for each value it may report (an alarm panel's states).
+      if (control.words) {
+        const words = control.words
+        const lvs = (plain.properties.liveValues ?? []).map((lv: any, i: number) =>
+          i === 0
+            ? {
+                ...lv,
+                rules: words.map((w) => ({ op: "==", operand: w.value, result: { kind: "text", parts: [w.word] } })),
+                noValueYet: { kind: "text", parts: ["--"] },
+              }
+            : lv,
+        )
+        plain = { ...plain, properties: { ...plain.properties, liveValues: lvs } }
+      }
       // Small: in the Caption style, which the editor resolves to the
       // device's font when it places the block.
       const object = control.small ? { ...plain, properties: { ...plain.properties, blockTextStyle: "caption" } } : plain
@@ -816,8 +830,30 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           minLength: control.minLength,
           maxLength: control.maxLength,
           ...(control.hidden ? { hidden: true } : {}),
+          ...(control.keyboard ? { keyboard: control.keyboard } : {}),
           fontId: font?.id,
         },
+      }
+      // A local topic (an alarm panel's code): kept on the device, empty at
+      // the start, and the check the block brings with it.
+      if (control.local) {
+        const check = control.check
+        return {
+          objects: [...label(), object],
+          topics: [{ topic: control.write, type: "text", examples: [], local: true, initial: "" }],
+          ...(check
+            ? {
+                combinedTopics: [
+                  {
+                    name: check.name,
+                    mode: "all" as const,
+                    conditions: [{ source: { namespace: "topic" as const, path: control.write }, op: check.equals !== undefined ? ("==" as const) : ("!=" as const), operand: check.equals ?? "" }],
+                  },
+                ],
+              }
+            : {}),
+          assets,
+        }
       }
       const heard = control.read ? reported?.[splitTopicPath(control.read).topic] : undefined
       return {
@@ -889,7 +925,13 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
               buttonStyle: "tonal",
               buttonColor: palette.fill,
               fontId: font?.id,
-              action: { type: "send-mqtt", mqttTopic: control.write, mqttMessage: control.payload },
+              action: {
+                type: "send-mqtt",
+                mqttTopic: control.write,
+                mqttMessage: control.payload,
+                ...(control.onlyWhen ? { onlyWhen: control.onlyWhen } : {}),
+                ...(control.clears ? { clears: control.clears } : {}),
+              },
             },
           },
         ],
@@ -1095,7 +1137,8 @@ export function adoptCombinedTopics(
   const there = [...(existing ?? [])] as Omit<CombinedTopic, "id">[]
   const add: Omit<CombinedTopic, "id">[] = []
   const renamed = new Map<string, string>()
-  const same = (a: Omit<CombinedTopic, "id">, b: Omit<CombinedTopic, "id">) => a.mode === b.mode && JSON.stringify(a.scale) === JSON.stringify(b.scale)
+  const same = (a: Omit<CombinedTopic, "id">, b: Omit<CombinedTopic, "id">) =>
+    a.mode === b.mode && JSON.stringify(a.scale) === JSON.stringify(b.scale) && JSON.stringify(a.conditions) === JSON.stringify(b.conditions)
   for (const ct of built.combinedTopics ?? []) {
     const taken = (name: string) => [...there, ...add].find((x) => x.name === name)
     let name = ct.name
@@ -1105,6 +1148,7 @@ export function adoptCombinedTopics(
   }
   if (renamed.size === 0) return { built, add }
   const rename = (value: unknown, key = ""): unknown => {
+    if (typeof value === "string" && key === "onlyWhen") return renamed.get(value) ?? value
     if (typeof value === "string") return (key === "topic" || key === "setpointTopic") && value.startsWith(COMBINED) && renamed.has(value.slice(COMBINED.length)) ? COMBINED + renamed.get(value.slice(COMBINED.length)) : value
     if (Array.isArray(value)) return value.map((v) => rename(v, key))
     if (value && typeof value === "object") {

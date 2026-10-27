@@ -429,13 +429,34 @@ export type CatalogControl = (
       writeFormat?: WriteFormat
     }
   /** A text shown as it comes: a sensor that is not a number, a cover's state, a block description's. */
-  | { kind: "text"; read: string }
+  /**
+   * `words`: what to show for a value instead of it as it comes - an alarm
+   * panel's «armed_away» as «Armed away»; «--» before anything arrived.
+   */
+  | { kind: "text"; read: string; words?: { value: string; word: string }[] }
   /**
    * A text typed on the device and sent as it is: an MQTT `text`
    * (tasks/ha-text-plan.md, decision 8). Its bounds count characters;
    * `hidden` is Home Assistant's `password` mode.
    */
-  | { kind: "text-field"; read?: string; write: string; minLength: number; maxLength: number; hidden?: true }
+  | {
+      kind: "text-field"
+      read?: string
+      write: string
+      minLength: number
+      maxLength: number
+      hidden?: true
+      /** Opens on the digits (an alarm panel's numeric code). */
+      keyboard?: "digits"
+      /** Its topic is a local one, kept on the device (an alarm panel's code). */
+      local?: true
+      /**
+       * A combined topic the block brings, yes while the field holds `equals`
+       * - or anything at all, where none is given (tasks/ha-alarm-plan.md,
+       * decision 5).
+       */
+      check?: { name: string; equals?: string }
+    }
   /** A time of day set on the device and sent as `HH:MM:00`: an MQTT `time` (tasks/ha-time-plan.md, decision 6). */
   | { kind: "time-field"; read?: string; write: string }
   /**
@@ -449,7 +470,8 @@ export type CatalogControl = (
    */
   | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[]; writes?: string[]; reads?: string[] }
   /** A press that publishes one payload. */
-  | { kind: "button"; write: string; payload: string }
+  /** `onlyWhen`, `clears`: lib/button-values.ts - an alarm panel's action needing its code. */
+  | { kind: "button"; write: string; payload: string; onlyWhen?: string; clears?: string }
 ) & {
   /** Which part of an entity with several - light, fan, climate - it is: "Brightness", "Speed" … */
   part?: string
@@ -1310,6 +1332,45 @@ function partsOf(component: string, raw: Json): [string, PartResult][] | undefin
         ],
       ]
     }
+    case "alarm_control_panel": {
+      // Its state in words, a code field where an action asks for one, a
+      // button per action it offers (tasks/ha-alarm-plan.md). Home Assistant
+      // checks a fixed code before it sends; here the device does, through
+      // the combined topic the code field brings. REMOTE_CODE(_TEXT): any
+      // code, the panel checks it.
+      const state = textPart(config, { read: "state_topic", readTemplate: "value_template" })
+      if (state && "control" in state && state.control.kind === "text") state.control.words = ALARM_WORDS
+      const write = typeof config.command_topic === "string" && config.command_topic !== "" ? config.command_topic : undefined
+      const template = typeof config.command_template === "string" ? config.command_template : "{{action}}"
+      const command = commandOf(template, ["action", "code"])
+      const code = typeof config.code === "string" && config.code !== "" ? config.code : undefined
+      const remote = code === "REMOTE_CODE" || code === "REMOTE_CODE_TEXT"
+      const digits = code !== undefined && (code === "REMOTE_CODE" || /^[0-9]+$/.test(code))
+      const slug = str(config.state_topic, "alarm").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+      const codeTopic = `local/${str(config.state_topic, "alarm")}/code`
+      const check = `${slug}_code_ok`
+      const features: unknown[] = Array.isArray(config.supported_features) ? config.supported_features : ALARM_FEATURES.map((f) => f.feature)
+      const needs = (flag: string) => code !== undefined && config[flag] !== false
+      const action = (label: string, payloadKey: string, fallback: string, flag: string): [string, PartResult] => {
+        if (!write) return [label, undefined]
+        if ("refused" in command) return [label, { skipped: command.refused }]
+        const payload = str(config[payloadKey], fallback)
+        const coded = needs(flag)
+        const sent = command.send("", { action: payload, code: coded ? `{topic:${codeTopic}}` : "" })
+        if ("refused" in sent) return [label, { skipped: sent.refused }]
+        return [label, { control: { kind: "button", write, payload: sent.payload, ...(coded ? { onlyWhen: check, clears: codeTopic } : {}) } }]
+      }
+      const arms = ALARM_FEATURES.filter((f) => f.feature !== "trigger" && features.includes(f.feature)).map((f) =>
+        action(f.label, f.payloadKey, f.payload, "code_arm_required"),
+      )
+      const disarm = action("Disarm", "payload_disarm", "DISARM", "code_disarm_required")
+      const trigger = features.includes("trigger") ? [action("Trigger", "payload_trigger", "TRIGGER", "code_trigger_required")] : []
+      const anyCoded = write !== undefined && (needs("code_disarm_required") || (arms.length > 0 && needs("code_arm_required")) || (trigger.length > 0 && needs("code_trigger_required")))
+      const codePart: [string, PartResult][] = anyCoded
+        ? [["Code", { control: { kind: "text-field", read: codeTopic, write: codeTopic, minLength: 0, maxLength: 64, hidden: true, local: true, ...(digits ? { keyboard: "digits" as const } : {}), check: remote ? { name: check } : { name: check, equals: code } } }]]
+        : []
+      return [["State", state], ...codePart, ...arms, disarm, ...trigger]
+    }
     case "lock": {
       // The state on its own, a lock reports more than two (jammed,
       // locking …); Lock and Unlock as a switch; Open where its payload is
@@ -1422,6 +1483,30 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       return { unknown: true }
   }
 }
+
+// An alarm panel's states in words, and its actions in the order shown
+// (Home Assistant's const.py: ALARM_CONTROL_PANEL_SUPPORTED_FEATURES and
+// the DEFAULT_PAYLOAD_*s).
+const ALARM_WORDS = [
+  { value: "disarmed", word: "Disarmed" },
+  { value: "armed_home", word: "Armed home" },
+  { value: "armed_away", word: "Armed away" },
+  { value: "armed_night", word: "Armed night" },
+  { value: "armed_vacation", word: "Armed vacation" },
+  { value: "armed_custom_bypass", word: "Armed bypass" },
+  { value: "pending", word: "Pending" },
+  { value: "arming", word: "Arming" },
+  { value: "disarming", word: "Disarming" },
+  { value: "triggered", word: "Triggered" },
+]
+const ALARM_FEATURES = [
+  { feature: "arm_home", label: "Home", payloadKey: "payload_arm_home", payload: "ARM_HOME" },
+  { feature: "arm_away", label: "Away", payloadKey: "payload_arm_away", payload: "ARM_AWAY" },
+  { feature: "arm_night", label: "Night", payloadKey: "payload_arm_night", payload: "ARM_NIGHT" },
+  { feature: "arm_vacation", label: "Vacation", payloadKey: "payload_arm_vacation", payload: "ARM_VACATION" },
+  { feature: "arm_custom_bypass", label: "Bypass", payloadKey: "payload_arm_custom_bypass", payload: "ARM_CUSTOM_BYPASS" },
+  { feature: "trigger", label: "Trigger", payloadKey: "payload_trigger", payload: "TRIGGER" },
+]
 
 // What a simple component lacks when nothing of it can be used.
 const MISSING: Record<string, string> = {

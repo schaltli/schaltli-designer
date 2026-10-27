@@ -1,0 +1,5 @@
+{
+  "source": "home-assistant.io/integrations/alarm_control_panel.mqtt (source/_integrations/alarm_control_panel.mqtt.markdown, read 2026-10-27), 'Configurations with remote code validation', the text code: the YAML example's keys and values verbatim, as a discovery payload; the folded command_template with its newline",
+  "topic": "homeassistant/alarm_control_panel/remote_text/config",
+  "payload": { "name": "Alarm Panel With Text Code Dialog", "state_topic": "alarmdecoder/panel", "value_template": "{{ value_json.state }}", "command_topic": "alarmdecoder/panel/set", "code": "REMOTE_CODE_TEXT", "command_template": "{ \"action\": \"{{ action }}\", \"code\": \"{{ code }}\" }\n" }
+}

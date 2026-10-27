@@ -377,7 +377,7 @@ test.describe("an entity as a catalog entry", () => {
       unsupported: { reason: "the command template: the filter regex_replace" },
     })
     expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
-    expect(one("alarm_control_panel", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component alarm_control_panel" } })
+    expect(one("lawn_mower", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component lawn_mower" } })
   })
 })
 
@@ -777,6 +777,75 @@ test.describe("an entity with several parts", () => {
     expect(time({ cmd_t: "t/set", stat_t: "t/state", cmd_tpl: '{"start":"{{ value }}"}' })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
     expect(time({ cmd_t: "t/set", cmd_tpl: '{"start":"{{ value }}"}' })).toMatchObject({ unsupported: { reason: "the command template" } })
     expect(time({ stat_t: "t/state" })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
+  })
+
+  // An alarm panel (Home Assistant's alarm_control_panel.py, tasks/ha-alarm-plan.md):
+  // its state in words, a code field where an action needs one, a button per action.
+  const ALARM_SET = "alarmdecoder/panel/set"
+  const CODE_TOPIC = "local/alarmdecoder/panel/code"
+  test("the docs' panel with two features: its state, Home, Away and Disarm, no code field", () => {
+    const entry = entryOf("ha-docs-alarm-partial")
+    expect(entry.controls.map((c: any) => c.part)).toEqual(["State", "Home", "Away", "Disarm"])
+    expect(entry.controls[0]).toMatchObject({ kind: "text", read: "alarmdecoder/panel" })
+    expect((entry.controls[0] as any).words).toContainEqual({ value: "armed_away", word: "Armed away" })
+    expect(entry.controls[1]).toEqual({ part: "Home", kind: "button", write: ALARM_SET, payload: "ARM_HOME" })
+    expect(entry.controls[3]).toEqual({ part: "Disarm", kind: "button", write: ALARM_SET, payload: "DISARM" })
+  })
+
+  test("the docs' panel with a code checked locally: the field checks it, each action only when it matches, the bare action sent", () => {
+    const entry = entryOf("ha-docs-alarm-local")
+    expect(entry.controls.map((c: any) => c.part)).toEqual(["State", "Code", "Home", "Away", "Night", "Vacation", "Bypass", "Disarm", "Trigger"])
+    expect(entry.controls[1]).toEqual({
+      part: "Code",
+      kind: "text-field",
+      read: CODE_TOPIC,
+      write: CODE_TOPIC,
+      minLength: 0,
+      maxLength: 64,
+      hidden: true,
+      local: true,
+      check: { name: "alarmdecoder_panel_code_ok", equals: "mys3cretc0de" },
+    })
+    expect(entry.controls[7]).toEqual({ part: "Disarm", kind: "button", write: ALARM_SET, payload: "DISARM", onlyWhen: "alarmdecoder_panel_code_ok", clears: CODE_TOPIC })
+  })
+
+  test("the docs' panels with a remote code: the code in the message, sent when typed; digits for REMOTE_CODE", () => {
+    for (const [name, digits] of [["ha-docs-alarm-remote-text", false], ["ha-docs-alarm-remote-numeric", true]] as const) {
+      const entry = entryOf(name)
+      const code = entry.controls[1] as any
+      expect(code.check).toEqual({ name: "alarmdecoder_panel_code_ok" })
+      expect(code.keyboard).toBe(digits ? "digits" : undefined)
+      // The folded template's newline stripped, as Home Assistant strips it.
+      expect(entry.controls.find((c: any) => c.part === "Disarm")).toEqual({
+        part: "Disarm",
+        kind: "button",
+        write: ALARM_SET,
+        payload: `{ "action": "DISARM", "code": "{topic:${CODE_TOPIC}}" }`,
+        onlyWhen: "alarmdecoder_panel_code_ok",
+        clears: CODE_TOPIC,
+      })
+    }
+  })
+
+  test("an alarm panel's code only where its action asks for it; a template it cannot render leaves the actions out", () => {
+    const alarm = (config: object) => {
+      const [c] = expandConfig("homeassistant/alarm_control_panel/a/config", JSON.stringify({ stat_t: "a/state", cmd_t: "a/set", ...config }))
+      return toCatalogEntry(c)
+    }
+    // Arming without the code, disarming with it.
+    const mixed = alarm({ code: "1234", code_arm_required: false, supported_features: ["arm_away"] }) as any
+    expect(mixed.entry.controls.map((c: any) => [c.part, c.onlyWhen ?? null])).toEqual([
+      ["State", null],
+      ["Code", null],
+      ["Away", null],
+      ["Disarm", "a_state_code_ok"],
+    ])
+    expect(mixed.entry.controls[1].keyboard).toBe("digits")
+    // No code at all: no field.
+    expect((alarm({ supported_features: [] }) as any).entry.controls.map((c: any) => c.part)).toEqual(["State", "Disarm"])
+    // A template that reads what it cannot know: the state alone.
+    const odd = alarm({ cmd_tpl: "{{ action }} {{ entity_id }}" }) as any
+    expect(odd.entry.controls.map((c: any) => c.part)).toEqual(["State"])
   })
 
   // A humidifier (Home Assistant's humidifier.py): as a fan, its humidity in percent.
