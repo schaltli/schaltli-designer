@@ -93,3 +93,16 @@ Klickst du in der Vorschau auf das Feld, öffnet sich unten eine Eingabezeile mi
 **Am Gerät:** Ein Tippen auf das Feld öffnet eine Tastatur mit dem jetzigen Text. Auf dem 4.3B und dem PaperS3 liegt sie über dem unteren Teil des Screens, auf dem Knob füllt sie den ganzen runden Screen, und der Drehring tut nichts, solange sie offen ist. Du schreibst nur am Ende weiter: Der Pfeil nach links löscht das letzte Zeichen, der Pfeil nach oben macht den nächsten Buchstaben gross, <span class="ui fw">123</span> wechselt zu Ziffern und Zeichen. <span class="ui fw">OK</span> schickt den Text, <span class="ui fw">Cancel</span> nichts. Welche Tasten ein Board hat, stellst du dort unter [Keyboard](/geraete/einrichten#geraet) ein.
 
 Auf dem Handy öffnet sich seine eigene Tastatur, in der Sprache, die auf dem Handy eingestellt ist. <span class="ui fw">OK</span> oder die Eingabetaste schickt den Text, <span class="ui fw">Cancel</span> oder Zurück nichts.
+
+## Time field {#time-field}
+
+Ein Feld mit einer Uhrzeit, die du am Gerät neu einstellst, etwa die Startzeit der Standheizung. Die Zeit kommt von einem Topic und geht an ein anderes.
+
+- <span class="ui">Topic</span>: welche Zeit im Feld steht. Ohne Topic zeigt das Feld, was zuletzt gesendet wurde.
+- <span class="ui">Write topic</span>: wohin die eingestellte Zeit geht.
+- <span class="ui">Minute step</span>: in welchen Schritten sich die Minuten einstellen lassen, voreingestellt sind 5 Minuten. Was gesendet wird, liegt immer auf dem Schritt: 06:43 wird bei 5 Minuten zu 06:45.
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: wie beim [Text field](#text-field).
+
+Das Feld zeigt die Zeit immer mit 24 Stunden, etwa 18:30. Es liest eine Zeit wie `06:45` oder `06:45:00` und auch ein Datum mit Zeit wie `2026-10-27T06:45:00+01:00`, davon die Zeit, wie sie dasteht. Steht nichts Lesbares im Topic, zeigt es «--:--». Gesendet wird die Zeit so, wie Home Assistant sie schreibt: `06:45:00`.
+
+In der Vorschau öffnet ein Klick auf das Feld unten die Zeiteingabe des Browsers mit der jetzigen Zeit, auf den Schritt gerundet. <span class="ui">OK</span> oder die Eingabetaste schickt die Zeit, <span class="ui">Cancel</span> oder Escape schickt nichts.

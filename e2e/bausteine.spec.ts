@@ -652,6 +652,22 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  test("a time: a time field beside the name, in steps of five", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-time-scheduled"], { "timer/start_state": "06:30:00" })
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Scheduled task")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 180)
+
+      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const field = partsOf(block).find((c: { type: string }) => c.type === "time-field")
+      expect(field?.properties).toMatchObject({ topic: "timer/start_state", writeTopic: "timer/start", minuteStep: 5 })
+    } finally {
+      await clear()
+    }
+  })
+
   test("a scene: a button named after it, sending its payload", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-scene-party"])
     try {

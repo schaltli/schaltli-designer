@@ -436,6 +436,8 @@ export type CatalogControl = (
    * `hidden` is Home Assistant's `password` mode.
    */
   | { kind: "text-field"; read?: string; write: string; minLength: number; maxLength: number; hidden?: true }
+  /** A time of day set on the device and sent as `HH:MM:00`: an MQTT `time` (tasks/ha-time-plan.md, decision 6). */
+  | { kind: "time-field"; read?: string; write: string }
   /**
    * One of its options, read and written: a button group, one button each.
    * `labels`, beside `options` and as long, are the buttons' words where the
@@ -914,6 +916,22 @@ function textFieldPart(config: Json): PartResult {
   }
 }
 
+/**
+ * An MQTT time (time.py): set on the device's picker and sent as Home
+ * Assistant writes one, `HH:MM:00`, read back from its state topic. A
+ * command template other than `{{ value }}` leaves it read only, as a
+ * text: what it would put around the time is not the device's to know.
+ */
+function timeFieldPart(config: Json): PartResult {
+  const t = partTopics(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" })
+  if ("skipped" in t) return t
+  const onlyRead = (reason: string | undefined): PartResult =>
+    t.read ? { control: { kind: "text", read: t.read } } : reason ? { skipped: reason } : undefined
+  if (!t.write || !t.send) return onlyRead(t.writeRefused)
+  if (t.templated) return onlyRead("the command template")
+  return { control: { kind: "time-field", ...(t.read ? { read: t.read } : {}), write: t.write } }
+}
+
 function textPart(config: Json, keys: PartKeys): PartResult {
   const t = partTopics(config, keys)
   if ("skipped" in t) return t
@@ -1382,6 +1400,8 @@ function singlePart(component: string, config: Json): PartResult | { unknown: tr
       )
     case "text":
       return textFieldPart(config)
+    case "time":
+      return timeFieldPart(config)
     case "select":
       return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
     case "button":
@@ -1410,6 +1430,7 @@ const MISSING: Record<string, string> = {
   sensor: "no state topic",
   number: "no command topic",
   text: "no command topic",
+  time: "no command topic",
   select: "no command topic",
   button: "no command topic",
   scene: "no command topic",

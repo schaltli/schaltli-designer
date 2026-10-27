@@ -9,8 +9,9 @@ no ring; step 5 by default, rounded onto; 24 hours).
   - e2e/time-field.spec.ts (rules, panel, preview 06:43 → 06:45:00), property-panel-controls.json; drawn by the text field's drawField
 - [x] D2 Export
   - e2e/time-field.spec.ts «in the exports», both targets
-- [ ] D3 The import: `case "time"`, block
-- [ ] D4 Handbook
+- [x] D3 The import: `case "time"`, block
+  - e2e/ha-discovery.spec.ts (docs' «Scheduled task», template, no state topic), e2e/bausteine.spec.ts «a time»; fixture ha-docs-time-scheduled.json
+- [x] D4 Handbook (designer part): objekte/bedienen.md «Time field», bausteine.md row, both index lists; the device part follows with F2/A1
 - [ ] F1 Firmware: drawing, TimeField.h, DDFs, conformance specimen
 - [ ] F2 Firmware: the pickers, /api/picker, HIL typing 06:45
 - [ ] A1 Android: drawing, system time picker, HIL screen

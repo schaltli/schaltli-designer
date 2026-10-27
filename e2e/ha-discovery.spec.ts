@@ -763,6 +763,22 @@ test.describe("an entity with several parts", () => {
     expect(text({ stat_t: "t/state" })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
   })
 
+  // A time (Home Assistant's time.py): set on the device's picker (tasks/ha-time-plan.md, decision 6).
+  test("the docs' scheduled task: a time field reading its state and writing its command", () => {
+    expect(entryOf("ha-docs-time-scheduled").controls).toEqual([{ kind: "time-field", read: "timer/start_state", write: "timer/start" }])
+  })
+
+  test("a time without a state topic writes only; a template around it leaves it read", () => {
+    const time = (config: object) => {
+      const [c] = expandConfig("homeassistant/time/t/config", JSON.stringify(config))
+      return toCatalogEntry(c)
+    }
+    expect(time({ cmd_t: "t/set" })).toMatchObject({ entry: { controls: [{ kind: "time-field", write: "t/set" }] } })
+    expect(time({ cmd_t: "t/set", stat_t: "t/state", cmd_tpl: '{"start":"{{ value }}"}' })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
+    expect(time({ cmd_t: "t/set", cmd_tpl: '{"start":"{{ value }}"}' })).toMatchObject({ unsupported: { reason: "the command template" } })
+    expect(time({ stat_t: "t/state" })).toMatchObject({ entry: { controls: [{ kind: "text", read: "t/state" }] } })
+  })
+
   // A humidifier (Home Assistant's humidifier.py): as a fan, its humidity in percent.
   test("the docs' humidifier: power, modes, the target humidity in its range, the current one as a fill", () => {
     const entry = entryOf("ha-docs-humidifier-bedroom")

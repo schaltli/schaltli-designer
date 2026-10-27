@@ -1,0 +1,10 @@
+{
+  "source": "home-assistant.io/integrations/time.mqtt, 'Examples' (source/_integrations/time.mqtt.markdown, read 2026-10-27): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/time/scheduled/config",
+  "payload": {
+    "name": "Scheduled task",
+    "icon": "mdi:ab-testing",
+    "command_topic": "timer/start",
+    "state_topic": "timer/start_state"
+  }
+}

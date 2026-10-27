@@ -628,6 +628,8 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
       return [{ id: "button", label: "Button", objectTypes: ["button"] }]
     case "text-field":
       return [{ id: "text-field", label: "Text field", objectTypes: ["text-field"] }]
+    case "time-field":
+      return [{ id: "time-field", label: "Time field", objectTypes: ["time-field"] }]
   }
 }
 
@@ -825,6 +827,27 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           // in the project.
           ...(control.read ? [readTopicEntry(control.read, "text", control.hidden ? undefined : reported)] : []),
           { topic: control.write, type: "text", examples: heard !== undefined && !control.hidden ? [heard] : [] },
+        ],
+        assets,
+      }
+    }
+    case "time-field": {
+      // Set on the device's picker in steps of five, the default
+      // (tasks/ha-time-plan.md); its look is the theme's.
+      const box = parts.control
+      const object: Omit<ScreenObject, "id" | "zIndex"> = {
+        type: "time-field",
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.max(Math.round(Math.abs(box.width)), measureBlockText("00:00", font) + 4 * GAP),
+        height: Math.max(Math.round(Math.abs(box.height)), SWITCH_MIN_HEIGHT),
+        properties: { topic: control.read, writeTopic: control.write, minuteStep: 5, fontId: font?.id },
+      }
+      return {
+        objects: [...label(), object],
+        topics: [
+          ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
+          { topic: control.write, type: "text", examples: [] },
         ],
         assets,
       }

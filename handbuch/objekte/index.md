@@ -5,7 +5,7 @@ Der Designer kennt 18 Objekttypen. Sie sind in der Werkzeugleiste in Gruppen geo
 | Gruppe | Objekttypen | wofür |
 |---|---|---|
 | [Anzeigen](/objekte/anzeigen) | [Text](/objekte/anzeigen#text), [Icon](/objekte/anzeigen#icon), [Live Icon](/objekte/anzeigen#live-icon), [Bar](/objekte/anzeigen#bar), [Gauge](/objekte/anzeigen#gauge), [Energy diagram](/objekte/anzeigen#energiediagramm) | etwas zeigen |
-| [Bedienen](/objekte/bedienen) | [Slider](/objekte/bedienen#slider), [Dial](/objekte/bedienen#dial), [Switch](/objekte/bedienen#switch), [Button Group](/objekte/bedienen#button-group), [Button](/objekte/bedienen#button), [Text field](/objekte/bedienen#text-field) | etwas schalten, einstellen oder eintippen |
+| [Bedienen](/objekte/bedienen) | [Slider](/objekte/bedienen#slider), [Dial](/objekte/bedienen#dial), [Switch](/objekte/bedienen#switch), [Button Group](/objekte/bedienen#button-group), [Button](/objekte/bedienen#button), [Text field](/objekte/bedienen#text-field), [Time field](/objekte/bedienen#time-field) | etwas schalten, einstellen oder eintippen |
 | [Zeichnen](/objekte/zeichnen) | [Line](/objekte/zeichnen#line), [Live Line](/objekte/zeichnen#live-line), [Box](/objekte/zeichnen#box) | Linien und Flächen |
 | [Anordnen](/objekte/anordnen) | [Switcher](/objekte/anordnen#switcher) mit seinen Panels, [Navigator](/objekte/anordnen#navigator), [Gruppe](/objekte/anordnen#gruppe) | je nach Wert einen anderen Bereich zeigen; von Screen zu Screen; Objekte zusammenhalten |
 
