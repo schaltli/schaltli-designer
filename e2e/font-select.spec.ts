@@ -33,6 +33,7 @@ test("every panel that sets a font uses the shared picker, and none has its own"
     "navigator-properties.tsx",
     "software-button-properties.tsx",
     "switch-properties.tsx",
+    "text-field-properties.tsx",
   ])
   for (const { file, source } of panels) {
     // Either the picker itself or the row that wraps it: a rebuilt panel

@@ -120,7 +120,9 @@ test("every other connection uses the kept login: a page that never saw the dial
 })
 
 test("an emptied login is forgotten", async ({ request }) => {
-  await request.put("/api/broker-login", { data: { username: USER, password: PASSWORD } })
-  await request.put("/api/broker-login", { data: { username: " ", password: "left over" } })
+  // Each write must land: under a parallel run a rename on Windows could
+  // fail while another page read the file (lib/broker-login.ts).
+  expect((await request.put("/api/broker-login", { data: { username: USER, password: PASSWORD } })).ok()).toBe(true)
+  expect((await request.put("/api/broker-login", { data: { username: " ", password: "left over" } })).ok()).toBe(true)
   expect(await (await request.get("/api/broker-login")).json()).toEqual({ username: "", password: "" })
 })

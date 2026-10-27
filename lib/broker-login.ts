@@ -40,5 +40,18 @@ export async function writeBrokerLogin(login: BrokerLogin): Promise<void> {
   await mkdir(join(process.cwd(), ".data"), { recursive: true })
   const incoming = `${FILE}.incoming`
   await writeFile(incoming, JSON.stringify({ username: login.username, password: login.password }))
-  await rename(incoming, FILE)
+  // On Windows a rename over a file another request is reading at that
+  // moment fails with EPERM or EBUSY - every page that opens reads this one.
+  // Under a parallel test run that dropped a forgetting PUT, and the old
+  // login stayed (2026-10-27). The reader is done within milliseconds.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(incoming, FILE)
+      return
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if ((code !== "EPERM" && code !== "EBUSY" && code !== "EACCES") || attempt >= 20) throw e
+      await new Promise((resolve) => setTimeout(resolve, 10 + attempt * 10))
+    }
+  }
 }
