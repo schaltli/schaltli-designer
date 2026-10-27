@@ -12,7 +12,8 @@ no ring; step 5 by default, rounded onto; 24 hours).
 - [x] D3 The import: `case "time"`, block
   - e2e/ha-discovery.spec.ts (docs' «Scheduled task», template, no state topic), e2e/bausteine.spec.ts «a time»; fixture ha-docs-time-scheduled.json
 - [x] D4 Handbook (designer part): objekte/bedienen.md «Time field», bausteine.md row, both index lists; the device part follows with F2/A1
-- [ ] F1 Firmware: drawing, TimeField.h, DDFs, conformance specimen
+- [x] F1 Firmware: drawing, TimeField.h, DDFs, conformance specimen
+  - test/test_time_field; specimen «time-field»: 0 differing pixels on .117, .114, .118 (text-field too, its drawing now shared)
 - [ ] F2 Firmware: the pickers, /api/picker, HIL typing 06:45
 - [ ] A1 Android: drawing, system time picker, HIL screen
 - [ ] Checkpoint: test:all (detached), COM3 logged

@@ -701,6 +701,38 @@ const SPECIMENS = {
     },
   },
 
+  // A time field (designer tasks/ha-time-plan.md): the text field's drawing,
+  // its text the time. The examples are what Home Assistant writes, an ISO
+  // date and time whose time is kept as written, and one that is no time:
+  // «--:--».
+  "time-field": {
+    build: (c) => {
+      const topic = c.topic("time", "text", ["06:45:00", "2026-10-27T18:05:00+01:00", "unknown"])
+      return {
+        objects: [
+          {
+            id: c.id("time-field"),
+            type: "time-field",
+            zIndex: 1,
+            x: c.square.x,
+            y: c.square.y + Math.round(c.square.height * 0.35),
+            width: c.square.width,
+            height: Math.round(c.square.height * 0.3),
+            properties: {
+              topic,
+              writeTopic: `${topic}/set`,
+              minuteStep: 5,
+              fieldColor: c.screen.colorDepth === "1bit" ? "#ffffff" : "#e5e5e5",
+              lineColor: c.colors.accent,
+              textColor: c.colors.fg,
+              fontId: c.font("large"),
+            },
+          },
+        ],
+      }
+    },
+  },
+
   // The connected strip: one container with the states side by side in it and
   // the chosen one as its own pill. This specimen has always built exactly
   // that - its object's own `type` was already `button-group` - while its key
