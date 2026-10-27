@@ -23,6 +23,7 @@
  * something no other object has. It turned out the arc did not.
  */
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { isSettableLevel } from "@/lib/object-types"
@@ -59,6 +60,8 @@ interface ArcLevelPropertiesProps {
   textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
+  /** The project's combined topics: a scaled one is a value the topic may read. */
+  combinedTopics?: CombinedTopic[]
 }
 
 const DIRECTIONS = [
@@ -81,6 +84,7 @@ export function ArcLevelProperties({
   textScale,
   colorDepth,
   onManageFonts,
+  combinedTopics = [],
 }: ArcLevelPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -139,6 +143,7 @@ export function ArcLevelProperties({
       <PropertySection title="Data">
         <TopicField
           label="Topic"
+          combined={combinedTopics.filter((ct) => ct.mode === "scale").map((ct) => ct.name)}
           selectedTopicId={props.topic}
           topics={topics}
           onTopicChange={(topic) => updateProperty("topic", topic)}

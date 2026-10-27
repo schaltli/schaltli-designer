@@ -271,4 +271,43 @@ test.describe("a scaled topic and a write format in the editor", () => {
       fs.unlinkSync(file)
     }
   })
+
+  test("a bar's Topic offers a scaled topic, not a yes/no one, and binds it as combined:<name>", async ({ page }) => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const base = JSON.parse(await zip.file("project.json")!.async("string"))
+    base.topics.push({ id: "t-wind", topic: "weather/wind", type: "numeric", examples: ["12.5"] })
+    base.combinedTopics = [
+      { id: "c-kmh", name: "kmh", mode: "scale", conditions: [], scale: { source: { namespace: "topic", path: "weather/wind" }, numerator: 18, denominator: 5, offset: "0", decimals: 1 } },
+      { id: "c-windy", name: "windy", mode: "all", conditions: [{ id: "k1", source: { namespace: "topic", path: "weather/wind" }, op: ">", value: "10" }] },
+    ]
+    base.screens[0].objects.push({
+      id: "wind-bar",
+      type: "bar",
+      zIndex: 99,
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 40,
+      properties: { topic: "weather/wind", barDirection: "left-to-right", calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 100, barSizePercent: 100 }] },
+    })
+    zip.file("project.json", JSON.stringify(base))
+    const file = path.join(os.tmpdir(), `bar-combined-${Date.now()}.zip`)
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    try {
+      await loadProject(page, file)
+      const { box } = await getMainCanvas(page)
+      const at = devicePoint(box, 140, 60)
+      await page.mouse.click(at.x, at.y)
+      // The picker has no name of its own: found by what it shows.
+      await page.getByRole("combobox").filter({ hasText: "weather/wind" }).click()
+      const group = page.getByRole("group", { name: "Combined topics" })
+      await expect(group.getByRole("option")).toHaveText(["kmh"])
+      await group.getByRole("option", { name: "kmh" }).click()
+      await expect(page.getByRole("combobox").filter({ hasText: "kmh" })).toContainText("combined")
+      const project = await downloadProjectJson(page)
+      expect(project.screens[0].objects.find((o: any) => o.id === "wind-bar").properties.topic).toBe("combined:kmh")
+    } finally {
+      fs.unlinkSync(file)
+    }
+  })
 })

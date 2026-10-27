@@ -29,6 +29,7 @@
  * screen. The header line they made above the bar went with them.
  */
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
@@ -76,6 +77,8 @@ interface LevelIndicatorPropertiesProps {
   textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
+  /** The project's combined topics: a scaled one is a value the topic may read. */
+  combinedTopics?: CombinedTopic[]
   allScreens?: Array<{
     objects: Array<{
       properties: Record<string, any>
@@ -94,6 +97,7 @@ export function LevelIndicatorProperties({
   textScale,
   colorDepth,
   onManageFonts,
+  combinedTopics = [],
   allScreens,
 }: LevelIndicatorPropertiesProps) {
   const updateProperty = (key: string, value: any) => updateProperties({ [key]: value })
@@ -141,6 +145,7 @@ export function LevelIndicatorProperties({
       <PropertySection title="Data">
         <TopicField
           label="Topic"
+          combined={combinedTopics.filter((ct) => ct.mode === "scale").map((ct) => ct.name)}
           selectedTopicId={selectedObject.properties.topic}
           topics={topics}
           onTopicChange={(topic) => updateProperty("topic", topic)}

@@ -30,7 +30,12 @@ interface TopicSelectorProps {
   // own tree never offers subtopics either way, see its own comment.
   // Defaults to true (every existing read-value binding).
   allowSubtopics?: boolean
+  // Scaled combined topics the field may read, bound as `combined:<name>`
+  // (device contract 2.11) - a bar's or a dial's value, never a destination.
+  combined?: string[]
 }
+
+const COMBINED = "combined:"
 
 // The picker shows the one tree of every topic list (lib/topic-tree.ts) over
 // the project's topics and what the designer heard on the broker
@@ -85,8 +90,10 @@ export function TopicSelector({
   label = "Topic",
   className,
   allowSubtopics = true,
+  combined = [],
 }: TopicSelectorProps) {
-  const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedTopicId || "")
+  const selectedCombined = selectedTopicId?.startsWith(COMBINED) ? selectedTopicId.slice(COMBINED.length) : undefined
+  const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedCombined === undefined ? selectedTopicId || "" : "")
   const selectedTopic = topics.find((t) => t.topic === selectedRealTopic)
   // Something IS bound, it is just not one of this project's registered
   // topics. Until 2026-08-25 that rendered as "No topic selected", which is
@@ -237,8 +244,11 @@ export function TopicSelector({
     return out
   }
 
+  const combinedShown = combined.filter((name) => !q || name.toLowerCase().includes(q))
   const triggerText =
-    selectedTopic && selectedPath
+    selectedCombined !== undefined
+      ? selectedCombined
+      : selectedTopic && selectedPath
       ? `${selectedTopic.topic} → ${selectedSubtopic?.label || selectedPath}`
       : (selectedTopic?.topic ?? (boundButUnregistered ? selectedTopicId : undefined))
 
@@ -263,7 +273,9 @@ export function TopicSelector({
                     <span className="truncate flex-1 min-w-0 text-left" title={triggerText}>
                       {triggerText}
                     </span>
-                    {selectedTopic && selectedPath ? (
+                    {selectedCombined !== undefined ? (
+                      <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100">combined</span>
+                    ) : selectedTopic && selectedPath ? (
                       <span
                         className={cn(
                           "px-2 py-0.5 text-xs rounded-full flex-shrink-0",
@@ -324,7 +336,7 @@ export function TopicSelector({
               <div role="listbox" aria-label={label} className="max-h-80 overflow-y-auto p-1">
                 <div
                   role="option"
-                  aria-selected={!selectedRealTopic}
+                  aria-selected={!selectedTopicId}
                   onClick={() => {
                     onTopicChange(undefined)
                     setOpen(false)
@@ -334,7 +346,27 @@ export function TopicSelector({
                   No topic
                 </div>
                 {renderNodes(tree)}
-                {q && tree.children.size === 0 && (
+                {combinedShown.length > 0 && (
+                  <div role="group" aria-label="Combined topics" className="mt-1 border-t pt-1">
+                    <p className="px-2 py-1 text-xs text-muted-foreground">Combined topics</p>
+                    {combinedShown.map((name) => (
+                      <div
+                        key={`combined-${name}`}
+                        role="option"
+                        aria-selected={selectedCombined === name}
+                        onClick={() => {
+                          onTopicChange(`${COMBINED}${name}`)
+                          setOpen(false)
+                        }}
+                        className={cn("flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer hover:bg-accent", selectedCombined === name && "bg-accent/60")}
+                      >
+                        <span className="truncate min-w-0 flex-1 font-mono">{name}</span>
+                        <span className="w-4 flex-shrink-0 text-primary text-xs">{selectedCombined === name ? <Check className="h-3.5 w-3.5" /> : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {q && tree.children.size === 0 && combinedShown.length === 0 && (
                   <p className="px-2 py-2 text-sm text-muted-foreground">
                     {projectOnly || !addTopic ? `No topic of the project matches «${typed}».` : `No topic heard or in the project matches «${typed}».`}
                   </p>

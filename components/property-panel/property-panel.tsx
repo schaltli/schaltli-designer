@@ -425,6 +425,7 @@ export function PropertyPanel({
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
                   topics={topics}
+                  combinedTopics={combinedTopics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
                   textScale={textScale}
@@ -438,6 +439,7 @@ export function PropertyPanel({
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
                   topics={topics}
+                  combinedTopics={combinedTopics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
                   textScale={textScale}

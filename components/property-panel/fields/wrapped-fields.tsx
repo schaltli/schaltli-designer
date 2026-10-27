@@ -138,6 +138,8 @@ export interface TopicFieldProps {
    * payload - so a write topic passes false here.
    */
   allowSubtopics?: boolean
+  /** Scaled combined topics it may read as well (TopicSelector). */
+  combined?: string[]
   hint?: string
 }
 
