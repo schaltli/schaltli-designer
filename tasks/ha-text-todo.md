@@ -11,8 +11,9 @@ ist gem. Browser. Rest ok. Leg los»).
   - e2e/ha-discovery.spec.ts (docs' «Remote LCD screen», defaults, password, template, pattern), e2e/bausteine.spec.ts «a text: a text field beside the name»; fixture ha-docs-text-lcd.json. A hidden field's topics keep no examples (no password saved in the project)
 - [x] D4 Handbook (designer part): objekte/bedienen.md «Text field», bausteine.md table row, objekte/index.md and designer/index.md lists; checked against the maettel-humanizer catalog
   - the device part («Am Gerät», «Keyboard» in geraete/einrichten.md) follows with F2/F3 and A1
-- [ ] Checkpoint: test:quick
-- [ ] F1 Firmware: drawing on all three boards, conformance specimen
+- [x] Checkpoint: test:quick 2026-10-27 (second run; the first was stopped for low memory): e2e 1875 passed, 1 skipped, 2 failed - font-select's list lacked the new panel (fixed), broker-login under load (EPERM on rename, fixed in bd9f6b2); knob, 4v3b, papers3, android green; the DDFs «stale» from F1 in progress. COM3: no panic
+- [x] F1 Firmware: drawing on all three boards, conformance specimen
+  - schaltli-firmware 4c86ea2, 8d1953d; test/test_text_field; hil/conformance specimen «text-field»: 0 differing pixels on 4.3B, knob, PaperS3
 - [ ] F2 Firmware: shared keyboard, layouts, «Keyboard» setting with the browser default, unit tests
 - [ ] F3 Firmware: 4.3B, Knob, PaperS3 geometry and HIL typing
 - [ ] A1 Android: drawing, system keyboard, HIL fixture screen

@@ -664,6 +664,43 @@ const SPECIMENS = {
     }),
   },
 
+  // A text field (designer tasks/ha-text-plan.md): its container and the line
+  // under it through the integer rasteriser, the text cut at the inner edge.
+  // Two of them in the square, one above the other: the second hidden, so
+  // its dots are photographed too. The examples are the text sample with its
+  // umlauts and euro (a glyph the fonts must have), and one too long for the
+  // field, which shows where it is cut.
+  "text-field": {
+    build: (c) => {
+      const topic = c.topic("text", "text", [TEXT_SAMPLE, "Ein viel zu langer Text für dieses Feld"]);
+      const h = Math.round(c.square.height * 0.3);
+      const field = (id, y, hidden) => ({
+        id: c.id(id),
+        type: "text-field",
+        zIndex: 1,
+        x: c.square.x,
+        y,
+        width: c.square.width,
+        height: h,
+        properties: {
+          topic,
+          writeTopic: `${topic}/set`,
+          minLength: 0,
+          maxLength: 255,
+          ...(hidden ? { hidden: true } : {}),
+          // A light grey the black text reads on; one bit has only white.
+          fieldColor: c.screen.colorDepth === "1bit" ? "#ffffff" : "#e5e5e5",
+          lineColor: c.colors.accent,
+          textColor: c.colors.fg,
+          fontId: c.font("medium"),
+        },
+      })
+      return {
+        objects: [field("text-field", c.square.y, false), field("text-field-hidden", c.square.y + h + Math.round(h / 2), true)],
+      }
+    },
+  },
+
   // The connected strip: one container with the states side by side in it and
   // the chosen one as its own pill. This specimen has always built exactly
   // that - its object's own `type` was already `button-group` - while its key
