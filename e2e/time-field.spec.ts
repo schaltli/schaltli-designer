@@ -4,7 +4,8 @@ import JSZip from "jszip"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { loadProject, getMainCanvas, devicePoint, COMBINED_TEST_PROJECT } from "./helpers"
+import { loadProject, getMainCanvas, devicePoint, COMBINED_TEST_PROJECT, ROUND_FIXTURE_SCREEN, saveProjectAs } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { formatTime, NO_TIME, onStep, parseTime, timeFieldStep, timePayload } from "../lib/time-field"
 
 // The Time field (tasks/ha-time-plan.md, D1/D2): a topic's time of day, set
@@ -138,6 +139,44 @@ test.describe("the Time field in the designer", () => {
       broker.end(true)
     }
   })
+})
+
+// Drawn with its tool, as a person makes one: until 2026-10-27 neither the
+// text field's tool nor the time field's made anything - the canvas's own
+// table of what each tool makes (canvas.tsx objectFor) lacked both, and every
+// test above put its field into the project by hand.
+test.describe("drawn with the toolbar", () => {
+  for (const [label, type] of [
+    ["Time field", "time-field"],
+    ["Text field", "text-field"],
+  ] as const) {
+    test(`the ${label} tool puts down a ${type}`, async ({ page }) => {
+      test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+      // A copy under a name of its own, as the other specs load this fixture.
+      const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "test-projects", "switch-test-project.zip")))
+      const project = JSON.parse(await zip.file("project.json")!.async("string"))
+      project.name = `draw-${type}-${Date.now()}`
+      zip.file("project.json", JSON.stringify(project))
+      const copy = path.join(os.tmpdir(), `${project.name}.zip`)
+      fs.writeFileSync(copy, await zip.generateAsync({ type: "nodebuffer" }))
+      await loadProject(page, copy)
+      await page.getByRole("button", { name: label, exact: true }).first().click()
+      const { box } = await getMainCanvas(page)
+      const p = devicePoint(box, 180, 240, ROUND_FIXTURE_SCREEN)
+      await page.mouse.click(p.x, p.y)
+      const name = `draw-${type}-${Date.now()}`
+      await saveProjectAs(page, name)
+      try {
+        const saved = (await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()).project
+        const made = saved.screens.flatMap((sc: any) => sc.objects ?? []).find((o: any) => o.type === type)
+        expect(made, `no ${type} on any screen`).toBeDefined()
+        expect(made.width).toBeGreaterThan(20)
+        expect(made.properties).toMatchObject(type === "time-field" ? { minuteStep: 5 } : { minLength: 0, maxLength: 255 })
+      } finally {
+        await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+      }
+    })
+  }
 })
 
 // Both exports carry it as a live object, its colours resolved light and

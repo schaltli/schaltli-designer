@@ -4193,6 +4193,24 @@ export function Canvas({
 
       return softwareButtonObject
     }
+    // A text field and a time field (tasks/ha-text-plan.md, ha-time-plan.md):
+    // their look is the theme's, so only what they read, write and bound is
+    // set. Missing here until 2026-10-27, both tools drew nothing at all.
+    if (type === "text-field" || type === "time-field") {
+      return {
+        type,
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          topic: undefined,
+          writeTopic: undefined,
+          ...(type === "text-field" ? { minLength: 0, maxLength: 255 } : { minuteStep: 5 }),
+          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+        },
+      }
+    }
     if (isSwitchType(type)) {
       // Same creation palette as every other control - this one is built
       // here rather than in project-editor.tsx's switch.
