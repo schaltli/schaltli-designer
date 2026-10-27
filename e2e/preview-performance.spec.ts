@@ -197,6 +197,12 @@ test.describe("preview performance", () => {
       const box = await canvasBox(page)
       const ox = box.x + box.width / 2 - W / 2
       const oy = box.y + box.height / 2 - H / 2
+      // One click first, not timed: the first is the browser compiling the
+      // way a click takes, not a backlog of values - 980 and 1180 ms where
+      // the three after it took 0.5-0.7 s (production build, 2026-10-27).
+      // A backlog slows every click, and the three timed ones still show it.
+      await page.mouse.click(ox + 20 + 60, oy + 55)
+      await page.waitForTimeout(1500)
       const times: number[] = []
       for (const on of [true, false, true]) {
         await armClickToPaint(page)

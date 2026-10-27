@@ -102,10 +102,28 @@ test.describe("the background listener", () => {
       let worst = 0
       for (let i = 0; Date.now() < deadline; i++) {
         const id = ids[i % 2]
-        const started = Date.now()
+        // Timed in the page, from the finger to the row's new class: timed
+        // outside, Playwright's click and its polling of the class added
+        // 60-150 ms, and the run measured them (2026-10-27: 50-150 ms in the
+        // page, 90-295 ms outside).
+        const selected = page.evaluate(
+          (objectId) =>
+            new Promise<number>((resolve) => {
+              const row = document.querySelector(`[data-object-id="${objectId}"]`)!
+              let down = 0
+              document.addEventListener("pointerdown", () => (down = performance.now()), { capture: true, once: true })
+              const watch = new MutationObserver(() => {
+                if (!down || !row.className.includes("bg-primary/15")) return
+                watch.disconnect()
+                resolve(performance.now() - down)
+              })
+              watch.observe(row, { attributes: true, attributeFilter: ["class"] })
+            }),
+          id,
+        )
         await objectTreeRow(page, id).click()
         await expect(objectTreeRow(page, id)).toHaveClass(/bg-primary\/15/, { timeout: 2000 })
-        worst = Math.max(worst, Date.now() - started)
+        worst = Math.max(worst, await selected)
         await page.waitForTimeout(500)
       }
       expect(worst).toBeLessThan(200)

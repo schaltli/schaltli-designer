@@ -325,11 +325,21 @@ async function main() {
   // not the code - 0.6 s alone, 1.2 s in the full run (2026-10-09). So they
   // run after the rest, one browser at a time.
   // After the lanes: beside them it would measure the machine.
+  // Against the production build, which is what a user runs: React 19's
+  // development build, since Next.js 16 (3c5f47c), doubled the click in a
+  // large project at 10x CPU - 0.6-0.9 s before, 1.3-1.9 s after on `next
+  // dev`, 0.6-0.7 s built (2026-10-27).
   afterLanes(async () => {
-    console.log("\n=== e2e timing (Playwright, @alone, one worker) ===")
+    console.log("\n=== e2e timing (Playwright, @alone, one worker, production build) ===")
+    const timedCode = await run("node", ["hil/e2e-prod.js", "--grep", "@alone"], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, E2E_PROD_EXTERNAL: "1", PW_WORKERS: "1" },
+    })
     // And @dev: what only `next dev` can do (a file added to public/ served
     // at once), skipped against the production build.
-    const aloneCode = await run("npx", ["playwright", "test", "--grep", '"@alone|@dev"', "--workers=1"], { cwd: REPO_ROOT })
+    console.log("\n=== e2e @dev (Playwright, next dev) ===")
+    const devCode = await run("npx", ["playwright", "test", "--grep", "@dev", "--workers=1"], { cwd: REPO_ROOT })
+    const aloneCode = timedCode || devCode
     summary.push({
       name: "e2e timing",
       status: aloneCode === 0 ? "PASS" : "FAIL",
