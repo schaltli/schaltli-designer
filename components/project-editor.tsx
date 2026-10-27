@@ -10,7 +10,9 @@ import { buildMockEngine } from "@/lib/mock-engine"
 import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
 import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { splitTopicPath } from "@/lib/json-path"
-import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
+import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeholderScope, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
+import { pressedMessage, usesButtonValues } from "@/lib/button-values"
+import type { PlaceholderScope } from "@/lib/placeholders"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
 import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
@@ -536,7 +538,12 @@ export interface HardwareButtonAction {
   // (lib/popup.ts). close-popup takes nothing - it closes whatever is open.
   targetScreenId?: string
   mqttTopic?: string // For send-mqtt
-  mqttMessage?: string // For send-mqtt
+  mqttMessage?: string // For send-mqtt; may hold placeholders (lib/button-values.ts)
+  // For send-mqtt (lib/button-values.ts, tasks/ha-alarm-plan.md): a combined
+  // topic that must be yes for the press to send anything, and a local topic
+  // set empty after it sent.
+  onlyWhen?: string
+  clears?: string
   // For device-action: one of the ids the loaded device's DDF declares in
   // deviceActions[] (ProjectSettings.deviceActions). The designer never
   // interprets it - it only offers the ids the device named and writes the
@@ -1587,6 +1594,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // `swiped`: a swipe on the screen ran it, and the screen sliding over
   // says where it went - no toast for that.
+  // Set below, once the preview's values are known (lib/button-values.ts).
+  const previewScopeRef = useRef<PlaceholderScope | null>(null)
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction, swiped?: boolean) => {
       // Any screen change closes an open popup, as it does on the device.
@@ -1633,9 +1642,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       } else if (action.type === "close-popup") {
         setPreviewPopupId(null)
       } else if (action.type === "send-mqtt") {
-        const { mqttTopic, mqttMessage } = action
-        if (!mqttTopic) return
-        handlePreviewPublish(mqttTopic, mqttMessage ?? "")
+        // With values, only when, then clearing - as a device does it
+        // (lib/button-values.ts), in the values the preview shows now.
+        const scope = previewScopeRef.current
+        if (!scope || !usesButtonValues(action)) {
+          if (!action.mqttTopic) return
+          handlePreviewPublish(action.mqttTopic, action.mqttMessage ?? "")
+          return
+        }
+        const pressed = pressedMessage(action, scope)
+        if (!pressed.send) {
+          toast({ title: "Not sent", description: action.onlyWhen ? `${action.onlyWhen} is not yes` : "No topic" })
+          return
+        }
+        handlePreviewPublish(pressed.send.topic, pressed.send.message)
+        if (pressed.clear) handlePreviewPublish(pressed.clear, "")
       } else if (action.type === "adjust-level") {
         // What a detent does on the Knob (tasks/ring-adjust-plan.md): one step
         // from the value shown - the asked one while held, else the reported
@@ -1813,6 +1834,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           : topic,
     )
   }, [isPreviewMode, previewTopicValues, localValues, project])
+
+  // The values the preview shows, for a button's message to be built from at
+  // its press (lib/button-values.ts) - kept in a ref, since the handler that
+  // reads it is made before these values are.
+  previewScopeRef.current = placeholderScope({
+    topics: previewTopics,
+    liveValues: isPreviewMode && previewSource === "live" ? liveValuesWithTheme : null,
+    separators: projectSeparators(project.settings),
+    combinedTopics: project.combinedTopics,
+  })
 
   const selectedObject = useMemo(() => {
     if (!selectedObjectIds.length) return null

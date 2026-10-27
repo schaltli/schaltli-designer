@@ -20,6 +20,7 @@ import {
   NumberField,
   PropertySection,
   PropertySections,
+  SelectField,
   TextStyleField,
   ToggleRow,
   TopicField,
@@ -98,6 +99,17 @@ export function TextFieldProperties({
           unit="characters"
           onChange={(value) => updateProperty("maxLength", value)}
           hint="The keys stop taking more."
+        />
+        <SelectField
+          id="keyboard"
+          label="Keyboard"
+          value={properties.keyboard === "digits" ? "digits" : "letters"}
+          options={[
+            { value: "letters", label: "Letters" },
+            { value: "digits", label: "Digits" },
+          ]}
+          onChange={(value) => updateProperty("keyboard", value === "digits" ? "digits" : undefined)}
+          hint="Digits opens the keyboard on its digits - for a code of numbers."
         />
         <ToggleRow
           label="Hide text"

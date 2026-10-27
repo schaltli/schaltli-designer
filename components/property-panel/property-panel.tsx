@@ -468,6 +468,8 @@ export function PropertyPanel({
                   deviceActions={deviceActions}
                   onPopup={isPopup(currentScreen)}
                   currentScreenId={currentScreen?.id}
+                  combinedTopicNames={combinedTopics.map((ct) => ct.name)}
+                  localTopics={topics.filter((t) => t.local).map((t) => t.topic)}
                 />
               )}
 

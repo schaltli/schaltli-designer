@@ -61,6 +61,10 @@ interface SoftwareButtonPropertiesProps {
   onPopup?: boolean
   // The screen the button is on, so it is not offered as a popup to open.
   currentScreenId?: string
+  // What «Only when» and «Then clear» offer (lib/button-values.ts): the
+  // project's combined topics, and its local topics.
+  combinedTopicNames?: string[]
+  localTopics?: string[]
   allScreens?: Array<{
     id: string
     name: string
@@ -87,6 +91,8 @@ export function SoftwareButtonProperties({
   deviceActions = [],
   onPopup = false,
   currentScreenId,
+  combinedTopicNames = [],
+  localTopics = [],
 }: SoftwareButtonPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -211,6 +217,23 @@ export function SoftwareButtonProperties({
               value={action.mqttMessage}
               onChange={(value) => updateAction({ ...action, mqttMessage: value })}
               placeholder="e.g. ON"
+              hint="{topic:…} is replaced by what that topic holds at the press - {topic:local/alarm/code} sends the code typed there. Every other brace stands as written."
+            />
+            <SelectField
+              id="onlyWhen"
+              label="Only when"
+              value={action.onlyWhen ?? ""}
+              options={[{ value: "", label: "Always" }, ...combinedTopicNames.map((name) => ({ value: name, label: name }))]}
+              onChange={(value) => updateAction({ ...action, onlyWhen: value || undefined })}
+              hint="A combined topic: the press sends nothing unless it is yes - a code that must match, say."
+            />
+            <SelectField
+              id="clears"
+              label="Then clear"
+              value={action.clears ?? ""}
+              options={[{ value: "", label: "Nothing" }, ...localTopics.map((topic) => ({ value: topic, label: topic }))]}
+              onChange={(value) => updateAction({ ...action, clears: value || undefined })}
+              hint="A local topic set empty after sending, so a code typed for it does not stay."
             />
           </>
         ) : null}
