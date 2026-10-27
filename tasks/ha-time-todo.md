@@ -14,6 +14,7 @@ no ring; step 5 by default, rounded onto; 24 hours).
 - [x] D4 Handbook (designer part): objekte/bedienen.md «Time field», bausteine.md row, both index lists; the device part follows with F2/A1
 - [x] F1 Firmware: drawing, TimeField.h, DDFs, conformance specimen
   - test/test_time_field; specimen «time-field»: 0 differing pixels on .117, .114, .118 (text-field too, its drawing now shared)
-- [ ] F2 Firmware: the pickers, /api/picker, HIL typing 06:45
+- [x] F2 Firmware: the pickers, /api/picker, HIL setting 06:45
+  - schaltli-firmware f2b9ec4 (TimePicker, 4.3B), 7abc94e (knob), PaperS3 after; test/test_time_picker; hil/time-field.js 6/6 on .117 and .114, 5/5 on .118; in test:all
 - [ ] A1 Android: drawing, system time picker, HIL screen
 - [ ] Checkpoint: test:all (detached), COM3 logged

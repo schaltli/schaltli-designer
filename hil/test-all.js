@@ -801,6 +801,26 @@ async function main() {
     })
   })
 
+  // A time field set on the board's own picker (tasks/ha-time-plan.md, F2):
+  // wheels dragged and flicked on the 4.3B and the knob, buttons on the
+  // PaperS3, 06:45:00 sent, Cancel sending nothing - each part worked where
+  // /api/picker says it lies. Installs its own project.
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+    console.log(`
+=== ${name} time field (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/time-field.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-time-field`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or no picker yet`
+          : exitCode === 0
+            ? "the picker opens on the field's time on the step; set to 06:45 and sent as 06:45:00; Cancel sends nothing"
+            : `exit code ${exitCode} - see output above`,
+    })
+  })
+
   // Scaled values (device contract 2.11, tasks/ha-templates-stage2-plan.md
   // H1): a scaled topic the board computes, and a slider publishing through
   // its write format. Installs its own project.
