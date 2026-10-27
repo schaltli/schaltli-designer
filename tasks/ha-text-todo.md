@@ -18,5 +18,6 @@ ist gem. Browser. Rest ok. Leg los»).
   - schaltli-firmware 84095ea; test/test_keyboard (layouts, shift, bounds, browser languages, geometry, frames)
 - [x] F3 Firmware: 4.3B, Knob, PaperS3 geometry and HIL typing
   - 84095ea (4.3B), 0df96dd (knob), PaperS3 commit after; hil/text-field.js 6/6 on .117, .114, .118; PaperS3 138 ms from press to the panel; GET /api/keyboard on the test interface
-- [ ] A1 Android: drawing, system keyboard, HIL fixture screen
+- [x] A1 Android: drawing, system keyboard, HIL fixture screen
+  - schaltli-android 9af1038; TextFieldTest, DdfBuilderTest; hil/android screen-11 and checkTextField: 28/28, «Hallo Welt» typed through adb and sent, back sends nothing (adb types ASCII only: the umlauts are the compared pictures')
 - [ ] Checkpoint: test:all, COM3 logged

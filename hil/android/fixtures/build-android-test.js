@@ -44,7 +44,10 @@
 //             on a scaled topic, m/s times 18/5 - a number, «calm» (no
 //             value), another number - and a slider whose tap publishes
 //             {"brightness":N} through its write format
-//   (screen-7 to -10 stand before screen-6: the run ends on the navigator)
+//   screen-11 a text field (tasks/ha-text-plan.md, A1): a text, a hidden
+//             one, compared over two texts; then typed on the phone's own
+//             keyboard and sent (orchestrator.js checkTextField)
+//   (screen-7 to -11 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -196,6 +199,9 @@ function buildProject(fonts) {
         subtopics: [{ id: "s-wind", path: "wind", type: "numeric" }],
       },
       { id: "t-lamp", topic: "hil/scaled/level", type: "numeric", examples: ["50", "20", "80"] },
+      // screen-11: umlauts and a euro, and one too long for the field.
+      { id: "t-name", topic: "hil/text/name", type: "text", examples: ["Grüße 10€", "Ein viel zu langer Name für dieses Feld"] },
+      { id: "t-name-set", topic: "hil/text/name/set", type: "text", examples: ["Hallo"] },
     ],
     combinedTopics: [
       {
@@ -1165,6 +1171,54 @@ function buildProject(fonts) {
             },
           },
           { id: "k-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 150, width: SCREEN_W, height: 150, properties: { fillColor: "#1a3326", strokeColor: "transparent" } },
+        ],
+      },
+      // A text field: compared like any screen, then typed on the phone's
+      // keyboard (orchestrator.js checkTextField). Two fields on one topic,
+      // the second hidden, so its dots are compared too.
+      {
+        id: "screen-11",
+        name: "Text",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: [
+          {
+            id: "t-field",
+            type: "text-field",
+            zIndex: 1,
+            x: 24,
+            y: 100,
+            width: 312,
+            height: 56,
+            properties: {
+              topic: "hil/text/name",
+              writeTopic: "hil/text/name/set",
+              minLength: 2,
+              maxLength: 20,
+              fieldColor: "#e5e5e5",
+              lineColor: ACCENT,
+              textColor: BLACK,
+              fontId: "font-roboto-20",
+            },
+          },
+          {
+            id: "t-field-hidden",
+            type: "text-field",
+            zIndex: 2,
+            x: 24,
+            y: 200,
+            width: 312,
+            height: 56,
+            properties: {
+              topic: "hil/text/name",
+              writeTopic: "hil/text/name/set",
+              hidden: true,
+              fieldColor: "#e5e5e5",
+              lineColor: ACCENT,
+              textColor: BLACK,
+              fontId: "font-roboto-20",
+            },
+          },
         ],
       },
       {

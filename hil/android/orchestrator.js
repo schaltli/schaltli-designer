@@ -70,7 +70,7 @@ const http = require("http");
 const zlib = require("zlib");
 const crypto = require("crypto");
 const path = require("path");
-const { execFile } = require("child_process");
+const { execFile, execFileSync } = require("child_process");
 const { promisify } = require("util");
 const mqtt = require("mqtt");
 const { chromium } = require("playwright");
@@ -1853,6 +1853,56 @@ async function checkLocalTopics(deviceSerial, mqttClient, project, screen, si) {
 }
 
 /**
+ * A text field typed on the phone's own keyboard (tasks/ha-text-plan.md,
+ * A1): a tap opens the line with what the field shows; what adb types into
+ * it goes through the system keyboard as a finger's would, and Enter - the
+ * keyboard's Done - sends it on the write topic, once and as typed. Back
+ * twice (the keyboard, then the line) sends nothing. `adb input text` takes
+ * ASCII only, so the umlauts are the compared pictures' business, not this.
+ */
+async function checkTextField(deviceSerial, mqttClient, project, screen, si) {
+  const field = (screen.objects || []).find((o) => o.type === "text-field" && o.properties?.writeTopic && !o.properties?.hidden);
+  if (!field) return;
+  const writeTopic = field.properties.writeTopic;
+  const adb = (...args) => execFileSync(ADB, adbArgs(deviceSerial, ["shell", "input", ...args]));
+  const heard = [];
+  const listen = (topic, payload, packet) => {
+    if (topic === writeTopic && !packet.retain) heard.push(payload.toString("utf8"));
+  };
+  mqttClient.on("message", listen);
+  await new Promise((resolve) => mqttClient.subscribe(writeTopic, resolve));
+  const p = await devicePointFor(deviceSerial, project, field.x + field.width / 2, field.y + field.height / 2);
+  const clear = () => adb("keyevent", ...Array(45).fill("67"));
+  try {
+    await phoneApi.tap(p.x, p.y);
+    await sleep(1500);
+    clear();
+    adb("text", "Hallo%sWelt");
+    await sleep(500);
+    adb("keyevent", "66");
+    const deadline = Date.now() + 8000;
+    while (heard.length === 0 && Date.now() < deadline) await sleep(100);
+    const sent = heard[0];
+    console.log(`  [${si}-t] ${sent === "Hallo Welt" ? "PASS" : "FAIL"} typed on the phone's keyboard and sent - ${JSON.stringify(heard)}`);
+    if (sent !== "Hallo Welt") throw new Error(`text field: expected "Hallo Welt" on ${writeTopic}, heard ${JSON.stringify(heard)}`);
+
+    await sleep(1000);
+    await phoneApi.tap(p.x, p.y);
+    await sleep(1500);
+    adb("text", "x");
+    adb("keyevent", "4");
+    await sleep(500);
+    adb("keyevent", "4");
+    await sleep(2000);
+    console.log(`  [${si}-t] ${heard.length === 1 ? "PASS" : "FAIL"} back sends nothing - ${JSON.stringify(heard)}`);
+    if (heard.length !== 1) throw new Error(`text field: back sent ${JSON.stringify(heard.slice(1))}`);
+  } finally {
+    mqttClient.removeListener("message", listen);
+    await new Promise((resolve) => mqttClient.unsubscribe(writeTopic, resolve));
+  }
+}
+
+/**
  * A long sideways drag on a slider on a screen is the slider's and pages
  * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
  * app's swipe navigation never asked whether a control had taken the touch.
@@ -2418,7 +2468,8 @@ Screen ${si} "${screen.name}": a local topic - checked, not compared`);
       // clear it.
       if (!touchedThisScreen) {
         touchedThisScreen = true;
-        await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
+        if ((screen.objects || []).some((o) => o.type === "text-field")) await checkTextField(deviceSerial, mqttClient, project, screen, si);
+        else await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
       }
     }
   }
