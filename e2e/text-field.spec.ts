@@ -225,3 +225,73 @@ test.describe("the Text field in the designer", () => {
     expect(await colourAt(FIELD.x + FIELD.width / 2, FIELD.y + FIELD.height - 1)).toBe("#6750a4")
   })
 })
+
+// Both exports carry it as a live object, its colours resolved for the
+// device - light, and at 24 bit each one's dark beside it - and its bounds
+// as they are (tasks/ha-text-plan.md, D2).
+test.describe("the Text field in the exports", () => {
+  const project = () => ({
+    name: "text-field-export",
+    screenWidth: 480,
+    screenHeight: 320,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [
+      { id: "t-state", topic: "van/name/state", type: "text", examples: ["Hallo"] },
+      { id: "t-set", topic: "van/name/set", type: "text", examples: ["Hallo"] },
+    ],
+    screens: [
+      { id: "m", name: "Master", isMaster: true, themeId: "lavender", objects: [] },
+      {
+        id: "s1",
+        name: "Name",
+        masterScreenId: "m",
+        objects: [
+          {
+            id: "tf",
+            type: "text-field",
+            zIndex: 1,
+            x: 20,
+            y: 40,
+            width: 240,
+            height: 48,
+            properties: { topic: "van/name/state", writeTopic: "van/name/set", minLength: 2, maxLength: 20, hidden: true },
+          },
+        ],
+      },
+    ],
+  })
+
+  for (const [name, hook] of [
+    ["the boards'", "__buildDeviceZipForTest"],
+    ["the app's", "__buildAndroidZipForTest"],
+  ] as const) {
+    test(`${name} export carries it with its topics, its bounds and its colours`, async ({ page }) => {
+      await page.goto("/test-render")
+      await page.waitForFunction(() => (window as any).__testRenderReady === true)
+      const zipBase64: string = await page.evaluate(([h, p]) => (window as any)[h](p), [hook, project()] as const)
+      const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
+      const exported = JSON.parse(await zip.file("project.json")!.async("string"))
+      const objects = exported.screens.flatMap((sc: any) => sc.objects ?? [])
+      const field = objects.find((o: any) => o.id === "tf")
+      expect(field, JSON.stringify(objects.map((o: any) => o.type))).toBeDefined()
+      expect(field.type).toBe("text-field")
+      expect(field.properties).toMatchObject({
+        topic: "van/name/state",
+        writeTopic: "van/name/set",
+        minLength: 2,
+        maxLength: 20,
+        hidden: true,
+        // Lavender (lib/themes.ts): Panel, Accent, Text - and their darks.
+        fieldColor: "#e5e5e5",
+        lineColor: "#6750A4",
+        textColor: "#000000",
+      })
+      expect(field.properties.fieldColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(field.properties.lineColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(field.properties.textColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+    })
+  }
+})
+

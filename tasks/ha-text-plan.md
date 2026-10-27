@@ -81,9 +81,12 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
    topic, with the retain the other writes use. Until the topic reports
    back the field shows what was sent; without a read topic it keeps
    showing it (HA's optimistic text).
-7. **One feature in the DDF: `"text-field"`.** As `"scaled-values"`: every
-   device announces it; deploy asks for it when the project has a text
-   field, updates a board's firmware first, asks for an app update.
+7. **Gated by the type, not a feature.** Every device that draws the
+   object lists `"text-field"` in its DDF's `supportedObjectTypes`; deploy
+   asks a board's release or an app update for a type it misses, as for
+   the energy diagram, and the toolbar offers the tool only there.
+   (Planned as a feature `"text-field"` beside `"scaled-values"`; changed
+   while building D1, 2026-10-27: a new object type already has its gate.)
 8. **The import.** An MQTT `text` becomes a catalog control `{ kind:
    "text-field", read?, write, min, max, hidden? }` and a placed block a
    Text field. A `command_template` other than `{{ value }}` leaves it
@@ -105,8 +108,8 @@ Repos: `schaltli-designer`, `schaltli-firmware` (4.3B, Knob, PaperS3),
   min/max, hidden). Fixture `e2e/fixtures/property-panel-controls.json`
   regenerated.
 - **D2 Export and deploy.** Both exports (boards, Android) carry the
-  object; the feature of decision 7 in `lib/deploy-plan.ts` beside
-  `scaled-values`. Test: extend `e2e/deploy-plan.spec.ts` and the export
+  object; the type of decision 7 in the designer's own device
+  descriptions, so deploy and the toolbar know it. Test: extend `e2e/deploy-plan.spec.ts` and the export
   spec.
 - **D3 The import.** `case "text"` in `lib/ha-discovery.ts` (decision 8),
   the block places a Text field. Test: `e2e/ha-discovery.spec.ts` (plain,

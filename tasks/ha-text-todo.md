@@ -3,8 +3,10 @@
 Plan: `tasks/ha-text-plan.md`, approved by the user 2026-10-27 («Standard
 ist gem. Browser. Rest ok. Leg los»).
 
-- [ ] D1 The object: type, drawing, panel, preview typing
-- [ ] D2 Export and deploy: both exports, feature `text-field`
+- [x] D1 The object: type, drawing, panel, preview typing
+  - dff4995; e2e/text-field.spec.ts, property-panel-controls.json
+- [x] D2 Export and deploy: both exports, the type in the device descriptions
+  - both exports pass it through with its colours resolved (fieldColor/lineColor in COLOR_KEYS, dff4995); e2e/text-field.spec.ts «in the exports». The type itself goes into the DDFs in F1 and A1; deploy's type check is the energy diagram's
 - [ ] D3 The import: `case "text"`, block places a Text field
 - [ ] D4 Handbook: bedienen.md, einrichten.md (Keyboard), bausteine.md
 - [ ] Checkpoint: test:quick
