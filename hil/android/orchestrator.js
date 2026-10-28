@@ -980,6 +980,38 @@ async function assertPhoneAwake(deviceSerial) {
 }
 
 /**
+ * Publishes a retained deploy naming a server that is not there, and returns
+ * the phone's id: what a designer closed before the phone answered, or a run
+ * stopped midway, leaves behind.
+ */
+async function leaveStaleDeploy(mqttClient) {
+  const { deviceId } = await phoneApi.phone(MQTT_URL);
+  const host = await phoneApi.addressTowardPhone(MQTT_URL);
+  const body = { deployId: `stale-${crypto.randomUUID()}`, url: `http://${host}:9/bundle.zip`, crc32: 1 };
+  await new Promise((resolve) =>
+    mqttClient.publish(`schaltli/${deviceId}/deploy`, JSON.stringify(body), { qos: 1, retain: true }, () => resolve()),
+  );
+  return deviceId;
+}
+
+/** What is retained on the phone's `deploy` topic, or null when nothing is. */
+async function retainedDeploy(mqttClient, deviceId) {
+  const topic = `schaltli/${deviceId}/deploy`;
+  // A fresh subscription is what hands over the retained message.
+  await new Promise((resolve) => mqttClient.unsubscribe(topic, () => resolve()));
+  let found = null;
+  const listen = (t, payload, packet) => {
+    if (t === topic && packet.retain && payload.length > 0) found = payload.toString();
+  };
+  mqttClient.on("message", listen);
+  await new Promise((resolve) => mqttClient.subscribe(topic, () => resolve()));
+  await sleep(1500);
+  mqttClient.removeListener("message", listen);
+  await new Promise((resolve) => mqttClient.unsubscribe(topic, () => resolve()));
+  return found;
+}
+
+/**
  * Installs the fixture, having first installed a marker, and refuses to go on
  * if the screen did not change between the two.
  */
@@ -1012,6 +1044,12 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // do with the app. Said here, once, rather than found later as noise.
   const project = JSON.parse(await (await JSZip.loadAsync(fixture)).file("project.json").async("string"));
   refuseRealCommands(project);
+  // A deploy left on the broker by a designer, or a run, that is gone - as
+  // after a run stopped midway. The app took it again at every start and
+  // called the marker bundle below `busy` while it tried to fetch it
+  // (2026-10-28); a phone takes a deploy off the broker as it takes it.
+  const stale = await leaveStaleDeploy(mqttClient);
+  onDeviceKnown(stale);
   // The app hands over its DDF only while it runs, and a fresh `adb install
   // -r` leaves it stopped - which is how a run straight after installing a
   // new build crashed here with "fetch failed" (2026-09-28). Started afresh
@@ -1045,6 +1083,9 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
 
   console.log("Installing the marker bundle (every screen marker red)...");
   await deployBundle(mqttClient, deviceId, await markerBundle(fixture), deviceSerial, "the marker bundle");
+  const left = await retainedDeploy(mqttClient, deviceId);
+  if (left) throw new Error(`The phone applied the marker bundle and left its deploy on the broker: ${left}`);
+  console.log("A deploy left over from before did not hold up the next one, and the phone took that one off the broker.");
   await sleep(2000);
   const markerFrame = await captureDeviceScreenshot(deviceSerial);
 
