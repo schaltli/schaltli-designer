@@ -78,7 +78,7 @@ Bei <span class="ui">Send an MQTT message</span> darf die <span class="ui">Messa
 - <span class="ui">Only when</span>: ein [Combined topic](/designer/topics#combined). Der Button schickt nur, wenn es «ja» ist, etwa wenn der Code stimmt.
 - <span class="ui">Then clear</span>: ein [Local topic](/designer/topics#local), das nach dem Senden leer wird. So bleibt ein Code nicht im Feld stehen.
 
-Das können nur Geräte mit neuer Firmware. Kann es eines nicht, sagt dir das der Deploy.
+Das können Knob, 4.3B und PaperS3 ab der Firmware fw-2026.10.28.1, die Android-App ab Version 0.14.0. Kann es ein Gerät nicht, sagt dir das der Deploy.
 
 Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder aus ist, nimm einen [Switch](#switch).
 

@@ -86,7 +86,7 @@ Ein Combined topic kann auch eine Zahl sein, die das Gerät aus einem anderen We
 ::: warning Ältere Firmware
 Combined topics rechnen Knob, 4.3B, PaperS3 und die Android-App ab Systemgeneration 1.4 selbst. Mit älterer Firmware oder einer älteren App bleibt ein Wert im Text, der eines liest, leer. Ein Icon zeigt dort auf den Boards sein <span class="ui">Otherwise</span> und in der App gar keines. Beim Übertragen nennt der Dialog die betroffenen Objekte.
 
-Ein Combined topic als skalierte Zahl und das <span class="ui">Send as</span> eines Sliders brauchen eine Firmware oder App, die skalierte Werte kennt. Fehlt sie, spielt der Designer beim Übertragen zuerst die neue Firmware auf oder bittet dich, die App zu aktualisieren, wie bei Local topics.
+Ein Combined topic als skalierte Zahl und das <span class="ui">Send as</span> eines Sliders brauchen auf Knob, 4.3B und PaperS3 die Firmware fw-2026.10.28.1, in der Android-App Version 0.14.0. Ist ein Gerät älter, spielt der Designer beim Übertragen zuerst die neue Firmware auf oder bittet dich, die App zu aktualisieren, wie bei Local topics.
 :::
 
 ## Local topics {#local}
