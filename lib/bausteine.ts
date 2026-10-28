@@ -614,7 +614,9 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
       // asks for the switch (the Autoterm's timer, 2026-10-05).
       return control.look === "switch" ? [TOGGLE_LOOKS[0], TOGGLE_LOOKS[1]] : [TOGGLE_LOOKS[1]]
     case "level":
-      return SET_LEVEL_LOOKS
+      // A slider first, unless a description asks for the dial (the
+      // Autoterm's, 2026-10-28).
+      return control.look === "dial" ? [SET_LEVEL_LOOKS[1], SET_LEVEL_LOOKS[0]] : SET_LEVEL_LOOKS
     case "value":
       // A bar or a gauge only where the value is a fill - a percentage, a
       // battery by its device class; anything else has no range to fill.
@@ -780,8 +782,10 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // A dial as a row of several parts has only a row's height to go by,
       // which made it 64 px on the 4.3B (reported 2026-10-05): six lines of
       // the block's font instead, 144 px there. The table keeps it within its
-      // cell; its Diameter is the user's after that.
-      const dialBox = bare ? { ...parts.control, width: Math.round(6 * (font?.size ?? 14)), height: Math.round(6 * (font?.size ?? 14)) } : parts.control
+      // cell; its Diameter is the user's after that. Seven lines for a
+      // description's L (the Autoterm's dials, asked bigger on 2026-10-28).
+      const dialSide = Math.round((control.size === "l" ? 7 : 6) * (font?.size ?? 14))
+      const dialBox = bare ? { ...parts.control, width: dialSide, height: dialSide } : parts.control
       const base = look === "dial" ? arcObject("dial", fillTopic, dialBox, palette, font) : levelObject("slider", fillTopic, parts.control, palette, font)
       // The middle of the range on a step, written with the step's own
       // decimals - -9 + 90 * 0.1 is not 0 in floating point.
@@ -800,7 +804,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
             { value: control.min, barSizePercent: 0 },
             { value: control.max, barSizePercent: 100 },
           ],
-          displayValue: control.percent ? "percentage" : "value",
+          displayValue: control.display === "duration" ? "duration" : control.percent ? "percentage" : "value",
         },
       }
       return {

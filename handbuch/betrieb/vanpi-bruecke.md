@@ -37,6 +37,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/heater/voltage`, `…/fan_rpm`, `…/pump_hz` | nur bei einer Autoterm: Spannung, wie sie sie misst, Drehzahl des Gebläses und Frequenz der Brennstoffpumpe |
 | `schaltli/state/heater/diag_text` | nur bei einer Autoterm: Heizungstemperatur, Drehzahl und Pumpe in einer Zeile, etwa «40 °C · 3600 rpm · 1.6 Hz» |
 | `schaltli/state/heater/runtime`, `…/runtime_left`, `…/timer_on` | nur bei einer Autoterm: eingestellte und verbleibende Laufzeit in Minuten, und `on`, solange ein Timer läuft |
+| `schaltli/state/heater/runtime_left_s` | nur bei einer Autoterm: die verbleibende Laufzeit in Sekunden, für das Dial im Baustein |
 | `schaltli/state/heater/fuel`, `…/fuel_since`, `…/fuel_text` | nur bei einer Autoterm: verbrauchter Diesel in Litern, seit wann, und beides als Zeile wie «2.100 l seit 05.12.2024 18:00h», siehe [Verbrauch](#verbrauch) |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
@@ -67,6 +68,7 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater/view` | `off`, `target`, `power`, `fan` | eine Autoterm aus, auf die Solltemperatur, mit fester Leistung oder nur lüften lassen, in einem Wort |
 | `schaltli/cmnd/heater/timer_on` | `on`, `off` | den Timer einer Autoterm ein (eine Stunde) oder aus (ohne Ende weiterlaufen) |
 | `schaltli/cmnd/heater/runtime` | `0` bis `600` | die Laufzeit einer Autoterm in Minuten neu setzen, ohne die Betriebsart zu ändern, auf 15 Minuten gerundet, mindestens 15; `0` läuft ohne Ende weiter |
+| `schaltli/cmnd/heater/runtime_s` | `0` bis `36000` | dasselbe in Sekunden, wie es das Dial im Baustein schickt |
 | `schaltli/cmnd/heater/fuel` | `reset` | den Verbrauch einer Autoterm auf null setzen, ab jetzt |
 | `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
 | `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
@@ -139,7 +141,7 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 |---|---|
 | «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
-| die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/bausteine#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer (An, Aus) und, solange er an ist, die Laufzeit 0 bis 600 Minuten, gefüllt mit dem Rest. Zuunterst der Verbrauch mit «Nullen» daneben |
+| die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/bausteine#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben |
 
 Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kannst du im Dialog die Abschnitte «Laufzeit» und «Verbrauch» abwählen, siehe [Abschnitte](/designer/bausteine#abschnitte). Zustand und Betriebsart kommen immer. Raumtemperatur, Spannung und Diagnose stehen nicht im Baustein, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
 

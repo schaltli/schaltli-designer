@@ -526,6 +526,8 @@ test.describe("VanPi bridge logic", () => {
     const kept = [
       { topic: `${S}runtime`, value: "60" },
       { topic: `${S}timer_on`, value: "on" },
+      // The egg timer's dial shows it, in seconds.
+      { topic: `${S}runtime_left_s`, value: "3600" },
     ]
     expect(send("timer_on", "on", at({}))).toEqual({ state: kept, keep: kept })
     const timerOn = at({ [`${S}runtime`]: "60", [`${S}timer_on`]: "on" })
@@ -541,11 +543,16 @@ test.describe("VanPi bridge logic", () => {
       state: [
         { topic: `${S}runtime`, value: "120" },
         { topic: `${S}timer_on`, value: "on" },
+        { topic: `${S}runtime_left_s`, value: "7200" },
       ],
       hold: true,
       holdMs: 3000,
       settle: true,
     })
+    // The egg timer's dial sets it in seconds, rounded to Pekaway's 15 minutes.
+    expect(send("runtime_s", "5400", running).request).toEqual([http("power/6?runtime=90")])
+    expect(send("runtime_s", "4000", running).request).toEqual([http("power/6?runtime=60")])
+    expect(send("runtime_s", "x", running)).toBeNull()
     // Pekaway takes 15-minute steps and makes 5 a 0, which ends its
     // countdown (seen in the van, 2026-10-05): rounded here, at least 15.
     for (const [asked, sent] of [["5", "15"], ["20", "15"], ["23", "30"], ["595", "600"], ["0", "0"]]) {
@@ -872,17 +879,30 @@ test.describe("VanPi bridge logic", () => {
     })
     // The handle is the target, the fill the room; up to 30 °C.
     expect(target).toMatchObject({ read: `${S}target`, current: "schaltli/state/temp/1/value", min: 12, max: 30, unit: "°C" })
-    // The egg timer: switched on, a dial whose handle is the runtime set and whose fill is what is left.
-    expect(timer).toMatchObject({ read: `${S}timer_on`, write: "schaltli/cmnd/heater/timer_on", look: "switch" })
+    // The egg timer: switched on by an hourglass without words (asked
+    // 2026-10-28), a dial whose handle is what is left and runs down, the
+    // number in its middle h:mm:ss, in Pekaway's 15-minute steps.
+    expect(timer).toMatchObject({
+      read: `${S}timer_on`,
+      write: "schaltli/cmnd/heater/timer_on",
+      look: "switch",
+      on: { label: "", icon: "mdi:timer-sand" },
+      off: { label: "", icon: "mdi:timer-off-outline" },
+    })
     expect(runtime).toMatchObject({
-      read: `${S}runtime`,
-      current: `${S}runtime_left`,
-      write: "schaltli/cmnd/heater/runtime",
+      read: `${S}runtime_left_s`,
+      write: "schaltli/cmnd/heater/runtime_s",
       min: 0,
-      max: 600,
-      step: 15,
+      max: 36000,
+      step: 900,
+      display: "duration",
+      look: "dial",
+      size: "l",
       shownWhen: { topic: `${S}timer_on`, values: ["on"] },
     })
+    expect(runtime).not.toHaveProperty("current")
+    // Every dial a dial, a size bigger (asked 2026-10-28).
+    expect(target).toMatchObject({ look: "dial", size: "l" })
     expect(auto.entry.controls.at(-1)).toMatchObject({ kind: "button", write: "schaltli/cmnd/heater/fuel", payload: "reset", size: "xs" })
     // The timer stays a block of its own.
     expect(auto.listed).toEqual(["Autoterm", "Autoterm Timer"])
@@ -917,7 +937,7 @@ test.describe("VanPi bridge logic", () => {
       const d = readDescription("schaltli/blocks/heater/config", JSON.stringify(out["schaltli/blocks/heater/config"]))
       if (!d || !("entry" in d)) throw new Error("not an entry")
       const entry = d.entry
-      const parts = entry.controls.map((control, i) => ({ control: i, look: control.kind === "level" ? "dial" : catalogLooks(control)[0].id }))
+      const parts = entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
       const font = { id: "f24", size: 24 }
       const built = buildEntry({ entry, rect: { x: 10, y: 10, width: 780, height: 460 }, palette: controlPalette("24bit"), font, options: { label: entry.label, look: "", icon: null, parts } })
       // The state is set small, in the Caption style the editor resolves.
@@ -967,8 +987,11 @@ test.describe("VanPi bridge logic", () => {
       for (const rows of [column(first), rightSide]) {
         for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height, `row ${i}`).toBeLessThanOrEqual(rows[i + 1].y)
       }
-      // On the 4.3B the whole block fits its 480 px with room to spare.
-      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(400)
+      // The countdown in the middle of the timer's dial as h:mm:ss.
+      expect(timerDial.properties.displayValue).toBe("duration")
+      // On the 4.3B the whole block fits its 480 px, with the bigger dials
+      // of 2026-10-28 (414 px then).
+      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(420)
     })
   }
 

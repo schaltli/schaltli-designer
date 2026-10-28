@@ -458,7 +458,9 @@ const SPECIMENS = {
   //
   // Identical to the dial in every other respect on purpose, including the
   // three properties the arc renderer no longer reads - a difference here
-  // should be about being read-only and about nothing else.
+  // should be about being read-only and about nothing else. Except its
+  // number: the only ring that writes one, its seconds as h:mm:ss (device
+  // contract 2.12, 2026-10-28) - the setpoint's "0:00:55" over the level's "(0:00:37)".
   gauge: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
@@ -491,8 +493,11 @@ const SPECIMENS = {
               trackColor: c.colors.track,
               fillColor: c.colors.accent,
               markerColor: c.colors.fg,
-              displayValue: "none",
+              displayValue: "duration",
               calibrationPoints: LINEAR,
+              textColor: c.colors.fg,
+              fontId: c.font("medium"),
+              fontSize: c.fontSize("medium"),
             },
           },
         ],

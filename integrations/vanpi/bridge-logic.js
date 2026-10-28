@@ -191,6 +191,7 @@ function createBridgeLogic() {
         if (present(autoterm.runtime_remaining_s)) {
           var leftS = Number(autoterm.runtime_remaining_s) || 0
           put("heater/runtime_left", String(Math.ceil(leftS / 60)))
+          put("heater/runtime_left_s", String(Math.max(0, Math.round(leftS))))
           put("heater/timer_on", leftS > 0 ? "on" : "off")
         }
       } else if ("heatertoggle" in data) {
@@ -456,6 +457,8 @@ function createBridgeLogic() {
           step: 1,
           unit_of_measurement: "°C",
           shown_when: { topic: view, values: ["target"] },
+          look: "dial",
+          size: "l",
         },
       ]
       if (!hasAutoterm && room) parts.push({ name: "Raumtemperatur", kind: "value", state_topic: room, unit_of_measurement: "°C" })
@@ -612,7 +615,8 @@ function createBridgeLogic() {
   // enough for the 4.3B's 800 x 480 (asked 2026-10-05).
   function autotermParts(view, room) {
     function level(name, topic, max, shown, extra) {
-      var part = { name: name, kind: "level", state_topic: PREFIX + topic, command_topic: COMMAND + topic, min: 1, max: max, step: 1, shown_when: { topic: view, values: shown }, column: 1, row: "controls" }
+      // Always a dial, a size bigger (asked 2026-10-28).
+      var part = { name: name, kind: "level", state_topic: PREFIX + topic, command_topic: COMMAND + topic, min: 1, max: max, step: 1, shown_when: { topic: view, values: shown }, column: 1, row: "controls", look: "dial", size: "l" }
       for (var k in extra || {}) part[k] = extra[k]
       return part
     }
@@ -638,28 +642,34 @@ function createBridgeLogic() {
         kind: "switch",
         state_topic: PREFIX + "heater/timer_on",
         command_topic: COMMAND + "heater/timer_on",
-        payload_on: { value: "on", label: "An" },
-        payload_off: { value: "off", label: "Aus" },
+        // An hourglass on the knob rather than words beside it, which took
+        // too much room (asked 2026-10-28).
+        payload_on: { value: "on", label: "", icon: "mdi:timer-sand" },
+        payload_off: { value: "off", label: "", icon: "mdi:timer-off-outline" },
         look: "switch",
         section: "Laufzeit",
         column: 2,
         row: "controls",
       },
+      // An egg timer: the handle is what is left and runs down to 0, the
+      // number in its middle h:mm:ss (asked 2026-10-28); dragged, it sets a
+      // new runtime. In seconds, in Pekaway's steps of 15 minutes.
       {
         name: "Laufzeit",
         kind: "level",
-        state_topic: PREFIX + "heater/runtime",
-        current_topic: PREFIX + "heater/runtime_left",
-        command_topic: COMMAND + "heater/runtime",
+        state_topic: PREFIX + "heater/runtime_left_s",
+        command_topic: COMMAND + "heater/runtime_s",
         min: 0,
-        max: 600,
-        // Pekaway's own steps (autotermRuntime).
-        step: 15,
-        unit_of_measurement: "min",
+        max: 600 * 60,
+        step: RUNTIME_STEP * 60,
+        unit_of_measurement: "s",
+        display_value: "duration",
         shown_when: { topic: PREFIX + "heater/timer_on", values: ["on"] },
         section: "Laufzeit",
         column: 2,
         row: "controls",
+        look: "dial",
+        size: "l",
       },
       // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
       { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", column: 1, row: "fuel" },
@@ -981,15 +991,18 @@ function createBridgeLogic() {
     // The runtime: while it runs, its mode started again with it (0 runs on
     // without end); while it is off, kept for the next start - Pekaway would
     // start its countdown at once, heater off or not.
-    if (group === "heater" && parts.length === 4 && (parts[3] === "runtime" || parts[3] === "timer_on") && autoterm) {
+    if (group === "heater" && parts.length === 4 && (parts[3] === "runtime" || parts[3] === "runtime_s" || parts[3] === "timer_on") && autoterm) {
       var minutesSet
       if (parts[3] === "runtime") minutesSet = autotermRuntime(intIn(p, 0, 600))
+      // The egg timer's dial, in seconds.
+      else if (parts[3] === "runtime_s") minutesSet = autotermRuntime(isNaN(Number(p)) ? null : intIn(String(Math.round(Number(p) / 60)), 0, 600))
       else if (p === "on") minutesSet = state[PREFIX + "heater/timer_on"] === "on" ? null : AUTOTERM_TIMER
       else if (p === "off") minutesSet = 0
       if (minutesSet === null || minutesSet === undefined) return null
       var shownRuntime = [
         { topic: PREFIX + "heater/runtime", value: String(minutesSet) },
         { topic: PREFIX + "heater/timer_on", value: minutesSet > 0 ? "on" : "off" },
+        { topic: PREFIX + "heater/runtime_left_s", value: String(minutesSet * 60) },
       ]
       var view = state[PREFIX + "heater/view"] || "off"
       if (view === "off") return { state: shownRuntime, keep: shownRuntime }

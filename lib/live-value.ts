@@ -183,7 +183,7 @@ function twoDigits(n: number): string {
  * of zero or more. A fraction is cut off, not rounded: a countdown at 59.9
  * has not reached the minute.
  */
-function formatDuration(value: string, pattern: DurationPattern): string | undefined {
+export function formatDuration(value: string, pattern: DurationPattern): string | undefined {
   const text = trimmed(value)
   if (asNumber(text) === undefined) return undefined
   let i = text[0] === "+" ? 1 : 0

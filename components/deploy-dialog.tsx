@@ -49,6 +49,7 @@ import { liveValuesNotOnDevices } from "@/lib/object-text"
 import { localTopicsFeature } from "@/lib/local-topics"
 import { screenGraphFeature } from "@/lib/screen-graph"
 import { scaledValuesFeature } from "@/lib/scaled-values"
+import { durationDisplayFeature } from "@/lib/duration-display"
 import { buttonValuesFeature } from "@/lib/button-values"
 import { STATIC_OBJECTS_FEATURE, staticObjectsFeature } from "@/lib/static-objects"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
@@ -688,11 +689,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // And a button's message with values, only when, then clearing; a text
   // field for digits (lib/button-values.ts, tasks/ha-alarm-plan.md).
   const buttonFeature = buttonValuesFeature(project as any)
+  // And a dial or gauge showing its seconds as h:mm:ss (§2.12).
+  const durationFeature = durationDisplayFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [

@@ -64,7 +64,8 @@ type Word = { value: string; label?: string; icon?: string }
 
 /**
  * An option or payload: a plain value, or `{ value, label, icon }` - the
- * icon an Iconify name (`mdi:weather-sunny`), shown on its button.
+ * icon an Iconify name (`mdi:weather-sunny`), shown on its button. An empty
+ * label beside an icon is no words at all (the Autoterm's timer, 2026-10-28).
  */
 function word(value: unknown): Word | undefined {
   if (isObject(value)) {
@@ -72,7 +73,7 @@ function word(value: unknown): Word | undefined {
     if (v === undefined) return undefined
     const label = text(value.label)
     const icon = typeof value.icon === "string" && /^[a-z0-9-]+:[a-z0-9-]+$/i.test(value.icon) ? value.icon : undefined
-    return { value: v, ...(label !== undefined && label !== "" ? { label } : {}), ...(icon ? { icon } : {}) }
+    return { value: v, ...(label !== undefined && (label !== "" || icon) ? { label } : {}), ...(icon ? { icon } : {}) }
   }
   const v = text(value)
   return v === undefined ? undefined : { value: v }
@@ -97,8 +98,8 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
         kind,
         ...(read ? { read } : {}),
         write,
-        on: { read: on.value, write: on.value, ...(on.label ? { label: on.label } : {}), ...(on.icon ? { icon: on.icon } : {}) },
-        off: { read: off.value, write: off.value, ...(off.label ? { label: off.label } : {}), ...(off.icon ? { icon: off.icon } : {}) },
+        on: { read: on.value, write: on.value, ...(on.label !== undefined ? { label: on.label } : {}), ...(on.icon ? { icon: on.icon } : {}) },
+        off: { read: off.value, write: off.value, ...(off.label !== undefined ? { label: off.label } : {}), ...(off.icon ? { icon: off.icon } : {}) },
       }
       break
     }
@@ -123,7 +124,9 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
       if (!(step > 0)) return { skipped: `the step ${step}` }
       // The measured value beside the setpoint `state_topic` reads.
       const current = topic(part.current_topic)
-      control = { kind, ...(read ? { read } : {}), write, min, max, step, ...(unit ? { unit } : {}), ...(current ? { current } : {}) }
+      // Seconds shown as h:mm:ss in a dial (device contract 2.12).
+      const display = part.display_value === "duration" ? ("duration" as const) : undefined
+      control = { kind, ...(read ? { read } : {}), write, min, max, step, ...(unit ? { unit } : {}), ...(current ? { current } : {}), ...(display ? { display } : {}) }
       break
     }
     case "text": {

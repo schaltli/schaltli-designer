@@ -84,7 +84,7 @@ device.json
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 ├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
-├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content), "screen-graph" (§2.10), "scaled-values" (§2.11)
+├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content), "screen-graph" (§2.10), "scaled-values" (§2.11), "duration-display" (§2.12)
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -512,7 +512,7 @@ repo's type definitions for the full field list):
 - **gauge** / **dial**: the round level - `minAngle`, `maxAngle`,
   `direction`, `thickness`, `markerWidth`, `trackColor`, `fillColor`,
   `markerColor`; otherwise as `bar` / `slider`, `dial` being the one with
-  `writeTopic` and `step`.
+  `writeTopic` and `step`. `displayValue` may also be `duration` (§2.12).
 - **line**: `strokeWidth`, `strokeStyle` (only `"solid"` actually renders),
   `points[]` (real vertices — empty means fall back to the legacy
   `(x,y)`–`(x+width,y+height)` two-point derivation), `filletRadius`,
@@ -1242,6 +1242,27 @@ decimals.
 - **Below it** a device does not know `mode: "scale"` - such a combined
   topic has no value there - and publishes the bare number: why the
   deploy dialog asks first.
+
+### 2.12 A ring's number as a duration - feature `duration-display` (designer side 2026-10-28)
+
+Asked for the Autoterm's runtime: a countdown should be seen to run, as
+1:23:29 rather than 84 (minutes) beside 90.
+
+- **`displayValue: "duration"`** on a `gauge` or a `dial` (beside "none",
+  "percentage", "value"): each number in the ring's middle - the commanded
+  one and the measured one in brackets under it, as for "value" (§4) - is
+  its value as **whole seconds written h:mm:ss**: the live value's
+  `h:mm:ss` duration (§2.6, `formatDuration` in `lib/live-value.ts`):
+  hours not wrapped, minutes and seconds two digits, a fraction cut off,
+  `0:05:09` for 309. A value that is no number of seconds (negative, not a
+  number) is written as it came. The ring itself is drawn from the value
+  as ever; only the text changes. Bars and sliders do not take it.
+- **Declare** `"duration-display"` in the DDF's `supportedFeatures` (§1)
+  once the firmware writes it. The deploy dialog asks it of a device for a
+  project with such a ring (`lib/duration-display.ts`), as it asks for
+  `scaled-values` (2.11). Not a generation.
+- **Below it** a device writes the bare number of seconds.
+- **Conformance:** the `gauge` specimen writes its numbers this way.
 
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 

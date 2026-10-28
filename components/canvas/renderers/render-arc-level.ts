@@ -38,6 +38,7 @@ import { applyColorDepth } from "@/lib/color-depth"
 import { LEVEL_POINTER_GAP, levelPointerSize, levelTrackPaint } from "@/lib/level-shape"
 import { GLOW_ALPHA, blend565, gradient565, levelGlowPx as glowPxOf, rgb565FromBytes } from "@/lib/level-glow"
 import { isSettableLevel as isSettableLevelType } from "@/lib/object-types"
+import { formatDuration } from "@/lib/live-value"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
@@ -905,8 +906,10 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // lay them out on.
   const displayValue = obj.properties.displayValue || "value"
   if (displayValue !== "none" && !noValue) {
+    // A duration is whole seconds as h:mm:ss, or the value as it came where
+    // it is no number of seconds (device contract 2.12).
     const asText = (raw: string, percent: number) =>
-      displayValue === "percentage" ? `${Math.round(percent)}%` : raw
+      displayValue === "percentage" ? `${Math.round(percent)}%` : displayValue === "duration" ? (formatDuration(raw, "h:mm:ss") ?? raw) : raw
     const measured = asText(rawValue, fillPercent)
     const commanded = setpointPercent !== null ? asText(rawMarker, setpointPercent) : measured
     const showsSub = setpointPercent !== null && measured !== commanded

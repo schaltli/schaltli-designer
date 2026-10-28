@@ -379,3 +379,56 @@ test("a gauge with no text colour writes its number in black, as the devices do"
   })
   expect(dark, "dark pixels of the number in the middle of the ring").toBeGreaterThan(20)
 })
+
+// Device contract 2.12 (asked for the Autoterm's runtime on 2026-10-28): a
+// ring whose value is seconds writes them as h:mm:ss in its middle - the
+// same picture as the text written out by hand, and the bare number where
+// it is no number of seconds.
+test("a dial showing a duration writes its seconds as h:mm:ss", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const middle = async (displayValue: string, value: string) => {
+    await page.evaluate(
+      ({ displayValue, value }) =>
+        (window as any).__renderScreenForTest({
+          project: {
+            name: "dial-duration",
+            screenWidth: 200,
+            screenHeight: 200,
+            settings: { colorDepth: "24bit" },
+            fonts: [],
+            assets: [],
+            topics: [],
+            screens: [
+              {
+                id: "s1",
+                name: "One",
+                backgroundColor: "#ffffff",
+                objects: [
+                  {
+                    id: "d",
+                    type: "gauge",
+                    zIndex: 1,
+                    x: 20,
+                    y: 20,
+                    width: 160,
+                    height: 160,
+                    properties: { topic: "t/left", thickness: 16, fillColor: "#4CAF50", textColor: "#000000", displayValue, calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 36000, barSizePercent: 100 }] },
+                  },
+                ],
+              },
+            ],
+          },
+          screenIndex: 0,
+          topicOverrides: { "t/left": value },
+        }),
+      { displayValue, value },
+    )
+    return page.evaluate(() => Array.from((document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!.getImageData(50, 70, 100, 60).data).join(","))
+  }
+  const asDuration = await middle("duration", "5009")
+  expect(asDuration).toBe(await middle("value", "1:23:29"))
+  expect(asDuration).not.toBe(await middle("value", "5009"))
+  // Under an hour the hours stay, as a live value's h:mm:ss has them.
+  expect(await middle("duration", "309")).toBe(await middle("value", "0:05:09"))
+})

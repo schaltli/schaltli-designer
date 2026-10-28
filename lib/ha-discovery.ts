@@ -499,9 +499,11 @@ export type CatalogControl = (
   row?: string
   /** Set small: a text in the Caption style rather than the Label (a description's `small`). */
   small?: boolean
-  /** The look it comes in first, where it has several (a description's `look`: "switch"). */
+  /** The look it comes in first, where it has several (a description's `look`: "switch", "dial"). */
   look?: string
-  /** Its size step where not M (a description's `size`: "xs" for a button seldom pressed). */
+  /** A level's number shown as h:mm:ss, its value seconds (a description's `display_value`: "duration"). */
+  display?: "duration"
+  /** Its size step where not M (a description's `size`: "xs" for a button seldom pressed, "l" for a bigger dial). */
   size?: "xs" | "s" | "m" | "l"
 }
 

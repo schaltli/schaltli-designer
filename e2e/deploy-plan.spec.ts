@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { APP_RELEASES, FLASHER, planDeploy, type PlanDevice, type ProjectNeed } from "../lib/deploy-plan"
 import { scaledValuesFeature } from "../lib/scaled-values"
+import { durationDisplayFeature } from "../lib/duration-display"
 
 // What Deploy does with a device (docs/2026-10-10-deploy-simple.md, #66):
 // at once, complete, or not at all.
@@ -131,4 +132,17 @@ test("local topics: a board without the feature is updated first where its relea
   expect(app).toMatchObject({ kind: "blocked", reason: 'App 0.9.0 cannot show local topics (local/energie/view). Update the app on "P20 Pro", then deploy.' })
   // A device that declares it: nothing missing, deployed at once.
   expect(planDeploy({ device: { ...phone, firmwareVersion: "0.10.0" }, release, needs: [], unsupportedFeatures: [], releaseTypes: types }).kind).toBe("deploy")
+})
+
+// Device contract 2.12: a dial or gauge showing its seconds as h:mm:ss needs
+// the device's "duration-display", named in Deploy's message.
+test("a dial showing a duration asks duration-display of the device", () => {
+  const project = {
+    screens: [
+      { name: "Heizung", objects: [{ type: "tab-control", children: [{ type: "dial", properties: { displayValue: "duration" } }] }, { type: "gauge", properties: { displayValue: "value" } }] },
+    ],
+    popups: [{ name: "Timer", objects: [{ type: "gauge", properties: { displayValue: "duration" } }] }],
+  }
+  expect(durationDisplayFeature(project)).toEqual({ feature: "duration-display", label: "values as durations (the dial on Heizung, the gauge on Timer)" })
+  expect(durationDisplayFeature({ screens: [{ name: "S", objects: [{ type: "slider", properties: { displayValue: "duration" } }] }] })).toBeNull()
 })

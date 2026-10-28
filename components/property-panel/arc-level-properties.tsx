@@ -73,6 +73,8 @@ const SHOW_VALUE = [
   { value: "none", label: "None" },
   { value: "value", label: "Value" },
   { value: "percentage", label: "Percentage" },
+  // Seconds as h:mm:ss - a countdown seen to run (device contract 2.12).
+  { value: "duration", label: "Duration" },
 ] as const
 
 export function ArcLevelProperties({
