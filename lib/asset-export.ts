@@ -306,7 +306,7 @@ export class AssetExporter {
       // Roles resolved against this screen's theme (lib/themes.ts): a bake is
       // a picture, and a picture holds colours, not roles.
       const screenObjects = applyTheme(
-        mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
+        mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects, screen),
         themeFor(screen, project.screens),
         'light',
         this.options.colorDepth,
@@ -334,7 +334,7 @@ export class AssetExporter {
       // single - they are not drawn from the theme.
       if (this.options.colorDepth === '24bit') {
         const darkObjects = applyTheme(
-          mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
+          mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects, screen),
           themeFor(screen, project.screens),
           'dark',
           this.options.colorDepth,

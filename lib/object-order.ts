@@ -13,6 +13,7 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { withScreenFields, type ScreenFields } from "@/lib/screen-fields"
 
 /**
  * Get the sort order priority for an object type
@@ -115,9 +116,14 @@ export function sortChildrenByZIndex(children: ScreenObject[]): ScreenObject[] {
  * priority: sortChildrenByZIndex()/renderScreenObjects() break ties by
  * object id like everywhere else, so give a shared element (e.g. a nav
  * menu) a deliberately high zIndex rather than relying on tie order.
+ *
+ * Given the screen they are drawn on, its name and icon are written in where
+ * an object asks for them (lib/screen-fields.ts) - a master's header shows
+ * each screen's own.
  */
-export function mergeMasterAndScreenObjects(masterObjects: ScreenObject[], screenObjects: ScreenObject[]): ScreenObject[] {
-  return [...masterObjects, ...screenObjects]
+export function mergeMasterAndScreenObjects(masterObjects: ScreenObject[], screenObjects: ScreenObject[], screen?: ScreenFields): ScreenObject[] {
+  const merged = [...masterObjects, ...screenObjects]
+  return screen ? withScreenFields(merged, screen) : merged
 }
 
 /**

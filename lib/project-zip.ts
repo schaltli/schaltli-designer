@@ -256,8 +256,8 @@ function quantizeColorsDeep<T>(value: T, colorDepth: string | undefined): T {
 // A screen's objects, its master's merged in, with every role resolved for the
 // device - light, and at 24 bit each colour's dark value beside it as
 // <key>Dark - and checked: what leaves for a device is a hex or "transparent".
-function themedObjects(screen: { id: string; name?: string; objects: any[] }, masterObjects: any[], theme: ReturnType<typeof themeFor>, colorDepth: string | undefined) {
-  const objects = applyThemeWithDark(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, colorDepth)
+function themedObjects(screen: { id: string; name: string; objects: any[]; iconAssetId?: string; iconLive?: any }, masterObjects: any[], theme: ReturnType<typeof themeFor>, colorDepth: string | undefined) {
+  const objects = applyThemeWithDark(mergeMasterAndScreenObjects(masterObjects, screen.objects, screen), theme, colorDepth)
   assertDeviceColours(objects, `screen ${screen.name ?? screen.id}`)
   return objects
 }

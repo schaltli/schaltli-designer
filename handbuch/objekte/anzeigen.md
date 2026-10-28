@@ -56,8 +56,9 @@ Ein Text kann Werte aus dem Van enthalten. Im Feld <span class="ui">Text</span> 
 | Device › `model` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8», auf dem Handy dessen Verkaufsname wie «HUAWEI P20 Pro» |
 | Device › `id` | die Kennung des Geräts, mit der es sich am Broker meldet, etwa «waveshare-knob-1v8-c00f1e13cfd0» |
 | Project › `name` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
+| Screen › `name` | den Namen des Screens, auf dem der Text steht. Liegt der Text auf einem [Master](/designer/screens#master-screens), zeigt jeder Screen seinen eigenen Namen. Auch er wird beim Übertragen fest eingesetzt. |
 
-**Einen Wert einfügen:** Tipp `{` oder klick unter dem Feld auf <span class="ui">+ Value</span>. Ein Suchfeld klappt auf, darunter die Topics des Projekts mit Typ und erstem Beispielwert, dann die Felder von Gerät und Projekt. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Chip dort ein, wo der Cursor stand. <kbd>Esc</kbd> schliesst die Suche, ohne etwas einzufügen.
+**Einen Wert einfügen:** Tipp `{` oder klick unter dem Feld auf <span class="ui">+ Value</span>. Ein Suchfeld klappt auf, darunter die Topics des Projekts mit Typ und erstem Beispielwert, dann die Felder von Gerät, Projekt und Screen. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Chip dort ein, wo der Cursor stand. <kbd>Esc</kbd> schliesst die Suche, ohne etwas einzufügen.
 
 **Mit Chips schreiben:** Ein Chip zählt als ein Zeichen. Die Pfeiltasten springen über ihn, <kbd>Backspace</kbd> und <kbd>Entf</kbd> löschen ihn ganz. Kopierst du Text samt Chips in einen anderen Text, kommen die Chips mit. Fügst du einen Platzhalter ein, wie ihn ältere Projekte schrieben, etwa `{topic:van/temp:F1}`, wird daraus ein Chip.
 
@@ -91,7 +92,7 @@ Knob, 4.3B, PaperS3 und die Android-App zeigen einen Wert im Text, so wie er ank
 
 Ein Bild aus der Icon-Sammlung des Projekts, immer quadratisch.
 
-- <span class="ui">Icon</span>: <span class="ui">Fixed</span> zeigt immer dasselbe Icon. Die Icons selbst verwaltest du unter <span class="ui">Settings</span> › <span class="ui">Assets</span>, siehe [Icons und Schriften](/designer/icons-schriften). <span class="ui">Live</span> zeigt je nach Wert ein anderes, siehe unten.
+- <span class="ui">Icon</span>: <span class="ui">Fixed</span> zeigt immer dasselbe Icon. Die Icons selbst verwaltest du unter <span class="ui">Settings</span> › <span class="ui">Assets</span>, siehe [Icons und Schriften](/designer/icons-schriften). <span class="ui">Live</span> zeigt je nach Wert ein anderes, siehe unten. <span class="ui">Screen</span> zeigt das Icon des Screens, auf dem es steht, siehe ebenfalls unten.
 - <span class="ui">Colour</span>: die Farbe des Icons und der Hintergrund, der anfangs durchsichtig ist. Bei einem Icon mit <span class="ui">Live</span> gilt die Farbe für alle seine Icons.
 - <span class="ui">Size</span>: wie gross das Icon ist, in vier Stufen, <span class="ui">XS</span>, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (3, 4, 6 und 9 mm), wie beim [Bar](#bar). Auf älteren Geräten fehlt das Feld.
 
@@ -102,6 +103,8 @@ In Pixeln stellst du die Grösse unter <span class="ui">Frame</span> als <span c
 Eine Frostwarnung sieht so aus: <span class="ui">Reads</span> ist die Aussentemperatur, «If value < 0» zeigt ein Warnsymbol, «If value < 3» eine Schneeflocke, <span class="ui">Otherwise</span> ein Thermometer. Die Regeln werden von oben gelesen, bei 1.5 °C passt also die zweite.
 
 Stellst du zurück auf <span class="ui">Fixed</span>, bleibt das Icon aus <span class="ui">Otherwise</span>.
+
+**Das Icon des Screens:** Mit <span class="ui">Screen</span> zeigt das Icon dasselbe wie der Screen, auf dem es steht, also das Icon aus seinen Eigenschaften, ob fest oder live. Gedacht ist das für einen [Master](/designer/screens#master-screens): Eine Kopfzeile aus diesem Icon und einem Text mit dem Chip Screen › `name` legst du einmal an, und jeder Screen zeigt darin sein eigenes Icon und seinen eigenen Namen. Das Icon im Feld <span class="ui">Stand-in</span> springt ein, wo ein Screen kein Icon hat, und auf dem Master selbst. Name und Icon setzt der Designer beim Übertragen für jeden Screen fest ein. Das Gerät braucht dafür keine neue Firmware.
 
 ::: warning Ältere Firmware
 Ein Icon mit <span class="ui">Live</span> wechselt auf Geräten ab Systemgeneration 1.4. Knob, 4.3B und PaperS3 mit älterer Firmware zeigen immer das Icon aus <span class="ui">Otherwise</span>, eine ältere Android-App zeigt keines. Überträgst du auf ein solches Gerät, nennt der Dialog diese Icons.

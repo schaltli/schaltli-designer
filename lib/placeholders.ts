@@ -7,7 +7,7 @@
 // this file is written to be ported line by line: no regular expression does
 // anything a plain loop could not, no locale API, no floating point.
 
-export type Namespace = "topic" | "device" | "project"
+export type Namespace = "topic" | "device" | "project" | "screen"
 
 export interface Reference {
   namespace: Namespace
@@ -82,12 +82,15 @@ export type Segment =
 
 // The fields v1 resolves. device:name and project:version are reserved
 // (issues #41, #40) and, like any unknown field, shown as written.
-export const FIELDS: Record<"device" | "project", string[]> = {
+// screen:name is the name of the screen a text is drawn on, written in per
+// screen before anything reaches a device (lib/screen-fields.ts).
+export const FIELDS: Record<"device" | "project" | "screen", string[]> = {
   device: ["model", "id"],
   project: ["name"],
+  screen: ["name"],
 }
 
-const NAMESPACES: Namespace[] = ["topic", "device", "project"]
+const NAMESPACES: Namespace[] = ["topic", "device", "project", "screen"]
 
 function isWhitespace(c: string): boolean {
   return c === " " || c === "\t" || c === "\n" || c === "\r"

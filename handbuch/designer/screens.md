@@ -63,6 +63,8 @@ Beim Einfügen gilt:
 
 Die Objekte eines Master-Screens erscheinen auf jedem Screen, der ihn verwendet. Bearbeiten kannst du sie nur auf dem Master selbst. Auch das [Theme](/designer/themes), die Hintergrundfarbe und die Belegung der [Hardware-Tasten](/designer/tasten) erbt ein Screen von seinem Master.
 
+Eine Kopfzeile, die auf jedem Screen gleich aussieht und doch sagt, wo man ist, gehört ebenfalls auf den Master: ein [Icon](/objekte/anzeigen#icon) auf <span class="ui">Screen</span> und ein [Text](/objekte/anzeigen#platzhalter) mit dem Chip Screen › `name`. Jeder Screen zeigt darin sein eigenes Icon und seinen Namen, auf dem Master selbst stehen sein Name und das Icon aus <span class="ui">Stand-in</span>.
+
 Ein Master ist selbst nie auf dem Gerät zu sehen. Er ist kein Ziel für <span class="ui">Go to a screen</span>, und beim Blättern wird er übersprungen.
 
 Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme und seine Typografie. Ein neuer Screen bekommt den Master, den du gerade vor dir hast: den Master, der offen ist, oder den Master des Screens, der offen ist. Einen Master, den noch Screens verwenden, kannst du nicht löschen, und den letzten auch nicht.

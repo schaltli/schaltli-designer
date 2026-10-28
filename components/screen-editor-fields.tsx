@@ -201,6 +201,7 @@ export function ScreenEditorFields({
           count={1}
           title="Live screen icon"
           closable={false}
+          noScreen
           resultKind="icon"
           projectAssets={projectAssets as any}
           topics={topics}

@@ -92,7 +92,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // Roles resolved against this screen's theme, light, at full colour
     // (lib/themes.ts): the app draws hex, never roles.
     const theme = themeFor(screen, project.screens)
-    const merged = mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects)
+    const merged = mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects, screen)
     const objects = applyTheme(merged, theme, "light", "24bit")
     // What the app's JSON carries: the light colours, and beside each that
     // comes from a role its dark value as <key>Dark (docs/2026-09-25-

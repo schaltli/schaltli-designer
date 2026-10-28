@@ -70,6 +70,10 @@ export function IconProperties({
   onOpenLiveIconSelector,
 }: IconPropertiesProps) {
   const liveValue = liveIconValue(selectedObject)
+  // The icon of the screen it shows on (lib/screen-fields.ts), its own where
+  // that screen has none - on the master itself, for one.
+  const fromScreen = Boolean(selectedObject.properties.screenIcon)
+  const mode = fromScreen ? "Screen" : liveValue ? "Live" : "Fixed"
 
   // Fixed or Live (docs/2026-10-07-live-values.md, decision 9). Live keeps
   // the fixed icon as what shows when no rule applies; Fixed keeps that one.
@@ -82,12 +86,15 @@ export function IconProperties({
       rules: [],
       ...(selectedObject.properties.assetId ? { otherwise: { kind: "icon" as const, icon: selectedObject.properties.assetId } } : {}),
     }
-    onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, liveIconId: lv.id, liveValues: [lv] } })
+    const { screenIcon: _screen, ...properties } = selectedObject.properties
+    onUpdateObject(selectedObject.id, { properties: { ...properties, liveIconId: lv.id, liveValues: [lv] } })
   }
-  const makeFixed = () => {
+  const makeFixed = (screenIcon: boolean) => {
     const otherwise = liveValue?.otherwise?.kind === "icon" ? liveValue.otherwise.icon : undefined
-    const { liveIconId: _id, liveValues: _values, ...properties } = selectedObject.properties
-    onUpdateObject(selectedObject.id, { properties: { ...properties, assetId: otherwise ?? properties.assetId } })
+    const { liveIconId: _id, liveValues: _values, screenIcon: _screen, ...properties } = selectedObject.properties
+    onUpdateObject(selectedObject.id, {
+      properties: { ...properties, assetId: otherwise ?? properties.assetId, ...(screenIcon ? { screenIcon: true } : {}) },
+    })
   }
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -112,19 +119,19 @@ export function IconProperties({
     <PropertySections>
       <PropertySection title="Content">
         <div role="radiogroup" aria-label="Icon" className="flex w-fit rounded-md bg-muted p-0.5 text-xs">
-          {(["Fixed", "Live"] as const).map((mode) => {
-            const on = (mode === "Live") === Boolean(liveValue)
+          {(["Fixed", "Live", "Screen"] as const).map((choice) => {
+            const on = choice === mode
             return (
               <button
-                key={mode}
+                key={choice}
                 type="button"
                 role="radio"
-                aria-label={mode}
+                aria-label={choice}
                 aria-checked={on}
-                onClick={() => (mode === "Live" ? !liveValue && makeLive() : liveValue && makeFixed())}
+                onClick={() => !on && (choice === "Live" ? makeLive() : makeFixed(choice === "Screen"))}
                 className={cn("rounded px-3 py-1", on ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}
               >
-                {mode}
+                {choice}
               </button>
             )
           })}
@@ -153,14 +160,19 @@ export function IconProperties({
           />
         ) : (
           <IconField
-            label="Icon"
+            label={fromScreen ? "Stand-in" : "Icon"}
             assetId={selectedObject.properties.assetId}
             projectAssets={projectAssets}
             onSelect={onOpenIconSelector}
             onClear={() => updateProperty("assetId", null)}
           />
         )}
-        {!liveValue && selectedObject.properties.assetId ? (
+        {fromScreen ? (
+          <FieldNote>
+            Each screen shows its own icon here. This one stands in where a screen has none, and on the master.
+          </FieldNote>
+        ) : null}
+        {!liveValue && !fromScreen && selectedObject.properties.assetId ? (
           <FieldNote>
             The picture itself lives in Project Settings &rarr; Assets. Change it there and every icon using it
             follows.

@@ -78,6 +78,7 @@ import {
   getActivePanel,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { withScreenFields } from "@/lib/screen-fields"
 import { FELT_BACKDROP } from "@/lib/backdrops"
 import {
   insideFence,
@@ -1054,8 +1055,8 @@ export function Canvas({
   // device - a switch on the master answers a tap on every screen, as it does
   // there (2026-10-10: the demo's light/dark switch did nothing).
   const previewObjects = useMemo(
-    () => (previewMode ? dissolveGroups(mergeMasterAndScreenObjects(masterObjects ?? [], screen.objects)) : screen.objects),
-    [previewMode, masterObjects, screen.objects],
+    () => (previewMode ? dissolveGroups(mergeMasterAndScreenObjects(masterObjects ?? [], screen.objects, screen)) : screen.objects),
+    [previewMode, masterObjects, screen],
   )
 
   // Wraps onUpdateObject so position/size updates computed by the drag/
@@ -1514,11 +1515,12 @@ export function Canvas({
         topics,
         liveValues,
         projectName,
+        screenName: underlay.screen.name,
         device: { model: deviceModel, id: deviceId },
         separators: numberSeparators,
         combinedTopics,
       })
-      sortChildrenByZIndex(mergeMasterAndScreenObjects(underlay.masterObjects, dissolveGroups(underlay.screen.objects))).forEach((obj) => {
+      sortChildrenByZIndex(mergeMasterAndScreenObjects(underlay.masterObjects, dissolveGroups(underlay.screen.objects), underlay.screen)).forEach((obj) => {
         drawObject(ctx, themed(obj), false, false, zoom, underlayPlaceholders)
       })
       ctx.save()
@@ -1603,6 +1605,7 @@ export function Canvas({
       topics,
       liveValues,
       projectName,
+      screenName: screen.name,
       device: { model: deviceModel, id: deviceId },
       separators: numberSeparators,
       combinedTopics,
@@ -1614,7 +1617,7 @@ export function Canvas({
     // it already sorts every nested children[] list, and matches
     // findObjectAtPoint's hit-testing, which was already zIndex-aware.
     // Array position in screen.objects is otherwise insignificant now.
-    sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects)).forEach((obj) => {
+    sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects, screen)).forEach((obj) => {
       const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
       const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
       drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholders)
@@ -1643,7 +1646,7 @@ export function Canvas({
       ctx.restore()
       ctx.save()
       ctx.translate(editingOrigin.x - editingGroup.x, editingOrigin.y - editingGroup.y)
-      drawObject(ctx, themed(editingGroup), false, false, zoom, placeholders)
+      drawObject(ctx, themed(withScreenFields([editingGroup], screen)[0]), false, false, zoom, placeholders)
       ctx.restore()
       ctx.save()
       ctx.strokeStyle = EDITING_COLOR

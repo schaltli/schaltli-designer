@@ -51,6 +51,8 @@ export interface LiveValueEditorProps {
   chipSelector?: string
   /** Whether ✕ is shown; a live icon's editor stays while it is live. */
   closable?: boolean
+  /** Without the screen's name: a screen's own icon cannot read it. */
+  noScreen?: boolean
 }
 
 export type IconTarget = number | "otherwise" | "noValueYet"
@@ -164,6 +166,7 @@ export function LiveValueEditor({
   chip,
   chipSelector,
   closable = true,
+  noScreen = false,
 }: LiveValueEditorProps) {
   // The arrow from the editor up to its chip, at the chip's middle.
   const rootRef = useRef<HTMLDivElement>(null)
@@ -203,7 +206,7 @@ export function LiveValueEditor({
   const high = numbers.length ? Math.ceil(Math.max(...numbers)) + 5 : 100
   const step = numbers.some((n) => !Number.isInteger(n)) ? 0.1 : 0.5
   const reference = `${liveValue.source.namespace}:${liveValue.source.path}`
-  const entries = referenceEntries("", topics, combinedTopics)
+  const entries = referenceEntries("", topics, combinedTopics).filter((e) => !noScreen || e.section !== "screen")
   const known = entries.some((e) => e.reference === reference)
   const topic = liveValue.source.namespace === "topic" ? topics.find((t) => t.topic === liveValue.source.path.split("#")[0]) : undefined
   const update = (patch: Partial<LiveValue>) => onChange({ ...liveValue, ...patch })

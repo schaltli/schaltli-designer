@@ -77,7 +77,7 @@ const CLIPBOARD_TYPE = "web application/x-schaltli-live-text"
 
 export const LIVE_TEXT_HINT = "Type { to insert a value. Click a value to set how it shows."
 
-const HEADINGS = { topic: "Topics", heard: "Heard on the broker", combined: "Combined", device: "Device", project: "Project" } as const
+const HEADINGS = { topic: "Topics", heard: "Heard on the broker", combined: "Combined", device: "Device", project: "Project", screen: "Screen" } as const
 
 /** The stored string the field's DOM stands for. */
 function serialize(root: Node): string {

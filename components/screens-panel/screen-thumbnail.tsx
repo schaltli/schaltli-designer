@@ -111,7 +111,7 @@ export function ScreenThumbnail({
 
       const placeholders = placeholderScope({ topics, projectName, device: { model: deviceModel }, separators: numberSeparators, combinedTopics })
 
-      renderScreenObjects(ctx, applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), activeTheme, variant, colorDepth), {
+      renderScreenObjects(ctx, applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects, screen), activeTheme, variant, colorDepth), {
         fonts,
         projectAssets,
         topics,

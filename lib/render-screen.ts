@@ -113,6 +113,8 @@ export function placeholderScope(options: {
   topics: Topic[]
   liveValues?: Record<string, string> | null
   projectName?: string
+  // The screen drawn, for an object not merged with it yet (lib/screen-fields.ts).
+  screenName?: string
   device?: { model?: string; id?: string }
   separators: Separators
   // Computed from the same values (lib/combined-topics.ts).
@@ -121,7 +123,7 @@ export function placeholderScope(options: {
   // every combined topic that reads it (lib/live-value-test.ts).
   test?: LiveValueTest | null
 }): PlaceholderScope {
-  const { topics, liveValues, projectName, device, separators, combinedTopics, test } = options
+  const { topics, liveValues, projectName, screenName, device, separators, combinedTopics, test } = options
   const topicValue = (topicName: string): string | undefined => {
     if (isTested(test ?? null, { namespace: "topic", path: topicName })) return test!.value
     return arrivedValue(topicName)
@@ -149,6 +151,7 @@ export function placeholderScope(options: {
     lookup: (reference) => {
       if (reference.namespace === "topic") return topicValue(reference.path)
       if (reference.namespace === "device") return reference.path === "model" ? device?.model : device?.id
+      if (reference.namespace === "screen") return reference.path === "name" ? screenName : undefined
       return reference.path === "name" ? projectName : undefined
     },
   }
@@ -187,16 +190,16 @@ export function objectReferencedTopics(obj: ScreenObject): string[] {
 }
 
 // Whether anything on any screen needs a device that resolves placeholders
-// itself: a topic: or device: reference. project: fields are written in at
-// export and need nothing of the device.
+// itself: a topic: or device: reference. project: and screen: fields are
+// written in at export and need nothing of the device.
 export function projectUsesLivePlaceholders(project: { screens?: { objects: ScreenObject[] }[] }): boolean {
   const walk = (objects: ScreenObject[]): boolean =>
     objects.some(
       (obj) =>
         placeholderTexts(obj).some((text) =>
-          parse(text).some((segment) => segment.kind === "placeholder" && segment.reference.namespace !== "project"),
+          parse(text).some((segment) => segment.kind === "placeholder" && segment.reference.namespace !== "project" && segment.reference.namespace !== "screen"),
         ) ||
-        liveValuesOf(obj).some((liveValue) => liveValue.source.namespace !== "project") ||
+        liveValuesOf(obj).some((liveValue) => liveValue.source.namespace !== "project" && liveValue.source.namespace !== "screen") ||
         walk(obj.children ?? []),
     )
   return (project.screens ?? []).some((screen) => walk(screen.objects ?? []))

@@ -9,7 +9,7 @@ import { FIELDS, parse } from "@/lib/placeholders"
 
 export interface ReferenceEntry {
   /** "heard": a topic the designer heard on the broker that the project lacks yet. */
-  section: "topic" | "heard" | "combined" | "device" | "project"
+  section: "topic" | "heard" | "combined" | "device" | "project" | "screen"
   /** What is written between the braces: `topic:a/b#temp`, `device:model`. */
   reference: string
   /** The type for a topic, a short description for a field. */
@@ -22,6 +22,7 @@ const FIELD_DETAILS: Record<string, string> = {
   "device:model": "the device's model",
   "device:id": "the device's id",
   "project:name": "the project's name",
+  "screen:name": "the name of the screen it shows on",
 }
 
 /** A topic heard on the broker, as the completion offers it. */
@@ -63,7 +64,7 @@ export function referenceEntries(
   for (const h of heard) if (!declared.has(h.topic)) all.push({ section: "heard", reference: `topic:${h.topic}`, detail: h.type, example: h.latest })
   // Combined topics after the topics they are made of (lib/combined-topics.ts).
   for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: ct.mode === "scale" ? "number" : "yes / no" })
-  for (const namespace of ["device", "project"] as const) {
+  for (const namespace of ["device", "project", "screen"] as const) {
     for (const field of FIELDS[namespace]) {
       const reference = `${namespace}:${field}`
       all.push({ section: namespace, reference, detail: FIELD_DETAILS[reference] ?? "" })
@@ -72,7 +73,7 @@ export function referenceEntries(
 
   let term = query.toLowerCase()
   let section: ReferenceEntry["section"] | undefined
-  for (const namespace of ["topic", "combined", "device", "project"] as const) {
+  for (const namespace of ["topic", "combined", "device", "project", "screen"] as const) {
     if (term.startsWith(`${namespace}:`)) {
       section = namespace
       term = term.slice(namespace.length + 1)

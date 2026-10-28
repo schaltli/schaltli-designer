@@ -25,7 +25,7 @@ const TOPICS: Topic[] = [
 const references = (query: string) => referenceEntries(query, TOPICS).map((e) => e.reference)
 
 test.describe("the value search and its problems", () => {
-  test("every topic, a JSON topic's fields, and the device and project fields are offered", () => {
+  test("every topic, a JSON topic's fields, and the device, project and screen fields are offered", () => {
     expect(references("")).toEqual([
       "topic:schaltli/state/tank/1/level",
       "topic:schaltli/state/tank/1/name",
@@ -36,6 +36,7 @@ test.describe("the value search and its problems", () => {
       "device:model",
       "device:id",
       "project:name",
+      "screen:name",
     ])
   })
 
@@ -62,8 +63,9 @@ test.describe("the value search and its problems", () => {
     expect(references("topic:name")).toEqual(["topic:schaltli/state/tank/1/name"])
     expect(references("device:")).toEqual(["device:model", "device:id"])
     expect(references("project:")).toEqual(["project:name"])
-    // "name" alone also finds the project's name.
-    expect(references("name")).toEqual(["topic:schaltli/state/tank/1/name", "project:name"])
+    expect(references("screen:")).toEqual(["screen:name"])
+    // "name" alone also finds the project's and the screen's name.
+    expect(references("name")).toEqual(["topic:schaltli/state/tank/1/name", "project:name", "screen:name"])
   })
 
   test("a placeholder a device shows as written is an error, saying why", () => {

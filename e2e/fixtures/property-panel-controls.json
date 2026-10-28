@@ -75,6 +75,7 @@
         "button: Content",
         "radio: Fixed",
         "radio: Live",
+        "radio: Screen",
         "caption: Icon",
         "button: Choose icon",
         "button: Shape",

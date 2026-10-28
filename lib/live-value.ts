@@ -13,8 +13,8 @@ export type { RuleOperator }
 
 /** Where a live value's one value comes from (spec decision 3). */
 export interface Source {
-  namespace: "topic" | "device" | "project" | "combined"
-  /** A topic path (a JSON field after `#` included), a device/project field, a combined topic's name. */
+  namespace: "topic" | "device" | "project" | "screen" | "combined"
+  /** A topic path (a JSON field after `#` included), a device/project/screen field, a combined topic's name. */
   path: string
 }
 
@@ -421,6 +421,7 @@ export function liveTextSegments(text: string, liveValues: readonly LiveValue[])
 
 /** The short name a chip shows for its source: the last part of a topic, a JSON field's name. */
 export function sourceShortName(source: Source): string {
+  if (source.namespace === "screen") return `screen ${source.path}`
   if (source.namespace !== "topic") return source.path
   const hash = source.path.indexOf("#")
   if (hash >= 0) return source.path.slice(hash + 1)
