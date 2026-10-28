@@ -31,7 +31,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/heater/view` | welcher Regler der Heizung gerade zählt: `target` (heizt auf die Solltemperatur), `power` (heizt mit fester Leistung), `fan` (lüftet nur) oder `off`. Aus Betriebsart und Preset abgeleitet, für den Baustein «Heizung» |
 | `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
-| `schaltli/state/heater/state_text` | nur bei einer Autoterm: was sie tut, in Worten: «Bereit», «Startet», «Heizt», «Lüftet», «Kühlt ab» oder «Störung» |
+| `schaltli/state/heater/state_text` | nur bei einer Autoterm: was sie tut, in Worten: «Bereit», «Startet», «Heizt», «Wartet», «Lüftet», «Kühlt ab» oder «Störung» |
 | `schaltli/state/heater/fault` | nur bei einer Autoterm: eine Störung in Worten, etwa «Störung: Keine Zündung»; leer, solange keine da ist, siehe [Störungen](#storungen) |
 | `schaltli/state/heater/status_line` | nur bei einer Autoterm: die Störung, solange es eine gibt, sonst der Zustand. Die Zeile oben im Baustein |
 | `schaltli/state/heater/voltage`, `…/fan_rpm`, `…/pump_hz` | nur bei einer Autoterm: Spannung, wie sie sie misst, Drehzahl des Gebläses und Frequenz der Brennstoffpumpe |
@@ -89,6 +89,8 @@ Ihre Befehle schickt die Brücke nicht über MQTT, sondern über Pekaways HTTP-S
 
 Zwischen Lüften und Heizen wechselt eine Autoterm nicht direkt. Einen Start nimmt sie nur an, wenn sie steht. Wählst du eine Heizart, während sie lüftet, lüftet sie einfach weiter, und umgekehrt heizt sie weiter. Die Brücke stoppt sie deshalb zuerst und schickt den Start erst, wenn sie «Bereit» meldet. Aus dem Lüften dauert das etwa zehn Sekunden. Nach dem Heizen kühlt sie erst ab, im Van waren das gut drei Minuten. Der Baustein zeigt die gewählte Betriebsart in dieser Zeit schon an, und die Zeile darüber sagt, was kommt, etwa «Stoppt, dann Temperatur» oder «Kühlt ab, dann Lüften». Wählst du vorher «Aus», bleibt sie aus. Meldet sie nach zehn Minuten noch nicht «Bereit», lässt die Brücke den Start fallen.
 
+Im Temperaturbetrieb heizt eine Autoterm nicht beliebig schwach. Ist die Solltemperatur erreicht, schaltet sie ab und zündet von selbst wieder, sobald es kühler wird. Für diesen Zustand hat Pekaway kein Wort und meldet «unknown status». Die Brücke zeigt dann «Wartet». Kommt «unknown status» in einer anderen Betriebsart, steht «Zustand unbekannt» da. Eine Störung ist beides nicht.
+
 Mit der Solltemperatur ist es ähnlich. Regelt die Autoterm gerade darauf, startet die Brücke sie mit der neuen gleich noch einmal, wie es Pekaways Knopf «Start Tempmode» tut. Ist sie aus, oder heizt sie mit fester Leistung, kann Pekaway die Solltemperatur nicht setzen, ohne sie einzuschalten. Die Brücke behält sie dann selbst, zeigt sie unter `schaltli/state/heater/target` und schickt sie beim nächsten Start mit. Stellst du in der Zwischenzeit in Pekaways Oberfläche eine andere ein, gilt die. Ein Neustart von Node-RED vergisst eine solche Solltemperatur. Pekaway nimmt für eine Autoterm höchstens 30 °C an, mehr lässt die Brücke dann nicht zu.
 
 Für die Laufzeit gibt es einen Timer wie bei einer Eieruhr. Schaltest du ihn ein, läuft die Heizung eine Stunde, und mit `schaltli/cmnd/heater/runtime` stellst du bis zu 600 Minuten ein, in Schritten von 15 Minuten. Andere Werte nimmt Pekaway nicht an: Es rundet selbst, und aus 5 Minuten würde 0, das den Countdown abbricht. Die Brücke rundet deshalb vorher, und alles über 0 wird mindestens 15. Ziehst du am Laufzeit-Dial, schickt sie erst den Wert, bei dem du eine halbe Sekunde stehen bleibst, und nicht jeden Zwischenwert. Pekaway zählt herunter und schaltet am Ende aus. Schaltest du ihn aus, läuft sie ohne Ende weiter. Um die Laufzeit neu zu setzen, startet die Brücke die Autoterm in ihrer Betriebsart noch einmal. Ist die Heizung aus, behält die Brücke Timer und Laufzeit wie die Solltemperatur und schickt sie beim nächsten Start mit. Pekaway würde den Countdown sonst sofort beginnen, auch bei ausgeschalteter Heizung. Den Wochenplan aus Pekaways Oberfläche kennt die Brücke nicht. Startet er die Heizung, zeigen deine Screens sie laufen, aber nicht, warum.
@@ -97,7 +99,7 @@ Für die Laufzeit gibt es einen Timer wie bei einer Eieruhr. Schaltest du ihn ei
 
 Eine Störung soll nicht still bleiben. Unter `schaltli/state/heater/fault` steht deshalb eine, sobald es eine gibt, und sonst nichts:
 
-- was die Heizung meldet: «Keine Zündung», «Kein Brennstoff? Neuer Versuch», «Flammabriss» oder «Unbekannter Zustand der Heizung», so wie Pekaway es bei der 2D in Worte fasst,
+- was die Heizung meldet: «Keine Zündung», «Kein Brennstoff? Neuer Versuch», oder «Flammabriss», so wie Pekaway es bei der 2D in Worte fasst,
 - ein Befehl, den Pekaway abgelehnt oder nicht beantwortet hat, etwa «Störung: Befehl nicht angenommen (keine Antwort von Pekaway)». Das bleibt stehen, bis ein Befehl wieder angenommen wird,
 - ein Start, dem die Heizung nicht folgt: Steht sie 90 Sekunden nach dem Start noch auf «Bereit», heisst es «Störung: Heizung folgt dem Start nicht».
 

@@ -493,7 +493,10 @@ test.describe("VanPi bridge logic", () => {
     ]) expect(values({ heatstatus: status })[`${S}state_text`], status).toBe(words)
     // Pekaway's own fault texts.
     expect(values({ heatstatus: "no ignition error" })).toMatchObject({ [`${S}state_text`]: "Störung", [`${S}fault`]: "Störung: Keine Zündung" })
-    expect(values({ heatstatus: "unknown status" })[`${S}fault`]).toBe("Störung: Unbekannter Zustand der Heizung")
+    // A code Pekaway's table lacks: in temperature mode the heater waiting at
+    // its target (seen in the van, 2026-10-28), else not known - no fault.
+    expect(values({ heatstatus: "unknown status", mode: "temp mode" })).toMatchObject({ [`${S}state_text`]: "Wartet", [`${S}fault`]: "", [`${S}mode`]: "heat" })
+    expect(values({ heatstatus: "unknown status", mode: "power mode" })).toMatchObject({ [`${S}state_text`]: "Zustand unbekannt", [`${S}fault`]: "" })
     // The heater's code, once Pekaway passes it on: the manual's words, or the number.
     expect(values({ heatstatus: "standby", heaterror: "13" })[`${S}fault`]).toBe("Störung 13: Startet nicht, zwei Versuche fehlgeschlagen")
     expect(values({ heaterror: 42 })[`${S}fault`]).toBe("Störung 42: unbekannter Code")
@@ -1266,8 +1269,10 @@ test.describe("VanPi bridge flow", () => {
     const cooling = values.run(autoterm({ mode: "off", heatstatus: "shutting down" }))
     expect(cooling[1]).toBeNull()
     expect(valueIn(cooling, "status_line")).toBe("Kühlt ab, dann Lüften")
-    // Asked again while it cools down: no second stop.
-    expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })?.[3] ?? null).toBeNull()
+    // Asked again while it cools down: stopped again, since in temperature
+    // mode cooling down is also the pause at the target, which ends in
+    // lighting again (seen in the van, 2026-10-28).
+    expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })[3]).toEqual(http("stop/0"))
     // At the fan level it last had.
     expect(values.run(autoterm({ mode: "off" }))[1]).toEqual(http("vent/10")[0])
 

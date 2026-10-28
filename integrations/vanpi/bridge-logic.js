@@ -153,7 +153,7 @@ function createBridgeLogic() {
         // Pekaway reports the mode it last asked for, the heater what it
         // does: started to heat while it fanned, it fans on and Pekaway says
         // power mode (seen in the van, 2026-10-28). What it does wins.
-        var doing = autotermFamily(autotermState(autoterm.heatstatus, autoterm.heaterror).text)
+        var doing = autotermFamily(autotermState(autoterm.heatstatus, autoterm.heaterror, autoterm.mode).text)
         if (doing === "fan" && running.mode !== "fan_only") running = { mode: "fan_only", preset: null }
         else if (doing === "heat" && running.mode !== "heat") running = { mode: "heat", preset: null }
         put("heater/power", running.mode === "off" ? "off" : "on")
@@ -169,7 +169,7 @@ function createBridgeLogic() {
         if (Number(autoterm.fanspeed) > 0) put("heater/fan_level", autoterm.fanspeed)
         // What it does in plain words, and a fault always - empty when there
         // is none, so a screen clears it (docs/2026-10-05-autoterm-block.md).
-        var said = autotermState(autoterm.heatstatus, autoterm.heaterror)
+        var said = autotermState(autoterm.heatstatus, autoterm.heaterror, autoterm.mode)
         if (said.text) put("heater/state_text", said.text)
         out.push({ topic: PREFIX + "heater/fault", value: said.fault })
         // One line for the block: the fault while there is one, else the state.
@@ -704,7 +704,6 @@ function createBridgeLogic() {
     "no ignition error": "Keine Zündung",
     "no fuel? retry": "Kein Brennstoff? Neuer Versuch",
     "flame-out": "Flammabriss",
-    "unknown status": "Unbekannter Zustand der Heizung",
   }
   var FAULT_CODES = {
     1: "Überhitzung Wärmetauscher",
@@ -728,7 +727,14 @@ function createBridgeLogic() {
     30: "Keine Verbindung Bedienteil – Steuergerät",
     78: "Flammabriss im Betrieb",
   }
-  function autotermState(status, error) {
+  //
+  // Pekaway says «unknown status» for any code its table lacks. In
+  // temperature mode that is the heater waiting: at its target it cannot heat
+  // any weaker, stops, and starts again once the room has cooled - seen in
+  // the van on 2026-10-28, fan and pump at 0, then glowing again by itself.
+  // Otherwise not known; not a fault either way, since Pekaway names its
+  // faults (AUTOTERM_FAULTS) and a start not followed is the bridge's own.
+  function autotermState(status, error, mode) {
     var s = present(status) ? String(status).trim() : ""
     var code = present(error) && /^\d+$/.test(String(error).trim()) ? parseInt(error, 10) : 0
     var fault = ""
@@ -736,20 +742,22 @@ function createBridgeLogic() {
     else if (AUTOTERM_FAULTS[s.toLowerCase()]) fault = "Störung: " + AUTOTERM_FAULTS[s.toLowerCase()]
     if (fault) return { text: "Störung", fault: fault }
     for (var i = 0; i < AUTOTERM_STATES.length; i++) if (AUTOTERM_STATES[i][0].test(s)) return { text: AUTOTERM_STATES[i][1], fault: "" }
+    if (/^unknown status$/i.test(s)) return { text: /temp/i.test(String(mode || "")) ? "Wartet" : "Zustand unbekannt", fault: "" }
     return { text: s, fault: "" }
   }
 
-  // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
-  // the preset where it heats.
-  // What an Autoterm does, by its state in plain words: heat (starting or
-  // heating), fan, stopping (cooling down), or nothing of these (null).
+  // What an Autoterm does, by its state in plain words: heat (starting,
+  // heating, or waiting at its target), fan, stopping (cooling down), or
+  // nothing of these (null).
   function autotermFamily(stateText) {
     if (stateText === "Lüftet") return "fan"
-    if (stateText === "Startet" || stateText === "Heizt") return "heat"
+    if (stateText === "Startet" || stateText === "Heizt" || stateText === "Wartet") return "heat"
     if (stateText === "Kühlt ab") return "stopping"
     return null
   }
 
+  // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
+  // the preset where it heats.
   function autotermMode(mode) {
     var m = String(mode || "").toLowerCase()
     if (m.indexOf("fan") >= 0) return { mode: "fan_only", preset: null }
@@ -816,7 +824,9 @@ function createBridgeLogic() {
   // fans, it fans on; started to fan while it heats, it heats on (tried in
   // the van, 2026-10-28). Across that line the bridge stops it first and
   // keeps the start (`pending`) until it reports «Bereit», after the cooling
-  // down that follows heating; it is sent then (pendingStart).
+  // down that follows heating; it is sent then (pendingStart). Stopped even
+  // while it cools down: in temperature mode that is a pause at the target,
+  // after which it lights again by itself (seen the same day).
   function crossOver(cmd, state) {
     if (!cmd || !cmd.request) return cmd
     var start = cmd.request[cmd.request.length - 1]
@@ -830,9 +840,7 @@ function createBridgeLogic() {
       { topic: PREFIX + "heater/view", value: requestView(start) },
       { topic: PREFIX + "heater/status_line", value: waitingLine(now === "stopping" ? "Kühlt ab" : "", start) },
     ])
-    // Cooling down it is stopping already.
-    if (now === "stopping") delete out.request
-    else out.request = [autotermRequest("stop", 0)]
+    out.request = [autotermRequest("stop", 0)]
     return out
   }
 
