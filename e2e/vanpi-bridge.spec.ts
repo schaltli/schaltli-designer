@@ -1250,17 +1250,22 @@ test.describe("VanPi bridge flow", () => {
     const [, , shown, toHttp] = commands.run({ topic: "schaltli/cmnd/heater/view", payload: "target" })
     expect(toHttp).toEqual(http("stop/0"))
     expect(shown).toContainEqual({ topic: "schaltli/state/heater/view", payload: "target", retain: true })
+    // ...and the line above it what comes.
+    expect(shown).toContainEqual({ topic: "schaltli/state/heater/status_line", payload: "Stoppt, dann Temperatur", retain: true })
     // Still fanning, Pekaway already saying power mode: the choice stays shown, nothing more goes out.
     const still = values.run(autoterm({ mode: "power mode", heatstatus: "only fan", fanspeed: 10 }))
     expect(still?.[1] ?? null).toBeNull()
     expect(valueIn(still, "view")).toBeUndefined()
+    expect(valueIn(still, "status_line")).toBeUndefined()
     // «standby»: now it is started to its target.
     expect(values.run(autoterm({ mode: "off" }))[1]).toEqual(http("temp/26")[0])
     expect(flowContext.get("schaltliPending")).toBeNull()
     // Heating, «Lüften» stops it; cooling down, nothing goes out until it is «Bereit».
     values.run(autoterm({ mode: "temp mode", heatstatus: "heating", heatertoggle: true }))
     expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })[3]).toEqual(http("stop/0"))
-    expect(values.run(autoterm({ mode: "off", heatstatus: "shutting down" }))?.[1] ?? null).toBeNull()
+    const cooling = values.run(autoterm({ mode: "off", heatstatus: "shutting down" }))
+    expect(cooling[1]).toBeNull()
+    expect(valueIn(cooling, "status_line")).toBe("Kühlt ab, dann Lüften")
     // Asked again while it cools down: no second stop.
     expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })?.[3] ?? null).toBeNull()
     // At the fan level it last had.

@@ -826,7 +826,10 @@ function createBridgeLogic() {
     var out = {}
     for (var k in cmd) out[k] = cmd[k]
     out.pending = start
-    out.state = (cmd.state || []).concat([{ topic: PREFIX + "heater/view", value: requestView(start) }])
+    out.state = (cmd.state || []).concat([
+      { topic: PREFIX + "heater/view", value: requestView(start) },
+      { topic: PREFIX + "heater/status_line", value: waitingLine(now === "stopping" ? "Kühlt ab" : "", start) },
+    ])
     // Cooling down it is stopping already.
     if (now === "stopping") delete out.request
     else out.request = [autotermRequest("stop", 0)]
@@ -837,6 +840,19 @@ function createBridgeLogic() {
   function requestView(request) {
     var m = /\/autoterm\/(temp|power|vent)\//.exec(request.url)
     return !m ? "off" : m[1] === "vent" ? "fan" : m[1] === "power" ? "power" : "target"
+  }
+
+  // The status line while a start waits: what the heater does, then what
+  // comes, so the choice is seen to have arrived - «Kühlt ab, dann Lüften».
+  // Anything but cooling down is it being stopped.
+  var VIEW_WORDS = { target: "Temperatur", power: "Leistung", fan: "Lüften" }
+  function waitingLine(stateText, request) {
+    return (stateText === "Kühlt ab" ? "Kühlt ab" : "Stoppt") + ", dann " + VIEW_WORDS[requestView(request)]
+  }
+
+  function faultIn(updates) {
+    for (var i = 0; i < updates.length; i++) if (updates[i].topic === PREFIX + "heater/fault" && updates[i].value) return true
+    return false
   }
 
   // How long a start waits for the heater to be «Bereit»: an Autoterm cools
@@ -853,8 +869,12 @@ function createBridgeLogic() {
     for (var i = 0; i < updates.length; i++) if (updates[i].topic === PREFIX + "heater/state_text") stateText = updates[i].value
     if (stateText === "Bereit") return { updates: updates, request: pending.request, pending: null }
     var view = requestView(pending.request)
+    var line = waitingLine(stateText, pending.request)
     var out = updates.map(function (u) {
-      return u.topic === PREFIX + "heater/view" ? { topic: u.topic, value: view } : u
+      if (u.topic === PREFIX + "heater/view") return { topic: u.topic, value: view }
+      // A fault the heater reports stays what the line says.
+      if (u.topic === PREFIX + "heater/status_line" && !faultIn(updates)) return { topic: u.topic, value: line }
+      return u
     })
     return { updates: out, request: null, pending: pending }
   }
