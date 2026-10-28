@@ -1223,6 +1223,85 @@ test.describe("VanPi bridge flow", () => {
     expect(targetIn(values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 24 })))).toBe("24")
   })
 
+  // Tried in the van on 2026-10-28: started to heat while it fanned, the
+  // Autoterm fanned on, Pekaway saying «power mode»; started to fan while it
+  // heated, it heated on. Stopped, it was «standby» after 10 s from fanning
+  // and after some minutes of «shutting down» from heating, and then took
+  // the start.
+  test("an Autoterm switched between fan and heat through the nodes: stopped first, started once it is «Bereit»", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    expect(byId["sbb-values"].wires[1]).toEqual(["sbb-http-out"])
+    const flowContext = new Map<string, unknown>()
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const autoterm = (autoterm1: Record<string, unknown>) => ({
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: {
+        heatertoggle: false, heatstatus: "standby", heattemp: "16", heaterror: "no", targettemp_vanpi: 26,
+        mode: "off", fanspeed: 0, powerlevel: 0, runtime_m: 0, runtime_remaining_s: 0, ...autoterm1,
+      } }),
+    })
+    const http = (path: string) => [{ method: "PUT", url: `http://127.0.0.1:1880/autoterm/${path}`, payload: "" }]
+    const valueIn = (out: { topic: string; payload: string }[][] | null, topic: string) =>
+      out?.[0]?.find((m) => m.topic === `schaltli/state/heater/${topic}`)?.payload
+
+    // Fanning: «Temperatur» stops it, and the block shows the choice at once.
+    values.run(autoterm({ mode: "fan only", heatstatus: "only fan", fanspeed: 10 }))
+    const [, , shown, toHttp] = commands.run({ topic: "schaltli/cmnd/heater/view", payload: "target" })
+    expect(toHttp).toEqual(http("stop/0"))
+    expect(shown).toContainEqual({ topic: "schaltli/state/heater/view", payload: "target", retain: true })
+    // Still fanning, Pekaway already saying power mode: the choice stays shown, nothing more goes out.
+    const still = values.run(autoterm({ mode: "power mode", heatstatus: "only fan", fanspeed: 10 }))
+    expect(still?.[1] ?? null).toBeNull()
+    expect(valueIn(still, "view")).toBeUndefined()
+    // «standby»: now it is started to its target.
+    expect(values.run(autoterm({ mode: "off" }))[1]).toEqual(http("temp/26")[0])
+    expect(flowContext.get("schaltliPending")).toBeNull()
+    // Heating, «Lüften» stops it; cooling down, nothing goes out until it is «Bereit».
+    values.run(autoterm({ mode: "temp mode", heatstatus: "heating", heatertoggle: true }))
+    expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })[3]).toEqual(http("stop/0"))
+    expect(values.run(autoterm({ mode: "off", heatstatus: "shutting down" }))?.[1] ?? null).toBeNull()
+    // Asked again while it cools down: no second stop.
+    expect(commands.run({ topic: "schaltli/cmnd/heater/view", payload: "fan" })?.[3] ?? null).toBeNull()
+    // At the fan level it last had.
+    expect(values.run(autoterm({ mode: "off" }))[1]).toEqual(http("vent/10")[0])
+
+    // «Aus» while it waits: the start is dropped.
+    values.run(autoterm({ mode: "fan only", heatstatus: "only fan", fanspeed: 3 }))
+    commands.run({ topic: "schaltli/cmnd/heater/view", payload: "power" })
+    commands.run({ topic: "schaltli/cmnd/heater/view", payload: "off" })
+    expect(values.run(autoterm({ mode: "off" }))?.[1] ?? null).toBeNull()
+  })
+
+  test("an Autoterm reported doing other than Pekaway's mode: what it does is shown, and a start waits for it to be off", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const values = (autoterm1: Record<string, unknown>) =>
+      asMap(logic.flatten("heater", JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: {
+        heatertoggle: true, heatstatus: "standby", heattemp: "16", heaterror: "no", targettemp_vanpi: 26,
+        mode: "off", fanspeed: 5, powerlevel: 5, runtime_m: 0, runtime_remaining_s: 0, ...autoterm1,
+      } })))
+    // Seen in the van: Pekaway says power mode, the heater fans.
+    expect(values({ mode: "power mode", heatstatus: "only fan" })).toMatchObject({ [`${S}mode`]: "fan_only", [`${S}view`]: "fan" })
+    expect(values({ mode: "fan only", heatstatus: "heating" })).toMatchObject({ [`${S}mode`]: "heat", [`${S}view`]: "target" })
+    // Pekaway's mode while the heater says nothing against it.
+    expect(values({ mode: "power mode", heatstatus: "heating" })[`${S}view`]).toBe("power")
+
+    // A start within its kind goes straight out, across it a stop first.
+    const at = (stateText: string) => ({ [`${S}preset`]: "temperature", [`${S}target`]: "26", [`${S}state_text`]: stateText })
+    const http = (path: string) => ({ method: "PUT", url: `http://127.0.0.1:1880/autoterm/${path}` })
+    expect(logic.command("schaltli/cmnd/heater/view", "power", at("Heizt"))).toEqual({ request: [http("power/5")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/fan_level", "4", at("Lüftet"))).toEqual({ request: [http("vent/4")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/view", "target", at("Bereit"))).toEqual({ request: [http("temp/26")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/power_level", "7", at("Lüftet"))).toMatchObject({ request: [http("stop/0")], pending: http("power/7") })
+    expect(logic.command("schaltli/cmnd/heater", "fan_only", at("Startet"))).toMatchObject({ request: [http("stop/0")], pending: http("vent/5") })
+    expect(logic.command("schaltli/cmnd/heater/view", "off", at("Lüftet"))).toEqual({ request: [http("stop/0")], refresh: "heater" })
+    // Waiting longer than any cooling down: given up.
+    const pending = { request: http("temp/26"), at: 0 }
+    expect(logic.pendingStart([{ topic: `${S}state_text`, value: "Bereit" }], pending, 11 * 60 * 1000)).toMatchObject({ request: null, pending: null })
+    expect(logic.pendingStart([{ topic: `${S}state_text`, value: "Bereit" }], pending, 60 * 1000)).toMatchObject({ request: http("temp/26"), pending: null })
+  })
+
   test("a refused command through the nodes: the HTTP answer becomes the heater's fault, the next taken one clears it", () => {
     const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
     expect(byId["sbb-http-out"].wires).toEqual([["sbb-http-answer"]])

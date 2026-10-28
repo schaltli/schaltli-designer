@@ -126,6 +126,7 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
       func: `const logic = context.get("logic");
 const kind = String(msg.topic).split("/")[2];
 // A dimmer level just commanded outlives an answer that is still behind it.
+let start = null;
 let answer = logic.held(logic.flatten(kind, msg.payload, flow.get("schaltliState") || {}), flow.get("schaltliHolds") || {}, Date.now());
 // How long the battery lasts: Pekaway's global, the one it publishes nowhere.
 if (kind === "batt") answer = answer.concat(logic.timeToGo(global.get("ttgo")));
@@ -142,6 +143,14 @@ if (kind === "heater") {
   const f = logic.fuelCount(answer, flow.get("schaltliFuel") || null, Date.now());
   flow.set("schaltliFuel", f.fuel);
   answer = f.updates;
+  // An Autoterm start kept across a stop, sent once the heater is «Bereit».
+  const s = logic.pendingStart(answer, flow.get("schaltliPending") || null, Date.now());
+  flow.set("schaltliPending", s.pending);
+  answer = s.updates;
+  if (s.request) {
+    start = { method: s.request.method, url: s.request.url, payload: "" };
+    flow.set("schaltliFaults", logic.commandSent(flow.get("schaltliFaults") || null, s.request, Date.now()));
+  }
   // A command Pekaway refused, a start the heater did not follow.
   const b = logic.bridgeFaults(answer, flow.get("schaltliFaults") || null, Date.now());
   flow.set("schaltliFaults", b.faults);
@@ -163,9 +172,9 @@ flow.set("schaltliAnnounced", announced);
 node.status({ text: Object.keys(result.last).length + " values" });
 const out = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 for (const c of configs) out.push({ topic: c.topic, payload: c.payload, retain: true });
-if (out.length === 0) return null;
-return [out];`,
-      outputs: 1,
+if (out.length === 0 && !start) return null;
+return [out.length > 0 ? out : null, start];`,
+      outputs: 2,
       timeout: 0,
       noerr: 0,
       initialize: LOGIC_INIT,
@@ -173,7 +182,7 @@ return [out];`,
       libs: [],
       x: 390,
       y: 180,
-      wires: [["sbb-state-out"]],
+      wires: [["sbb-state-out"], ["sbb-http-out"]],
     },
     {
       id: "sbb-state-out",
@@ -248,6 +257,10 @@ if (cmd.state) {
   flow.set("schaltliState", result.last);
   if (result.changed.length > 0) out[2] = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 }
+// An Autoterm start kept until the heater is «Bereit» (values); any other
+// command to it drops one kept.
+if (cmd.pending) flow.set("schaltliPending", { request: cmd.pending, at: Date.now() });
+else if (cmd.request) flow.set("schaltliPending", null);
 if (cmd.request) {
   const requests = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
   const sent = () => flow.set("schaltliFaults", logic.commandSent(flow.get("schaltliFaults") || null, cmd.request[cmd.request.length - 1], Date.now()));

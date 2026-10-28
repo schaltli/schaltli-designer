@@ -150,6 +150,12 @@ function createBridgeLogic() {
       var heater = autoterm || data
       if (autoterm) {
         var running = autotermMode(autoterm.mode)
+        // Pekaway reports the mode it last asked for, the heater what it
+        // does: started to heat while it fanned, it fans on and Pekaway says
+        // power mode (seen in the van, 2026-10-28). What it does wins.
+        var doing = autotermFamily(autotermState(autoterm.heatstatus, autoterm.heaterror).text)
+        if (doing === "fan" && running.mode !== "fan_only") running = { mode: "fan_only", preset: null }
+        else if (doing === "heat" && running.mode !== "heat") running = { mode: "heat", preset: null }
         put("heater/power", running.mode === "off" ? "off" : "on")
         put("heater/mode", running.mode)
         // The preset stays what it was while the heater is off; before any
@@ -735,6 +741,15 @@ function createBridgeLogic() {
 
   // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
   // the preset where it heats.
+  // What an Autoterm does, by its state in plain words: heat (starting or
+  // heating), fan, stopping (cooling down), or nothing of these (null).
+  function autotermFamily(stateText) {
+    if (stateText === "Lüftet") return "fan"
+    if (stateText === "Startet" || stateText === "Heizt") return "heat"
+    if (stateText === "Kühlt ab") return "stopping"
+    return null
+  }
+
   function autotermMode(mode) {
     var m = String(mode || "").toLowerCase()
     if (m.indexOf("fan") >= 0) return { mode: "fan_only", preset: null }
@@ -791,8 +806,60 @@ function createBridgeLogic() {
   // until it is started with them), or null
   // when it is not one this bridge knows or the payload is not valid. `state`
   // is the last published schaltli/state values, which "toggle" and a heater
-  // target need.
+  // target need. With `pending`, an Autoterm start kept until the heater is
+  // «Bereit» again (crossOver).
   function command(topic, payload, state) {
+    return crossOver(commandFor(topic, payload, state), state || {})
+  }
+
+  // An Autoterm takes a start only from standby: started to heat while it
+  // fans, it fans on; started to fan while it heats, it heats on (tried in
+  // the van, 2026-10-28). Across that line the bridge stops it first and
+  // keeps the start (`pending`) until it reports «Bereit», after the cooling
+  // down that follows heating; it is sent then (pendingStart).
+  function crossOver(cmd, state) {
+    if (!cmd || !cmd.request) return cmd
+    var start = cmd.request[cmd.request.length - 1]
+    var want = /\/autoterm\/vent\//.test(start.url) ? "fan" : /\/autoterm\/(temp|power)\//.test(start.url) ? "heat" : null
+    var now = autotermFamily(state[PREFIX + "heater/state_text"])
+    if (!want || !now || now === want) return cmd
+    var out = {}
+    for (var k in cmd) out[k] = cmd[k]
+    out.pending = start
+    out.state = (cmd.state || []).concat([{ topic: PREFIX + "heater/view", value: requestView(start) }])
+    // Cooling down it is stopping already.
+    if (now === "stopping") delete out.request
+    else out.request = [autotermRequest("stop", 0)]
+    return out
+  }
+
+  // The block's view a start leads to (heaterView).
+  function requestView(request) {
+    var m = /\/autoterm\/(temp|power|vent)\//.exec(request.url)
+    return !m ? "off" : m[1] === "vent" ? "fan" : m[1] === "power" ? "power" : "target"
+  }
+
+  // How long a start waits for the heater to be «Bereit»: an Autoterm cools
+  // down for some minutes after heating.
+  var PENDING_MS = 10 * 60 * 1000
+
+  // A heater answer with the kept start's view in place of Pekaway's, the
+  // start to send now that the heater is «Bereit» (or null), and the record
+  // as it is now: { request, at } or null.
+  function pendingStart(updates, pending, now) {
+    if (!pending) return { updates: updates, request: null, pending: null }
+    if (now - pending.at > PENDING_MS) return { updates: updates, request: null, pending: null }
+    var stateText = null
+    for (var i = 0; i < updates.length; i++) if (updates[i].topic === PREFIX + "heater/state_text") stateText = updates[i].value
+    if (stateText === "Bereit") return { updates: updates, request: pending.request, pending: null }
+    var view = requestView(pending.request)
+    var out = updates.map(function (u) {
+      return u.topic === PREFIX + "heater/view" ? { topic: u.topic, value: view } : u
+    })
+    return { updates: out, request: null, pending: pending }
+  }
+
+  function commandFor(topic, payload, state) {
     var parts = String(topic).split("/")
     if (parts[0] !== "schaltli" || parts[1] !== "cmnd") return null
     var group = parts[2]
@@ -1362,6 +1429,7 @@ function createBridgeLogic() {
     heaterTimer: heaterTimer,
     commandAnswer: commandAnswer,
     commandSent: commandSent,
+    pendingStart: pendingStart,
     bridgeFaults: bridgeFaults,
     fuelCount: fuelCount,
     fuelReset: fuelReset,
