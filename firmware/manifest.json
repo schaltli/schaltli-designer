@@ -1,48 +1,48 @@
 {
-  "release": "fw-2026.10.28.1",
-  "commit": "1fc1a7b971afade024f3b54dc5dd1f220f793cc7",
+  "release": "fw-2026.10.28.2-pre.heizung_timer",
+  "commit": "2d90b3580944bccb22f0ce82633b903a62e259a3",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-knob-1v8-fw-2026.10.28.1.bin",
-      "size": 2244928,
-      "sha256": "5302fec57e1bb9b03d1b98d8c51be2eddd546efdfc75c12df4781109de495994",
+      "build": "fw-2026.10.28.2-pre.heizung_timer",
+      "file": "waveshare-knob-1v8-fw-2026.10.28.2-pre.heizung_timer.bin",
+      "size": 2245408,
+      "sha256": "50cff68b545718f0ab2890a2de62b50e32b234acc16d20f8a9e7cb1d20278917",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/waveshare-knob-1v8-fw-2026.10.28.2-pre.heizung_timer.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.10.28.1.bin",
-        "size": 2310464,
-        "sha256": "6553112be520bbc917a7220c4a36393dbceedd6dbc83affbb67a3dcbce2a8a0e",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.10.28.2-pre.heizung_timer.bin",
+        "size": 2310944,
+        "sha256": "af861c6c2222f438b8504cfc529e17c5ba72ba47da1e58ea5fb22ef962e7db33",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/waveshare-knob-1v8-factory-fw-2026.10.28.2-pre.heizung_timer.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
-      "size": 2053328,
-      "sha256": "5cc3ad15d9e300fbb2a7039d11ee38f7d71d23c8d1f666dce1f29a1ad0e5cb83",
+      "build": "fw-2026.10.28.2-pre.heizung_timer",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.28.2-pre.heizung_timer.bin",
+      "size": 2054080,
+      "sha256": "37ee2a6b4248c97d880398aa7d96776c73df203fbbeeaaaa69f4e794e35b7f6f",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/waveshare-touch-lcd-4v3b-fw-2026.10.28.2-pre.heizung_timer.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin",
-        "size": 2118864,
-        "sha256": "b0ca47bae5a0f86bf9269d44bb1d972da95f55d33a82a9b35dc8b2112bc57e8d",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.2-pre.heizung_timer.bin",
+        "size": 2119616,
+        "sha256": "f9bb96f02d0831e346a853e10d55c947a8080380f1e4826f88265e5f6735951f",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.2-pre.heizung_timer.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.10.28.1",
-      "file": "m5stack-papers3-fw-2026.10.28.1.bin",
-      "size": 2164432,
-      "sha256": "068b25266f5fae4b592e0e731911761561123354e38bb82932fb2249ca82c282",
+      "build": "fw-2026.10.28.2-pre.heizung_timer",
+      "file": "m5stack-papers3-fw-2026.10.28.2-pre.heizung_timer.bin",
+      "size": 2164960,
+      "sha256": "5a94eea1e1f7ee67cbcf331725e539a1115617a09dc4418a9908526830527fd2",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/m5stack-papers3-fw-2026.10.28.2-pre.heizung_timer.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.10.28.1.bin",
-        "size": 2229968,
-        "sha256": "f75453cc7e1debb12fbdc8dd29257bfce33725e8a981c8da055bed19057fe7dc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-factory-fw-2026.10.28.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.10.28.2-pre.heizung_timer.bin",
+        "size": 2230496,
+        "sha256": "c76b89e14c7217aa90ec24cd11dc5f94c8c9fbc00ca186fc84c638d582888fa9",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.2-pre.heizung_timer/m5stack-papers3-factory-fw-2026.10.28.2-pre.heizung_timer.bin"
       }
     }
   }
