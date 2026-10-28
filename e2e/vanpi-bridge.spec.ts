@@ -227,6 +227,10 @@ test.describe("VanPi bridge logic", () => {
       ["sensor", "Abwasser"],
       ["sensor", "Level 3"],
       ["sensor", "Level 4"],
+      ["sensor", "Innen"],
+      ["sensor", "Boiler"],
+      ["sensor", "Temp3"],
+      ["sensor", "Temp4"],
       ["switch", "Boiler 12V"],
       ["switch", "WifiRelay 1"],
       ["switch", "Boiler 220V"],
@@ -248,6 +252,9 @@ test.describe("VanPi bridge logic", () => {
     ])
     const byLabel = Object.fromEntries(entries.map((e) => [e.label, e]))
     expect(byLabel["Frischwasser"].controls).toEqual([{ kind: "value", read: "schaltli/state/tank/1/level", unit: "%", level: true }])
+    // A temperature sensor in °C, under Pekaway's name for it (2026-10-28,
+    // tester feedback: blocks without temperatures).
+    expect(byLabel["Boiler"].controls).toEqual([{ kind: "value", read: "schaltli/state/temp/2/value", unit: "°C", level: false }])
     expect(byLabel["Batterie"].controls).toEqual([{ kind: "value", read: "schaltli/state/battery/soc", unit: "%", level: true }])
     expect(byLabel["Abwasserpumpe"].controls).toEqual([
       {

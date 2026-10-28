@@ -142,6 +142,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | Ding | angekündigt als | Name |
 |---|---|---|
 | jeder Tank | Messwert in Prozent | der Name aus Pekaway |
+| jeder Temperaturfühler | Messwert in °C | der Name aus Pekaway |
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
 | jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100; der Ein-Aus-Zustand kommt aus der Helligkeit | der Name aus Pekaway |
@@ -153,9 +154,9 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 
-Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3» oder «Relay 7». Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
+Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
-Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
+Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
 Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
 

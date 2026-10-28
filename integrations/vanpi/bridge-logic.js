@@ -325,6 +325,20 @@ function createBridgeLogic() {
           icon: "mdi:water",
         })
       }
+    } else if (kind === "temp") {
+      // All four, as Pekaway reports them: one without a sensor reads 0
+      // under Pekaway's own name for it, like a tank with nothing in it.
+      for (var s = 1; s <= 4; s++) {
+        var sensor = data["temp" + s]
+        if (!sensor || typeof sensor !== "object") continue
+        thing("sensor", "temp_" + s, {
+          name: nameOr(sensor.name, "Temperatur " + s),
+          state_topic: PREFIX + "temp/" + s + "/value",
+          unit_of_measurement: "°C",
+          device_class: "temperature",
+          state_class: "measurement",
+        })
+      }
     } else if (kind === "batt") {
       if (!("SoC" in data)) return out
       thing("sensor", "battery", {
