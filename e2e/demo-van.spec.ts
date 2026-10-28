@@ -20,7 +20,7 @@ test.describe.configure({ mode: "serial" })
 
 function listen(filters: string[], broker = BROKER): Promise<{ client: mqtt.MqttClient; seen: Map<string, string> }> {
   return new Promise((resolve, reject) => {
-    const client = mqtt.connect(broker, { clientId: `e2e-demo-van-${Date.now()}`, reconnectPeriod: 0 })
+    const client = mqtt.connect(broker, { clientId: `e2e-demo-van-${process.pid}-${Math.random().toString(16).slice(2, 10)}`, reconnectPeriod: 0 })
     const seen = new Map<string, string>()
     client.on("message", (topic, payload) => seen.set(topic, payload.toString()))
     client.once("connect", () => client.subscribe(filters, () => resolve({ client, seen })))

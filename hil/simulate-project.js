@@ -147,7 +147,7 @@ async function main() {
     process.exit(1)
   }
 
-  const client = mqtt.connect(brokerUrl, { clientId: `schaltli-mock-${Date.now()}` })
+  const client = mqtt.connect(brokerUrl, { clientId: `schaltli-mock-${process.pid}-${Math.random().toString(16).slice(2, 10)}` })
 
   client.on("error", (err) => {
     console.error(`broker error: ${err.message}`)

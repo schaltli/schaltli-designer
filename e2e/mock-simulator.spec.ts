@@ -235,6 +235,38 @@ test.describe("mock MQTT host", () => {
     }
   })
 
+  test("mocks started at once each keep their connection", async ({}, testInfo) => {
+    // Named after the millisecond they started, two mocks of parallel tests
+    // could share a client id; the broker then dropped the first one
+    // (ECONNRESET) and it exited before listening - a different test of this
+    // file failing in each test:quick (2026-10-28).
+    const tag = `t${testInfo.testId.replace(/[^a-z0-9]/gi, "")}`
+    const zips = await Promise.all(
+      [0, 1, 2, 3].map((i) =>
+        writeProjectZip(`together-${i}`, [
+          switchObject("sw", `mock-${tag}/state/${i}`, `mock-${tag}/cmd/${i}`, [
+            { id: "s1", label: "AN", readValue: `${i}`, writeValue: "an" },
+          ]),
+        ]),
+      ),
+    )
+    const mocks = await Promise.all(zips.map((zip) => startMock(zip)))
+    const observer = await connectObserver(`e2e-mock-together-${testInfo.testId}`)
+    try {
+      for (const i of [0, 1, 2, 3]) {
+        const answer = waitFor(observer, `mock-${tag}/state/${i}`, 8000)
+        observer.publish(`mock-${tag}/cmd/${i}`, "an")
+        expect(await answer, `mock ${i} should still be connected and answer`).toBe(`${i}`)
+      }
+    } finally {
+      for (const i of [0, 1, 2, 3]) observer.publish(`mock-${tag}/state/${i}`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      observer.end(true)
+      for (const mock of mocks) mock.child.kill()
+      for (const zip of zips) fs.unlinkSync(zip)
+    }
+  })
+
   test("--drop leaves a command unanswered, which is what a timeout rollback needs", async ({}, testInfo) => {
     const tag = `t${testInfo.testId.replace(/[^a-z0-9]/gi, "")}`
     const cmd = `mock-${tag}/cmd/dropped`

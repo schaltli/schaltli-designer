@@ -122,7 +122,7 @@ async function clickAt(page: Page, r: { x: number; y: number; width: number; hei
 test("in the preview Disarm sends the typed code only when it matches, then the field is empty", async ({ page }) => {
   const prefix = `e2e-alarm/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
   const broker = await new Promise<mqtt.MqttClient>((resolve, reject) => {
-    const c = mqtt.connect(BROKER_URL, { clientId: `e2e-alarm-${Date.now()}`, reconnectPeriod: 0 })
+    const c = mqtt.connect(BROKER_URL, { clientId: `e2e-alarm-${process.pid}-${Math.random().toString(16).slice(2, 10)}`, reconnectPeriod: 0 })
     c.once("connect", () => resolve(c))
     c.once("error", reject)
   })

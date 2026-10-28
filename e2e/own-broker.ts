@@ -24,7 +24,7 @@ export async function ownBroker(): Promise<OwnBroker> {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const url = `ws://127.0.0.1:${(server.address() as { port: number }).port}`
   const client = await new Promise<mqtt.MqttClient>((resolve, reject) => {
-    const c = mqtt.connect(url, { clientId: `e2e-own-broker-${Date.now()}`, reconnectPeriod: 0 })
+    const c = mqtt.connect(url, { clientId: `e2e-own-broker-${process.pid}-${Math.random().toString(16).slice(2, 10)}`, reconnectPeriod: 0 })
     c.once("connect", () => resolve(c))
     c.once("error", reject)
   })

@@ -556,7 +556,7 @@ test.describe("a text's style", () => {
     // Per run, so repeats in parallel do not clear each other's retained announcement.
     const prefix = `e2e-scale-${testInfo.testId}-${testInfo.repeatEachIndex}-${testInfo.retry}`
     const topic = `${prefix}/switch/pump/config`
-    const broker = mqtt.connect(process.env.HIL_MQTT_WS_URL || "ws://localhost:9001", { clientId: `e2e-scale-${Date.now()}` })
+    const broker = mqtt.connect(process.env.HIL_MQTT_WS_URL || "ws://localhost:9001", { clientId: `e2e-scale-${process.pid}-${Math.random().toString(16).slice(2, 10)}` })
     await new Promise((resolve) => broker.once("connect", resolve))
     await broker.publishAsync(topic, JSON.stringify({ name: "Pumpe", stat_t: "van/pump", cmd_t: "van/pump/set" }), { retain: true })
     try {

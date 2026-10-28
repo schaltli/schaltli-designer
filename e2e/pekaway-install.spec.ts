@@ -10,6 +10,20 @@ import { execFileSync } from "child_process"
 
 const script = fs.readFileSync(path.join(__dirname, "..", "deploy", "pekaway-install.sh"), "utf8")
 
+// bash: on the PATH, or on Windows the one Git brings - its cmd folder is on
+// the PATH, its bin folder often not, and a test:quick started from
+// PowerShell had no bash at all (spawnSync bash ENOENT, 2026-10-28).
+const bash = (() => {
+  try {
+    execFileSync("bash", ["-c", "true"], { stdio: "ignore" })
+    return "bash"
+  } catch {}
+  const git = execFileSync(process.platform === "win32" ? "where" : "which", ["git"], { encoding: "utf8" }).split(/\r?\n/)[0]
+  const beside = path.join(path.dirname(path.dirname(git)), "bin", "bash.exe")
+  if (!fs.existsSync(beside)) throw new Error(`No bash on the PATH, and none beside ${git}`)
+  return beside
+})()
+
 test("the deploy flag is written before the build that compiles it in", () => {
   // NEXT_PUBLIC_* values are baked in at build time. Written after the build,
   // the flag only reached the second run, and a first install had no Deploy to
@@ -63,7 +77,7 @@ test("without --ref it installs the newest official release, not main and not a 
     }
     // Numbers compare as numbers: .10 is after .2. A pre-release and a dry
     // run, newer or not, are never the default.
-    expect(execFileSync("bash", ["-c", pick!], { cwd: repo, encoding: "utf8" }).trim()).toBe("fw-2026.10.04.10")
+    expect(execFileSync(bash, ["-c", pick!], { cwd: repo, encoding: "utf8" }).trim()).toBe("fw-2026.10.04.10")
   } finally {
     fs.rmSync(repo, { recursive: true, force: true })
   }
@@ -87,14 +101,14 @@ test("run as curl | bash, the whole script is read before anything runs", () => 
   expect(lines.slice(opens).filter((l) => l === "}").length).toBeGreaterThanOrEqual(1)
   expect(lines[lines.length - 3]).toBe("}")
   // And the text bash reads from the pipe parses as a whole.
-  expect(execFileSync("bash", ["-n"], { input: script, encoding: "utf8" })).toBe("")
+  expect(execFileSync(bash, ["-n"], { input: script, encoding: "utf8" })).toBe("")
   // What the wrapping buys, shown on a script of the same shape: a command
   // that reads stdin first, a line after it. Without main() the cat eats
   // the echo; with it the echo runs.
   const shaped = (wrapped: boolean) =>
     wrapped ? ["main() {", "cat >/dev/null", "echo after", "}", 'main "$@"', ""].join("\n") : ["cat >/dev/null", "echo after", ""].join("\n")
-  expect(execFileSync("bash", [], { input: shaped(false), encoding: "utf8" }).trim()).toBe("")
-  expect(execFileSync("bash", [], { input: shaped(true), encoding: "utf8" }).trim()).toBe("after")
+  expect(execFileSync(bash, [], { input: shaped(false), encoding: "utf8" }).trim()).toBe("")
+  expect(execFileSync(bash, [], { input: shaped(true), encoding: "utf8" }).trim()).toBe("after")
 })
 
 test("the Pi builds without the type check, and leaves nothing behind", () => {
@@ -137,7 +151,7 @@ test("npm ci and the build get a compressed swap in RAM, on its own zram device,
     // mkswap's output to /dev/null, as it should.
     const run = (stubs: string) => {
       fs.writeFileSync(path.join(dir, "calls"), "")
-      const out = execFileSync("bash", ["-c", `set -euo pipefail
+      const out = execFileSync(bash, ["-c", `set -euo pipefail
 log() { echo "LOG $*"; }
 ${stubs}
 ${block}
@@ -203,7 +217,7 @@ test("the closing lines name the designer's and the broker's address, each on it
   const NL = String.fromCharCode(10)
   const end = script.slice(script.lastIndexOf(NL + 'LAN_IP="$(hostname -I'), script.lastIndexOf(NL + "}" + NL))
   const run = (hostname: string) =>
-    execFileSync("bash", ["-c", `log() { echo "[pekaway-install] $*"; }
+    execFileSync(bash, ["-c", `log() { echo "[pekaway-install] $*"; }
 hostname() { echo "${hostname}"; }
 APP_PORT=3000
 MQTT_WS_PORT=9001

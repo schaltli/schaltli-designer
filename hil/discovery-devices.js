@@ -86,7 +86,7 @@ const configs = [
   ...DEVICES.map((name) => require(path.join(FIXTURES, `${name}.json`))),
   ...BLOCK_DESCRIPTIONS.map((name) => require(path.join(DESCRIPTIONS, `${name}.json`))),
 ];
-const client = mqtt.connect(BROKER, { clientId: `discovery-devices-${Date.now()}` });
+const client = mqtt.connect(BROKER, { clientId: `discovery-devices-${process.pid}-${Math.random().toString(16).slice(2, 10)}` });
 
 function publish(topic, payload) {
   return new Promise((resolve, reject) => client.publish(topic, payload, { retain: true, qos: 1 }, (e) => (e ? reject(e) : resolve())));
