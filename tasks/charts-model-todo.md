@@ -12,7 +12,10 @@ Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go
   - device zip and Android bundle: a chart normalized (`normalizeChart`); its series' and zones' colours a role or hex, resolved to `color` and `colorDark` (lib/themes.ts); textColor, mutedColor, lineColor (grid) from the theme by default; `fontId` follows a device change (lib/project-device.ts)
   - object-order and screen-fields need nothing more: a chart has no live values; what it subscribes to is charts-designer's
   - e2e/chart-export.spec.ts «a chart goes out as stored, normalized, its colours light and dark» (device, Android)
-- [ ] M4 The canvas frame
+- [x] M4 The canvas frame
+  - components/canvas/renderers/render-chart.ts: frame, axes, each series' name in its colour; drawn by the canvas and render-screen (preview, thumbnails, test-render)
+  - components/property-panel/chart-properties.tsx: «Frame» alone, for charts-designer to fill
+  - e2e/chart-model.spec.ts «a chart on the canvas, before it is drawn (M4)»: loaded, selected, resized, copied and pasted
 - [ ] M5 Deploy's gate
 - [ ] M6 The wants
 - [ ] M7 The device contract

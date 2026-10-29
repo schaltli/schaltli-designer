@@ -11,6 +11,7 @@
  */
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
+import { renderChart } from "@/components/canvas/renderers/render-chart"
 import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
@@ -564,6 +565,10 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "energy-diagram":
         renderEnergyDiagram(ctx, obj, options, options.energyMotion)
+        break
+
+      case "chart":
+        renderChart(ctx, obj, colorDepth)
         break
 
       case "icon":

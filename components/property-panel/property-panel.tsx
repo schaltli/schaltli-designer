@@ -9,6 +9,7 @@ import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
 import { NavigatorProperties } from "./navigator-properties"
 import { EnergyDiagramProperties } from "./energy-diagram-properties"
+import { ChartProperties } from "./chart-properties"
 import { LineProperties } from "./line-properties"
 import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
@@ -333,6 +334,8 @@ export function PropertyPanel({
                   screenHeight={screenHeight}
                 />
               )}
+
+              {selectedObject.type === "chart" && <ChartProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
               {selectedObject.type === "energy-diagram" && (
                 <EnergyDiagramProperties

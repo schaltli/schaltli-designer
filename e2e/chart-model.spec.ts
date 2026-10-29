@@ -1,4 +1,10 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
+import JSZip from "jszip"
+import fs from "fs"
+import os from "os"
+import path from "path"
+import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { defaultSeries, normalizeChart, type ChartSeries } from "../lib/chart"
 import { migrateObjects, OBJECT_TYPES, objectTypeLabel } from "../lib/object-types"
 
@@ -87,5 +93,57 @@ test.describe("Chart model", () => {
     expect(migrateObjects(objects)).toBe(true)
     expect(objects[0].properties.series[0].annotations).toEqual([])
     expect(migrateObjects(objects)).toBe(false)
+  })
+})
+
+async function downloadProjectJson(page: Page): Promise<any> {
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+  const chunks: Buffer[] = []
+  for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+  await page.keyboard.press("Escape")
+  return JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+}
+
+const DEVICE_ID = "e2e-chart-4v3b"
+const SCREEN_43B = { width: 800, height: 480 }
+const chartsOf = (project: any) => project.screens.flatMap((s: any) => s.objects).filter((o: any) => o.type === "chart")
+
+test.describe("a chart on the canvas, before it is drawn (M4)", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4v3bDdf(DEVICE_ID)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("loaded from a file, a chart is a frame to select, resize, copy and paste", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    const saved = await downloadProjectJson(page)
+    const screen = saved.screens.find((s: any) => !s.isMaster)
+    screen.objects.push({ id: "c1", type: "chart", x: 100, y: 100, width: 400, height: 240, zIndex: 5, properties: structuredClone(water) })
+    const zip = new JSZip()
+    zip.file("project.json", JSON.stringify(saved))
+    const file = path.join(os.tmpdir(), `chart-model-${Date.now()}.zip`)
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, file)
+
+    const { box } = await getMainCanvas(page)
+    const inside = devicePoint(box, 300, 300, SCREEN_43B)
+    await page.mouse.click(inside.x, inside.y)
+    await expect(page.getByText("Chart c1")).toBeVisible()
+    await page.locator("#width").fill("500")
+    const resized = chartsOf(await downloadProjectJson(page))
+    expect(resized).toHaveLength(1)
+    expect(resized[0].width).toBe(500)
+    expect(resized[0].properties.series.map((s: any) => s.name)).toEqual(["Frischwasser", "Grauwasser"])
+
+    await page.mouse.click(inside.x, inside.y)
+    await page.keyboard.press("Control+c")
+    await page.keyboard.press("Control+v")
+    const pasted = chartsOf(await downloadProjectJson(page))
+    expect(pasted).toHaveLength(2)
+    expect(pasted[1].properties).toEqual(pasted[0].properties)
   })
 })
