@@ -29,4 +29,4 @@ Plan: `tasks/charts-recorder-plan.md`. Approved by the user on 2026-10-29 («ok,
   - e2e/pekaway-install.spec.ts: the unit always on, after the build; the closing lines with it
   - recorder/README.md; handbuch/betrieb/daten.md «Der Verlauf», the unit and the file under backup and «Was ausserhalb liegt» (through maettel-humanizer)
   - spec decision 3 reworded (plan decision 1)
-- [ ] Checkpoint: test:quick green; the user installs on the Pekaway; memory and Mosquitto persistence measured, answers in the spec
+- [ ] Checkpoint: test:quick green (2026-10-29: e2e 1955 passed, every lane PASS, recorder PASS); the user installs on the Pekaway; memory and Mosquitto persistence measured, answers in the spec
