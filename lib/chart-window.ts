@@ -68,7 +68,25 @@ export function addDays(date: string, n: number): string {
  * midnight; 7 days the last seven days, today the last; 1 h and 6 h end with
  * the step now is in; a per-day chart its last `days` days.
  */
-export function chartWindow(chart: Pick<ChartProperties, "mode" | "days">, range: TimeRange, now: number, tz: string): ChartWindow {
+export function chartWindow(chart: Pick<ChartProperties, "mode" | "days">, range: TimeRange, now: number, tz: string, back = 0): ChartWindow {
+  const base = baseWindow(chart, range, now, tz)
+  if (back <= 0) return base
+  // Moved back in time (lib/chart-range.ts): the same span, earlier. What
+  // lies further back than recent or recent6 keep is read from the days.
+  const from = base.from - back
+  const to = base.to - back
+  if (base.source === "daily") {
+    const shift = Math.round(back / 86400)
+    return { ...base, from, to, dates: base.dates.map((d) => addDays(d, -shift)) }
+  }
+  const kept = base.source === "recent" ? 2 * 3600 : base.source === "recent6" ? 48 * 3600 : 0
+  if (now - from <= kept) return { ...base, from, to }
+  const dates: string[] = []
+  for (let d = dateOf(from, tz); midnightOf(d, tz) < to; d = addDays(d, 1)) dates.push(d)
+  return { from, to, source: "day", step: 900, dates }
+}
+
+function baseWindow(chart: Pick<ChartProperties, "mode" | "days">, range: TimeRange, now: number, tz: string): ChartWindow {
   const today = dateOf(now, tz)
   if (chart.mode === "per-day") {
     const n = Math.max(1, chart.days ?? 7)
