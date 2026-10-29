@@ -93,7 +93,14 @@ export function IconProperties({
     const otherwise = liveValue?.otherwise?.kind === "icon" ? liveValue.otherwise.icon : undefined
     const { liveIconId: _id, liveValues: _values, screenIcon: _screen, ...properties } = selectedObject.properties
     onUpdateObject(selectedObject.id, {
-      properties: { ...properties, assetId: otherwise ?? properties.assetId, ...(screenIcon ? { screenIcon: true } : {}) },
+      properties: {
+        ...properties,
+        assetId: otherwise ?? properties.assetId,
+        // The screen's icon in the text's colour, as the navigator draws it:
+        // an icon without one keeps its SVG's black, lost on a dark theme
+        // (user 2026-10-29).
+        ...(screenIcon ? { screenIcon: true, iconColor: properties.iconColor ?? "text" } : {}),
+      },
     })
   }
   const updateProperty = (key: string, value: any) => {

@@ -155,5 +155,15 @@ test.describe("Screen fields in the export", () => {
     await page.getByRole("radio", { name: "Fixed" }).click()
     const fixed = await downloadZipProjectJson(page, "Export Project")
     expect(fixed.screens.find((s: any) => s.name === "Licht").objects.find((o: any) => o.id === "i").properties.assetId).toBe("sq")
+
+    // Set to Screen, an icon without a colour takes the text's, so that it
+    // turns light on a dark theme as the navigator's icons do.
+    await page.getByRole("radio", { name: "Screen" }).click()
+    const tinted = await downloadZipProjectJson(page, "Export Project")
+    const props = tinted.screens.find((s: any) => s.name === "Licht").objects.find((o: any) => o.id === "i").properties
+    expect(props.assetId).toBe("bulb")
+    expect(props.iconColor).toMatch(/^#/)
+    expect(props.iconColorDark).toMatch(/^#/)
+    expect(props.iconColorDark).not.toBe(props.iconColor)
   })
 })
