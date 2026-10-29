@@ -16,6 +16,7 @@ import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-type
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { exportedEnergyDiagram, iconLookColour } from "@/lib/energy-diagram-object"
+import { normalizeChart } from "@/lib/chart"
 import type { EnergyNode } from "@/lib/energy-diagram"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import { backArrowEdges, backEntryKey, backEntryScreen, darkProperties, exportBackBar, entryKey, entryLook, entrySize, exportBar, navigatorEntryObjects, navigatorsOf, themeSwitchAt, themeSwitchKey, themeSwitchObjects, withBackArrowAssets, withDarkColours, withThemeSwitchAssets } from "@/lib/navigator-entries"
@@ -428,6 +429,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     }
     // The energy diagram's data (device contract 2.8); each node's icon per
     // look as the app takes any icon, an SVG tinted light and dark.
+    if (obj.type === "chart") return { ...obj, properties: normalizeChart(obj.properties) }
     if (obj.type === "energy-diagram") {
       const dark = darkVariantOf(obj.properties)
       return exportedEnergyDiagram(obj, project, (_key, node, look) => {

@@ -627,6 +627,9 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
     chargeColor: "energyCharge",
     dischargeColor: "energyDischarge",
   },
+  // A chart's axis labels and legend, what is quiet in it, and its grid
+  // (docs/2026-10-16-charts.md); each series and zone names its own colour.
+  chart: { textColor: "text", mutedColor: "textMuted", lineColor: "outline" },
 }
 
 const NAVIGATOR_ACCENT_ROLES: Partial<Record<string, Role>> = {
@@ -730,6 +733,15 @@ export function applyTheme<T extends { type?: string; properties: Record<string,
         const role = isRole(n.colorRole) ? n.colorRole : "energyLoad"
         return { ...n, color: resolveRole(theme, role, variant, colorDepth) }
       })
+    }
+    // A chart's series and zones each name a role or a hex, as any colour
+    // field may; a series without one is the accent, a zone the track.
+    if (type === "chart") {
+      const colour = (c: unknown, fallback: Role) =>
+        isRole(c) ? resolveRole(theme, c, variant, colorDepth) : typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? applyColorDepth(c, colorDepth) : resolveRole(theme, fallback, variant, colorDepth)
+      if (properties === object.properties) properties = { ...properties }
+      if (Array.isArray(properties.series)) properties.series = properties.series.map((s: { color?: string }) => ({ ...s, color: colour(s.color, "accent") }))
+      if (Array.isArray(properties.zones)) properties.zones = properties.zones.map((z: { color?: string }) => ({ ...z, color: colour(z.color, "track") }))
     }
     const children = object.children ? applyTheme(object.children, theme, variant, colorDepth) : object.children
     if (properties === object.properties && children === object.children) return object
@@ -1027,6 +1039,17 @@ export function applyThemeWithDark<T extends { type?: string; properties: Record
         properties.nodes = properties.nodes.map((n: { color?: string }, k: number) =>
           n.color !== undefined ? { ...n, colorDark: darks[i].properties.nodes[k]?.color } : n,
         )
+      }
+      // A chart's series and zones: each colour beside its dark one.
+      if (sources[i].type === "chart") {
+        if (properties === l.properties) properties = { ...properties }
+        for (const key of ["series", "zones"] as const) {
+          const lights = properties[key]
+          const darkList = darks[i].properties[key]
+          if (Array.isArray(lights) && Array.isArray(darkList)) {
+            properties[key] = lights.map((x: { color?: string }, k: number) => ({ ...x, colorDark: darkList[k]?.color }))
+          }
+        }
       }
       const children =
         l.children && sources[i].children && darks[i].children ? join(sources[i].children!, l.children, darks[i].children!) : l.children

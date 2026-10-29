@@ -79,6 +79,7 @@ function withNavigatorsFitted(project: Project, screenWidth: number, screenHeigh
 const FONT_KEYS: Record<string, string[]> = {
   "energy-diagram": ["fontId", "valueFontId"],
   navigator: ["fontId"],
+  chart: ["fontId"],
 }
 
 /**

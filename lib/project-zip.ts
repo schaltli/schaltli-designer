@@ -23,6 +23,7 @@ import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { exportedEnergyDiagram } from "@/lib/energy-diagram-object"
+import { normalizeChart } from "@/lib/chart"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
@@ -454,6 +455,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     }
     // The energy diagram's data, its node icons' bakes beside each look
     // (device contract 2.8).
+    // A chart as the spec has it stored (lib/chart.ts), its colours resolved
+    // by the theme already.
+    if (obj.type === "chart") return { ...obj, properties: normalizeChart(obj.properties) }
     if (obj.type === "energy-diagram") {
       return exportedEnergyDiagram(obj, project, (key) => {
         const path = iconPathMap.get(assetKey(keyId, key))

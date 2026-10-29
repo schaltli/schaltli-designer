@@ -25,7 +25,7 @@ const water = {
   zones: [{ axis: "left", to: 15, color: "track" }],
   series: [
     series({ id: "s1", source: { kind: "topic", topic: "schaltli/state/tank/1/level" }, name: "Frischwasser", unit: "%", draw: "steps", annotations: ["current"] }),
-    series({ id: "s2", source: { kind: "topic", topic: "schaltli/state/tank/2/level" }, name: "Grauwasser", unit: "%", draw: "steps", color: "muted", annotations: ["current"] }),
+    series({ id: "s2", source: { kind: "topic", topic: "schaltli/state/tank/2/level" }, name: "Grauwasser", unit: "%", draw: "steps", color: "textMuted", annotations: ["current"] }),
   ],
 }
 

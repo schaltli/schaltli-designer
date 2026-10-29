@@ -8,7 +8,10 @@ Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go
 - [x] M2 The screen's time range
   - `timeRange?: TimeRange` on ProjectScreen; device zip and Android bundle write it only where set
   - e2e/chart-export.spec.ts «charts in the device/android export» (time range)
-- [ ] M3 The chart in the export
+- [x] M3 The chart in the export
+  - device zip and Android bundle: a chart normalized (`normalizeChart`); its series' and zones' colours a role or hex, resolved to `color` and `colorDark` (lib/themes.ts); textColor, mutedColor, lineColor (grid) from the theme by default; `fontId` follows a device change (lib/project-device.ts)
+  - object-order and screen-fields need nothing more: a chart has no live values; what it subscribes to is charts-designer's
+  - e2e/chart-export.spec.ts «a chart goes out as stored, normalized, its colours light and dark» (device, Android)
 - [ ] M4 The canvas frame
 - [ ] M5 Deploy's gate
 - [ ] M6 The wants
