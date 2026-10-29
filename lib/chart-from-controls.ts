@@ -76,7 +76,9 @@ export function seriesFromControl(obj: Control): Proposed[] {
           draw: "stacked" as const,
           stack: obj.id ?? "energy",
           annotations: ["sum" as const],
-          ...(n.role === "sink" !== !!n.reverseSign && n.role !== "rest" ? { invert: true } : {}),
+          // A sink takes, and a storage reports taking as positive: both
+          // drawn turned, so taking lies below zero and a storage giving above.
+          ...((n.role === "sink" || n.role === "storage") !== !!n.reverseSign && n.role !== "rest" ? { invert: true } : {}),
           color: colourOf(n.colorRole) ?? "energyLoad",
         }))
     }

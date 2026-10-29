@@ -31,7 +31,7 @@ test.describe("series from controls (D10)", () => {
     expect(seriesFromControl(text)).toEqual([{ source: { kind: "topic", topic: "van/temp" }, name: "temp", valueKind: "level", draw: "line", annotations: ["current"], decimals: 1 }])
   })
 
-  test("an energy diagram one stack: sinks below, the rest its balance, the bus nothing", () => {
+  test("an energy diagram one stack: sinks below, a storage giving above, «Reverse sign» turning it, the rest its balance, the bus nothing", () => {
     const diagram = {
       id: "ed",
       type: "energy-diagram",
@@ -40,6 +40,8 @@ test.describe("series from controls (D10)", () => {
           { id: "bus", role: "bus", name: "12 V" },
           { id: "sun", role: "source", name: "Solar", topic: "van/solar", colorRole: "energySun" },
           { id: "fridge", role: "sink", name: "Fridge", topic: "van/fridge" },
+          { id: "bat", role: "storage", name: "Battery", topic: "van/battery" },
+          { id: "dc", role: "source", name: "Booster", topic: "van/dc", reverseSign: true },
           { id: "rest", role: "rest", name: "Consumers" },
         ],
       },
@@ -48,6 +50,8 @@ test.describe("series from controls (D10)", () => {
     expect(s.map((x) => [x.name, x.source.kind, x.draw, x.stack, !!x.invert, x.color])).toEqual([
       ["Solar", "topic", "stacked", "ed", false, "energySun"],
       ["Fridge", "topic", "stacked", "ed", true, "energyLoad"],
+      ["Battery", "topic", "stacked", "ed", true, "energyLoad"],
+      ["Booster", "topic", "stacked", "ed", true, "energyLoad"],
       ["Consumers", "balance", "stacked", "ed", false, "energyLoad"],
     ])
   })
