@@ -10,7 +10,9 @@ Plan: `tasks/charts-firmware-plan.md`. Approved by the user on 2026-10-29 («fre
   - found first: a device has no zone database - the recorder's `schaltli/history/now` now carries `days`, the last 31 days and tomorrow with where each began, and the designer's core counts days by a `Zone` that is a name or that table (lib/chart-window.ts DayTable); the vectors in tables; spec and contract say so (designer 85620a2)
   - schaltli-firmware src/project/ChartCore.{h,cpp}: calendar from the table, window, range steps, `chartFrom` (a chart's JSON), `seriesData` (day, recent, state, daily payloads), numbers and texts (`fixed` as JS toFixed), the layout with stacks, bands, bars, marks, legend and texts (firmware 8e6d58a)
   - test/test_chart against the vectors: windows and steps exact, texts exact, coordinates within one rounding step - ArduinoJson keeps few-digit numbers as float, as the device will; 94 native tests green; the knob builds
-- [ ] F2 Parsing
+- [x] F2 Parsing
+  - firmware: `ChartProps` behind a `ChartHandle` on ObjectProperties (the core's model, the font, the quiet colour and each series' and zone's colour pair); `ProjectLoader::parseChart`; Screen `timeRange`; ButtonAction `rangeDirection` and `range`; ThemeVariant swaps the chart's pairs (firmware aa8fb17)
+  - test/test_chart «test_chart_from_the_export»: the contract's example read field by field; all three boards build
 - [ ] F3 The history
 - [ ] F4 Drawn on the 4.3B and the knob
 - [ ] F5 Drawn on the PaperS3, DDFs declare chart and charts
