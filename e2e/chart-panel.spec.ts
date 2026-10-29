@@ -86,3 +86,55 @@ test.describe("a chart's panel (D8)", () => {
     await expect(section(page, "Right axis")).toBeVisible()
   })
 })
+
+test.describe("a chart's series in its panel (D9)", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4v3bDdf(DEVICE_ID)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  const topics = [
+    { id: "t1", topic: "van/heater", type: "text", examples: ["on", "off"] },
+    { id: "t2", topic: "van/tank", type: "json", examples: ['{"level": 80}'], subtopics: [{ id: "st1", path: "level", type: "numeric" }] },
+  ]
+
+  test("added from a topic its kind is guessed; switched to power, it offers what power has", async ({ page }) => {
+    await withChart(page, { mode: "time", scroll: false, legend: "top-right", left: { scale: "auto" }, series: [] }, topics)
+    await page.locator("#series-add").selectOption("van/heater")
+    let s = chartOf(await downloadProjectJson(page)).properties.series[0]
+    expect(s).toMatchObject({ id: "s1", source: { kind: "topic", topic: "van/heater" }, name: "heater", valueKind: "state", draw: "band", annotations: ["runtime"] })
+    await expect(page.locator("#series-0-on")).toBeVisible()
+    await expect(page.locator("#series-0-factor")).toHaveCount(0)
+
+    await page.locator("#series-0-kind").selectOption("power")
+    await expect(page.locator("#series-0-on")).toHaveCount(0)
+    await expect(page.locator("#series-0-draw option")).toHaveText(["Line", "Area", "Steps", "Stacked"])
+    await expect(page.getByText("Energy in the window")).toBeVisible()
+    s = chartOf(await downloadProjectJson(page)).properties.series[0]
+    expect(s).toMatchObject({ valueKind: "power", draw: "area", annotations: ["sum"] })
+    expect(s.onMeans).toBeUndefined()
+  })
+
+  test("a JSON field is a series of its own; reordered, the series' order follows", async ({ page }) => {
+    await withChart(page, { mode: "time", scroll: false, legend: "top-right", left: { scale: "auto" }, series: [] }, topics)
+    await page.locator("#series-add").selectOption("van/tank#level")
+    await page.locator("#series-add").selectOption("van/heater")
+    let series = chartOf(await downloadProjectJson(page)).properties.series
+    expect(series.map((x: any) => [x.name, x.valueKind, x.color])).toEqual([
+      ["level", "level", "accent"],
+      ["heater", "state", "energySun"],
+    ])
+    // Both closed, so both rows are in view.
+    const openRows = page.locator('[data-list-row] [aria-expanded="true"]')
+    while ((await openRows.count()) > 0) await openRows.first().click()
+    const grip = page.locator('[data-list-row="1"]').getByRole("button", { name: "Move heater", exact: true })
+    const target = page.locator('[data-list-row="0"]').getByRole("button", { name: "Move level", exact: true })
+    const from = (await grip.boundingBox())!
+    const to = (await target.boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 5 })
+    await page.mouse.up()
+    series = chartOf(await downloadProjectJson(page)).properties.series
+    expect(series.map((x: any) => x.name)).toEqual(["heater", "level"])
+  })
+})

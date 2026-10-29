@@ -7,9 +7,9 @@
  * the spec says is never stored; it offers only what fits besides.
  */
 
-import type { ReactNode } from "react"
 import type { ProjectFont, ScreenObject, Topic } from "../project-editor"
 import { normalizeChart, type ChartAxis, type ChartProperties, type ChartZone } from "@/lib/chart"
+import { ChartSeriesSection } from "./chart-series-section"
 import {
   AddListItem,
   ColorField,
@@ -35,8 +35,6 @@ interface ChartPropertiesProps {
   onManageFonts?: () => void
   topics?: Topic[]
   onManageTopics?: () => void
-  /** The series' own section (charts-designer D9). */
-  seriesSection?: (chart: ChartProperties, update: (next: Partial<ChartProperties>) => void) => ReactNode
 }
 
 const MODES = [
@@ -73,7 +71,7 @@ function AxisFields({ axis, name, onChange }: { axis: ChartAxis; name: string; o
   )
 }
 
-export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "24bit", fonts = [], onManageFonts, seriesSection }: ChartPropertiesProps) {
+export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "24bit", fonts = [], onManageFonts, topics = [] }: ChartPropertiesProps) {
   const chart = normalizeChart(selectedObject.properties ?? {})
   const update = (next: Partial<ChartProperties>) =>
     onUpdateObject(selectedObject.id, { properties: normalizeChart({ ...selectedObject.properties, ...next }) as unknown as Record<string, any> })
@@ -91,7 +89,7 @@ export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "
         <FontField value={chart.fontId} fonts={fonts} onChange={(fontId) => update({ fontId })} onManageFonts={onManageFonts} />
       </PropertySection>
 
-      {seriesSection?.(chart, update)}
+      <ChartSeriesSection chart={chart} update={update} topics={topics} colorDepth={colorDepth} />
 
       <PropertySection title="Left axis" defaultCollapsed>
         <AxisFields axis={chart.left} name="left" onChange={(left) => update({ left })} />

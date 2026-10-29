@@ -232,3 +232,30 @@ export function historyName(topic: string): string {
 
 /** Where a display's wants lie, its instance id after it. */
 export const HISTORY_WANTS = "schaltli/history/wants/"
+
+// ---- what the panel offers (tasks/charts-designer-plan.md decision 9)
+
+/** The ways a series of a kind is drawn in a mode. */
+export function allowedDraws(kind: ValueKind, mode: ChartMode): SeriesDraw[] {
+  return DRAWS_FOR[kind].filter((d) => (d === "bars") === (mode === "per-day"))
+}
+
+/** The annotations a series of a kind can have. */
+export function allowedAnnotations(kind: ValueKind): Annotation[] {
+  return [...ANNOTATIONS_FOR[kind]]
+}
+
+/** The daily values a series of a kind can show per day. */
+export function allowedDailyValues(kind: ValueKind): DailyValue[] {
+  return [...DAILY_FOR[kind]]
+}
+
+/** The colour a new series gets: the theme's roles in turn. */
+export const SERIES_COLOURS = ["accent", "energySun", "energyGrid", "energyEngine", "energyLoad", "accentAlt"] as const
+
+/** The next free series id: s1, s2 … */
+export function nextSeriesId(series: readonly { id: string }[]): string {
+  let n = 1
+  while (series.some((s) => s.id === `s${n}`)) n++
+  return `s${n}`
+}

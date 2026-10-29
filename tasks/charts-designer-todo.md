@@ -32,7 +32,10 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
 - [x] D8 The panel: the chart
   - components/property-panel/chart-properties.tsx: «Chart» (Mode «Over time»/«Per day», Days, Scrolling, Legend, Font), «Left axis» and, with a series on it, «Right axis» (Scale «Automatic»/«Fixed»/«At least», Range Min/Max, Unit), «Zones» (Axis where there are two, Values From/To, Colour; «Add zone»), «Frame» collapsed; every change through `normalizeChart`; a slot for the series (D9)
   - e2e/chart-panel.spec.ts «a chart's panel (D8)» (3); chart-model.spec.ts opens «Frame» first
-- [ ] D9 The panel: the series
+- [x] D9 The panel: the series
+  - components/property-panel/chart-series-section.tsx «Series»: «Add a series from a topic…» (every topic and JSON field), its kind guessed from the examples (`inferValueKind`; a topic carries no unit or Home Assistant class in the project, so those rules wait for a caller that knows them - D10's controls), named after the topic's last part or the field, the next colour of `SERIES_COLOURS`; per series Source (in a stack: a topic or the balance), Reads, Name, Kind (its defaults on change), On when / Value (state), Drawn as (only what fits), Stack, Factor, Unit, Decimals, Reverse sign (power), Axis, Colour, Range, Per day, Shows (the annotations its kind has); remove, reorder by the grip
+  - lib/chart.ts: `allowedDraws`, `allowedAnnotations`, `allowedDailyValues`, `SERIES_COLOURS`, `nextSeriesId`
+  - e2e/chart-panel.spec.ts «a chart's series in its panel (D9)» (2)
 - [ ] D10 Series from controls
 - [ ] D11 «Add history below»
 - [ ] D12 Handbook
