@@ -17,7 +17,7 @@ const { asNumber, matches, valueOf } = require("./compare")
 const MINUTE = 60
 const HOLD = 15 * MINUTE
 const RESOLUTIONS = { m1: 60, m5: 300, m15: 900 }
-const KEEP = { m1: 48 * 3600, m5: 48 * 3600, m15: 31 * 86400 }
+const KEEP = { m1: 48 * 3600, m5: 6 * 3600, m15: 31 * 86400 }
 const DAYS_KEPT = 30
 
 // ---- days in a time zone

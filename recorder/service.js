@@ -14,6 +14,9 @@ const store = require("./store")
 const PREFIX = "schaltli/history"
 const WANTS = `${PREFIX}/wants/`
 const PRESENCE = `${PREFIX}/recorder`
+// recent6: the last 6 hours at 5 minutes, under 2 KB - 48 hours were about
+// 10 KB, past a device's MQTT buffer (tasks/charts-firmware-plan.md decision 1).
+const RECENT6_SPAN = 6 * 3600
 // A recorder whose presence was not renewed for this long is taken for gone.
 const STALE = 180
 
@@ -128,7 +131,7 @@ function createRecorder(options) {
 
   function layRecent(s, now) {
     publish(`${PREFIX}/${historyName(s.topic)}/recent`, JSON.stringify(recentPayload(s, "m1", 2 * 3600, now)))
-    publish(`${PREFIX}/${historyName(s.topic)}/recent6`, JSON.stringify(recentPayload(s, "m5", 48 * 3600, now)))
+    publish(`${PREFIX}/${historyName(s.topic)}/recent6`, JSON.stringify(recentPayload(s, "m5", RECENT6_SPAN, now)))
   }
 
   /** At the end of each step: what changed in it, and the days that fell out cleared. */
@@ -143,7 +146,7 @@ function createRecorder(options) {
       s.prune(now)
       if (s.wanted) {
         if (crossed(RESOLUTIONS.m1)) publish(`${PREFIX}/${historyName(s.topic)}/recent`, JSON.stringify(recentPayload(s, "m1", 2 * 3600, now)))
-        if (crossed(RESOLUTIONS.m5)) publish(`${PREFIX}/${historyName(s.topic)}/recent6`, JSON.stringify(recentPayload(s, "m5", 48 * 3600, now)))
+        if (crossed(RESOLUTIONS.m5)) publish(`${PREFIX}/${historyName(s.topic)}/recent6`, JSON.stringify(recentPayload(s, "m5", RECENT6_SPAN, now)))
         if (crossed(RESOLUTIONS.m15) || dateOf(lastTick, tz) !== today) {
           layDay(s, today, now)
           // The day just ended, once more whole.

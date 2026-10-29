@@ -112,7 +112,7 @@ test.describe("the recorder's payloads (R2)", () => {
     expect(bytes).toBeLessThan(4096)
   })
 
-  test("recent: two hours at a minute, the last 48 at five, ending with the step now is in", () => {
+  test("recent: two hours at a minute, the last 6 at five, ending with the step now is in", () => {
     const s = new Series("van/p", "power")
     const now = DAY + 3 * 3600 + 30
     s.ingest("40", now - 120)
@@ -123,7 +123,8 @@ test.describe("the recorder's payloads (R2)", () => {
     expect(r.mean).toHaveLength(120)
     expect(r.mean.slice(-3)).toEqual([40, 40, 40])
     expect(r.mean[0]).toBeNull()
-    expect(recentPayload(s, "m5", 48 * 3600, now).mean).toHaveLength(576)
+    // recent6: 6 hours, 72 steps (tasks/charts-firmware-plan.md decision 1).
+    expect(recentPayload(s, "m5", 6 * 3600, now).mean).toHaveLength(72)
     const st = new Series("van/heater", "state")
     st.ingest("on", now - 600)
     expect(recentPayload(st, "m1", 2 * 3600, now).on).toEqual([[now - 600, now]])

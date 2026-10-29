@@ -79,7 +79,7 @@ export function chartWindow(chart: Pick<ChartProperties, "mode" | "days">, range
     const shift = Math.round(back / 86400)
     return { ...base, from, to, dates: base.dates.map((d) => addDays(d, -shift)) }
   }
-  const kept = base.source === "recent" ? 2 * 3600 : base.source === "recent6" ? 48 * 3600 : 0
+  const kept = base.source === "recent" ? 2 * 3600 : base.source === "recent6" ? 6 * 3600 : 0
   if (now - from <= kept) return { ...base, from, to }
   const dates: string[] = []
   for (let d = dateOf(from, tz); midnightOf(d, tz) < to; d = addDays(d, 1)) dates.push(d)

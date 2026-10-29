@@ -55,3 +55,9 @@ test.describe("the range steps (A1)", () => {
     expect(dragged(openView("24h"), -500)).toEqual({ range: "24h", back: 0 })
   })
 })
+
+test("6 hours moved back more than recent6 keeps (6 hours) read the days", () => {
+  const w6 = chartWindow(time, "6h", NOON, TZ, 0)
+  expect(w6.source).toBe("recent6")
+  expect(chartWindow(time, "6h", NOON, TZ, 6 * 3600)).toMatchObject({ source: "day", step: 900 })
+})
