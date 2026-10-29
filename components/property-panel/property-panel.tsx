@@ -82,6 +82,8 @@ interface PropertyPanelProps {
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
   onPatchScreen: (patch: Partial<ProjectScreen>) => void
+  /** «Add history below», where the current page offers one (lib/chart-from-controls.ts). */
+  onAddHistoryBelow?: () => void
   // The screen's size, for what places itself on it (the navigator).
   screenWidth: number
   screenHeight: number
@@ -192,6 +194,7 @@ export function PropertyPanel({
   onSetScreenMaster,
   onSetScreenShowMaster,
   onPatchScreen,
+  onAddHistoryBelow,
   screenWidth,
   screenHeight,
   onSetScreenType,
@@ -566,6 +569,7 @@ export function PropertyPanel({
             onSetScreenMaster={onSetScreenMaster}
             onSetScreenShowMaster={onSetScreenShowMaster}
             onPatchScreen={onPatchScreen}
+            onAddHistoryBelow={onAddHistoryBelow}
             onSetScreenType={onSetScreenType}
             combinedTopics={combinedTopics}
             onOpenScreenLiveIconSelector={(target) => {

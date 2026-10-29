@@ -12,6 +12,7 @@ import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
 import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { splitTopicPath } from "@/lib/json-path"
 import { historySubscriptions } from "@/lib/chart-preview"
+import { historyBelowOf, withHistoryBelow } from "@/lib/chart-from-controls"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeholderScope, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { pressedMessage, usesButtonValues } from "@/lib/button-values"
 import type { PlaceholderScope } from "@/lib/placeholders"
@@ -2057,6 +2058,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     },
     [currentScreenId],
   )
+
+  // A history below the page (tasks/charts-designer-plan.md decision 10): made
+  // from its controls, docked below it, and opened.
+  const addHistoryBelow = useCallback(() => {
+    const made = withHistoryBelow(project, currentScreenId)
+    if (!made) return
+    setProject(made.project)
+    setCurrentScreenId(made.newId)
+  }, [project, currentScreenId])
 
   const clearCurrentScreenIcon = useCallback(() => {
     setProject((prev) => ({
@@ -4687,6 +4697,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onSetScreenMaster={setCurrentScreenMaster}
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
                     onPatchScreen={patchCurrentScreen}
+                    onAddHistoryBelow={historyBelowOf(project, currentScreenId).length > 0 ? addHistoryBelow : undefined}
                     screenWidth={project.screenWidth}
                     screenHeight={project.screenHeight}
                     onSetScreenType={setCurrentScreenType}

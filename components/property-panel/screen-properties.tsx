@@ -75,6 +75,7 @@ interface ScreenPropertiesProps {
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
   onPatchScreen: (patch: Partial<ProjectScreen>) => void
+  onAddHistoryBelow?: () => void
   onSetScreenType: (type: ScreenType) => void
   onOpenScreenIconSelector: () => void
   // A result of the live screen icon (rule index, Otherwise, No value yet).
@@ -107,6 +108,7 @@ export function ScreenProperties({
   onSetScreenMaster,
   onSetScreenShowMaster,
   onPatchScreen,
+  onAddHistoryBelow,
   onSetScreenType,
   onOpenScreenIconSelector,
   onOpenScreenLiveIconSelector,
@@ -167,6 +169,7 @@ export function ScreenProperties({
           onSetMaster={onSetScreenMaster}
           onSetShowMaster={onSetScreenShowMaster}
           onPatch={onPatchScreen}
+          onAddHistoryBelow={onAddHistoryBelow}
           topics={topics}
           combinedTopics={combinedTopics}
           onPickLiveIcon={onOpenScreenLiveIconSelector}

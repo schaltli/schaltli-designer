@@ -40,6 +40,10 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - lib/chart-from-controls.ts: `seriesFromControl` - Bar and Gauge a level with their calibration's range, Slider and Dial a stepped «Target» (the setpoint topic where there is one), Switch and Button Group a band on where their states say on (none without a read topic), a Text's topic values levels with their decimals, an energy diagram one stack (sinks below, «Reverse sign» turning it, the rest the balance, the bus nothing), colours taken over where a role or hex; `historyCharts` - each topic once, at any depth, one unit left and a second right, a third a chart below, fixed axis from the controls' ranges, scrolling on
   - the only unit a control knows is an energy diagram's W, so a third unit does not arise yet; the rule stands for when units do
   - e2e/chart-from-controls.spec.ts (6)
-- [ ] D11 «Add history below»
+- [x] D11 «Add history below»
+  - lib/chart-from-controls.ts `historyBelowOf`, `withHistoryBelow`: on a page in the main row with nothing docked below it and controls that give a chart, a screen «<page> history» docked below, its master the page's, Time range 24 h, the charts the full width stacked from y 40, the font nearest 14 px; the editor opens it
+  - the screen's panel (ScreenEditorFields): «Add history below» where offered, «Time range» (1 hour, 6 hours, 24 hours, 7 days) on a screen with charts or a range
+  - in the screen's panel only, not yet in Manage Screens: the panel is where a page is worked on, and Manage Screens has no project-level action of this kind yet
+  - e2e/chart-history-page.spec.ts (3)
 - [ ] D12 Handbook
 - [ ] Checkpoint: test:quick green; the user builds a history page in the preview against the van's recorder

@@ -3,7 +3,7 @@
 // decision 10). Each series takes over its control's topic, kind, colour and
 // range once, when it is made; afterwards it is the chart's own.
 
-import { defaultChart, isRoleOrHex, type ChartProperties, type ChartSeries } from "@/lib/chart"
+import { SERIES_COLOURS, defaultChart, isRoleOrHex, type ChartProperties, type ChartSeries } from "@/lib/chart"
 import { settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import type { EnergyNode } from "@/lib/energy-diagram"
 import type { LiveValue } from "@/lib/live-value"
@@ -135,4 +135,54 @@ export function historyCharts(objects: readonly Control[], colours: readonly str
     })
   }
   return charts
+}
+
+// ---- «Add history below» (decision 10)
+
+interface HistoryProject {
+  nextId?: number
+  screenWidth: number
+  screenHeight: number
+  fonts?: readonly { id: string; size?: number }[]
+  screens: readonly { id: string; name: string; isMaster?: boolean; hidden?: boolean; screenType?: string; masterScreenId?: string; dock?: { screenId: string; edge: string }; objects: readonly Control[] }[]
+}
+
+/** The charts a page would get below it; none where it cannot have a history or its controls tell nothing. */
+export function historyBelowOf(project: HistoryProject, screenId: string): ChartProperties[] {
+  const page = project.screens.find((s) => s.id === screenId)
+  if (!page || page.isMaster || page.hidden || page.screenType === "popup" || page.dock) return []
+  if (project.screens.some((s) => s.dock?.screenId === screenId && s.dock.edge === "down")) return []
+  return historyCharts(page.objects, SERIES_COLOURS)
+}
+
+/**
+ * The project with a history docked below a page (decision 12): «<page>
+ * history», opening on 24 hours, its charts the full width, stacked under a
+ * pull tab's height. Null where the page offers none.
+ */
+export function withHistoryBelow<P extends HistoryProject>(project: P, screenId: string): { project: P; newId: string } | null {
+  const charts = historyBelowOf(project, screenId)
+  if (charts.length === 0) return null
+  const page = project.screens.find((s) => s.id === screenId)!
+  let nextId = project.nextId || 0
+  const top = 40
+  const height = Math.floor((project.screenHeight - top) / charts.length)
+  const font = [...(project.fonts ?? [])].sort((a, b) => Math.abs((a.size || 0) - 14) - Math.abs((b.size || 0) - 14))[0]
+  const objects = charts.map((chart, i) => {
+    nextId++
+    return {
+      id: `obj-${nextId}`,
+      type: "chart",
+      x: 0,
+      y: top + i * height,
+      width: project.screenWidth,
+      height,
+      zIndex: i + 1,
+      properties: { ...chart, ...(font ? { fontId: font.id } : {}) },
+    }
+  })
+  const id = `screen-${nextId + 1}`
+  nextId += 2
+  const screen = { id, name: `${page.name} history`, masterScreenId: page.masterScreenId, timeRange: "24h", dock: { screenId, edge: "down" }, objects }
+  return { project: { ...project, nextId, screens: [...project.screens, screen] }, newId: id }
 }

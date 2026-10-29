@@ -58,6 +58,8 @@ interface ScreenEditorFieldsProps {
   combinedTopics?: CombinedTopic[]
   onPickLiveIcon?: (target: IconTarget) => void
   onSetScreenType: (type: ScreenType) => void
+  /** «Add history below»: offered where the page's controls give a chart (lib/chart-from-controls.ts). */
+  onAddHistoryBelow?: () => void
   onOpenIconSelector: () => void
   onClearIcon: () => void
 }
@@ -82,6 +84,7 @@ export function ScreenEditorFields({
   combinedTopics = [],
   onPickLiveIcon,
   onSetScreenType,
+  onAddHistoryBelow,
   onOpenIconSelector,
   onClearIcon,
 }: ScreenEditorFieldsProps) {
@@ -271,6 +274,29 @@ export function ScreenEditorFields({
           }}
         />
       )}
+
+      {/* A history below this page, from its controls (docs/2026-10-16-charts.md decision 12). */}
+      {onAddHistoryBelow ? (
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={onAddHistoryBelow}>
+          Add history below
+        </Button>
+      ) : null}
+
+      {/* The span its charts open with (decision 15), where it has charts. */}
+      {screen.timeRange !== undefined || screen.objects.some((o) => o.type === "chart") ? (
+        <SelectField
+          id={`screen-time-range-${screen.id}`}
+          label="Time range"
+          value={screen.timeRange ?? "24h"}
+          options={[
+            { value: "1h", label: "1 hour" },
+            { value: "6h", label: "6 hours" },
+            { value: "24h", label: "24 hours" },
+            { value: "7d", label: "7 days" },
+          ]}
+          onChange={(value) => onPatch({ timeRange: value as ProjectScreen["timeRange"] })}
+        />
+      ) : null}
 
       {/* Out of next/previous and the navigator, still a «Go to Screen»
           target (docs/2026-10-08-navigator.md decision 3). A docked screen
