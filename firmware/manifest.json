@@ -1,48 +1,48 @@
 {
-  "release": "fw-2026.10.28.1",
-  "commit": "1fc1a7b971afade024f3b54dc5dd1f220f793cc7",
+  "release": "fw-2026.10.29.3-pre.charts_designer",
+  "commit": "2d90b3580944bccb22f0ce82633b903a62e259a3",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-knob-1v8-fw-2026.10.28.1.bin",
-      "size": 2244928,
-      "sha256": "5302fec57e1bb9b03d1b98d8c51be2eddd546efdfc75c12df4781109de495994",
+      "build": "fw-2026.10.29.3-pre.charts_designer",
+      "file": "waveshare-knob-1v8-fw-2026.10.29.3-pre.charts_designer.bin",
+      "size": 2245424,
+      "sha256": "be3f644689907bd2b655f8a88090aafe409b6747ecbf6b46b573e1eb4b1888ee",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/waveshare-knob-1v8-fw-2026.10.29.3-pre.charts_designer.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.10.28.1.bin",
-        "size": 2310464,
-        "sha256": "6553112be520bbc917a7220c4a36393dbceedd6dbc83affbb67a3dcbce2a8a0e",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.10.29.3-pre.charts_designer.bin",
+        "size": 2310960,
+        "sha256": "8d87b38a6d83d446d72f4587df20e411595721f9b9272d76844dee6db635138d",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/waveshare-knob-1v8-factory-fw-2026.10.29.3-pre.charts_designer.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
-      "size": 2053328,
-      "sha256": "5cc3ad15d9e300fbb2a7039d11ee38f7d71d23c8d1f666dce1f29a1ad0e5cb83",
+      "build": "fw-2026.10.29.3-pre.charts_designer",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.29.3-pre.charts_designer.bin",
+      "size": 2054080,
+      "sha256": "e3dc4abb927c2cdd37cee67b8a6f416b3d630dcb5eb4db09c8f3f28ac8ad9d23",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/waveshare-touch-lcd-4v3b-fw-2026.10.29.3-pre.charts_designer.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin",
-        "size": 2118864,
-        "sha256": "b0ca47bae5a0f86bf9269d44bb1d972da95f55d33a82a9b35dc8b2112bc57e8d",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.29.3-pre.charts_designer.bin",
+        "size": 2119616,
+        "sha256": "5fd60fcca100bdcab4d14117883d9950866ee89f63fa0ee306a62406da1b3e9d",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/waveshare-touch-lcd-4v3b-factory-fw-2026.10.29.3-pre.charts_designer.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.10.28.1",
-      "file": "m5stack-papers3-fw-2026.10.28.1.bin",
-      "size": 2164432,
-      "sha256": "068b25266f5fae4b592e0e731911761561123354e38bb82932fb2249ca82c282",
+      "build": "fw-2026.10.29.3-pre.charts_designer",
+      "file": "m5stack-papers3-fw-2026.10.29.3-pre.charts_designer.bin",
+      "size": 2164976,
+      "sha256": "497309f92377763e288e4fb0720c5c611cc15d8591d75336cf71c67480eb5ef6",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/m5stack-papers3-fw-2026.10.29.3-pre.charts_designer.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.10.28.1.bin",
-        "size": 2229968,
-        "sha256": "f75453cc7e1debb12fbdc8dd29257bfce33725e8a981c8da055bed19057fe7dc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-factory-fw-2026.10.28.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.10.29.3-pre.charts_designer.bin",
+        "size": 2230512,
+        "sha256": "e220a3d4b8437daf7fd821319181ab4cda6469226691768fb74a125a176536b7",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.29.3-pre.charts_designer/m5stack-papers3-factory-fw-2026.10.29.3-pre.charts_designer.bin"
       }
     }
   }
