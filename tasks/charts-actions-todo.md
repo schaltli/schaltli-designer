@@ -16,7 +16,11 @@ Plan: `tasks/charts-actions-plan.md`. Approved by the user on 2026-10-29 («ok, 
   - components/property-panel/range-action-fields.tsx: the four in both pickers (a key's or gesture's, a Button's), «Which way» Earlier/Later and «Span» 1 hour … 7 days; offered only in a project with a chart or a time range (`projectHasCharts`)
   - the screen's panel: «Pinch in» and «Pinch out» where the device reads two fingers, the section then «Gestures» instead of «Swipe navigation»
   - e2e/chart-actions.spec.ts «the pickers (A3)» (2)
-- [ ] A4 The preview follows
+- [x] A4 The preview follows
+  - project-editor: `rangeViews` per screen while the preview runs, forgotten when it ends; a range action from a Button, key or gesture steps the shown screen's view (lib/chart-range.ts)
+  - canvas: the chart drawn with the view's range and `back`; a horizontal drag on a chart with Scrolling owns the gesture (no page swipe), moves the window, and let go settles on whole days
+  - `chartPreview` and `renderChart` take `back`
+  - e2e/chart-actions.spec.ts «the preview follows (A4)» (2): a Button set to 1 hour, a drag to yesterday - each a curve the whole width; A4 seeds a device id of its own (A3's with pinch raced it)
 - [ ] A5 The history page's defaults
 - [ ] A6 Handbook
 - [ ] Checkpoint: test:quick green; the user moves through a history page's days in the preview

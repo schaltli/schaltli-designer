@@ -16,7 +16,8 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
 import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
-import { chartFontSize, renderChart } from "@/components/canvas/renderers/render-chart"
+import { chartFontSize, layoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
+import { SPAN, dragged, settled, type RangeView } from "@/lib/chart-range"
 import { chartPreview } from "@/lib/chart-preview"
 import { defaultChart } from "@/lib/chart"
 import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
@@ -428,6 +429,10 @@ export interface CanvasProps {
   previewMode?: boolean
   // `swiped` when a swipe on the screen ran it, which shows itself.
   onPreviewButtonAction?: (action: HardwareButtonAction, swiped?: boolean) => void
+  // Preview mode: the screen's time range and how far back it looks, and a
+  // drag on a scrolling chart changing it (lib/chart-range.ts).
+  chartView?: RangeView
+  onChartView?: (view: RangeView) => void
   // Preview mode: the neighbour on a side, drawn at the screen's size, for
   // the screen to slide against while a swipe follows the finger.
   swipeNeighbourCanvas?: (side: ScreenEdge) => HTMLCanvasElement | null
@@ -827,6 +832,8 @@ export function Canvas({
   previewMode = false,
   projectScreens,
   onPreviewButtonAction,
+  chartView,
+  onChartView,
   swipeNeighbourCanvas,
   popupUnderlay,
   onClosePopup,
@@ -853,6 +860,9 @@ export function Canvas({
   // The level a finger holds in the preview, at its place on the screen - it
   // may sit in a switcher's panel, where its own x/y are the panel's.
   const levelDragRef = useRef<{ id: string; value: number; object: ScreenObject } | null>(null)
+  // A drag on a scrolling chart in the preview: where it began, the view then,
+  // and how many seconds one pixel of its plot is.
+  const chartDragRef = useRef<{ startX: number; view: RangeView; secondsPerPx: number } | null>(null)
   // A swipe on the preview's screen (docs/2026-10-17-screen-graph.md, the
   // preview's swipe, user 2026-10-18): pressed where nothing else owns the
   // gesture, it locks to an axis once it has moved, and a release far enough
@@ -2286,7 +2296,12 @@ export function Canvas({
         renderChart(ctx, obj, {
           colorDepth,
           fontSize: chartFontSize(obj, fonts),
-          ...chartPreview(obj.properties, { range: screen.timeRange, topics, live: previewMode ? liveValues : null }),
+          ...chartPreview(obj.properties, {
+            range: chartView?.range ?? screen.timeRange,
+            back: chartView?.back,
+            topics,
+            live: previewMode ? liveValues : null,
+          }),
         })
         break
 
@@ -3007,6 +3022,11 @@ export function Canvas({
           const value = settableValueAt(clickedObject, coords.x, coords.y)
           levelDragRef.current = { id: clickedObject.id, value, object: clickedObject }
           onPreviewSetLevel?.(clickedObject, value, false)
+        } else if (clickedObject?.type === "chart" && clickedObject.properties?.scroll && chartView) {
+          // A scrolling chart owns a horizontal drag (charts decision 12):
+          // it moves the screen's time range, a swipe does not change the page.
+          const plot = layoutOf(clickedObject, { range: chartView.range, back: chartView.back }).plot
+          chartDragRef.current = { startX: coords.x, view: chartView, secondsPerPx: SPAN[chartView.range] / Math.max(1, plot.w) }
         } else {
           // Nothing here owns the gesture: it may be a swipe (decision 10).
           swipeRef.current = { start: coords, axis: null, d: 0 }
@@ -3366,6 +3386,12 @@ export function Canvas({
             return
           }
           levelDragRef.current = null
+        }
+        const chartDrag = chartDragRef.current
+        if (chartDrag) {
+          // Dragged right, the past comes in from the left.
+          onChartView?.(dragged(chartDrag.view, (coords.x - chartDrag.startX) * chartDrag.secondsPerPx))
+          return
         }
         const swipe = swipeRef.current
         if (swipe) {
@@ -4390,6 +4416,12 @@ export function Canvas({
   }
 
   const handleMouseUp = useCallback(() => {
+    // A chart let go settles on whole days (lib/chart-range.ts settled).
+    if (chartDragRef.current) {
+      chartDragRef.current = null
+      if (chartView) onChartView?.(settled(chartView, Date.now() / 1000, Intl.DateTimeFormat().resolvedOptions().timeZone))
+      return
+    }
     // The end of a swipe: far enough, it does what that swipe does - over a
     // popup it closes it, as every swipe does there; a screen following the
     // finger slides the rest of the way first, or back.
@@ -4612,6 +4644,8 @@ export function Canvas({
     hardwareButtons,
     onClosePopup,
     onPreviewButtonAction,
+    chartView,
+    onChartView,
     screenWidth,
     screenHeight,
     onMoveObject,

@@ -15,8 +15,9 @@ export interface ChartRenderOptions {
   colorDepth?: string
   /** The label font's height in px; the chart's font's size where it has one. */
   fontSize?: number
-  /** The screen's time range. */
+  /** The screen's time range, and how far back it looks. */
   range?: TimeRange
+  back?: number
   /** Each series' history by id; none, and the chart is drawn empty. */
   data?: Record<string, SeriesData>
   now?: number
@@ -82,7 +83,7 @@ export function layoutOf(obj: ScreenObject, options: ChartRenderOptions): ChartL
   const chart = normalizeChart(obj.properties ?? {}) as ChartProperties
   const now = options.now ?? Date.now() / 1000
   const tz = options.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone
-  const window = chartWindow(chart, options.range ?? DEFAULT_TIME_RANGE, now, tz)
+  const window = chartWindow(chart, options.range ?? DEFAULT_TIME_RANGE, now, tz, options.back ?? 0)
   return chartLayout(chart, window, options.data ?? {}, { width: obj.width, height: obj.height, fontSize: options.fontSize ?? 14, now, tz, decimal: options.decimal })
 }
 

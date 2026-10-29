@@ -170,3 +170,91 @@ test.describe("range actions: the pickers (A3)", () => {
     await expect(page.locator("#swipe-up-actionType option[value='set-range']")).toHaveCount(0)
   })
 })
+
+// ---- the preview follows (A4)
+
+const SCREEN = { width: 800, height: 480 }
+const curve = {
+  ...chart,
+  properties: {
+    ...chart.properties,
+    left: { scale: "fixed", min: 0, max: 100 },
+    series: [{ id: "s1", source: { kind: "topic", topic: "van/level" }, name: "Level", valueKind: "level", draw: "line", color: "#0000ff" }],
+  },
+}
+const levelTopic = { id: "t-level", topic: "van/level", type: "numeric", examples: ["20", "80"] }
+
+/** Blue pixels in a strip of the chart's plot: its left or right edge. */
+async function blueAt(page: Page, edge: "left" | "right"): Promise<number> {
+  const { canvas, box } = await getMainCanvas(page)
+  // The chart's plot runs from about x 41 to 795 (lib/chart-layout.ts, font 14).
+  const [x0, x1] = edge === "left" ? [44, 80] : [755, 792]
+  const a = devicePoint(box, x0, 60, SCREEN)
+  const b = devicePoint(box, x1, 470, SCREEN)
+  return canvas.evaluate(
+    (c: HTMLCanvasElement, [ax, ay, bx, by]) => {
+      const r = c.getBoundingClientRect()
+      const sx = c.width / r.width
+      const sy = c.height / r.height
+      const d = c.getContext("2d")!.getImageData(ax * sx, ay * sy, (bx - ax) * sx, (by - ay) * sy).data
+      let n = 0
+      for (let i = 0; i < d.length; i += 4) if (d[i] < 60 && d[i + 1] < 60 && d[i + 2] > 190) n++
+      return n
+    },
+    [a.x - box.x, a.y - box.y, b.x - box.x, b.y - box.y],
+  )
+}
+
+// Its own device id: A3 seeds PINCH_DEVICE with pinch, and the two running
+// side by side overwrote each other's description (seen 2026-10-29).
+const PREVIEW_DEVICE = "e2e-chart-range-preview-4v3b"
+
+test.describe("range actions: the preview follows (A4)", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4v3bDdf(PREVIEW_DEVICE)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  async function preview(page: Page, objects: any[]) {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, PREVIEW_DEVICE, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    const saved = await downloadProjectJson(page)
+    saved.topics = [...(saved.topics ?? []), levelTopic]
+    const s = saved.screens.find((x: any) => !x.isMaster)
+    s.objects.push(...objects)
+    s.timeRange = "24h"
+    const zip = new JSZip()
+    zip.file("project.json", JSON.stringify(saved))
+    const file = path.join(os.tmpdir(), `chart-actions-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, file)
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.waitForTimeout(300)
+  }
+
+  test("a Button «Set the time range» 1 hour: the curve runs the whole width, up to now", async ({ page }) => {
+    await preview(page, [curve, { ...button, properties: { text: "1 h", action: { type: "set-range", range: "1h" } } }])
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, 675, 18, SCREEN)
+    await page.mouse.click(at.x, at.y)
+    await expect.poll(() => blueAt(page, "right")).toBeGreaterThan(5)
+    expect(await blueAt(page, "left")).toBeGreaterThan(5)
+  })
+
+  test("a drag on a scrolling chart shows yesterday, whole", async ({ page }) => {
+    await preview(page, [curve])
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, 120, 250, SCREEN)
+    const b = devicePoint(box, 790, 250, SCREEN)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move(b.x, b.y, { steps: 8 })
+    await page.mouse.up()
+    // Dragged most of a day back, let go: it settles on yesterday, midnight to midnight.
+    await expect.poll(() => blueAt(page, "right")).toBeGreaterThan(5)
+    expect(await blueAt(page, "left")).toBeGreaterThan(5)
+  })
+})

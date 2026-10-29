@@ -111,6 +111,8 @@ export function simulatedData(series: ChartSeries, window: ChartWindow, now: num
 
 export interface ChartPreviewInput {
   range?: TimeRange
+  /** How far back the window lies, in seconds (lib/chart-range.ts). */
+  back?: number
   topics: readonly Topic[]
   /** The broker's values in Live; none for Simulation, the editor and thumbnails. */
   live?: Record<string, string> | null
@@ -119,6 +121,7 @@ export interface ChartPreviewInput {
 
 export interface ChartPreview {
   range: TimeRange
+  back: number
   data: Record<string, SeriesData>
   now: number
   tz: string
@@ -137,14 +140,15 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
   const recorderNow = live ? parse(live[RECORDER_NOW_TOPIC]) : null
   const tz = (typeof recorderNow?.tz === "string" && recorderNow.tz) || Intl.DateTimeFormat().resolvedOptions().timeZone
   const now = input.now ?? Date.now() / 1000
-  const window = chartWindow(chart, range, now, tz)
+  const back = input.back ?? 0
+  const window = chartWindow(chart, range, now, tz, back)
   const data: Record<string, SeriesData> = {}
   if (!live) {
     for (const s of chart.series) data[s.id] = simulatedData(s, window, now, input.topics)
-    return { range, data, now, tz }
+    return { range, back, data, now, tz }
   }
   const recorder = parse(live[RECORDER_TOPIC])
-  if (recorder?.state !== "online") return { range, data, now, tz, message: "No recorder on this broker" }
+  if (recorder?.state !== "online") return { range, back, data, now, tz, message: "No recorder on this broker" }
   let any = false
   for (const s of chart.series) {
     if (s.source.kind !== "topic") continue
@@ -152,6 +156,6 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
     if (payloads.some((p) => p)) any = true
     data[s.id] = seriesData(s, payloads, tz)
   }
-  return any || chart.series.length === 0 ? { range, data, now, tz } : { range, data, now, tz, message: "No history yet" }
+  return any || chart.series.length === 0 ? { range, back, data, now, tz } : { range, back, data, now, tz, message: "No history yet" }
 }
 

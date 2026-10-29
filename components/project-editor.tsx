@@ -12,6 +12,8 @@ import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
 import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { splitTopicPath } from "@/lib/json-path"
 import { historySubscriptions } from "@/lib/chart-preview"
+import { moved, narrowed, openView, set as setRange, widened, type RangeView } from "@/lib/chart-range"
+import { isRangeAction } from "@/lib/chart"
 import { historyBelowOf, withHistoryBelow } from "@/lib/chart-from-controls"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeholderScope, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { pressedMessage, usesButtonValues } from "@/lib/button-values"
@@ -1249,6 +1251,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const [previewSource, setPreviewSource] = useState<"live" | "simulation">("simulation")
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "live" | "unavailable" | "lost">("idle")
   const [liveValues, setLiveValues] = useState<Record<string, string>>({})
+  // Each screen's time range while the preview runs (lib/chart-range.ts,
+  // tasks/charts-actions-plan.md decision 4): opened at its Time range,
+  // changed by the range actions and a drag, forgotten when the preview ends.
+  const [rangeViews, setRangeViews] = useState<Record<string, RangeView>>({})
+  useEffect(() => {
+    if (!isPreviewMode) setRangeViews({})
+  }, [isPreviewMode])
   const liveGenRef = useRef(0)
   // A level being set by the mouse: what it was dragged to, and what its read
   // topic said when the drag began (docs/2026-09-17-settable-level.md,
@@ -1709,6 +1718,24 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const value = adjustedValue(level, asked?.value ?? reported(markerTopic), action.direction ?? "up")
         if (value === null) return
         handlePreviewSetLevel(level, value, true)
+      } else if (isRangeAction(action)) {
+        // The time range of the screen shown (decision 15).
+        const id = previewScreenId ?? currentScreenId
+        const timeRange = project.screens.find((s) => s.id === id)?.timeRange
+        const now = Date.now() / 1000
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+        setRangeViews((prev) => {
+          const view = prev[id] ?? openView(timeRange)
+          const next =
+            action.type === "narrow-range"
+              ? narrowed(view, now, tz)
+              : action.type === "widen-range"
+                ? widened(view, now, tz)
+                : action.type === "move-range"
+                  ? moved(view, action.rangeDirection ?? "earlier", now, tz)
+                  : setRange(action.range ?? "24h")
+          return { ...prev, [id]: next }
+        })
       } else if (action.type === "goto-setup-mode") {
         // Nothing to actually enter in a browser preview - setup mode is a
         // device-side WiFi AP state, not a screen. Just confirms the button
@@ -4611,6 +4638,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             canUngroup={canUngroupSelection}
             previewMode={isPreviewMode}
             onPreviewButtonAction={handlePreviewButtonAction}
+            chartView={isPreviewMode ? (rangeViews[displayedScreen.id] ?? openView(displayedScreen.timeRange)) : undefined}
+            onChartView={(view) => setRangeViews((prev) => ({ ...prev, [displayedScreen.id]: view }))}
             swipeNeighbourCanvas={swipeNeighbourCanvas}
             onPreviewPublish={handlePreviewPublish}
             onPreviewAsk={handlePreviewAsk}
