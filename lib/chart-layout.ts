@@ -179,11 +179,30 @@ export interface SeriesLayout {
   nowPoint?: [number, number]
 }
 
+/**
+ * A text the chart writes, as a box: its top left, width and height, how it
+ * is aligned in it, and whether it is in the text or the quiet colour. Drawn
+ * by each renderer in the chart's own font (tasks/charts-firmware-plan.md
+ * decision 3), so the boxes are the same everywhere and only the glyphs are
+ * the device's.
+ */
+export interface ChartText {
+  text: string
+  x: number
+  y: number
+  w: number
+  h: number
+  align: "left" | "center" | "right"
+  tone: "text" | "muted"
+}
+
 export interface LegendRow {
   id: string
   x: number
   y: number
   align: "left" | "right"
+  /** Its colour's mark: on the outer side of the row. */
+  swatch: Box
   color: string
   colorDark?: string
   pattern: number
@@ -202,6 +221,8 @@ export interface ChartLayout {
   zones: (Box & { color: string; colorDark?: string })[]
   series: SeriesLayout[]
   legend: LegendRow[]
+  /** Every text: axis labels, times, days' names, marks, legend rows, the arrow past now. */
+  texts: ChartText[]
   /** Where now is: on the plot, or past its right edge (a window that ended). */
   now: { x: number } | { past: true } | null
 }
@@ -475,8 +496,26 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
                 ? { x: plot.x + pad, y: plot.y + pad + i * rowH, align: "left" as const }
                 : { x: plot.x + plot.w - pad, y: plot.y + pad + i * rowH, align: "right" as const }
           const dark = (s as { colorDark?: string }).colorDark
-          return { id: s.id, ...at, color: s.color, ...(dark ? { colorDark: dark } : {}), pattern: i, name: s.name, figures: figures(s, data[s.id], window, o, decimal) }
+          const swatch = { x: at.align === "right" ? at.x - 10 : at.x, y: round1(at.y + o.fontSize / 2 - 2), w: 10, h: 4 }
+          return { id: s.id, ...at, swatch, color: s.color, ...(dark ? { colorDark: dark } : {}), pattern: i, name: s.name, figures: figures(s, data[s.id], window, o, decimal) }
         })
+
+  // The texts, as boxes (ChartText).
+  const half = Math.round(o.fontSize / 2)
+  const texts: ChartText[] = []
+  const box = (text: string, x: number, y: number, w: number, align: ChartText["align"], tone: ChartText["tone"]) =>
+    texts.push({ text, x: round1(x), y: round1(y), w: round1(w), h: o.fontSize, align, tone })
+  for (const t of left.ticks) box(t.label, 0, t.y - half, plot.x - pad, "right", "muted")
+  for (const t of right?.ticks ?? []) box(t.label, plot.x + plot.w + pad, t.y - half, labelW, "left", "muted")
+  for (const t of times) box(t.label, t.x - labelW, plot.y + plot.h + pad, labelW * 2, "center", "muted")
+  for (const m of midnights) if (m.x < plot.x + plot.w - o.fontSize * 2) box(m.label, m.x + 3, plot.y, labelW * 2, "left", "muted")
+  for (const s of series) for (const m of s.marks) box(m.label, m.x - labelW * 3, m.below ? m.y + pad : m.y - pad - o.fontSize, labelW * 6, "center", "text")
+  for (const row of legend) {
+    const line = [row.name, ...row.figures].join("  ")
+    if (row.align === "right") box(line, plot.x, row.y, row.x - 14 - plot.x, "right", "text")
+    else box(line, row.x + 14, row.y, plot.w - 14 - (row.x - plot.x), "left", "text")
+  }
+  if (!perDay && o.now >= window.to) box("→", plot.x, plot.y + plot.h / 2 - half, plot.w - 2, "right", "muted")
 
   return {
     plot,
@@ -487,6 +526,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     zones,
     series,
     legend,
+    texts,
     now: perDay ? null : nowOn ? { x: xOf(o.now) } : o.now >= window.to ? { past: true } : null,
   }
 }

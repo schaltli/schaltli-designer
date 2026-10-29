@@ -2302,6 +2302,18 @@ export function Canvas({
             topics,
             live: previewMode ? liveValues : null,
           }),
+        }, {
+          // Its texts in its font, as the energy diagram's (charts-firmware decision 3).
+          fonts,
+          projectAssets,
+          topics,
+          colorDepth,
+          bdfFontCache: bdfFontCacheRef.current,
+          iconImageCache: iconImageCacheRef.current,
+          getPreviewValueFromTopic,
+          placeholders,
+          requestRedraw: draw,
+          screenBackgroundColor: resolvedBackgroundColor,
         })
         break
 

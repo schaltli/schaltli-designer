@@ -572,7 +572,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "chart":
         // A thumbnail or test-render without history of its own: the examples' curve.
-        renderChart(ctx, obj, { ...(options.chart ?? chartPreview(obj.properties, { topics })), colorDepth, fontSize: chartFontSize(obj, fonts) })
+        renderChart(ctx, obj, { ...(options.chart ?? chartPreview(obj.properties, { topics })), colorDepth, fontSize: chartFontSize(obj, fonts) }, options)
         break
 
       case "icon":

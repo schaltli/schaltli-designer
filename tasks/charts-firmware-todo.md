@@ -2,7 +2,10 @@
 
 Plan: `tasks/charts-firmware-plan.md`. Approved by the user on 2026-10-29 («freigegeben, weiter»), all decisions as written.
 
-- [ ] F0 The designer first (recent6 6 h, labels in the chart's font, vectors)
+- [x] F0 The designer first
+  - recent6 the last 6 hours (recorder publishes and keeps 6 h at 5 min; `chartWindow` reads the days beyond; spec decision 7 and the payload table; recorder and range tests) - 741aa80
+  - lib/chart-layout.ts gives every text as a box (`ChartText`: axis labels, times, days, marks, legend rows, the arrow) and each legend row its swatch; render-chart.ts draws them as Text objects in the chart's font through renderScreenObjects where it has the screen's options (canvas, thumbnails, test-render screens), the canvas's sans-serif only on a test's bare canvas
+  - lib/chart/vectors.json (LF pinned in .gitattributes) written by e2e/chart-vectors.spec.ts (`HARVEST_CHART_VECTORS=1`): 10 windows, 22 range steps, 7 layouts
 - [ ] F1 The core in C++
 - [ ] F2 Parsing
 - [ ] F3 The history

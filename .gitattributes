@@ -9,3 +9,6 @@ lib/placeholders/vectors.json text eol=lf
 
 # The same for the screen graph's vectors (device contract 2.10).
 lib/screen-graph/vectors.json text eol=lf
+
+# And the chart's (tasks/charts-firmware-plan.md decision 4).
+lib/chart/vectors.json text eol=lf

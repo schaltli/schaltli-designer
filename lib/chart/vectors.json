@@ -1,0 +1,5873 @@
+{
+ "windows": [
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "24h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1791928800,
+    "to": 1792015200,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-14"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "7d",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1791410400,
+    "to": 1792015200,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "1h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1791968460,
+    "to": 1791972060,
+    "source": "recent",
+    "step": 60,
+    "dates": []
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "6h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1791950700,
+    "to": 1791972300,
+    "source": "recent6",
+    "step": 300,
+    "dates": []
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "24h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 86400
+   },
+   "out": {
+    "from": 1791842400,
+    "to": 1791928800,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-13"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "1h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 10800
+   },
+   "out": {
+    "from": 1791957660,
+    "to": 1791961260,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-14"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "24h",
+    "now": 1792882800,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1792879200,
+    "to": 1792969200,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-25"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "24h",
+    "now": 1774746000,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1774738800,
+    "to": 1774821600,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-03-29"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "per-day",
+     "days": 7
+    },
+    "range": "24h",
+    "now": 1791972030,
+    "tz": "Europe/Zurich",
+    "back": 0
+   },
+   "out": {
+    "from": 1791410400,
+    "to": 1792015200,
+    "source": "daily",
+    "step": 86400,
+    "dates": [
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14"
+    ]
+   }
+  },
+  {
+   "in": {
+    "chart": {
+     "mode": "time"
+    },
+    "range": "24h",
+    "now": 1791972030,
+    "tz": "America/New_York",
+    "back": 0
+   },
+   "out": {
+    "from": 1791950400,
+    "to": 1792036800,
+    "source": "day",
+    "step": 900,
+    "dates": [
+     "2026-10-14"
+    ]
+   }
+  }
+ ],
+ "steps": [
+  {
+   "in": {
+    "view": {
+     "range": "1h",
+     "back": 0
+    },
+    "step": "narrow"
+   },
+   "out": {
+    "range": "1h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "1h",
+     "back": 0
+    },
+    "step": "widen"
+   },
+   "out": {
+    "range": "6h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "1h",
+     "back": 0
+    },
+    "step": "earlier"
+   },
+   "out": {
+    "range": "1h",
+    "back": 3600
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "1h",
+     "back": 172800
+    },
+    "step": "later"
+   },
+   "out": {
+    "range": "1h",
+    "back": 169200
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "6h",
+     "back": 0
+    },
+    "step": "narrow"
+   },
+   "out": {
+    "range": "1h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "6h",
+     "back": 0
+    },
+    "step": "widen"
+   },
+   "out": {
+    "range": "24h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "6h",
+     "back": 0
+    },
+    "step": "earlier"
+   },
+   "out": {
+    "range": "6h",
+    "back": 21600
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "6h",
+     "back": 172800
+    },
+    "step": "later"
+   },
+   "out": {
+    "range": "6h",
+    "back": 151200
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "narrow"
+   },
+   "out": {
+    "range": "6h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "widen"
+   },
+   "out": {
+    "range": "7d",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "earlier"
+   },
+   "out": {
+    "range": "24h",
+    "back": 86400
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 172800
+    },
+    "step": "later"
+   },
+   "out": {
+    "range": "24h",
+    "back": 86400
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "7d",
+     "back": 0
+    },
+    "step": "narrow"
+   },
+   "out": {
+    "range": "24h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "7d",
+     "back": 0
+    },
+    "step": "widen"
+   },
+   "out": {
+    "range": "7d",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "7d",
+     "back": 0
+    },
+    "step": "earlier"
+   },
+   "out": {
+    "range": "7d",
+    "back": 604800
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "7d",
+     "back": 172800
+    },
+    "step": "later"
+   },
+   "out": {
+    "range": "7d",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "set",
+    "arg": "1h"
+   },
+   "out": {
+    "range": "1h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": -500
+   },
+   "out": {
+    "range": "24h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": 10800
+   },
+   "out": {
+    "range": "24h",
+    "back": 0
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": 43200
+   },
+   "out": {
+    "range": "24h",
+    "back": 43200
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": 72000
+   },
+   "out": {
+    "range": "24h",
+    "back": 86400
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "24h",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": 144000
+   },
+   "out": {
+    "range": "24h",
+    "back": 144000
+   }
+  },
+  {
+   "in": {
+    "view": {
+     "range": "7d",
+     "back": 0
+    },
+    "step": "drag-settle",
+    "arg": 176400
+   },
+   "out": {
+    "range": "7d",
+    "back": 172800
+   }
+  }
+ ],
+ "layouts": [
+  {
+   "name": "water: fixed axis, steps, a zone",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "top-right",
+     "left": {
+      "scale": "fixed",
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+     },
+     "series": [
+      {
+       "id": "s1",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "level",
+       "draw": "steps",
+       "color": "#2255aa",
+       "unit": "%",
+       "annotations": [
+        "current"
+       ]
+      },
+      {
+       "id": "s2",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "Grau",
+       "valueKind": "level",
+       "draw": "steps",
+       "color": "#888888",
+       "unit": "%"
+      }
+     ],
+     "zones": [
+      {
+       "axis": "left",
+       "to": 15,
+       "color": "#ff0000"
+      }
+     ]
+    },
+    "range": "24h",
+    "back": 0,
+    "payloads": {
+     "s1": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        80,
+        78,
+        75,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        60,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        79,
+        77,
+        74,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        59,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        81,
+        79,
+        76,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        61,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "s2": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        10,
+        12,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        9,
+        11,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        11,
+        13,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 404
+    },
+    "left": {
+     "min": 0,
+     "max": 100,
+     "ticks": [
+      {
+       "value": 0,
+       "y": 416,
+       "label": "0"
+      },
+      {
+       "value": 25,
+       "y": 315,
+       "label": "25"
+      },
+      {
+       "value": 50,
+       "y": 214,
+       "label": "50"
+      },
+      {
+       "value": 75,
+       "y": 113,
+       "label": "75"
+      },
+      {
+       "value": 100,
+       "y": 12,
+       "label": "100"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 41,
+      "label": "00:00"
+     },
+     {
+      "x": 229.5,
+      "label": "06:00"
+     },
+     {
+      "x": 418,
+      "label": "12:00"
+     },
+     {
+      "x": 606.5,
+      "label": "18:00"
+     },
+     {
+      "x": 795,
+      "label": "00:00"
+     }
+    ],
+    "midnights": [
+     {
+      "x": 41,
+      "label": "Mi"
+     },
+     {
+      "x": 795,
+      "label": "Do"
+     }
+    ],
+    "zones": [
+     {
+      "x": 41,
+      "y": 355.4,
+      "w": 754,
+      "h": 60.6,
+      "color": "#ff0000"
+     }
+    ],
+    "series": [
+     {
+      "id": "s1",
+      "draw": "steps",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         41,
+         92.8
+        ],
+        [
+         48.9,
+         92.8
+        ],
+        [
+         48.9,
+         100.9
+        ],
+        [
+         56.7,
+         100.9
+        ],
+        [
+         56.7,
+         113
+        ],
+        [
+         64.6,
+         113
+        ]
+       ],
+       [
+        [
+         276.6,
+         173.6
+        ],
+        [
+         284.5,
+         173.6
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [],
+      "nowPoint": [
+       418.3,
+       173.6
+      ]
+     },
+     {
+      "id": "s2",
+      "draw": "steps",
+      "axis": "left",
+      "color": "#888888",
+      "pattern": 1,
+      "lines": [
+       [
+        [
+         41,
+         375.6
+        ],
+        [
+         48.9,
+         375.6
+        ],
+        [
+         48.9,
+         367.5
+        ],
+        [
+         56.7,
+         367.5
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [],
+      "nowPoint": [
+       418.3,
+       367.5
+      ]
+     }
+    ],
+    "legend": [
+     {
+      "id": "s1",
+      "x": 790,
+      "y": 17,
+      "align": "right",
+      "swatch": {
+       "x": 780,
+       "y": 22,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": [
+       "jetzt 60.0 %"
+      ]
+     },
+     {
+      "id": "s2",
+      "x": 790,
+      "y": 36,
+      "align": "right",
+      "swatch": {
+       "x": 780,
+       "y": 41,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#888888",
+      "pattern": 1,
+      "name": "Grau",
+      "figures": []
+     }
+    ],
+    "texts": [
+     {
+      "text": "0",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "25",
+      "x": 0,
+      "y": 308,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "50",
+      "x": 0,
+      "y": 207,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "75",
+      "x": 0,
+      "y": 106,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "100",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "06:00",
+      "x": 193.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 382,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "18:00",
+      "x": 570.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 759,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mi",
+      "x": 44,
+      "y": 12,
+      "w": 72,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "X  jetzt 60.0 %",
+      "x": 41,
+      "y": 17,
+      "w": 735,
+      "h": 14,
+      "align": "right",
+      "tone": "text"
+     },
+     {
+      "text": "Grau",
+      "x": 41,
+      "y": 36,
+      "w": 735,
+      "h": 14,
+      "align": "right",
+      "tone": "text"
+     }
+    ],
+    "now": {
+     "x": 418.3
+    }
+   }
+  },
+  {
+   "name": "auto axis, area with range, min and max, decimal comma",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "bottom",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "s1",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "level",
+       "draw": "area",
+       "color": "#2255aa",
+       "range": true,
+       "unit": "V",
+       "decimals": 2,
+       "annotations": [
+        "current",
+        "min",
+        "max"
+       ]
+      }
+     ]
+    },
+    "range": "24h",
+    "back": 0,
+    "payloads": {
+     "s1": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        null,
+        null,
+        null,
+        null,
+        13.2,
+        13.6,
+        12.9,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        14.1,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        null,
+        null,
+        null,
+        null,
+        12.2,
+        12.6,
+        11.9,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        13.1,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        null,
+        null,
+        null,
+        null,
+        14.2,
+        14.6,
+        13.9,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        15.1,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich",
+     "decimal": ","
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 385
+    },
+    "left": {
+     "min": 0,
+     "max": 20,
+     "ticks": [
+      {
+       "value": 0,
+       "y": 397,
+       "label": "0"
+      },
+      {
+       "value": 5,
+       "y": 300.8,
+       "label": "5"
+      },
+      {
+       "value": 10,
+       "y": 204.5,
+       "label": "10"
+      },
+      {
+       "value": 15,
+       "y": 108.3,
+       "label": "15"
+      },
+      {
+       "value": 20,
+       "y": 12,
+       "label": "20"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 41,
+      "label": "00:00"
+     },
+     {
+      "x": 229.5,
+      "label": "06:00"
+     },
+     {
+      "x": 418,
+      "label": "12:00"
+     },
+     {
+      "x": 606.5,
+      "label": "18:00"
+     },
+     {
+      "x": 795,
+      "label": "00:00"
+     }
+    ],
+    "midnights": [
+     {
+      "x": 41,
+      "label": "Mi"
+     },
+     {
+      "x": 795,
+      "label": "Do"
+     }
+    ],
+    "zones": [],
+    "series": [
+     {
+      "id": "s1",
+      "draw": "area",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         76.3,
+         142.9
+        ],
+        [
+         84.2,
+         135.2
+        ],
+        [
+         92.1,
+         148.7
+        ]
+       ],
+       [
+        [
+         202,
+         125.6
+        ]
+       ]
+      ],
+      "areas": [
+       [
+        [
+         76.3,
+         397
+        ],
+        [
+         76.3,
+         142.9
+        ],
+        [
+         84.2,
+         135.2
+        ],
+        [
+         92.1,
+         148.7
+        ],
+        [
+         92.1,
+         397
+        ]
+       ],
+       [
+        [
+         202,
+         397
+        ],
+        [
+         202,
+         125.6
+        ],
+        [
+         202,
+         397
+        ]
+       ]
+      ],
+      "ranges": [
+       [
+        [
+         76.3,
+         123.7
+        ],
+        [
+         84.2,
+         116
+        ],
+        [
+         92.1,
+         129.4
+        ],
+        [
+         92.1,
+         167.9
+        ],
+        [
+         84.2,
+         154.5
+        ],
+        [
+         76.3,
+         162.2
+        ]
+       ],
+       [
+        [
+         202,
+         106.3
+        ],
+        [
+         202,
+         144.8
+        ]
+       ]
+      ],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [
+       {
+        "x": 92.1,
+        "y": 148.7,
+        "label": "12,90 V 01:30",
+        "below": true
+       },
+       {
+        "x": 202,
+        "y": 125.6,
+        "label": "14,10 V 05:00",
+        "below": false
+       }
+      ],
+      "nowPoint": [
+       418.3,
+       125.6
+      ]
+     }
+    ],
+    "legend": [
+     {
+      "id": "s1",
+      "x": 41,
+      "y": 421,
+      "align": "left",
+      "swatch": {
+       "x": 41,
+       "y": 426,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": [
+       "jetzt 14,10 V"
+      ]
+     }
+    ],
+    "texts": [
+     {
+      "text": "0",
+      "x": 0,
+      "y": 390,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "5",
+      "x": 0,
+      "y": 293.8,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "10",
+      "x": 0,
+      "y": 197.5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "15",
+      "x": 0,
+      "y": 101.3,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "20",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 5,
+      "y": 402,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "06:00",
+      "x": 193.5,
+      "y": 402,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 382,
+      "y": 402,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "18:00",
+      "x": 570.5,
+      "y": 402,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 759,
+      "y": 402,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mi",
+      "x": 44,
+      "y": 12,
+      "w": 72,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "12,90 V 01:30",
+      "x": -15.9,
+      "y": 153.7,
+      "w": 216,
+      "h": 14,
+      "align": "center",
+      "tone": "text"
+     },
+     {
+      "text": "14,10 V 05:00",
+      "x": 94,
+      "y": 106.6,
+      "w": 216,
+      "h": 14,
+      "align": "center",
+      "tone": "text"
+     },
+     {
+      "text": "X  jetzt 14,10 V",
+      "x": 55,
+      "y": 421,
+      "w": 740,
+      "h": 14,
+      "align": "left",
+      "tone": "text"
+     }
+    ],
+    "now": {
+     "x": 418.3
+    }
+   }
+  },
+  {
+   "name": "a heater's band, its run time and starts, on two axes with a level",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "top-left",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "t",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "level",
+       "draw": "line",
+       "color": "#2255aa",
+       "unit": "°C"
+      },
+      {
+       "id": "h",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "Heizung",
+       "valueKind": "state",
+       "draw": "band",
+       "color": "#2255aa",
+       "annotations": [
+        "runtime",
+        "starts"
+       ]
+      },
+      {
+       "id": "w",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "power",
+       "draw": "line",
+       "color": "#2255aa",
+       "unit": "W",
+       "axis": "right",
+       "annotations": [
+        "sum"
+       ]
+      }
+     ]
+    },
+    "range": "24h",
+    "back": 0,
+    "payloads": {
+     "t": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        18,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        21.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        17,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        20.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        19,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        22.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "h": [
+      {
+       "date": "2026-10-14",
+       "on": [
+        [
+         60,
+         150
+        ],
+        [
+         600,
+         630
+        ]
+       ]
+      }
+     ],
+     "w": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        1200,
+        1200,
+        null,
+        null,
+        -300,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        1199,
+        1199,
+        null,
+        null,
+        -301,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        1201,
+        1201,
+        null,
+        null,
+        -299,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 718,
+     "h": 404
+    },
+    "left": {
+     "min": 0,
+     "max": 30,
+     "ticks": [
+      {
+       "value": 0,
+       "y": 416,
+       "label": "0"
+      },
+      {
+       "value": 10,
+       "y": 281.3,
+       "label": "10"
+      },
+      {
+       "value": 20,
+       "y": 146.7,
+       "label": "20"
+      },
+      {
+       "value": 30,
+       "y": 12,
+       "label": "30"
+      }
+     ]
+    },
+    "right": {
+     "min": -500,
+     "max": 1500,
+     "ticks": [
+      {
+       "value": -500,
+       "y": 416,
+       "label": "-500"
+      },
+      {
+       "value": 0,
+       "y": 315,
+       "label": "0"
+      },
+      {
+       "value": 500,
+       "y": 214,
+       "label": "500"
+      },
+      {
+       "value": 1000,
+       "y": 113,
+       "label": "1000"
+      },
+      {
+       "value": 1500,
+       "y": 12,
+       "label": "1500"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 41,
+      "label": "00:00"
+     },
+     {
+      "x": 220.5,
+      "label": "06:00"
+     },
+     {
+      "x": 400,
+      "label": "12:00"
+     },
+     {
+      "x": 579.5,
+      "label": "18:00"
+     },
+     {
+      "x": 759,
+      "label": "00:00"
+     }
+    ],
+    "midnights": [
+     {
+      "x": 41,
+      "label": "Mi"
+     },
+     {
+      "x": 759,
+      "label": "Do"
+     }
+    ],
+    "zones": [],
+    "series": [
+     {
+      "id": "t",
+      "draw": "line",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         44.7,
+         173.6
+        ]
+       ],
+       [
+        [
+         104.6,
+         126.5
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [],
+      "nowPoint": [
+       400.2,
+       126.5
+      ]
+     },
+     {
+      "id": "h",
+      "draw": "band",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 1,
+      "lines": [],
+      "areas": [],
+      "ranges": [],
+      "bands": [
+       {
+        "x": 70.9,
+        "y": 408,
+        "w": 44.9,
+        "h": 8
+       },
+       {
+        "x": 340.2,
+        "y": 408,
+        "w": 14.9,
+        "h": 8
+       }
+      ],
+      "starts": [
+       70.9,
+       340.2
+      ],
+      "bars": [],
+      "marks": []
+     },
+     {
+      "id": "w",
+      "draw": "line",
+      "axis": "right",
+      "color": "#2255aa",
+      "pattern": 2,
+      "lines": [
+       [
+        [
+         44.7,
+         72.6
+        ],
+        [
+         52.2,
+         72.6
+        ]
+       ],
+       [
+        [
+         74.7,
+         375.6
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [],
+      "nowPoint": [
+       400.2,
+       375.6
+      ]
+     }
+    ],
+    "legend": [
+     {
+      "id": "t",
+      "x": 46,
+      "y": 17,
+      "align": "left",
+      "swatch": {
+       "x": 46,
+       "y": 22,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": []
+     },
+     {
+      "id": "h",
+      "x": 46,
+      "y": 36,
+      "align": "left",
+      "swatch": {
+       "x": 46,
+       "y": 41,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 1,
+      "name": "Heizung",
+      "figures": [
+       "2:00 h",
+       "2×"
+      ]
+     },
+     {
+      "id": "w",
+      "x": 46,
+      "y": 55,
+      "align": "left",
+      "swatch": {
+       "x": 46,
+       "y": 60,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 2,
+      "name": "X",
+      "figures": [
+       "+600 Wh / −75 Wh"
+      ]
+     }
+    ],
+    "texts": [
+     {
+      "text": "0",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "10",
+      "x": 0,
+      "y": 274.3,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "20",
+      "x": 0,
+      "y": 139.7,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "30",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "-500",
+      "x": 764,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "0",
+      "x": 764,
+      "y": 308,
+      "w": 36,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "500",
+      "x": 764,
+      "y": 207,
+      "w": 36,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "1000",
+      "x": 764,
+      "y": 106,
+      "w": 36,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "1500",
+      "x": 764,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "06:00",
+      "x": 184.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 364,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "18:00",
+      "x": 543.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 723,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mi",
+      "x": 44,
+      "y": 12,
+      "w": 72,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "X",
+      "x": 60,
+      "y": 17,
+      "w": 699,
+      "h": 14,
+      "align": "left",
+      "tone": "text"
+     },
+     {
+      "text": "Heizung  2:00 h  2×",
+      "x": 60,
+      "y": 36,
+      "w": 699,
+      "h": 14,
+      "align": "left",
+      "tone": "text"
+     },
+     {
+      "text": "X  +600 Wh / −75 Wh",
+      "x": 60,
+      "y": 55,
+      "w": 699,
+      "h": 14,
+      "align": "left",
+      "tone": "text"
+     }
+    ],
+    "now": {
+     "x": 400.2
+    }
+   }
+  },
+  {
+   "name": "an energy stack with its balance",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "none",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "sun",
+       "source": {
+        "kind": "topic",
+        "topic": "sun"
+       },
+       "name": "X",
+       "valueKind": "power",
+       "draw": "stacked",
+       "color": "#2255aa",
+       "stack": "e"
+      },
+      {
+       "id": "grid",
+       "source": {
+        "kind": "topic",
+        "topic": "grid"
+       },
+       "name": "X",
+       "valueKind": "power",
+       "draw": "stacked",
+       "color": "#2255aa",
+       "stack": "e"
+      },
+      {
+       "id": "rest",
+       "source": {
+        "kind": "balance"
+       },
+       "name": "X",
+       "valueKind": "power",
+       "draw": "stacked",
+       "color": "#2255aa",
+       "stack": "e"
+      }
+     ]
+    },
+    "range": "24h",
+    "back": 0,
+    "payloads": {
+     "sun": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        300,
+        200,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        299,
+        199,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        301,
+        201,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ],
+     "grid": [
+      {
+       "date": "2026-10-14",
+       "step": 900,
+       "mean": [
+        100,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        99,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        101,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 404
+    },
+    "left": {
+     "min": -400,
+     "max": 400,
+     "ticks": [
+      {
+       "value": -400,
+       "y": 416,
+       "label": "-400"
+      },
+      {
+       "value": -200,
+       "y": 315,
+       "label": "-200"
+      },
+      {
+       "value": 0,
+       "y": 214,
+       "label": "0"
+      },
+      {
+       "value": 200,
+       "y": 113,
+       "label": "200"
+      },
+      {
+       "value": 400,
+       "y": 12,
+       "label": "400"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 41,
+      "label": "00:00"
+     },
+     {
+      "x": 229.5,
+      "label": "06:00"
+     },
+     {
+      "x": 418,
+      "label": "12:00"
+     },
+     {
+      "x": 606.5,
+      "label": "18:00"
+     },
+     {
+      "x": 795,
+      "label": "00:00"
+     }
+    ],
+    "midnights": [
+     {
+      "x": 41,
+      "label": "Mi"
+     },
+     {
+      "x": 795,
+      "label": "Do"
+     }
+    ],
+    "zones": [],
+    "series": [
+     {
+      "id": "sun",
+      "draw": "stacked",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         41,
+         62.5
+        ],
+        [
+         48.9,
+         62.5
+        ],
+        [
+         48.9,
+         113
+        ],
+        [
+         56.7,
+         113
+        ]
+       ]
+      ],
+      "areas": [
+       [
+        [
+         41,
+         62.5
+        ],
+        [
+         48.9,
+         62.5
+        ],
+        [
+         48.9,
+         113
+        ],
+        [
+         56.7,
+         113
+        ],
+        [
+         56.7,
+         214
+        ],
+        [
+         48.9,
+         214
+        ],
+        [
+         48.9,
+         214
+        ],
+        [
+         41,
+         214
+        ]
+       ]
+      ],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": []
+     },
+     {
+      "id": "grid",
+      "draw": "stacked",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 1,
+      "lines": [
+       [
+        [
+         41,
+         12
+        ],
+        [
+         48.9,
+         12
+        ]
+       ]
+      ],
+      "areas": [
+       [
+        [
+         41,
+         12
+        ],
+        [
+         48.9,
+         12
+        ],
+        [
+         48.9,
+         62.5
+        ],
+        [
+         41,
+         62.5
+        ]
+       ]
+      ],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": []
+     },
+     {
+      "id": "rest",
+      "draw": "stacked",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 2,
+      "lines": [
+       [
+        [
+         41,
+         214
+        ],
+        [
+         48.9,
+         214
+        ]
+       ]
+      ],
+      "areas": [
+       [
+        [
+         41,
+         214
+        ],
+        [
+         48.9,
+         214
+        ],
+        [
+         48.9,
+         416
+        ],
+        [
+         41,
+         416
+        ]
+       ]
+      ],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": []
+     }
+    ],
+    "legend": [],
+    "texts": [
+     {
+      "text": "-400",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "-200",
+      "x": 0,
+      "y": 308,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "0",
+      "x": 0,
+      "y": 207,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "200",
+      "x": 0,
+      "y": 106,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "400",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "06:00",
+      "x": 193.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 382,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "18:00",
+      "x": 570.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 759,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mi",
+      "x": 44,
+      "y": 12,
+      "w": 72,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     }
+    ],
+    "now": {
+     "x": 418.3
+    }
+   }
+  },
+  {
+   "name": "an hour from recent",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "top-right",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "s1",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "level",
+       "draw": "line",
+       "color": "#2255aa",
+       "annotations": [
+        "current"
+       ]
+      }
+     ]
+    },
+    "range": "1h",
+    "back": 0,
+    "payloads": {
+     "s1": [
+      {
+       "end": 1791972060,
+       "step": 60,
+       "mean": [
+        null,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        null,
+        48,
+        49,
+        40,
+        41,
+        42,
+        43,
+        null,
+        45,
+        46,
+        47,
+        48,
+        49,
+        40,
+        null,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        null,
+        49,
+        40,
+        41,
+        42,
+        43,
+        44,
+        null,
+        46,
+        47,
+        48,
+        49,
+        40,
+        41,
+        null,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        null,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        null,
+        47,
+        48,
+        49,
+        40,
+        41,
+        42,
+        null,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        null,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        null,
+        48,
+        49,
+        40,
+        41,
+        42,
+        43,
+        null,
+        45,
+        46,
+        47,
+        48,
+        49,
+        40,
+        null,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        null,
+        49,
+        40,
+        41,
+        42,
+        43,
+        44,
+        null,
+        46,
+        47,
+        48,
+        49,
+        40,
+        41,
+        null,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        null
+       ],
+       "min": [],
+       "max": []
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 404
+    },
+    "left": {
+     "min": 0,
+     "max": 60,
+     "ticks": [
+      {
+       "value": 0,
+       "y": 416,
+       "label": "0"
+      },
+      {
+       "value": 20,
+       "y": 281.3,
+       "label": "20"
+      },
+      {
+       "value": 40,
+       "y": 146.7,
+       "label": "40"
+      },
+      {
+       "value": 60,
+       "y": 12,
+       "label": "60"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 216.9,
+      "label": "11:15"
+     },
+     {
+      "x": 405.4,
+      "label": "11:30"
+     },
+     {
+      "x": 593.9,
+      "label": "11:45"
+     },
+     {
+      "x": 782.4,
+      "label": "12:00"
+     }
+    ],
+    "midnights": [],
+    "zones": [],
+    "series": [
+     {
+      "id": "s1",
+      "draw": "line",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         47.3,
+         146.7
+        ],
+        [
+         59.9,
+         139.9
+        ],
+        [
+         72.4,
+         133.2
+        ]
+       ],
+       [
+        [
+         97.6,
+         119.7
+        ],
+        [
+         110.1,
+         113
+        ],
+        [
+         122.7,
+         106.3
+        ],
+        [
+         135.3,
+         99.5
+        ],
+        [
+         147.8,
+         92.8
+        ],
+        [
+         160.4,
+         86.1
+        ]
+       ],
+       [
+        [
+         185.5,
+         139.9
+        ],
+        [
+         198.1,
+         133.2
+        ],
+        [
+         210.7,
+         126.5
+        ],
+        [
+         223.2,
+         119.7
+        ],
+        [
+         235.8,
+         113
+        ],
+        [
+         248.4,
+         106.3
+        ]
+       ],
+       [
+        [
+         273.5,
+         92.8
+        ],
+        [
+         286.1,
+         86.1
+        ],
+        [
+         298.6,
+         146.7
+        ],
+        [
+         311.2,
+         139.9
+        ],
+        [
+         323.8,
+         133.2
+        ],
+        [
+         336.3,
+         126.5
+        ]
+       ],
+       [
+        [
+         361.5,
+         113
+        ],
+        [
+         374,
+         106.3
+        ],
+        [
+         386.6,
+         99.5
+        ],
+        [
+         399.2,
+         92.8
+        ],
+        [
+         411.7,
+         86.1
+        ],
+        [
+         424.3,
+         146.7
+        ]
+       ],
+       [
+        [
+         449.4,
+         133.2
+        ],
+        [
+         462,
+         126.5
+        ],
+        [
+         474.6,
+         119.7
+        ],
+        [
+         487.1,
+         113
+        ],
+        [
+         499.7,
+         106.3
+        ],
+        [
+         512.3,
+         99.5
+        ]
+       ],
+       [
+        [
+         537.4,
+         86.1
+        ],
+        [
+         550,
+         146.7
+        ],
+        [
+         562.5,
+         139.9
+        ],
+        [
+         575.1,
+         133.2
+        ],
+        [
+         587.7,
+         126.5
+        ],
+        [
+         600.2,
+         119.7
+        ]
+       ],
+       [
+        [
+         625.4,
+         106.3
+        ],
+        [
+         637.9,
+         99.5
+        ],
+        [
+         650.5,
+         92.8
+        ],
+        [
+         663.1,
+         86.1
+        ],
+        [
+         675.6,
+         146.7
+        ],
+        [
+         688.2,
+         139.9
+        ]
+       ],
+       [
+        [
+         713.3,
+         126.5
+        ],
+        [
+         725.9,
+         119.7
+        ],
+        [
+         738.5,
+         113
+        ],
+        [
+         751,
+         106.3
+        ],
+        [
+         763.6,
+         99.5
+        ],
+        [
+         776.2,
+         92.8
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": [],
+      "nowPoint": [
+       788.7,
+       92.8
+      ]
+     }
+    ],
+    "legend": [
+     {
+      "id": "s1",
+      "x": 790,
+      "y": 17,
+      "align": "right",
+      "swatch": {
+       "x": 780,
+       "y": 22,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": [
+       "jetzt 48.0"
+      ]
+     }
+    ],
+    "texts": [
+     {
+      "text": "0",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "20",
+      "x": 0,
+      "y": 274.3,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "40",
+      "x": 0,
+      "y": 139.7,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "60",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "11:15",
+      "x": 180.9,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "11:30",
+      "x": 369.4,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "11:45",
+      "x": 557.9,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 746.4,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "X  jetzt 48.0",
+      "x": 41,
+      "y": 17,
+      "w": 735,
+      "h": 14,
+      "align": "right",
+      "tone": "text"
+     }
+    ],
+    "now": {
+     "x": 788.7
+    }
+   }
+  },
+  {
+   "name": "yesterday, moved back: the arrow past now",
+   "in": {
+    "chart": {
+     "mode": "time",
+     "scroll": false,
+     "legend": "top-right",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "s1",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "level",
+       "draw": "line",
+       "color": "#2255aa"
+      }
+     ]
+    },
+    "range": "24h",
+    "back": 86400,
+    "payloads": {
+     "s1": [
+      {
+       "date": "2026-10-13",
+       "step": 900,
+       "mean": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        5,
+        6,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "min": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        4,
+        5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ],
+       "max": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        6,
+        7,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 404
+    },
+    "left": {
+     "min": 0,
+     "max": 6,
+     "ticks": [
+      {
+       "value": 0,
+       "y": 416,
+       "label": "0"
+      },
+      {
+       "value": 2,
+       "y": 281.3,
+       "label": "2"
+      },
+      {
+       "value": 4,
+       "y": 146.7,
+       "label": "4"
+      },
+      {
+       "value": 6,
+       "y": 12,
+       "label": "6"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 41,
+      "label": "00:00"
+     },
+     {
+      "x": 229.5,
+      "label": "06:00"
+     },
+     {
+      "x": 418,
+      "label": "12:00"
+     },
+     {
+      "x": 606.5,
+      "label": "18:00"
+     },
+     {
+      "x": 795,
+      "label": "00:00"
+     }
+    ],
+    "midnights": [
+     {
+      "x": 41,
+      "label": "Di"
+     },
+     {
+      "x": 795,
+      "label": "Mi"
+     }
+    ],
+    "zones": [],
+    "series": [
+     {
+      "id": "s1",
+      "draw": "line",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [
+       [
+        [
+         123.5,
+         79.3
+        ],
+        [
+         131.3,
+         12
+        ]
+       ]
+      ],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [],
+      "marks": []
+     }
+    ],
+    "legend": [
+     {
+      "id": "s1",
+      "x": 790,
+      "y": 17,
+      "align": "right",
+      "swatch": {
+       "x": 780,
+       "y": 22,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": []
+     }
+    ],
+    "texts": [
+     {
+      "text": "0",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "2",
+      "x": 0,
+      "y": 274.3,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "4",
+      "x": 0,
+      "y": 139.7,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "6",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "06:00",
+      "x": 193.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "12:00",
+      "x": 382,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "18:00",
+      "x": 570.5,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "00:00",
+      "x": 759,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Di",
+      "x": 44,
+      "y": 12,
+      "w": 72,
+      "h": 14,
+      "align": "left",
+      "tone": "muted"
+     },
+     {
+      "text": "X",
+      "x": 41,
+      "y": 17,
+      "w": 735,
+      "h": 14,
+      "align": "right",
+      "tone": "text"
+     },
+     {
+      "text": "→",
+      "x": 41,
+      "y": 207,
+      "w": 752,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     }
+    ],
+    "now": {
+     "past": true
+    }
+   }
+  },
+  {
+   "name": "seven days of bars, energy up and down",
+   "in": {
+    "chart": {
+     "mode": "per-day",
+     "scroll": false,
+     "legend": "top-right",
+     "left": {
+      "scale": "auto"
+     },
+     "series": [
+      {
+       "id": "s1",
+       "source": {
+        "kind": "topic",
+        "topic": "van/x"
+       },
+       "name": "X",
+       "valueKind": "power",
+       "draw": "bars",
+       "color": "#2255aa",
+       "dailyValue": "energy"
+      }
+     ],
+     "days": 7
+    },
+    "range": "24h",
+    "back": 0,
+    "payloads": {
+     "s1": [
+      {
+       "days": [
+        {
+         "date": "2026-10-01",
+         "energyIn": 1000,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-02",
+         "energyIn": 1010,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-03",
+         "energyIn": 1020,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-04",
+         "energyIn": 1030,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-05",
+         "energyIn": 1040,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-06",
+         "energyIn": 1050,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-07",
+         "energyIn": 1060,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-08",
+         "energyIn": 1070,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-09",
+         "energyIn": 1080,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-10",
+         "energyIn": 1090,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-11",
+         "energyIn": 1100,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-12",
+         "energyIn": 1110,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-13",
+         "energyIn": 1120,
+         "energyOut": 500
+        },
+        {
+         "date": "2026-10-14",
+         "energyIn": 1130,
+         "energyOut": 500
+        }
+       ]
+      }
+     ]
+    },
+    "options": {
+     "width": 800,
+     "height": 440,
+     "fontSize": 14,
+     "now": 1791972030,
+     "tz": "Europe/Zurich"
+    }
+   },
+   "out": {
+    "plot": {
+     "x": 41,
+     "y": 12,
+     "w": 754,
+     "h": 404
+    },
+    "left": {
+     "min": -500,
+     "max": 1500,
+     "ticks": [
+      {
+       "value": -500,
+       "y": 416,
+       "label": "-500"
+      },
+      {
+       "value": 0,
+       "y": 315,
+       "label": "0"
+      },
+      {
+       "value": 500,
+       "y": 214,
+       "label": "500"
+      },
+      {
+       "value": 1000,
+       "y": 113,
+       "label": "1000"
+      },
+      {
+       "value": 1500,
+       "y": 12,
+       "label": "1500"
+      }
+     ]
+    },
+    "times": [
+     {
+      "x": 94.9,
+      "label": "Do"
+     },
+     {
+      "x": 202.6,
+      "label": "Fr"
+     },
+     {
+      "x": 310.3,
+      "label": "Sa"
+     },
+     {
+      "x": 418,
+      "label": "So"
+     },
+     {
+      "x": 525.7,
+      "label": "Mo"
+     },
+     {
+      "x": 633.4,
+      "label": "Di"
+     },
+     {
+      "x": 741.1,
+      "label": "Mi"
+     }
+    ],
+    "midnights": [],
+    "zones": [],
+    "series": [
+     {
+      "id": "s1",
+      "draw": "bars",
+      "axis": "left",
+      "color": "#2255aa",
+      "pattern": 0,
+      "lines": [],
+      "areas": [],
+      "ranges": [],
+      "bands": [],
+      "starts": [],
+      "bars": [
+       {
+        "x": 57.2,
+        "y": 98.9,
+        "w": 75.4,
+        "h": 216.1
+       },
+       {
+        "x": 57.2,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 164.9,
+        "y": 96.8,
+        "w": 75.4,
+        "h": 218.2
+       },
+       {
+        "x": 164.9,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 272.6,
+        "y": 94.8,
+        "w": 75.4,
+        "h": 220.2
+       },
+       {
+        "x": 272.6,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 380.3,
+        "y": 92.8,
+        "w": 75.4,
+        "h": 222.2
+       },
+       {
+        "x": 380.3,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 488,
+        "y": 90.8,
+        "w": 75.4,
+        "h": 224.2
+       },
+       {
+        "x": 488,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 595.7,
+        "y": 88.8,
+        "w": 75.4,
+        "h": 226.2
+       },
+       {
+        "x": 595.7,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       },
+       {
+        "x": 703.4,
+        "y": 86.7,
+        "w": 75.4,
+        "h": 228.3
+       },
+       {
+        "x": 703.4,
+        "y": 315,
+        "w": 75.4,
+        "h": 101
+       }
+      ],
+      "marks": []
+     }
+    ],
+    "legend": [
+     {
+      "id": "s1",
+      "x": 790,
+      "y": 17,
+      "align": "right",
+      "swatch": {
+       "x": 780,
+       "y": 22,
+       "w": 10,
+       "h": 4
+      },
+      "color": "#2255aa",
+      "pattern": 0,
+      "name": "X",
+      "figures": []
+     }
+    ],
+    "texts": [
+     {
+      "text": "-500",
+      "x": 0,
+      "y": 409,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "0",
+      "x": 0,
+      "y": 308,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "500",
+      "x": 0,
+      "y": 207,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "1000",
+      "x": 0,
+      "y": 106,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "1500",
+      "x": 0,
+      "y": 5,
+      "w": 36,
+      "h": 14,
+      "align": "right",
+      "tone": "muted"
+     },
+     {
+      "text": "Do",
+      "x": 58.9,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Fr",
+      "x": 166.6,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Sa",
+      "x": 274.3,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "So",
+      "x": 382,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mo",
+      "x": 489.7,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Di",
+      "x": 597.4,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "Mi",
+      "x": 705.1,
+      "y": 421,
+      "w": 72,
+      "h": 14,
+      "align": "center",
+      "tone": "muted"
+     },
+     {
+      "text": "X",
+      "x": 41,
+      "y": 17,
+      "w": 735,
+      "h": 14,
+      "align": "right",
+      "tone": "text"
+     }
+    ],
+    "now": null
+   }
+  }
+ ]
+}

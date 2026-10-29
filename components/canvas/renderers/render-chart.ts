@@ -7,7 +7,8 @@
 import type { ScreenObject } from "@/components/project-editor"
 import type { ChartProperties, TimeRange } from "@/lib/chart"
 import { DEFAULT_TIME_RANGE, normalizeChart } from "@/lib/chart"
-import { chartLayout, type ChartLayout, type SeriesData } from "@/lib/chart-layout"
+import { chartLayout, type ChartLayout, type ChartText, type SeriesData } from "@/lib/chart-layout"
+import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { chartWindow } from "@/lib/chart-window"
 import { applyColorDepth } from "@/lib/color-depth"
 
@@ -87,7 +88,12 @@ export function layoutOf(obj: ScreenObject, options: ChartRenderOptions): ChartL
   return chartLayout(chart, window, options.data ?? {}, { width: obj.width, height: obj.height, fontSize: options.fontSize ?? 14, now, tz, decimal: options.decimal })
 }
 
-export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, options: ChartRenderOptions = {}): void {
+/**
+ * `screen`: the screen's drawing options, for the texts to be drawn in the
+ * chart's font as Text objects are; without them (a test's canvas of its
+ * own) the canvas's sans-serif at the font's size.
+ */
+export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, options: ChartRenderOptions = {}, screen?: RenderScreenObjectsOptions): void {
   const p = obj.properties as Record<string, any>
   const depth = options.colorDepth ?? "24bit"
   const grey = depth !== "24bit"
@@ -103,8 +109,6 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   ctx.beginPath()
   ctx.rect(0, 0, obj.width, obj.height)
   ctx.clip()
-  ctx.font = `${fontSize}px sans-serif`
-  ctx.textBaseline = "middle"
   const { plot } = l
 
   // Zones, faint behind everything.
@@ -136,18 +140,6 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
     ctx.lineTo(Math.round(m.x), plot.y + plot.h)
     ctx.stroke()
   }
-
-  // The labels: values left (and right), times under the plot, a day's name over its midnight.
-  ctx.fillStyle = muted
-  ctx.textAlign = "right"
-  for (const t of l.left.ticks) ctx.fillText(t.label, plot.x - 4, t.y)
-  ctx.textAlign = "left"
-  for (const t of l.right?.ticks ?? []) ctx.fillText(t.label, plot.x + plot.w + 4, t.y)
-  ctx.textAlign = "center"
-  const under = plot.y + plot.h + fontSize / 2 + 4
-  for (const t of l.times) ctx.fillText(t.label, t.x, under)
-  ctx.textAlign = "left"
-  for (const m of l.midnights) if (m.x < plot.x + plot.w - fontSize * 2) ctx.fillText(m.label, m.x + 3, plot.y + fontSize / 2)
 
   // The series, clipped to the plot.
   ctx.save()
@@ -212,9 +204,6 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
       ctx.beginPath()
       ctx.arc(m.x, m.y, 3, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = text
-      ctx.textAlign = "center"
-      ctx.fillText(m.label, m.x, m.below ? m.y + fontSize : m.y - fontSize)
     }
     if (s.nowPoint) {
       ctx.fillStyle = c
@@ -223,33 +212,50 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
       ctx.fill()
     }
   }
-  // A window that ended before now: an arrow at its right edge, now lies beyond.
-  if (l.now && "past" in l.now) {
-    ctx.fillStyle = muted
-    ctx.textAlign = "right"
-    ctx.fillText("→", plot.x + plot.w - 2, plot.y + plot.h / 2)
-  }
-
-  // The legend: a swatch in the series' colour, its name, its figures.
+  // The legend's marks, each in its series' colour.
   for (const row of l.legend) {
-    const c = colour(row.color, "#6750a4")
-    const line = [row.name, ...row.figures].join("  ")
-    const width = ctx.measureText(line).width
-    const x0 = row.align === "right" ? row.x - width - 14 : row.x
-    const y = row.y + fontSize / 2
-    ctx.fillStyle = c
-    ctx.fillRect(x0, y - 2, 10, 4)
-    ctx.fillStyle = text
-    ctx.textAlign = "left"
-    ctx.fillText(line, x0 + 14, y)
+    ctx.fillStyle = colour(row.color, "#6750a4")
+    ctx.fillRect(row.swatch.x, row.swatch.y, row.swatch.w, row.swatch.h)
   }
 
-  // Said in the middle: no recorder, no history yet - or nothing to show at all.
+  // Every text where the layout puts it - and, said in the middle, no
+  // recorder, no history yet, or nothing to show at all.
   const message = options.message ?? (l.series.length === 0 ? "Chart: add a series" : undefined)
-  if (message) {
-    ctx.fillStyle = muted
-    ctx.textAlign = "center"
-    ctx.fillText(message, plot.x + plot.w / 2, plot.y + plot.h / 2)
+  const texts: ChartText[] = [
+    ...l.texts,
+    ...(message ? [{ text: message, x: plot.x, y: plot.y + plot.h / 2 - fontSize / 2, w: plot.w, h: fontSize, align: "center" as const, tone: "muted" as const }] : []),
+  ]
+  if (screen) {
+    // In the chart's font, as a Text object draws (charts-firmware decision 3).
+    const objects = texts.map(
+      (t, i) =>
+        ({
+          id: `${obj.id}-text-${i}`,
+          type: "text",
+          x: t.x,
+          y: t.y,
+          width: Math.max(1, t.w),
+          height: t.h,
+          zIndex: 1,
+          properties: {
+            text: t.text.replace(/\{/g, "{{").replace(/\}/g, "}}"),
+            fontId: p.fontId,
+            textColor: t.tone === "text" ? text : muted,
+            textAlign: t.align,
+            backgroundColor: "transparent",
+            borderColor: "transparent",
+          },
+        }) as ScreenObject,
+    )
+    renderScreenObjects(ctx, objects, { ...screen, nested: true })
+  } else {
+    ctx.font = `${fontSize}px sans-serif`
+    ctx.textBaseline = "middle"
+    for (const t of texts) {
+      ctx.fillStyle = t.tone === "text" ? text : muted
+      ctx.textAlign = t.align
+      ctx.fillText(t.text, t.align === "left" ? t.x : t.align === "right" ? t.x + t.w : t.x + t.w / 2, t.y + t.h / 2)
+    }
   }
   ctx.restore()
 }
