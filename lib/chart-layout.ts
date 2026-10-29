@@ -5,7 +5,7 @@
 // energy diagram's layout is (lib/energy-diagram.ts).
 
 import type { Annotation, ChartAxis, ChartProperties, ChartSeries } from "@/lib/chart"
-import { addDays, dateOf, midnightOf, type ChartWindow } from "@/lib/chart-window"
+import { addDays, dateOf, midnightOf, type ChartWindow, type Zone } from "@/lib/chart-window"
 
 // ---- the history, read
 
@@ -45,7 +45,7 @@ function dailyValueOf(s: ChartSeries) {
  * days as bars - `factor` applied and a power series' sign turned where
  * `invert`.
  */
-export function seriesData(series: ChartSeries, payloads: Payload[], tz: string): SeriesData {
+export function seriesData(series: ChartSeries, payloads: Payload[], tz: Zone): SeriesData {
   const steps: Step[] = []
   const on: [number, number][] = []
   const days: DayBar[] = []
@@ -132,7 +132,7 @@ export function runtimeText(minutes: number): string {
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
-function clockText(t: number, tz: string): string {
+function clockText(t: number, tz: Zone): string {
   const m = midnightOf(dateOf(t, tz), tz)
   const hh = Math.floor((t - m) / 3600)
   const mm = Math.floor(((t - m) % 3600) / 60)
@@ -234,7 +234,7 @@ export interface LayoutOptions {
   /** The label font's height in px. */
   fontSize: number
   now: number
-  tz: string
+  tz: Zone
   decimal?: string
 }
 

@@ -9,7 +9,7 @@ import type { ChartProperties, TimeRange } from "@/lib/chart"
 import { DEFAULT_TIME_RANGE, normalizeChart } from "@/lib/chart"
 import { chartLayout, type ChartLayout, type ChartText, type SeriesData } from "@/lib/chart-layout"
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
-import { chartWindow } from "@/lib/chart-window"
+import { chartWindow, type Zone } from "@/lib/chart-window"
 import { applyColorDepth } from "@/lib/color-depth"
 
 export interface ChartRenderOptions {
@@ -22,7 +22,7 @@ export interface ChartRenderOptions {
   /** Each series' history by id; none, and the chart is drawn empty. */
   data?: Record<string, SeriesData>
   now?: number
-  tz?: string
+  tz?: Zone
   /** Said in the chart's middle instead of curves: no recorder, no history yet. */
   message?: string
   decimal?: string

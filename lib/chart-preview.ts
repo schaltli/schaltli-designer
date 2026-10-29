@@ -7,7 +7,7 @@
 import type { Topic } from "@/components/project-editor"
 import { DEFAULT_TIME_RANGE, historyName, normalizeChart, type ChartProperties, type ChartSeries, type TimeRange } from "@/lib/chart"
 import { seriesData, type SeriesData } from "@/lib/chart-layout"
-import { chartWindow, historyTopicsFor, HISTORY_PREFIX, type ChartWindow } from "@/lib/chart-window"
+import { chartWindow, historyTopicsFor, HISTORY_PREFIX, type ChartWindow, type Zone } from "@/lib/chart-window"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { asNumber, isYes, matches } from "@/lib/live-value"
 
@@ -124,7 +124,7 @@ export interface ChartPreview {
   back: number
   data: Record<string, SeriesData>
   now: number
-  tz: string
+  tz: Zone
   message?: string
 }
 
@@ -138,7 +138,10 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
   const range = input.range ?? DEFAULT_TIME_RANGE
   const live = input.live
   const recorderNow = live ? parse(live[RECORDER_NOW_TOPIC]) : null
-  const tz = (typeof recorderNow?.tz === "string" && recorderNow.tz) || Intl.DateTimeFormat().resolvedOptions().timeZone
+  // The recorder's day table where it gives one, as a device takes it; else its zone's name, else the browser's.
+  const tz: Zone = Array.isArray(recorderNow?.days) && recorderNow.days.length > 0
+    ? { days: recorderNow.days }
+    : (typeof recorderNow?.tz === "string" && recorderNow.tz) || Intl.DateTimeFormat().resolvedOptions().timeZone
   const now = input.now ?? Date.now() / 1000
   const back = input.back ?? 0
   const window = chartWindow(chart, range, now, tz, back)

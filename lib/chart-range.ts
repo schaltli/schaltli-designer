@@ -4,7 +4,7 @@
 // state. Pure, so the preview, the firmware and the app take the same steps.
 
 import { DEFAULT_TIME_RANGE, TIME_RANGES, type TimeRange } from "@/lib/chart"
-import { dateOf, midnightOf } from "@/lib/chart-window"
+import { dateOf, midnightOf, type Zone } from "@/lib/chart-window"
 
 /** What a screen shows: its range, and how many seconds back from now its window lies. */
 export interface RangeView {
@@ -20,19 +20,19 @@ export function openView(range: TimeRange | undefined): RangeView {
 }
 
 /** One step shorter: 7 days → 24 h → 6 h → 1 h, and no shorter. */
-export function narrowed(v: RangeView, now: number, tz: string): RangeView {
+export function narrowed(v: RangeView, now: number, tz: Zone): RangeView {
   const i = TIME_RANGES.indexOf(v.range)
   return settled({ ...v, range: TIME_RANGES[Math.max(0, i - 1)] }, now, tz)
 }
 
 /** One step longer, and no longer than 7 days. */
-export function widened(v: RangeView, now: number, tz: string): RangeView {
+export function widened(v: RangeView, now: number, tz: Zone): RangeView {
   const i = TIME_RANGES.indexOf(v.range)
   return settled({ ...v, range: TIME_RANGES[Math.min(TIME_RANGES.length - 1, i + 1)] }, now, tz)
 }
 
 /** By one range, earlier or later; later stops at now. */
-export function moved(v: RangeView, direction: "earlier" | "later", now: number, tz: string): RangeView {
+export function moved(v: RangeView, direction: "earlier" | "later", now: number, tz: Zone): RangeView {
   const back = direction === "earlier" ? v.back + SPAN[v.range] : Math.max(0, v.back - SPAN[v.range])
   return settled({ ...v, back }, now, tz)
 }
@@ -51,7 +51,7 @@ export function dragged(v: RangeView, seconds: number): RangeView {
  * Let go: from 24 hours up a window within 6 hours of a midnight settles on
  * it (decision 9), so a day is shown whole; never later than now.
  */
-export function settled(v: RangeView, now: number, tz: string): RangeView {
+export function settled(v: RangeView, now: number, tz: Zone): RangeView {
   if (v.back <= 0) return { ...v, back: 0 }
   if (v.range !== "24h" && v.range !== "7d") return v
   // Today's window starts at today's midnight (or six days before); moved

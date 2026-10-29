@@ -1293,7 +1293,12 @@ Values over time (`docs/2026-10-16-charts.md`, the model there in full;
 - **What a chart reads**: the recorder's retained history topics, never the
   series' own topic - `schaltli/history/<topic>/day/<YYYY-MM-DD>`,
   `.../recent`, `.../recent6`, `.../daily` and `schaltli/history/now`, their
-  payloads as the spec's «What the recorder lays on the broker». The
+  payloads as the spec's «What the recorder lays on the broker».
+  `schaltli/history/now` carries the recorder's clock (`time`), its zone's
+  name (`tz`) and `days`: the last 31 days and tomorrow, each `{ date, start }`
+  with the unix second it began. A device takes every midnight from this
+  table (it has no zone database); a date outside it is a whole number of
+  24-hour days from the nearest it holds (`lib/chart-window.ts` DayTable). The
   `<topic>` is the series' topic, its `#` written `~` (`historyName`,
   `lib/chart.ts`): `ble/orion/in_volts#value` reads
   `schaltli/history/ble/orion/in_volts~value/…`. Whether a recorder is

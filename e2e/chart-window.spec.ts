@@ -57,3 +57,16 @@ test.describe("the chart's window (D1)", () => {
     ])
   })
 })
+
+test("a device's day table gives the same days as the zone's name, past its ends too", async () => {
+  const { dayTable } = await import("../lib/chart-window")
+  const table = dayTable(TZ, "2026-10-01", "2026-10-31")
+  for (const t of [DAY - 1, DAY, NOON, midnightOf("2026-10-25", TZ) + 7200, midnightOf("2026-10-25", TZ) + 25 * 3600 - 1]) {
+    expect(dateOf(t, table)).toBe(dateOf(t, TZ))
+  }
+  for (const d of ["2026-10-01", "2026-10-25", "2026-10-26", "2026-10-31"]) expect(midnightOf(d, table)).toBe(midnightOf(d, TZ))
+  // Beyond the table: whole days from its ends (here, after the clock change, exact).
+  expect(midnightOf("2026-11-02", table)).toBe(midnightOf("2026-11-02", TZ))
+  expect(dateOf(midnightOf("2026-11-02", TZ) + 3600, table)).toBe("2026-11-02")
+  expect(chartWindow({ mode: "time" }, "7d", NOON, table)).toEqual(chartWindow({ mode: "time" }, "7d", NOON, TZ))
+})

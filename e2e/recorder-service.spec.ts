@@ -83,7 +83,13 @@ test.describe("the recorder on a broker (R3, R4)", () => {
     expect(day.mean[4]).toBe(20)
     const heater = JSON.parse(await retained(broker.url, "schaltli/history/van/heater/day/2026-10-14"))
     expect(heater.on).toEqual([[60, 62]])
-    expect(JSON.parse(await retained(broker.url, "schaltli/history/now"))).toEqual({ time: now, tz: TZ })
+    // Its clock, its zone, and its table of days: the last 31, today and
+    // tomorrow, each with where it began - a device's midnights.
+    const clock = JSON.parse(await retained(broker.url, "schaltli/history/now"))
+    expect(clock).toMatchObject({ time: now, tz: TZ })
+    expect(clock.days).toHaveLength(32)
+    expect(clock.days.at(-2)).toEqual({ date: "2026-10-14", start: DAY })
+    expect(clock.days.at(-1)).toEqual({ date: "2026-10-15", start: DAY + 86400 })
 
     // The display deployed without charts: nobody wants it, nothing more recorded.
     await broker.publish("schaltli/history/wants/dev1", "", true)

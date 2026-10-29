@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { chartWindow, midnightOf } from "../lib/chart-window"
+import { chartWindow, dayTable, midnightOf, type DayTable } from "../lib/chart-window"
 import { dragged, moved, narrowed, openView, set, settled, widened, type RangeView } from "../lib/chart-range"
 import { chartLayout, seriesData } from "../lib/chart-layout"
 import { normalizeChart, type ChartProperties, type ChartSeries } from "../lib/chart"
@@ -18,6 +18,13 @@ import { normalizeChart, type ChartProperties, type ChartSeries } from "../lib/c
 const FILE = path.join(__dirname, "..", "lib", "chart", "vectors.json")
 const TZ = "Europe/Zurich"
 const DAY = midnightOf("2026-10-14", TZ)
+// A device's zone is the recorder's table of days (lib/chart-window.ts
+// DayTable): the cases name one of these, and every number is worked out
+// with the table, as the firmware and the app will.
+const ZONES: Record<string, DayTable> = {
+  zurich: dayTable(TZ, "2026-03-25", "2026-11-05"),
+  newyork: dayTable("America/New_York", "2026-10-01", "2026-10-20"),
+}
 const NOON = DAY + 12 * 3600 + 30
 
 const series = (s: Partial<ChartSeries>): ChartSeries => ({
@@ -41,33 +48,33 @@ const day = (date: string, at: Record<number, number>, n = 96) => ({
 
 function build() {
   const windows = [
-    { chart: { mode: "time" }, range: "24h", now: NOON, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "7d", now: NOON, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "1h", now: NOON, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "6h", now: NOON, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "24h", now: NOON, tz: TZ, back: 86400 },
-    { chart: { mode: "time" }, range: "1h", now: NOON, tz: TZ, back: 3 * 3600 },
-    { chart: { mode: "time" }, range: "24h", now: midnightOf("2026-10-25", TZ) + 3600, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "24h", now: midnightOf("2026-03-29", TZ) + 7200, tz: TZ, back: 0 },
-    { chart: { mode: "per-day", days: 7 }, range: "24h", now: NOON, tz: TZ, back: 0 },
-    { chart: { mode: "time" }, range: "24h", now: NOON, tz: "America/New_York", back: 0 },
-  ].map((w) => ({ in: w, out: chartWindow(w.chart as any, w.range as any, w.now, w.tz, w.back) }))
+    { chart: { mode: "time" }, range: "24h", now: NOON, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "7d", now: NOON, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "1h", now: NOON, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "6h", now: NOON, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "24h", now: NOON, tz: "zurich", back: 86400 },
+    { chart: { mode: "time" }, range: "1h", now: NOON, tz: "zurich", back: 3 * 3600 },
+    { chart: { mode: "time" }, range: "24h", now: midnightOf("2026-10-25", TZ) + 3600, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "24h", now: midnightOf("2026-03-29", TZ) + 7200, tz: "zurich", back: 0 },
+    { chart: { mode: "per-day", days: 7 }, range: "24h", now: NOON, tz: "zurich", back: 0 },
+    { chart: { mode: "time" }, range: "24h", now: NOON, tz: "newyork", back: 0 },
+  ].map((w) => ({ in: w, out: chartWindow(w.chart as any, w.range as any, w.now, ZONES[w.tz], w.back) }))
 
   const steps: { in: { view: RangeView; step: string; arg?: unknown }; out: RangeView }[] = []
   const step = (view: RangeView, name: string, arg: unknown, out: RangeView) => steps.push({ in: { view, step: name, ...(arg === undefined ? {} : { arg }) }, out })
   for (const r of ["1h", "6h", "24h", "7d"] as const) {
-    step(openView(r), "narrow", undefined, narrowed(openView(r), NOON, TZ))
-    step(openView(r), "widen", undefined, widened(openView(r), NOON, TZ))
-    step(openView(r), "earlier", undefined, moved(openView(r), "earlier", NOON, TZ))
-    step({ range: r, back: 86400 * 2 }, "later", undefined, moved({ range: r, back: 86400 * 2 }, "later", NOON, TZ))
+    step(openView(r), "narrow", undefined, narrowed(openView(r), NOON, ZONES.zurich))
+    step(openView(r), "widen", undefined, widened(openView(r), NOON, ZONES.zurich))
+    step(openView(r), "earlier", undefined, moved(openView(r), "earlier", NOON, ZONES.zurich))
+    step({ range: r, back: 86400 * 2 }, "later", undefined, moved({ range: r, back: 86400 * 2 }, "later", NOON, ZONES.zurich))
   }
   step(openView("24h"), "set", "1h", set("1h"))
   for (const secs of [-500, 3 * 3600, 12 * 3600, 20 * 3600, 40 * 3600]) {
-    step(openView("24h"), "drag-settle", secs, settled(dragged(openView("24h"), secs), NOON, TZ))
+    step(openView("24h"), "drag-settle", secs, settled(dragged(openView("24h"), secs), NOON, ZONES.zurich))
   }
-  step(openView("7d"), "drag-settle", 2 * 86400 + 3600, settled(dragged(openView("7d"), 2 * 86400 + 3600), NOON, TZ))
+  step(openView("7d"), "drag-settle", 2 * 86400 + 3600, settled(dragged(openView("7d"), 2 * 86400 + 3600), NOON, ZONES.zurich))
 
-  const o = { width: 800, height: 440, fontSize: 14, now: NOON, tz: TZ }
+  const o = { width: 800, height: 440, fontSize: 14, now: NOON, tz: "zurich" }
   const cases: { name: string; chart: ChartProperties; range: string; back: number; payloads: Record<string, unknown[]>; options: typeof o & { decimal?: string } }[] = [
     {
       name: "water: fixed axis, steps, a zone",
@@ -139,11 +146,12 @@ function build() {
     },
   ]
   const layouts = cases.map((c) => {
-    const window = chartWindow(c.chart, c.range as any, c.options.now, c.options.tz, c.back)
-    const data = Object.fromEntries(c.chart.series.map((s) => [s.id, seriesData(s, (c.payloads[s.id] ?? []) as any, c.options.tz)]))
-    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: chartLayout(c.chart, window, data, c.options) }
+    const zone = ZONES[c.options.tz]
+    const window = chartWindow(c.chart, c.range as any, c.options.now, zone, c.back)
+    const data = Object.fromEntries(c.chart.series.map((s) => [s.id, seriesData(s, (c.payloads[s.id] ?? []) as any, zone)]))
+    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: chartLayout(c.chart, window, data, { ...c.options, tz: zone }) }
   })
-  return { windows, steps, layouts }
+  return { zones: ZONES, windows, steps, layouts }
 }
 
 test("the chart's vectors are what its core gives", () => {

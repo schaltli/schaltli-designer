@@ -8,7 +8,7 @@
 
 const os = require("os")
 const mqtt = require("mqtt")
-const { Series, RESOLUTIONS, dateOf, dayPayload, recentPayload, dailyPayload, keptDates } = require("./history")
+const { Series, RESOLUTIONS, dateOf, dayPayload, recentPayload, dailyPayload, keptDates, midnightOf, nextDate, previousDate } = require("./history")
 const store = require("./store")
 
 const PREFIX = "schaltli/history"
@@ -164,8 +164,20 @@ function createRecorder(options) {
       if (!s.wanted && (!dates || dates.size === 0) && s.steps.m15.size === 0 && s.periods.length === 0) series.delete(s.topic)
     }
     // Its clock once a minute: a display without one knows which day is today.
-    if (first || crossed(RESOLUTIONS.m1)) publish(`${PREFIX}/now`, JSON.stringify({ time: Math.floor(now), tz }))
+    if (first || crossed(RESOLUTIONS.m1)) publish(`${PREFIX}/now`, JSON.stringify(nowPayload(now)))
     lastTick = now
+  }
+
+  /**
+   * Its clock, its zone, and where each of the last 31 days and tomorrow
+   * began: a device has no zone database and takes its midnights from here
+   * (tasks/charts-firmware-plan.md F1; lib/chart-window.ts DayTable).
+   */
+  function nowPayload(now) {
+    const dates = keptDates(tz, now)
+    dates.unshift(previousDate(dates[0]))
+    dates.push(nextDate(dates[dates.length - 1]))
+    return { time: Math.floor(now), tz, days: dates.map((date) => ({ date, start: midnightOf(date, tz) })) }
   }
 
   function becomeActive() {
