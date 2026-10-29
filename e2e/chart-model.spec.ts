@@ -5,7 +5,7 @@ import os from "os"
 import path from "path"
 import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
-import { defaultSeries, normalizeChart, type ChartSeries } from "../lib/chart"
+import { defaultSeries, historyWants, normalizeChart, type ChartSeries } from "../lib/chart"
 import { migrateObjects, OBJECT_TYPES, objectTypeLabel } from "../lib/object-types"
 
 // The chart's model (docs/2026-10-16-charts.md «Data model»,
@@ -93,6 +93,37 @@ test.describe("Chart model", () => {
     expect(migrateObjects(objects)).toBe(true)
     expect(objects[0].properties.series[0].annotations).toEqual([])
     expect(migrateObjects(objects)).toBe(false)
+  })
+})
+
+test.describe("what the recorder is asked to record (M6)", () => {
+  const chart = (list: ChartSeries[]) => ({ type: "chart", properties: { mode: "time", series: list } })
+
+  test("each topic once per kind, #path whole, a state with what counts as on", () => {
+    const wants = historyWants({
+      topics: [{ topic: "van/x" }],
+      screens: [
+        { objects: [chart([series({ source: { kind: "topic", topic: "van/tank#level" } }), series({ id: "h", valueKind: "state", source: { kind: "topic", topic: "van/heater" }, onMeans: [{ op: "==", value: "on" }] })])] },
+        { objects: [{ type: "group", children: [chart([series({ source: { kind: "topic", topic: "van/tank#level" } })])] }] },
+      ],
+      popups: [{ objects: [chart([series({ valueKind: "power", source: { kind: "topic", topic: "ble/charger/watts#value" } })])] }],
+    })
+    expect(wants).toEqual({
+      series: [
+        { topic: "van/tank#level", kind: "level" },
+        { topic: "van/heater", kind: "state", onMeans: [{ op: "==", value: "on" }] },
+        { topic: "ble/charger/watts#value", kind: "power" },
+      ],
+    })
+  })
+
+  test("a balance and a local topic are left out; no charts, nothing wanted", () => {
+    const wants = historyWants({
+      topics: [{ topic: "local/view", local: true }],
+      screens: [{ objects: [chart([series({ source: { kind: "balance" } }), series({ source: { kind: "topic", topic: "local/view#a" } })])] }],
+    })
+    expect(wants).toEqual({ series: [] })
+    expect(historyWants({ screens: [{ objects: [{ type: "bar" }] }] })).toEqual({ series: [] })
   })
 })
 

@@ -174,3 +174,49 @@ export function chartsFeature(project: {
     .map((s) => s.name)
   return names.length > 0 ? { feature: CHARTS_FEATURE, label: `charts (${names.join(", ")})` } : null
 }
+
+// ---- What the recorder is asked to record (decision 4, «What the recorder gets»)
+
+export interface HistoryWant {
+  topic: string
+  kind: ValueKind
+  onMeans?: OnMeans[]
+}
+
+interface WantObject {
+  type: string
+  properties?: Record<string, any>
+  children?: WantObject[]
+}
+
+/**
+ * Every series a display's charts read, as the recorder takes it: the topic
+ * (with any `#path`) raw, its kind and, for a state, what counts as on - once
+ * per topic and kind. Not a balance, which the display works out, and not a
+ * local topic, which never reaches the broker (lib/local-topics.ts).
+ */
+export function historyWants(project: {
+  topics?: readonly { topic: string; local?: boolean }[]
+  screens?: readonly { objects?: WantObject[] }[]
+  popups?: readonly { objects?: WantObject[] }[]
+}): { series: HistoryWant[] } {
+  const local = new Set((project.topics ?? []).filter((t) => t.local === true).map((t) => t.topic))
+  const series: HistoryWant[] = []
+  const walk = (objects: WantObject[] | undefined) => {
+    for (const obj of objects ?? []) {
+      if (obj.type === "chart" && Array.isArray(obj.properties?.series)) {
+        for (const s of obj.properties!.series as ChartSeries[]) {
+          if (s.source?.kind !== "topic" || !s.source.topic) continue
+          const topic = s.source.topic
+          if (local.has(topic.split("#")[0])) continue
+          const kind: ValueKind = isKind(s.valueKind) ? s.valueKind : "level"
+          if (series.some((w) => w.topic === topic && w.kind === kind)) continue
+          series.push(kind === "state" && s.onMeans?.length ? { topic, kind, onMeans: s.onMeans } : { topic, kind })
+        }
+      }
+      walk(obj.children)
+    }
+  }
+  for (const screen of [...(project.screens ?? []), ...(project.popups ?? [])]) walk(screen.objects)
+  return { series }
+}
