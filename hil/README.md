@@ -411,6 +411,18 @@ SKIPPED without a broker on `HIL_MQTT_URL` (default `mqtt://localhost:1883`),
 and when another recorder is recording on that broker - two would write the
 same topics.
 
+### A board's charts' history
+
+`node hil/charts-history.js --device <ip>` (each board's lane, quick) lays
+on the bench's broker what a recorder would - its presence, its clock with
+the table of days, one day of a topic's history - and installs a project of
+two screens, one with a chart of that topic. Through the board's
+`/api/debug?set=charts` it checks the board holds that day while the chart's
+screen is shown, nothing on the other screen, the day again on return, and
+the recorder's presence, clock and days. Needs a firmware with the charts
+(schaltli-firmware `ChartFeed`); SKIPPED where a real recorder records on
+the broker, whose clock the board would take. Clears what it laid.
+
 ## E-paper (retired 2026-10-12)
 
 The XIAO-ESP32S3 1-bit e-paper (GDEY042T81, firmware `schaltli-eink`) is no

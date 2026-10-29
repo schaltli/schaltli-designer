@@ -791,6 +791,28 @@ async function main() {
   for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => localTopics(name, device, null), { quick: true })
   }
+  // The charts' history (tasks/charts-firmware-plan.md F3): a board holds
+  // the shown screen's and no other, the recorder's clock and days. Lays a
+  // recorder's retained topics on the bench's broker; skipped where a real
+  // recorder records there. Installs its own project.
+  const chartsHistory = async (name, device) => {
+    console.log(`
+=== ${name} charts' history (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/charts-history.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-charts-history`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or a recorder records on the broker`
+          : exitCode === 0
+            ? "the shown screen's history held, let go on another screen, the recorder's clock and days"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+    step(name, () => chartsHistory(name, device), { quick: true })
+  }
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
 
