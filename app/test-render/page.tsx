@@ -1,6 +1,7 @@
 "use client"
 
 import { everyEnergyIcon } from "@/components/canvas/renderers/render-energy-diagram"
+import type { TimeRange } from "@/lib/chart"
 import { layoutOf as chartLayoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
 import { seriesData } from "@/lib/chart-layout"
 import { BACK_ARROW_ASSETS, everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
@@ -147,6 +148,8 @@ interface RenderTestRequest {
    * Omitted, the light fields are drawn, as always.
    */
   variant?: "light" | "dark"
+  /** A chart's history as a board holds it, and the clock (lib/render-screen.ts chartLive). */
+  chartLive?: { live: Record<string, string>; now: number }
   /**
    * Draws the pull tabs (device contract §2.10) as a device that declares
    * `screen-graph` does, at rest: on the edges a swipe leads to a neighbour
@@ -452,6 +455,7 @@ export default function TestRenderPage() {
         placeholders,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
+        ...(req.chartLive ? { chartLive: { ...req.chartLive, range: (screen as { timeRange?: TimeRange }).timeRange } } : {}),
         navigator: { screens: project.screens, activeScreenId: screen.id, scroll: req.navigatorScroll, marker: req.navigatorMarker },
       })
 

@@ -13,6 +13,7 @@
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import { chartFontSize, renderChart, type ChartRenderOptions } from "@/components/canvas/renderers/render-chart"
 import { chartPreview } from "@/lib/chart-preview"
+import type { TimeRange } from "@/lib/chart"
 import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
@@ -376,6 +377,12 @@ export interface RenderScreenObjectsOptions {
   screenBackgroundColor?: string
   /** A chart's screen range, its history and what it says instead (render-chart.ts). */
   chart?: Omit<ChartRenderOptions, "colorDepth" | "fontSize">
+  /**
+   * The broker's history topics and the clock a chart reads them at, as a
+   * board holds them (test-render, for the HIL to hold a board's chart to):
+   * each chart worked out from them as the Live preview does.
+   */
+  chartLive?: { live: Record<string, string>; now: number; range?: TimeRange }
 
   // Set when drawing a tab-control panel's children rather than the screen's
   // own top-level objects.
@@ -572,7 +579,17 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "chart":
         // A thumbnail or test-render without history of its own: the examples' curve.
-        renderChart(ctx, obj, { ...(options.chart ?? chartPreview(obj.properties, { topics })), colorDepth, fontSize: chartFontSize(obj, fonts) }, options)
+        renderChart(
+          ctx,
+          obj,
+          {
+            ...(options.chart ??
+              chartPreview(obj.properties, options.chartLive ? { topics, live: options.chartLive.live, now: options.chartLive.now, range: options.chartLive.range } : { topics })),
+            colorDepth,
+            fontSize: chartFontSize(obj, fonts),
+          },
+          options,
+        )
         break
 
       case "icon":

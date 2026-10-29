@@ -67,10 +67,12 @@ function daysBetween(a: string, b: string): number {
 export function dateOf(t: number, tz: Zone): string {
   if (typeof tz !== "string") {
     const days = tz.days
+    // No table yet (no recorder has spoken): days in UTC, so a window still
+    // has its edges - and the loops over its midnights an end.
+    if (days.length === 0) return new Date(Math.floor(t / 86400) * 86400000).toISOString().slice(0, 10)
     let at = 0
     for (let i = 0; i < days.length; i++) if (days[i].start <= t) at = i
     const base = days[at]
-    if (!base) return "1970-01-01"
     // Before the first, or a day past the last: whole days from it.
     const off = Math.floor((t - base.start) / 86400)
     return off === 0 || (at > 0 && at < days.length - 1) ? base.date : addDays(base.date, off)
@@ -85,7 +87,7 @@ export function midnightOf(date: string, tz: Zone): number {
     const days = tz.days
     const hit = days.find((d) => d.date === date)
     if (hit) return hit.start
-    if (days.length === 0) return 0
+    if (days.length === 0) return daysBetween("1970-01-01", date) * 86400
     // The nearest the table holds, and whole days from it.
     const near = daysBetween(days[0].date, date) < 0 ? days[0] : days[days.length - 1]
     return near.start + daysBetween(near.date, date) * 86400

@@ -127,7 +127,8 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   const muted = colour(p.mutedColor, "#49454f")
   const grid = colour(p.lineColor, "#cac4d0")
   const fontSize = options.fontSize ?? 14
-  const l = layoutOf(obj, options)
+  // The project's decimal separator, as a board writes its numbers with it.
+  const l = layoutOf(obj, { ...options, decimal: options.decimal ?? screen?.placeholders?.separators.decimal })
 
   ctx.save()
   ctx.translate(obj.x, obj.y)
@@ -165,9 +166,10 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
         ({
           id: `${obj.id}-text-${i}`,
           type: "text",
-          x: t.x,
-          y: t.y,
-          width: Math.max(1, t.w),
+          // Whole pixels, as a board places a text box (lround).
+          x: Math.round(t.x),
+          y: Math.round(t.y),
+          width: Math.max(1, Math.round(t.w)),
           height: t.h,
           zIndex: 1,
           properties: {

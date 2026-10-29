@@ -810,8 +810,27 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
+  // A chart drawn as the designer draws it (tasks/charts-firmware-plan.md
+  // F4, F5): the same history and clock on the broker and in test-render,
+  // 0 px apart.
+  const chartsDraw = async (name, device) => {
+    console.log(`
+=== ${name} chart drawn (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/charts-draw.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-charts-draw`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or a recorder records on the broker`
+          : exitCode === 0
+            ? "a line, a band, a zone, a legend and the NowPoint as the designer draws them, 0 px"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
   for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => chartsHistory(name, device), { quick: true })
+    step(name, () => chartsDraw(name, device), { quick: true })
   }
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))

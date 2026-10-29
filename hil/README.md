@@ -411,6 +411,17 @@ SKIPPED without a broker on `HIL_MQTT_URL` (default `mqtt://localhost:1883`),
 and when another recorder is recording on that broker - two would write the
 same topics.
 
+### A board's chart, pixel for pixel
+
+`node hil/charts-draw.js --device <ip>` (each board's lane, quick) lays a
+recorder's history on the bench's broker - a level falling through the day,
+a heater on twice - installs a chart of it (a fixed axis, a zone, a line, a
+band, a legend), makes the board draw it at a clock just laid, and compares
+the board's snapshot with test-render's drawing of the same history at the
+same clock (`__renderScreenForTest` with `chartLive`). 0 px apart on the
+4.3B, the knob and the PaperS3 since 2026-10-29; the report with the diff
+mask lands in `hil/charts-draw-report/<device>/`.
+
 ### A board's charts' history
 
 `node hil/charts-history.js --device <ip>` (each board's lane, quick) lays

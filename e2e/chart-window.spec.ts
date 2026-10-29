@@ -70,3 +70,11 @@ test("a device's day table gives the same days as the zone's name, past its ends
   expect(dateOf(midnightOf("2026-11-02", TZ) + 3600, table)).toBe("2026-11-02")
   expect(chartWindow({ mode: "time" }, "7d", NOON, table)).toEqual(chartWindow({ mode: "time" }, "7d", NOON, TZ))
 })
+
+test("without a table yet, days are UTC days - a window still has its edges", () => {
+  const empty = { days: [] }
+  expect(dateOf(86400 * 3 + 5, empty)).toBe("1970-01-04")
+  expect(midnightOf("1970-01-04", empty)).toBe(86400 * 3)
+  const w = chartWindow({ mode: "time" }, "24h", 0, empty)
+  expect([w.from, w.to, w.dates]).toEqual([0, 86400, ["1970-01-01"]])
+})
