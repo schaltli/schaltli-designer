@@ -11,7 +11,7 @@
  */
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
-import { renderChart } from "@/components/canvas/renderers/render-chart"
+import { chartFontSize, renderChart, type ChartRenderOptions } from "@/components/canvas/renderers/render-chart"
 import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
@@ -373,6 +373,8 @@ export interface RenderScreenObjectsOptions {
   // render-arc-level.ts for why this is a declared colour rather than
   // whatever happens to be on the canvas.
   screenBackgroundColor?: string
+  /** A chart's screen range, its history and what it says instead (render-chart.ts). */
+  chart?: Omit<ChartRenderOptions, "colorDepth" | "fontSize">
 
   // Set when drawing a tab-control panel's children rather than the screen's
   // own top-level objects.
@@ -568,7 +570,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "chart":
-        renderChart(ctx, obj, colorDepth)
+        renderChart(ctx, obj, { ...options.chart, colorDepth, fontSize: chartFontSize(obj, fonts) })
         break
 
       case "icon":

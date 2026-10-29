@@ -1,6 +1,8 @@
 "use client"
 
 import { everyEnergyIcon } from "@/components/canvas/renderers/render-energy-diagram"
+import { layoutOf as chartLayoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
+import { seriesData } from "@/lib/chart-layout"
 import { BACK_ARROW_ASSETS, everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
 import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
@@ -681,6 +683,38 @@ export default function TestRenderPage() {
         }
       }
       return ink
+    }
+
+    // A chart on a canvas of its own (tasks/charts-designer-plan.md D4): its
+    // layout, and the colour at each probed point - so a test holds the
+    // painter to the layout without a screenshot.
+    ;(window as any).__chartForTest = (req: {
+      obj: any
+      colorDepth?: string
+      range?: any
+      payloads?: Record<string, any[]>
+      now: number
+      tz: string
+      probe: [number, number][]
+    }) => {
+      const canvas = document.createElement("canvas")
+      canvas.width = req.obj.x + req.obj.width
+      canvas.height = req.obj.y + req.obj.height
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      const data = Object.fromEntries(
+        (req.obj.properties.series ?? []).map((s: any) => [s.id, seriesData(s, req.payloads?.[s.id] ?? [], req.tz)]),
+      )
+      const options = { colorDepth: req.colorDepth, range: req.range, data, now: req.now, tz: req.tz }
+      renderChart(ctx, req.obj, options)
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+      const hex = (v: number) => v.toString(16).padStart(2, "0")
+      const colours = req.probe.map(([x, y]) => {
+        const i = (Math.round(y) * canvas.width + Math.round(x)) * 4
+        return `#${hex(pixels[i])}${hex(pixels[i + 1])}${hex(pixels[i + 2])}`
+      })
+      return { layout: chartLayoutOf(req.obj, options), colours }
     }
 
     // Draws arc-level objects on their own, without a project around them.

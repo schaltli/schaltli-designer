@@ -16,7 +16,7 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
 import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
-import { renderChart } from "@/components/canvas/renderers/render-chart"
+import { chartFontSize, renderChart } from "@/components/canvas/renderers/render-chart"
 import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
@@ -2280,7 +2280,7 @@ export function Canvas({
         break
 
       case "chart":
-        renderChart(ctx, obj, colorDepth)
+        renderChart(ctx, obj, { colorDepth, fontSize: chartFontSize(obj, fonts), range: screen.timeRange })
         break
 
       case "text":

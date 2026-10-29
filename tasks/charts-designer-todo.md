@@ -11,7 +11,11 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
 - [x] D3 The layout: bands, stacks, bars, legend
   - lib/chart-layout.ts: a state's band in a strip at the plot's foot and the x of each start; stacks piled up from zero and down, a balance as minus the others where all have a value; per day one bar per day (energy up and down, run time in hours, a level's daily value), the days named; min and max marked with value and time; the legend top right, top left or below, its figures - «jetzt» and the value now, the sum in Wh/kWh (in and out apart, the window's clock times where it is not whole days), run time «h:mm h», starts «n×»
   - e2e/chart-layout.spec.ts «bands, stacks, bars, legend (D3)» (6)
-- [ ] D4 The painter
+- [x] D4 The painter
+  - components/canvas/renderers/render-chart.ts paints the layout: zones, grid with stronger midnights, value, time and day labels, areas, ranges, bands with their starts, bars, lines, min/max marks, the NowPoint, «→» for a window that ended, the legend, a message in the middle («Chart: add a series»); grey and 1-bit: four hatchings and four dashes by the series' place; canvas (the screen's time range), render-screen (`chart` option for D5), `chartFontSize`
+  - test-render `__chartForTest`: the layout and the colours at probed points
+  - e2e/chart-render.spec.ts (3): line, band, zone and NowPoint where the layout puts them; a band hatched on 4 bit; the empty chart's message
+  - for charts-firmware: the labels are drawn in the canvas's sans-serif at the chart font's size, not in the device font itself - a pixel comparison with a device needs the texts drawn as the energy diagram draws its (as text objects)
 - [ ] D5 Live and Simulation
 - [ ] D6 Inferring the kind
 - [ ] D7 The tool
