@@ -21,7 +21,7 @@ Die beiden Ordner unter `/dev/shm` liegen im Arbeitsspeicher, nicht auf der SD-K
 
 ## Der Verlauf {#verlauf}
 
-Neben dem Designer läuft auf dem Pekaway-System ein zweiter Dienst, der Recorder. Er hört auf dem Broker die Werte mit, die die Diagramme der übertragenen Projekte zeigen, und legt ihren Verlauf unter `schaltli/history/` wieder auf den Broker. Ein Gerät, das gerade startet, zeigt so sofort die Kurve der letzten Stunden und Tage und muss selbst nichts speichern.
+Neben dem Designer läuft auf dem Pekaway-System ein zweiter Dienst, der Recorder. Er hört auf dem Broker die Werte mit, die die [Diagramme](/objekte/anzeigen#chart) der übertragenen Projekte zeigen, und legt ihren Verlauf unter `schaltli/history/` wieder auf den Broker. Ein Gerät, das gerade startet, zeigt so sofort die Kurve der letzten Stunden und Tage und muss selbst nichts speichern.
 
 Den Verlauf hält der Recorder im Arbeitsspeicher. In die Datei `/home/pi/.schaltli/history.json` schreibt er ihn alle 30 Minuten und wenn er beendet wird, also etwa 50-mal am Tag, egal wie oft die Werte kommen. Fällt der Strom aus, fehlen höchstens die letzten 30 Minuten. Er behält 30 Tage in Viertelstunden und die letzten 48 Stunden in Minuten.
 

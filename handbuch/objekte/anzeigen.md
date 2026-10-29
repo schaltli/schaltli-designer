@@ -225,3 +225,37 @@ Der Van aus den Bildern oben, am Mittag. Gemessen werden die beiden Solarladereg
 | Verbraucher | <span class="ui">Rest</span> | (keins) | 280 + 90 − 180 − 90 − 45 = 55 W |
 
 Die 55 W sind alles, was niemand misst: Licht, Wasserpumpe, Router. Am Abend ohne Sonne meldet Batterie 1 −40 und Batterie 2 −20, zusammen geben sie also 60 W ab. Der Kühlschrank nimmt davon 45 W, für den Rest bleiben 15 W.
+
+## Chart {#chart}
+
+Zeigt Werte über die Zeit: wie sich die Batterie über den Tag geladen hat, wie kalt es in der Nacht wurde, wann die Heizung lief. Den Verlauf sammelt der [Recorder](/betrieb/daten#verlauf) auf dem Pekaway-System. Das Diagramm zeigt, was er gesammelt hat.
+
+::: warning Geräte
+Noch zeigt kein Gerät ein Diagramm. Du kannst eines bauen und in der [Vorschau](/designer/vorschau) ansehen, «Deploy» überträgt ein Projekt mit Diagramm aber noch auf kein Gerät. 4.3B, Knob, PaperS3 und die Android-App lernen es mit ihrer nächsten Version.
+:::
+
+Ein neues Diagramm ist leer. Unter <span class="ui">Series</span> wählst du bei <span class="ui">Add a series from a topic…</span> ein Topic oder ein Feld aus einer JSON-Nachricht. Daraus wird eine Datenreihe, gezeichnet als Linie, Fläche oder Band. Ein Diagramm kann mehrere Datenreihen haben.
+
+Jede Datenreihe hat unter <span class="ui">Kind</span> eine Art:
+
+- <span class="ui">Level</span>: ein Stand, etwa Ladestand, Temperatur oder Tank.
+- <span class="ui">Power</span>: eine Leistung in Watt, positiv oder negativ. Daraus rechnet das Diagramm die Energie in Wh und kWh.
+- <span class="ui">State</span>: ein Zustand wie «Heizung an». Er erscheint als Band am unteren Rand, für die Zeit, in der er an war.
+
+Die Art errät der Designer beim Hinzufügen. Kennt das Topic als Beispielwerte nur on und off, wird es ein <span class="ui">State</span>, sonst ein <span class="ui">Level</span>. Liegt er falsch, stellst du es unter <span class="ui">Kind</span> um.
+
+Die übrigen Felder einer Datenreihe:
+
+- <span class="ui">Reads</span>: das Topic. <span class="ui">Name</span> steht in der Legende.
+- <span class="ui">Drawn as</span>: <span class="ui">Line</span>, <span class="ui">Area</span>, <span class="ui">Steps</span> oder <span class="ui">Stacked</span>. Gestapelte Leistungen liegen übereinander: was gibt, über null, was nimmt, darunter.
+- <span class="ui">Factor</span> rechnet den Wert um, etwa 0.001 für mV in V. <span class="ui">Unit</span> und <span class="ui">Decimals</span> bestimmen, wie er geschrieben wird.
+- <span class="ui">Reverse sign</span> dreht eine Leistung um, die dein Gerät andersherum zählt.
+- <span class="ui">Axis</span> legt eine Datenreihe mit anderer Einheit auf die rechte Achse.
+- <span class="ui">Range</span> zeigt blass um die Linie, wie weit der Wert in jeder Viertelstunde schwankte.
+- <span class="ui">Shows</span>: was in der Legende steht. Zur Wahl stehen der Wert jetzt, der kleinste und der grösste Wert im Fenster mit ihrer Uhrzeit, die Energie, wie lange etwas lief und wie oft es anging.
+
+Für das ganze Diagramm wählst du unter <span class="ui">Mode</span> zwischen <span class="ui">Over time</span>, einer Kurve über die Zeit, und <span class="ui">Per day</span>, einem Balken pro Tag für die letzten <span class="ui">Days</span> Tage. <span class="ui">Legend</span> setzt die Legende oben rechts, oben links oder unten, oder blendet sie aus. Unter <span class="ui">Left axis</span> stellst du <span class="ui">Scale</span> auf <span class="ui">Automatic</span>, auf <span class="ui">Fixed</span> mit festem Bereich oder auf <span class="ui">At least</span>: ein Bereich, der wächst, wenn ein Wert herausfällt. <span class="ui">Zones</span> färbt Bereiche einer Achse ein, etwa einen Ladestand unter 20 %.
+
+Welche Zeitspanne ein Diagramm zeigt, bestimmt sein Screen unter <span class="ui">Time range</span>: 1 Stunde, 6 Stunden, 24 Stunden oder 7 Tage. 24 Stunden sind der heutige Tag von Mitternacht bis Mitternacht. Ein Punkt markiert den Moment jetzt, rechts davon ist der Tag noch leer.
+
+In der Vorschau mit <span class="ui">Live</span> zeigt das Diagramm, was der Recorder auf den Broker gelegt hat. Läuft keiner, steht «No recorder on this broker» darin, hat er noch nichts gesammelt, «No history yet». Mit <span class="ui">Simulation</span> und beim Bearbeiten zeichnet der Designer eine Kurve aus den Beispielwerten der Topics.

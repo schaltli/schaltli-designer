@@ -45,5 +45,8 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - the screen's panel (ScreenEditorFields): «Add history below» where offered, «Time range» (1 hour, 6 hours, 24 hours, 7 days) on a screen with charts or a range
   - in the screen's panel only, not yet in Manage Screens: the panel is where a page is worked on, and Manage Screens has no project-level action of this kind yet
   - e2e/chart-history-page.spec.ts (3)
-- [ ] D12 Handbook
+- [x] D12 Handbook
+  - handbuch/objekte/anzeigen.md «Chart»: the object, adding a series, the three kinds and the guess, every field, the chart's own fields, the screen's Time range, Live and Simulation; a «Geräte» warning that no device shows a chart yet (as screens.md warns for the screen graph: a lag of the devices, not a shortcoming with an issue)
+  - handbuch/designer/screens.md «Ein Verlauf unter einer Seite» and «Time range» among the screen's properties; handbuch/betrieb/daten.md links the charts
+  - through maettel-humanizer; e2e/handbook-labels.spec.ts green
 - [ ] Checkpoint: test:quick green; the user builds a history page in the preview against the van's recorder

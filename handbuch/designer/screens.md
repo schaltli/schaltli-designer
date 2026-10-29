@@ -32,6 +32,10 @@ Versteckst oder löschst du einen Screen, an dem andere liegen, macht der Design
 
 Auf dem Gerät zeigt eine kurze Lasche am Rand, wohin eine Wischgeste führt, wie in der [Vorschau](/designer/vorschau#wischen). Der Screen folgt dem Finger, auch nach oben und unten. Auf dem PaperS3 springt er.
 
+### Ein Verlauf unter einer Seite {#verlauf}
+
+<span class="ui">Add history below</span> in den Eigenschaften eines Screens legt darunter einen neuen Screen an, «<Name> history», mit einem [Chart](/objekte/anzeigen#chart) aus den Controls der Seite. Ein Wisch nach oben führt dorthin. Aus einem <span class="ui">Bar</span> oder <span class="ui">Gauge</span> wird ein Stand auf seinem Bereich, aus einem <span class="ui">Slider</span> oder <span class="ui">Dial</span> eine Stufenlinie «Target», aus einem <span class="ui">Switch</span> ein Band für die Zeit, in der er an war. Ein Wert in einem Text wird eine Linie, ein Energiediagramm gestapelte Leistungen. Hat eine Seite nur Schalter ohne Rückmeldung, fehlt der Knopf. Was der Designer anlegt, änderst du danach wie jedes Diagramm.
+
 ::: warning Geräte
 Die Plätze über und unter einem Screen kennen 4.3B, PaperS3 und Knob ab ihrer nächsten Firmware. [Deploy](/designer/deploy#wenn-der-dialog-nicht-ubertragt) spielt sie dann zuerst auf. Die Android-App kennt sie erst mit ihrer nächsten Version. Bis dahin überträgt Deploy ein Projekt, in dem ein Screen ausserhalb der Hauptreihe liegt, nicht auf ein Handy und nennt diese Screens. Ein Projekt mit nur einer Reihe geht wie bisher auf jedes Gerät.
 :::
@@ -111,6 +115,7 @@ Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. D
   ::: warning Ältere Firmware
   <span class="ui">Hide screen</span> wirkt auf Geräten ab Systemgeneration 1.5. Mit älterer Firmware lässt sich ein versteckter Screen dort per Wischen erreichen, und beim Übertragen nennt der Dialog ihn.
   :::
+- **<span class="ui">Time range</span>:** welche Zeitspanne die Diagramme des Screens zeigen, siehe [Chart](/objekte/anzeigen#chart). Erscheint nur auf einem Screen mit Diagramm.
 - **<span class="ui">Hardware buttons</span>:** was die Tasten des Geräts auslösen, jede mit ihrer Auswahl, siehe [Hardware-Tasten und Gesten](/designer/tasten). Nur bei Geräten mit Tasten, etwa dem Knob.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch. Auf einem Popup steht hier nur <span class="ui">A swipe closes a popup.</span>
 - **<span class="ui">Look</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters, siehe [Themes und Farben](/designer/themes). <span class="ui">Typography</span> legt fest, welche Schriften die [Stile](/objekte/anzeigen#stile) bekommen; ohne eigene Wahl gilt auch hier die des Masters. Das Feld erscheint nur, wenn das Gerät mehr als eine Typografie hat. Wählst du eine andere, bekommen alle Texte mit Stil auf dem Screen deren Schriften, auf einem Master auch die Texte der Screens, die seine übernehmen. Fehlt dem Gerät die gewählte, etwa nach einem Gerätewechsel, gilt «Standard», die Typografie, die jedes Gerät hat. <span class="ui">Background</span> ist die Rolle des Hintergrunds, ohne eigene Wahl die des Masters.
