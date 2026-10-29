@@ -26,7 +26,9 @@ Plan: `tasks/charts-firmware-plan.md`. Approved by the user on 2026-10-29 («fre
   - [x] HIL hil/charts-draw.js instead of a conformance specimen (a specimen has no history to lay): the board's snapshot against test-render's drawing of the same history at the same clock (`chartLive`) - 4.3B 0/384000, knob 0/129600, PaperS3 0/518400 px; in each board's lane
   - found on the way, each fixed and tested: a board without the recorder's table looped for ever over a window's midnights and restarted (empty table: UTC days now, on both sides; loops capped; test_chart «without a table», chart-window spec); text boxes on half pixels in the designer (now whole, as lround); texts not cut at the chart's edge on the board (now its region); the designer wrote numbers with "." where the project says "," (now the project's separator)
   - the PaperS3 draws through the same renderer: F5's drawing is done with it
-- [ ] F5 Drawn on the PaperS3, DDFs declare chart and charts
+- [x] F5 Drawn on the PaperS3, DDFs declare chart and charts
+  - the PaperS3 draws through the same renderer (F4): greys from the export, rectangles hatched, lines dashed; 0/518400 px; redrawn only when a held payload changes (ChartFeed)
+  - the three ddf-source/device.json declare `chart` and `charts`; headers and the designer's public/ddf copies regenerated (tools/generate-ddf-header.js --zip); all three flashed and serving it (firmware 2026-10-29)
 - [ ] F6 Range, pinch, ring, drag
 - [ ] F7 Generation and handbook
 - [ ] Checkpoint: test:quick green; the user deploys a history page to the 4.3B in the van and sees the recorder's curve
