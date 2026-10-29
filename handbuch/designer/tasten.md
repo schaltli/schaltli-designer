@@ -25,6 +25,7 @@ Zur Wahl stehen diese Aktionen:
 | <span class="ui">Adjust a slider or dial</span> | einen Slider oder Dial um eine Stufe verstellen, siehe [unten](#regler) |
 | <span class="ui">Open a popup</span> | ein [Popup](/designer/screens#popups) über den Screen legen; welches, wählst du unter <span class="ui">Popup</span> |
 | <span class="ui">Close this popup</span> | das Popup schliessen; nur auf einem Popup zu haben |
+| <span class="ui">Narrow the time range</span>, <span class="ui">Widen the time range</span>, <span class="ui">Move the time range</span>, <span class="ui">Set the time range</span> | die Zeitspanne der Diagramme auf dem Screen ändern, siehe [unten](#zeitbereich); nur in einem Projekt mit Diagramm |
 | <span class="ui">Device Action</span> | etwas, das nur dieses Gerät kann, etwa an der 4.3B das Display ausschalten (<code>displayOff</code>) |
 
 Ist eine Taste auf dem Master belegt, zeigt die Auswahl dessen Aktion als «Inherit» an. Der Screen übernimmt sie, bis du ihm eine eigene gibst. Ein Popup übernimmt nichts vom Master: Solange es offen ist, gilt nur seine eigene Belegung.
@@ -44,9 +45,24 @@ Wählst du einen Switcher, stellt die Taste den Regler im Panel, das der Switche
 
 Wird der Regler gelöscht, steht bei der Taste der Hinweis <span class="ui">Target missing</span>, und die Taste tut nichts, bis du einen anderen wählst.
 
+## Den Zeitbereich ändern {#zeitbereich}
+
+Ein Screen mit [Diagrammen](/objekte/anzeigen#chart) zeigt eine Zeitspanne, und alle seine Diagramme zeigen dieselbe. Vier Aktionen ändern sie:
+
+- <span class="ui">Narrow the time range</span>: eine Stufe kürzer, von 7 Tagen über 24 Stunden und 6 Stunden bis 1 Stunde.
+- <span class="ui">Widen the time range</span>: eine Stufe länger.
+- <span class="ui">Move the time range</span>: um eine ganze Spanne früher oder später, bei 24 Stunden also um einen Tag. Unter <span class="ui">Which way</span> wählst du <span class="ui">Earlier</span> oder <span class="ui">Later</span>. Über jetzt hinaus geht es nicht.
+- <span class="ui">Set the time range</span>: direkt auf die Spanne unter <span class="ui">Span</span>, zurück auf heute. Drei Buttons «1 h», «24 h» und «7 Tage» nebeneinander wählen so die Spanne mit einem Tipp.
+
+Nach einem Neustart öffnet der Screen wieder mit seiner <span class="ui">Time range</span>.
+
+Eine Seite, die du mit <span class="ui">Add history below</span> anlegst, hat die Gesten schon belegt. Erkennt das Gerät zwei Finger, macht <span class="ui">Pinch in</span> die Spanne länger und <span class="ui">Pinch out</span> kürzer. Beim Knob schiebt der Drehring den Zeitbereich, nach rechts später, nach links früher.
+
 ## Wischgesten
 
 Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Jede hat dieselbe Auswahl wie eine Taste, gleich daneben.
+
+Meldet das Gerät, dass es zwei Finger erkennt, kommen zwei Gesten dazu: <span class="ui">Pinch in</span>, die Finger zusammen, und <span class="ui">Pinch out</span>, die Finger auseinander. Der Abschnitt heisst dann <span class="ui">Gestures</span>.
 
 Ohne eigene Belegung wischt ein Screen zu seinen Nachbarn, siehe [Screens über- und untereinander](/designer/screens#position). Was du auf dem Master belegst, gilt dort, wo in dieser Richtung kein Nachbar liegt. Willst du statt zu wischen Tasten drücken, legst du auf jede Taste <span class="ui">Go to the screen beside</span> mit einer anderen Richtung. Belegst du eine Wischgeste selbst, in deren Richtung ein Nachbar liegt, weist dich der Designer darauf hin, dass sie nicht mehr zu ihm führt.
 

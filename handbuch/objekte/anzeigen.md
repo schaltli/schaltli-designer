@@ -259,3 +259,5 @@ Für das ganze Diagramm wählst du unter <span class="ui">Mode</span> zwischen <
 Welche Zeitspanne ein Diagramm zeigt, bestimmt sein Screen unter <span class="ui">Time range</span>: 1 Stunde, 6 Stunden, 24 Stunden oder 7 Tage. 24 Stunden sind der heutige Tag von Mitternacht bis Mitternacht. Ein Punkt markiert den Moment jetzt, rechts davon ist der Tag noch leer.
 
 In der Vorschau mit <span class="ui">Live</span> zeigt das Diagramm, was der Recorder auf den Broker gelegt hat. Läuft keiner, steht «No recorder on this broker» darin, hat er noch nichts gesammelt, «No history yet». Mit <span class="ui">Simulation</span> und beim Bearbeiten zeichnet der Designer eine Kurve aus den Beispielwerten der Topics.
+
+Ist <span class="ui">Scrolling</span> eingeschaltet, schiebst du das Diagramm in der Vorschau mit der Maus durch die Zeit. Ziehst du nach rechts, kommt die Vergangenheit von links herein. Beim Loslassen rastet es ab 24 Stunden auf ganze Tage ein. Ein Wisch über ein solches Diagramm blättert den Screen nicht um. Was Tasten und Gesten an der Zeitspanne ändern, steht unter [Den Zeitbereich ändern](/designer/tasten#zeitbereich).

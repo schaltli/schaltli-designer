@@ -25,5 +25,7 @@ Plan: `tasks/charts-actions-plan.md`. Approved by the user on 2026-10-29 («ok, 
   - `historyActions` (lib/chart-from-controls.ts): pinch in widens, pinch out narrows where the device reads two fingers; the knob's ring (its keys «Rotate Right», «Rotate Left») moves later and earlier; `withHistoryBelow` writes them on the new screen
   - the knob's description has no press among its keys (button-0 and button-1 are the ring's two directions), so the spec's «press → Set the time range 24 h» has nothing to sit on; left to the author where a device has a key for it
   - e2e/chart-history-page.spec.ts (A5)
-- [ ] A6 Handbook
+- [x] A6 Handbook
+  - handbuch/designer/tasten.md: the four actions in the table, «Den Zeitbereich ändern» (the steps, Which way, Span, a history page's gestures and the knob's ring), the two pinches under «Wischgesten» and «Gestures»; handbuch/objekte/anzeigen.md «Chart»: dragging a scrolling chart in the preview
+  - through maettel-humanizer; e2e/handbook-labels.spec.ts and handbook.spec.ts green
 - [ ] Checkpoint: test:quick green; the user moves through a history page's days in the preview
