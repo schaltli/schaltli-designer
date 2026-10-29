@@ -100,4 +100,18 @@ test.describe("a page's history (D11)", () => {
     expect(once.project.screens[1]).toMatchObject({ name: "Wasser history", dock: { screenId: "a", edge: "down" } })
     expect(withHistoryBelow(once.project, "a")).toBeNull()
   })
+
+  test("its gestures and keys from the start: pinch in widens, out narrows; the knob's ring moves (A5)", () => {
+    const page = { id: "a", name: "Wasser", masterScreenId: "m", objects: [bar("b", "van/fresh", 0)] }
+    const base = { nextId: 1, screenWidth: 480, screenHeight: 480 }
+    const touch = withHistoryBelow({ ...base, hardwareButtons: [{ id: "swipe-up", name: "Swipe Up" }, { id: "pinch-in", name: "Pinch In" }, { id: "pinch-out", name: "Pinch Out" }], screens: [page] }, "a")!
+    expect(touch.project.screens[1].buttonActions).toEqual({ "pinch-in": { type: "widen-range" }, "pinch-out": { type: "narrow-range" } })
+    const knob = withHistoryBelow({ ...base, hardwareButtons: [{ id: "button-0", name: "Rotate Right" }, { id: "button-1", name: "Rotate Left" }], screens: [page] }, "a")!
+    expect(knob.project.screens[1].buttonActions).toEqual({
+      "button-0": { type: "move-range", rangeDirection: "later" },
+      "button-1": { type: "move-range", rangeDirection: "earlier" },
+    })
+    const plain = withHistoryBelow({ ...base, hardwareButtons: [{ id: "swipe-up", name: "Swipe Up" }], screens: [page] }, "a")!
+    expect(plain.project.screens[1]).not.toHaveProperty("buttonActions")
+  })
 })

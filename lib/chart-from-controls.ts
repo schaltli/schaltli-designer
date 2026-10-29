@@ -143,6 +143,7 @@ export function historyCharts(objects: readonly Control[], colours: readonly str
 
 interface HistoryProject {
   nextId?: number
+  hardwareButtons?: readonly { id: string; name: string }[]
   screenWidth: number
   screenHeight: number
   fonts?: readonly { id: string; size?: number }[]
@@ -185,6 +186,32 @@ export function withHistoryBelow<P extends HistoryProject>(project: P, screenId:
   })
   const id = `screen-${nextId + 1}`
   nextId += 2
-  const screen = { id, name: `${page.name} history`, masterScreenId: page.masterScreenId, timeRange: "24h", dock: { screenId, edge: "down" }, objects }
+  const screen = {
+    id,
+    name: `${page.name} history`,
+    masterScreenId: page.masterScreenId,
+    timeRange: "24h",
+    dock: { screenId, edge: "down" },
+    ...(Object.keys(historyActions(project.hardwareButtons ?? [])).length > 0 ? { buttonActions: historyActions(project.hardwareButtons ?? []) } : {}),
+    objects,
+  }
   return { project: { ...project, nextId, screens: [...project.screens, screen] }, newId: id }
+}
+
+/**
+ * What a history page's gestures and keys do from the start
+ * (tasks/charts-actions-plan.md decision 6): pinch in widens, pinch out
+ * narrows, where the device reads two fingers; a ring turned right moves
+ * later and left earlier. The knob has no press of its own among its keys,
+ * so «Set the time range» on it is the author's to give.
+ */
+export function historyActions(buttons: readonly { id: string; name: string }[]): Record<string, { type: string; rangeDirection?: string }> {
+  const out: Record<string, { type: string; rangeDirection?: string }> = {}
+  for (const b of buttons) {
+    if (b.id === "pinch-in") out[b.id] = { type: "widen-range" }
+    else if (b.id === "pinch-out") out[b.id] = { type: "narrow-range" }
+    else if (/rotate\s*right/i.test(b.name)) out[b.id] = { type: "move-range", rangeDirection: "later" }
+    else if (/rotate\s*left/i.test(b.name)) out[b.id] = { type: "move-range", rangeDirection: "earlier" }
+  }
+  return out
 }
