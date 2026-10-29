@@ -16,6 +16,7 @@ export type Annotation = "current" | "min" | "max" | "sum" | "runtime" | "starts
 export type TimeRange = "1h" | "6h" | "24h" | "7d"
 
 export const TIME_RANGES: readonly TimeRange[] = ["1h", "6h", "24h", "7d"]
+export const RANGE_LABELS: Record<TimeRange, string> = { "1h": "1 hour", "6h": "6 hours", "24h": "24 hours", "7d": "7 days" }
 export const DEFAULT_TIME_RANGE: TimeRange = "24h"
 
 export interface ChartAxis {
@@ -157,7 +158,25 @@ export const CHARTS_FEATURE = "charts"
 
 interface FeatureObject {
   type: string
+  properties?: Record<string, any>
   children?: FeatureObject[]
+}
+
+export const RANGE_ACTIONS = ["narrow-range", "widen-range", "move-range", "set-range"] as const
+
+/** One of the four actions on a screen's time range (decision 15). */
+export function isRangeAction(action: unknown): boolean {
+  return !!action && (RANGE_ACTIONS as readonly string[]).includes((action as { type?: string }).type ?? "")
+}
+
+export const PINCH_FEATURE = "pinch"
+
+/** The feature a project with a pinch gesture needs, naming its screens; null without one. */
+export function pinchFeature(project: { screens?: readonly { name: string; buttonActions?: Record<string, unknown> }[] }): { feature: string; label: string } | null {
+  const names = (project.screens ?? [])
+    .filter((s) => ["pinch-in", "pinch-out"].some((id) => s.buttonActions?.[id] && (s.buttonActions[id] as { type?: string }).type !== "none"))
+    .map((s) => s.name)
+  return names.length > 0 ? { feature: PINCH_FEATURE, label: `pinch gestures (${names.join(", ")})` } : null
 }
 
 /**
@@ -166,12 +185,18 @@ interface FeatureObject {
  * by the device's `supportedObjectTypes` as any type is.
  */
 export function chartsFeature(project: {
-  screens?: readonly { name: string; timeRange?: string; objects?: FeatureObject[] }[]
-  popups?: readonly { name: string; objects?: FeatureObject[] }[]
+  screens?: readonly { name: string; timeRange?: string; buttonActions?: Record<string, { type?: string } | undefined>; objects?: FeatureObject[] }[]
+  popups?: readonly { name: string; buttonActions?: Record<string, { type?: string } | undefined>; objects?: FeatureObject[] }[]
 }): { feature: string; label: string } | null {
-  const hasChart = (objects: FeatureObject[] | undefined): boolean => (objects ?? []).some((o) => o.type === "chart" || hasChart(o.children))
+  const hasChart = (objects: FeatureObject[] | undefined): boolean =>
+    (objects ?? []).some((o) => o.type === "chart" || isRangeAction(o.properties?.action) || hasChart(o.children))
   const names = [...(project.screens ?? []), ...(project.popups ?? [])]
-    .filter((s) => hasChart(s.objects) || ("timeRange" in s && s.timeRange !== undefined))
+    .filter(
+      (s) =>
+        hasChart(s.objects) ||
+        ("timeRange" in s && s.timeRange !== undefined) ||
+        Object.values(s.buttonActions ?? {}).some((a) => isRangeAction(a)),
+    )
     .map((s) => s.name)
   return names.length > 0 ? { feature: CHARTS_FEATURE, label: `charts (${names.join(", ")})` } : null
 }

@@ -6,7 +6,12 @@ Plan: `tasks/charts-actions-plan.md`. Approved by the user on 2026-10-29 («ok, 
   - lib/chart-range.ts: a screen's `RangeView` {range, back}; `openView`, `narrowed`, `widened` (stopping at their ends), `moved` (by one range; later stops at now), `set` (back at now), `dragged`, `settled` (from 24 h up a window within 6 h of a midnight settles on it)
   - lib/chart-window.ts `chartWindow(…, back)`: the window moved back; days recomputed; an hour further back than recent keeps (6 h than recent6) read from the days
   - e2e/chart-range.spec.ts (5)
-- [ ] A2 The model and the export
+- [x] A2 The model and the export
+  - `narrow-range`, `widen-range`, `move-range` (`rangeDirection`), `set-range` (`range`) in HardwareButtonAction; summaries «Narrow the time range», «Widen the time range», «Move the time range earlier/later», «Set the time range to 24 hours» (`RANGE_LABELS`)
+  - `pinch-in` and `pinch-out` buttons from a description declaring `pinch` (lib/device-description.ts)
+  - the export writes each with its own fields only (lib/hardware-button-actions.ts), device zip and Android alike
+  - Deploy: `chartsFeature` also for a range action on a screen or a Button; `pinchFeature` for a pinch gesture (lib/chart.ts)
+  - e2e/chart-actions.spec.ts «model and export (A2)» (5)
 - [ ] A3 The pickers
 - [ ] A4 The preview follows
 - [ ] A5 The history page's defaults

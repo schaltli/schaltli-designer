@@ -77,6 +77,10 @@ export function exportedButtonAction(
     ? resolveSwipeAction(screen, masterScreen, buttonId, screens)
     : resolveButtonAction(screen, masterScreen, buttonId).action
   if (action?.type === "goto-neighbour") return exportedNeighbourAction(screen, action, screens ?? [])
+  // The screen's time range (docs/2026-10-16-charts.md decision 15): its own fields only.
+  if (action?.type === "move-range") return { type: "move-range", rangeDirection: action.rangeDirection ?? "earlier" }
+  if (action?.type === "set-range") return { type: "set-range", range: action.range ?? "24h" }
+  if (action?.type === "narrow-range" || action?.type === "widen-range") return { type: action.type }
   if (action?.type === "adjust-level") {
     if (!adjustTargetOf(action, screen, masterScreen)) return undefined
     return { type: action.type, targetObjectId: action.targetObjectId, direction: action.direction ?? "up" }

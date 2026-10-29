@@ -50,7 +50,7 @@ import { localTopicsFeature } from "@/lib/local-topics"
 import { screenGraphFeature } from "@/lib/screen-graph"
 import { scaledValuesFeature } from "@/lib/scaled-values"
 import { durationDisplayFeature } from "@/lib/duration-display"
-import { HISTORY_WANTS, chartsFeature, historyWants } from "@/lib/chart"
+import { HISTORY_WANTS, chartsFeature, historyWants, pinchFeature } from "@/lib/chart"
 import { buttonValuesFeature } from "@/lib/button-values"
 import { STATIC_OBJECTS_FEATURE, staticObjectsFeature } from "@/lib/static-objects"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
@@ -704,11 +704,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const durationFeature = durationDisplayFeature(project as any)
   // And a chart, or a screen's time range (docs/2026-10-16-charts.md, decision 10).
   const chartFeature = chartsFeature(project as any)
+  // And two fingers, for a pinch gesture (decision 15).
+  const pinch = pinchFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [

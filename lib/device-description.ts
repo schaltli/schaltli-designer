@@ -475,6 +475,11 @@ export function deviceDescriptionToProjectFields(
       { id: "swipe-up", name: "Swipe Up" },
       { id: "swipe-down", name: "Swipe Down" },
     )
+    // Two fingers, where the touch reads them (docs/2026-10-16-charts.md
+    // decision 15): drawn together or apart, as the swipes are buttons.
+    if ((manifest.supportedFeatures ?? []).includes("pinch")) {
+      hardwareButtons.push({ id: "pinch-in", name: "Pinch In" }, { id: "pinch-out", name: "Pinch Out" })
+    }
   }
 
   return {

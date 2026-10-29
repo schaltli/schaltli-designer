@@ -1,7 +1,7 @@
 "use client"
 
 import type { CombinedTopic } from "@/lib/combined-topics"
-import type { TimeRange } from "@/lib/chart"
+import { RANGE_LABELS, type TimeRange } from "@/lib/chart"
 import type { LiveValue } from "@/lib/live-value"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
@@ -537,6 +537,13 @@ export interface HardwareButtonAction {
     | "open-popup"
     | "close-popup"
     | "goto-neighbour"
+    // The screen's time range (docs/2026-10-16-charts.md decision 15,
+    // lib/chart-range.ts): one step shorter or longer, by one range earlier
+    // or later, or straight to a span.
+    | "narrow-range"
+    | "widen-range"
+    | "move-range"
+    | "set-range"
     | "none"
   // For goto-screen, and for open-popup: the popup screen it opens
   // (lib/popup.ts). close-popup takes nothing - it closes whatever is open.
@@ -561,6 +568,9 @@ export interface HardwareButtonAction {
   // For goto-neighbour: the side of the screen the neighbour is on
   // (docs/2026-10-17-screen-graph.md decision 16, lib/screen-graph.ts).
   side?: ScreenEdge
+  // For move-range: which way; for set-range: the span it sets.
+  rangeDirection?: "earlier" | "later"
+  range?: TimeRange
 }
 
 // Compact one-line summary of an action - used wherever a default/override
@@ -589,6 +599,14 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return "Close the popup"
     case "goto-neighbour":
       return describeNeighbourSide(action.side)
+    case "narrow-range":
+      return "Narrow the time range"
+    case "widen-range":
+      return "Widen the time range"
+    case "move-range":
+      return action.rangeDirection === "later" ? "Move the time range later" : "Move the time range earlier"
+    case "set-range":
+      return `Set the time range to ${RANGE_LABELS[action.range ?? "24h"]}`
     case "none":
       return "No action"
     default:
