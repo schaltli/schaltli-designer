@@ -18,6 +18,11 @@ Plan: `tasks/charts-firmware-plan.md`. Approved by the user on 2026-10-29 («fre
   - [x] firmware src/ChartFeed.h, one class for the three mains: routes schaltli/history/… to the holder, subscribes NOW and RECORDER where a project has charts, fits the wanted topics to the shown screen and popup on every change and once a minute (a day turns), keeps each screen's view, says when a chart needs drawing again; `?set=charts` on every board's test interface (`describe`); MQTT buffer 4096
   - [x] HIL hil/charts-history.js (each board's lane, quick): knob, 4.3B and PaperS3 flashed with the checkout (hil/firmware-upload.js --install-checkout) - each PASS, 6 checks; the knob's heap PASS with the 4 KB buffer, minimum 123580 bytes free (hil/internal-heap.js)
 - [ ] F4 Drawn on the 4.3B and the knob
+  - found first: the designer's chart is painted with the canvas's anti-aliasing, which no board can match, and conformance asks 0 px of difference. As the energy diagram does (render-energy-diagram.ts DiagramPixels, lib/polygon-raster.ts ↔ firmware PolygonRaster): the shapes become outlines in eighths, filled by the shared raster into RGB565 pixels mixed over the screen's ground, on both sides; texts stay Text objects (BDF on both)
+  - [ ] lib/chart-shapes.ts: from the layout and the colours, the list of fills in drawing order - zones (alpha), grid lines and midnights (rects), ranges and areas (alpha), bands and bars, start triangles, lines as quads 2 px wide, marks and the NowPoint as 16-gons, legend swatches; grey and 1-bit hatching as quads 1 px wide clipped to their shape; vectors of the fills for the firmware
+  - [ ] render-chart.ts paints those fills through a pixel buffer as the energy diagram's, and its texts as now; chart-render spec held to the fills
+  - [ ] firmware ChartShapes (port, held to the vectors) and ColorScreenRendererChart.cpp: the fills into a pixel buffer drawn onto the canvas, the texts through drawTextBox, the messages; `readsTopic` false for a chart (it reads history, not its series' topics)
+  - [ ] HIL: a conformance specimen with a fake recorder's history (4.3B, knob), pixel diff as every specimen; 4.3B's orchestrator screen
 - [ ] F5 Drawn on the PaperS3, DDFs declare chart and charts
 - [ ] F6 Range, pinch, ring, drag
 - [ ] F7 Generation and handbook
