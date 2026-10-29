@@ -22,5 +22,7 @@ Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go
 - [x] M6 The wants
   - `historyWants(project)` (lib/chart.ts): every topic series of every chart on its screens and popups, at any depth, once per topic and kind; a state with its `onMeans`; no balance, no local topic
   - e2e/chart-model.spec.ts «what the recorder is asked to record (M6)» (2)
-- [ ] M7 The device contract
+- [x] M7 The device contract
+  - docs/device-contract.md §2.13 Charts: the object, a series, the screen's time range, the history topics a chart reads, the declaration, the wants on deploy
+  - the spec's water example: «textMuted», a role, for «muted», which is none
 - [ ] Checkpoint: test:quick green; the user opens a project with a chart and sees the frame

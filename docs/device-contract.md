@@ -1264,6 +1264,47 @@ Asked for the Autoterm's runtime: a countdown should be seen to run, as
 - **Below it** a device writes the bare number of seconds.
 - **Conformance:** the `gauge` specimen writes its numbers this way.
 
+### 2.13 Charts - feature `charts` (designer side 2026-10-29)
+
+Values over time (`docs/2026-10-16-charts.md`, the model there in full;
+`lib/chart.ts`). Designer side only so far: no device draws a chart yet.
+
+- **The object** `"chart"`, at its x, y, width and height like any object.
+  `properties` as the spec's «Data model» - `mode` ("time" or "per-day"),
+  `days`, `scroll`, `left` and `right` axis (`scale` "auto", "fixed" or
+  "at-least", `min`, `max`, `unit`), `zones`, `legend`, `fontId`, `series`
+  - and as every object's colours: `textColor` (axis labels, legend),
+  `mutedColor` (quiet text), `lineColor` (the grid), each with its `XDark`
+  (§2.3).
+- **A series** is plain: `source` (`{ kind: "topic", topic }`, the topic
+  with any `#path`, or `{ kind: "balance" }` - minus the sum of the other
+  series in its `stack`, worked out by the device step by step), `name`,
+  `valueKind` ("level", "power", "state"), `onMeans` for a state (a list of
+  `{ op, value }`, any true means on, compared as a live value's rule,
+  §2.6), `invert`, `factor` (shown = raw × factor), `unit`, `decimals`,
+  `draw`, `stack`, `axis`, `color` and `colorDark` (hex), `range`,
+  `dailyValue`, `annotations`. A zone carries `color` and `colorDark` too.
+  The export never sends what the spec says is never stored (a `sum` on
+  anything but power, `bars` outside per-day mode and so on), so a device
+  need not check.
+- **The screen's time range**: `timeRange` on a screen ("1h", "6h", "24h",
+  "7d"), the span its charts open with; absent means 24h. Every chart on a
+  screen shows the screen's range.
+- **What a chart reads**: the recorder's retained history topics, never the
+  series' own topic - `schaltli/history/<topic>/day/<YYYY-MM-DD>`,
+  `.../recent`, `.../recent6`, `.../daily` and `schaltli/history/now`, their
+  payloads as the spec's «What the recorder lays on the broker». The
+  `<topic>` is the series' topic, `#path` included. Whether a recorder is
+  there says the retained `schaltli/history/recorder` (`state` "online" or
+  "offline").
+- **Declare** `"chart"` in `supportedObjectTypes` and `"charts"` in
+  `supportedFeatures` (§1) once the device draws them. The deploy dialog
+  asks both of a device for a project with a chart, or a screen with a time
+  range (`chartsFeature`, `lib/chart.ts`). Not a generation.
+- **On deploy** the designer lays retained
+  `schaltli/history/wants/<instance>`: what this display's charts ask the
+  recorder to record (`historyWants`). The device does nothing with it.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008
