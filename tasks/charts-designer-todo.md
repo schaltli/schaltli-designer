@@ -5,7 +5,9 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
 - [x] D1 The window and its history
   - lib/chart-window.ts: `chartWindow` (24 h today, 7 days to today, 1 h and 6 h to the step now is in, per day its last days), `historyTopicsFor`; days in a zone as the recorder counts them
   - e2e/chart-window.spec.ts (6), the recorder's days among them
-- [ ] D2 The layout: axes and lines
+- [x] D2 The layout: axes and lines
+  - lib/chart-layout.ts: `seriesData` (day and recent payloads to steps, a state's periods in unix seconds, factor and invert), `niceStep` (1, 2, 2.5, 5), `axisLabel`, `weekdayOf` (Mo … So), `chartLayout`: plot, left and right axis (auto from 0, fixed, at-least), time ticks and midnights, zones, line, area, steps, range band, gaps, the NowPoint, now past the window
+  - e2e/chart-layout.spec.ts «axes and lines (D2)» (9), the water example's numbers by hand
 - [ ] D3 The layout: bands, stacks, bars, legend
 - [ ] D4 The painter
 - [ ] D5 Live and Simulation
