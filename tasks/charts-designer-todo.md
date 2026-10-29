@@ -50,3 +50,5 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - handbuch/designer/screens.md «Ein Verlauf unter einer Seite» and «Time range» among the screen's properties; handbuch/betrieb/daten.md links the charts
   - through maettel-humanizer; e2e/handbook-labels.spec.ts green
 - [ ] Checkpoint: test:quick green; the user builds a history page in the preview against the van's recorder
+  - test:quick 2026-10-29: first run four e2e red (the chart panel among the font pickers, «battery» in the kind guess, «<Name>» an HTML tag to VitePress, the screen panel's new button not harvested) - fixed (72cfd54); second run e2e 2005 passed, knob-popups, knob-internal-heap and papers3-screen-graph red in the parallel lanes (a tap not taken, no answer within 5 s, a timeout) and each green alone right after (25 checks; no leak; 10 checks) - nothing of charts reaches a device yet
+  - waits for the user: the van, a history page against its recorder
