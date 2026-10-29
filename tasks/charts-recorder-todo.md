@@ -17,7 +17,9 @@ Plan: `tasks/charts-recorder-plan.md`. Approved by the user on 2026-10-29 («ok,
 - [x] R4 Persistence
   - recorder/store.js: written to `.tmp` and renamed; read on start, then today and every day with something recorded laid again
   - e2e/recorder-service.spec.ts: stopped, the broker emptied, started again - the same day laid; a torn `.tmp` leaves the last good file
-- [ ] R5 Deploy lays the wants (needs charts-model M6)
+- [x] R5 Deploy lays the wants
+  - components/deploy-dialog.tsx: once the board is back after «rebooting», or an app reports «applied», `schaltli/history/wants/<instance>` retained from `historyWants` of the project sent; empty, the want is cleared; a failed deploy publishes nothing (`HISTORY_WANTS`, lib/chart.ts)
+  - e2e/deploy-dialog.spec.ts «the recorder's wants» (3)
 - [ ] R6 A real run on the bench
 - [ ] R7 Install and handbook
 - [ ] Checkpoint: test:quick green; the user installs on the Pekaway; memory and Mosquitto persistence measured, answers in the spec

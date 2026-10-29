@@ -50,7 +50,7 @@ import { localTopicsFeature } from "@/lib/local-topics"
 import { screenGraphFeature } from "@/lib/screen-graph"
 import { scaledValuesFeature } from "@/lib/scaled-values"
 import { durationDisplayFeature } from "@/lib/duration-display"
-import { chartsFeature } from "@/lib/chart"
+import { HISTORY_WANTS, chartsFeature, historyWants } from "@/lib/chart"
 import { buttonValuesFeature } from "@/lib/button-values"
 import { STATIC_OBJECTS_FEATURE, staticObjectsFeature } from "@/lib/static-objects"
 import { navigatorNotOnDevices, themeSwitchNotOnDevices } from "@/lib/navigator-entries"
@@ -528,9 +528,19 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       )
       const answered = await publishTrigger(instanceId, "deploy", deployId, { deployId, url, crc32: checksum })
       if (!answered) return
+      // What this display's charts ask the recorder to record, laid once the
+      // device has the project (tasks/charts-recorder-plan.md decision 9);
+      // a project without charts takes its want back.
+      const layWants = () => {
+        const wants = historyWants(project as any)
+        clientRef.current?.publish(`${HISTORY_WANTS}${instanceId}`, wants.series.length > 0 ? JSON.stringify(wants) : "", { retain: true, qos: 1 })
+      }
       void ended.then(async (payload) => {
-        if (statusOf(payload ?? "")?.state !== "rebooting") return
+        const state = statusOf(payload ?? "")?.state
+        if (state === "applied") layWants()
+        if (state !== "rebooting") return
         const back = await awaitMessage((l, i) => l === "hello" && i === instanceId, RETURN_MS)
+        if (back) layWants()
         if (activeDeployIdRef.current !== deployId) return
         setDeployStatus(
           back

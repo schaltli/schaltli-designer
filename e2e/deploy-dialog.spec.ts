@@ -70,6 +70,7 @@ test.describe("Deploy to Device dialog", () => {
       deviceClient.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${id}/deploy`, "", { retain: true })
+      deviceClient.publish(`schaltli/history/wants/${id}`, "", { retain: true })
     }
     await new Promise((r) => setTimeout(r, 200))
     deviceClient.end()
@@ -82,10 +83,28 @@ test.describe("Deploy to Device dialog", () => {
   // combined-test-project.zip with its settings.deviceId rewritten, written
   // into this test's own output directory. Everything else about the project
   // is left exactly as it sits - only the binding changes.
-  async function projectBoundTo(deviceId: string, outPath: string): Promise<string> {
+  async function projectBoundTo(deviceId: string, outPath: string, withChart = false): Promise<string> {
     const zip = await JSZip.loadAsync(await readFile(COMBINED_TEST_PROJECT))
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
     project.settings.deviceId = deviceId
+    if (withChart) {
+      project.screens.find((sc: any) => !sc.isMaster).objects.push({
+        id: "e2e-chart",
+        type: "chart",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 60,
+        zIndex: 99,
+        properties: {
+          mode: "time",
+          scroll: false,
+          legend: "none",
+          left: { scale: "auto" },
+          series: [{ id: "s1", source: { kind: "topic", topic: "van/tank#level" }, name: "Tank", valueKind: "level", draw: "line", color: "accent" }],
+        },
+      })
+    }
     zip.file("project.json", JSON.stringify(project, null, 2))
     await writeFile(outPath, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }))
     return outPath
@@ -693,5 +712,72 @@ test.describe("Deploy to Device dialog", () => {
     // project.json (metadata only) - proves this is really the editable
     // project, not another copy of the flattened export.
     expect(Object.keys(embeddedProjectZip.files).some((n) => n.startsWith("fonts/") && n.endsWith(".bdf"))).toBe(true)
+  })
+
+  // tasks/charts-recorder-plan.md decision 9: once the device has the
+  // project, its charts' wants lie retained for the recorder; a project
+  // without charts takes them back; a failed deploy touches nothing.
+  test.describe("the recorder's wants", () => {
+    const WANTS = () => `schaltli/history/wants/${epaperId}`
+
+    async function retainedWants(): Promise<string> {
+      const client = await mqtt.connectAsync(BROKER_URL, { reconnectPeriod: 0 })
+      const got = await new Promise<string>((resolve) => {
+        const timer = setTimeout(() => resolve(""), 500)
+        client.on("message", (t, m) => {
+          if (t !== WANTS()) return
+          clearTimeout(timer)
+          resolve(m.toString())
+        })
+        client.subscribe(WANTS())
+      })
+      await client.endAsync()
+      return got
+    }
+
+    async function deploy(page: import("@playwright/test").Page, projectPath: string, end: "done" | "error") {
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }), { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+      await openDeployDialog(page, projectPath)
+      await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`, { exact: true }).click()
+      const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
+        deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+        deviceClient.on("message", (topic, message) => {
+          if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) resolve(JSON.parse(message.toString()))
+        })
+      })
+      await pressDeploy(page)
+      const { deployId } = await triggerPromise
+      const status = (state: string, extra: Record<string, unknown> = {}) =>
+        deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy-status`, JSON.stringify({ deployId, state, ...extra }))
+      if (end === "error") {
+        status("error", { error: "checksum mismatch" })
+        await expect(page.getByText("checksum mismatch")).toBeVisible()
+        return
+      }
+      status("rebooting")
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }), { retain: true })
+      await expect(page.getByText(`Camper Dashboard ${epaperId}: Deploy successful`)).toBeVisible()
+    }
+
+    test("a deploy that reached the device lays its charts' wants", async ({ page }, testInfo) => {
+      await deploy(page, await projectBoundTo(epaperDeviceId, testInfo.outputPath("chart-project.zip"), true), "done")
+      await expect.poll(retainedWants).toBe(JSON.stringify({ series: [{ topic: "van/tank#level", kind: "level" }] }))
+    })
+
+    test("a project without charts takes the want back", async ({ page }) => {
+      deviceClient.publish(WANTS(), JSON.stringify({ series: [{ topic: "old", kind: "level" }] }), { retain: true })
+      await expect.poll(retainedWants).not.toBe("")
+      await deploy(page, boundProject, "done")
+      await expect.poll(retainedWants).toBe("")
+    })
+
+    test("a failed deploy touches nothing", async ({ page }, testInfo) => {
+      const old = JSON.stringify({ series: [{ topic: "old", kind: "level" }] })
+      deviceClient.publish(WANTS(), old, { retain: true })
+      await deploy(page, await projectBoundTo(epaperDeviceId, testInfo.outputPath("chart-project.zip"), true), "error")
+      await page.waitForTimeout(500)
+      expect(await retainedWants()).toBe(old)
+    })
   })
 })

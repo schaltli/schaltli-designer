@@ -229,3 +229,6 @@ export function historyWants(project: {
 export function historyName(topic: string): string {
   return topic.replace("#", "~")
 }
+
+/** Where a display's wants lie, its instance id after it. */
+export const HISTORY_WANTS = "schaltli/history/wants/"
