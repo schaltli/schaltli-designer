@@ -80,3 +80,96 @@ test.describe("the recorder's steps (R1)", () => {
     expect(dayPayload(s, "2026-10-14", TZ, DAY + 600).on).toEqual([[0, 2]])
   })
 })
+
+test.describe("the recorder's payloads (R2)", () => {
+  test("a day is 96 steps of a quarter hour; the clock change's are 100 and 92", () => {
+    const s = new Series("van/t", "level")
+    s.ingest("20", DAY + 900)
+    s.advance(DAY + 1800)
+    const day = dayPayload(s, "2026-10-14", TZ, DAY + 1800)
+    expect(day.date).toBe("2026-10-14")
+    expect(day.step).toBe(900)
+    expect(day.mean).toHaveLength(96)
+    expect(day.mean.slice(0, 3)).toEqual([null, 20, null])
+    expect(dayPayload(s, "2026-10-25", TZ, DAY).mean).toHaveLength(100)
+    expect(dayPayload(s, "2026-03-29", TZ, DAY).mean).toHaveLength(92)
+    expect(dateOf(midnightOf("2026-10-25", TZ), TZ)).toBe("2026-10-25")
+  })
+
+  test("a full day fits a knob's buffer", () => {
+    const s = new Series("schaltli/state/tank/1/level", "level")
+    for (let t = DAY; t < DAY + 86400; t += 60) s.ingest(String(50 + Math.sin(t) * 12.345), t)
+    const bytes = JSON.stringify(dayPayload(s, "2026-10-14", TZ, DAY + 86400)).length
+    expect(bytes).toBeLessThan(4096)
+  })
+
+  test("recent: two hours at a minute, the last 48 at five, ending with the step now is in", () => {
+    const s = new Series("van/p", "power")
+    const now = DAY + 3 * 3600 + 30
+    s.ingest("40", now - 120)
+    s.advance(now)
+    const r = recentPayload(s, "m1", 2 * 3600, now)
+    expect(r.end).toBe(DAY + 3 * 3600 + 60)
+    expect(r.step).toBe(60)
+    expect(r.mean).toHaveLength(120)
+    expect(r.mean.slice(-3)).toEqual([40, 40, 40])
+    expect(r.mean[0]).toBeNull()
+    expect(recentPayload(s, "m5", 48 * 3600, now).mean).toHaveLength(576)
+    const st = new Series("van/heater", "state")
+    st.ingest("on", now - 600)
+    expect(recentPayload(st, "m1", 2 * 3600, now).on).toEqual([[now - 600, now]])
+  })
+
+  test("per day: energy in and out, a tank's decline without its refill, a state's run time and starts", () => {
+    const p = new Series("van/battery/watts", "power")
+    // 10 min at 100 W, 10 min at -50 W, then 40 min at 100 W, a message every 10 min.
+    p.ingest("100", DAY)
+    p.ingest("-50", DAY + 600)
+    for (let t = DAY + 1200; t < DAY + 3600; t += 600) p.ingest("100", t)
+    p.advance(DAY + 3600)
+    const today = dailyPayload(p, TZ, DAY + 3600).days.at(-1)
+    expect(today.date).toBe("2026-10-14")
+    expect(today.energyIn).toBeCloseTo((100 * 3000) / 3600, 3)
+    expect(today.energyOut).toBeCloseTo((50 * 600) / 3600, 3)
+
+    const tank = new Series("van/tank", "level")
+    const levels = [80, 70, 60, 95, 90]
+    levels.forEach((v, i) => tank.ingest(String(v), DAY + i * 900))
+    tank.advance(DAY + levels.length * 900)
+    const t = dailyPayload(tank, TZ, DAY + 5 * 900).days.at(-1)
+    expect(t.decline).toBe(25)
+    expect(t.rise).toBe(35)
+    expect([t.min, t.max]).toEqual([60, 95])
+
+    const heater = new Series("van/heater", "state")
+    heater.ingest("on", DAY + 600)
+    heater.ingest("off", DAY + 1200)
+    heater.ingest("on", DAY + 3000)
+    const h = dailyPayload(heater, TZ, DAY + 3600).days
+    expect(h).toHaveLength(30)
+    expect(h.at(-1)).toEqual({ date: "2026-10-14", runtime: 20, starts: 2 })
+    expect(h[0].date).toBe("2026-09-15")
+  })
+
+  test("what is older than kept is forgotten", () => {
+    const s = new Series("van/t", "level")
+    s.ingest("1", DAY)
+    s.advance(DAY + 60)
+    s.prune(DAY + 3 * 86400)
+    expect(s.steps.m1.size).toBe(0)
+    expect(s.steps.m15.size).toBe(1)
+    s.prune(DAY + 32 * 86400)
+    expect(s.steps.m15.size).toBe(0)
+  })
+
+  test("written and read back, a series is the same", () => {
+    const s = new Series("van/heater", "state", [{ op: "==", value: "on" }])
+    s.ingest("on", DAY)
+    const back = Series.fromJSON(JSON.parse(JSON.stringify(s)))
+    expect(dayPayload(back, "2026-10-14", TZ, DAY + 60)).toEqual(dayPayload(s, "2026-10-14", TZ, DAY + 60))
+    const l = new Series("van/t", "level")
+    l.ingest("5", DAY)
+    l.advance(DAY + 120)
+    expect(Series.fromJSON(JSON.parse(JSON.stringify(l))).window("m1", DAY, 2)).toEqual(l.window("m1", DAY, 2))
+  })
+})
