@@ -15,7 +15,7 @@ export interface KindHints {
   examples?: readonly string[]
 }
 
-const LEVEL_CLASSES = new Set(["temperature", "humidity", "battery", "voltage", "current", "pressure", "moisture", "volume", "water", "distance"])
+const LEVEL_DEVICE_CLASSES = new Set(["temperature", "humidity", "battery", "voltage", "current", "pressure", "moisture", "volume", "water", "distance"])
 const STATE_COMPONENTS = new Set(["binary_sensor", "switch", "light", "fan", "lock", "input_boolean"])
 const POWER_UNITS = new Set(["w", "kw", "mw"])
 const STATE_WORDS = new Set(["on", "off", "true", "false", "open", "closed", "yes", "no"])
@@ -23,7 +23,7 @@ const STATE_WORDS = new Set(["on", "off", "true", "false", "open", "closed", "ye
 export function inferValueKind(h: KindHints): ValueKind {
   if (h.component && STATE_COMPONENTS.has(h.component)) return "state"
   if (h.device_class === "power") return "power"
-  if (h.device_class && LEVEL_CLASSES.has(h.device_class)) return "level"
+  if (h.device_class && LEVEL_DEVICE_CLASSES.has(h.device_class)) return "level"
   const unit = h.unit?.trim().toLowerCase()
   if (unit && POWER_UNITS.has(unit)) return "power"
   if (unit) return "level"

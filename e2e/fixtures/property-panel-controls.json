@@ -613,6 +613,7 @@
         "radio: Live",
         "button: Select icon",
         "select: Position",
+        "button: Add history below",
         "input:checkbox: Hide screen",
         "combobox: Master",
         "input:checkbox: Show master",

@@ -27,6 +27,7 @@ test("every panel that sets a font uses the shared picker, and none has its own"
 
   expect(panels.map((p) => p.file).sort()).toEqual([
     "arc-level-properties.tsx",
+    "chart-properties.tsx",
     "energy-diagram-properties.tsx",
     "label-properties.tsx",
     "level-indicator-properties.tsx",
