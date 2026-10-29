@@ -714,6 +714,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // lies at - the device draws the «←» the other way round.
           neighbours: Object.keys(neighbours).length > 0 ? neighbours : undefined,
           back: backOf(project.screens, screen.id),
+          // The span its charts open with (docs/2026-10-16-charts.md); a
+          // device without charts never sees it, as nothing sets it there.
+          timeRange: screen.timeRange,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mapObjectsDeep(
             // The navigator goes once, in navigators[] below; a screen says

@@ -1,6 +1,7 @@
 "use client"
 
 import type { CombinedTopic } from "@/lib/combined-topics"
+import type { TimeRange } from "@/lib/chart"
 import type { LiveValue } from "@/lib/live-value"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
@@ -256,6 +257,9 @@ export interface ProjectScreen {
   // (docs/2026-10-17-screen-graph.md, lib/screen-graph.ts). Absent: in the
   // main row, in list order - or apart, when hidden, a popup or a master.
   dock?: ScreenDock
+  // The span its charts open with (docs/2026-10-16-charts.md, decision 15).
+  // Absent: 24 hours. Set only on a screen that shows charts.
+  timeRange?: TimeRange
 }
 
 export interface ProjectAsset {

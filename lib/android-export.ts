@@ -645,6 +645,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         hidden: screen.hidden || !!screen.dock || undefined,
         neighbours: Object.keys(neighbours).length > 0 ? neighbours : undefined,
         back: backOf(project.screens, screen.id),
+        timeRange: screen.timeRange,
         buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
         // Deep, not just the top level: a Switch or an MQTTIconField inside
         // a tab-control's panel needs its icon paths written back exactly as
