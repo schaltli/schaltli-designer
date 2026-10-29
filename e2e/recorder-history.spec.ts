@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { matches as designerMatches } from "../lib/live-value"
 import { extractJsonField } from "../lib/json-path"
+import { historyName } from "../lib/chart"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const compare = require("../recorder/compare")
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -29,6 +30,14 @@ test.describe("the recorder's comparison is the designer's", () => {
       expect(compare.fieldOf(json, path), path).toBe(extractJsonField(json, path))
     }
     expect(compare.fieldOf("not json", "value")).toBeUndefined()
+  })
+  test("a history's name: the same rule on both sides, no # in it", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const recorderName = require("../recorder/service").historyName
+    for (const topic of ["van/t", "ble/orion/in_volts#value", "a/b#c.d[0]"]) {
+      expect(recorderName(topic)).toBe(historyName(topic))
+      expect(historyName(topic)).not.toContain("#")
+    }
   })
 })
 

@@ -1294,7 +1294,9 @@ Values over time (`docs/2026-10-16-charts.md`, the model there in full;
   series' own topic - `schaltli/history/<topic>/day/<YYYY-MM-DD>`,
   `.../recent`, `.../recent6`, `.../daily` and `schaltli/history/now`, their
   payloads as the spec's «What the recorder lays on the broker». The
-  `<topic>` is the series' topic, `#path` included. Whether a recorder is
+  `<topic>` is the series' topic, its `#` written `~` (`historyName`,
+  `lib/chart.ts`): `ble/orion/in_volts#value` reads
+  `schaltli/history/ble/orion/in_volts~value/…`. Whether a recorder is
   there says the retained `schaltli/history/recorder` (`state` "online" or
   "offline").
 - **Declare** `"chart"` in `supportedObjectTypes` and `"charts"` in

@@ -220,3 +220,12 @@ export function historyWants(project: {
   for (const screen of [...(project.screens ?? []), ...(project.popups ?? [])]) walk(screen.objects)
   return { series }
 }
+
+/**
+ * Where a topic's history lies under `schaltli/history/`: a `#` cannot be
+ * published in a topic name, so a field's path follows a `~`
+ * (recorder/service.js historyName, the same rule).
+ */
+export function historyName(topic: string): string {
+  return topic.replace("#", "~")
+}
