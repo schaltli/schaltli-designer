@@ -2,7 +2,9 @@
 
 Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. ja»), all decisions as written; the history page is named «<page> history» («2. History»).
 
-- [ ] D1 The window and its history
+- [x] D1 The window and its history
+  - lib/chart-window.ts: `chartWindow` (24 h today, 7 days to today, 1 h and 6 h to the step now is in, per day its last days), `historyTopicsFor`; days in a zone as the recorder counts them
+  - e2e/chart-window.spec.ts (6), the recorder's days among them
 - [ ] D2 The layout: axes and lines
 - [ ] D3 The layout: bands, stacks, bars, legend
 - [ ] D4 The painter
