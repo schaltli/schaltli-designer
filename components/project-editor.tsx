@@ -11,6 +11,7 @@ import { buildMockEngine } from "@/lib/mock-engine"
 import { isLocalTopic, localInitialValues } from "@/lib/local-topics"
 import { formatWrite, type WriteFormat } from "@/lib/scaled-value"
 import { splitTopicPath } from "@/lib/json-path"
+import { historySubscriptions } from "@/lib/chart-preview"
 import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeholderScope, previewHeardTopics, projectSubscriptionTopics } from "@/lib/render-screen"
 import { pressedMessage, usesButtonValues } from "@/lib/button-values"
 import type { PlaceholderScope } from "@/lib/placeholders"
@@ -1347,7 +1348,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
         // And light or dark, which a colour device follows whatever its
         // screens read.
-        const topics = [...new Set([...projectSubscriptionTopics(project), THEME_STATE_TOPIC])]
+        // And the history the charts draw, with the recorder that lays it
+        // (lib/chart-preview.ts).
+        const topics = [...new Set([...projectSubscriptionTopics(project), THEME_STATE_TOPIC, ...historySubscriptions(project.screens)])]
         client.subscribe(topics, { qos: 0 })
         setLiveStatus("live")
       })

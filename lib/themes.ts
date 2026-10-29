@@ -866,6 +866,8 @@ interface ColouredObject {
  * "transparent" is refused, naming the object: a hex must never slip into a
  * project again.
  */
+const CHART_OWN_COLOURS: ReadonlySet<string> = new Set(["series", "zones"])
+
 export function migrateColorsToRoles(project: {
   settings?: { colorDepth?: string; themeId?: string }
   screens?: Array<{ id?: string; isMaster?: boolean; themeId?: string; backgroundColor?: string; gridColor?: string; objects?: ColouredObject[] }>
@@ -882,8 +884,9 @@ export function migrateColorsToRoles(project: {
   // reads an object's own colour keys) and nothing reads a colour there any
   // more, so a colour found there is dropped rather than turned into a role
   // that would reach a device unresolved (review, 2026-09-25).
-  const walkProperties = (node: Record<string, any>, where: string, nested = false) => {
+  const walkProperties = (node: Record<string, any>, where: string, nested = false, skip?: ReadonlySet<string>) => {
     for (const [key, value] of Object.entries(node)) {
+      if (skip?.has(key)) continue
       if (Array.isArray(value)) {
         value.forEach((item, i) => item && typeof item === "object" && walkProperties(item, `${where}.${key}[${i}]`, true))
       } else if (value && typeof value === "object") {
@@ -916,7 +919,12 @@ export function migrateColorsToRoles(project: {
   const walkObjects = (objects: ColouredObject[] | undefined, where: string) => {
     for (const object of objects ?? []) {
       const at = `${where} › ${object.id ?? "object"}`
-      if (object.properties) walkProperties(object.properties, at)
+      if (object.properties) {
+        // A chart's series and zones each hold a colour of their own, a role
+        // or a hex (docs/2026-10-16-charts.md decision 8), which applyTheme
+        // resolves: kept as they are, not dropped as other nested colours.
+        walkProperties(object.properties, at, false, (object as { type?: string }).type === "chart" ? CHART_OWN_COLOURS : undefined)
+      }
       walkObjects(object.children, at)
     }
   }

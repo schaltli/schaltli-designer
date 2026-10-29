@@ -17,6 +17,7 @@ import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
 import { chartFontSize, renderChart } from "@/components/canvas/renderers/render-chart"
+import { chartPreview } from "@/lib/chart-preview"
 import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
@@ -2280,7 +2281,12 @@ export function Canvas({
         break
 
       case "chart":
-        renderChart(ctx, obj, { colorDepth, fontSize: chartFontSize(obj, fonts), range: screen.timeRange })
+        // Live: the recorder's history; else a curve from the examples (lib/chart-preview.ts).
+        renderChart(ctx, obj, {
+          colorDepth,
+          fontSize: chartFontSize(obj, fonts),
+          ...chartPreview(obj.properties, { range: screen.timeRange, topics, live: previewMode ? liveValues : null }),
+        })
         break
 
       case "text":

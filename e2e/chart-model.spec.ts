@@ -6,7 +6,7 @@ import path from "path"
 import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { defaultSeries, historyWants, normalizeChart, type ChartSeries } from "../lib/chart"
-import { migrateObjects, OBJECT_TYPES, objectTypeLabel } from "../lib/object-types"
+import { migrateObjects, migrateProject, OBJECT_TYPES, objectTypeLabel } from "../lib/object-types"
 
 // The chart's model (docs/2026-10-16-charts.md «Data model»,
 // tasks/charts-model-plan.md M1, M4, M6): its defaults, what is never
@@ -94,6 +94,19 @@ test.describe("Chart model", () => {
     expect(objects[0].properties.series[0].annotations).toEqual([])
     expect(migrateObjects(objects)).toBe(false)
   })
+})
+
+test("opening a project keeps each series' and zone's colour, a role or a hex", () => {
+  // Found 2026-10-29 (charts-designer D5): the colour migration dropped every
+  // colour nested in an object's properties, these included.
+  const project: any = {
+    settings: {},
+    screens: [{ id: "m", isMaster: true, themeId: "material", objects: [] }, { id: "a", masterScreenId: "m", objects: [{ id: "c", type: "chart", properties: structuredClone({ ...water, series: [series({ color: "accent" }), series({ id: "s2", color: "#336699" })] }) }] }],
+  }
+  migrateProject(project)
+  const p = project.screens[1].objects[0].properties
+  expect(p.series.map((x: ChartSeries) => x.color)).toEqual(["accent", "#336699"])
+  expect(p.zones[0].color).toBe("track")
 })
 
 test.describe("what the recorder is asked to record (M6)", () => {

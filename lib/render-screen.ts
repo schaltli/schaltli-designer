@@ -12,6 +12,7 @@
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import { chartFontSize, renderChart, type ChartRenderOptions } from "@/components/canvas/renderers/render-chart"
+import { chartPreview } from "@/lib/chart-preview"
 import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { isLocalTopic } from "@/lib/local-topics"
 import { isTested, type LiveValueTest } from "@/lib/live-value-test"
@@ -570,7 +571,8 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "chart":
-        renderChart(ctx, obj, { ...options.chart, colorDepth, fontSize: chartFontSize(obj, fonts) })
+        // A thumbnail or test-render without history of its own: the examples' curve.
+        renderChart(ctx, obj, { ...(options.chart ?? chartPreview(obj.properties, { topics })), colorDepth, fontSize: chartFontSize(obj, fonts) })
         break
 
       case "icon":

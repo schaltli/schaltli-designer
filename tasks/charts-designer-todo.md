@@ -16,7 +16,11 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - test-render `__chartForTest`: the layout and the colours at probed points
   - e2e/chart-render.spec.ts (3): line, band, zone and NowPoint where the layout puts them; a band hatched on 4 bit; the empty chart's message
   - for charts-firmware: the labels are drawn in the canvas's sans-serif at the chart font's size, not in the device font itself - a pixel comparison with a device needs the texts drawn as the energy diagram draws its (as text objects)
-- [ ] D5 Live and Simulation
+- [x] D5 Live and Simulation
+  - lib/chart-preview.ts: `chartPreview` - Live from the history lying on the broker, in the recorder's zone, «No recorder on this broker», «No history yet»; otherwise (Simulation, editor, thumbnails) `simulatedData`: a cosine curve through the examples (a field's where `#path`) up to now, a state on and off as they say, per day bars; `historySubscriptions`: the Live preview subscribes `schaltli/history/<name>/#` per series and the recorder (all of a series' history, not only the window's days: simpler, and a change of range needs no new subscription)
+  - canvas and render-screen draw with it
+  - found on the way: opening a project dropped every series' and zone's colour - the colour migration deletes colours nested in properties; a chart's series and zones are now left to applyTheme (lib/themes.ts)
+  - e2e/chart-preview.spec.ts (5): the messages, Live in the recorder's zone, Simulation, the subscriptions, and in the Live preview against the bench's broker no curve without a recorder and the curve once history is laid; e2e/chart-model.spec.ts: colours kept on opening
 - [ ] D6 Inferring the kind
 - [ ] D7 The tool
 - [ ] D8 The panel: the chart
