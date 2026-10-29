@@ -16,7 +16,9 @@ Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go
   - components/canvas/renderers/render-chart.ts: frame, axes, each series' name in its colour; drawn by the canvas and render-screen (preview, thumbnails, test-render)
   - components/property-panel/chart-properties.tsx: «Frame» alone, for charts-designer to fill
   - e2e/chart-model.spec.ts «a chart on the canvas, before it is drawn (M4)»: loaded, selected, resized, copied and pasted
-- [ ] M5 Deploy's gate
+- [x] M5 Deploy's gate
+  - `chartsFeature(project)` (lib/chart.ts): a chart at any depth, on a screen or popup, or a screen with a time range, needs «charts», the screens named; the deploy dialog adds it to the unsupported features
+  - e2e/deploy-plan.spec.ts «a chart asks charts of the device»
 - [ ] M6 The wants
 - [ ] M7 The device contract
 - [ ] Checkpoint: test:quick green; the user opens a project with a chart and sees the frame

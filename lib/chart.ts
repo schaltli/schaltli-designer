@@ -149,3 +149,28 @@ export function normalizeChart(properties: Record<string, any>): ChartProperties
 export function chartNeedsNormalizing(properties: Record<string, any>): boolean {
   return JSON.stringify(normalizeChart(properties)) !== JSON.stringify(properties)
 }
+
+// ---- What Deploy asks of a device (decision 10; device contract)
+
+export const CHARTS_FEATURE = "charts"
+
+interface FeatureObject {
+  type: string
+  children?: FeatureObject[]
+}
+
+/**
+ * The feature a project with charts needs, naming the screens that show one
+ * or open with a time range; null when none does. The chart's type is gated
+ * by the device's `supportedObjectTypes` as any type is.
+ */
+export function chartsFeature(project: {
+  screens?: readonly { name: string; timeRange?: string; objects?: FeatureObject[] }[]
+  popups?: readonly { name: string; objects?: FeatureObject[] }[]
+}): { feature: string; label: string } | null {
+  const hasChart = (objects: FeatureObject[] | undefined): boolean => (objects ?? []).some((o) => o.type === "chart" || hasChart(o.children))
+  const names = [...(project.screens ?? []), ...(project.popups ?? [])]
+    .filter((s) => hasChart(s.objects) || ("timeRange" in s && s.timeRange !== undefined))
+    .map((s) => s.name)
+  return names.length > 0 ? { feature: CHARTS_FEATURE, label: `charts (${names.join(", ")})` } : null
+}

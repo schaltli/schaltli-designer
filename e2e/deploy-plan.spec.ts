@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import { APP_RELEASES, FLASHER, planDeploy, type PlanDevice, type ProjectNeed } from "../lib/deploy-plan"
 import { scaledValuesFeature } from "../lib/scaled-values"
 import { durationDisplayFeature } from "../lib/duration-display"
+import { chartsFeature } from "../lib/chart"
 
 // What Deploy does with a device (docs/2026-10-10-deploy-simple.md, #66):
 // at once, complete, or not at all.
@@ -145,4 +146,25 @@ test("a dial showing a duration asks duration-display of the device", () => {
   }
   expect(durationDisplayFeature(project)).toEqual({ feature: "duration-display", label: "values as durations (the dial on Heizung, the gauge on Timer)" })
   expect(durationDisplayFeature({ screens: [{ name: "S", objects: [{ type: "slider", properties: { displayValue: "duration" } }] }] })).toBeNull()
+})
+
+// docs/2026-10-16-charts.md decision 10: a chart, or a screen opening with a
+// time range, needs the device's "charts", named in Deploy's message.
+test("a chart asks charts of the device", () => {
+  const project = {
+    screens: [
+      { name: "Wasser", objects: [{ type: "bar" }] },
+      { name: "Wasser · Verlauf", objects: [{ type: "group", children: [{ type: "chart" }] }] },
+      { name: "Leer", timeRange: "6h", objects: [] },
+    ],
+    popups: [{ name: "Energie heute", objects: [{ type: "chart" }] }],
+  }
+  const charts = chartsFeature(project)
+  expect(charts).toEqual({ feature: "charts", label: "charts (Wasser · Verlauf, Leer, Energie heute)" })
+  expect(chartsFeature({ screens: [{ name: "S", objects: [{ type: "bar" }] }] })).toBeNull()
+  const knob = board({ name: "Knob" })
+  expect(planDeploy({ device: knob, needs: [], unsupportedFeatures: [charts!] })).toEqual({
+    kind: "blocked",
+    reason: '"Knob" cannot show charts (Wasser · Verlauf, Leer, Energie heute). Remove it from the project, or choose another device.',
+  })
 })
