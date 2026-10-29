@@ -7,6 +7,7 @@ import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, w
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { defaultSeries, historyWants, normalizeChart, type ChartSeries } from "../lib/chart"
 import { migrateObjects, migrateProject, OBJECT_TYPES, objectTypeLabel } from "../lib/object-types"
+import { unusedTopics } from "../lib/topic-usage"
 
 // The chart's model (docs/2026-10-16-charts.md «Data model»,
 // tasks/charts-model-plan.md M1, M4, M6): its defaults, what is never
@@ -189,5 +190,42 @@ test.describe("a chart on the canvas, before it is drawn (M4)", () => {
     const pasted = chartsOf(await downloadProjectJson(page))
     expect(pasted).toHaveLength(2)
     expect(pasted[1].properties).toEqual(pasted[0].properties)
+  })
+})
+
+test("a topic only a chart reads is used: not offered for removal", () => {
+  const project = {
+    topics: [{ topic: "van/tank" }, { topic: "van/other" }],
+    screens: [{ objects: [{ type: "chart", properties: { series: [series({ source: { kind: "topic", topic: "van/tank#level" } })] } }] }],
+  }
+  expect(unusedTopics(project).map((t) => t.topic)).toEqual(["van/other"])
+})
+
+test.describe("the Chart tool (D7)", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4v3bDdf(DEVICE_ID)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("offered before any device draws a chart, it draws an empty chart of the drawn size", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    await page.getByRole("button", { name: "Chart", exact: true }).click()
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, 100, 80, SCREEN_43B)
+    const b = devicePoint(box, 600, 380, SCREEN_43B)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move((a.x + b.x) / 2, (a.y + b.y) / 2, { steps: 4 })
+    await page.mouse.move(b.x, b.y, { steps: 4 })
+    await page.mouse.up()
+    const [chart] = chartsOf(await downloadProjectJson(page))
+    expect(chart, "one chart").toBeTruthy()
+    expect(Math.abs(chart.x - 100)).toBeLessThanOrEqual(2)
+    expect(Math.abs(chart.width - 500)).toBeLessThanOrEqual(3)
+    expect(Math.abs(chart.height - 300)).toBeLessThanOrEqual(3)
+    expect(chart.properties).toMatchObject({ mode: "time", series: [], legend: "top-right" })
   })
 })

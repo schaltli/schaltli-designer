@@ -24,7 +24,11 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
 - [x] D6 Inferring the kind
   - lib/chart-infer.ts `inferValueKind`: a binary sensor, switch, light … a state; device_class power power, temperature, humidity, battery, voltage … a level; unit W/kW/MW power, any other unit a level; examples all on/off words a state; else a level
   - e2e/chart-infer.spec.ts (3)
-- [ ] D7 The tool
+- [x] D7 The tool
+  - «Chart» in the toolbar's Show group; drawn, an empty chart of the drawn size, the font near 14 px
+  - offered and enabled although no device declares `chart` yet (its description says so): without it nobody could build a chart before charts-firmware - found when the user looked for it in the van; Deploy still refuses it
+  - a topic only a chart reads was already used (`source.topic` ends in «topic»): a test holds it
+  - e2e/chart-model.spec.ts: «the Chart tool (D7)», and the topic not offered for removal
 - [ ] D8 The panel: the chart
 - [ ] D9 The panel: the series
 - [ ] D10 Series from controls

@@ -128,6 +128,7 @@ export function Toolbar({
         tool("bar", "Bar", "A level to read, as a bar"),
         tool("gauge", "Gauge", "A level to read, as an arc"),
         tool("energy-diagram", "Energy diagram", "Where the energy comes from and goes: a Sankey or a Flow of nodes"),
+        tool("chart", "Chart", "Values over time: curves, a band of when something ran, or bars per day. No device shows charts yet"),
       ],
     },
     {
@@ -178,6 +179,9 @@ export function Toolbar({
     (t.type !== "navigator" || navigatorPlaceable) &&
     (t.type === "select" ||
     isLayoutOnlyType(t.type) ||
+    // Offered before any device draws it (tasks/charts-designer-plan.md D7),
+    // to be built and seen in the preview; Deploy refuses it until then.
+    (t.type === "chart" && !(supportedObjectTypes ?? []).includes("chart")) ||
     supportedObjectTypes === undefined ||
     supportedObjectTypes.includes(t.type))
   const toolGroups = groups
@@ -283,7 +287,7 @@ export function Toolbar({
     // "select" is always available; other tools are disabled if the loaded
     // device's firmware doesn't render that object type.
     const isDisabled =
-      tool.type !== "select" && !isLayoutOnlyType(tool.type) && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(tool.type)
+      tool.type !== "select" && !isLayoutOnlyType(tool.type) && tool.type !== "chart" && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(tool.type)
 
     return (
       <Tooltip key={tool.type}>

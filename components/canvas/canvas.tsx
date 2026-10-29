@@ -18,6 +18,7 @@ import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/
 import { renderNavigator } from "@/lib/render-screen"
 import { chartFontSize, renderChart } from "@/components/canvas/renderers/render-chart"
 import { chartPreview } from "@/lib/chart-preview"
+import { defaultChart } from "@/lib/chart"
 import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
@@ -4234,6 +4235,17 @@ export function Canvas({
       }
 
       return mqttDataLineObject
+    }
+    if (type === "chart") {
+      // Empty: its panel asks for a series (tasks/charts-designer-plan.md decision 8).
+      return {
+        type: "chart",
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: { ...defaultChart(), fontId: fontNear(14)?.id },
+      }
     }
     if (type === "energy-diagram") {
       // A bus and three nodes placed round it, mode Flow (lib/energy-diagram.ts).
