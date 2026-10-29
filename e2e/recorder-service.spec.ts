@@ -93,6 +93,27 @@ test.describe("the recorder on a broker (R3, R4)", () => {
     expect(r.series.get("van/t#value").last.value).toBe(20)
   })
 
+  test("its clock goes out once a minute, not on every tick", async () => {
+    // tickMs left to the default here: each payload at the end of its step.
+    const r = recorder({ id: "pi", tickMs: undefined })
+    await r.start()
+    const heard: string[] = []
+    const client = await mqtt.connectAsync(broker.url, { reconnectPeriod: 0 })
+    client.on("message", (_t, m) => heard.push(m.toString()))
+    await client.subscribeAsync("schaltli/history/now")
+    await until(() => heard.length === 1)
+    now += 10
+    r.tick()
+    now += 10
+    r.tick()
+    await new Promise((res) => setTimeout(res, 200))
+    expect(heard).toHaveLength(1)
+    now += 60
+    r.tick()
+    await until(() => heard.length === 2)
+    await client.endAsync()
+  })
+
   test("a second recorder on the same broker waits until the first is gone", async () => {
     const first = recorder({ id: "pi" })
     await first.start()

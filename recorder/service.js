@@ -132,7 +132,7 @@ function createRecorder(options) {
   }
 
   /** At the end of each step: what changed in it, and the days that fell out cleared. */
-  function tick() {
+  function tick(first = false) {
     if (!active) return
     const now = clock()
     const crossed = (len) => fast || Math.floor(now / len) !== Math.floor(lastTick / len)
@@ -160,7 +160,8 @@ function createRecorder(options) {
       // Wanted by nobody and nothing left: gone.
       if (!s.wanted && (!dates || dates.size === 0) && s.steps.m15.size === 0 && s.periods.length === 0) series.delete(s.topic)
     }
-    publish(`${PREFIX}/now`, JSON.stringify({ time: Math.floor(now), tz }))
+    // Its clock once a minute: a display without one knows which day is today.
+    if (first || crossed(RESOLUTIONS.m1)) publish(`${PREFIX}/now`, JSON.stringify({ time: Math.floor(now), tz }))
     lastTick = now
   }
 
@@ -173,7 +174,7 @@ function createRecorder(options) {
     presenceTimer = setInterval(() => publish(PRESENCE, presence("online")), 60_000)
     subscribeValues()
     layAll()
-    tick()
+    tick(true)
   }
 
   function onMessage(topic, buffer) {
@@ -214,7 +215,7 @@ function createRecorder(options) {
       return active
     },
     series,
-    tick,
+    tick: () => tick(),
     save,
     start() {
       load()

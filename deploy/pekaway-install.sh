@@ -302,6 +302,9 @@ ExecStart=$(command -v node) ${INSTALL_DIR}/recorder/index.js --broker mqtt://lo
 Restart=always
 RestartSec=10
 MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target
 EOF
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}-recorder.service"

@@ -271,6 +271,10 @@ test("the chart recorder is always on, restarted when it ends, and started after
   expect(body).toContain("Restart=always")
   expect(body).toContain("MemoryMax=")
   expect(body).not.toContain("StopWhenUnneeded")
+  // Enabled, so it starts again after the Pi restarts: without [Install]
+  // systemctl enable did nothing, and the unit stayed «static» (2026-10-29,
+  // the first install in the van).
+  expect(body).toContain("WantedBy=multi-user.target")
   expect(script).toContain('sudo systemctl enable "${SERVICE_NAME}-recorder.service"')
   expect(script.indexOf('sudo systemctl restart "${SERVICE_NAME}-recorder.service"')).toBeGreaterThan(script.indexOf("npm run build"))
 })
