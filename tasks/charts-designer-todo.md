@@ -36,7 +36,10 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - components/property-panel/chart-series-section.tsx «Series»: «Add a series from a topic…» (every topic and JSON field), its kind guessed from the examples (`inferValueKind`; a topic carries no unit or Home Assistant class in the project, so those rules wait for a caller that knows them - D10's controls), named after the topic's last part or the field, the next colour of `SERIES_COLOURS`; per series Source (in a stack: a topic or the balance), Reads, Name, Kind (its defaults on change), On when / Value (state), Drawn as (only what fits), Stack, Factor, Unit, Decimals, Reverse sign (power), Axis, Colour, Range, Per day, Shows (the annotations its kind has); remove, reorder by the grip
   - lib/chart.ts: `allowedDraws`, `allowedAnnotations`, `allowedDailyValues`, `SERIES_COLOURS`, `nextSeriesId`
   - e2e/chart-panel.spec.ts «a chart's series in its panel (D9)» (2)
-- [ ] D10 Series from controls
+- [x] D10 Series from controls
+  - lib/chart-from-controls.ts: `seriesFromControl` - Bar and Gauge a level with their calibration's range, Slider and Dial a stepped «Target» (the setpoint topic where there is one), Switch and Button Group a band on where their states say on (none without a read topic), a Text's topic values levels with their decimals, an energy diagram one stack (sinks below, «Reverse sign» turning it, the rest the balance, the bus nothing), colours taken over where a role or hex; `historyCharts` - each topic once, at any depth, one unit left and a second right, a third a chart below, fixed axis from the controls' ranges, scrolling on
+  - the only unit a control knows is an energy diagram's W, so a third unit does not arise yet; the rule stands for when units do
+  - e2e/chart-from-controls.spec.ts (6)
 - [ ] D11 «Add history below»
 - [ ] D12 Handbook
 - [ ] Checkpoint: test:quick green; the user builds a history page in the preview against the van's recorder

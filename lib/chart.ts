@@ -6,6 +6,7 @@
 
 import type { ComparisonOperator } from "@/lib/comparison-operators"
 import { normalizeOperator } from "@/lib/comparison-operators"
+import { isRole } from "@/lib/themes"
 
 export type ChartMode = "time" | "per-day"
 export type ValueKind = "level" | "power" | "state"
@@ -258,4 +259,9 @@ export function nextSeriesId(series: readonly { id: string }[]): string {
   let n = 1
   while (series.some((s) => s.id === `s${n}`)) n++
   return `s${n}`
+}
+
+/** A colour a series or zone may hold: a role of the theme, or a hex. */
+export function isRoleOrHex(c: unknown): boolean {
+  return isRole(c) || (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c))
 }
