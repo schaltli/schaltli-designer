@@ -392,6 +392,19 @@ async function main() {
     })
   }, { quick: true })
 
+  // The recorder as its own process against the bench's broker
+  // (tasks/charts-recorder-plan.md R6): a want in, history out, its file
+  // across a restart. Skipped without a broker or with another recorder on it.
+  step("host", async () => {
+    const exitCode = await run("node", ["hil/recorder.js"], { cwd: path.join(__dirname, "..") })
+    summary.push({
+      name: "recorder",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 2 ? "no broker, or another recorder on it - see output above" : exitCode === 0 ? "the recorder records and lays the history, and keeps it over a restart" : `exit code ${exitCode} - see output above`,
+      report: "",
+    })
+  }, { quick: true })
+
   // The firmware's own unit tests on the PC: the shared placeholder and live
   // value vectors against its C++ ports, and the popup fence
   // (schaltli-firmware platformio.ini [env:native]). Needs PlatformIO and a

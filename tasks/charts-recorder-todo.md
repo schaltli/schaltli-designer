@@ -20,6 +20,9 @@ Plan: `tasks/charts-recorder-plan.md`. Approved by the user on 2026-10-29 («ok,
 - [x] R5 Deploy lays the wants
   - components/deploy-dialog.tsx: once the board is back after «rebooting», or an app reports «applied», `schaltli/history/wants/<instance>` retained from `historyWants` of the project sent; empty, the want is cleared; a failed deploy publishes nothing (`HISTORY_WANTS`, lib/chart.ts)
   - e2e/deploy-dialog.spec.ts «the recorder's wants» (3)
-- [ ] R6 A real run on the bench
+- [x] R6 A real run on the bench
+  - hil/recorder.js: the recorder as a process against the bench's broker - a want, a level with a JSON field and a heater, the history read back retained; killed, the broker's day cleared, started again: the day back from its file; everything cleared at the end; SKIPPED without a broker or with another recorder on it
+  - its first run found `recorder/index.js`'s `~` expansion broken (a regular expression that did not compile): fixed
+  - hil/test-all.js: host lane, quick; hil/README.md «The recorder»
 - [ ] R7 Install and handbook
 - [ ] Checkpoint: test:quick green; the user installs on the Pekaway; memory and Mosquitto persistence measured, answers in the spec

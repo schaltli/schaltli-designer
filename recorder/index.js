@@ -18,7 +18,7 @@ function arg(name, fallback) {
   return i !== -1 && process.argv[i + 1] !== undefined ? process.argv[i + 1] : fallback
 }
 
-const file = arg("file", path.join(os.homedir(), ".schaltli", "history.json")).replace(/^~(?=$|\/|\)/, os.homedir())
+const file = arg("file", path.join(os.homedir(), ".schaltli", "history.json")).replace(/^~(?=$|[/\\])/, os.homedir())
 const tickMs = arg("tick-ms")
 const recorder = createRecorder({
   broker: arg("broker", "mqtt://localhost:1883"),

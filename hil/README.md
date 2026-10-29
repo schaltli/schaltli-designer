@@ -396,6 +396,21 @@ phone is on it - the app reconnects only there. Installing a newer app over
 the one on the phone needs the debug key it was signed with,
 `~/.android/debug.keystore` from the PC that built it.
 
+## The recorder (charts, 2026-10-29)
+
+`node hil/recorder.js` (host lane of test:quick) runs the chart recorder
+(`recorder/`, `docs/2026-10-16-charts.md`) as its own process against the
+bench's broker, as it runs on a Pekaway: it lays a want the way Deploy does
+(`schaltli/history/wants/hil-recorder`), sends a level with a JSON field and
+a heater state, and reads the history back retained - the level under its
+`~` name, today's day, the heater's period, `schaltli/history/now`. Then it
+kills the recorder, clears the broker's copy of the day and starts it again:
+the day comes back from its file. Everything it laid is cleared at the end.
+
+SKIPPED without a broker on `HIL_MQTT_URL` (default `mqtt://localhost:1883`),
+and when another recorder is recording on that broker - two would write the
+same topics.
+
 ## E-paper (retired 2026-10-12)
 
 The XIAO-ESP32S3 1-bit e-paper (GDEY042T81, firmware `schaltli-eink`) is no
