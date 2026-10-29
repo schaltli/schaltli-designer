@@ -460,23 +460,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         return path ? { path, pathDark: iconDarkPathMap.get(assetKey(keyId, key)) } : undefined
       })
     }
-    if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
-      return {
-        ...obj,
-        properties: {
-          ...obj.properties,
-          valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
-            ...pair,
-            path: iconPathMap.get(assetKey(keyId, pair.id)) || undefined,
-            // Only beside a light path: an XDark without its X would
-            // be read differently by a device than by the reference.
-            ...(iconPathMap.has(assetKey(keyId, pair.id))
-              ? { pathDark: iconDarkPathMap.get(assetKey(keyId, pair.id)) }
-              : {}),
-          })),
-        },
-      }
-    }
     if (obj.type === "icon") {
       // A live icon's results each carry the bitmap baked for them
       // (lib/asset-export.ts, keyed <object>~<branch>).

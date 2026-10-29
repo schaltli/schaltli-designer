@@ -104,20 +104,13 @@ Eine Frostwarnung sieht so aus: <span class="ui">Reads</span> ist die Aussentemp
 
 Stellst du zurück auf <span class="ui">Fixed</span>, bleibt das Icon aus <span class="ui">Otherwise</span>.
 
+Früher gab es für ein Icon, das sich mit einem Wert ändert, ein eigenes Objekt, Live Icon. Ein Icon mit <span class="ui">Live</span> kann dasselbe, darum gibt es Live Icon nicht mehr. Öffnest du ein Projekt, das noch Live Icons enthält, macht der Designer aus jedem ein Icon mit <span class="ui">Live</span>. Das Topic wird zu <span class="ui">Reads</span>, die Regeln behalten ihre Reihenfolge, und Farbe, Hintergrund und Grösse bleiben, wie sie waren. <span class="ui">Otherwise</span> bleibt leer: Passt keine Regel, zeigt das Icon wie bisher nichts. Anders ist nur `==`, es vergleicht jetzt Text. «1.0» passt also nicht mehr auf eine Regel mit 1.
+
 **Das Icon des Screens:** Mit <span class="ui">Screen</span> zeigt das Icon dasselbe wie der Screen, auf dem es steht, also das Icon aus seinen Eigenschaften, ob fest oder live. Gedacht ist das für einen [Master](/designer/screens#master-screens): Eine Kopfzeile aus diesem Icon und einem Text mit dem Chip Screen › `name` legst du einmal an, und jeder Screen zeigt darin sein eigenes Icon und seinen eigenen Namen. Das Icon im Feld <span class="ui">Stand-in</span> springt ein, wo ein Screen kein Icon hat, und auf dem Master selbst. Hat das Icon noch keine Farbe, bekommt es mit <span class="ui">Screen</span> die Rolle <span class="ui">Text</span>, wie die Icons im Navigator. So bleibt es auch in einem dunklen Theme gut sichtbar. Bei einem Icon, das du schon vorher auf <span class="ui">Screen</span> gestellt hast, wählst du die Farbe unter <span class="ui">Colour</span> selbst. Name und Icon setzt der Designer beim Übertragen für jeden Screen fest ein. Das Gerät braucht dafür keine neue Firmware.
 
 ::: warning Ältere Firmware
 Ein Icon mit <span class="ui">Live</span> wechselt auf Geräten ab Systemgeneration 1.4. Knob, 4.3B und PaperS3 mit älterer Firmware zeigen immer das Icon aus <span class="ui">Otherwise</span>, eine ältere Android-App zeigt keines. Überträgst du auf ein solches Gerät, nennt der Dialog diese Icons.
 :::
-
-## Live Icon {#live-icon}
-
-Zeigt eines von mehreren Icons, je nach Wert eines Topics: eine leere oder volle Batterie, eine Lampe an oder aus.
-
-- <span class="ui">Topic</span>: woher der Wert kommt.
-- <span class="ui">Rules</span>: eine Liste von Regeln der Form <span class="ui">If value</span> … <span class="ui">Then</span> …, zum Beispiel «wenn Wert > 80, dann Icon Batterie voll». Die Regeln werden von oben gelesen, die erste passende bestimmt das Icon. Passt keine, zeigt Live Icon nichts. <span class="ui">Add rule</span> fügt eine Regel hinzu. Wie Vergleiche funktionieren, steht unter [Bedingungen](/objekte/gemeinsames#bedingungen).
-- <span class="ui">Colour</span>: eine Farbe für alle Icons, und der Hintergrund.
-- <span class="ui">Size</span>: wie beim [Icon](#icon).
 
 ## Bar {#bar}
 

@@ -275,10 +275,9 @@ export interface ProjectAsset {
 // and incompatible with the real setter, which is what the type checker was
 // complaining about until 2026-08-22.
 export interface IconSelectorContext {
-  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule" | "screen-live-rule" | "energy-node"
+  type: "canvas" | "icon-properties" | "software-button" | "screen-icon" | "switch-state" | "live-value-rule" | "screen-live-rule" | "energy-node"
   // An energy diagram's node (docs/2026-10-11-energy-diagram.md).
   nodeId?: string
-  pairIndex?: number
   screenId?: string
   stateIndex?: number
   // Which of a Switch state's two icon slots this selection targets - only
@@ -333,7 +332,6 @@ export interface PropertyPanelProps {
   colorDepth: "1bit" | "4bit" | "24bit" // Added color depth for color picker
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
-  onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector?: () => void // Added handler for icon properties selector
   // Hardware button props
   focusedHardwareButton: { id: string; key: number } | null
@@ -2590,11 +2588,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setShowIconSelector(true)
   }, [])
 
-  const handleValueIconPairIconSelect = useCallback((pairIndex: number) => {
-    setIconSelectorContext({ type: "value-icon-pair", pairIndex })
-    setShowIconSelector(true)
-  }, [])
-
   const handleIconPropertiesIconSelect = useCallback(() => {
     setIconSelectorContext({ type: "icon-properties" })
     setShowIconSelector(true)
@@ -2634,25 +2627,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         addObject(atM ? { ...newIconObject, ...atM } : newIconObject)
         setIconClickPosition(null)
         setActiveTool("select")
-      } else if (
-        iconSelectorContext?.type === "value-icon-pair" &&
-        selectedObject &&
-        iconSelectorContext.pairIndex !== undefined
-      ) {
-        const currentPairs = selectedObject.properties.valueIconPairs || []
-        const newPairs = [...currentPairs]
-        if (newPairs[iconSelectorContext.pairIndex]) {
-          newPairs[iconSelectorContext.pairIndex] = {
-            ...newPairs[iconSelectorContext.pairIndex],
-            thenShowIcon: assetId,
-          }
-          updateObject(selectedObject.id, {
-            properties: {
-              ...selectedObject.properties,
-              valueIconPairs: newPairs,
-            },
-          })
-        }
       } else if (iconSelectorContext?.type === "live-value-rule" && selectedObject && iconSelectorContext.liveValueId) {
         const { liveValueId, target } = iconSelectorContext
         const icon = { kind: "icon" as const, icon: assetId }
@@ -2815,20 +2789,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const palette = ROLE_PALETTE
 
       switch (activeTool) {
-        case "live-icon":
-          addObject({
-            type: "live-icon",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
-            properties: {
-              topic: undefined, // Changed from topicId to topic
-              valueIconPairs: [],
-              backgroundColor: "transparent",
-            },
-          })
-          break
         case "text": {
           const selectedFont = project.fonts && project.fonts.length > 0 ? project.fonts[0] : null
           console.log("=== CREATING NEW LABEL ===")
@@ -4738,7 +4698,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     deviceAnimates={project.settings.screenMotion !== false}
                     setProjectSettingsTab={setProjectSettingsTab}
                     setShowProjectSettings={setShowProjectSettings}
-                    onOpenIconSelector={handleValueIconPairIconSelect}
                     onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
                     focusedHardwareButton={focusedHardwareButton}
                     justCreatedId={justCreatedId}

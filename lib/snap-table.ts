@@ -65,7 +65,7 @@ export function isSnapTable(obj: ScreenObject | null | undefined): boolean {
 }
 
 export function roleOf(obj: ScreenObject): SnapRole {
-  if (obj.type === "icon" || obj.type === "live-icon") return "icon"
+  if (obj.type === "icon") return "icon"
   if (obj.type === "text") return "label"
   return "control"
 }

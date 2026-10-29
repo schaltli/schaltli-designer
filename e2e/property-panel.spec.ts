@@ -68,12 +68,11 @@ function fixtureObjects(): Obj[] {
     place("v-box", "box", { fillColor: "transparent", strokeColor: "#000000", strokeWidth: 2, cornerRadius: 0 }),
     place("v-line", "line", { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 0, points: [{ x: 10, y: 60 }, { x: 50, y: 60 }] }),
     place("v-icon", "icon", { assetId: null, iconName: "default", backgroundColor: "transparent" }, { width: 24, height: 24 }),
-    place("v-mqtt-icon-field", "live-icon", {
-      topic: READ_TOPIC,
-      // `value`, not `comparisonValue`: that is the key the renderer matches
-      // on (render-mqtt-field.ts) and the one the panel edits. The fixture
-      // said the other thing, so this rule never had a value at all.
-      valueIconPairs: [{ comparisonOperator: "==", value: "on", thenShowIcon: null }],
+    // An icon set to Live: what a Live Icon was until 2026-10-29.
+    place("v-live-icon", "icon", {
+      assetId: null,
+      liveIconId: "lv1",
+      liveValues: [{ id: "lv1", source: { namespace: "topic", path: READ_TOPIC }, rules: [] }],
       backgroundColor: "transparent",
     }, { width: 24, height: 24 }),
     place("v-mqtt-data-line", "live-line", {
@@ -416,7 +415,7 @@ test.describe("property panel: every control of every object", () => {
       ["box", "Box"],
       ["line", "Line"],
       ["icon", "Icon"],
-      ["mqtt-icon-field", "Live Icon"],
+      ["live-icon", "Icon"],
       ["mqtt-data-line", "Live Line"],
       ["level-read", "Bar"],
       ["level-write", "Slider"],

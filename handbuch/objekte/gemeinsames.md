@@ -10,7 +10,7 @@ Nur der Editor und die Simulation zeigen stattdessen die Beispielwerte der Topic
 
 ## Bedingungen {#bedingungen}
 
-Live Icon, Live Line und Switcher entscheiden mit Bedingungen, was sie zeigen. Eine Bedingung vergleicht den Wert des Topics mit einem Wert, den du eingibst:
+Live Line und Switcher entscheiden mit Bedingungen, was sie zeigen. Eine Bedingung vergleicht den Wert des Topics mit einem Wert, den du eingibst:
 
 | Vergleich | Bedeutung |
 |---|---|

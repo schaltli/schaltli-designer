@@ -2,7 +2,7 @@
 // keeps (components/project-settings-dialog.tsx).
 //
 // It used to list the places an asset can be used: a screen's background image,
-// an Icon's asset, a Live Icon's rules, on objects at the top level of a screen.
+// an Icon's asset, a Live Icon's rules (since 2026-10-29 an Icon's), on objects at the top level of a screen.
 // Every other place was missed - a Button's or Switch state's icon, a Bar's, a
 // screen's own icon, anything inside a Switcher's panels - and the button
 // deleted icons still on screen, with no undo (issue #7). A list of places is

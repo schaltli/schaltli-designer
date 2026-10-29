@@ -348,7 +348,7 @@ test.describe("the scale", () => {
     expect(stepKindOf("slider")).toBe("track")
     expect(stepKindOf("dial")).toBe("track")
     expect(stepKindOf("button-group")).toBe("control")
-    expect(stepKindOf("live-icon")).toBe("icon")
+    expect(stepKindOf("icon")).toBe("icon")
     expect(stepKindOf("text")).toBeUndefined()
     // A control at M on the 4.3B (8.66 px/mm): 8 mm is 69 px.
     expect(stepPx("control", "m", 8.66)).toBe(69)
@@ -825,12 +825,10 @@ test.describe("styled objects follow the device", () => {
     const text = new BDFFont(label.data!).measureText("Alles aus").width
     expect(buttonM.width).toBe(buttonM.height + Math.ceil(text))
 
-    for (const type of ["icon", "live-icon"]) {
-      const icon = { id: type, type, x: 0, y: 0, width: 24, height: 24, zIndex: 1, properties: {} } as any
-      const iconL = { ...icon, ...stepUpdates(icon, "l", ppm, fonts) }
-      expect(iconL.width).toBe(Math.round(9 * ppm))
-      expect(iconL.height).toBe(iconL.width)
-    }
+    const icon = { id: "icon", type: "icon", x: 0, y: 0, width: 24, height: 24, zIndex: 1, properties: {} } as any
+    const iconL = { ...icon, ...stepUpdates(icon, "l", ppm, fonts) }
+    expect(iconL.width).toBe(Math.round(9 * ppm))
+    expect(iconL.height).toBe(iconL.width)
   })
 
   test("opening a project gives its styled text the device's fonts as the device has them now", async ({ page }, testInfo) => {

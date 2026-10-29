@@ -213,9 +213,9 @@ function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
         objects: [
           { id: "icon", type: "icon", zIndex: 1, x: 10, y: 10, width: 48, height: 48,
             properties: { assetId: "sq", iconColor: "accent" } },
-          { id: "live", type: "live-icon", zIndex: 2, x: 70, y: 10, width: 48, height: 48,
-            properties: { topic: "t/power", iconColor: "accent",
-              valueIconPairs: [{ id: "pair", ifValue: "on", thenShowIcon: "sq" }] } },
+          { id: "live", type: "icon", zIndex: 2, x: 70, y: 10, width: 48, height: 48,
+            properties: { assetId: "sq", iconColor: "accent", liveIconId: "lv1",
+              liveValues: [{ id: "lv1", source: { namespace: "topic", path: "t/power" }, rules: [{ op: "==", operand: "on", result: { kind: "icon", icon: "sq" } }] }] } },
           { id: "bar", type: "bar", zIndex: 3, x: 10, y: 70, width: 300, height: 60,
             properties: { topic: "t/level", fillColor: "accent" } },
           { id: "sw", type: "switch", zIndex: 4, x: 10, y: 150, width: 200, height: 60,
@@ -263,7 +263,8 @@ function pathPairs(node: any, where = ""): { where: string; key: string; light: 
   if (Array.isArray(node)) return node.flatMap((n, i) => pathPairs(n, `${where}[${i}]`))
   if (!node || typeof node !== "object") return []
   const own = LIGHT_PATH_KEYS.filter((k) => typeof node[k] === "string").map((k) => ({ where, key: k, light: node[k], dark: node[`${k}Dark`] }))
-  return [...own, ...Object.entries(node).flatMap(([k, v]) => pathPairs(v, `${where}.${k}`))]
+  // A live value's source names a topic in `path`, not a file.
+  return [...own, ...Object.entries(node).filter(([k]) => k !== "source").flatMap(([k, v]) => pathPairs(v, `${where}.${k}`))]
 }
 
 test.describe("the dark bitmaps for the firmware", () => {
@@ -275,7 +276,7 @@ test.describe("the dark bitmaps for the firmware", () => {
   test("every light path has its dark path beside it, and the file is in the zip", async ({ page }) => {
     const { zip, json } = await exported(page, "__buildDeviceZipForTest", bakesProject())
     const pairs = pathPairs(json.screens)
-    // Every bake kind is in there: icon, live-icon rule, switch state icon
+    // Every bake kind is in there: icon, live icon rule, switch state icon
     // normal and active, button normal and active. (A level icon was one until
     // Bar and Slider lost theirs, 2026-09-29.)
     expect(json.screens.map((s: any) => s.path ?? s.pathDark), "no flattened background, light or dark").toEqual(
@@ -299,7 +300,7 @@ test.describe("the dark bitmaps for the firmware", () => {
       const { surface, accent } = theme.dark
       for (const [label, path] of [
         ["icon", obj(id, "icon").pathDark],
-        ["live-icon rule", obj(id, "live").properties.valueIconPairs[0].pathDark],
+        ["live icon rule", obj(id, "live").properties.liveValues[0].rules[0].result.pathDark],
       ]) {
         expect(await pixel(page, zip, path, "corner"), `${id}: ${label} background`).toBe(lc(surface))
         expect(await pixel(page, zip, path, "center"), `${id}: ${label} tint`).toBe(lc(accent))
@@ -352,7 +353,7 @@ function androidPathPairs(node: any, where = ""): { where: string; key: string; 
   if (Array.isArray(node)) return node.flatMap((n, i) => androidPathPairs(n, `${where}[${i}]`))
   if (!node || typeof node !== "object") return []
   const own = ANDROID_PATH_KEYS.filter((k) => typeof node[k] === "string").map((k) => ({ where, key: k, light: node[k], dark: node[`${k}Dark`] }))
-  return [...own, ...Object.entries(node).flatMap(([k, v]) => androidPathPairs(v, `${where}.${k}`))]
+  return [...own, ...Object.entries(node).filter(([k]) => k !== "source").flatMap(([k, v]) => androidPathPairs(v, `${where}.${k}`))]
 }
 
 test.describe("the dark bitmaps for the app", () => {
@@ -364,7 +365,7 @@ test.describe("the dark bitmaps for the app", () => {
   test("every light path has its dark path beside it, and the file is in the bundle", async ({ page }) => {
     const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
     const pairs = androidPathPairs(json.screens)
-    // Icon, live-icon rule, switch state (normal and active), button
+    // Icon, live icon rule, switch state (normal and active), button
     // (normal and pressed) - and no screen picture any more.
     expect([...new Set(pairs.map((p) => p.key))].sort()).toEqual(["activePath", "path", "pressedPath"])
     expect(json.screens.map((s: any) => s.backgroundImage ?? s.backgroundImageDark).filter(Boolean)).toEqual([])
@@ -384,7 +385,7 @@ test.describe("the dark bitmaps for the app", () => {
       // Icons travel as SVGs, tinted: the dark one in the dark accent.
       for (const [label, path] of [
         ["icon", obj(id, "icon").pathDark],
-        ["live-icon rule", obj(id, "live").properties.valueIconPairs[0].pathDark],
+        ["live icon rule", obj(id, "live").properties.liveValues[0].rules[0].result.pathDark],
       ]) {
         expect(lc(await zip.file(path)!.async("string")), `${id}: ${label} tint`).toContain(lc(accent))
       }

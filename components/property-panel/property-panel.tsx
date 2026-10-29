@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react"
 import type { TextScale } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext, ProjectScreen } from "../project-editor"
-import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
@@ -107,7 +106,6 @@ interface PropertyPanelProps {
   deviceAnimates?: boolean
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
-  onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector: () => void
   // The hardware button last clicked in the device's frame: the screen's
   // panel shows its row (screen-properties.tsx).
@@ -211,7 +209,6 @@ export function PropertyPanel({
   deviceAnimates,
   setProjectSettingsTab,
   setShowProjectSettings,
-  onOpenIconSelector,
   onOpenIconPropertiesSelector,
   focusedHardwareButton,
   justCreatedId,
@@ -309,22 +306,6 @@ export function PropertyPanel({
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
               {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
-
-              {selectedObject.type === "live-icon" && (
-                <MqttIconFieldProperties
-                  selectedObject={selectedObject}
-                  onUpdateObject={onUpdateObject}
-                  topics={topics}
-                  onManageTopics={handleManageTopics}
-                  projectAssets={projectAssets}
-                  colorDepth={colorDepth}
-                  onOpenIconSelector={onOpenIconSelector}
-                  allScreens={allScreens}
-                  textScale={textScale}
-                  nextId={nextId}
-                  onIncrementNextId={onIncrementNextId}
-                />
-              )}
 
               {selectedObject.type === "text" && (
                 <LabelProperties

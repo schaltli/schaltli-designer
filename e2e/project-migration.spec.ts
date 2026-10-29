@@ -57,7 +57,8 @@ const EXPECTED_HEADER: Array<[string, string]> = [
   // Live Text went into Text on 2026-10-07 (lib/object-types.ts liveTextToText).
   ["old-field", "Text"],
   ["old-ghost", "Text"],
-  ["old-icon-field", "Live Icon"],
+  // Live Icon went into Icon on 2026-10-29 (lib/object-types.ts liveIconToIcon).
+  ["old-icon-field", "Icon"],
   ["old-bar", "Bar"],
   ["old-bar-setpoint", "Bar"],
   ["old-slider", "Slider"],
@@ -151,7 +152,7 @@ test.describe("a project written before the control split", () => {
     // would hand it a Slider and a Dial - and `declaresTouch` reads this very
     // list, so it would go on to offer swipe actions for a panel with no
     // digitizer. It gets the halves it can draw, and nothing from Operate.
-    for (const name of ["Bar", "Gauge", "Live Icon", "Live Line", "Text", "Icon", "Line", "Box", "Switcher"]) {
+    for (const name of ["Bar", "Gauge", "Live Line", "Text", "Icon", "Line", "Box", "Switcher"]) {
       await expect(page.getByRole("button", { name, exact: true }).first(), `${name} tool`).toBeVisible()
     }
     for (const name of ["Slider", "Dial", "Switch", "Button Group", "Button"]) {
@@ -238,7 +239,7 @@ test.describe("Live Text becomes Text (pure)", () => {
     const obj = project.screens[0].objects[0] as { type: string; properties: Record<string, unknown> }
     // Its placeholder is a live value since 2026-10-07; read back as the
     // placeholder it says, so these cases still name topic and format.
-    if (!Array.isArray(obj.properties.liveValues)) return obj
+    if (!Array.isArray(obj.properties.liveValues) || obj.type !== "text") return obj
     const { liveValues: _live, ...rest } = obj.properties
     return { ...obj, properties: { ...rest, text: asPlaceholders(obj as any) } }
   }
@@ -292,10 +293,81 @@ test.describe("Live Text becomes Text (pure)", () => {
     expect(converted({ topic: "a/b" }, "field")).toMatchObject({ type: "text", properties: { text: "{topic:a/b}" } })
   })
 
-  test("one kept in icon mode becomes the Live Icon that drew it so", () => {
+  test("one kept in icon mode becomes the icon set to Live that draws it so", () => {
     const icon = converted({ topic: "a/b", displayAs: "Display as Icon", valueIconPairs: [{ value: "1", iconAssetId: "x" }] })
-    expect(icon.type).toBe("live-icon")
-    expect(icon.properties.valueIconPairs).toEqual([{ value: "1", iconAssetId: "x" }])
+    expect(icon.type).toBe("icon")
+    expect(icon.properties).toEqual({
+      assetId: "x",
+      liveIconId: "lv1",
+      liveValues: [{ id: "lv1", source: { namespace: "topic", path: "a/b" }, rules: [{ op: "==", operand: "1", result: { kind: "icon", icon: "x" } }] }],
+    })
+  })
+})
+
+// The user, 2026-10-29: «Icon» and «Live Icon», and an Icon that can be Live
+// with the same rules - «zu kompliziert». A Live Icon is an Icon set to Live.
+test.describe("Live Icon becomes Icon (pure)", () => {
+  const converted = (properties: Record<string, unknown>, type = "live-icon") => {
+    const objects = [{ id: "i", type, x: 0, y: 0, width: 48, height: 48, zIndex: 1, properties }]
+    migrateObjects(objects as Parameters<typeof migrateObjects>[0])
+    return objects[0] as { type: string; properties: Record<string, any> }
+  }
+  const icon = (id: string) => ({ kind: "icon", icon: id })
+
+  test("its topic the source, its pairs the rules in order, colour and background kept", () => {
+    const out = converted({
+      topic: "van/lock",
+      iconColor: "accent",
+      backgroundColor: "transparent",
+      valueIconPairs: [
+        { id: "p1", comparisonOperator: "=", value: "01", thenShowIcon: "ring" },
+        { id: "p2", comparisonOperator: ">=", value: 5, thenShowIcon: "bars" },
+        { id: "p3", comparisonOperator: "==", value: "x", thenShowIcon: "" },
+      ],
+    })
+    expect(out.type).toBe("icon")
+    expect(out.properties).toEqual({
+      iconColor: "accent",
+      backgroundColor: "transparent",
+      assetId: "ring",
+      liveIconId: "lv1",
+      liveValues: [
+        {
+          id: "lv1",
+          source: { namespace: "topic", path: "van/lock" },
+          rules: [
+            { op: "==", operand: "01", result: icon("ring") },
+            { op: ">=", operand: "5", result: icon("bars") },
+          ],
+        },
+      ],
+    })
+  })
+
+  test("the oldest pairs: a plain value is ==, ranges from the highest start down", () => {
+    const out = converted(
+      {
+        topic: "t",
+        valueIconPairs: [
+          { ifGreaterOrEqualThan: 0, andLessThan: 20, thenShowIcon: "low" },
+          { ifGreaterOrEqualThan: 20, andLessThan: 80, thenShowIcon: "mid" },
+          { value: "off", thenShowIcon: "off" },
+        ],
+      },
+      "MQTTIconField",
+    )
+    expect(out.properties.liveValues[0].rules).toEqual([
+      { op: "==", operand: "off", result: icon("off") },
+      { op: ">=", operand: "20", result: icon("mid") },
+      { op: ">=", operand: "0", result: icon("low") },
+    ])
+  })
+
+  test("without a topic it is a fixed icon, its first rule's", () => {
+    expect(converted({ topic: "", valueIconPairs: [{ comparisonOperator: "==", value: "1", thenShowIcon: "a" }] })).toEqual(
+      expect.objectContaining({ type: "icon", properties: { assetId: "a" } }),
+    )
+    expect(converted({ topic: undefined, valueIconPairs: [] }).properties).toEqual({ assetId: null })
   })
 })
 

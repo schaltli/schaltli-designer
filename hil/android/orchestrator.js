@@ -319,8 +319,10 @@ async function rehydrateIconAssets(project, zip) {
         remember(state.iconAssetId, state.path, untinted);
         remember(state.activeIconAssetId, state.activePath, untinted);
       }
-      for (const pair of props.valueIconPairs || []) {
-        remember(pair.thenShowIcon || pair.id, pair.path, untinted);
+      for (const lv of props.liveValues || []) {
+        for (const result of [...(lv.rules || []).map((r) => r.result), lv.otherwise, lv.noValueYet]) {
+          if (result && result.kind === "icon") remember(result.icon, result.path, untinted);
+        }
       }
       walk(obj.children);
     }

@@ -222,6 +222,8 @@ const SPECIMENS = {
     }),
   },
 
+  // Declared by every board as the type it was; since 2026-10-29 the
+  // designer makes it as an icon set to Live, and this is that icon.
   "live-icon": {
     build: (c) => {
       const topic = c.topic("lock", "string", ["00", "01"]);
@@ -230,25 +232,22 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("mqtticon"),
-            type: "live-icon",
+            type: "icon",
             zIndex: 1,
             ...c.square,
             properties: {
-              topic,
+              assetId: RING.id,
               backgroundColor: "transparent",
               iconColor: c.colors.fg,
-              valueIconPairs: [
+              liveIconId: "lv1",
+              liveValues: [
                 {
-                  id: "pair-locked",
-                  comparisonOperator: "=",
-                  value: "01",
-                  thenShowIcon: RING.id,
-                },
-                {
-                  id: "pair-unlocked",
-                  comparisonOperator: "=",
-                  value: "00",
-                  thenShowIcon: BARS.id,
+                  id: "lv1",
+                  source: { namespace: "topic", path: topic },
+                  rules: [
+                    { op: "==", operand: "01", result: { kind: "icon", icon: RING.id } },
+                    { op: "==", operand: "00", result: { kind: "icon", icon: BARS.id } },
+                  ],
                 },
               ],
             },

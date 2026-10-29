@@ -82,7 +82,6 @@ export function stepKindOf(objectType: string): StepKind | undefined {
     case "time-field":
       return "control"
     case "icon":
-    case "live-icon":
       return "icon"
     default:
       return undefined

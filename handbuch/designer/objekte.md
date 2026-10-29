@@ -10,7 +10,7 @@ Die Grundgrösse: Bedienelemente beginnen in der Grösse <span class="ui">M</spa
 
 Einige Werkzeuge verhalten sich anders:
 
-- <span class="ui">Icon</span>, <span class="ui">Live Icon</span>, <span class="ui">Gauge</span> und <span class="ui">Dial</span> sind immer quadratisch.
+- <span class="ui">Icon</span>, <span class="ui">Gauge</span> und <span class="ui">Dial</span> sind immer quadratisch.
 - Mit <span class="ui">Icon</span> öffnet ein Klick die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast.
 - <span class="ui">Line</span> und <span class="ui">Live Line</span> zeichnest du weiterhin: Mit gedrückter Maustaste ziehst du eine gerade Linie. Eine gezeichnete Linie rastet nie ein, sie liegt danach frei, und du verschiebst sie wie jedes Objekt in eine Tabelle. Klickst du stattdessen, setzt jeder weitere Klick einen Punkt. <kbd>Enter</kbd> oder ein Doppelklick beenden die Linie, <kbd>Esc</kbd> bricht ab, <kbd>Backspace</kbd> nimmt den letzten Punkt zurück.
 - <span class="ui">Row</span> setzt mehrere Objekte auf einmal als eine Zeile, etwa Icon, Text und Schalter, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken).

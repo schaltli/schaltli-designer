@@ -280,11 +280,6 @@ function collectIconPreloads(
         want(obj.properties?.iconAssetId)
       }
 
-      const valueIconPairs = obj.properties?.valueIconPairs
-      if (Array.isArray(valueIconPairs)) {
-        for (const pair of valueIconPairs) want(pair?.thenShowIcon)
-      }
-
       // A Switch's per-state icons, which this preloader missed entirely
       // until 2026-08-25 - the marker spec's states carry no icons, so
       // nothing noticed. Without them the first render of a Switch draws

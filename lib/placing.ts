@@ -36,7 +36,6 @@ export function placedSize(tool: string, pixelsPerMm: number): { width: number; 
     case "text":
       return { width: mm(TEXT_WIDTH_MM), height: control }
     case "icon":
-    case "live-icon":
       return { width: icon, height: icon }
     case "gauge":
     case "dial":

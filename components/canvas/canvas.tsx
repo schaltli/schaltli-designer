@@ -46,7 +46,6 @@ import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight 
 import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
-import { renderMqttField } from "./renderers/render-mqtt-field"
 import { renderArcLevel, arcValueFromPoint } from "./renderers/render-arc-level"
 import {
   renderLevelIndicator,
@@ -688,7 +687,7 @@ function isLineType(type: string): boolean {
 // fourth square type meant finding all three, and missing one produced an
 // object that could be dragged out square and then resized oval.
 function isSquareType(type: string | undefined): boolean {
-  return type === "icon" || type === "live-icon" || isArcType(type)
+  return type === "icon" || isArcType(type)
 }
 
 // Default properties for a freshly-drawn plain line - shared between the
@@ -2283,23 +2282,6 @@ export function Canvas({
         // Its baseline handles are its own renderer's; a text in a table put
         // together by snapping has none - its cell decides its size.
         renderLabel(ctx, obj, fonts, isSelected && !sizedBySnapTable.has(obj.id), zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
-        break
-
-      case "live-icon":
-        renderMqttField({
-          ctx,
-          obj,
-          fonts,
-          projectAssets,
-          topics,
-          isSelected,
-          zoom,
-          bdfFontCache: bdfFontCacheRef.current,
-          iconImageCache: iconImageCacheRef.current,
-          getPreviewValueFromTopic,
-          requestRedraw: draw,
-          colorDepth,
-        })
         break
 
       case "line":
@@ -4089,25 +4071,6 @@ export function Canvas({
     startPos: { x: number; y: number },
   ): Omit<ScreenObject, "id" | "zIndex"> | null => {
     const { x, y, width, height } = rect
-    if (type === "live-icon") {
-      // MQTT Icon Fields must be square
-      const size = Math.max(Math.abs(width), Math.abs(height))
-      
-      const mqttIconFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
-        type: "live-icon",
-        x: Math.round(x),
-        y: Math.round(y),
-        width: Math.round(size),
-        height: Math.round(size),
-        properties: {
-          topic: "", // Empty topic - user can set later in properties panel
-          valueIconPairs: [],
-          backgroundColor: "transparent",
-        },
-      }
-
-      return mqttIconFieldObject
-    }
     if (isArcType(type)) {
       // Square, like an icon: the ring is inscribed in its box.
       const size = Math.max(Math.abs(width), Math.abs(height))

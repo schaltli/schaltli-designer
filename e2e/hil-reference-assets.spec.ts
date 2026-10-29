@@ -53,8 +53,10 @@ test.describe("Referenzbilder des Waveshare-Orchestrators", () => {
           if (st.iconAssetId) gebraucht.add(st.iconAssetId)
           if (st.activeIconAssetId) gebraucht.add(st.activeIconAssetId)
         }
-        for (const paar of obj.properties?.valueIconPairs || []) {
-          if (paar?.thenShowIcon) gebraucht.add(paar.thenShowIcon)
+        for (const lv of obj.properties?.liveValues || []) {
+          for (const result of [...(lv.rules || []).map((r: any) => r.result), lv.otherwise, lv.noValueYet]) {
+            if (result?.kind === "icon" && result.icon) gebraucht.add(result.icon)
+          }
         }
       }
     }

@@ -23,7 +23,7 @@
 //             a text with placeholders
 //   screen-2  arc-level with a setpoint marker, SoftwareButton with an icon
 //   screen-3  Switch in both modes - segmented with per-state icons, single
-//   screen-4  tab-control whose panel holds a Switch and an MQTTIconField
+//   screen-4  tab-control whose panel holds a Switch and a live icon
 //   screen-6  the navigator (docs/2026-10-08-navigator.md): its own master
 //             holds one on the bottom edge, icons and names, listing every
 //             screen by its icon; screen-6 is the one that shows it
@@ -750,20 +750,28 @@ function buildProject(fonts) {
                   },
                   {
                     id: "s4-nested-icon",
-                    type: "live-icon",
+                    // An icon set to Live - a Live Icon until 2026-10-29.
+                    type: "icon",
                     zIndex: 2,
                     x: 8,
                     y: 120,
                     width: 64,
                     height: 64,
                     properties: {
-                      topic: "hil/text",
+                      assetId: "icon-circle",
                       iconColor: ACCENT,
                       backgroundColor: "transparent",
-                      valueIconPairs: [
-                        { id: "p-ok", value: "OK", thenShowIcon: "icon-circle" },
-                        { id: "p-warn", value: "WARN", thenShowIcon: "icon-triangle" },
-                        { id: "p-fail", value: "FAIL", thenShowIcon: "icon-square" },
+                      liveIconId: "lv1",
+                      liveValues: [
+                        {
+                          id: "lv1",
+                          source: { namespace: "topic", path: "hil/text" },
+                          rules: [
+                            { op: "==", operand: "OK", result: { kind: "icon", icon: "icon-circle" } },
+                            { op: "==", operand: "WARN", result: { kind: "icon", icon: "icon-triangle" } },
+                            { op: "==", operand: "FAIL", result: { kind: "icon", icon: "icon-square" } },
+                          ],
+                        },
                       ],
                     },
                   },
@@ -1547,14 +1555,15 @@ async function main() {
   }
   console.log(`  ${states.length} Switch state(s), ${withIcon} icon file(s) resolved`);
 
-  const pairs = objects
-    .filter((o) => o.type === "live-icon")
-    .flatMap((o) => (o.properties.valueIconPairs || []).map((p) => ({ obj: o.id, p })));
-  for (const { obj, p } of pairs) {
-    if (!p.path) fail(`MQTTIconField ${obj}: rule ${p.id} carries no icon path`);
-    else if (!zip.file(p.path)) fail(`MQTTIconField ${obj}: ${p.path} is not in the bundle`);
+  const rules = objects
+    .filter((o) => o.type === "icon")
+    .flatMap((o) => (o.properties.liveValues || []).flatMap((lv) => (lv.rules || []).map((r, i) => ({ obj: o.id, i, result: r.result }))))
+    .filter(({ result }) => result && result.kind === "icon");
+  for (const { obj, i, result } of rules) {
+    if (!result.path) fail(`live icon ${obj}: rule ${i + 1} carries no icon path`);
+    else if (!zip.file(result.path)) fail(`live icon ${obj}: ${result.path} is not in the bundle`);
   }
-  console.log(`  ${pairs.length} MQTTIconField rule(s) resolved`);
+  console.log(`  ${rules.length} live icon rule(s) resolved`);
 
   // Types are the point of the fixture: it exists to cover what the DDF
   // says this device can render, so a type quietly dropping out of the
@@ -1574,7 +1583,8 @@ async function main() {
   // a Text since 2026-10-07 (lib/object-types.ts), the app still declares
   // and draws "live-text", and the designer can place none - so the Texts
   // here cover it. Without this the fixture could not be built at all.
-  const RENAMED = { "live-text": "text" };
+  // A Live Icon likewise is an Icon set to Live since 2026-10-29.
+  const RENAMED = { "live-text": "text", "live-icon": "icon" };
   const declared = [...new Set((await phoneDdf()).supportedObjectTypes.map((type) => RENAMED[type] || type))];
   const missing = declared.filter((type) => !placed.has(type));
   if (missing.length > 0) {

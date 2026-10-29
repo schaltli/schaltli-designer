@@ -436,31 +436,6 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         return path ? { path, pathDark: iconPathFor(node.iconAssetId, iconLookColour(dark, darkNode, look)) } : undefined
       })
     }
-    if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
-      return {
-        ...obj,
-        properties: {
-          ...obj.properties,
-          valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
-            ...pair,
-            // `thenShowIcon` is the asset the rule points at; `id` is
-            // the rule's own identity. The renderers read the former.
-            path: iconPathFor(
-              pair.thenShowIcon ?? pair.id,
-              obj.properties.iconColor,
-              obj.properties.iconColorFlatten,
-            ),
-            // The same SVG tinted in the dark colour. Content-keyed, so
-            // an icon whose tint does not change is the same file.
-            pathDark: iconPathFor(
-              pair.thenShowIcon ?? pair.id,
-              obj.properties.iconColorDark ?? obj.properties.iconColor,
-              obj.properties.iconColorFlatten,
-            ),
-          })),
-        },
-      }
-    }
     if (isSwitchType(obj.type) && obj.properties.states) {
       return {
         ...obj,

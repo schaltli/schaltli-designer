@@ -18,7 +18,8 @@
  */
 
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
-import { placeholdersToLiveValues, type LiveValue } from "@/lib/live-value"
+import { placeholdersToLiveValues, type LiveValue, type Rule } from "@/lib/live-value"
+import { normalizeOperator } from "@/lib/comparison-operators"
 import type { ScreenObject } from "@/components/project-editor"
 import { dissolveOldTables } from "@/lib/table"
 import { migrateToFreeScreens } from "@/lib/free-screens"
@@ -29,7 +30,6 @@ import { withoutScreenMenu } from "@/lib/screen-menu"
 export const OBJECT_TYPES = [
   "text",
   "icon",
-  "live-icon",
   "bar",
   "gauge",
   "slider",
@@ -112,8 +112,6 @@ export function objectTypeLabel(type: string): string {
       return "Text"
     case "icon":
       return "Icon"
-    case "live-icon":
-      return "Live Icon"
     case "bar":
       return "Bar"
     case "gauge":
@@ -173,8 +171,11 @@ export function migrateTypeName(type: string): ObjectType[] {
     case "field":
     case "live-text":
       return ["text"]
+    // Live Icon went into Icon on 2026-10-29: an icon set to Live does all
+    // it did (liveIconToIcon below).
     case "MQTTIconField":
-      return ["live-icon"]
+    case "live-icon":
+      return ["icon"]
     case "MqttDataLine":
       return ["live-line"]
     case "label":
@@ -297,7 +298,7 @@ function literal(text: unknown): string {
  * formatted number keeps its decimals as `F<n>`, or `N<n>` where it grouped
  * thousands - in the project's thousands character now, as every placeholder
  * does. One kept in icon mode, which only an old project has, becomes the
- * Live Icon that drew it that way. Font, alignment and colours stay. In place.
+ * Live Icon that drew it that way, and so an Icon set to Live. Font, alignment and colours stay. In place.
  */
 export function liveTextToText(obj: MigratableObject): void {
   const p = obj.properties ?? {}
@@ -318,6 +319,58 @@ export function liveTextToText(obj: MigratableObject): void {
   obj.properties = properties
 }
 
+/** The names a Live Icon went by. */
+const LIVE_ICON_NAMES = new Set(["live-icon", "MQTTIconField"])
+
+/** What a Live Icon carried that an Icon's live value says instead. */
+const LIVE_ICON_PROPERTIES = ["topic", "valueIconPairs", "displayAs", "prefix", "postfix", "numberOfDecimals", "thousandsSeparator"] as const
+
+/**
+ * A Live Icon as the Icon set to Live that does the same (the user,
+ * 2026-10-29: two objects and two rule editors for one thing was «zu
+ * kompliziert»): its topic the live value's source, its pairs the rules in
+ * their order, each pair's icon the rule's result. No Otherwise: a Live Icon
+ * showed nothing where no pair matched, and so does a live value without
+ * one. Colour, background and size stay. In place.
+ *
+ * Older pairs: a plain `value` (or `ifValue`) is `==`; a range
+ * `ifGreaterOrEqualThan`/`andLessThan` becomes `>=` its start, the ranges
+ * from the highest start down, which is the same wherever they adjoin. A
+ * pair without an icon is left out.
+ */
+export function liveIconToIcon(obj: MigratableObject): void {
+  const p = obj.properties ?? {}
+  const topic = typeof p.topic === "string" ? p.topic.trim() : ""
+  const pairs: any[] = Array.isArray(p.valueIconPairs) ? p.valueIconPairs : []
+  const iconOf = (pair: any): string => (typeof pair?.thenShowIcon === "string" && pair.thenShowIcon) || (typeof pair?.iconAssetId === "string" && pair.iconAssetId) || ""
+  const rules: Rule[] = []
+  const ranges: { from: number; rule: Rule }[] = []
+  for (const pair of pairs) {
+    const icon = iconOf(pair)
+    if (!icon) continue
+    const result = { kind: "icon" as const, icon }
+    if (pair.comparisonOperator && pair.value !== undefined && pair.value !== null) {
+      rules.push({ op: normalizeOperator(pair.comparisonOperator), operand: String(pair.value), result })
+    } else if (typeof pair.ifGreaterOrEqualThan === "number") {
+      ranges.push({ from: pair.ifGreaterOrEqualThan, rule: { op: ">=", operand: String(pair.ifGreaterOrEqualThan), result } })
+    } else if (pair.value !== undefined || pair.ifValue !== undefined) {
+      rules.push({ op: "==", operand: String(pair.value ?? pair.ifValue), result })
+    }
+  }
+  rules.push(...ranges.sort((a, b) => b.from - a.from).map((r) => r.rule))
+  const properties: Record<string, any> = { ...p }
+  for (const key of LIVE_ICON_PROPERTIES) delete properties[key]
+  // The first rule's icon is what the icon shows fixed - on a device older
+  // than 1.4 too, and where the topic is missing.
+  properties.assetId = rules[0]?.result.kind === "icon" ? rules[0].result.icon : null
+  if (topic) {
+    properties.liveIconId = "lv1"
+    properties.liveValues = [{ id: "lv1", source: { namespace: "topic", path: topic }, rules } satisfies LiveValue]
+  }
+  obj.type = "icon"
+  obj.properties = properties
+}
+
 /**
  * Renames an object tree in place and says whether anything changed. An
  * unknown type is left alone - it was unknown before too, and a reader that
@@ -328,6 +381,10 @@ export function migrateObjects(objects: MigratableObject[] | undefined, separato
   for (const obj of objects ?? []) {
     if (LIVE_TEXT_NAMES.has(obj.type)) {
       liveTextToText(obj)
+      changed = true
+    }
+    if (LIVE_ICON_NAMES.has(obj.type)) {
+      liveIconToIcon(obj)
       changed = true
     }
     const next = migrateObjectType(obj.type, obj.properties)

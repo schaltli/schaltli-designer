@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-27",
+  "harvestedAt": "2026-10-29",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -89,21 +89,20 @@
         "input:number:readonly: H"
       ]
     },
-    "mqtt-icon-field": {
-      "header": "Live Icon v-mqtt-icon-field",
+    "live-icon": {
+      "header": "Icon v-live-icon",
       "controls": [
-        "heading: Live Icon v-mqtt-icon-field",
-        "button: Data",
-        "combobox: Topic",
-        "button: Rules 1 rule",
-        "button: Move 1",
-        "button: 1 == on → nothing",
-        "button: Remove 1",
-        "select: If value",
-        "input:text: text or number",
-        "caption: Then",
-        "button: Choose icon",
-        "button: Add rule",
+        "heading: Icon v-live-icon",
+        "button: Content",
+        "radio: Fixed",
+        "radio: Live",
+        "radio: Screen",
+        "select: Reads",
+        "button: + Add rule",
+        "button: Otherwise",
+        "button: No value yet",
+        "input:text: Test value",
+        "input:checkbox: No value has arrived yet",
         "button: Shape",
         "select: Size",
         "button: Colour",

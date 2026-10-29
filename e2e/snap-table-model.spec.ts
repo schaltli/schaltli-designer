@@ -207,7 +207,6 @@ test.describe("snap table: layout", () => {
   test("roles: icons are Icon, texts Label, everything else Control", () => {
     const of = (type: string) => roleOf({ id: "x", type, x: 0, y: 0, width: 1, height: 1, zIndex: 0 } as ScreenObject)
     expect(of("icon")).toBe("icon")
-    expect(of("live-icon")).toBe("icon")
     expect(of("text")).toBe("label")
     for (const type of ["switch", "button", "button-group", "slider", "bar", "gauge", "dial", "box", "switcher", "free"]) expect(of(type)).toBe("control")
   })

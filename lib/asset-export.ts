@@ -454,7 +454,7 @@ export class AssetExporter {
           for (const { branch, icon: branchIcon } of liveValue ? liveIconBranches(liveValue) : []) {
             const branchAsset = project.assets.find((a: any) => a.id === branchIcon)
             if (!branchAsset) continue
-            const baked = await this.exportIconUsage(branchAsset, icon, key, project, ground, undefined, false, `${icon.id}~${branch}`)
+            const baked = await this.exportIconUsage(branchAsset, icon, key, project, ground, false, `${icon.id}~${branch}`)
             if (baked) out.push(baked)
           }
         }
@@ -464,7 +464,7 @@ export class AssetExporter {
   }
 
   /**
-   * Every bake of one screen (flattened background, icons, live-icon rules,
+   * Every bake of one screen (flattened background, icons, live icons' branches,
    * buttons, switch state icons) from the objects and the
    * background it is handed. Called once per variant: the light pass and,
    * at 24 bit, the dark pass run exactly this code.
@@ -507,7 +507,7 @@ export class AssetExporter {
         
         if (asset) {
           const exportResult = await this.exportIconUsage(
-            asset, obj, screen, project, flattenedBackground, undefined, flattenedIds.has(obj.id),
+            asset, obj, screen, project, flattenedBackground, flattenedIds.has(obj.id),
           )
           console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
           
@@ -524,7 +524,7 @@ export class AssetExporter {
           const branchAsset = project.assets.find((a: any) => a.id === icon)
           if (!branchAsset) continue
           out.iconUsageCount++
-          const exportResult = await this.exportIconUsage(branchAsset, obj, screen, project, flattenedBackground, undefined, false, `${obj.id}~${branch}`)
+          const exportResult = await this.exportIconUsage(branchAsset, obj, screen, project, flattenedBackground, false, `${obj.id}~${branch}`)
           if (exportResult) {
             out.iconUsages.push(exportResult)
             out.files.set(exportResult.filename, exportResult.data)
@@ -551,36 +551,10 @@ export class AssetExporter {
           // (quantizeColorsDeep): on the PaperS3 the storage's icon came
           // out green beside a grey ring (2026-10-12).
           const icon = { id: bake.key, type: 'icon', x: 0, y: 0, width: bake.size, height: bake.size, properties: { assetId: bake.assetId, iconColor: applyColorDepth(bake.colour, this.options.colorDepth), backgroundColor: 'transparent' } }
-          const exportResult = await this.exportIconUsage(asset, icon, screen, project, ground, undefined, false, bake.key)
+          const exportResult = await this.exportIconUsage(asset, icon, screen, project, ground, false, bake.key)
           if (exportResult) {
             out.iconUsages.push(exportResult)
             out.files.set(exportResult.filename, exportResult.data)
-          }
-        }
-      }
-      // Handle MQTTIconField objects with value-icon pairs
-      else if (obj.type === 'live-icon') {
-        const valueIconPairs = obj.properties.valueIconPairs || []
-        console.log(`[AssetExport] Processing MQTTIconField with ${valueIconPairs.length} icon rules`)
-        
-        for (let pairIndex = 0; pairIndex < valueIconPairs.length; pairIndex++) {
-          const pair = valueIconPairs[pairIndex]
-          if (pair.thenShowIcon) {
-            out.iconUsageCount++
-            console.log(`[AssetExport] Processing MQTT icon rule ${pairIndex}: assetId: ${pair.thenShowIcon}`)
-            
-            const asset = project.assets.find((a: any) => a.id === pair.thenShowIcon)
-            console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
-            
-            if (asset) {
-              const exportResult = await this.exportIconUsage(asset, obj, screen, project, flattenedBackground, pairIndex)
-              console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
-              
-              if (exportResult) {
-                out.iconUsages.push(exportResult)
-                out.files.set(exportResult.filename, exportResult.data)
-              }
-            }
           }
         }
       }
@@ -941,7 +915,6 @@ export class AssetExporter {
     screen: any, 
     project: any, 
     flattenedBackground: HTMLCanvasElement,
-    pairIndex?: number,
     alreadyFlattened = false,
     /** The key a live icon's branch is baked under, `<object>~<branch>`. */
     asObjectId?: string,
@@ -1015,21 +988,13 @@ export class AssetExporter {
       if (asObjectId) {
         objectId = asObjectId
         filename = `${screen.id}_${asObjectId.replace(/~/g, "_")}.${this.getFileExtension()}`
-      } else if (pairIndex !== undefined) {
-        // For iconpairs in MQTTIconField
-        const pairs = iconObject.properties.valueIconPairs || []
-        const pair = pairs[pairIndex]
-        objectId = pair.id || `iconpair-${pairIndex}`
-        filename = `${screen.id}_${objectId}.${this.getFileExtension()}`
       } else {
         // For regular icon objects
         objectId = iconObject.id
         filename = `${screen.id}_${objectId}.${this.getFileExtension()}`
       }
       
-      const usageId = pairIndex !== undefined 
-        ? `${asset.id}_${iconObject.id}_rule${pairIndex}_${iconObject.x}_${iconObject.y}`
-        : `${asset.id}_${iconObject.id}_${iconObject.x}_${iconObject.y}`
+      const usageId = `${asset.id}_${iconObject.id}_${iconObject.x}_${iconObject.y}`
       
       console.log(`[AssetExport] Generated icon filename: ${filename}`)
       

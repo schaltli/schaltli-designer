@@ -66,15 +66,6 @@ export const IconIcon = (p: IconProps) => (
   </Glyph>
 )
 
-// `image`, the frame in ink and the picture in the accent.
-export const LiveIconIcon = (p: IconProps) => (
-  <Glyph {...p}>
-    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-    <circle cx="9" cy="9" r="2" stroke={ACCENT} />
-    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" stroke={ACCENT} />
-  </Glyph>
-)
-
 // A hollow track with 3 px of room inside 2 px walls; the fill is a 3 px
 // stroke with round caps, flush with the track's inner edge.
 const Track = () => <rect x="2" y="9.5" width="20" height="5" rx="2.5" />
@@ -265,7 +256,6 @@ export const FreeIcon = (p: IconProps) => (
 export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   text: TextIcon,
   icon: IconIcon,
-  "live-icon": LiveIconIcon,
   bar: BarIcon,
   gauge: GaugeIcon,
   slider: SliderIcon,

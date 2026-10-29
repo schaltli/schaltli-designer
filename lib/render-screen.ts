@@ -22,7 +22,6 @@ import { iconAsDrawn, liveValuesOf } from "@/lib/object-text"
 
 export { liveValuesOf, objectText } from "@/lib/object-text"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
-import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { renderLevelIndicator } from "@/components/canvas/renderers/render-level-indicator"
 import { renderBox } from "@/components/canvas/renderers/render-box"
@@ -549,23 +548,6 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "text":
         renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholders, colorDepth)
-        break
-
-      case "live-icon":
-        renderMqttField({
-          ctx,
-          obj,
-          fonts,
-          projectAssets,
-          topics,
-          isSelected: false,
-          zoom: 1,
-          bdfFontCache,
-          iconImageCache,
-          getPreviewValueFromTopic,
-          requestRedraw,
-          colorDepth,
-        })
         break
 
       case "line":

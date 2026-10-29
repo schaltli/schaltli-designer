@@ -28,7 +28,7 @@ const project = {
       iconAssetId: "screen-icon",
       objects: [
         { id: "o1", type: "icon", properties: { assetId: "on-icon" } },
-        { id: "o2", type: "live-icon", properties: { valueIconPairs: [{ operator: "==", value: "1", thenShowIcon: "in-live-icon-rule" }] } },
+        { id: "o2", type: "icon", properties: { liveIconId: "lv1", liveValues: [{ id: "lv1", source: { namespace: "topic", path: "t" }, rules: [{ op: "==", operand: "1", result: { kind: "icon", icon: "in-live-icon-rule" } }] }] } },
         { id: "o3", type: "button", properties: { iconAssetId: "on-button" } },
         { id: "o4", type: "switch", properties: { states: [{ label: "An", iconAssetId: "on-switch-state" }] } },
         { id: "o5", type: "button-group", properties: { states: [{ label: "Eco", activeIconAssetId: "on-button-group-active" }] } },
