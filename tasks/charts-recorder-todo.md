@@ -24,5 +24,9 @@ Plan: `tasks/charts-recorder-plan.md`. Approved by the user on 2026-10-29 («ok,
   - hil/recorder.js: the recorder as a process against the bench's broker - a want, a level with a JSON field and a heater, the history read back retained; killed, the broker's day cleared, started again: the day back from its file; everything cleared at the end; SKIPPED without a broker or with another recorder on it
   - its first run found `recorder/index.js`'s `~` expansion broken (a regular expression that did not compile): fixed
   - hil/test-all.js: host lane, quick; hil/README.md «The recorder»
-- [ ] R7 Install and handbook
+- [x] R7 Install and handbook
+  - deploy/pekaway-install.sh 5a: `schaltli-designer-recorder.service`, always on, `Restart=always`, `MemoryMax=256M`, its file `/home/pi/.schaltli/history.json`; named in the closing lines
+  - e2e/pekaway-install.spec.ts: the unit always on, after the build; the closing lines with it
+  - recorder/README.md; handbuch/betrieb/daten.md «Der Verlauf», the unit and the file under backup and «Was ausserhalb liegt» (through maettel-humanizer)
+  - spec decision 3 reworded (plan decision 1)
 - [ ] Checkpoint: test:quick green; the user installs on the Pekaway; memory and Mosquitto persistence measured, answers in the spec

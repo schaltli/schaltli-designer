@@ -284,6 +284,29 @@ sudo systemctl stop "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>
 sudo systemctl enable "${SERVICE_NAME}.socket"
 sudo systemctl restart "${SERVICE_NAME}.socket"
 
+# --- 5a. The chart recorder: always on (docs/2026-10-16-charts.md) ---
+# Unlike the designer it is not started on demand: it records what the
+# deployed charts want, day and night, and lays the history on the broker.
+# Its file, written every 30 minutes and when stopped, survives updates.
+log "Installing the chart recorder (${SERVICE_NAME}-recorder)..."
+sudo tee "/etc/systemd/system/${SERVICE_NAME}-recorder.service" > /dev/null <<EOF
+[Unit]
+Description=Schaltli chart recorder
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=${SERVICE_USER}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=$(command -v node) ${INSTALL_DIR}/recorder/index.js --broker mqtt://localhost:1883 --file /home/${SERVICE_USER}/.schaltli/history.json
+Restart=always
+RestartSec=10
+MemoryMax=256M
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable "${SERVICE_NAME}-recorder.service"
+sudo systemctl restart "${SERVICE_NAME}-recorder.service"
+
 # --- 6. nginx site (schaltli.peka.way -> 127.0.0.1:APP_PORT) ---
 log "Installing nginx site for ${DOMAIN}..."
 sudo tee "/etc/nginx/sites-available/${SERVICE_NAME}" > /dev/null <<EOF
@@ -328,6 +351,7 @@ LAN_IP="${LAN_IP:-<IP of this Pi>}"
 log "Done."
 log "Schaltli Designer: http://${LAN_IP}:${APP_PORT}/"
 log "MQTT WebSocket broker: ws://${LAN_IP}:${MQTT_WS_PORT}"
+log "Chart recorder: systemctl status ${SERVICE_NAME}-recorder - its history in /home/${SERVICE_USER}/.schaltli/history.json"
 }
 
 main "$@"

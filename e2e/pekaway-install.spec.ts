@@ -221,16 +221,20 @@ test("the closing lines name the designer's and the broker's address, each on it
 hostname() { echo "${hostname}"; }
 APP_PORT=3000
 MQTT_WS_PORT=9001
+SERVICE_NAME=schaltli-designer
+SERVICE_USER=pi
 ${end}`], { encoding: "utf8" }).trim().split(NL)
   expect(run("192.168.8.107 fd00::1")).toEqual([
     "[pekaway-install] Done.",
     "[pekaway-install] Schaltli Designer: http://192.168.8.107:3000/",
     "[pekaway-install] MQTT WebSocket broker: ws://192.168.8.107:9001",
+    "[pekaway-install] Chart recorder: systemctl status schaltli-designer-recorder - its history in /home/pi/.schaltli/history.json",
   ])
   expect(run("")).toEqual([
     "[pekaway-install] Done.",
     "[pekaway-install] Schaltli Designer: http://<IP of this Pi>:3000/",
     "[pekaway-install] MQTT WebSocket broker: ws://<IP of this Pi>:9001",
+    "[pekaway-install] Chart recorder: systemctl status schaltli-designer-recorder - its history in /home/pi/.schaltli/history.json",
   ])
 })
 
@@ -254,4 +258,19 @@ test("a Node.js too old for Next.js is refused before anything is touched", () =
   expect(script.indexOf("node -e '")).toBeLessThan(script.indexOf("systemctl stop"))
   const engines = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).engines
   expect(engines?.node, "package.json names a different minimum").toBe(">=20.9.0")
+})
+
+test("the chart recorder is always on, restarted when it ends, and started after the build", () => {
+  // docs/2026-10-16-charts.md decision 3: it records day and night, so it is
+  // not socket-activated as the designer is (tasks/charts-recorder-plan.md
+  // decision 10).
+  const unit = script.slice(script.indexOf('"/etc/systemd/system/${SERVICE_NAME}-recorder.service"'))
+  expect(unit.length, "the script installs no recorder unit").toBeLessThan(script.length)
+  const body = unit.slice(0, unit.indexOf(String.fromCharCode(10) + "EOF" + String.fromCharCode(10)))
+  expect(body).toContain("${INSTALL_DIR}/recorder/index.js --broker mqtt://localhost:1883")
+  expect(body).toContain("Restart=always")
+  expect(body).toContain("MemoryMax=")
+  expect(body).not.toContain("StopWhenUnneeded")
+  expect(script).toContain('sudo systemctl enable "${SERVICE_NAME}-recorder.service"')
+  expect(script.indexOf('sudo systemctl restart "${SERVICE_NAME}-recorder.service"')).toBeGreaterThan(script.indexOf("npm run build"))
 })

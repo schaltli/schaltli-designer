@@ -19,6 +19,16 @@ Der Designer speichert alles in seinem eigenen Ordner, auf einem Pekaway-System 
 
 Die beiden Ordner unter `/dev/shm` liegen im Arbeitsspeicher, nicht auf der SD-Karte. Das Gerät holt sich dort ab, was du ihm schickst; nach einem Neustart des Pekaway-Systems sind sie leer. Auf einem Computer ohne Linux liegen sie unter `.data/`. Auf die SD-Karte schreibt der Designer nur, wenn du etwas tust: beim Speichern, beim Übertragen und wenn sich ein Gerät mit einer neuen Beschreibung meldet. Läuft er, ohne dass jemand ihn benutzt, schreibt er nichts.
 
+## Der Verlauf {#verlauf}
+
+Neben dem Designer läuft auf dem Pekaway-System ein zweiter Dienst, der Recorder. Er hört auf dem Broker die Werte mit, die die Diagramme der übertragenen Projekte zeigen, und legt ihren Verlauf unter `schaltli/history/` wieder auf den Broker. Ein Gerät, das gerade startet, zeigt so sofort die Kurve der letzten Stunden und Tage und muss selbst nichts speichern.
+
+Den Verlauf hält der Recorder im Arbeitsspeicher. In die Datei `/home/pi/.schaltli/history.json` schreibt er ihn alle 30 Minuten und wenn er beendet wird, also etwa 50-mal am Tag, egal wie oft die Werte kommen. Fällt der Strom aus, fehlen höchstens die letzten 30 Minuten. Er behält 30 Tage in Viertelstunden und die letzten 48 Stunden in Minuten.
+
+Anders als der Designer läuft der Recorder immer, auch wenn niemand den Designer offen hat. Ob er läuft, zeigt `systemctl status schaltli-designer-recorder`. Auf einem Broker zeichnet nur ein Recorder auf: Startest du einen zweiten, wartet er, bis der erste weg ist.
+
+Ohne Pekaway-System startest du den Recorder auf einem Rechner, der immer läuft, Node.js hat und den Broker erreicht, im Ordner des Designers mit `node recorder/index.js --broker mqtt://<Broker>:1883`. Die Datei liegt dann unter `~/.schaltli/history.json`.
+
 ## Was du sichern solltest
 
 Am wichtigsten sind deine Projekte. Am einfachsten sicherst du jedes mit <span class="ui">File</span> › <span class="ui">Download Project</span> als Datei. Eine solche Datei lässt sich auf jedem Designer wieder öffnen, auch nach einer Neuinstallation.
@@ -29,6 +39,8 @@ Willst du den ganzen Designer sichern, kopiere den Ordner `.data` und die Datei 
 
 Ordner in `.data/projects`, deren Name eine lange Kennung wie `0368fc67-d5ca-4f7c-9968-7cd0401be4bd` ist, stammen von Designer-Versionen vor September 2026, die automatisch gespeichert haben. Der Designer beachtet sie nicht mehr. Du kannst sie löschen.
 
+Den Verlauf der Diagramme sicherst du, indem du `/home/pi/.schaltli/history.json` kopierst. Fehlt die Datei, beginnt der Verlauf von vorn.
+
 Selbst ohne Sicherung ist ein Projekt nicht verloren, solange es auf einem Gerät läuft: Jedes Gerät behält eine Kopie des zuletzt übertragenen Projekts, die du mit <span class="ui">Recover from Device...</span> zurückholst, siehe [Versionen und Wiederherstellen](/designer/versionen#vom-geraet-zurueckholen).
 
 ## Was ausserhalb liegt
@@ -36,6 +48,7 @@ Selbst ohne Sicherung ist ein Projekt nicht verloren, solange es auf einem Gerä
 Das Installationsskript legt ausserdem an:
 
 - die Systemdienste `/etc/systemd/system/schaltli-designer.socket`, `schaltli-designer-proxy.service` und `schaltli-designer.service`
+- den Systemdienst `/etc/systemd/system/schaltli-designer-recorder.service` für den [Recorder](#verlauf)
 - die nginx-Seite `/etc/nginx/sites-available/schaltli-designer`
 - den WebSocket-Zugang `/etc/mosquitto/conf.d/schaltli-websockets.conf`
 - die VanPi-Brücke als Tab in Node-RED, mit einer Sicherung der vorherigen Flows unter `~/.node-red/flows.pre_schaltli_bridge_<Zeitstempel>.json`
