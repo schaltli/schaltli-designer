@@ -128,7 +128,7 @@ export function Toolbar({
         tool("bar", "Bar", "A level to read, as a bar"),
         tool("gauge", "Gauge", "A level to read, as an arc"),
         tool("energy-diagram", "Energy diagram", "Where the energy comes from and goes: a Sankey or a Flow of nodes"),
-        tool("chart", "Chart", "Values over time: curves, a band of when something ran, or bars per day. No device shows charts yet"),
+        tool("chart", "Chart", "Values over time: curves, a band of when something ran, or bars per day"),
       ],
     },
     {
@@ -179,8 +179,8 @@ export function Toolbar({
     (t.type !== "navigator" || navigatorPlaceable) &&
     (t.type === "select" ||
     isLayoutOnlyType(t.type) ||
-    // Offered before any device draws it (tasks/charts-designer-plan.md D7),
-    // to be built and seen in the preview; Deploy refuses it until then.
+    // Offered on a device that does not declare it too (tasks/charts-designer-plan.md
+    // D7): a chart can be built and seen in the preview; Deploy refuses it there.
     (t.type === "chart" && !(supportedObjectTypes ?? []).includes("chart")) ||
     supportedObjectTypes === undefined ||
     supportedObjectTypes.includes(t.type))
