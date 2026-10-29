@@ -29,3 +29,5 @@ Plan: `tasks/charts-actions-plan.md`. Approved by the user on 2026-10-29 («ok, 
   - handbuch/designer/tasten.md: the four actions in the table, «Den Zeitbereich ändern» (the steps, Which way, Span, a history page's gestures and the knob's ring), the two pinches under «Wischgesten» and «Gestures»; handbuch/objekte/anzeigen.md «Chart»: dragging a scrolling chart in the preview
   - through maettel-humanizer; e2e/handbook-labels.spec.ts and handbook.spec.ts green
 - [ ] Checkpoint: test:quick green; the user moves through a history page's days in the preview
+  - test:quick 2026-10-29: first run stopped at the type check (A5's test, 7853348); second run PASS - e2e 2020 passed, every device lane green
+  - waits for the user: moving through a history page's days in the preview
