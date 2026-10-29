@@ -25,4 +25,4 @@ Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go
 - [x] M7 The device contract
   - docs/device-contract.md §2.13 Charts: the object, a series, the screen's time range, the history topics a chart reads, the declaration, the wants on deploy
   - the spec's water example: «textMuted», a role, for «muted», which is none
-- [ ] Checkpoint: test:quick green (2026-10-29: e2e 1955 passed, every lane PASS, recorder PASS); the user opens a project with a chart and sees the frame
+- [x] Checkpoint: test:quick green (2026-10-29: e2e 1955 passed, every lane PASS, recorder PASS); the frame seen by the user waived («keine projektdatei erzeugen») - the tool comes with charts-designer D7
