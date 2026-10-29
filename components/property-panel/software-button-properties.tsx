@@ -18,6 +18,7 @@
  */
 
 import { buttonStyleOf } from "@/components/canvas/renderers/render-software-button"
+import { RANGE_ACTION_OPTIONS, RangeActionFields, projectHasCharts, rangeActionOf } from "./range-action-fields"
 import { describeDeviceAction } from "@/lib/device-actions"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
@@ -119,6 +120,7 @@ export function SoftwareButtonProperties({
     { value: "open-popup", label: "Open a popup" },
     ...(onPopup ? [{ value: "close-popup", label: "Close this popup" }] : []),
     ...(deviceActions.length > 0 ? [{ value: "device-action", label: "Device action" }] : []),
+    ...(projectHasCharts(allScreens) ? RANGE_ACTION_OPTIONS : []),
   ]
 
   const chooseAction = (type: HardwareButtonAction["type"]) => {
@@ -126,6 +128,8 @@ export function SoftwareButtonProperties({
       updateAction({ type, targetScreenId: action?.targetScreenId || "" })
     } else if (type === "send-mqtt") {
       updateAction({ type, mqttTopic: action?.mqttTopic || "", mqttMessage: action?.mqttMessage || "" })
+    } else if (type === "move-range" || type === "set-range") {
+      updateAction(rangeActionOf(type))
     } else if (type === "device-action") {
       // The same "never useful unset" default as the hardware-button panel's
       // own device-action branch.
@@ -166,6 +170,8 @@ export function SoftwareButtonProperties({
           options={ACTIONS}
           onChange={(value) => chooseAction(value as HardwareButtonAction["type"])}
         />
+
+        {action ? <RangeActionFields action={action} idPrefix="button-" onChange={updateAction} /> : null}
 
         {action?.type === "goto-screen" ? (
           <SelectField

@@ -12,7 +12,10 @@ Plan: `tasks/charts-actions-plan.md`. Approved by the user on 2026-10-29 («ok, 
   - the export writes each with its own fields only (lib/hardware-button-actions.ts), device zip and Android alike
   - Deploy: `chartsFeature` also for a range action on a screen or a Button; `pinchFeature` for a pinch gesture (lib/chart.ts)
   - e2e/chart-actions.spec.ts «model and export (A2)» (5)
-- [ ] A3 The pickers
+- [x] A3 The pickers
+  - components/property-panel/range-action-fields.tsx: the four in both pickers (a key's or gesture's, a Button's), «Which way» Earlier/Later and «Span» 1 hour … 7 days; offered only in a project with a chart or a time range (`projectHasCharts`)
+  - the screen's panel: «Pinch in» and «Pinch out» where the device reads two fingers, the section then «Gestures» instead of «Swipe navigation»
+  - e2e/chart-actions.spec.ts «the pickers (A3)» (2)
 - [ ] A4 The preview follows
 - [ ] A5 The history page's defaults
 - [ ] A6 Handbook

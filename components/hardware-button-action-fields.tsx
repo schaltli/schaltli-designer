@@ -16,6 +16,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { RANGE_ACTION_OPTIONS, RangeActionFields, projectHasCharts, rangeActionOf } from "./property-panel/range-action-fields"
 import { FieldNote, SelectField, TextField, TopicField } from "@/components/property-panel/fields"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from "./project-editor"
 import { describeHardwareButtonAction } from "./project-editor"
@@ -117,6 +118,7 @@ export function HardwareButtonActionFields({
   // A swipe suggests the neighbour it would pull in; a button, the next one.
   const suggestedSide: ScreenEdge = SWIPE_TO_SIDE[button.id] ?? "right"
   const [side, setSide] = useState<ScreenEdge>(suggestedSide)
+  const [rangeAction, setRangeAction] = useState<HardwareButtonAction | null>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const [lit, setLit] = useState(false)
 
@@ -145,6 +147,8 @@ export function HardwareButtonActionFields({
     ...(isPopup(currentScreen) ? [] : [{ value: "goto-neighbour" as const, label: "Go to the screen beside" }]),
     ...(isPopup(currentScreen) ? [{ value: "close-popup" as const, label: "Close this popup" }] : []),
     ...(deviceActions.length ? [{ value: "device-action" as const, label: "Device Action" }] : []),
+    // The screen's time range, where a chart is (lib/chart-range.ts).
+    ...(projectHasCharts(allScreens) ? RANGE_ACTION_OPTIONS : []),
   ]
   // The popups a button here can open: any but the one it is on. A target
   // that is gone reads as none chosen; the button keeps its look and does
@@ -167,6 +171,7 @@ export function HardwareButtonActionFields({
       setTargetObjectId(resolved.action.targetObjectId || "")
       setDirection(resolved.action.direction ?? "up")
       setSide(resolved.action.side ?? suggestedSide)
+      setRangeAction(resolved.action)
     } else {
       setActionType("none")
     }
@@ -211,6 +216,10 @@ export function HardwareButtonActionFields({
           break
         case "goto-neighbour":
           action = { type: newActionType, side: f.side }
+          break
+        case "move-range":
+        case "set-range":
+          action = rangeActionOf(newActionType)
           break
         default:
           action = { type: newActionType }
@@ -382,6 +391,17 @@ export function HardwareButtonActionFields({
         </>
       ) : null}
 
+      {actionType === "move-range" || actionType === "set-range" ? (
+        <RangeActionFields
+          action={rangeAction?.type === actionType ? rangeAction : rangeActionOf(actionType)}
+          idPrefix={idPrefix}
+          onChange={(next) => {
+            setRangeAction(next)
+            onSaveScreenAction(button.id, next)
+          }}
+        />
+      ) : null}
+
       {actionType === "send-mqtt" ? (
         <>
           <TopicField
@@ -403,7 +423,7 @@ export function HardwareButtonActionFields({
       ) : null}
     </>
   )
-  const hasDetails = ["goto-screen", "open-popup", "device-action", "adjust-level", "goto-neighbour", "send-mqtt"].includes(actionType)
+  const hasDetails = ["goto-screen", "open-popup", "device-action", "adjust-level", "goto-neighbour", "send-mqtt", "move-range", "set-range"].includes(actionType)
 
   return (
     <div

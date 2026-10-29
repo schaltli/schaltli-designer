@@ -45,6 +45,12 @@ const INHERIT_TYPOGRAPHY = "__inherit__"
 // canvas (see lib/device-description.ts) - this section is their only UI
 // entry point, since the canvas's hit-testing cannot discover them.
 const SWIPE_PREFIX = "swipe-"
+// Drawn together and apart, where the device's touch reads two fingers
+// (lib/device-description.ts).
+const PINCH_BUTTONS: HardwareButton[] = [
+  { id: "pinch-in", name: "Pinch in" },
+  { id: "pinch-out", name: "Pinch out" },
+]
 const SWIPE_BUTTONS: HardwareButton[] = [
   { id: "swipe-left", name: "Swipe left" },
   { id: "swipe-right", name: "Swipe right" },
@@ -143,7 +149,9 @@ export function ScreenProperties({
   }
 
   // The buttons on the device itself; the swipes have their own section.
-  const deviceButtons = hardwareButtons.filter((button) => !button.id.startsWith(SWIPE_PREFIX))
+  // The pinches too (docs/2026-10-16-charts.md decision 15): gestures, not keys.
+  const deviceButtons = hardwareButtons.filter((button) => !button.id.startsWith(SWIPE_PREFIX) && !PINCH_BUTTONS.some((p) => p.id === button.id))
+  const pinches = PINCH_BUTTONS.filter((p) => hardwareButtons.some((button) => button.id === p.id))
   const focusKeyOf = (buttonId: string) => (focusedButton?.id === buttonId ? focusedButton.key : undefined)
   const focusedHere = deviceButtons.some((button) => button.id === focusedButton?.id)
   // What every row needs. Each row's ids start with its button's, so no two
@@ -207,8 +215,8 @@ export function ScreenProperties({
           <p className="text-xs text-muted-foreground">A swipe closes a popup.</p>
         </PropertySection>
       ) : supportsSoftwareButtons ? (
-        <PropertySection title="Swipe navigation">
-          {SWIPE_BUTTONS.map((button) => (
+        <PropertySection title={pinches.length > 0 ? "Gestures" : "Swipe navigation"}>
+          {[...SWIPE_BUTTONS, ...pinches].map((button) => (
             <HardwareButtonActionFields key={button.id} button={button} label={button.name} idPrefix={`${button.id}-`} {...actionProps} />
           ))}
           {/* A neighbour no swipe of this screen leads to
