@@ -178,6 +178,7 @@ test.describe("a chart on the canvas, before it is drawn (M4)", () => {
     const inside = devicePoint(box, 300, 300, SCREEN_43B)
     await page.mouse.click(inside.x, inside.y)
     await expect(page.getByText("Chart c1")).toBeVisible()
+    await page.getByRole("button", { name: /^Frame/ }).click()
     await page.locator("#width").fill("500")
     const resized = chartsOf(await downloadProjectJson(page))
     expect(resized).toHaveLength(1)

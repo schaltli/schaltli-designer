@@ -335,7 +335,17 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "chart" && <ChartProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {selectedObject.type === "chart" && (
+                <ChartProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  colorDepth={colorDepth}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                />
+              )}
 
               {selectedObject.type === "energy-diagram" && (
                 <EnergyDiagramProperties

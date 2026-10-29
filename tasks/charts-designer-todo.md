@@ -29,7 +29,9 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - offered and enabled although no device declares `chart` yet (its description says so): without it nobody could build a chart before charts-firmware - found when the user looked for it in the van; Deploy still refuses it
   - a topic only a chart reads was already used (`source.topic` ends in «topic»): a test holds it
   - e2e/chart-model.spec.ts: «the Chart tool (D7)», and the topic not offered for removal
-- [ ] D8 The panel: the chart
+- [x] D8 The panel: the chart
+  - components/property-panel/chart-properties.tsx: «Chart» (Mode «Over time»/«Per day», Days, Scrolling, Legend, Font), «Left axis» and, with a series on it, «Right axis» (Scale «Automatic»/«Fixed»/«At least», Range Min/Max, Unit), «Zones» (Axis where there are two, Values From/To, Colour; «Add zone»), «Frame» collapsed; every change through `normalizeChart`; a slot for the series (D9)
+  - e2e/chart-panel.spec.ts «a chart's panel (D8)» (3); chart-model.spec.ts opens «Frame» first
 - [ ] D9 The panel: the series
 - [ ] D10 Series from controls
 - [ ] D11 «Add history below»
