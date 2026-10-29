@@ -131,3 +131,71 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     expect(chartLayout(chart([s]), W24, {}, { ...O, now: DAY + 86400 + 5 }).now).toEqual({ past: true })
   })
 })
+
+test.describe("the chart's layout: bands, stacks, bars, legend (D3)", () => {
+  test("a heater as a band at the plot's foot, its starts, run time and count in the legend", () => {
+    const h = series({ id: "h", valueKind: "state", draw: "band", name: "Heizung", annotations: ["runtime", "starts"] })
+    const payload = { date: "2026-10-14", on: [[60, 150], [600, 630]] }
+    const l = chartLayout(chart([h], { legend: "top-right" }), W24, { h: seriesData(h, [payload], TZ) }, O)
+    const band = l.series[0].bands
+    expect(band).toHaveLength(2)
+    // Strip height 8 (14 × 0.6), at the foot of the plot.
+    expect(band[0]).toMatchObject({ y: 416 - 8, h: 8 })
+    expect(l.series[0].starts).toEqual([band[0].x, band[1].x])
+    expect(l.legend[0]).toMatchObject({ name: "Heizung", align: "right", x: 41 + 754 - 5, figures: ["2:00 h", "2×"] })
+  })
+
+  test("a battery charging and discharging: in and out apart, in Wh and kWh", () => {
+    const b = series({ id: "b", valueKind: "power", draw: "area", unit: "W", annotations: ["current", "sum"] })
+    // 00:00-01:00 charging at 1200 W, 01:00-02:00 giving 300 W; now noon.
+    const p = day({ 0: 1200, 1: 1200, 2: 1200, 3: 1200, 4: -300, 5: -300, 6: -300, 7: -300 })
+    const l = chartLayout(chart([b], { legend: "top-left" }), W24, { b: seriesData(b, [p], TZ) }, O)
+    expect(l.legend[0].figures).toEqual(["jetzt -300 W", "+1.2 kWh / −300 Wh"])
+    expect(l.legend[0]).toMatchObject({ align: "left", x: 46 })
+  })
+
+  test("a stack piles sources above zero and the balance below, step by step", () => {
+    const sun = series({ id: "sun", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "sun" } })
+    const grid = series({ id: "grid", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "grid" } })
+    const rest = series({ id: "rest", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "balance" } })
+    const data = { sun: seriesData(sun, [day({ 0: 300, 1: 200 })], TZ), grid: seriesData(grid, [day({ 0: 100 })], TZ), rest: { steps: [], on: [], days: [] } }
+    const c = chart([sun, grid, rest], { left: { scale: "fixed", min: -400, max: 400 } })
+    const l = chartLayout(c, W24, data, O)
+    const y = (v: number) => Math.round((12 + 404 - ((v + 400) / 800) * 404) * 10) / 10
+    // Step 0: sun 0..300, grid 300..400, rest -400..0; step 1 has no grid, so no balance.
+    expect(l.series[0].areas[0].slice(0, 2).map((p) => p[1])).toEqual([y(300), y(300)])
+    expect(l.series[1].lines[0].map((p) => p[1])).toEqual([y(400), y(400)])
+    expect(l.series[2].areas).toHaveLength(1)
+    expect(l.series[2].areas[0].map((p) => p[1])).toEqual([y(0), y(0), y(-400), y(-400)])
+  })
+
+  test("per day: seven days of bars, energy up and down, the days named under them", () => {
+    const b = series({ id: "b", valueKind: "power", draw: "bars", dailyValue: "energy" })
+    const days = Array.from({ length: 14 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, energyIn: 1000, energyOut: 500 }))
+    const w = chartWindow({ mode: "per-day", days: 7 }, "24h", NOON, TZ)
+    const l = chartLayout(chart([b], { mode: "per-day", days: 7 }), w, { b: seriesData(b, [{ days }], TZ) }, O)
+    expect(l.times.map((t) => t.label)).toEqual(["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"])
+    expect(l.series[0].bars).toHaveLength(14)
+    expect([l.left.min, l.left.max]).toEqual([-500, 1000])
+    expect(l.now).toBeNull()
+  })
+
+  test("min and max marked on the curve with value and time", () => {
+    const t = series({ id: "t", unit: "°C", annotations: ["min", "max"] })
+    const l = chartLayout(chart([t]), W24, { t: seriesData(t, [day({ 8: 4.5, 20: 21.25, 30: 12 })], TZ) }, O)
+    expect(l.series[0].marks.map((m) => [m.label, m.below])).toEqual([
+      ["4.5 °C 02:00", true],
+      ["21.3 °C 05:00", false],
+    ])
+  })
+
+  test("value texts", async () => {
+    const { valueText, energyText, runtimeText } = await import("../lib/chart-layout")
+    expect(valueText(36, { unit: "%" })).toBe("36.0 %")
+    expect(valueText(136.4, { unit: "W" })).toBe("136 W")
+    expect(valueText(13.456, { unit: "V", decimals: 2 }, ",")).toBe("13,46 V")
+    expect(energyText(999.6)).toBe("1000 Wh")
+    expect(energyText(1234, ",")).toBe("1,2 kWh")
+    expect(runtimeText(125)).toBe("2:05 h")
+  })
+})

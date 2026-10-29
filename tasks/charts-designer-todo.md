@@ -8,7 +8,9 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
 - [x] D2 The layout: axes and lines
   - lib/chart-layout.ts: `seriesData` (day and recent payloads to steps, a state's periods in unix seconds, factor and invert), `niceStep` (1, 2, 2.5, 5), `axisLabel`, `weekdayOf` (Mo … So), `chartLayout`: plot, left and right axis (auto from 0, fixed, at-least), time ticks and midnights, zones, line, area, steps, range band, gaps, the NowPoint, now past the window
   - e2e/chart-layout.spec.ts «axes and lines (D2)» (9), the water example's numbers by hand
-- [ ] D3 The layout: bands, stacks, bars, legend
+- [x] D3 The layout: bands, stacks, bars, legend
+  - lib/chart-layout.ts: a state's band in a strip at the plot's foot and the x of each start; stacks piled up from zero and down, a balance as minus the others where all have a value; per day one bar per day (energy up and down, run time in hours, a level's daily value), the days named; min and max marked with value and time; the legend top right, top left or below, its figures - «jetzt» and the value now, the sum in Wh/kWh (in and out apart, the window's clock times where it is not whole days), run time «h:mm h», starts «n×»
+  - e2e/chart-layout.spec.ts «bands, stacks, bars, legend (D3)» (6)
 - [ ] D4 The painter
 - [ ] D5 Live and Simulation
 - [ ] D6 Inferring the kind
