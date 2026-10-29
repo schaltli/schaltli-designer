@@ -26,6 +26,7 @@ import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 import { stillIconData } from "@/lib/svg-still"
 import { withoutScreenMenu } from "@/lib/screen-menu"
+import { chartNeedsNormalizing, normalizeChart } from "@/lib/chart"
 
 export const OBJECT_TYPES = [
   "text",
@@ -51,6 +52,9 @@ export const OBJECT_TYPES = [
   // Where the van's energy comes from and goes (docs/2026-10-11-energy-
   // diagram.md): one object with a list of nodes, as a Sankey or a Flow.
   "energy-diagram",
+  // Values over time (docs/2026-10-16-charts.md): series of a topic's
+  // history, laid on the broker by the recorder.
+  "chart",
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
@@ -144,6 +148,8 @@ export function objectTypeLabel(type: string): string {
       return "Navigator"
     case "energy-diagram":
       return "Energy diagram"
+    case "chart":
+      return "Chart"
     case "group":
       return "Group"
     case "free":
@@ -414,6 +420,11 @@ export function migrateObjects(objects: MigratableObject[] | undefined, separato
         obj.properties = { ...obj.properties, text: converted.text, liveValues: converted.liveValues }
         changed = true
       }
+    }
+    // A chart keeps only what the spec says is ever stored (lib/chart.ts).
+    if (obj.type === "chart" && obj.properties && chartNeedsNormalizing(obj.properties)) {
+      obj.properties = normalizeChart(obj.properties) as unknown as Record<string, any>
+      changed = true
     }
     if (obj.children && migrateObjects(obj.children, separators)) changed = true
   }

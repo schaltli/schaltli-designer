@@ -237,6 +237,14 @@ export const EnergyDiagramIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// A chart (docs/2026-10-16-charts.md): a curve over an axis.
+export const ChartIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <path d="M3 3v18h18" />
+    <path d="m7 15 4-5 3 3 5-6" />
+  </Glyph>
+)
+
 // The layout containers (lib/layout.ts): the box, and how it divides.
 export const TableIcon = (p: IconProps) => (
   <Glyph {...p}>
@@ -272,6 +280,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   panel: PanelIcon,
   navigator: NavigatorIcon,
   "energy-diagram": EnergyDiagramIcon,
+  chart: ChartIcon,
   group: GroupIcon,
   free: FreeIcon,
   table: TableIcon,

@@ -2,7 +2,9 @@
 
 Plan: `tasks/charts-model-plan.md`. Approved by the user on 2026-10-29 («ok, go!»), all decisions as written.
 
-- [ ] M1 The model
+- [x] M1 The model
+  - lib/chart.ts: types, `defaultSeries`, `defaultChart`, `normalizeSeries`, `normalizeChart`; `chart` in OBJECT_TYPES, label «Chart», normalized by `migrateObjects`; icon and order rank (typecheck asks for them)
+  - e2e/chart-model.spec.ts «Chart model» (6)
 - [ ] M2 The screen's time range
 - [ ] M3 The chart in the export
 - [ ] M4 The canvas frame
