@@ -5,6 +5,7 @@ import { chartWindow, dayTable, midnightOf, type DayTable } from "../lib/chart-w
 import { dragged, moved, narrowed, openView, set, settled, widened, type RangeView } from "../lib/chart-range"
 import { chartLayout, seriesData } from "../lib/chart-layout"
 import { normalizeChart, type ChartProperties, type ChartSeries } from "../lib/chart"
+import { chartShapes } from "../lib/chart-shapes"
 
 // The chart's core as numbers (tasks/charts-firmware-plan.md decision 4):
 // windows, range steps and layouts for a set of charts and payloads, every
@@ -149,7 +150,11 @@ function build() {
     const zone = ZONES[c.options.tz]
     const window = chartWindow(c.chart, c.range as any, c.options.now, zone, c.back)
     const data = Object.fromEntries(c.chart.series.map((s) => [s.id, seriesData(s, (c.payloads[s.id] ?? []) as any, zone)]))
-    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: chartLayout(c.chart, window, data, { ...c.options, tz: zone }) }
+    const layout = chartLayout(c.chart, window, data, { ...c.options, tz: zone })
+    // The fills a board draws (lib/chart-shapes.ts), on colour and on grey.
+    const shapes = chartShapes(layout, { grid: "#cccccc", grey: false })
+    const greyShapes = chartShapes(layout, { grid: "#cccccc", grey: true })
+    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: layout, shapes, greyShapes }
   })
   return { zones: ZONES, windows, steps, layouts }
 }

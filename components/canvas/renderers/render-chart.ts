@@ -1,8 +1,9 @@
 // A chart on a canvas (docs/2026-10-16-charts.md, tasks/charts-designer-plan.md
 // D4): the editor, the thumbnails, the preview and test-render draw it here.
-// Every place comes from lib/chart-layout.ts; this file only paints it, at
-// the device's resolution. On a grey or black-and-white device series are
-// told apart by hatching and dashes, in series order (decision 4).
+// Every place comes from lib/chart-layout.ts and every shape from
+// lib/chart-shapes.ts, filled by the firmware's polygon raster into RGB565
+// pixels over the screen's ground - a board's pixels exactly, as the energy
+// diagram's (tasks/charts-firmware-plan.md F4); the texts are Text objects.
 
 import type { ScreenObject } from "@/components/project-editor"
 import type { ChartProperties, TimeRange } from "@/lib/chart"
@@ -11,6 +12,9 @@ import { chartLayout, type ChartLayout, type ChartText, type SeriesData } from "
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { chartWindow, type Zone } from "@/lib/chart-window"
 import { applyColorDepth } from "@/lib/color-depth"
+import { chartShapes, type Fill } from "@/lib/chart-shapes"
+import { expand565, mix565, rgb565 } from "@/lib/energy-diagram"
+import { fillPolygon } from "@/lib/polygon-raster"
 
 export interface ChartRenderOptions {
   colorDepth?: string
@@ -29,48 +33,69 @@ export interface ChartRenderOptions {
 }
 
 const HEX = /^#[0-9a-f]{6}$/i
-const DASHES: number[][] = [[], [6, 4], [2, 3], [8, 3, 2, 3]]
+/**
+ * A chart's pixels as a board holds them: RGB565, each fill mixed over what
+ * is there, a pixel no fill touched yet over the screen's ground, one never
+ * touched left clear. Drawn at the canvas's resolution (`k`), so a zoomed
+ * editor shows no blocks; at 1, a board's pixels exactly.
+ */
+class ChartPixels {
+  private readonly data: Uint16Array
+  private readonly touched: Uint8Array
 
-function rgba(hex: string, alpha: number): string {
-  const n = parseInt(hex.slice(1), 16)
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
-}
-
-function path(ctx: CanvasRenderingContext2D, points: [number, number][], close: boolean) {
-  ctx.beginPath()
-  points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)))
-  if (close) ctx.closePath()
-}
-
-/** Hatching inside the current path: four kinds, by the series' place. */
-function hatch(ctx: CanvasRenderingContext2D, box: { x: number; y: number; w: number; h: number }, pattern: number, colour: string) {
-  ctx.save()
-  ctx.clip()
-  ctx.strokeStyle = colour
-  ctx.lineWidth = 1
-  const kind = pattern % 4
-  const gap = 5
-  ctx.beginPath()
-  const { x, y, w, h } = box
-  if (kind === 2) {
-    for (let yy = y; yy <= y + h; yy += gap) {
-      ctx.moveTo(x, yy + 0.5)
-      ctx.lineTo(x + w, yy + 0.5)
-    }
-  } else {
-    for (let d = -h; d <= w + h; d += gap) {
-      if (kind === 0 || kind === 3) {
-        ctx.moveTo(x + d, y + h)
-        ctx.lineTo(x + d + h, y)
-      }
-      if (kind === 1 || kind === 3) {
-        ctx.moveTo(x + d, y)
-        ctx.lineTo(x + d + h, y + h)
-      }
-    }
+  constructor(
+    private readonly width: number,
+    private readonly height: number,
+    private readonly ground: number,
+    private readonly drawnWidth: number,
+    private readonly drawnHeight: number,
+  ) {
+    this.data = new Uint16Array(Math.max(0, width * height))
+    this.touched = new Uint8Array(Math.max(0, width * height))
   }
-  ctx.stroke()
-  ctx.restore()
+
+  fill(f: Fill, k: number): void {
+    const colour = rgb565(f.colour)
+    const clip = f.clip
+      ? { x0: Math.floor(f.clip.x * k), y0: Math.floor(f.clip.y * k), x1: Math.ceil((f.clip.x + f.clip.w) * k), y1: Math.ceil((f.clip.y + f.clip.h) * k) }
+      : { x0: 0, y0: 0, x1: this.width, y1: this.height }
+    const put = (x: number, y: number, w: number) => {
+      if (x < clip.x0 || y < clip.y0 || x >= clip.x1 || y >= clip.y1 || x < 0 || y < 0 || x >= this.width || y >= this.height) return
+      const i = y * this.width + x
+      this.data[i] = mix565(this.touched[i] ? this.data[i] : this.ground, colour, w)
+      this.touched[i] = 1
+    }
+    const points = k === 1 ? f.points : f.points.map((p) => ({ x: Math.round(p.x * k), y: Math.round(p.y * k) }))
+    fillPolygon(points, 0, this.height - 1, {
+      fullRun: (y, x0, x1) => {
+        for (let x = x0; x <= x1; x++) put(x, y, f.alpha)
+      },
+      partial: (y, x, coverage) => put(x, y, Math.floor((coverage * f.alpha) / 16)),
+    })
+  }
+
+  drawOn(ctx: CanvasRenderingContext2D): void {
+    if (this.width <= 0 || this.height <= 0 || typeof document === "undefined") return
+    const off = document.createElement("canvas")
+    off.width = this.width
+    off.height = this.height
+    const octx = off.getContext("2d")
+    if (!octx) return
+    const img = octx.createImageData(this.width, this.height)
+    for (let i = 0; i < this.data.length; i++) {
+      if (!this.touched[i]) continue
+      const [r, g, b] = expand565(this.data[i])
+      img.data[i * 4] = r
+      img.data[i * 4 + 1] = g
+      img.data[i * 4 + 2] = b
+      img.data[i * 4 + 3] = 255
+    }
+    octx.putImageData(img, 0, 0)
+    ctx.save()
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(off, 0, 0, this.drawnWidth, this.drawnHeight)
+    ctx.restore()
+  }
 }
 
 /** The chart's label size: its font's, else 14 px. */
@@ -111,112 +136,20 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   ctx.clip()
   const { plot } = l
 
-  // Zones, faint behind everything.
-  for (const z of l.zones) {
-    const c = colour(z.color, grid)
-    if (grey) {
-      ctx.beginPath()
-      ctx.rect(z.x, z.y, z.w, z.h)
-      hatch(ctx, z, 2, c)
-    } else {
-      ctx.fillStyle = rgba(c, 0.18)
-      ctx.fillRect(z.x, z.y, z.w, z.h)
-    }
+  // The shapes, as a board fills them: the layout's colours taken to the
+  // device's depth, a series without one in the accent.
+  const coloured: ChartLayout = {
+    ...l,
+    zones: l.zones.map((z) => ({ ...z, color: colour(z.color, grid) })),
+    series: l.series.map((s) => ({ ...s, color: colour(s.color, "#6750a4") })),
+    legend: l.legend.map((r) => ({ ...r, color: colour(r.color, "#6750a4") })),
   }
-
-  // The grid: a line per value tick, the midnights stronger.
-  ctx.strokeStyle = grid
-  ctx.lineWidth = 1
-  for (const t of l.left.ticks) {
-    ctx.beginPath()
-    ctx.moveTo(plot.x, Math.round(t.y) + 0.5)
-    ctx.lineTo(plot.x + plot.w, Math.round(t.y) + 0.5)
-    ctx.stroke()
-  }
-  ctx.lineWidth = 2
-  for (const m of l.midnights) {
-    ctx.beginPath()
-    ctx.moveTo(Math.round(m.x), plot.y)
-    ctx.lineTo(Math.round(m.x), plot.y + plot.h)
-    ctx.stroke()
-  }
-
-  // The series, clipped to the plot.
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(plot.x, plot.y, plot.w, plot.h)
-  ctx.clip()
-  for (const s of l.series) {
-    const c = colour(s.color, "#6750a4")
-    for (const r of s.ranges) {
-      path(ctx, r, true)
-      ctx.fillStyle = rgba(c, 0.15)
-      ctx.fill()
-    }
-    for (const a of s.areas) {
-      path(ctx, a, true)
-      if (grey) hatch(ctx, plot, s.pattern, c)
-      else {
-        ctx.fillStyle = rgba(c, s.draw === "stacked" ? 0.6 : 0.3)
-        ctx.fill()
-      }
-    }
-    for (const b of [...s.bands, ...s.bars]) {
-      ctx.beginPath()
-      ctx.rect(b.x, b.y, b.w, b.h)
-      if (grey) {
-        hatch(ctx, b, s.pattern, c)
-        ctx.strokeStyle = c
-        ctx.lineWidth = 1
-        ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1)
-      } else {
-        ctx.fillStyle = c
-        ctx.fill()
-      }
-    }
-    // Where a run began: a small triangle over the band.
-    ctx.fillStyle = c
-    for (const x of s.starts) {
-      const top = (s.bands[0]?.y ?? plot.y + plot.h) - 2
-      ctx.beginPath()
-      ctx.moveTo(x - 4, top - 6)
-      ctx.lineTo(x + 4, top - 6)
-      ctx.lineTo(x, top)
-      ctx.closePath()
-      ctx.fill()
-    }
-    ctx.strokeStyle = c
-    ctx.lineWidth = 2
-    ctx.setLineDash(grey ? DASHES[s.pattern % DASHES.length] : [])
-    for (const line of s.lines) {
-      path(ctx, line, false)
-      ctx.stroke()
-    }
-    ctx.setLineDash([])
-  }
-  ctx.restore()
-
-  // Min and max, with their figures; the NowPoint.
-  for (const s of l.series) {
-    const c = colour(s.color, "#6750a4")
-    for (const m of s.marks) {
-      ctx.fillStyle = c
-      ctx.beginPath()
-      ctx.arc(m.x, m.y, 3, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    if (s.nowPoint) {
-      ctx.fillStyle = c
-      ctx.beginPath()
-      ctx.arc(s.nowPoint[0], s.nowPoint[1], 4, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }
-  // The legend's marks, each in its series' colour.
-  for (const row of l.legend) {
-    ctx.fillStyle = colour(row.color, "#6750a4")
-    ctx.fillRect(row.swatch.x, row.swatch.y, row.swatch.w, row.swatch.h)
-  }
+  const t0 = ctx.getTransform()
+  const k = Math.max(1, Math.hypot(t0.a, t0.b))
+  const ground = screen?.screenBackgroundColor && screen.screenBackgroundColor !== "transparent" ? screen.screenBackgroundColor : "#ffffff"
+  const px = new ChartPixels(Math.ceil(obj.width * k), Math.ceil(obj.height * k), rgb565(applyColorDepth(ground, depth)), obj.width, obj.height)
+  for (const f of chartShapes(coloured, { grid, grey })) px.fill(f, k)
+  px.drawOn(ctx)
 
   // Every text where the layout puts it - and, said in the middle, no
   // recorder, no history yet, or nothing to show at all.
