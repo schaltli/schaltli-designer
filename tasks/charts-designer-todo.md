@@ -21,7 +21,9 @@ Plan: `tasks/charts-designer-plan.md`. Approved by the user on 2026-10-29 («1. 
   - canvas and render-screen draw with it
   - found on the way: opening a project dropped every series' and zone's colour - the colour migration deletes colours nested in properties; a chart's series and zones are now left to applyTheme (lib/themes.ts)
   - e2e/chart-preview.spec.ts (5): the messages, Live in the recorder's zone, Simulation, the subscriptions, and in the Live preview against the bench's broker no curve without a recorder and the curve once history is laid; e2e/chart-model.spec.ts: colours kept on opening
-- [ ] D6 Inferring the kind
+- [x] D6 Inferring the kind
+  - lib/chart-infer.ts `inferValueKind`: a binary sensor, switch, light … a state; device_class power power, temperature, humidity, battery, voltage … a level; unit W/kW/MW power, any other unit a level; examples all on/off words a state; else a level
+  - e2e/chart-infer.spec.ts (3)
 - [ ] D7 The tool
 - [ ] D8 The panel: the chart
 - [ ] D9 The panel: the series
