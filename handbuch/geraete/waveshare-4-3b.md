@@ -22,6 +22,8 @@ Die Schraubklemmen auf der Rückseite nehmen 7 bis 36 Volt. Das 12-V-Netz des Va
 
 Wischgesten belegst du im Designer in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>. Beim Wischen folgt die Seite dem Finger. Buttons zeigen beim Antippen ihren gedrückten Zustand.
 
+Der 4.3B erkennt zwei Finger, also kannst du auch <span class="ui">Pinch in</span> und <span class="ui">Pinch out</span> belegen. Ein [Diagramm](/objekte/anzeigen#chart) mit <span class="ui">Scrolling</span> ziehst du seitwärts durch die Zeit. Es folgt dem Finger und rastet beim Loslassen ab 24 Stunden auf ganze Tage ein. Ein Wisch, der auf einem solchen Diagramm beginnt, wechselt den Screen nicht.
+
 Nach einer Weile ohne Berührung geht das Display aus. Die erste Berührung weckt es nur, sie schaltet nichts. Wer nachts nach dem dunklen Display greift, löst also nicht versehentlich etwas aus. Wie lange das Display an bleibt und welcher Screen danach kommt, stellst du in der [Einrichtung](/geraete/einrichten#geraet) ein.
 
 ## Zurück in die Einrichtung

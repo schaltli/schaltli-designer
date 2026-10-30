@@ -28,6 +28,8 @@ Jede Änderung zeichnet das Display nur an der Stelle neu, die sich geändert ha
 
 Bewegung gibt es auf E-Paper nicht. Ein [Energy diagram](/objekte/anzeigen#energiediagramm) steht still, mit seinen Punkten an der Stelle, an der sie im Designer stehen. Ändert sich ein Wert, zeichnet der PaperS3 das Diagramm neu.
 
+Auch das PaperS3 erkennt zwei Finger, <span class="ui">Pinch in</span> und <span class="ui">Pinch out</span> wirken wie auf dem 4.3B. In einem [Chart](/objekte/anzeigen#chart) sind Bänder und Balken schraffiert und Linien gestrichelt, damit sich die Datenreihen in Grau unterscheiden. Ein Chart mit <span class="ui">Scrolling</span> ziehst du seitwärts durch die Zeit. Es folgt dem Finger nicht, sondern springt beim Loslassen dorthin, wo du losgelassen hast, ab 24 Stunden auf ganze Tage.
+
 ## Zurück in die Einrichtung
 
 Halte einen Finger zehn Sekunden still auf das obere linke Viertel des Displays. Nach drei Sekunden erscheint ein Kasten mit <span class="ui fw">Setup in</span> und einem Countdown. Lässt du vorher los, passiert nichts, auch das Tippen darunter wird nicht ausgelöst.

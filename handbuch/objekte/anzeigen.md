@@ -231,7 +231,7 @@ Die 55 W sind alles, was niemand misst: Licht, Wasserpumpe, Router. Am Abend ohn
 Zeigt Werte über die Zeit: wie sich die Batterie über den Tag geladen hat, wie kalt es in der Nacht wurde, wann die Heizung lief. Den Verlauf sammelt der [Recorder](/betrieb/daten#verlauf) auf dem Pekaway-System. Das Diagramm zeigt, was er gesammelt hat.
 
 ::: warning Geräte
-Noch zeigt kein Gerät ein Diagramm. Du kannst eines bauen und in der [Vorschau](/designer/vorschau) ansehen, «Deploy» überträgt ein Projekt mit Diagramm aber noch auf kein Gerät. 4.3B, Knob, PaperS3 und die Android-App lernen es mit ihrer nächsten Version.
+Diagramme zeigen der 4.3B, der Knob und das PaperS3. Ist die Firmware eines Geräts älter, bringt «Deploy» sie vorher auf den neuen Stand. Die Android-App zeigt noch keine Diagramme.
 :::
 
 Ein neues Diagramm ist leer. Unter <span class="ui">Series</span> wählst du bei <span class="ui">Add a series from a topic…</span> ein Topic oder ein Feld aus einer JSON-Nachricht. Daraus wird eine Datenreihe, gezeichnet als Linie, Fläche oder Band. Ein Diagramm kann mehrere Datenreihen haben.

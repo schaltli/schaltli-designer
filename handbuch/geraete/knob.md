@@ -22,6 +22,7 @@ Jede Raste des Rings löst eine Aktion aus, und welche, legst du im Designer fes
 - <span class="ui">Send an MQTT message</span>: eine feste Nachricht, zum Beispiel einen Befehl, den die Anlage selbst als «eine Stufe heller» versteht.
 - <span class="ui">Next screen</span> oder <span class="ui">Previous screen</span>: Mit dem Ring blätterst du dann durch die Screens.
 - <span class="ui">Go to a screen</span>, <span class="ui">Go to the screen beside</span> und <span class="ui">Enter setup mode</span>.
+- <span class="ui">Move the time range</span> und die anderen drei Aktionen für den Zeitbereich, in einem Projekt mit [Diagramm](/objekte/anzeigen#chart): Der Ring schiebt die Diagramme des Screens durch die Zeit, siehe [Den Zeitbereich ändern](/designer/tasten#zeitbereich). Eine Seite aus <span class="ui">Add history below</span> hat das schon belegt, nach rechts später, nach links früher. Mit dem Finger ziehen lässt sich ein Diagramm auf dem Knob nicht. Ein Wisch darüber wechselt den Screen.
 
 Auf einem Master-Screen belegt, gilt die Aktion für alle Screens, die diesen Master verwenden.
 
