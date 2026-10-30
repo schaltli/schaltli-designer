@@ -123,7 +123,9 @@ async function main() {
     })
     broker.subscribe("schaltli/history/recorder")
   })
-  if (presence && JSON.parse(presence).state === "online") {
+  // A presence another HIL run left behind (id "hil-…") is no recorder.
+  const recorder = presence ? JSON.parse(presence) : null
+  if (recorder?.state === "online" && !String(recorder.id).startsWith("hil-")) {
     console.warn("SKIPPED - a recorder records on this broker")
     await broker.endAsync()
     process.exit(2)

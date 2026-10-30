@@ -29,6 +29,10 @@ Plan: `tasks/charts-firmware-plan.md`. Approved by the user on 2026-10-29 («fre
 - [x] F5 Drawn on the PaperS3, DDFs declare chart and charts
   - the PaperS3 draws through the same renderer (F4): greys from the export, rectangles hatched, lines dashed; 0/518400 px; redrawn only when a held payload changes (ChartFeed)
   - the three ddf-source/device.json declare `chart` and `charts`; headers and the designer's public/ddf copies regenerated (tools/generate-ddf-header.js --zip); all three flashed and serving it (firmware 2026-10-29)
-- [ ] F6 Range, pinch, ring, drag
+- [x] F6 Range, pinch, ring, drag
+  - firmware ChartFeed: `applyAction` (narrow, widen, move, set on the shown screen's view, the topics fitted again, drawn again), `scrollingChartAt`, `beginDrag`/`dragTo`/`endDrag` (seconds per pixel from the plot, settled on whole days at the lift); the three `dispatchButtonAction` take the range actions first, so a button, the knob's ring and any gesture can bind them
+  - 4.3B: a pinch runs the screen's pinch-in/pinch-out; a sideways drag begun on a scrolling chart follows the finger through time instead of paging, and lets go of a press it started on. PaperS3: the same at the lift (it follows no finger), and pinch from the panel's two points or two posted fingers (`x2`/`y2`); the 4.3B's and the PaperS3's DDFs declare `pinch`, headers and public/ddf regenerated
+  - HIL hil/charts-actions.js in each board's lane: a button's set-range, the knob's ring a day earlier and back, pinch out 24h→6h and in again, a drag right one day back and left to now - all PASS on the three boards; hil/waveshare4v3b/pinch.js still PASS
+  - found on the way: test:quick's charts steps skipped one another - each lane laid and cleared the recorder's retained topics on the one broker, and the host lane's recorder test ran beside them; now all of them under one lock, and a presence left by a HIL run (`hil-…`) is no recorder. The host tools level-shape, switch-shape and theme-variant no longer built (ProjectTypes.h → ChartCore.h → ArduinoJson): what reads JSON is behind `__has_include`
 - [ ] F7 Generation and handbook
 - [ ] Checkpoint: test:quick green; the user deploys a history page to the 4.3B in the van and sees the recorder's curve

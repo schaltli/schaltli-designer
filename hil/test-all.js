@@ -395,7 +395,9 @@ async function main() {
   // The recorder as its own process against the bench's broker
   // (tasks/charts-recorder-plan.md R6): a want in, history out, its file
   // across a restart. Skipped without a broker or with another recorder on it.
-  step("host", async () => {
+  // Under the boards' charts lock: a recorder running here made their
+  // charts steps skip (2026-10-29).
+  step("host", () => exclusively("history-broker", async () => {
     const exitCode = await run("node", ["hil/recorder.js"], { cwd: path.join(__dirname, "..") })
     summary.push({
       name: "recorder",
@@ -403,7 +405,7 @@ async function main() {
       detail: exitCode === 2 ? "no broker, or another recorder on it - see output above" : exitCode === 0 ? "the recorder records and lays the history, and keeps it over a restart" : `exit code ${exitCode} - see output above`,
       report: "",
     })
-  }, { quick: true })
+  }), { quick: true })
 
   // The firmware's own unit tests on the PC: the shared placeholder and live
   // value vectors against its C++ ports, and the popup fence
@@ -828,9 +830,30 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
+  // A board's range changed by a button, the knob's ring, a pinch and a drag
+  // on a scrolling chart (F6), read from the view the board reports.
+  const chartsActions = async (name, device) => {
+    console.log(`
+=== ${name} chart time range (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/charts-actions.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-charts-actions`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or a recorder records on the broker`
+          : exitCode === 0
+            ? "set-range on a button, the ring, a pinch and a drag through time as the designer's preview"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+  // All three lay and clear the recorder's retained topics on the one
+  // broker, so one lane at a time: in parallel, one lane's clearing took
+  // another's clock away and its presence made the others skip (2026-10-29).
   for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
-    step(name, () => chartsHistory(name, device), { quick: true })
-    step(name, () => chartsDraw(name, device), { quick: true })
+    step(name, () => exclusively("history-broker", () => chartsHistory(name, device)), { quick: true })
+    step(name, () => exclusively("history-broker", () => chartsDraw(name, device)), { quick: true })
+    step(name, () => exclusively("history-broker", () => chartsActions(name, device)), { quick: true })
   }
   // Two boards at once, so after their lanes.
   afterLanes(() => localTopics("pair", WAVESHARE_DEVICE, WAVESHARE_4V3B_DEVICE))
