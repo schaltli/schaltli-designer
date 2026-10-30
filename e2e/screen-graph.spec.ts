@@ -37,9 +37,9 @@ const ids = (screens: GraphScreen[]) => screens.map((s) => s.id)
 test.describe("screen graph: the core", () => {
   test("a project of today is one row in its list order, masters, popups and hidden screens apart", () => {
     expect(ids(mainRow(today))).toEqual(["a", "b", "c"])
-    expect(neighboursOf(today, "a")).toEqual({ right: "b" })
+    expect(neighboursOf(today, "a")).toEqual({ left: "c", right: "b" })
     expect(neighboursOf(today, "b")).toEqual({ left: "a", right: "c" })
-    expect(neighboursOf(today, "c")).toEqual({ left: "b" })
+    expect(neighboursOf(today, "c")).toEqual({ left: "b", right: "a" })
     expect(neighboursOf(today, "h")).toEqual({})
     expect(neighboursOf(today, "p")).toEqual({})
     expect(backOf(today, "b")).toBeUndefined()
@@ -47,12 +47,21 @@ test.describe("screen graph: the core", () => {
 
   test("a docked screen is off the row, joined to its page only, and knows the way back", () => {
     expect(ids(mainRow(graph))).toEqual(["a", "b"])
-    expect(neighboursOf(graph, "a")).toEqual({ right: "b", up: "a1", down: "a2" })
+    expect(neighboursOf(graph, "a")).toEqual({ left: "b", right: "b", up: "a1", down: "a2" })
     expect(neighboursOf(graph, "a1")).toEqual({ down: "a" })
     expect(neighboursOf(graph, "a2")).toEqual({ up: "a" })
     // Swiped up to A'' (below A), the way back is up.
     expect(backOf(graph, "a2")).toBe("up")
     expect(backOf(graph, "a1")).toBe("down")
+  })
+
+  // The row is a ring, as «Next screen» walks it (2026-10-30): the swipe
+  // from the last page to the first follows the finger and has a pull tab.
+  test("the main row is a ring: right of the last screen lies the first, left of the first the last", () => {
+    expect(neighboursOf(today, "c").right).toBe("a")
+    expect(neighboursOf(today, "a").left).toBe("c")
+    // One screen alone has no neighbour beside it.
+    expect(neighboursOf([{ id: "only", name: "Only" }], "only")).toEqual({})
   })
 
   test("screens that only lie side by side are no neighbours: no way from A' to B'", () => {
@@ -152,7 +161,8 @@ test.describe("screen graph: what a swipe does", () => {
 
   test("then the master's, where no neighbour is", () => {
     expect(resolveSwipeAction(b, master, "swipe-up", screens)).toEqual({ type: "open-popup", targetScreenId: "p" })
-    expect(resolveSwipeAction(b, master, "swipe-left", screens)).toEqual({ type: "next-screen" })
+    // Beside B lies A on both sides now: the row is a ring.
+    expect(resolveSwipeAction(b, master, "swipe-left", screens)).toEqual({ type: "goto-neighbour", side: "right" })
     expect(resolveSwipeAction(a, master, "swipe-down", screens)).toBeUndefined()
   })
 

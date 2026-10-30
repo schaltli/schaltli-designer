@@ -64,7 +64,13 @@ export function isInGraph(screens: readonly GraphScreen[], id: string): boolean 
   return rowScreenOf(screens, id) !== undefined
 }
 
-/** The screen's neighbours by edge: its row neighbours, the screen it is docked on, and those docked on it. */
+/**
+ * The screen's neighbours by edge: its row neighbours, the screen it is docked
+ * on, and those docked on it. The row is a ring, as «Next screen» has always
+ * walked it: right of the last screen lies the first, left of the first the
+ * last (2026-10-30 - the swipe from the last page to the first jumped
+ * without following the finger, and had no pull tab).
+ */
 export function neighboursOf(screens: readonly GraphScreen[], id: string): ScreenNeighbours {
   const neighbours: ScreenNeighbours = {}
   const screen = screens.find((s) => s.id === id)
@@ -72,8 +78,10 @@ export function neighboursOf(screens: readonly GraphScreen[], id: string): Scree
   if (!screen.dock) {
     const row = mainRow(screens)
     const i = row.findIndex((s) => s.id === id)
-    if (i > 0) neighbours.left = row[i - 1].id
-    if (i < row.length - 1) neighbours.right = row[i + 1].id
+    if (row.length > 1) {
+      neighbours.left = row[(i - 1 + row.length) % row.length].id
+      neighbours.right = row[(i + 1) % row.length].id
+    }
   } else {
     neighbours[oppositeEdge(screen.dock.edge)] = screen.dock.screenId
   }

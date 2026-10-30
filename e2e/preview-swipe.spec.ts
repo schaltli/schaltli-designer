@@ -34,14 +34,15 @@ test.describe("the pull tab", () => {
   const a1 = { id: "a1", name: "A'", objects: [], masterScreenId: "m", dock: { screenId: "a", edge: "down" } } as any
 
   test("stands on each edge a swipe leads to a neighbour from, and not where the screen's own swipe takes it", () => {
-    expect(pullTabSides(a, master, [master, a, b, a1]).sort()).toEqual(["down", "right"])
+    // The row is a ring (2026-10-30): with two screens in it, B lies on both sides of A.
+    expect(pullTabSides(a, master, [master, a, b, a1]).sort()).toEqual(["down", "left", "right"])
     expect(pullTabSides(a1, master, [master, a, b, a1])).toEqual(["up"])
     const own = { ...a, buttonActions: { "swipe-up": { type: "none" } } }
-    expect(pullTabSides(own, master, [master, own, b, a1])).toEqual(["right"])
+    expect(pullTabSides(own, master, [master, own, b, a1]).sort()).toEqual(["left", "right"])
     // An own action that goes there all the same keeps its tab, as a device
     // reading the export decides it (device contract §2.10).
     const there = { ...a, buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-up": { type: "goto-screen", targetScreenId: "a1" } } }
-    expect(pullTabSides(there, master, [master, there, b, a1]).sort()).toEqual(["down", "right"])
+    expect(pullTabSides(there, master, [master, there, b, a1]).sort()).toEqual(["down", "left", "right"])
   })
 
   test("is a short bar centred on the edge of what moves, nudged towards the middle now and then", () => {
@@ -77,8 +78,9 @@ test.describe("the preview's swipe", () => {
     await page.getByRole("button", { name: "Preview", exact: true }).click()
     const { canvas } = await getMainCanvas(page)
     await expect(shown(page, "Energie")).toHaveClass(/bg-accent/)
-    // The row's first page: a neighbour to the right and one below.
-    await expect(canvas).toHaveAttribute("data-pull-tabs", /^(?=.*\bdown\b)(?=.*\bright\b)(?!.*\b(up|left)\b)/)
+    // The row's first page: a neighbour to the right, one below, and - the
+    // row being a ring - the last page to the left.
+    await expect(canvas).toHaveAttribute("data-pull-tabs", /^(?=.*\bdown\b)(?=.*\bright\b)(?=.*\bleft\b)(?!.*\bup\b)/)
 
     // Short of the threshold: back where it was.
     let from = await press(page)
@@ -111,6 +113,22 @@ test.describe("the preview's swipe", () => {
     await expect(canvas).toHaveAttribute("data-slide", "")
     await page.mouse.up()
     await expect(shown(page, "MaxxFan")).toHaveClass(/bg-accent/)
+  })
+
+  // The van's 4.3B, 2026-10-30: from the last page a swipe jumped to the
+  // first at release without following the finger. The row is a ring now.
+  test("from the last page of the row the first follows the finger, as any neighbour does", async ({ page }, testInfo) => {
+    await loadProject(page, await camperDocked(testInfo))
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    const { canvas } = await getMainCanvas(page)
+    await shown(page, "Heizung").click()
+    await expect(shown(page, "Heizung")).toHaveClass(/bg-accent/)
+    await expect(canvas).toHaveAttribute("data-pull-tabs", /\bright\b/)
+    const from = await press(page)
+    await page.mouse.move(from.x - 300, from.y, { steps: 10 })
+    await expect(canvas).toHaveAttribute("data-slide", /^right -\d+/)
+    await page.mouse.up()
+    await expect(shown(page, "Energie")).toHaveClass(/bg-accent/)
   })
 
   test("the navigator's marker glides with the finger, settles a little past and back; to a screen off the row it jumps", async ({ page }, testInfo) => {

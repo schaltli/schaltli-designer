@@ -35,6 +35,17 @@ const screens: { name: string; mainRow: string[]; screen: DeviceGraphScreen }[] 
     },
   },
   {
+    // The row is a ring (designer decision 17, 2026-10-30): the export puts
+    // the first page right of the last, and «Next screen» leads there.
+    name: "the last page of the row: the first on its right, the one before on its left",
+    mainRow: ["a", "b", "c"],
+    screen: {
+      id: "c",
+      neighbours: { left: "b", right: "a" },
+      buttonActions: { "swipe-left": { type: "next-screen" }, "swipe-right": { type: "previous-screen" } },
+    },
+  },
+  {
     name: "the history: back up",
     mainRow: ["a", "b"],
     screen: { id: "a1", back: "up", neighbours: { up: "a" }, buttonActions: { "swipe-down": { type: "goto-neighbour", side: "up" } } },

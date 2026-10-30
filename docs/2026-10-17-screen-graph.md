@@ -164,6 +164,14 @@ of its own.
     «Previous screen» walk the main row. With no neighbour there, the
     action does nothing. The export already carries `neighbours`
     (decision 13); the device computes nothing for them.
+17. **The main row is a ring** (user, 2026-10-30): right of its last
+    screen lies its first, left of its first its last, as «Next screen»
+    has always walked it. On the van's 4.3B a swipe from the last page
+    jumped to the first at release without following the finger and had
+    no pull tab, which read as a broken swipe. `neighboursOf` says so;
+    the export carries it, and every device follows from `neighbours`
+    without a change of its own. A row of one screen has no neighbour
+    beside it.
 
 ## Modules
 

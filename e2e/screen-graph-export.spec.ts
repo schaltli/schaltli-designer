@@ -62,8 +62,10 @@ for (const kind of ["device", "android"] as const) {
     test("a single row: the row in order, neighbours sideways, and swipes a board of today knows", async ({ page }) => {
       const json = await exportedJson(page, project(), kind)
       expect(json.mainRow).toEqual(["a", "b", "c"])
-      expect(screenOf(json, "a").neighbours).toEqual({ right: "b" })
+      // A ring (2026-10-30): beside the last lies the first.
+      expect(screenOf(json, "a").neighbours).toEqual({ left: "c", right: "b" })
       expect(screenOf(json, "b").neighbours).toEqual({ left: "a", right: "c" })
+      expect(screenOf(json, "c").neighbours).toEqual({ left: "b", right: "a" })
       expect(screenOf(json, "a").back).toBeUndefined()
       // A popup goes apart (lib/popup.ts withPopupsApart), without neighbours.
       const popup = json.popups?.find((s: any) => s.id === "p")
@@ -72,7 +74,8 @@ for (const kind of ["device", "android"] as const) {
       // Swiping left pulls in the screen on the right: the next one.
       expect(screenOf(json, "a").buttonActions["swipe-left"]).toEqual({ type: "next-screen" })
       expect(screenOf(json, "b").buttonActions["swipe-right"]).toEqual({ type: "previous-screen" })
-      // At the ends of the row the master's action, wrapping as before.
+      // At the ends of the row the same: the next screen is the first again,
+      // and a board follows the finger there as anywhere in the row.
       expect(screenOf(json, "c").buttonActions["swipe-left"]).toEqual({ type: "next-screen" })
       expect(screenOf(json, "a").buttonActions["swipe-right"]).toEqual({ type: "previous-screen" })
       expect(JSON.stringify(json.screens)).not.toContain("goto-neighbour")
@@ -81,7 +84,7 @@ for (const kind of ["device", "android"] as const) {
     test("a history below a page: pulled up by a swipe up, out of the paging, and its way back", async ({ page }) => {
       const json = await exportedJson(page, project(withHistory), kind)
       expect(json.mainRow).toEqual(["a", "b", "c"])
-      expect(screenOf(json, "a").neighbours).toEqual({ right: "b", down: "a1" })
+      expect(screenOf(json, "a").neighbours).toEqual({ left: "c", right: "b", down: "a1" })
       expect(screenOf(json, "a1").neighbours).toEqual({ up: "a" })
       expect(screenOf(json, "a1").back).toBe("up")
       // Hidden to a board of today, so it pages past it as a new one does.
@@ -125,7 +128,8 @@ for (const kind of ["device", "android"] as const) {
     test("«Go to the screen beside» on a button: the next screen in the row, nothing where none is", async ({ page }) => {
       const json = await exportedJson(page, project({ ...withHistory, masterActions: { "button-0": { type: "goto-neighbour", side: "right" } } }), kind)
       expect(screenOf(json, "a").buttonActions["button-0"]).toEqual({ type: "next-screen" })
-      expect(screenOf(json, "c").buttonActions?.["button-0"]).toBeUndefined()
+      // Beside the last screen lies the first: the row is a ring.
+      expect(screenOf(json, "c").buttonActions["button-0"]).toEqual({ type: "next-screen" })
       expect(screenOf(json, "a1").buttonActions?.["button-0"]).toBeUndefined()
     })
   })

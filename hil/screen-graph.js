@@ -9,8 +9,8 @@
 // hand does, through /api/touch, holding every picture to the designer's at
 // 0 px - pull tabs, the navigator's way back and all:
 //
-//   - the board starts on A, the main row's first, tabs on the right and
-//     below
+//   - the board starts on A, the main row's first, tabs on the right, on
+//     the left (the row is a ring) and below
 //   - a swipe up on A brings A1 up from below while the strip stands still
 //   - A1 shows the way back in the navigator and a tab on top; a tap on the
 //     way back shows A
@@ -367,7 +367,8 @@ async function main() {
       const glass = await fetchBmp("panel.bmp", "hints")
       await touch(mx, sh * 0.6 - 30, false)
       await settle()
-      check("a short swipe shows the hints where it leads: below and on the right", hinted.graphHints === "down right", JSON.stringify(hinted.graphHints))
+      // The row is a ring (designer decision 17, 2026-10-30): the last page lies on the left of the first.
+      check("a short swipe shows the hints where it leads: below, on the right and - the row a ring - on the left", hinted.graphHints === "down left right", JSON.stringify(hinted.graphHints))
       let changed = 0
       for (let y = sh - 100; y < sh; y += 2) for (let x = sw / 2 - 40; x < sw / 2 + 40; x += 2) if (glass.getPixelColor(x, y) !== before.getPixelColor(x, y)) changed++
       check("... drawn on the glass at the bottom", changed > 100, `${changed} sampled px changed`)

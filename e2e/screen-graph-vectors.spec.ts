@@ -128,10 +128,11 @@ test.describe("the reference draws the pull tabs on request", () => {
       const r = pullTabRect(edge, area)
       return [r.x + Math.floor(r.width / 2), r.y + Math.floor(r.height / 2)] as const
     }
-    // A: the row on its right and A1 below; nothing on its left.
+    // A: B on its right and - the row a ring - on its left, A1 below; nothing above.
     expect(await pixel(true, 1, ...centre("right"))).toBe(color)
     expect(await pixel(true, 1, ...centre("down"))).toBe(color)
-    expect(await pixel(true, 1, ...centre("left"))).toBe("#ffffff")
+    expect(await pixel(true, 1, ...centre("left"))).toBe(color)
+    expect(await pixel(true, 1, ...centre("up"))).toBe("#ffffff")
     // Not asked: no tabs.
     expect(await pixel(false, 1, ...centre("right"))).toBe("#ffffff")
     // A1: only back up.

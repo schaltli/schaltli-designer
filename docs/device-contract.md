@@ -1112,7 +1112,12 @@ what every swipe does.
 - **Neighbours:** a screen's `neighbours` maps `up`, `down`, `left` and
   `right` to the id of the screen lying there. Only screens docked on
   each other are neighbours: two histories side by side under two pages
-  are not, and neither lists the other. A screen off the main row has
+  are not, and neither lists the other. The main row is a ring, as
+  `next-screen` walks it: right of its last screen lies its first, left
+  of its first its last (2026-10-30; a row of one screen has no
+  neighbour beside it). So a swipe from the last page to the first
+  follows the finger and has a pull tab like any other; a device needs
+  nothing new for it. A screen off the main row has
   `back`, the edge its way back lies at (`up` for a history below its
   page).
 - **`goto-neighbour`:** `{ "type": "goto-neighbour", "side": "down" }`
