@@ -67,6 +67,19 @@ test.describe("firmware builds", () => {
     // The same marker twice is still one device.
     expect(imageDeviceId(image("<<schaltli-image device=a-board>>", randomBytes(10), "<<schaltli-image device=a-board>>")))
       .toBe("a-board")
+    // The 4"'s id is the start of the 4.3B's: each image names its own board,
+    // never the other (the firmware's scanner, too, matches up to the ">>").
+    expect(imageDeviceId(image(randomBytes(400), "<<schaltli-image device=waveshare-touch-lcd-4>>", randomBytes(400))))
+      .toBe("waveshare-touch-lcd-4")
+    expect(imageDeviceId(image("<<schaltli-image device=waveshare-touch-lcd-4v3b>>"))).not.toBe("waveshare-touch-lcd-4")
+  })
+
+  // The env itself (tasks/waveshare-4-todo.md, Task 3): what
+  // `pio run -e waveshare-touch-lcd-4` builds names the 4" and nothing else.
+  test("the 4\"'s build names the 4\"", () => {
+    const bin = path.join(__dirname, "..", "..", "schaltli-firmware", ".pio", "build", "waveshare-touch-lcd-4", "firmware.bin")
+    test.skip(!fs.existsSync(bin), "the 4\" env not built in a schaltli-firmware checkout alongside this repo")
+    expect(imageDeviceId(new Uint8Array(fs.readFileSync(bin)))).toBe("waveshare-touch-lcd-4")
   })
 })
 

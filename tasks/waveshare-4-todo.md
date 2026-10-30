@@ -14,13 +14,13 @@ expander, panel init) into a profile header, and put the CH422G behind a
 small expander interface (backlight, LCD reset, touch reset). No new feature.
 
 **Acceptance criteria:**
-- [ ] The 4.3B env builds from the profiled code; `main.cpp` names no pin and no CH422G
-- [ ] 4.3B HIL (`hil/waveshare4v3b/orchestrator.js --rebake --dark`) 0 px, pixel-clock, bandwidth and setup-screen checks green
-- [ ] Firmware host checks green (`pio test -e native`)
+- [x] The 4.3B env builds from the profiled code; `main.cpp` names no pin and no CH422G
+- [x] 4.3B HIL (`hil/waveshare4v3b/orchestrator.js --rebake --dark`) 0 px, pixel-clock, bandwidth and setup-screen checks green (orchestrator on the text-styles project, 12/12 light and dark: `--rebake` needs a recovery copy, which only an MQTT deploy leaves)
+- [x] Firmware host checks green (`pio test -e native`)
 
 **Verification:**
-- [ ] `npm run test:quick` green, 4.3B lane included
-- [ ] Manual: the 4.3B boots, a tap and a swipe work
+- [x] `npm run test:quick` green, 4.3B lane included - all but `4v3b-internal-heap`, which fails the same on the firmware before T1 (see «Found on the way»)
+- [ ] Manual: the 4.3B boots, a tap and a swipe work (boots: yes; tap and swipe by hand still open)
 
 **Dependencies:** None
 **Files likely touched:** `schaltli-firmware/src/boards/waveshare4v3b/{main.cpp,RgbPanel.h,Ch422g.h,DeviceInfo.h}`, new `BoardProfile.h`, `platformio.ini`
@@ -36,13 +36,13 @@ px/mm. The zip goes into `public/ddf/`, and `test-all.js` checks it with
 `generate-ddf-header.js --check`.
 
 **Acceptance criteria:**
-- [ ] The designer offers «Waveshare ESP32-S3-Touch-LCD-4» for a new project and draws a screen in its frame
-- [ ] `test:all` fails when the zip and `ddf-source-waveshare4` differ
-- [ ] e2e: the board is in `ddf-seed.ts` and in the device specs that list every board (layout, size scale, navigator, popups, energy diagram, cut-out)
+- [x] The designer offers «Waveshare ESP32-S3-Touch-LCD-4» for a new project and draws a screen in its frame
+- [x] `test:all` fails when the zip and `ddf-source-waveshare4` differ (`waveshare4-ddf`)
+- [x] e2e: the board is in `ddf-seed.ts` and in the device specs that list every board (layout, size scale, cut-out; navigator and popups got a 4" case; the energy diagram specs use the 4.3B as the colour board and list no boards)
 
 **Verification:**
-- [ ] `npx playwright test e2e/adornment-screen-cutout-invisible.spec.ts e2e/size-scale.spec.ts e2e/layout-model.spec.ts`
-- [ ] `npm run test:quick`
+- [x] `npx playwright test e2e/adornment-screen-cutout-invisible.spec.ts e2e/size-scale.spec.ts e2e/layout-model.spec.ts`
+- [x] `npm run test:quick`
 
 **Dependencies:** None
 **Files likely touched:** `schaltli-firmware/ddf-source-waveshare4/*`, `tools/build-typography-fonts.py`, `public/ddf/waveshare-touch-lcd-4.ddf.zip`, `hil/test-all.js`, `e2e/ddf-seed.ts`
@@ -57,22 +57,44 @@ CH32V003 at 0x24 means: say «unsupported board revision» over serial and on
 the glass if possible, and stop. Entry in `tools/release-firmware.js`.
 
 **Acceptance criteria:**
-- [ ] `pio run -e waveshare-touch-lcd-4` builds; the 4.3B env still builds
-- [ ] `ST_CH32_IO` licence noted in the driver's header (or the driver is our own)
-- [ ] `e2e/firmware-build.spec.ts` covers the new env
+- [x] `pio run -e waveshare-touch-lcd-4` builds; the 4.3B env still builds
+- [x] `ST_CH32_IO` licence noted in the driver's header (or the driver is our own) - Apache-2.0, our own driver from what it does
+- [x] `e2e/firmware-build.spec.ts` covers the new env
 
 **Verification:**
-- [ ] `npx playwright test e2e/firmware-build.spec.ts`
-- [ ] `npm run test:quick`
+- [x] `npx playwright test e2e/firmware-build.spec.ts`
+- [x] `npm run test:quick`
 
 **Dependencies:** T1, T2
 **Files likely touched:** `schaltli-firmware/platformio.ini`, `src/boards/waveshare4/{BoardProfile.h,Ch32v003.h,St7701Init.h,DeviceInfo.h}`, `tools/release-firmware.js`
 **Estimated scope:** M
 
 ## Checkpoint A
-- [ ] 4.3B HIL green at 0 px on the profiled firmware; `test:quick` green
-- [ ] The designer offers the board; the 4" env builds
+- [x] 4.3B HIL green at 0 px on the profiled firmware; `test:quick` green (but for the heap check below)
+- [x] The designer offers the board; the 4" env builds
 - [ ] Review with the user
+
+
+## Status 2026-10-30 (evening)
+
+T1-T3 done and committed (schaltli-firmware 79f718e, 3791a6f, 730a08f).
+Ahead of the plan, the 4" was flashed over USB: it boots to the setup screen
+with its QR code, GT911 at 0x5D, three framebuffers. The backlight PWM turned
+out inverted against Waveshare's README (0 is brightest; their BSP does it so)
+- fixed. Next: the user sets up WiFi and MQTT through the QR code (T5's manual
+check), then T4's test pattern and pixel clock, T5, T6.
+
+Found on the way, not part of this plan:
+- `4v3b-internal-heap` (in test:quick since 13f2d06, today) fails on the
+  firmware before T1 as well: the 240-screen project it installs leaves the
+  4.3B too little internal RAM to start WiFi (`esp_wifi_init 257`), and the
+  board stays off the network until its LittleFS is erased over USB. Every
+  test:quick leaves it so.
+- The 4.3B came home from the camper on a far access point (-88 dBm), which
+  made the first test:quick fail half its 4.3B steps; a restart fixed it.
+- Flaky in these runs, on boards this plan does not touch: PaperS3 charts-draw
+  (18 px) once, PaperS3 popups (timeout) once, knob screen-graph (timeout)
+  once, android-HIL (`adb uiautomator dump`) every time.
 
 ## Phase 1: bring-up on the board
 
