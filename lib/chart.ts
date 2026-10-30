@@ -66,6 +66,8 @@ export interface ChartProperties {
   zones?: ChartZone[]
   legend: "top-right" | "top-left" | "bottom" | "none"
   fontId?: string
+  /** The days' names above the plot; the chart's font where none. */
+  dateFontId?: string
   series: ChartSeries[]
 }
 

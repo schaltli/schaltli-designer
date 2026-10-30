@@ -76,7 +76,7 @@ function build() {
   step(openView("7d"), "drag-settle", 2 * 86400 + 3600, settled(dragged(openView("7d"), 2 * 86400 + 3600), NOON, ZONES.zurich))
 
   const o = { width: 800, height: 440, fontSize: 14, now: NOON, tz: "zurich" }
-  const cases: { name: string; chart: ChartProperties; range: string; back: number; payloads: Record<string, unknown[]>; options: typeof o & { decimal?: string } }[] = [
+  const cases: { name: string; chart: ChartProperties; range: string; back: number; payloads: Record<string, unknown[]>; options: typeof o & { decimal?: string; dateFontSize?: number } }[] = [
     {
       name: "water: fixed axis, steps, a zone",
       chart: chart([series({ draw: "steps", unit: "%", annotations: ["current"] }), series({ id: "s2", name: "Grau", draw: "steps", unit: "%", color: "#888888" })], {
@@ -158,6 +158,24 @@ function build() {
       back: 86400,
       payloads: { s1: [day("2026-10-13", { 10: 5, 11: 6 })] },
       options: o,
+    },
+    {
+      // 2026-10-30: the days' names above the plot in the date font - two
+      // days in six hours across midnight, today's too short for its long name.
+      name: "six hours across midnight: yesterday and today named above the plot",
+      chart: chart([series({})]),
+      range: "6h",
+      back: 0,
+      payloads: { s1: [] },
+      options: { ...o, now: DAY + 2 * 3600 + 30, dateFontSize: 22 },
+    },
+    {
+      name: "seven days over time: each day's name as fits",
+      chart: chart([series({})], { legend: "none" }),
+      range: "7d",
+      back: 2 * 86400,
+      payloads: { s1: [] },
+      options: { ...o, dateFontSize: 20 },
     },
     {
       name: "seven days of bars, energy up and down",

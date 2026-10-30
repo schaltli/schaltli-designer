@@ -79,7 +79,7 @@ function withNavigatorsFitted(project: Project, screenWidth: number, screenHeigh
 const FONT_KEYS: Record<string, string[]> = {
   "energy-diagram": ["fontId", "valueFontId"],
   navigator: ["fontId"],
-  chart: ["fontId"],
+  chart: ["fontId", "dateFontId"],
 }
 
 /**
@@ -103,7 +103,7 @@ function withFontsOnDevice(project: Project, oldFonts: readonly { id: string; si
       for (const key of keys) {
         const id = o.properties?.[key]
         if (id === undefined || has(id)) continue
-        const was = oldFonts.find((f) => f.id === id)?.size ?? (key === "valueFontId" ? 22 : 16)
+        const was = oldFonts.find((f) => f.id === id)?.size ?? (key === "valueFontId" || key === "dateFontId" ? 22 : 16)
         next = { ...next, properties: { ...next.properties, [key]: near(was).id } }
         changed = true
       }

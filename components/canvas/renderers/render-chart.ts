@@ -20,6 +20,8 @@ export interface ChartRenderOptions {
   colorDepth?: string
   /** The label font's height in px; the chart's font's size where it has one. */
   fontSize?: number
+  /** The date font's, for the days' names above the plot; the label font's where none. */
+  dateFontSize?: number
   /** The screen's time range, and how far back it looks. */
   range?: TimeRange
   back?: number
@@ -110,13 +112,27 @@ export function chartFontSize(obj: ScreenObject, fonts: readonly { id: string; s
   return fonts.find((f) => f.id === id)?.size || 14
 }
 
+/** The size of the days' names above the plot: the date font's, else the label size. */
+export function chartDateFontSize(obj: ScreenObject, fonts: readonly { id: string; size?: number }[]): number {
+  const id = (obj.properties as Record<string, unknown> | undefined)?.dateFontId
+  return fonts.find((f) => f.id === id)?.size || chartFontSize(obj, fonts)
+}
+
 /** The layout of a chart object as the canvas draws it, now: for a test to read. */
 export function layoutOf(obj: ScreenObject, options: ChartRenderOptions): ChartLayout {
   const chart = normalizeChart(obj.properties ?? {}) as ChartProperties
   const now = options.now ?? Date.now() / 1000
   const tz = options.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const window = chartWindow(chart, options.range ?? DEFAULT_TIME_RANGE, now, tz, options.back ?? 0)
-  return chartLayout(chart, window, options.data ?? {}, { width: obj.width, height: obj.height, fontSize: options.fontSize ?? 14, now, tz, decimal: options.decimal })
+  return chartLayout(chart, window, options.data ?? {}, {
+    width: obj.width,
+    height: obj.height,
+    fontSize: options.fontSize ?? 14,
+    dateFontSize: options.dateFontSize,
+    now,
+    tz,
+    decimal: options.decimal,
+  })
 }
 
 /**
@@ -182,7 +198,7 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
           zIndex: 1,
           properties: {
             text: t.text.replace(/\{/g, "{{").replace(/\}/g, "}}"),
-            fontId: p.fontId,
+            fontId: t.font === "date" ? (p.dateFontId ?? p.fontId) : p.fontId,
             textColor: t.tone === "text" ? text : muted,
             textAlign: t.align,
             backgroundColor: "transparent",
@@ -192,9 +208,9 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
     )
     renderScreenObjects(ctx, objects, { ...screen, nested: true })
   } else {
-    ctx.font = `${fontSize}px sans-serif`
     ctx.textBaseline = "middle"
     for (const t of texts) {
+      ctx.font = `${t.h}px sans-serif`
       ctx.fillStyle = t.tone === "text" ? text : muted
       ctx.textAlign = t.align
       ctx.fillText(t.text, t.align === "left" ? t.x : t.align === "right" ? t.x + t.w : t.x + t.w / 2, t.y + t.h / 2)

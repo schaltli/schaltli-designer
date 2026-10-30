@@ -3,7 +3,8 @@
 // (tasks/charts-firmware-plan.md F4, F5; device contract §2.13). On the
 // bench's broker it lays what a recorder would - presence, clock and days,
 // today's history of a level and a heater's on-periods - installs a screen
-// with a chart of them (a fixed axis, a zone, a line, a band, a legend),
+// with a chart of them (a fixed axis, a zone, a line, a band, a legend, the
+// day's name above in a date font of its own),
 // makes the board draw it at a known clock, and compares the board's snapshot
 // with the designer's test-render of the same history at the same clock.
 //
@@ -49,6 +50,8 @@ function chartProject(ddf, stamp) {
   const inner = round ? { x: Math.round((width - side) / 2), y: Math.round((height - side) / 2), w: side, h: side } : { x: 0, y: 0, w: width, h: height }
   const sorted = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
   const font = sorted[Math.floor(sorted.length * 0.4)]
+  // The days' names above the plot in a larger font of their own (2026-10-30).
+  const dateFont = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.7))]
   project.name = "HIL chart"
   project.fonts = ddf.fonts
   project.combinedTopics = []
@@ -76,6 +79,7 @@ function chartProject(ddf, stamp) {
             scroll: false,
             legend: "top-right",
             fontId: font.id,
+            dateFontId: dateFont.id,
             textColor: "#1d1b20",
             mutedColor: "#49454f",
             lineColor: "#cac4d0",

@@ -10,8 +10,9 @@ const TZ = "Europe/Zurich"
 const DAY = midnightOf("2026-10-14", TZ)
 const NOON = DAY + 12 * 3600
 const O = { width: 800, height: 440, fontSize: 14, now: NOON, tz: TZ }
-// fontSize 14: pad 5, labels 36 wide - the plot from x 41, y 12, 754 × 404.
-const PLOT = { x: 41, y: 12, w: 754, h: 404 }
+// fontSize 14: pad 5, labels 36 wide, the days' names a row of 14 above -
+// the plot from x 41, y 24, 754 × 392.
+const PLOT = { x: 41, y: 24, w: 754, h: 392 }
 
 const series = (s: Partial<ChartSeries>): ChartSeries => ({
   id: "s1",
@@ -56,21 +57,22 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     expect(l.plot).toEqual(PLOT)
     expect(l.left.ticks.map((t) => t.label)).toEqual(["0", "25", "50", "75", "100"])
     expect(l.left.ticks[0].y).toBe(416)
-    expect(l.left.ticks[4].y).toBe(12)
+    expect(l.left.ticks[4].y).toBe(24)
     const q = 754 / 96 // a quarter hour in px
     expect(l.series[0].lines).toEqual([
       [
-        [41, 214],
-        [Math.round((41 + q) * 10) / 10, 214],
-        [Math.round((41 + q) * 10) / 10, 315],
-        [Math.round((41 + 2 * q) * 10) / 10, 315],
+        [41, 220],
+        [Math.round((41 + q) * 10) / 10, 220],
+        [Math.round((41 + q) * 10) / 10, 318],
+        [Math.round((41 + 2 * q) * 10) / 10, 318],
       ],
     ])
     // Now is noon: half way, the NowPoint on the last value before it.
     expect(l.now).toEqual({ x: 418 })
-    expect(l.series[0].nowPoint).toEqual([418, 315])
+    expect(l.series[0].nowPoint).toEqual([418, 318])
     expect(l.times.map((t) => t.label)).toEqual(["00:00", "06:00", "12:00", "18:00", "00:00"])
-    expect(l.midnights.map((m) => m.label)).toEqual(["Mi 14.10.", "Do 15.10."])
+    // The day's own midnights are its edges: none inside it.
+    expect(l.midnights).toEqual([])
   })
 
   test("auto starts at 0 when every value is above it, and rounds out to a tick", () => {
@@ -116,7 +118,7 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     const c = chart([a, b], { left: { scale: "fixed", min: 0, max: 100 }, right: { scale: "fixed", min: 0, max: 1000 }, zones: [{ axis: "left", to: 25, color: "#ff0000" }] })
     const l = chartLayout(c, W24, { a: seriesData(a, [day({ 0: 50 })], TZ), b: seriesData(b, [day({ 0: 500 })], TZ) }, O)
     expect(l.plot.w).toBe(754 - 36)
-    expect(l.zones[0]).toMatchObject({ x: 41, y: 315, h: 101, color: "#ff0000" })
+    expect(l.zones[0]).toMatchObject({ x: 41, y: 318, h: 98, color: "#ff0000" })
     expect(l.series[0].lines[0][0][1]).toBe(l.series[1].lines[0][0][1])
     expect(l.right!.ticks.at(-1)!.label).toBe("1000")
   })
@@ -130,6 +132,51 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     expect(l.series[0].lines[0]).toHaveLength((60 - 2) * CURVE_SEGMENTS + 2)
     expect(l.times.map((t) => t.label)).toEqual(["11:15", "11:30", "11:45", "12:00"])
     expect(chartLayout(chart([s]), W24, {}, { ...O, now: DAY + 86400 + 5 }).now).toEqual({ past: true })
+  })
+})
+
+// 2026-10-30, the user: «Datumsangabe besser sichtbar … grösser, im Format
+// "heute Freitag 30.10.", "gestern Donnerstag 29.10.", früher "Mittwoch,
+// 28.10."» - «Position lieber ausserhalb des Rasters, wie im Artifact».
+test.describe("the chart's layout: the days' names above the plot", () => {
+  const dates = (l: ReturnType<typeof chartLayout>) => l.texts.filter((t) => t.font === "date")
+  const s = series({})
+
+  test("today, yesterday and before, in the date font, in a row of their own above the plot", () => {
+    const o = { ...O, dateFontSize: 22 }
+    const today = chartLayout(chart([s]), W24, {}, o)
+    // pad 5, the row 22, pad 5: the plot from y 32.
+    expect(today.plot).toEqual({ x: 41, y: 32, w: 754, h: 384 })
+    expect(dates(today)).toEqual([{ text: "heute Mittwoch 14.10.", x: 41, y: 5, w: 754, h: 22, align: "left", tone: "text", font: "date" }])
+    const back = (days: number) => dates(chartLayout(chart([s]), chartWindow({ mode: "time" }, "24h", NOON, TZ, days * 86400), {}, o)).map((t) => t.text)
+    expect(back(1)).toEqual(["gestern Dienstag 13.10."])
+    expect(back(2)).toEqual(["Montag, 12.10."])
+    // Without a date font, the label font's size.
+    expect(dates(chartLayout(chart([s]), W24, {}, O))[0]).toMatchObject({ y: 5, h: 14 })
+  })
+
+  test("a window across midnight names both days, each from where it begins; all short where one long does not fit", () => {
+    const w = chartWindow({ mode: "time" }, "6h", DAY + 2 * 3600, TZ)
+    const l = chartLayout(chart([s]), w, {}, { ...O, now: DAY + 2 * 3600, dateFontSize: 22 })
+    const [before, after] = dates(l)
+    // Today's part is 2 h 05: «heute Mittwoch 14.10.» is too long for it, so yesterday is short too.
+    expect(before).toMatchObject({ text: "Di 13.10.", x: 41 })
+    expect(after.text).toBe("Mi 14.10.")
+    // With a smaller date font both long.
+    expect(dates(chartLayout(chart([s]), w, {}, { ...O, now: DAY + 2 * 3600, dateFontSize: 16 })).map((t) => t.text)).toEqual(["gestern Dienstag 13.10.", "heute Mittwoch 14.10."])
+    expect(l.midnights).toHaveLength(1)
+    expect(after.x).toBe(l.midnights[0].x + 5)
+    expect(after.x + after.w).toBeCloseTo(41 + 754, 5)
+  })
+
+  test("seven days: each day's name as fits its seventh; per day, none above the bars", () => {
+    const w = chartWindow({ mode: "time" }, "7d", NOON, TZ)
+    expect(dates(chartLayout(chart([s]), w, {}, O)).map((t) => t.text)).toEqual(["Do 8.10.", "Fr 9.10.", "Sa 10.10.", "So 11.10.", "Mo 12.10.", "Di 13.10.", "Mi 14.10."])
+    expect(dates(chartLayout(chart([s]), w, {}, { ...O, dateFontSize: 26 })).map((t) => t.text)).toEqual(["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"])
+    const pd = chartWindow({ mode: "per-day", days: 7 }, "24h", NOON, TZ)
+    const l = chartLayout(chart([s], { mode: "per-day", days: 7 }), pd, {}, { ...O, dateFontSize: 22 })
+    expect(dates(l)).toEqual([])
+    expect(l.plot.y).toBe(12)
   })
 })
 
@@ -162,7 +209,7 @@ test.describe("the chart's layout: bands, stacks, bars, legend (D3)", () => {
     const data = { sun: seriesData(sun, [day({ 0: 300, 1: 200 })], TZ), grid: seriesData(grid, [day({ 0: 100, 1: 50 })], TZ), rest: { steps: [], on: [], days: [] } }
     const c = chart([sun, grid, rest], { left: { scale: "fixed", min: -400, max: 400 } })
     const l = chartLayout(c, W24, data, O)
-    const y = (v: number) => Math.round((12 + 404 - ((v + 400) / 800) * 404) * 10) / 10
+    const y = (v: number) => Math.round((24 + 392 - ((v + 400) / 800) * 392) * 10) / 10
     // Through the steps' middles: sun 0..300 then 0..200, grid on top of it,
     // the rest - minus both - below zero.
     expect(l.series[0].areas[0].map((p) => p[1])).toEqual([y(300), y(200), y(0), y(0)])
@@ -177,7 +224,7 @@ test.describe("the chart's layout: bands, stacks, bars, legend (D3)", () => {
     const bat = series({ id: "bat", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "bat" } })
     const data = { sun: seriesData(sun, [day({ 0: 100, 1: 100, 2: 100 })], TZ), bat: seriesData(bat, [day({ 0: 200, 1: -100, 2: -200 })], TZ) }
     const l = chartLayout(chart([sun, bat], { left: { scale: "fixed", min: -400, max: 400 } }), W24, data, O)
-    const y = (v: number) => Math.round((12 + 404 - ((v + 400) / 800) * 404) * 10) / 10
+    const y = (v: number) => Math.round((24 + 392 - ((v + 400) / 800) * 392) * 10) / 10
     const [above, below] = l.series[1].areas
     // Above zero it lies on the sun and never goes under it; below it starts at zero.
     expect(Math.max(...above.map((p) => p[1]))).toBeLessThanOrEqual(y(100))

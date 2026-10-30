@@ -101,6 +101,16 @@ test.describe("a page's history (D11)", () => {
     expect(of(top)).toMatchObject({ x: 0, y: 64, width: 800, height: 416 })
   })
 
+  // 2026-10-30, the user: the date «sollte grösser sein».
+  test("its charts' days' names in a larger font than their labels", () => {
+    const fonts = [10, 14, 18, 22, 30].map((size) => ({ id: `f${size}`, size }))
+    const { project } = withHistoryBelow(
+      { nextId: 5, screenWidth: 800, screenHeight: 480, fonts, screens: [{ id: "a", name: "Wasser", masterScreenId: "m", objects: [bar("b", "van/fresh", 0)] }] },
+      "a",
+    )!
+    expect(project.screens[1].objects[0].properties).toMatchObject({ fontId: "f14", dateFontId: "f22" })
+  })
+
   test("a page that has a history below it is not offered a second", () => {
     const project = {
       nextId: 5,

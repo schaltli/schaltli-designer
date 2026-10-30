@@ -74,6 +74,24 @@ test.describe("a chart's panel (D8)", () => {
     expect(p.zones).toEqual([{ axis: "left", to: 20, color: "track" }])
   })
 
+  // 2026-10-30: the days' names above the plot, larger, in a font of their own.
+  test("over time a Date font for the days' names above the plot; per day none", async ({ page }) => {
+    await withChart(page, { mode: "time", scroll: false, legend: "top-right", left: { scale: "auto" }, series: [] })
+    const fonts = page.locator("#fontId")
+    await expect(fonts).toHaveCount(2)
+    await fonts.nth(1).click()
+    const options = page.getByRole("option")
+    const last = (await options.count()) - 2 // the last font, above «Manage fonts»
+    const name = (await options.nth(last).innerText()).trim()
+    await options.nth(last).click()
+    await expect(fonts.nth(1)).toHaveText(name)
+    const p = chartOf(await downloadProjectJson(page)).properties
+    expect(typeof p.dateFontId).toBe("string")
+    expect(p.dateFontId).not.toBe(p.fontId)
+    await page.locator("#chart-mode").selectOption("per-day")
+    await expect(fonts).toHaveCount(1)
+  })
+
   test("the right axis is offered once a series is on it", async ({ page }) => {
     const s = { id: "s1", source: { kind: "topic", topic: "van/x" }, name: "X", valueKind: "level", draw: "line", color: "accent" }
     await withChart(page, { mode: "time", scroll: false, legend: "none", left: { scale: "auto" }, series: [s] })

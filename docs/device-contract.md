@@ -1277,8 +1277,9 @@ Values over time (`docs/2026-10-16-charts.md`, the model there in full;
 - **The object** `"chart"`, at its x, y, width and height like any object.
   `properties` as the spec's «Data model» - `mode` ("time" or "per-day"),
   `days`, `scroll`, `left` and `right` axis (`scale` "auto", "fixed" or
-  "at-least", `min`, `max`, `unit`), `zones`, `legend`, `fontId`, `series`
-  - and as every object's colours: `textColor` (axis labels, legend),
+  "at-least", `min`, `max`, `unit`), `zones`, `legend`, `fontId`,
+  `dateFontId` (the days' names in the row above the plot, over time; absent
+  means `fontId`; 2026-10-30), `series` - and as every object's colours: `textColor` (axis labels, legend),
   `mutedColor` (quiet text), `lineColor` (the grid), each with its `XDark`
   (§2.3).
 - **A series** is plain: `source` (`{ kind: "topic", topic }`, the topic

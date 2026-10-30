@@ -187,7 +187,10 @@ export function withHistoryBelow<P extends HistoryProject>(project: P, screenId:
   const free = beside(project, page.masterScreenId)
   const top = Math.max(free.y, 40)
   const height = Math.floor((free.y + free.h - top) / charts.length)
-  const font = [...(project.fonts ?? [])].sort((a, b) => Math.abs((a.size || 0) - 14) - Math.abs((b.size || 0) - 14))[0]
+  const near = (px: number) => [...(project.fonts ?? [])].sort((a, b) => Math.abs((a.size || 0) - px) - Math.abs((b.size || 0) - px))[0]
+  const font = near(14)
+  // The days' names above each chart larger (2026-10-30, the user: «sollte grösser sein»).
+  const dateFont = near(22)
   const objects = charts.map((chart, i) => {
     nextId++
     return {
@@ -198,7 +201,7 @@ export function withHistoryBelow<P extends HistoryProject>(project: P, screenId:
       width: free.w,
       height,
       zIndex: i + 1,
-      properties: { ...chart, ...(font ? { fontId: font.id } : {}) },
+      properties: { ...chart, ...(font ? { fontId: font.id } : {}), ...(dateFont ? { dateFontId: dateFont.id } : {}) },
     }
   })
   const id = `screen-${nextId + 1}`

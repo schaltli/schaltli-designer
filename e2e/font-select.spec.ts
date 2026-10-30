@@ -42,8 +42,9 @@ test("every panel that sets a font uses the shared picker, and none has its own"
     // reaches it through `FontField` (fields/wrapped-fields.tsx), which is
     // the same component with the property row's name column around it.
     const used = source.match(/<Font(Select|Field)\b/g)?.length
-    // The energy diagram has two fonts: names and lines, and the values.
-    const fields = file === "energy-diagram-properties.tsx" ? 2 : 1
+    // The energy diagram has two fonts: names and lines, and the values; a
+    // chart its labels' and the days' names above it (2026-10-30).
+    const fields = file === "energy-diagram-properties.tsx" || file === "chart-properties.tsx" ? 2 : 1
     expect(used, `${file} uses the shared picker ${fields === 1 ? "once" : "for each of its fonts"}`).toBe(fields)
     expect(source, `${file} lists fonts itself`).not.toMatch(/key=\{font\.id\}/)
     expect(source, `${file} has its own "System Default"`).not.toContain("System Default")

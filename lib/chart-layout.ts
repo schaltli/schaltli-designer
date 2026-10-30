@@ -239,6 +239,8 @@ export interface ChartText {
   h: number
   align: "left" | "center" | "right"
   tone: "text" | "muted"
+  /** A day's name in the row above the plot: in the chart's date font. */
+  font?: "date"
 }
 
 export interface LegendRow {
@@ -260,7 +262,7 @@ export interface ChartLayout {
   plot: Box
   left: AxisLayout
   right?: AxisLayout
-  /** The time axis: labelled ticks, and the midnights drawn stronger, each with its day's name. */
+  /** The time axis: labelled ticks, and the midnights inside the window drawn stronger, each with its day's name. */
   times: { x: number; label: string }[]
   midnights: { x: number; label: string }[]
   zones: (Box & { color: string; colorDark?: string })[]
@@ -278,6 +280,8 @@ export interface LayoutOptions {
   height: number
   /** The label font's height in px. */
   fontSize: number
+  /** The date font's, for the days' names above the plot; the label font's where none. */
+  dateFontSize?: number
   now: number
   tz: Zone
   decimal?: string
@@ -295,6 +299,30 @@ export function weekdayOf(date: string): string {
 export function dayLabelOf(date: string): string {
   const [, m, d] = date.split("-").map(Number)
   return `${weekdayOf(date)} ${d}.${m}.`
+}
+
+const WEEKDAYS_LONG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]
+
+/**
+ * A day's name above the plot (2026-10-30, the user): «heute Freitag 30.10.»,
+ * «gestern Donnerstag 29.10.», any other «Mittwoch, 28.10.». `today` is
+ * now's date, or null where the device has no clock yet.
+ */
+export function dateLabelOf(date: string, today: string | null): string {
+  const [y, m, d] = date.split("-").map(Number)
+  const name = WEEKDAYS_LONG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+  if (date === today) return `heute ${name} ${d}.${m}.`
+  if (today !== null && addDays(date, 1) === today) return `gestern ${name} ${d}.${m}.`
+  return `${name}, ${d}.${m}.`
+}
+
+/**
+ * About how wide a text is in a font of `size` px: no renderer's metrics,
+ * so every renderer drops the same day names (a glyph of the fonts the
+ * devices have is rarely wider than six tenths of their size).
+ */
+export function textWidthGuess(text: string, size: number): number {
+  return text.length * size * 0.6
 }
 
 function axisRange(axis: ChartAxis, values: number[]): { min: number; max: number } {
@@ -404,13 +432,17 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   const bottom = o.fontSize + pad * 2
   const rowH = o.fontSize + pad
   const legendBelow = chart.legend === "bottom" ? rowH * Math.max(1, chart.series.length) : 0
+  const perDay = chart.mode === "per-day"
+  // Over time, a row above the plot for the days' names, outside the grid
+  // (2026-10-30, the user: «ausserhalb des Rasters, wie im Artifact»).
+  const dateSize = o.dateFontSize || o.fontSize
+  const top = perDay ? pad + Math.round(o.fontSize / 2) : pad + dateSize + pad
   const plot: Box = {
     x: labelW + pad,
-    y: pad + Math.round(o.fontSize / 2),
+    y: top,
     w: Math.max(1, o.width - labelW - pad * 2 - (usesRight ? labelW : 0)),
-    h: Math.max(1, o.height - bottom - legendBelow - pad - Math.round(o.fontSize / 2)),
+    h: Math.max(1, o.height - bottom - legendBelow - top),
   }
-  const perDay = chart.mode === "per-day"
   const span = window.to - window.from
   const xOf = (t: number) => round1(plot.x + ((t - window.from) / span) * plot.w)
   const inWindow = (st: { t: number; len: number }) => st.t + st.len > window.from && st.t < window.to
@@ -443,7 +475,8 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     const tick = TIME_TICK.find((x) => span <= x.span)
     for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) <= window.to; d = addDays(d, 1)) {
       const m = midnightOf(d, o.tz)
-      if (m >= window.from && m <= window.to) midnights.push({ x: xOf(m), label: dayLabelOf(d) })
+      // Only inside: at the window's edges the day's name above says it.
+      if (m > window.from && m < window.to) midnights.push({ x: xOf(m), label: dayLabelOf(d) })
       if (!tick) continue
       for (let t = m; t < midnightOf(addDays(d, 1), o.tz); t += tick.every) {
         if (t < window.from || t > window.to) continue
@@ -588,6 +621,24 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   const texts: ChartText[] = []
   const box = (text: string, x: number, y: number, w: number, align: ChartText["align"], tone: ChartText["tone"]) =>
     texts.push({ text, x: round1(x), y: round1(y), w: round1(w), h: o.fontSize, align, tone })
+  // Each day in the window, its name above its part of the plot: the whole
+  // row long («heute Freitag 30.10.»), else short («Fr 30.10.»), else the
+  // weekday - the longest every day fits; a day too narrow for any, unnamed.
+  if (!perDay) {
+    const today = o.now > 0 ? dateOf(o.now, o.tz) : null
+    const days: { x: number; w: number; names: string[]; fits: number }[] = []
+    for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) < window.to; d = addDays(d, 1)) {
+      const a = Math.max(window.from, midnightOf(d, o.tz))
+      const b = Math.min(window.to, midnightOf(addDays(d, 1), o.tz))
+      if (b <= a) continue
+      const x = xOf(a) + (a > window.from ? pad : 0)
+      const names = [dateLabelOf(d, today), dayLabelOf(d), weekdayOf(d)]
+      const fits = names.findIndex((t) => textWidthGuess(t, dateSize) <= xOf(b) - x - pad)
+      if (fits >= 0) days.push({ x, w: xOf(b) - x, names, fits })
+    }
+    const level = Math.max(0, ...days.map((d) => d.fits))
+    for (const d of days) texts.push({ text: d.names[level], x: round1(d.x), y: pad, w: round1(d.w), h: dateSize, align: "left", tone: "text", font: "date" })
+  }
   for (const t of left.ticks) box(t.label, 0, t.y - half, plot.x - pad, "right", "muted")
   for (const t of right?.ticks ?? []) box(t.label, plot.x + plot.w + pad, t.y - half, labelW, "left", "muted")
   // A time centred under its tick, but kept inside the chart: the midnight at
@@ -598,7 +649,6 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     else if (t.x - labelW < 0) box(t.label, 0, y, labelW * 2, "left", "muted")
     else box(t.label, t.x - labelW, y, labelW * 2, "center", "muted")
   }
-  for (const m of midnights) if (m.x < plot.x + plot.w - o.fontSize * 2) box(m.label, m.x + 3, plot.y, labelW * 3, "left", "muted")
   for (const s of series) for (const m of s.marks) box(m.label, m.x - labelW * 3, m.below ? m.y + pad : m.y - pad - o.fontSize, labelW * 6, "center", "text")
   for (const row of legend) {
     const line = [row.name, ...row.figures].join("  ")

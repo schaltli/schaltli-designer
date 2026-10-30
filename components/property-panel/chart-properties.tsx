@@ -87,6 +87,9 @@ export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "
         <ToggleRow label="Scrolling" checked={chart.scroll} onChange={(scroll) => update({ scroll })} text="A swipe moves through time" />
         <SelectField label="Legend" id="chart-legend" value={chart.legend} options={LEGENDS} onChange={(legend) => update({ legend: legend as ChartProperties["legend"] })} />
         <FontField value={chart.fontId} fonts={fonts} onChange={(fontId) => update({ fontId })} onManageFonts={onManageFonts} />
+        {chart.mode === "time" ? (
+          <FontField label="Date font" value={chart.dateFontId ?? chart.fontId} fonts={fonts} onChange={(dateFontId) => update({ dateFontId })} onManageFonts={onManageFonts} hint="The days' names above the chart." />
+        ) : null}
       </PropertySection>
 
       <ChartSeriesSection chart={chart} update={update} topics={topics} colorDepth={colorDepth} />

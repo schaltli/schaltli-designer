@@ -11,7 +11,7 @@
  */
 
 import { renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
-import { chartFontSize, renderChart, type ChartRenderOptions } from "@/components/canvas/renderers/render-chart"
+import { chartDateFontSize, chartFontSize, renderChart, type ChartRenderOptions } from "@/components/canvas/renderers/render-chart"
 import { chartPreview } from "@/lib/chart-preview"
 import type { TimeRange } from "@/lib/chart"
 import { combinedSources, computeCombined, type CombinedTopic } from "@/lib/combined-topics"
@@ -587,6 +587,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
               chartPreview(obj.properties, options.chartLive ? { topics, live: options.chartLive.live, now: options.chartLive.now, range: options.chartLive.range } : { topics })),
             colorDepth,
             fontSize: chartFontSize(obj, fonts),
+            dateFontSize: chartDateFontSize(obj, fonts),
           },
           options,
         )

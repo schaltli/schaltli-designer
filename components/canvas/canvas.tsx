@@ -17,7 +17,7 @@ import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
 import { PULSE_MS } from "@/lib/chart-shapes"
-import { chartFontSize, layoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
+import { chartDateFontSize, chartFontSize, layoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
 import { SPAN, dragged, settled, type RangeView } from "@/lib/chart-range"
 import { chartPreview } from "@/lib/chart-preview"
 import { defaultChart } from "@/lib/chart"
@@ -2322,6 +2322,7 @@ export function Canvas({
         renderChart(ctx, obj, {
           colorDepth,
           fontSize: chartFontSize(obj, fonts),
+          dateFontSize: chartDateFontSize(obj, fonts),
           pulse: previewMode ? chartPulseRef.current : undefined,
           ...chartPreview(obj.properties, {
             range: chartView?.range ?? screen.timeRange,
@@ -4309,7 +4310,7 @@ export function Canvas({
         y: Math.round(y),
         width: Math.round(Math.abs(width)),
         height: Math.round(Math.abs(height)),
-        properties: { ...defaultChart(), fontId: fontNear(14)?.id },
+        properties: { ...defaultChart(), fontId: fontNear(14)?.id, dateFontId: fontNear(22)?.id },
       }
     }
     if (type === "energy-diagram") {
