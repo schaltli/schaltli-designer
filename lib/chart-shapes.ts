@@ -23,6 +23,20 @@ export interface ShapeLook {
   grid: string
   /** The device's depth: on grey and 1 bit, rectangles are hatched and lines dashed. */
   grey: boolean
+  /**
+   * The NowPoint's pulse (docs/2026-10-16-charts.md decisions 9 and 13), its
+   * phase 0..1: a ring widening from the point and fading. Only a display
+   * that animates has one; without it the point stands still.
+   */
+  pulse?: number
+}
+
+/** One pulse lasts this long, in ms. */
+export const PULSE_MS = 1800
+
+/** The pulse's ring at a phase: its radius and how much of its colour. */
+export function pulseRing(phase: number): { r: number; alpha: number } {
+  return { r: 4 + 12 * phase, alpha: Math.round(141 * (1 - phase)) }
 }
 
 const DASHES: number[][] = [[], [6, 4], [2, 3], [8, 3, 2, 3]]
@@ -181,6 +195,12 @@ export function chartShapes(l: ChartLayout, look: ShapeLook): Fill[] {
   }
   for (const s of l.series) {
     for (const m of s.marks) add(disc(m.x, m.y, 3), s.color)
+    if (s.nowPoint && look.pulse !== undefined) {
+      const { r, alpha } = pulseRing(look.pulse)
+      const ring: [number, number][] = []
+      for (let i = 0; i <= 16; i++) ring.push([s.nowPoint[0] + r * Math.cos((i * Math.PI) / 8), s.nowPoint[1] + r * Math.sin((i * Math.PI) / 8)])
+      if (alpha > 0) for (const q of polyline(ring, [])) add(q, s.color, alpha)
+    }
     if (s.nowPoint) add(disc(s.nowPoint[0], s.nowPoint[1], 4), s.color)
   }
   for (const row of l.legend) add(rect(row.swatch.x, row.swatch.y, row.swatch.w, row.swatch.h), row.color)

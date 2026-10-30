@@ -70,7 +70,7 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     expect(l.now).toEqual({ x: 418 })
     expect(l.series[0].nowPoint).toEqual([418, 315])
     expect(l.times.map((t) => t.label)).toEqual(["00:00", "06:00", "12:00", "18:00", "00:00"])
-    expect(l.midnights.map((m) => m.label)).toEqual(["Mi", "Do"])
+    expect(l.midnights.map((m) => m.label)).toEqual(["Mi 14.10.", "Do 15.10."])
   })
 
   test("auto starts at 0 when every value is above it, and rounds out to a tick", () => {

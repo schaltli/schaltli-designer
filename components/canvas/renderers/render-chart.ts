@@ -30,6 +30,8 @@ export interface ChartRenderOptions {
   /** Said in the chart's middle instead of curves: no recorder, no history yet. */
   message?: string
   decimal?: string
+  /** The NowPoint's pulse, its phase 0..1 (lib/chart-shapes.ts); none, and it stands still. */
+  pulse?: number
 }
 
 const HEX = /^#[0-9a-f]{6}$/i
@@ -149,7 +151,7 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   const k = Math.max(1, Math.hypot(t0.a, t0.b))
   const ground = screen?.screenBackgroundColor && screen.screenBackgroundColor !== "transparent" ? screen.screenBackgroundColor : "#ffffff"
   const px = new ChartPixels(Math.ceil(obj.width * k), Math.ceil(obj.height * k), rgb565(applyColorDepth(ground, depth)), obj.width, obj.height)
-  for (const f of chartShapes(coloured, { grid, grey })) px.fill(f, k)
+  for (const f of chartShapes(coloured, { grid, grey, pulse: grey ? undefined : options.pulse })) px.fill(f, k)
   px.drawOn(ctx)
 
   // Every text where the layout puts it - and, said in the middle, no

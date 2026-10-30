@@ -89,6 +89,18 @@ test.describe("a page's history (D11)", () => {
     await expect(page.getByRole("button", { name: "Add history below" })).toHaveCount(0)
   })
 
+  test("a master with a navigator: the charts beside the strip, never under it", () => {
+    const left = { id: "nav", type: "navigator", x: 0, y: 0, width: 120, height: 480 }
+    const top = { id: "nav", type: "navigator", x: 0, y: 0, width: 800, height: 64 }
+    const of = (nav: typeof left) =>
+      withHistoryBelow(
+        { nextId: 5, screenWidth: 800, screenHeight: 480, screens: [{ id: "m", name: "M", isMaster: true, objects: [nav] }, { id: "a", name: "Wasser", masterScreenId: "m", objects: [bar("b", "van/fresh", 0)] }] },
+        "a",
+      )!.project.screens[2].objects[0]
+    expect(of(left)).toMatchObject({ x: 120, y: 40, width: 680, height: 440 })
+    expect(of(top)).toMatchObject({ x: 0, y: 64, width: 800, height: 416 })
+  })
+
   test("a page that has a history below it is not offered a second", () => {
     const project = {
       nextId: 5,

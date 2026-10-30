@@ -40,15 +40,28 @@ const obj = {
   },
 }
 
-async function draw(page: Page, colorDepth: string, probe: (l: any) => [number, number][]) {
+async function draw(page: Page, colorDepth: string, probe: (l: any) => [number, number][], pulse?: number) {
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   const payloads = { t: [day(Object.fromEntries(Array.from({ length: 48 }, (_, i) => [i, 50])))], h: [{ date: "2026-10-14", on: [[60, 180]] }] }
   const first = await page.evaluate((req) => (window as any).__chartForTest({ ...req, probe: [] }), { obj, colorDepth, payloads, now: NOON, tz: TZ })
-  return page.evaluate((req) => (window as any).__chartForTest(req), { obj, colorDepth, payloads, now: NOON, tz: TZ, probe: probe(first.layout) })
+  return page.evaluate((req) => (window as any).__chartForTest(req), { obj, colorDepth, payloads, now: NOON, tz: TZ, probe: probe(first.layout), pulse })
 }
 
 test.describe("the chart's painter (D4)", () => {
+  test("the NowPoint's pulse: a ring around it in its colour where the phase puts it, none without one, none on grey", async ({ page }) => {
+    // Half way out the ring has a radius of 10 px; above the NowPoint is nothing else.
+    const at = (l: any): [number, number][] => [[l.series[0].nowPoint[0], l.series[0].nowPoint[1] - 10]]
+    const still = await draw(page, "24bit", at)
+    const pulsing = await draw(page, "24bit", at, 0.5)
+    const grey = await draw(page, "4bit", at, 0.5)
+    expect(still.colours[0]).toBe("#ffffff")
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(pulsing.colours[0].slice(i, i + 2), 16))
+    expect(b).toBeGreaterThan(r + 20)
+    expect(b).toBeGreaterThan(g + 20)
+    expect(grey.colours[0]).toBe(still.colours[0])
+  })
+
   test("a line, a band, a zone and the NowPoint where the layout puts them", async ({ page }) => {
     const { layout, colours } = await draw(page, "24bit", (l) => {
       const line = l.series[0].lines[0]

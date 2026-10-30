@@ -67,6 +67,11 @@ test.describe("series from controls (D10)", () => {
     ])
   })
 
+  test("controls of one colour: each series its own, a control's own colour kept where it is still free", () => {
+    const charts = historyCharts([bar("van/a"), bar("van/b"), bar("van/c", { fillColor: "energyLoad" }), bar("van/d")], SERIES_COLOURS)
+    expect(charts[0].series.map((s) => s.color)).toEqual(["accent", SERIES_COLOURS[1], "energyLoad", SERIES_COLOURS[2]])
+  })
+
   test("a second unit on the right axis; nothing to tell, no chart", () => {
     const withUnit = (topic: string) => ({ type: "text", properties: { liveValues: [{ id: "a", source: { namespace: "topic", path: topic }, rules: [] }] } })
     // Units come from what a control knows: only an energy diagram's are known (W).

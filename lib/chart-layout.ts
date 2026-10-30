@@ -246,6 +246,12 @@ export function weekdayOf(date: string): string {
   return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
 }
 
+/** A midnight's label: the day's short name and its date, «Fr 30.10.». */
+export function dayLabelOf(date: string): string {
+  const [, m, d] = date.split("-").map(Number)
+  return `${weekdayOf(date)} ${d}.${m}.`
+}
+
 function axisRange(axis: ChartAxis, values: number[]): { min: number; max: number } {
   const lo = values.length > 0 ? Math.min(...values) : 0
   const hi = values.length > 0 ? Math.max(...values) : 1
@@ -386,7 +392,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     const tick = TIME_TICK.find((x) => span <= x.span)
     for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) <= window.to; d = addDays(d, 1)) {
       const m = midnightOf(d, o.tz)
-      if (m >= window.from && m <= window.to) midnights.push({ x: xOf(m), label: weekdayOf(d) })
+      if (m >= window.from && m <= window.to) midnights.push({ x: xOf(m), label: dayLabelOf(d) })
       if (!tick) continue
       for (let t = m; t < midnightOf(addDays(d, 1), o.tz); t += tick.every) {
         if (t < window.from || t > window.to) continue
@@ -508,7 +514,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   for (const t of left.ticks) box(t.label, 0, t.y - half, plot.x - pad, "right", "muted")
   for (const t of right?.ticks ?? []) box(t.label, plot.x + plot.w + pad, t.y - half, labelW, "left", "muted")
   for (const t of times) box(t.label, t.x - labelW, plot.y + plot.h + pad, labelW * 2, "center", "muted")
-  for (const m of midnights) if (m.x < plot.x + plot.w - o.fontSize * 2) box(m.label, m.x + 3, plot.y, labelW * 2, "left", "muted")
+  for (const m of midnights) if (m.x < plot.x + plot.w - o.fontSize * 2) box(m.label, m.x + 3, plot.y, labelW * 3, "left", "muted")
   for (const s of series) for (const m of s.marks) box(m.label, m.x - labelW * 3, m.below ? m.y + pad : m.y - pad - o.fontSize, labelW * 6, "center", "text")
   for (const row of legend) {
     const line = [row.name, ...row.figures].join("  ")

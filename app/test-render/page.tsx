@@ -700,6 +700,7 @@ export default function TestRenderPage() {
       now: number
       tz: string
       probe: [number, number][]
+      pulse?: number
     }) => {
       const canvas = document.createElement("canvas")
       canvas.width = req.obj.x + req.obj.width
@@ -710,7 +711,7 @@ export default function TestRenderPage() {
       const data = Object.fromEntries(
         (req.obj.properties.series ?? []).map((s: any) => [s.id, seriesData(s, req.payloads?.[s.id] ?? [], req.tz)]),
       )
-      const options = { colorDepth: req.colorDepth, range: req.range, data, now: req.now, tz: req.tz }
+      const options = { colorDepth: req.colorDepth, range: req.range, data, now: req.now, tz: req.tz, pulse: req.pulse }
       renderChart(ctx, req.obj, options)
       const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
       const hex = (v: number) => v.toString(16).padStart(2, "0")

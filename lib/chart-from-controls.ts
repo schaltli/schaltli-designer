@@ -11,6 +11,10 @@ import type { LiveValue } from "@/lib/live-value"
 interface Control {
   id?: string
   type: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
   properties?: Record<string, any>
   children?: Control[]
 }
@@ -115,10 +119,17 @@ export function historyCharts(objects: readonly Control[], colours: readonly str
     const [leftUnit, rightUnit] = [units[c], units[c + 1]]
     const unitOf = (s: Proposed) => s.unit ?? ""
     const inChart = proposed.filter((s) => (s.valueKind === "state" ? c === 0 : unitOf(s) === leftUnit || unitOf(s) === rightUnit))
+    // Each series its own colour: a page's controls often share one (every
+    // Bar in the theme's accent), and a chart of three accent lines tells
+    // nothing apart. A control's colour where it is still free, else the next
+    // free one of the list.
+    const used = new Set<string>()
     const series: ChartSeries[] = inChart.map((s, i) => {
       const { axisRange: _range, color, ...rest } = s
       const right = rightUnit !== undefined && s.valueKind !== "state" && (s.unit ?? "") === rightUnit
-      return { ...rest, id: `s${i + 1}`, color: color ?? colours[i % colours.length], ...(right ? { axis: "right" as const } : {}) }
+      const own = color && !used.has(color) ? color : (colours.find((c) => !used.has(c)) ?? colours[i % colours.length])
+      used.add(own)
+      return { ...rest, id: `s${i + 1}`, color: own, ...(right ? { axis: "right" as const } : {}) }
     })
     const axisFor = (unit: string | undefined) => {
       const ranges = inChart.filter((s) => (s.unit ?? "") === (unit ?? "") && s.axisRange).map((s) => s.axisRange!)
@@ -168,17 +179,18 @@ export function withHistoryBelow<P extends HistoryProject>(project: P, screenId:
   if (charts.length === 0) return null
   const page = project.screens.find((s) => s.id === screenId)!
   let nextId = project.nextId || 0
-  const top = 40
-  const height = Math.floor((project.screenHeight - top) / charts.length)
+  const free = beside(project, page.masterScreenId)
+  const top = Math.max(free.y, 40)
+  const height = Math.floor((free.y + free.h - top) / charts.length)
   const font = [...(project.fonts ?? [])].sort((a, b) => Math.abs((a.size || 0) - 14) - Math.abs((b.size || 0) - 14))[0]
   const objects = charts.map((chart, i) => {
     nextId++
     return {
       id: `obj-${nextId}`,
       type: "chart",
-      x: 0,
+      x: free.x,
       y: top + i * height,
-      width: project.screenWidth,
+      width: free.w,
       height,
       zIndex: i + 1,
       properties: { ...chart, ...(font ? { fontId: font.id } : {}) },
@@ -196,6 +208,29 @@ export function withHistoryBelow<P extends HistoryProject>(project: P, screenId:
     objects,
   }
   return { project: { ...project, nextId, screens: [...project.screens, screen] }, newId: id }
+}
+
+/**
+ * The screen beside its master's navigator: the largest of the four sides the
+ * strip leaves free, the whole screen without one. The history page shares
+ * its page's master, and a chart under the strip lost its left axis to it.
+ */
+function beside(project: HistoryProject, masterId: string | undefined): { x: number; y: number; w: number; h: number } {
+  const W = project.screenWidth
+  const H = project.screenHeight
+  const nav = project.screens.find((s) => s.id === masterId && s.isMaster)?.objects.find((o) => o.type === "navigator")
+  if (!nav || nav.width === undefined || nav.height === undefined) return { x: 0, y: 0, w: W, h: H }
+  const nx = Math.max(0, nav.x ?? 0)
+  const ny = Math.max(0, nav.y ?? 0)
+  const nr = Math.min(W, nx + nav.width)
+  const nb = Math.min(H, ny + nav.height)
+  const sides = [
+    { x: 0, y: 0, w: nx, h: H },
+    { x: nr, y: 0, w: W - nr, h: H },
+    { x: 0, y: 0, w: W, h: ny },
+    { x: 0, y: nb, w: W, h: H - nb },
+  ]
+  return sides.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a))
 }
 
 /**

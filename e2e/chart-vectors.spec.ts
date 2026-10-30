@@ -154,7 +154,9 @@ function build() {
     // The fills a board draws (lib/chart-shapes.ts), on colour and on grey.
     const shapes = chartShapes(layout, { grid: "#cccccc", grey: false })
     const greyShapes = chartShapes(layout, { grid: "#cccccc", grey: true })
-    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: layout, shapes, greyShapes }
+    // And with the NowPoint's pulse a third of the way out, as a colour board draws it.
+    const pulseShapes = chartShapes(layout, { grid: "#cccccc", grey: false, pulse: 1 / 3 })
+    return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: layout, shapes, greyShapes, pulseShapes }
   })
   return { zones: ZONES, windows, steps, layouts }
 }

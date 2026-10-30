@@ -18,6 +18,8 @@ const path = require("path")
 const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
 const { chromium } = require("playwright")
+const { Jimp } = require("jimp")
+const { comparePixels } = require("./report-template")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
 const { dateOf, midnightOf, keptDates, nextDate, previousDate } = require("../recorder/history")
@@ -203,11 +205,14 @@ async function main() {
     await touch(`x=${cx - to}&y=${cy}&down=0`)
     await settle()
   }
-  const drag = async (x0, x1, y) => {
+  const shot = async () => Jimp.read(Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer()))
+  // `held`: called with the finger still down at the end, before the lift.
+  const drag = async (x0, x1, y, held) => {
     for (let i = 0; i <= 8; i++) {
       await touch(`x=${Math.round(x0 + ((x1 - x0) * i) / 8)}&y=${y}&down=1`)
       await sleep(eink ? 150 : 40)
     }
+    if (held) await held()
     await touch(`x=${x1}&y=${y}&down=0`)
     await settle()
   }
@@ -267,7 +272,19 @@ async function main() {
 
     if (drags) {
       const y = Math.round(chart.y + chart.height / 2)
-      await drag(Math.round(chart.x + chart.width * 0.15), Math.round(chart.x + chart.width * 0.9), y)
+      // A board that follows the finger has drawn the chart moved before the
+      // lift (the 4.3B drew nothing until it, 2026-10-30); e-paper draws at the lift.
+      await get(`${base}/api/debug?set=chartpulse=off`)
+      await sleep(300)
+      const before = eink ? null : await shot()
+      let underFinger = null
+      let heldView = null
+      await drag(Math.round(chart.x + chart.width * 0.15), Math.round(chart.x + chart.width * 0.9), y, async () => {
+        heldView = await view()
+        if (before) underFinger = comparePixels(before, await shot()).diffPixels
+      })
+      if (!eink) check("the chart follows the finger before it lets go", heldView?.back > 0 && underFinger > 500, `${show(heldView)}, ${underFinger} px moved`)
+      await get(`${base}/api/debug?set=chartpulse=on`)
       v = await view()
       check("a drag to the right goes back, settled on a day", v?.range === "24h" && v.back > 0 && Math.abs(v.back / DAY - Math.round(v.back / DAY)) < 0.05, show(v))
       await drag(Math.round(chart.x + chart.width * 0.9), Math.round(chart.x + chart.width * 0.1), y)

@@ -43,11 +43,14 @@ test.describe("the range steps (A1)", () => {
     expect(w.to - w.from).toBe(3600)
   })
 
-  test("a drag settles on a midnight within 6 hours, from 24 h up; not further than now", () => {
+  test("a drag always settles on the nearest midnight, from 24 h up; not further than now", () => {
     // Dragged 20 hours back: the window starts at 04:00 yesterday - settles on yesterday's midnight.
     expect(settled(dragged(openView("24h"), 20 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 86400 })
-    // 12 hours back: noon yesterday, 12 h from either midnight - stays.
-    expect(settled(dragged(openView("24h"), 12 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 12 * 3600 })
+    // 12 hours back: noon yesterday, as far from either midnight - the earlier one, a whole day.
+    expect(settled(dragged(openView("24h"), 12 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 86400 })
+    // 9 hours back, further than 6 from a midnight: still a whole day, today's.
+    expect(settled(dragged(openView("24h"), 9 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 0 })
+    expect(settled(dragged(openView("24h"), 15 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 86400 })
     // 3 hours back: settles on today.
     expect(settled(dragged(openView("24h"), 3 * 3600), NOON, TZ)).toEqual({ range: "24h", back: 0 })
     // An hour does not settle; a drag forward stops at now.

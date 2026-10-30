@@ -176,6 +176,9 @@ async function main() {
       await sleep(2000)
     }
 
+    // The NowPoint still, to compare pixels at rest; its pulse is checked after.
+    await get(`${base}/api/debug?set=chartpulse=off`)
+
     // The clock, laid anew, and the level's day again with a mark it does not
     // read: the board draws now, at that clock - the moment the reference is
     // drawn at.
@@ -218,8 +221,23 @@ async function main() {
     }
     console.log(`  ${ok ? "PASS" : "FAIL"} the chart as the designer draws it (${dimensionMismatch ? "dimension mismatch" : `${diffPixels}/${totalPixels} px differ`}) - ${OUT_DIR}`)
     if (!ok) failures++
+
+    // The NowPoint's pulse: on a display that animates two snapshots most of a
+    // pulse apart differ around it, and only there; on e-paper not at all.
+    await get(`${base}/api/debug?set=chartpulse=on`)
+    const shot = async () => Jimp.read(Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer()))
+    await sleep(500)
+    const a = await shot()
+    await sleep(700)
+    const b = await shot()
+    const moved = comparePixels(a, b).diffPixels
+    const animates = ddf.screen.colorDepth === "24bit" || ddf.screen.colorDepth === "16bit"
+    const pulseOk = animates ? moved > 0 && moved < 4000 : moved === 0
+    console.log(`  ${pulseOk ? "PASS" : "FAIL"} the NowPoint ${animates ? "pulses, nothing else moves" : "stands still on e-paper"} (${moved} px between two snapshots)`)
+    if (!pulseOk) failures++
   } finally {
     await browser.close()
+    await get(`${base}/api/debug?set=chartpulse=on`).catch(() => {})
     for (const t of ["schaltli/history/recorder", "schaltli/history/now", levelTopic, heaterTopic]) await lay(t, "")
     await broker.endAsync()
   }

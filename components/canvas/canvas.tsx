@@ -16,6 +16,7 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
 import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
+import { PULSE_MS } from "@/lib/chart-shapes"
 import { chartFontSize, layoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
 import { SPAN, dragged, settled, type RangeView } from "@/lib/chart-range"
 import { chartPreview } from "@/lib/chart-preview"
@@ -877,6 +878,7 @@ export function Canvas({
   // from `start` to `end` since `begin`.
   const markerRef = useRef<{ from: number; to: number; offset: number; settle?: { start: number; end: number; begin: number } } | null>(null)
   const pullNudgeRef = useRef(0)
+  const chartPulseRef = useRef<number | undefined>(undefined)
 
   // The navigator in the preview (docs/2026-10-08-navigator.md): how far it
   // is scrolled, and a press on it - a drag along it scrolls, a press that
@@ -2063,6 +2065,30 @@ export function Canvas({
     return () => cancelAnimationFrame(frame)
   }, [nudging])
 
+  // The NowPoint's pulse (docs/2026-10-16-charts.md decisions 9 and 13), on a
+  // display that animates, some 20 frames a second while a chart is shown.
+  // Under test automation it stands still unless a test sets a phase
+  // (window.__chartFrozenPulse), as the pull tabs do.
+  const pulsing = previewMode && deviceAnimates !== false && previewObjects.some((o) => o.type === "chart")
+  useEffect(() => {
+    chartPulseRef.current = undefined
+    if (!pulsing) return
+    let frame = 0
+    let last = 0
+    const tick = (now: number) => {
+      frame = requestAnimationFrame(tick)
+      if (now - last < 50) return
+      last = now
+      const frozen = (window as { __chartFrozenPulse?: number }).__chartFrozenPulse
+      const phase = typeof frozen === "number" ? frozen : navigator.webdriver ? undefined : (now % PULSE_MS) / PULSE_MS
+      if (phase === chartPulseRef.current) return
+      chartPulseRef.current = phase
+      drawRef.current()
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [pulsing])
+
   // Whatever draw() reads is in its dependencies, so a new draw is a picture
   // to paint - once. A hovered hardware button is among them; it used to
   // have an effect of its own besides, which drew every hover twice.
@@ -2296,6 +2322,7 @@ export function Canvas({
         renderChart(ctx, obj, {
           colorDepth,
           fontSize: chartFontSize(obj, fonts),
+          pulse: previewMode ? chartPulseRef.current : undefined,
           ...chartPreview(obj.properties, {
             range: chartView?.range ?? screen.timeRange,
             back: chartView?.back,

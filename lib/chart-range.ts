@@ -48,8 +48,10 @@ export function dragged(v: RangeView, seconds: number): RangeView {
 }
 
 /**
- * Let go: from 24 hours up a window within 6 hours of a midnight settles on
- * it (decision 9), so a day is shown whole; never later than now.
+ * Let go: from 24 hours up a window always settles on the nearest midnight
+ * (decision 9; the user, 2026-10-30: «danach schnappt es immer auf ganze
+ * Tage ein» - until then only within 6 hours of one), so a day is shown
+ * whole; never later than now. 1 and 6 hours stay where they were let go.
  */
 export function settled(v: RangeView, now: number, tz: Zone): RangeView {
   if (v.back <= 0) return { ...v, back: 0 }
@@ -61,6 +63,5 @@ export function settled(v: RangeView, now: number, tz: Zone): RangeView {
   const before = midnightOf(dateOf(from, tz), tz)
   const after = midnightOf(dateOf(from + 86400, tz), tz)
   const near = from - before <= after - from ? before : after
-  if (Math.abs(from - near) > 6 * 3600) return v
   return { ...v, back: Math.max(0, todayStart - near) }
 }
