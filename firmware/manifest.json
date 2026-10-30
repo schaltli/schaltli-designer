@@ -1,48 +1,48 @@
 {
-  "release": "fw-2026.10.28.1",
-  "commit": "1fc1a7b971afade024f3b54dc5dd1f220f793cc7",
+  "release": "fw-2026.10.30.3-pre.charts_van",
+  "commit": "2211aeae3114f2b7ffbabb1e05ff5cae305aff4a",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-knob-1v8-fw-2026.10.28.1.bin",
-      "size": 2244928,
-      "sha256": "5302fec57e1bb9b03d1b98d8c51be2eddd546efdfc75c12df4781109de495994",
+      "build": "fw-2026.10.30.3-pre.charts_van",
+      "file": "waveshare-knob-1v8-fw-2026.10.30.3-pre.charts_van.bin",
+      "size": 2337088,
+      "sha256": "4286297cf18169a3fbe2f4d0e2241f99245d833ce4c0a2c459abc97e6413bb71",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/waveshare-knob-1v8-fw-2026.10.30.3-pre.charts_van.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.10.28.1.bin",
-        "size": 2310464,
-        "sha256": "6553112be520bbc917a7220c4a36393dbceedd6dbc83affbb67a3dcbce2a8a0e",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.10.30.3-pre.charts_van.bin",
+        "size": 2402624,
+        "sha256": "88c6c2035455bf1153367af03f26fbc4c349c57ef7290e306686c83b05df5db8",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/waveshare-knob-1v8-factory-fw-2026.10.30.3-pre.charts_van.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
-      "size": 2053328,
-      "sha256": "5cc3ad15d9e300fbb2a7039d11ee38f7d71d23c8d1f666dce1f29a1ad0e5cb83",
+      "build": "fw-2026.10.30.3-pre.charts_van",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.30.3-pre.charts_van.bin",
+      "size": 2150608,
+      "sha256": "a1e60b001cc10872de5ced8156273208d59d77442ddcbc3079351af37eddd2c5",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/waveshare-touch-lcd-4v3b-fw-2026.10.30.3-pre.charts_van.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin",
-        "size": 2118864,
-        "sha256": "b0ca47bae5a0f86bf9269d44bb1d972da95f55d33a82a9b35dc8b2112bc57e8d",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.30.3-pre.charts_van.bin",
+        "size": 2216144,
+        "sha256": "8938116b977bd4935f50e2d590ca88e80faf6834e4c72e07fab4de7bc7929bd1",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/waveshare-touch-lcd-4v3b-factory-fw-2026.10.30.3-pre.charts_van.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.10.28.1",
-      "file": "m5stack-papers3-fw-2026.10.28.1.bin",
-      "size": 2164432,
-      "sha256": "068b25266f5fae4b592e0e731911761561123354e38bb82932fb2249ca82c282",
+      "build": "fw-2026.10.30.3-pre.charts_van",
+      "file": "m5stack-papers3-fw-2026.10.30.3-pre.charts_van.bin",
+      "size": 2258272,
+      "sha256": "0174b5e6703edc78ad94183a04794f5fc5b61bac36da6c9d4be9b6863a3d6168",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/m5stack-papers3-fw-2026.10.30.3-pre.charts_van.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.10.28.1.bin",
-        "size": 2229968,
-        "sha256": "f75453cc7e1debb12fbdc8dd29257bfce33725e8a981c8da055bed19057fe7dc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-factory-fw-2026.10.28.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.10.30.3-pre.charts_van.bin",
+        "size": 2323808,
+        "sha256": "885d50fe384e92bed6fb8b7cdf9ed849b17f8786a25e13e6ebb49214be62c1b5",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.3-pre.charts_van/m5stack-papers3-factory-fw-2026.10.30.3-pre.charts_van.bin"
       }
     }
   }
