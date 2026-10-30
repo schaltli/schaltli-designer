@@ -23,8 +23,18 @@
 //    moment, on every install, leaving 1 KB (the restart after hid it).
 //    A board whose /api/debug does not report the mark is checked for the
 //    leak only.
+//  - room under a large project of its own (--own-device-id, the 4.3B):
+//    the same screens installed for the board itself, and the mark after
+//    it has run on them a while. In the van the 4.3B had 25-31 KB left
+//    under such a project, every allocation under 4 KB in internal RAM
+//    with 1.6 MB of PSRAM free; a chart over an energy diagram took the
+//    rest and an fopen aborted the board (2026-10-30). Its firmware now
+//    sends allocations from 256 bytes up to PSRAM.
 //
-// Run: node hil/internal-heap.js --device <ip>
+// The 4.3B reports both numbers in its plain-text /api/debug:
+// "heap 130 KB (lowest 125 KB, largest block 63 KB)".
+//
+// Run: node hil/internal-heap.js --device <ip> [--own-device-id <id>]
 // Exit 0 pass, 1 fail, 2 device not reachable (skipped, loudly).
 
 const http = require("http")
@@ -44,8 +54,11 @@ const LEAK_TOLERANCE = 2048
 const MIN_FREE = 32 * 1024
 
 function parseArgs(argv) {
-  const args = { device: null }
-  for (let i = 2; i < argv.length; i++) if (argv[i] === "--device") args.device = argv[++i]
+  const args = { device: null, ownDeviceId: null }
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === "--device") args.device = argv[++i]
+    else if (argv[i] === "--own-device-id") args.ownDeviceId = argv[++i]
+  }
   if (!args.device) {
     console.error("usage: node hil/internal-heap.js --device <ip>")
     process.exit(1)
@@ -71,11 +84,13 @@ function get(url, timeoutMs = 20000) {
 async function debug(base) {
   const r = await get(`${base}/api/debug`, 5000)
   if (r.status !== 200) throw new Error(`/api/debug answered ${r.status}`)
+  const text = r.body.toString()
   try {
-    return JSON.parse(r.body.toString())
+    return JSON.parse(text)
   } catch {
-    // The 4.3B and the PaperS3 answer in plain text: nothing to read here.
-    return {}
+    // The 4.3B answers in plain text, its heap in KB; the PaperS3's says nothing of it.
+    const m = text.match(/heap (\d+) KB \(lowest (\d+) KB/)
+    return m ? { freeInternalHeap: Number(m[1]) * 1024, minFreeInternalHeap: Number(m[2]) * 1024 } : {}
   }
 }
 
@@ -90,8 +105,8 @@ async function round(base) {
   return debug(base)
 }
 
-// The smoke test's project, its screens repeated, its deviceId another's.
-async function largeForeignProject() {
+// The smoke test's project, its screens repeated, for another device or for this one.
+async function largeProject(deviceId = "not-this-device") {
   const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "waveshare", "fixtures", "smoke-test.zip")))
   const project = JSON.parse(await zip.file("project.json").async("string"))
   const screens = []
@@ -99,22 +114,43 @@ async function largeForeignProject() {
     for (const s of project.screens) screens.push({ ...JSON.parse(JSON.stringify(s)), id: `${s.id}-c${i}` })
   }
   project.screens = screens
-  project.deviceId = "not-this-device"
+  project.deviceId = deviceId
   zip.file("project.json", JSON.stringify(project))
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
 }
 
 async function refusedInstall(base) {
   const form = new FormData()
-  form.append("file", new Blob([await largeForeignProject()]), "foreign.zip")
+  form.append("file", new Blob([await largeProject()]), "foreign.zip")
   const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) })
   const answer = await res.text()
   if (res.ok) throw new Error(`a project for another device was installed: ${answer.slice(0, 120)}`)
   return answer
 }
 
+// The large project installed for the board itself; it restarts onto it.
+async function ownInstall(base, deviceId) {
+  const form = new FormData()
+  form.append("file", new Blob([await largeProject(deviceId)]), "large.zip")
+  const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) })
+  const answer = await res.text()
+  if (!res.ok) throw new Error(`the large project of its own was refused: ${res.status} ${answer.slice(0, 120)}`)
+  await new Promise((r) => setTimeout(r, 8000))
+  const deadline = Date.now() + 90000
+  for (;;) {
+    try {
+      const d = await debug(base)
+      if (typeof d.freeInternalHeap === "number") break
+    } catch {}
+    if (Date.now() > deadline) throw new Error("the board never came back after installing the large project")
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  // Running on it a while: its topics subscribed, its first screens drawn.
+  await new Promise((r) => setTimeout(r, 20000))
+}
+
 async function main() {
-  const { device } = parseArgs(process.argv)
+  const { device, ownDeviceId } = parseArgs(process.argv)
   const base = `http://${device}`
   let before
   try {
@@ -135,6 +171,13 @@ async function main() {
     afterRefused = await debug(base)
     console.log(`  a large project for another device refused (${answer.slice(0, 80)}); minimum since boot now ${afterRefused.minFreeInternalHeap}`)
   }
+  let afterOwn = null
+  if (ownDeviceId) {
+    await ownInstall(base, ownDeviceId)
+    await round(base)
+    afterOwn = await debug(base)
+    console.log(`  a large project of its own installed and run; free ${afterOwn.freeInternalHeap}, minimum since boot ${afterOwn.minFreeInternalHeap}`)
+  }
   const fails = []
   const leak = first.freeInternalHeap - second.freeInternalHeap
   console.log(
@@ -144,13 +187,16 @@ async function main() {
   if (leak > LEAK_TOLERANCE) fails.push(`round 2 left ${leak} bytes less free than round 1 (tolerance ${LEAK_TOLERANCE})`)
   if (typeof afterRefused.minFreeInternalHeap === "number" && afterRefused.minFreeInternalHeap < MIN_FREE)
     fails.push(`the minimum since boot is ${afterRefused.minFreeInternalHeap} bytes, under ${MIN_FREE}`)
+  if (afterOwn && !(afterOwn.minFreeInternalHeap >= MIN_FREE))
+    fails.push(`under a large project of its own the minimum since boot is ${afterOwn.minFreeInternalHeap} bytes, under ${MIN_FREE}`)
   if (fails.length) {
     console.log(`FAIL - ${device}: ${fails.join("; ")}`)
     process.exit(1)
   }
   console.log(
     `PASS - ${device}: no leak over ${SNAPSHOTS_PER_ROUND} snapshots and ${DEBUG_PER_ROUND} debug requests` +
-      (typeof afterRefused.minFreeInternalHeap === "number" ? `, a large refused install, minimum ${afterRefused.minFreeInternalHeap} bytes free` : ""),
+      (typeof afterRefused.minFreeInternalHeap === "number" ? `, a large refused install, minimum ${afterRefused.minFreeInternalHeap} bytes free` : "") +
+      (afterOwn ? `, a large project of its own, minimum ${afterOwn.minFreeInternalHeap} bytes free` : ""),
   )
 }
 

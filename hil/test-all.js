@@ -1366,6 +1366,24 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }, { quick: true })
+  // The 4.3B's: the same, and room under a large project of its own. In the
+  // van an fopen found no internal RAM left under one and aborted the board
+  // (2026-10-30). Installs that project, which is why it runs last in the lane.
+  step("4v3b", async () => {
+    console.log(`
+=== internal heap (4v3b, device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+    const exitCode = await run("node", ["hil/internal-heap.js", "--device", WAVESHARE_4V3B_DEVICE, "--own-device-id", "waveshare-touch-lcd-4v3b"], { cwd: REPO_ROOT })
+    summary.push({
+      name: "4v3b-internal-heap",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          : exitCode === 0
+            ? "no leak under snapshots and debug requests, room left under a large project of its own"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }, { quick: true })
   // A boot whose WiFi comes up late must still start serving. Both ports
   // returned from setup when the first ten seconds passed without a link,
   // leaving a board that answered ping and refused port 80 until its next
