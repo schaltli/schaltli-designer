@@ -537,7 +537,10 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       }
       void ended.then(async (payload) => {
         const state = statusOf(payload ?? "")?.state
-        if (state === "applied") layWants()
+        // Up to date too: a deploy whose wants were lost (2026-10-30 the
+        // van's 4.3B kept an older project's, and its energy charts got no
+        // history) is mended by deploying the same project again.
+        if (state === "applied" || state === "up_to_date") layWants()
         if (state !== "rebooting") return
         const back = await awaitMessage((l, i) => l === "hello" && i === instanceId, RETURN_MS)
         if (back) layWants()

@@ -735,7 +735,7 @@ test.describe("Deploy to Device dialog", () => {
       return got
     }
 
-    async function deploy(page: import("@playwright/test").Page, projectPath: string, end: "done" | "error") {
+    async function deploy(page: import("@playwright/test").Page, projectPath: string, end: "done" | "error" | "up_to_date") {
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }), { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
       await openDeployDialog(page, projectPath)
@@ -755,6 +755,11 @@ test.describe("Deploy to Device dialog", () => {
         await expect(page.getByText("checksum mismatch")).toBeVisible()
         return
       }
+      if (end === "up_to_date") {
+        status("up_to_date")
+        await expect(page.getByText("Already up to date")).toBeVisible()
+        return
+      }
       status("rebooting")
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, JSON.stringify({ systemGeneration: "1.5", deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }), { retain: true })
       await expect(page.getByText(`Camper Dashboard ${epaperId}: Deploy successful`)).toBeVisible()
@@ -762,6 +767,16 @@ test.describe("Deploy to Device dialog", () => {
 
     test("a deploy that reached the device lays its charts' wants", async ({ page }, testInfo) => {
       await deploy(page, await projectBoundTo(epaperDeviceId, testInfo.outputPath("chart-project.zip"), true), "done")
+      await expect.poll(retainedWants).toBe(JSON.stringify({ series: [{ topic: "van/tank#level", kind: "level" }] }))
+    })
+
+    // The van's 4.3B kept an older project's wants after a deploy, and its
+    // energy charts got no history (2026-10-30): deploying the same project
+    // again, answered up to date, lays them anew.
+    test("a deploy answered up to date lays its charts' wants all the same", async ({ page }, testInfo) => {
+      deviceClient.publish(WANTS(), JSON.stringify({ series: [{ topic: "old", kind: "level" }] }), { retain: true })
+      await expect.poll(retainedWants).not.toBe("")
+      await deploy(page, await projectBoundTo(epaperDeviceId, testInfo.outputPath("chart-project.zip"), true), "up_to_date")
       await expect.poll(retainedWants).toBe(JSON.stringify({ series: [{ topic: "van/tank#level", kind: "level" }] }))
     })
 
