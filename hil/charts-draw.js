@@ -226,9 +226,16 @@ async function main() {
     // pulse apart differ around it, and only there; on e-paper not at all.
     await get(`${base}/api/debug?set=chartpulse=on`)
     const shot = async () => Jimp.read(Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer()))
+    // The second snapshot half a pulse after the first: a board's loop stands
+    // still while it sends one, and the 4.3B's takes about 2.9 s - with a
+    // fixed pause the two could land on the same phase (2.9 + 0.7 s is two
+    // pulses of 1.8 s, and 0 px moved).
+    const PULSE_MS = 1800
     await sleep(500)
+    const startA = Date.now()
     const a = await shot()
-    await sleep(700)
+    const since = (Date.now() - startA) % PULSE_MS
+    await sleep((PULSE_MS / 2 - since + PULSE_MS) % PULSE_MS + 200)
     const b = await shot()
     const moved = comparePixels(a, b).diffPixels
     const animates = ddf.screen.colorDepth === "24bit" || ddf.screen.colorDepth === "16bit"
