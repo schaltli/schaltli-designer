@@ -30,6 +30,9 @@ display draws it yet.
    decision 5) would be wrong. A value carried over into a step where no
    new one arrived counts there, up to 15 minutes after it came; after
    that the step is `null` - a sensor that went quiet is not a flat line.
+   A level holds for 24 hours (2026-10-30, the van): a tank reports only a
+   change, and with 15 minutes its history was a dash wherever one came.
+   Power keeps the 15 minutes, so a quiet sensor adds no energy.
    State: on-periods in minutes since midnight, cut at midnight.
 4. **Time zone and days** come from the system the recorder runs on
    (`Intl`), written into `schaltli/history/now`. A day is a calendar day

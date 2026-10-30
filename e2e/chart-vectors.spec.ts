@@ -122,6 +122,28 @@ function build() {
       options: o,
     },
     {
+      // 2026-10-30: a series charging and discharging is two shapes, one on
+      // each side of zero, the curves smooth, the areas fading outwards, and
+      // the stack's NowPoint on zero.
+      name: "a battery charging and discharging in a stack, smooth and fading",
+      chart: chart(
+        [
+          series({ id: "sun", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "sun" } }),
+          series({ id: "bat", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "bat" } }),
+          series({ id: "load", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "load" } }),
+        ],
+        { legend: "none" },
+      ),
+      range: "24h",
+      back: 0,
+      payloads: {
+        sun: [day("2026-10-14", { 40: 0, 41: 120, 42: 300, 43: 420, 44: 380, 45: 200 })],
+        bat: [day("2026-10-14", { 40: 180, 41: 60, 42: -150, 43: -260, 44: -200, 45: 40 })],
+        load: [day("2026-10-14", { 40: -180, 41: -180, 42: -150, 43: -160, 44: -180, 45: -240 })],
+      },
+      options: o,
+    },
+    {
       name: "an hour from recent",
       chart: chart([series({ annotations: ["current"] })]),
       range: "1h",
@@ -152,10 +174,11 @@ function build() {
     const data = Object.fromEntries(c.chart.series.map((s) => [s.id, seriesData(s, (c.payloads[s.id] ?? []) as any, zone)]))
     const layout = chartLayout(c.chart, window, data, { ...c.options, tz: zone })
     // The fills a board draws (lib/chart-shapes.ts), on colour and on grey.
-    const shapes = chartShapes(layout, { grid: "#cccccc", grey: false })
-    const greyShapes = chartShapes(layout, { grid: "#cccccc", grey: true })
+    // A now colour, so the line at now and a stack's NowPoint are held too.
+    const shapes = chartShapes(layout, { grid: "#cccccc", grey: false, now: "#ff0000" })
+    const greyShapes = chartShapes(layout, { grid: "#cccccc", grey: true, now: "#ff0000" })
     // And with the NowPoint's pulse a third of the way out, as a colour board draws it.
-    const pulseShapes = chartShapes(layout, { grid: "#cccccc", grey: false, pulse: 1 / 3 })
+    const pulseShapes = chartShapes(layout, { grid: "#cccccc", grey: false, pulse: 1 / 3, now: "#ff0000" })
     return { name: c.name, in: { chart: c.chart, range: c.range, back: c.back, payloads: c.payloads, options: c.options }, out: layout, shapes, greyShapes, pulseShapes }
   })
   return { zones: ZONES, windows, steps, layouts }

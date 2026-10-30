@@ -54,13 +54,25 @@ test.describe("the recorder's steps (R1)", () => {
     expect(w.max[0]).toBe(100)
   })
 
-  test("a value holds into the next steps, for 15 minutes at most", () => {
-    const s = new Series("van/t", "level")
+  test("power holds into the next steps for 15 minutes at most: a quiet sensor adds no energy", () => {
+    const s = new Series("van/p", "power")
     s.ingest("20", DAY)
     s.advance(DAY + 30 * 60)
     const w = s.window("m1", DAY, 30)
     expect(w.mean.slice(0, 15).every((m: number | null) => m === 20)).toBe(true)
     expect(w.mean.slice(15)).toEqual(Array(15).fill(null))
+  })
+
+  // 2026-10-30: the van's tanks report only a change, and their history was
+  // a dash wherever one came - every quarter hour without one was empty.
+  test("a level holds until the next value, for 24 hours at most", () => {
+    const s = new Series("van/t", "level")
+    s.ingest("20", DAY)
+    s.advance(DAY + 26 * 3600)
+    const day = dayPayload(s, "2026-10-14", TZ, DAY + 26 * 3600)
+    expect(day.mean.every((m: number | null) => m === 20)).toBe(true)
+    const next = dayPayload(s, "2026-10-15", TZ, DAY + 26 * 3600)
+    expect(next.mean.slice(0, 2)).toEqual([null, null])
   })
 
   test("#path and messages that are no number", () => {

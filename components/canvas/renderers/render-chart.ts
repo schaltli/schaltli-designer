@@ -12,7 +12,7 @@ import { chartLayout, type ChartLayout, type ChartText, type SeriesData } from "
 import { renderScreenObjects, type RenderScreenObjectsOptions } from "@/lib/render-screen"
 import { chartWindow, type Zone } from "@/lib/chart-window"
 import { applyColorDepth } from "@/lib/color-depth"
-import { chartShapes, type Fill } from "@/lib/chart-shapes"
+import { chartShapes, fadeAlpha, type Fill } from "@/lib/chart-shapes"
 import { expand565, mix565, rgb565 } from "@/lib/energy-diagram"
 import { fillPolygon } from "@/lib/polygon-raster"
 
@@ -68,11 +68,15 @@ class ChartPixels {
       this.touched[i] = 1
     }
     const points = k === 1 ? f.points : f.points.map((p) => ({ x: Math.round(p.x * k), y: Math.round(p.y * k) }))
+    // A fading fill's alpha by row, its rows scaled as the points are.
+    const fade = f.fade && (k === 1 ? f.fade : { ...f.fade, y0: f.fade.y0 * k, y1: f.fade.y1 * k })
+    const alphaAt = (y: number) => (fade ? fadeAlpha(fade, y) : f.alpha)
     fillPolygon(points, 0, this.height - 1, {
       fullRun: (y, x0, x1) => {
-        for (let x = x0; x <= x1; x++) put(x, y, f.alpha)
+        const a = alphaAt(y)
+        for (let x = x0; x <= x1; x++) put(x, y, a)
       },
-      partial: (y, x, coverage) => put(x, y, Math.floor((coverage * f.alpha) / 16)),
+      partial: (y, x, coverage) => put(x, y, Math.floor((coverage * alphaAt(y)) / 16)),
     })
   }
 
@@ -128,6 +132,8 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   const text = colour(p.textColor, "#1d1b20")
   const muted = colour(p.mutedColor, "#49454f")
   const grid = colour(p.lineColor, "#cac4d0")
+  // The line at now and a stack's NowPoint; the theme's accent (lib/themes).
+  const now = colour(p.nowColor, "#e53935")
   const fontSize = options.fontSize ?? 14
   // The project's decimal separator, as a board writes its numbers with it.
   const l = layoutOf(obj, { ...options, decimal: options.decimal ?? screen?.placeholders?.separators.decimal })
@@ -151,7 +157,7 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   const k = Math.max(1, Math.hypot(t0.a, t0.b))
   const ground = screen?.screenBackgroundColor && screen.screenBackgroundColor !== "transparent" ? screen.screenBackgroundColor : "#ffffff"
   const px = new ChartPixels(Math.ceil(obj.width * k), Math.ceil(obj.height * k), rgb565(applyColorDepth(ground, depth)), obj.width, obj.height)
-  for (const f of chartShapes(coloured, { grid, grey, pulse: grey ? undefined : options.pulse })) px.fill(f, k)
+  for (const f of chartShapes(coloured, { grid, grey, now, pulse: grey ? undefined : options.pulse })) px.fill(f, k)
   px.drawOn(ctx)
 
   // Every text where the layout puts it - and, said in the middle, no

@@ -166,6 +166,8 @@ export interface SeriesLayout {
   lines: [number, number][][]
   /** Filled shapes (an area down to zero, a stack's slice), each closed. */
   areas: [number, number][][]
+  /** Each area's fade, by row: alpha a0 (of 256) at y0 to a1 at y1, held beyond. */
+  areaFades: Fade[]
   /** The range: the step's min and max as a faint band. */
   ranges: [number, number][][]
   /** A state: the stretches it was on, in its strip; and where each run began. */
@@ -177,6 +179,49 @@ export interface SeriesLayout {
   marks: { x: number; y: number; label: string; below: boolean }[]
   /** The NowPoint on this series: its current value, where the window holds now. */
   nowPoint?: [number, number]
+  /** A stack's NowPoint: on zero, in the chart's now colour rather than the series'. */
+  nowOnStack?: boolean
+}
+
+/** How an area fades from one row to another (lib/chart-shapes Fill.fade). */
+export interface Fade {
+  y0: number
+  a0: number
+  y1: number
+  a1: number
+}
+
+/** Straight segments a curve between two points is drawn with. */
+export const CURVE_SEGMENTS = 6
+
+/**
+ * A run of points as a smooth curve, flattened (2026-10-30, the user: «keine
+ * smoothen Linien wie im Artefakt»): from the first point, a quadratic curve
+ * towards the middle of each next pair with the point between as its
+ * control, then straight to the last - the artifact's curve. Every point
+ * rounded as the layout rounds; written so the firmware's ChartCore says it
+ * word for word.
+ */
+export function smoothCurve(points: [number, number][]): [number, number][] {
+  if (points.length < 3) return points
+  const out: [number, number][] = [points[0]]
+  let cx = points[0][0]
+  let cy = points[0][1]
+  for (let i = 1; i < points.length - 1; i++) {
+    const kx = points[i][0]
+    const ky = points[i][1]
+    const ex = (points[i][0] + points[i + 1][0]) / 2
+    const ey = (points[i][1] + points[i + 1][1]) / 2
+    for (let k = 1; k <= CURVE_SEGMENTS; k++) {
+      const t = k / CURVE_SEGMENTS
+      const u = 1 - t
+      out.push([round1(u * u * cx + 2 * u * t * kx + t * t * ex), round1(u * u * cy + 2 * u * t * ky + t * t * ey)])
+    }
+    cx = ex
+    cy = ey
+  }
+  out.push(points[points.length - 1])
+  return out
 }
 
 /**
@@ -292,12 +337,19 @@ interface StackSlice {
   len: number
   lo: number
   hi: number
+  /** Above zero (1) or below it (-1): a series' part on that side. */
+  side: 1 | -1
 }
 
 /**
  * Each stacked series' slices, step by step: positive values piled up from
  * zero, negative ones down from it, in series order. A balance is minus the
  * sum of the others in its stack, at a step where all of them have a value.
+ * Every series has a slice on both sides at every step it has a value, the
+ * one it does not reach there empty: a storage taking and giving is
+ * two shapes, one above zero and one below, and neither is drawn across the
+ * others (2026-10-30, the user: «überlappende Flächen verschwinden hinter
+ * anderen»).
  */
 function stackSlices(chart: ChartProperties, data: Record<string, SeriesData>): Map<string, StackSlice[]> {
   const out = new Map<string, StackSlice[]>()
@@ -328,13 +380,12 @@ function stackSlices(chart: ChartProperties, data: Record<string, SeriesData>): 
           if (measured.every((m) => values.has(m.id))) v = -measured.reduce((n, m) => n + values.get(m.id)!, 0)
         } else v = values.get(s.id)
         if (v === undefined) continue
-        if (v >= 0) {
-          out.get(s.id)!.push({ t, len, lo: up, hi: up + v })
-          up += v
-        } else {
-          out.get(s.id)!.push({ t, len, lo: down + v, hi: down })
-          down += v
-        }
+        const pos = Math.max(v, 0)
+        const neg = Math.min(v, 0)
+        out.get(s.id)!.push({ t, len, lo: up, hi: up + pos, side: 1 })
+        out.get(s.id)!.push({ t, len, lo: down + neg, hi: down, side: -1 })
+        up += pos
+        down += neg
       }
     }
   }
@@ -429,6 +480,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
       pattern: index,
       lines: [],
       areas: [],
+      areaFades: [],
       ranges: [],
       bands: [],
       starts: [],
@@ -462,22 +514,47 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
       return out
     }
     if (s.draw === "stacked") {
-      const slices = (stacks.get(s.id) ?? []).filter(inWindow)
-      const runs: StackSlice[][] = []
-      for (const x of slices) {
-        const run = runs[runs.length - 1]
-        if (run && run[run.length - 1].t + run[run.length - 1].len === x.t) run.push(x)
-        else runs.push([x])
+      const zero = yS(0)
+      for (const side of [1, -1] as const) {
+        const slices = (stacks.get(s.id) ?? []).filter((x) => x.side === side && inWindow(x))
+        const runs: StackSlice[][] = []
+        for (const x of slices) {
+          const run = runs[runs.length - 1]
+          if (run && run[run.length - 1].t + run[run.length - 1].len === x.t) run.push(x)
+          else runs.push([x])
+        }
+        // Fading from zero outwards, strongest seven tenths of the way to the plot's edge.
+        const edge = side === 1 ? plot.y : plot.y + plot.h
+        const fade: Fade = { y0: zero, a0: 85, y1: round1(zero + (edge - zero) * 0.7), a1: 221 }
+        for (const run of runs) {
+          if (run.length < 2 || run.every((x) => x.hi === x.lo)) continue
+          // The outer edge away from zero, the inner towards it, through the steps' middles.
+          const outer = smoothCurve(run.map((x) => [xOf(x.t + x.len / 2), yS(side === 1 ? x.hi : x.lo)] as [number, number]))
+          const inner = smoothCurve(run.map((x) => [xOf(x.t + x.len / 2), yS(side === 1 ? x.lo : x.hi)] as [number, number]))
+          out.areas.push([...outer, ...[...inner].reverse()])
+          out.areaFades.push(fade)
+          // Its line only where it is more than a hairline thick, and a point past either end.
+          const thick = (j: number) => j >= 0 && j < outer.length && Math.abs(outer[j][1] - inner[j][1]) > 0.5
+          let piece: [number, number][] = []
+          for (let k = 0; k < outer.length; k++) {
+            if (thick(k) || thick(k - 1) || thick(k + 1)) piece.push(outer[k])
+            else {
+              if (piece.length > 1) out.lines.push(piece)
+              piece = []
+            }
+          }
+          if (piece.length > 1) out.lines.push(piece)
+        }
       }
-      for (const run of runs) {
-        const upper = run.flatMap((x) => [[xOf(x.t), yS(x.hi)], [xOf(x.t + x.len), yS(x.hi)]] as [number, number][])
-        const lower = run.flatMap((x) => [[xOf(x.t), yS(x.lo)], [xOf(x.t + x.len), yS(x.lo)]] as [number, number][]).reverse()
-        out.lines.push(upper)
-        out.areas.push([...upper, ...lower])
+      // A stack's NowPoint, on its first series: on zero, where its flows part.
+      const members = chart.series.filter((m) => m.draw === "stacked" && (m.stack ?? "") === (s.stack ?? ""))
+      if (nowOn && members[0]?.id === s.id && members.some((m) => (data[m.id]?.steps ?? []).some((st) => st.t <= o.now))) {
+        out.nowPoint = [xOf(o.now), zero]
+        out.nowOnStack = true
       }
       return out
     }
-    lineSeries(out, s, d, inWindow, xOf, yS, nowOn ? o.now : null)
+    lineSeries(out, s, d, inWindow, xOf, yS, nowOn ? o.now : null, plot.y)
     // Min and max on the curve, with value and time (decision 8, annotations).
     const shown = d.steps.filter(inWindow)
     if (shown.length > 0) {
@@ -513,7 +590,14 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     texts.push({ text, x: round1(x), y: round1(y), w: round1(w), h: o.fontSize, align, tone })
   for (const t of left.ticks) box(t.label, 0, t.y - half, plot.x - pad, "right", "muted")
   for (const t of right?.ticks ?? []) box(t.label, plot.x + plot.w + pad, t.y - half, labelW, "left", "muted")
-  for (const t of times) box(t.label, t.x - labelW, plot.y + plot.h + pad, labelW * 2, "center", "muted")
+  // A time centred under its tick, but kept inside the chart: the midnight at
+  // the window's end stands right-aligned at its edge (2026-10-30, «00:» cut off).
+  for (const t of times) {
+    const y = plot.y + plot.h + pad
+    if (t.x + labelW > o.width) box(t.label, o.width - labelW * 2, y, labelW * 2, "right", "muted")
+    else if (t.x - labelW < 0) box(t.label, 0, y, labelW * 2, "left", "muted")
+    else box(t.label, t.x - labelW, y, labelW * 2, "center", "muted")
+  }
   for (const m of midnights) if (m.x < plot.x + plot.w - o.fontSize * 2) box(m.label, m.x + 3, plot.y, labelW * 3, "left", "muted")
   for (const s of series) for (const m of s.marks) box(m.label, m.x - labelW * 3, m.below ? m.y + pad : m.y - pad - o.fontSize, labelW * 6, "center", "text")
   for (const row of legend) {
@@ -586,6 +670,7 @@ function lineSeries(
   xOf: (t: number) => number,
   yOf: (v: number) => number,
   now: number | null,
+  plotTop: number,
 ): void {
   if (!["line", "area", "steps"].includes(s.draw)) return
   const steps = data.steps.filter(inWindow)
@@ -598,15 +683,20 @@ function lineSeries(
   }
   const zero = yOf(0)
   for (const run of runs) {
+    // Steps as steps; a line or an area as a smooth curve.
     const points: [number, number][] =
       s.draw === "steps"
         ? run.flatMap((st) => [
             [xOf(st.t), yOf(st.mean)] as [number, number],
             [xOf(st.t + st.len), yOf(st.mean)] as [number, number],
           ])
-        : run.map((st) => [xOf(st.t + st.len / 2), yOf(st.mean)] as [number, number])
+        : smoothCurve(run.map((st) => [xOf(st.t + st.len / 2), yOf(st.mean)] as [number, number]))
     out.lines.push(points)
-    if (s.draw === "area") out.areas.push([[points[0][0], zero], ...points, [points[points.length - 1][0], zero]])
+    if (s.draw === "area") {
+      out.areas.push([[points[0][0], zero], ...points, [points[points.length - 1][0], zero]])
+      // Strongest at the plot's top, nearly gone at zero.
+      out.areaFades.push({ y0: plotTop, a0: 108, y1: zero, a1: 8 })
+    }
     if (s.range) {
       const upper = run.map((st) => [xOf(st.t + st.len / 2), yOf(st.max)] as [number, number])
       const lower = run.map((st) => [xOf(st.t + st.len / 2), yOf(st.min)] as [number, number]).reverse()

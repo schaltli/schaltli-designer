@@ -50,8 +50,10 @@ async function draw(page: Page, colorDepth: string, probe: (l: any) => [number, 
 
 test.describe("the chart's painter (D4)", () => {
   test("the NowPoint's pulse: a ring around it in its colour where the phase puts it, none without one, none on grey", async ({ page }) => {
-    // Half way out the ring has a radius of 10 px; above the NowPoint is nothing else.
-    const at = (l: any): [number, number][] => [[l.series[0].nowPoint[0], l.series[0].nowPoint[1] - 10]]
+    // Half way out the ring has a radius of 13.5 px (lib/chart-shapes.ts
+    // pulseRing); up and to the right of the NowPoint is nothing else -
+    // straight above it runs the line at now.
+    const at = (l: any): [number, number][] => [[l.series[0].nowPoint[0] + 9.5, l.series[0].nowPoint[1] - 9.5]]
     const still = await draw(page, "24bit", at)
     const pulsing = await draw(page, "24bit", at, 0.5)
     const grey = await draw(page, "4bit", at, 0.5)
@@ -85,6 +87,46 @@ test.describe("the chart's painter (D4)", () => {
     expect(parseInt(zone.slice(3, 5), 16)).toBeGreaterThan(150)
     expect(now).toBe("#0000ff")
     expect(empty).toBe("#ffffff")
+  })
+
+  // 2026-10-30, after the van: the line at now and a stack's NowPoint in the
+  // now colour, and a stacked area fading from zero outwards, as the artifact.
+  test("the line at now and a stack's NowPoint in the now colour; a stacked area fades from zero outwards", async ({ page }) => {
+    const stack = {
+      ...obj,
+      properties: {
+        ...obj.properties,
+        zones: [],
+        left: { scale: "fixed", min: -400, max: 400 },
+        nowColor: "#ff00ff",
+        series: [{ id: "sun", source: { kind: "topic", topic: "van/sun" }, name: "Sonne", valueKind: "power", draw: "stacked", stack: "e", color: "#0000ff" }],
+      },
+    }
+    const payloads = { sun: [day(Object.fromEntries(Array.from({ length: 48 }, (_, i) => [i, 380])))] }
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const req = { obj: stack, colorDepth: "24bit", payloads, now: NOON, tz: TZ }
+    const { layout } = await page.evaluate((r) => (window as any).__chartForTest({ ...r, probe: [] }), req)
+    const [nx, zero] = layout.series[0].nowPoint
+    const x = Math.round(nx - 200)
+    const top = layout.series[0].areas[0][0][1]
+    const { colours } = await page.evaluate((r) => (window as any).__chartForTest(r), {
+      ...req,
+      probe: [
+        [nx, layout.plot.y + 4], // the line at now, above everything
+        [nx, zero], // the NowPoint, on zero
+        [x, zero - 3], // the area just above zero
+        [x, top + 4], // the area near its outer edge
+      ],
+    })
+    const [line, point, low, high] = colours
+    const rgb = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))
+    // A faint magenta over white: red and blue above green.
+    expect(rgb(line)[0]).toBeGreaterThan(rgb(line)[1])
+    expect(rgb(line)[2]).toBeGreaterThan(rgb(line)[1])
+    expect(point).toBe("#ff00ff")
+    // Blue over white: the further from zero, the less of the white is left.
+    expect(rgb(high)[0]).toBeLessThan(rgb(low)[0] - 40)
   })
 
   test("on a grey device a band is hatched, not filled", async ({ page }) => {

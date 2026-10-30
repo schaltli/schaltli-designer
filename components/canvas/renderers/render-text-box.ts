@@ -182,7 +182,8 @@ export function drawTextBox(options: TextBoxOptions): void {
       if (textAlign === "center") {
         textX = forceIntegerCoordinates(obj.x + (obj.width - textMetrics.width) / 2)
       } else if (textAlign === "right") {
-        textX = forceIntegerCoordinates(obj.x + obj.width - textMetrics.width)
+        // Less the last glyph's ink past its advance (BdfFont.inkRightOverhangOf).
+        textX = forceIntegerCoordinates(obj.x + obj.width - textMetrics.width - bdfFont.inkRightOverhangOf(line))
       } else {
         textX = forceIntegerCoordinates(obj.x)
       }

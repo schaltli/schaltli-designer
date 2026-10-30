@@ -5,7 +5,7 @@
 
 import { SERIES_COLOURS, defaultChart, isRoleOrHex, type ChartProperties, type ChartSeries } from "@/lib/chart"
 import { settableRange, type CalibrationPoint } from "@/lib/settable-level"
-import type { EnergyNode } from "@/lib/energy-diagram"
+import { DEFAULT_FULL_SCALE, type EnergyNode } from "@/lib/energy-diagram"
 import type { LiveValue } from "@/lib/live-value"
 
 interface Control {
@@ -70,6 +70,10 @@ export function seriesFromControl(obj: Control): Proposed[] {
     }
     case "energy-diagram": {
       // One stack: sources above zero, sinks below, the storage signed, the rest the balance.
+      // A fixed axis of the diagram's full scale either way (2026-10-30, the
+      // user: an axis from the window's own values made the days, scrolled
+      // through, look alike - «die Grafen sind dann ja nicht vergleichbar»).
+      const full = typeof p.fullScale === "number" && p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE
       return ((p.nodes ?? []) as EnergyNode[])
         .filter((n) => n.role !== "bus" && (n.role === "rest" || n.topic))
         .map((n) => ({
@@ -80,6 +84,7 @@ export function seriesFromControl(obj: Control): Proposed[] {
           draw: "stacked" as const,
           stack: obj.id ?? "energy",
           annotations: ["sum" as const],
+          axisRange: { min: -full, max: full },
           // A sink takes, and a storage reports taking as positive: both
           // drawn turned, so taking lies below zero and a storage giving above.
           ...((n.role === "sink" || n.role === "storage") !== !!n.reverseSign && n.role !== "rest" ? { invert: true } : {}),

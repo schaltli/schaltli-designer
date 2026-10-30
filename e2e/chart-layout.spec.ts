@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { chartLayout, seriesData, niceStep, axisLabel, weekdayOf } from "../lib/chart-layout"
+import { chartLayout, seriesData, niceStep, axisLabel, weekdayOf, CURVE_SEGMENTS } from "../lib/chart-layout"
 import { chartWindow, midnightOf } from "../lib/chart-window"
 import type { ChartProperties, ChartSeries } from "../lib/chart"
 
@@ -126,7 +126,8 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
     const w = chartWindow({ mode: "time" }, "1h", NOON, TZ)
     const recent = { end: w.to, step: 60, mean: Array.from({ length: 60 }, (_, i) => i), min: [], max: [] }
     const l = chartLayout(chart([s]), w, { s1: seriesData(s, [recent], TZ) }, O)
-    expect(l.series[0].lines[0]).toHaveLength(60)
+    // A smooth curve (2026-10-30): the first and last point, and six segments between each pair of middles.
+    expect(l.series[0].lines[0]).toHaveLength((60 - 2) * CURVE_SEGMENTS + 2)
     expect(l.times.map((t) => t.label)).toEqual(["11:15", "11:30", "11:45", "12:00"])
     expect(chartLayout(chart([s]), W24, {}, { ...O, now: DAY + 86400 + 5 }).now).toEqual({ past: true })
   })
@@ -158,15 +159,34 @@ test.describe("the chart's layout: bands, stacks, bars, legend (D3)", () => {
     const sun = series({ id: "sun", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "sun" } })
     const grid = series({ id: "grid", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "grid" } })
     const rest = series({ id: "rest", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "balance" } })
-    const data = { sun: seriesData(sun, [day({ 0: 300, 1: 200 })], TZ), grid: seriesData(grid, [day({ 0: 100 })], TZ), rest: { steps: [], on: [], days: [] } }
+    const data = { sun: seriesData(sun, [day({ 0: 300, 1: 200 })], TZ), grid: seriesData(grid, [day({ 0: 100, 1: 50 })], TZ), rest: { steps: [], on: [], days: [] } }
     const c = chart([sun, grid, rest], { left: { scale: "fixed", min: -400, max: 400 } })
     const l = chartLayout(c, W24, data, O)
     const y = (v: number) => Math.round((12 + 404 - ((v + 400) / 800) * 404) * 10) / 10
-    // Step 0: sun 0..300, grid 300..400, rest -400..0; step 1 has no grid, so no balance.
-    expect(l.series[0].areas[0].slice(0, 2).map((p) => p[1])).toEqual([y(300), y(300)])
-    expect(l.series[1].lines[0].map((p) => p[1])).toEqual([y(400), y(400)])
+    // Through the steps' middles: sun 0..300 then 0..200, grid on top of it,
+    // the rest - minus both - below zero.
+    expect(l.series[0].areas[0].map((p) => p[1])).toEqual([y(300), y(200), y(0), y(0)])
+    expect(l.series[1].lines[0].map((p) => p[1])).toEqual([y(400), y(250)])
     expect(l.series[2].areas).toHaveLength(1)
-    expect(l.series[2].areas[0].map((p) => p[1])).toEqual([y(0), y(0), y(-400), y(-400)])
+    expect(l.series[2].areas[0].map((p) => p[1])).toEqual([y(-400), y(-250), y(0), y(0)])
+  })
+
+  // 2026-10-30, the user: «überlappende Flächen verschwinden hinter anderen».
+  test("a series charging and discharging in a stack is two shapes, one on each side of zero, none across the others", () => {
+    const sun = series({ id: "sun", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "sun" } })
+    const bat = series({ id: "bat", valueKind: "power", draw: "stacked", stack: "e", source: { kind: "topic", topic: "bat" } })
+    const data = { sun: seriesData(sun, [day({ 0: 100, 1: 100, 2: 100 })], TZ), bat: seriesData(bat, [day({ 0: 200, 1: -100, 2: -200 })], TZ) }
+    const l = chartLayout(chart([sun, bat], { left: { scale: "fixed", min: -400, max: 400 } }), W24, data, O)
+    const y = (v: number) => Math.round((12 + 404 - ((v + 400) / 800) * 404) * 10) / 10
+    const [above, below] = l.series[1].areas
+    // Above zero it lies on the sun and never goes under it; below it starts at zero.
+    expect(Math.max(...above.map((p) => p[1]))).toBeLessThanOrEqual(y(100))
+    expect(Math.min(...below.map((p) => p[1]))).toBeGreaterThanOrEqual(y(0))
+    // The stack's NowPoint on zero, on its first series, in the now colour.
+    expect(l.series[0]).toMatchObject({ nowPoint: [expect.any(Number), y(0)], nowOnStack: true })
+    expect(l.series[1].nowPoint).toBeUndefined()
+    // Fading outwards from zero.
+    expect(l.series[1].areaFades.map((f) => [f.y0, f.a0, f.a1])).toEqual([[y(0), 85, 221], [y(0), 85, 221]])
   })
 
   test("per day: seven days of bars, energy up and down, the days named under them", () => {

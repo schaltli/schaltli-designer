@@ -6,7 +6,7 @@
 // here: they are Text objects on both sides (ChartLayout.texts). Pure, and
 // ported to the firmware's ChartShapes, held to the vectors.
 
-import type { Box, ChartLayout } from "@/lib/chart-layout"
+import type { Box, ChartLayout, Fade } from "@/lib/chart-layout"
 import { toEighths, type Point8 } from "@/lib/polygon-raster"
 
 export interface Fill {
@@ -17,6 +17,18 @@ export interface Fill {
   alpha: number
   /** Drawn only inside it (the plot, for what a fixed axis cuts off). */
   clip?: Box
+  /** Instead of `alpha`, an alpha by row: fadeAlpha(fade, y) for the pixel row y. */
+  fade?: Fade
+}
+
+/**
+ * A fading fill's alpha on pixel row y (2026-10-30, the artifact's
+ * gradients): a0 at y0, a1 at y1, straight between, held beyond either.
+ */
+export function fadeAlpha(f: Fade, y: number): number {
+  if (f.y1 === f.y0) return f.a1
+  const t = Math.min(1, Math.max(0, (y + 0.5 - f.y0) / (f.y1 - f.y0)))
+  return Math.round(f.a0 + (f.a1 - f.a0) * t)
 }
 
 export interface ShapeLook {
@@ -29,15 +41,33 @@ export interface ShapeLook {
    * that animates has one; without it the point stands still.
    */
   pulse?: number
+  /**
+   * The chart's now colour: the line at now, and a stack's NowPoint
+   * (2026-10-30, the user: «die rote Jetzt-Linie fehlt»). None, no line.
+   */
+  now?: string
 }
+
+/** How much of the now colour the line at now is, of 256 - the artifact's 0.35. */
+export const NOW_LINE_ALPHA = 90
 
 /** One pulse lasts this long, in ms. */
 export const PULSE_MS = 1800
 
-/** The pulse's ring at a phase: its radius and how much of its colour. */
+/**
+ * The pulse's ring at a phase: its radius and how much of its colour. Made
+ * stronger on 2026-10-30 (the user: «zu dezent»): from 5 to 22 px, from
+ * 220 of 256, 3 px wide; it was 4 to 16, 141, 2.
+ */
 export function pulseRing(phase: number): { r: number; alpha: number } {
-  return { r: 4 + 12 * phase, alpha: Math.round(141 * (1 - phase)) }
+  return { r: 5 + 17 * phase, alpha: Math.round(220 * (1 - phase)) }
 }
+
+/** How wide the pulse's ring is, in px. */
+export const PULSE_WIDTH = 3
+
+/** The NowPoint's radius, in px. */
+export const NOW_POINT_R = 5
 
 const DASHES: number[][] = [[], [6, 4], [2, 3], [8, 3, 2, 3]]
 const HATCH_GAP = 5
@@ -69,12 +99,12 @@ function disc(cx: number, cy: number, r: number): Point8[] {
   return out
 }
 
-/** A polyline as quads 2 px wide, dashed by `pattern` where it has one. */
-function polyline(points: [number, number][], pattern: number[]): Point8[][] {
+/** A polyline as quads `width` px wide (2 unless said), dashed by `pattern` where it has one. */
+function polyline(points: [number, number][], pattern: number[], width = 2): Point8[][] {
   const out: Point8[][] = []
   if (pattern.length === 0) {
     for (let i = 1; i < points.length; i++) {
-      const q = quad(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1], 2)
+      const q = quad(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1], width)
       if (q) out.push(q)
     }
     return out
@@ -168,7 +198,8 @@ function frame(b: Box): Point8[][] {
 export function chartShapes(l: ChartLayout, look: ShapeLook): Fill[] {
   const out: Fill[] = []
   const { plot } = l
-  const add = (points: Point8[], colour: string, alpha = 256, clip?: Box) => out.push({ points, colour, alpha, ...(clip ? { clip } : {}) })
+  const add = (points: Point8[], colour: string, alpha = 256, clip?: Box, fade?: Fade) =>
+    out.push({ points, colour, alpha, ...(clip ? { clip } : {}), ...(fade ? { fade } : {}) })
 
   for (const z of l.zones) {
     if (look.grey) for (const h of hatched(z, 2)) add(h, z.color)
@@ -179,7 +210,7 @@ export function chartShapes(l: ChartLayout, look: ShapeLook): Fill[] {
 
   for (const s of l.series) {
     for (const r of s.ranges) add(r.map(([x, y]) => pt(x, y)), s.color, 38, plot)
-    for (const a of s.areas) add(a.map(([x, y]) => pt(x, y)), s.color, s.draw === "stacked" ? 154 : 77, plot)
+    s.areas.forEach((a, k) => add(a.map(([x, y]) => pt(x, y)), s.color, s.draw === "stacked" ? 154 : 77, plot, s.areaFades[k]))
     for (const b of [...s.bands, ...s.bars]) {
       if (look.grey) {
         for (const h of hatched(b, s.pattern)) add(h, s.color, 256, plot)
@@ -193,15 +224,18 @@ export function chartShapes(l: ChartLayout, look: ShapeLook): Fill[] {
     const dash = look.grey ? DASHES[s.pattern % DASHES.length] : []
     for (const line of s.lines) for (const q of polyline(line, dash)) add(q, s.color, 256, plot)
   }
+  // The line at now, over the curves and under the NowPoints.
+  if (look.now && l.now && "x" in l.now) add(rect(Math.round(l.now.x), plot.y, 1, plot.h), look.now, NOW_LINE_ALPHA, plot)
   for (const s of l.series) {
+    const colour = s.nowOnStack && look.now ? look.now : s.color
     for (const m of s.marks) add(disc(m.x, m.y, 3), s.color)
     if (s.nowPoint && look.pulse !== undefined) {
       const { r, alpha } = pulseRing(look.pulse)
       const ring: [number, number][] = []
       for (let i = 0; i <= 16; i++) ring.push([s.nowPoint[0] + r * Math.cos((i * Math.PI) / 8), s.nowPoint[1] + r * Math.sin((i * Math.PI) / 8)])
-      if (alpha > 0) for (const q of polyline(ring, [])) add(q, s.color, alpha)
+      if (alpha > 0) for (const q of polyline(ring, [], PULSE_WIDTH)) add(q, colour, alpha)
     }
-    if (s.nowPoint) add(disc(s.nowPoint[0], s.nowPoint[1], 4), s.color)
+    if (s.nowPoint) add(disc(s.nowPoint[0], s.nowPoint[1], NOW_POINT_R), colour)
   }
   for (const row of l.legend) add(rect(row.swatch.x, row.swatch.y, row.swatch.w, row.swatch.h), row.color)
   return out

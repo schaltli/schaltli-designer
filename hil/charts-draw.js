@@ -79,6 +79,8 @@ function chartProject(ddf, stamp) {
             textColor: "#1d1b20",
             mutedColor: "#49454f",
             lineColor: "#cac4d0",
+            // The line at now and a stack's NowPoint (2026-10-30).
+            nowColor: "#c62828",
             left: { scale: "fixed", min: 0, max: 100, unit: "%" },
             zones: [{ axis: "left", to: 20, color: "#d0453f" }],
             series: [

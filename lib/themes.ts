@@ -157,6 +157,8 @@ export const COLOR_KEYS = [
   // The text field's container and the line under it (tasks/ha-text-plan.md).
   "fieldColor",
   "lineColor",
+  // A chart's line at now and a stack's NowPoint (2026-10-30).
+  "nowColor",
 ] as const
 
 // The energy roles of every colour theme, from the target picture the user
@@ -629,7 +631,7 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   },
   // A chart's axis labels and legend, what is quiet in it, and its grid
   // (docs/2026-10-16-charts.md); each series and zone names its own colour.
-  chart: { textColor: "text", mutedColor: "textMuted", lineColor: "outline" },
+  chart: { textColor: "text", mutedColor: "textMuted", lineColor: "outline", nowColor: "accent" },
 }
 
 const NAVIGATOR_ACCENT_ROLES: Partial<Record<string, Role>> = {

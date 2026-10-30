@@ -5,8 +5,11 @@
 // and without waiting.
 //
 // Level and power: per step the time-weighted mean, the minimum and the
-// maximum. A value holds until the next one, but for 15 minutes at most: a
-// sensor that went quiet leaves its steps empty, not a flat line. Power also
+// maximum. A value holds until the next one: a level for 24 hours at most,
+// power for 15 minutes - a level that only reports a change (a tank) is a
+// line, not a dash every time it moves (2026-10-30, the van's tanks), while
+// a power sensor that went quiet leaves its steps empty rather than adding
+// energy nobody measured. Power also
 // keeps the positive part of its integral, so the energy that went in and
 // out is exact. State: the periods it was on.
 
@@ -16,6 +19,7 @@ const { asNumber, matches, valueOf } = require("./compare")
 
 const MINUTE = 60
 const HOLD = 15 * MINUTE
+const HOLD_LEVEL = 24 * 60 * MINUTE
 const RESOLUTIONS = { m1: 60, m5: 300, m15: 900 }
 const KEEP = { m1: 48 * 3600, m5: 6 * 3600, m15: 31 * 86400 }
 const DAYS_KEPT = 30
@@ -108,7 +112,7 @@ class Series {
   /** Accounts the held value up to `now`, as far as it holds. */
   advance(now) {
     if (this.kind === "state" || !this.last || this.upto === null) return
-    const end = Math.min(now, this.last.t + HOLD)
+    const end = Math.min(now, this.last.t + (this.kind === "level" ? HOLD_LEVEL : HOLD))
     if (end > this.upto) this.touch(this.upto, end, this.last.value)
     this.upto = Math.max(this.upto, Math.min(now, end))
   }
@@ -279,6 +283,7 @@ module.exports = {
   Series,
   RESOLUTIONS,
   HOLD,
+  HOLD_LEVEL,
   DAYS_KEPT,
   dateOf,
   midnightOf,

@@ -56,6 +56,19 @@ test.describe("series from controls (D10)", () => {
     ])
   })
 
+  // 2026-10-30, the user: scrolled through the days, an axis from each
+  // window's own values made them look alike. A fixed axis, the diagram's.
+  test("an energy diagram's history has a fixed axis: its full scale above zero and below", () => {
+    const diagram = (fullScale?: number) => ({
+      id: "ed",
+      type: "energy-diagram",
+      properties: { ...(fullScale ? { fullScale } : {}), nodes: [{ id: "sun", role: "source", name: "Solar", topic: "van/solar" }, { id: "fridge", role: "sink", name: "Fridge", topic: "van/fridge" }] },
+    })
+    expect(historyCharts([diagram(2500)], SERIES_COLOURS)[0].left).toEqual({ scale: "fixed", min: -2500, max: 2500, unit: "W" })
+    // Without one, the diagram's own default.
+    expect(historyCharts([diagram()], SERIES_COLOURS)[0].left).toEqual({ scale: "fixed", min: -1000, max: 1000, unit: "W" })
+  })
+
   test("a page of two Bars and a Switch: one chart, the axis the bars' range, colours given where the control had none", () => {
     const charts = historyCharts([bar("van/fresh"), bar("van/grey", { fillColor: undefined }), { type: "switch", properties: { topic: "van/pump", states: [] } }], SERIES_COLOURS)
     expect(charts).toHaveLength(1)
@@ -79,7 +92,8 @@ test.describe("series from controls (D10)", () => {
     const charts = historyCharts([withUnit("van/temp"), diagram], SERIES_COLOURS)
     expect(charts).toHaveLength(1)
     expect(charts[0].series.map((s) => s.axis ?? "left")).toEqual(["left", "right"])
-    expect(charts[0].right).toMatchObject({ scale: "auto", unit: "W" })
+    // The energy diagram's fixed axis on the right (its full scale, 1000 W by default).
+    expect(charts[0].right).toMatchObject({ scale: "fixed", min: -1000, max: 1000, unit: "W" })
     expect(historyCharts([{ type: "button", properties: {} }, { type: "switch", properties: { writeTopic: "relay" } }], SERIES_COLOURS)).toEqual([])
     // Nested in a group, still found.
     expect(historyCharts([{ type: "group", children: [bar("van/x")] }], SERIES_COLOURS)).toHaveLength(1)

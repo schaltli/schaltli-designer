@@ -173,6 +173,22 @@ export class BDFFont {
     return top
   }
 
+  /**
+   * How far the last glyph's ink reaches past its advance, in px: drawn at
+   * bx + BBox + 1 to bx + BBox + BBw (drawChar's shift), against a cursor
+   * that moves DWIDTH. A right-aligned text moves left by it, so its last
+   * glyph is not shaved off at the box's edge - luRS10's «%» is 11 px of
+   * ink on an advance of 9 (2026-10-30, «jetzt 2 %» in a chart's legend).
+   * The firmware's BdfFont::inkRightOverhangOf says the same.
+   */
+  inkRightOverhangOf(text: string): number {
+    const chars = [...text]
+    if (chars.length === 0) return 0
+    const g = this.getGlyphOf(chars[chars.length - 1].codePointAt(0) ?? 0)
+    if (!g || !g["DWIDTH"] || typeof g["BBw"] !== "number" || typeof g["BBox"] !== "number") return 0
+    return Math.max(0, g["BBox"] + g["BBw"] + 1 - g["DWIDTH"].x)
+  }
+
   getGlyphOf(c: number) {
     const glyph = this.glyphs[c] || this.glyphs[this.properties["DEFAULT_CHAR"]]
     return glyph || null
