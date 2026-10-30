@@ -1,48 +1,48 @@
 {
-  "release": "fw-2026.10.28.1",
-  "commit": "1fc1a7b971afade024f3b54dc5dd1f220f793cc7",
+  "release": "fw-2026.10.30.1-pre.charts_firmware",
+  "commit": "b57ae8d9199d57737ae3421119cabedd9be2be50",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-knob-1v8-fw-2026.10.28.1.bin",
-      "size": 2244928,
-      "sha256": "5302fec57e1bb9b03d1b98d8c51be2eddd546efdfc75c12df4781109de495994",
+      "build": "fw-2026.10.30.1-pre.charts_firmware",
+      "file": "waveshare-knob-1v8-fw-2026.10.30.1-pre.charts_firmware.bin",
+      "size": 2334720,
+      "sha256": "7979a0d24efc743febd421381902df07843ec1f34624da0278ff6111ac3f7110",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/waveshare-knob-1v8-fw-2026.10.30.1-pre.charts_firmware.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.10.28.1.bin",
-        "size": 2310464,
-        "sha256": "6553112be520bbc917a7220c4a36393dbceedd6dbc83affbb67a3dcbce2a8a0e",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-knob-1v8-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.10.30.1-pre.charts_firmware.bin",
+        "size": 2400256,
+        "sha256": "a83b3d896c570fa2b4ebe3efaeb1578a6839c5ad317dcae8273b72ccbe9efa86",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/waveshare-knob-1v8-factory-fw-2026.10.30.1-pre.charts_firmware.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.10.28.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
-      "size": 2053328,
-      "sha256": "5cc3ad15d9e300fbb2a7039d11ee38f7d71d23c8d1f666dce1f29a1ad0e5cb83",
+      "build": "fw-2026.10.30.1-pre.charts_firmware",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.30.1-pre.charts_firmware.bin",
+      "size": 2145456,
+      "sha256": "9e885fd1049ed54079231e3e09d3604d66adc6152882e7229a02774b6bd6c261",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/waveshare-touch-lcd-4v3b-fw-2026.10.30.1-pre.charts_firmware.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin",
-        "size": 2118864,
-        "sha256": "b0ca47bae5a0f86bf9269d44bb1d972da95f55d33a82a9b35dc8b2112bc57e8d",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/waveshare-touch-lcd-4v3b-factory-fw-2026.10.28.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.30.1-pre.charts_firmware.bin",
+        "size": 2210992,
+        "sha256": "2c740261fd13c874ef9ccf48e06f00e34f24c52dc53f61123528076b4cbec8c2",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/waveshare-touch-lcd-4v3b-factory-fw-2026.10.30.1-pre.charts_firmware.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.10.28.1",
-      "file": "m5stack-papers3-fw-2026.10.28.1.bin",
-      "size": 2164432,
-      "sha256": "068b25266f5fae4b592e0e731911761561123354e38bb82932fb2249ca82c282",
+      "build": "fw-2026.10.30.1-pre.charts_firmware",
+      "file": "m5stack-papers3-fw-2026.10.30.1-pre.charts_firmware.bin",
+      "size": 2256832,
+      "sha256": "a3ac7204d30b2dadc5e429fb11c201dacbb2c2c4ad6ef5b8c035e3425b161ee2",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-fw-2026.10.28.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/m5stack-papers3-fw-2026.10.30.1-pre.charts_firmware.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.10.28.1.bin",
-        "size": 2229968,
-        "sha256": "f75453cc7e1debb12fbdc8dd29257bfce33725e8a981c8da055bed19057fe7dc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.28.1/m5stack-papers3-factory-fw-2026.10.28.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.10.30.1-pre.charts_firmware.bin",
+        "size": 2322368,
+        "sha256": "0b902c6bb06b9a8fb3d7aec4699d7f28966b3f2245c9d0ac0600a0c04a82ed3c",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.10.30.1-pre.charts_firmware/m5stack-papers3-factory-fw-2026.10.30.1-pre.charts_firmware.bin"
       }
     }
   }
