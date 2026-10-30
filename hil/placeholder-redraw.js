@@ -16,6 +16,13 @@
 // /api/debug's "last value draw", the knob with a "prt" in its latency trace
 // after the value's "rx".
 //
+// Since 2026-10-30 also a text inside a switcher's panel, and a topic only
+// another screen reads: the 4.3B sent both to a full screen - anything with
+// children, and anything nothing on the screen draws - and in the van that
+// held its touch unread for 200-250 ms every two seconds. On the 4.3B the
+// first has to be drawn as a region and the second not at all, and its own
+// ?set=partialcheck compares every partial draw with a full one.
+//
 //   node hil/placeholder-redraw.js --device 192.168.1.117   # the 4.3B
 //   node hil/placeholder-redraw.js --device 192.168.1.114   # the knob
 //
@@ -42,6 +49,9 @@ const OUT_DIR = path.join(__dirname, "placeholder-redraw-report", deviceTag())
 const PREFIX = `hil-placeholder-${deviceTag()}`
 const LEVEL = `${PREFIX}/level`
 const NAME = `${PREFIX}/name`
+const PANEL = `${PREFIX}/panel`
+const SHOWN = `${PREFIX}/shown`
+const ELSEWHERE = `${PREFIX}/elsewhere`
 
 function parseArgs(argv) {
   const args = { device: null }
@@ -97,13 +107,13 @@ async function main() {
   const { project } = buildProject(ddf, { topicPrefix: PREFIX })
   const font = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))[Math.floor(ddf.fonts.length * 0.4)]
   const screenId = `placeholder-${Date.now().toString(36)}`
-  // Three rows in the middle of the screen, inside the knob's circle too.
+  // Four rows in the middle of the screen.
   const { width: sw, height: sh } = ddf.screen
   const box = (row) => ({
     x: Math.round(sw * 0.15),
-    y: Math.round(sh * (0.2 + row * 0.22)),
+    y: Math.round(sh * (0.14 + row * 0.19)),
     width: Math.round(sw * 0.7),
-    height: Math.round(sh * 0.14),
+    height: Math.round(sh * 0.13),
   })
   const textProps = (text) => ({
     text,
@@ -121,6 +131,9 @@ async function main() {
   project.topics = [
     { id: "level", topic: LEVEL, type: "numeric", examples: ["10"] },
     { id: "name", topic: NAME, type: "text", examples: ["Grau"] },
+    { id: "panel", topic: PANEL, type: "text", examples: ["A"] },
+    { id: "shown", topic: SHOWN, type: "text", examples: ["eins"] },
+    { id: "elsewhere", topic: ELSEWHERE, type: "text", examples: ["7"] },
   ]
   project.screens = [
     {
@@ -147,7 +160,46 @@ async function main() {
         },
         { id: "named", type: "text", zIndex: 1, ...box(1), properties: textProps(`Tank {topic:${LEVEL}:F1} %`) },
         { id: "alone", type: "text", zIndex: 1, ...box(2), properties: textProps(`Tank {topic:${NAME} ?? "leer"}`) },
+        {
+          // A text in a switcher's panel: coordinates relative to the switcher.
+          id: "switcher",
+          type: "switcher",
+          zIndex: 1,
+          ...box(3),
+          properties: { topic: PANEL },
+          children: [
+            {
+              id: "panel-a",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: box(3).width,
+              height: box(3).height,
+              properties: { comparisonOperator: "==", comparisonValue: "A" },
+              children: [
+                {
+                  id: "inside",
+                  type: "text",
+                  zIndex: 0,
+                  x: Math.round(box(3).width * 0.1),
+                  y: 0,
+                  width: Math.round(box(3).width * 0.8),
+                  height: box(3).height,
+                  properties: textProps(`Innen {topic:${SHOWN} ?? "-"}`),
+                },
+              ],
+            },
+          ],
+        },
       ],
+    },
+    {
+      // What reads ELSEWHERE: a screen the board is not showing.
+      id: `${screenId}-other`,
+      name: "Elsewhere",
+      backgroundColor: "#000000",
+      objects: [{ id: "other", type: "text", zIndex: 1, ...box(0), properties: textProps(`{topic:${ELSEWHERE} ?? "-"}`) }],
     },
   ]
 
@@ -205,11 +257,15 @@ async function main() {
     }
 
     // name, then the value change, then whether it had to be drawn as regions
+    // The 4.3B holds every partial draw to a full one of its own.
+    await get(`${base}/api/debug?set=partialcheck=on`).catch(() => {})
     const steps = [
-      { name: "drawn once", set: { [LEVEL]: "10" }, force: true },
+      { name: "drawn once", set: { [LEVEL]: "10", [PANEL]: "A", [SHOWN]: "vorher" }, force: true },
       { name: "the bound topic changes", set: { [LEVEL]: "75.195" }, regions: true },
       { name: "a topic only a text names arrives", set: { [NAME]: "Frischwasser" }, regions: true },
       { name: "it changes again", set: { [NAME]: "Grau" }, regions: true },
+      { name: "a text inside a switcher's panel names a topic that changes", set: { [SHOWN]: "nachher" }, boardSays: /region\(s\)/ },
+      { name: "a topic only another screen reads changes", set: { [ELSEWHERE]: "42" }, boardSays: /nothing on this screen reads it/ },
     ]
     for (const [i, step] of steps.entries()) {
       for (const [topic, value] of Object.entries(step.set)) {
@@ -228,7 +284,8 @@ async function main() {
       // Values are drawn at most every 250 ms, after they are stored.
       await sleep(800)
 
-      const how = drawnAs((await get(`${base}/api/debug`)).body, Object.values(step.set).pop())
+      const debugBody = (await get(`${base}/api/debug`)).body
+      const how = drawnAs(debugBody, Object.values(step.set).pop())
       const snapshot = Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer())
       const devicePath = path.join(OUT_DIR, `device-${i}.bmp`)
       fs.writeFileSync(devicePath, snapshot)
@@ -247,14 +304,25 @@ async function main() {
       const { dimensionMismatch, diffPixels } = comparePixels(deviceImg, expectedImg)
 
       const pixelsOk = !dimensionMismatch && diffPixels === 0
-      const pathOk = !step.regions || /region\(s\)|rect/.test(how)
+      // boardSays: what the 4.3B's own line has to read; the knob has none
+      // and is held to the pixels alone there.
+      const pathOk =
+        (!step.regions || /region\(s\)|rect/.test(how)) && (!step.boardSays || !/last value draw:/.test(debugBody) || step.boardSays.test(how))
       if (!pixelsOk || !pathOk) failures++
       console.log(
         `  ${pixelsOk && pathOk ? "PASS" : "FAIL"} ${step.name}: ` +
           `${dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ`}, drawn as ${how}` +
-          (pathOk ? "" : " - expected regions, so the partial redraw was not what drew it"),
+          (pathOk ? "" : ` - the board drew it otherwise than ${step.boardSays || "as regions"}`),
       )
     }
+    // The 4.3B's own comparison of every partial draw with a full one.
+    const checked = /partial check: (.*)/.exec((await get(`${base}/api/debug`)).body)
+    if (checked) {
+      const ok = / 0 differed/.test(checked[1]) && !/\(0 checked/.test(checked[1])
+      if (!ok) failures++
+      console.log(`  ${ok ? "PASS" : "FAIL"} every partial draw equals a full one: ${checked[1]}`)
+    }
+    await get(`${base}/api/debug?set=partialcheck=off`).catch(() => {})
   } finally {
     await browser.close()
     client.end()
