@@ -1208,6 +1208,27 @@ async function main() {
       })
     }
 
+    // The 4" (tasks/waveshare-4-plan.md), curated from its first day like the
+    // 4.3B whose firmware it runs.
+    console.log("\n=== waveshare 4\" DDF freshness ===")
+    const ws4DdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-touch-lcd-4.ddf.zip")
+    if (!fs.existsSync(ddfGenerator)) {
+      summary.push({ name: "waveshare4-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
+    } else {
+      const exitCode = await run("node", [ddfGenerator, "ddf-source-waveshare4", "--check", "--zip", ws4DdfZip], {
+        cwd: FIRMWARE_REPO,
+      })
+      summary.push({
+        name: "waveshare4-ddf",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail:
+          exitCode === 0
+            ? "public/ddf zip matches ddf-source-waveshare4"
+            : "stale - see the regenerate command printed above",
+        report: "",
+      })
+    }
+
     // The knob, curated here since 2026-09-12. It announces itself over MQTT,
     // so the designer could always discover it - but only while it is powered
     // on and on the same broker, which makes "does this instance know the

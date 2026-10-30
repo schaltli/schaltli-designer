@@ -4,7 +4,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import { loadProject, getMainCanvas, devicePoint, waitForDeviceGate, chooseDevice, createProject, waitForEditorReady } from "./helpers"
-import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
+import { seedRoundFixtureDdf, seedWaveshare4Ddf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { THEMES, applyTheme, resolveRole } from "../lib/themes"
 
@@ -127,6 +127,47 @@ test.describe("the navigator object", () => {
     const nav = saved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
     expect({ x: nav.x, y: nav.y, width: nav.width, height: nav.height }).toEqual({ x: 0, y: 416, width: 800, height: 64 })
     expect(nav.properties).toMatchObject({ edge: "bottom", shows: "icons" })
+  })
+})
+
+// The 4": a square that is not round. The navigator takes an edge of it as on
+// any rectangle - none of the round screen's inset - and its own DDF declares
+// it, unpatched.
+const NAV_4_DEVICE_ID = "e2e-navigator-4"
+const SCREEN_4 = { width: 480, height: 480 }
+
+test.describe("the navigator on the 4\"", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4Ddf(NAV_4_DEVICE_ID)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("it fills the left edge of the square, and the bottom one when moved there", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, NAV_4_DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    let saved = await downloadProjectJson(page)
+    await page.keyboard.press("Escape")
+    const master = saved.screens.find((s: any) => s.isMaster).name
+    await page.getByRole("button", { name: screenRow(master) }).click()
+    await page.getByRole("button", { name: "Navigator", exact: true }).click()
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, 240, 240, SCREEN_4)
+    await page.mouse.click(at.x, at.y)
+
+    const navOf = (project: any) => project.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
+    saved = await downloadProjectJson(page)
+    await page.keyboard.press("Escape")
+    let nav = navOf(saved)
+    expect({ x: nav.x, y: nav.y, height: nav.height }).toEqual({ x: 0, y: 0, height: 480 })
+    expect(nav.width).toBeGreaterThan(0)
+    expect(nav.width).toBeLessThan(240)
+
+    await page.locator("#navigatorEdge").selectOption("bottom")
+    saved = await downloadProjectJson(page)
+    nav = navOf(saved)
+    expect({ x: nav.x, width: nav.width, bottom: nav.y + nav.height }).toEqual({ x: 0, width: 480, bottom: 480 })
   })
 })
 

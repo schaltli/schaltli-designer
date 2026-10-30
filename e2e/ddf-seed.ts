@@ -26,6 +26,7 @@ import JSZip from "jszip"
 const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "schaltli-firmware")
 const WAVESHARE_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source")
 const WAVESHARE_4V3B_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4v3b")
+const WAVESHARE_4_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4")
 const PAPERS3_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-papers3")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
@@ -189,6 +190,11 @@ export async function seedWaveshareDdf(options?: {
 // seeded under its own id mid-run, the same way the knob did.
 export async function seedWaveshare4v3bDdf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
   return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId, mutateDeviceJson)
+}
+
+// Same for the 4", which runs the 4.3B's firmware on a 480 x 480 square.
+export async function seedWaveshare4Ddf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
+  return seedDdfFrom(WAVESHARE_4_DDF_SOURCE, deviceId, mutateDeviceJson)
 }
 
 // Same for the PaperS3, which announces itself just the same.

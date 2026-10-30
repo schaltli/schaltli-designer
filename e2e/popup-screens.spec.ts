@@ -463,6 +463,7 @@ test.describe("Popup screens: the close button (pure)", () => {
       return JSON.parse(await zip.file("device.json")!.async("string")).screen.popupCloseRadius
     }
     expect(await radius("waveshare-touch-lcd-4v3b.ddf.zip")).toBe(24)
+    expect(await radius("waveshare-touch-lcd-4.ddf.zip")).toBe(24)
     // Smaller on the knob: any bigger and its round glass cuts the button.
     expect(await radius("waveshare-knob-1v8.ddf.zip")).toBe(18)
     expect(await radius("m5stack-papers3.ddf.zip")).toBe(26)

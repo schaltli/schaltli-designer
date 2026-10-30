@@ -268,6 +268,8 @@ test.describe("round screens", () => {
     }
     expect((await fieldsOf("waveshare-knob-1v8.ddf.zip")).screenShape).toBe("round")
     expect((await fieldsOf("waveshare-touch-lcd-4v3b.ddf.zip")).screenShape).toBe("rect")
+    // Square is not round: the 4" is 480 x 480 and rectangular all the same.
+    expect((await fieldsOf("waveshare-touch-lcd-4.ddf.zip")).screenShape).toBe("rect")
   })
 })
 

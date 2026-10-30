@@ -197,6 +197,9 @@ test.describe("the firmware devices' scale", () => {
     // 800 × 480 over 95.04 × 53.86 mm: 8.42 across and 8.91 down, not square;
     // the mean is what the scale uses.
     { source: "ddf-source-waveshare4v3b", pxPerMm: 8.66, display: "FreeUniversal" },
+    // 480 × 480 over 71.84 mm a side, from the 4" diagonal of a square panel
+    // until it is measured on the glass.
+    { source: "ddf-source-waveshare4", pxPerMm: 6.68, display: "FreeUniversal" },
     // 960 × 540 over 103.68 × 58.32 mm, the ED047TC1's 0.108 mm pitch.
     { source: "ddf-source-papers3", pxPerMm: 9.26, display: "FreeUniversal" },
   ]
@@ -366,7 +369,7 @@ test.describe("the scale", () => {
 
   // On every firmware device, every style finds a font and every step a
   // size (Task 4's second criterion), read from the firmware repo.
-  for (const source of ["ddf-source", "ddf-source-waveshare4v3b", "ddf-source-papers3"]) {
+  for (const source of ["ddf-source", "ddf-source-waveshare4v3b", "ddf-source-waveshare4", "ddf-source-papers3"]) {
     test(`${source}: every style has a font, every step a size`, async () => {
       const dir = path.join(__dirname, "..", "..", "schaltli-firmware", source)
       test.skip(!fs.existsSync(path.join(dir, "device.json")), "schaltli-firmware not checked out alongside this repo")
