@@ -79,6 +79,7 @@ export default defineConfig({
           { text: "Übersicht", link: "/geraete/" },
           { text: "Waveshare Knob 1.8", link: "/geraete/knob" },
           { text: "Waveshare 4.3B", link: "/geraete/waveshare-4-3b" },
+          { text: "Waveshare 4\"", link: "/geraete/waveshare-4" },
           { text: "M5Stack PaperS3", link: "/geraete/papers3" },
           { text: "Android-App", link: "/geraete/android" },
           { text: "Firmware flashen", link: "/geraete/flashen" },

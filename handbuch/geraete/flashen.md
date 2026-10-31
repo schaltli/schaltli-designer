@@ -10,13 +10,13 @@ Das erledigt der **Flasher**, eine Webseite, die direkt im Browser arbeitet. Du 
 
 - Einen Computer mit **Chrome oder Edge**. Firefox und Safari können nicht mit einem seriellen Anschluss sprechen, Handys und Tablets auch nicht.
 - Ein USB-C-Kabel, das Daten überträgt, nicht nur Strom.
-- Eines der Boards: [Knob](/geraete/knob), [4.3B](/geraete/waveshare-4-3b) oder [PaperS3](/geraete/papers3).
+- Eines der Boards: [Knob](/geraete/knob), [4.3B](/geraete/waveshare-4-3b), [4"](/geraete/waveshare-4) oder [PaperS3](/geraete/papers3).
 
 ## In drei Schritten
 
 Der Flasher ist englisch beschriftet, wie der Designer.
 
-1. **<span class="ui fw">Which board do you have?</span>** Wähle dein Board. Nichts ist vorausgewählt, und das mit Absicht: Alle drei Boards haben denselben Chip, der Flasher kann sie nicht unterscheiden. Ein falsch gewähltes Board startet danach nicht richtig, lässt sich aber mit der richtigen Wahl einfach neu flashen.
+1. **<span class="ui fw">Which board do you have?</span>** Wähle dein Board. Nichts ist vorausgewählt, und das mit Absicht: Alle Boards haben denselben Chip, der Flasher kann sie nicht unterscheiden. Ein falsch gewähltes Board startet danach nicht richtig, lässt sich aber mit der richtigen Wahl einfach neu flashen.
 2. **<span class="ui fw">Which firmware?</span>** Vorausgewählt ist die neueste Version. Die beiden älteren stehen für den Fall bereit, dass eine neue Version Ärger macht.
 3. **<span class="ui fw">Connect and write</span>** Steck das Board an und klick auf den Knopf. Der Browser fragt, welcher Anschluss es ist. Wähle den neu aufgetauchten. Der Flasher schreibt die Firmware und startet das Board neu.
 

@@ -10,6 +10,7 @@ Im Einrichtungsmodus zeigt das Board einen QR-Code und öffnet ein eigenes WLAN:
 |---|---|---|
 | Knob | `waveshare-knob-1v8-setup` | `schaltli12345` |
 | 4.3B | `waveshare-touch-lcd-4v3b-setup` | `schaltli12345` |
+| 4" | `waveshare-touch-lcd-4-setup` | `schaltli12345` |
 | PaperS3 | `m5stack-papers3-setup` | `schaltli12345` |
 
 Scanne den QR-Code mit der Kamera deines Handys. Das Handy bietet dann an, sich mit dem WLAN zu verbinden, und öffnet danach die Einrichtungsseite von selbst. Tut es das nicht, öffne im Browser `http://192.168.4.1`.
@@ -52,7 +53,7 @@ Danach erscheint das Board im Designer, beim Anlegen eines Projekts (<span class
 
 Jedes Board kommt mit einer Geste zurück in den Einrichtungsmodus, etwa wenn sich das WLAN geändert hat:
 
-- **Knob und 4.3B:** einen Finger fünf Sekunden irgendwo auf das Display halten.
+- **Knob, 4.3B und 4":** einen Finger fünf Sekunden irgendwo auf das Display halten.
 - **PaperS3:** einen Finger zehn Sekunden still auf das obere linke Viertel halten.
 
 Ein Countdown zeigt, dass die Geste läuft. Lässt du vorher los, passiert nichts.

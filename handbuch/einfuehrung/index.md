@@ -58,10 +58,11 @@ Den Designer brauchst du nur, solange du gestaltest, ein Projekt aufs Gerät sch
 |---|---|---|
 | [Waveshare Knob-Touch LCD 1.8](/geraete/knob) | rund, 360 × 360, Farbe | Touch und Drehring |
 | [Waveshare ESP32-S3-Touch-LCD-4.3B](/geraete/waveshare-4-3b) | 800 × 480, Farbe | Touch |
+| [Waveshare ESP32-S3-Touch-LCD-4](/geraete/waveshare-4) | quadratisch, 480 × 480, Farbe | Touch |
 | [M5Stack PaperS3](/geraete/papers3) | E-Paper, 960 × 540, 16 Graustufen | Touch |
 | Android-Handy oder -Tablet | was das Gerät hat | Touch |
 
-Die drei Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach kommen Projekte und Updates per WLAN. Auf dem Android-Gerät installierst du stattdessen die Schaltli-App.
+Die Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach kommen Projekte und Updates per WLAN. Auf dem Android-Gerät installierst du stattdessen die Schaltli-App.
 
 ## Ein altes Handy aus der Schublade
 
