@@ -188,12 +188,12 @@ upload (own and foreign image), OTA and designer firmware update, setup
 screen, pixel clock. Skipped with a warning when the board is not reachable.
 
 **Acceptance criteria:**
-- [ ] `test:all` and `test:quick` run the lane in parallel with the others
-- [ ] Board unplugged: the lane reports SKIPPED with the IP, never silently
-- [ ] `hil/README.md` names the lane and what it runs
+- [x] `test:all` and `test:quick` run the lane in parallel with the others
+- [x] Board unplugged: the lane reports SKIPPED with the IP, never silently
+- [x] `hil/README.md` names the lane and what it runs
 
 **Verification:**
-- [ ] `npm run test:quick` with the board connected, and once without
+- [x] `npm run test:quick` with the board connected, and once without (designer 2fa3261)
 
 **Dependencies:** T6
 **Files likely touched:** `hil/test-all.js`, `hil/waveshare4v3b/orchestrator.js`, `hil/README.md`, `hil/boards-network.js`
@@ -207,8 +207,14 @@ popup, scaled values, energy diagram, size-scale text styles, layout
 containers, big-icon redraw, pinch.
 
 **Acceptance criteria:**
-- [ ] Each of them green on the 4" in `test:all`
-- [ ] A script that cannot run on it says why in the summary
+- [ ] Each of them green on the 4" in `test:all` - all but two in the run of
+  2026-10-31 (46 min): `waveshare-ws4-bandwidth` failed for being faster than
+  the 4.3B's floor (17.9 against 18 ms on a frame 60% the size; the floor now
+  follows the frame), `ws4-conformance` for the link (snapshots at 17-30 KB/s
+  under the full run's load, the second install timed out; green in
+  test:quick). Afterwards the 4" answered ping but not HTTP, as once before.
+- [x] A script that cannot run on it says why in the summary (the internal-heap
+  check with its own large project stays the 4.3B's)
 
 **Verification:**
 - [ ] `npm run test:all`

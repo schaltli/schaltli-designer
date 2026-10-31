@@ -82,7 +82,12 @@ const MULTI_BUFFER_LIMITS = {
 // Under this, the hardware would no longer be able to present a full frame at
 // all and everything above is moot. Above it, something got much FASTER and
 // the swipe question deserves another look.
+// Measured on the 4.3B's 800x480 frame; a smaller panel moves fewer bytes and
+// gets the floor in proportion to its frame (the report's "frame ... = N KB"
+// line). The 4"'s 480x480 at 8 MHz wrote one in 17.9 ms (2026-10-31), under
+// the 4.3B's 18 and well above its own 10.8.
 const FASTER_THAN_EXPECTED_MS = 18
+const FLOOR_FRAME_KB = 750
 
 function parseArgs(argv) {
   const args = { device: process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117" }
@@ -159,6 +164,9 @@ async function main() {
   const LIMITS = buffers > 1 ? MULTI_BUFFER_LIMITS : SINGLE_BUFFER_LIMITS
   console.log(`  ${buffers} framebuffer(s), judged against the ${buffers > 1 ? "multi" : "single"}-buffer expectation`)
 
+  const frameKb = Number((/frame \d+x\d+ = (\d+) KB/.exec(res.body) || [])[1] || FLOOR_FRAME_KB)
+  const floorMs = Math.round(((FASTER_THAN_EXPECTED_MS * frameKb) / FLOOR_FRAME_KB) * 10) / 10
+
   for (const [name, maxMs] of Object.entries(LIMITS)) {
     const value = timings[name]
     if (value === undefined) {
@@ -168,9 +176,9 @@ async function main() {
     if (value > maxMs) {
       failures.push(`${name} ${value}ms exceeds ${maxMs}ms`)
     }
-    if (value < FASTER_THAN_EXPECTED_MS) {
+    if (value < floorMs) {
       failures.push(
-        `${name} ${value}ms is far below the ${FASTER_THAN_EXPECTED_MS}ms this ` +
+        `${name} ${value}ms is far below the ${floorMs}ms this ` +
           `board has ever managed - either the measurement broke or the ` +
           `platform got much faster. Both are worth looking at before this ` +
           `test is loosened.`
