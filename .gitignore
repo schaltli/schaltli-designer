@@ -40,6 +40,8 @@ next-env.d.ts
 /hil/waveshare/report/
 /hil/waveshare4v3b/report/
 /hil/conformance/report/
+/hil/conformance/report-ws4/
+/hil/waveshare4/report/
 /hil/placeholder-redraw-report/
 /hil/popup-report/
 /hil/local-topics-report/
