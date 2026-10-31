@@ -203,7 +203,7 @@ const boot = run(
   { settleFirst: false },
 )
 const bootText = boot.output
-const bootSaysDevice = bootText.includes(device) || bootText.includes("Schaltli") || /\[(4v3b|knob|papers3|WiFiSetupServer)\]/.test(bootText)
+const bootSaysDevice = bootText.includes(device) || bootText.includes("Schaltli") || /\[(4v3b|ws4|knob|papers3|WiFiSetupServer)\]/.test(bootText)
 step("boot output", bootSaysDevice, bootSaysDevice ? "the firmware announced itself over serial" : "nothing recognisable came out of the port")
 results.boot = bootText.split("\n").slice(-40).join("\n")
 
