@@ -153,7 +153,15 @@ else entirely.
 
 **Lanes, and the quick run (2026-10-13).** `test:all` runs a lane per
 device - host (typecheck, e2e, the firmware's host checks), knob, 4.3B,
-PaperS3 and Android - at the same time, each its steps one after another.
+the 4" (`ws4`, since 2026-10-31), PaperS3 and Android - at the same time,
+each its steps one after another. The 4" runs the 4.3B's firmware, so it
+runs the 4.3B's suites too, at `HIL_WAVESHARE_4_DEVICE` (192.168.1.122);
+where the two would share a report folder, the 4"'s writes its own
+(`waveshare4/report`, `conformance/report-ws4`, through the orchestrator's
+and conformance's `--report`). Its pixel-clock check compares with 12 MHz,
+not 16, at which its WiFi drops altogether. Left out: the internal-heap check
+under a large project of its own, which leaves a board without WiFi until its
+LittleFS is erased over USB.
 Each lane writes `hil/test-all-logs/<lane>.log`, the console shows every line
 marked with its lane, and the summary lists the steps by lane with their
 seconds. One after another the run took 50 min. Before the lanes it builds

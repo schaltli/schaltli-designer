@@ -15,13 +15,16 @@ import { join } from "path"
 // without the clear fails here.
 test("every HIL report the summary reads is cleared before its suite runs", () => {
   const source = readFileSync(join(__dirname, "..", "hil", "test-all.js"), "utf8")
-  const reads = [...source.matchAll(/readResults\(path\.join\(__dirname, "([^"]+)"\)\)/g)]
+  // The folder as a literal, or - where one step serves the 4.3B and the 4"
+  // (2026-10-31) - as a variable set per board; either way the same words
+  // must be cleared first.
+  const reads = [...source.matchAll(/readResults\(path\.join\(__dirname, ("[^"]+"|[A-Za-z_.]+)\)\)/g)]
   expect(reads.length, "the suites that report through results.json").toBeGreaterThanOrEqual(5)
 
   let previous = 0
   for (const read of reads) {
     const dir = read[1]
-    const clear = source.indexOf(`clearResults(path.join(__dirname, "${dir}"))`, previous)
+    const clear = source.indexOf(`clearResults(path.join(__dirname, ${dir}))`, previous)
     const run = source.lastIndexOf('await run("node"', read.index)
     expect(clear, `${dir}: cleared at all`).toBeGreaterThan(-1)
     expect(clear, `${dir}: cleared before its suite runs, not after`).toBeLessThan(run)

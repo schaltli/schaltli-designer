@@ -66,7 +66,11 @@ const { instanceAt, deviceRecovery } = require("../device-mqtt")
 
 const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const OUT_DIR = path.join(__dirname, "report")
+// --report <dir> where two boards run this at once (hil/test-all.js's
+// lanes, the 4.3B and the 4" since 2026-10-30): each its own pictures and
+// results.json. Without it, the folder beside this file, as always.
+const REPORT_ARG = process.argv.indexOf("--report")
+const OUT_DIR = REPORT_ARG > 0 ? path.resolve(process.argv[REPORT_ARG + 1]) : path.join(__dirname, "report")
 const IMG_DIR = path.join(OUT_DIR, "images")
 
 function parseArgs(argv) {

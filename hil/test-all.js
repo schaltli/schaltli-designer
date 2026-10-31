@@ -62,6 +62,17 @@ const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zi
 // The 4.3B is a second, separate device on the network - not another mode
 // of the knob - so it has its own address.
 const WAVESHARE_4V3B_DEVICE = process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117"
+// The Waveshare 4" (tasks/waveshare-4-plan.md, 2026-10-31): the 4.3B's
+// firmware on a 480 x 480 square, so the 4.3B's suites, in a lane of its
+// own ("ws4").
+const WAVESHARE_4_DEVICE = process.env.HIL_WAVESHARE_4_DEVICE || "192.168.1.122"
+// The RGB boards, for the suites written for the 4.3B that run on both: the
+// lane, the address, the name in a heading, and what the pixel-clock check
+// compares the default with (the 4"'s link drops altogether at 16 MHz).
+const RGB_BOARDS = [
+  ["4v3b", WAVESHARE_4V3B_DEVICE, "4.3B", []],
+  ["ws4", WAVESHARE_4_DEVICE, '4"', ["--compare", "12000000"]],
+]
 const PAPERS3_DEVICE = process.env.HIL_PAPERS3_DEVICE || "192.168.1.118"
 // The Android app repo, checked out alongside this one. Its arc-rasterizer
 // unit test is the only step here that needs no device at all - see the
@@ -492,6 +503,7 @@ async function main() {
   for (const board of [
     { name: "knob", device: WAVESHARE_DEVICE, orchestrator: "hil/waveshare/orchestrator.js", report: "waveshare/report", extra: ["--screens-only"] },
     { name: "4v3b", device: WAVESHARE_4V3B_DEVICE, orchestrator: "hil/waveshare4v3b/orchestrator.js", report: "waveshare4v3b/report", extra: [] },
+    { name: "ws4", device: WAVESHARE_4_DEVICE, orchestrator: "hil/waveshare4v3b/orchestrator.js", report: "waveshare4/report", extra: ["--report", path.join(__dirname, "waveshare4/report")] },
   ]) step(board.name, async () => {
     console.log(`
 === ${board.name} layout containers (device: ${board.device}) ===`)
@@ -533,6 +545,7 @@ async function main() {
   for (const board of [
     { name: "knob", device: WAVESHARE_DEVICE },
     { name: "4v3b", device: WAVESHARE_4V3B_DEVICE },
+    { name: "ws4", device: WAVESHARE_4_DEVICE },
     { name: "papers3", device: PAPERS3_DEVICE },
   ]) step(board.name, async () => {
     console.log(`\n=== MQTT project deploy (${board.name}, device: ${board.device}) ===`)
@@ -559,12 +572,12 @@ async function main() {
   // permanently and this asserts it, so the next person inherits a measured
   // number instead of a story. Skips loudly on its own when the device is
   // absent, and produces no report - it passes or explains itself.
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B panel bandwidth (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} panel bandwidth (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/panel-bandwidth.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/panel-bandwidth.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-bandwidth",
+        name: `waveshare-${lane}-bandwidth`,
         status: exitCode === 0 ? "PASS" : "FAIL",
         detail: exitCode === 0 ? "frame floor and swipe-frame cost within bounds" : `exit code ${exitCode} - see output above`,
       })
@@ -580,12 +593,12 @@ async function main() {
   // to 124ms with the screen byte-for-byte identical. The exactness rests on
   // a bound on how far a cross product can move across one pixel, and this
   // is what keeps that from being merely asserted.
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B arc rasterizer self-test (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} arc rasterizer self-test (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/arc-selftest.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/arc-selftest.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-arc",
+        name: `waveshare-${lane}-arc`,
         status: exitCode === 0 ? "PASS" : "FAIL",
         detail: exitCode === 0 ? "short cut and 16x sampling agree on every pixel" : `exit code ${exitCode} - see output above`,
       })
@@ -598,16 +611,16 @@ async function main() {
   // 1.15 MB bitmap from flash: 1730 ms for a 240x60 value, measured
   // 2026-09-28; 8.7 ms since large images are cached in PSRAM and drawn only
   // where the clip is (designer #23). Installs its own project.
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B value over a screen-sized icon (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} value over a screen-sized icon (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/big-icon-redraw.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/big-icon-redraw.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-big-icon",
+        name: `waveshare-${lane}-big-icon`,
         status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
         detail:
           exitCode === 2
-            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            ? `device unreachable at ${device}`
             : exitCode === 0
               ? "a value over a screen-sized icon redraws within its limit"
               : `exit code ${exitCode} - see output above`,
@@ -620,17 +633,17 @@ async function main() {
   // glass and nowhere else, a tap no more than 20 % slower for them, and a
   // tap on a node opening its popup. Grew out of the spike, so the number
   // that decided the 4.3B moves stays a measured one. Installs its own screen.
-  step("4v3b", async () => {
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
     console.log(`
-  === Waveshare 4.3B energy diagram motion (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  === Waveshare ${label} energy diagram motion (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/energy-diagram.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/energy-diagram.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-energy-motion",
+        name: `waveshare-${lane}-energy-motion`,
         status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
         detail:
           exitCode === 2
-            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            ? `device unreachable at ${device}`
             : exitCode === 0
               ? "dots and wave on the glass at >= 8 steps/s, a tap at most 20 % slower, a node's popup opens"
               : `exit code ${exitCode} - see output above`,
@@ -664,7 +677,7 @@ async function main() {
   // a text beside an object bound to the same topic kept its old value until
   // 2026-10-05, because only the bound object's rectangle was redrawn.
   // Installs its own project.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} placeholder redraw (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/placeholder-redraw.js", "--device", device], { cwd: REPO_ROOT })
@@ -686,7 +699,7 @@ async function main() {
   // change of only a combined topic's input - every picture 0 px, drawn as
   // regions on the boards that redraw parts. The PaperS3 always draws the
   // whole screen (--full). Installs its own project.
-  for (const [name, device, extra] of [["knob", WAVESHARE_DEVICE, []], ["4v3b", WAVESHARE_4V3B_DEVICE, []], ["papers3", PAPERS3_DEVICE, ["--full"]]]) step(name, async () => {
+  for (const [name, device, extra] of [["knob", WAVESHARE_DEVICE, []], ["4v3b", WAVESHARE_4V3B_DEVICE, []], ["ws4", WAVESHARE_4_DEVICE, []], ["papers3", PAPERS3_DEVICE, ["--full"]]]) step(name, async () => {
     console.log(`
 === ${name} live values (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/live-value-redraw.js", "--device", device, ...extra], { cwd: REPO_ROOT })
@@ -711,7 +724,7 @@ async function main() {
   // switch is checked by setting schaltli/state/theme, which every display
   // follows - beside the lanes it turned the others dark mid-check
   // (2026-10-13). Not in test:quick.
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) afterLanes(async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) afterLanes(async () => {
     console.log(`
 === ${name} navigator (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/navigator.js", "--device", device], { cwd: REPO_ROOT })
@@ -733,7 +746,7 @@ async function main() {
   // it, a swipe and its own button - each time back to the screen exactly.
   // A board joins this list once it announces generation 1.3 (tasks/
   // popup-screens-todo.md, Tasks 12-14).
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} popups (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/popup.js", "--device", device], { cwd: REPO_ROOT })
@@ -754,7 +767,7 @@ async function main() {
   // and a swipe down return, next goes on in the row past a hidden screen,
   // an own swipe cuts its neighbour off - pull tabs and all at 0 px. Skipped
   // where the board does not declare screen-graph yet. Installs its own project.
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} screen graph (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/screen-graph.js", "--device", device], { cwd: REPO_ROOT })
@@ -790,7 +803,7 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => localTopics(name, device, null), { quick: true })
   }
   // The charts' history (tasks/charts-firmware-plan.md F3): a board holds
@@ -850,7 +863,7 @@ async function main() {
   // All three lay and clear the recorder's retained topics on the one
   // broker, so one lane at a time: in parallel, one lane's clearing took
   // another's clock away and its presence made the others skip (2026-10-29).
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => exclusively("history-broker", () => chartsHistory(name, device)), { quick: true })
     step(name, () => exclusively("history-broker", () => chartsDraw(name, device)), { quick: true })
     step(name, () => exclusively("history-broker", () => chartsActions(name, device)), { quick: true })
@@ -862,7 +875,7 @@ async function main() {
   // F3): de-CH and de-DE, max, min, Cancel - each key pressed where
   // /api/keyboard says it lies. Installs its own project; skipped on a
   // firmware without the keyboard.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} text field (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/text-field.js", "--device", device], { cwd: REPO_ROOT })
@@ -882,7 +895,7 @@ async function main() {
   // wheels dragged and flicked on the 4.3B and the knob, buttons on the
   // PaperS3, 06:45:00 sent, Cancel sending nothing - each part worked where
   // /api/picker says it lies. Installs its own project.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} time field (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/time-field.js", "--device", device], { cwd: REPO_ROOT })
@@ -916,7 +929,7 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => scaledValues(name, device), { quick: true })
   }
 
@@ -945,7 +958,7 @@ async function main() {
 
   // The test interface wants its password (contract §6, #70): refused
   // without it and with a wrong one, answered with HIL_PASSWORD.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, async () => {
       console.log(`
 === ${name} test interface password (device: ${device}) ===`)
@@ -970,16 +983,16 @@ async function main() {
   // After the lanes: it measures the WiFi, and every other board pulling
   // snapshots at the same time made 12 MHz look no kinder than 16 (319 vs
   // 301 KB/s, 2026-10-14) while alone it was 783 vs 661.
-  afterLanes(async () => {
-    console.log(`\n=== Waveshare 4.3B pixel clock vs WiFi (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label, compare] of RGB_BOARDS) afterLanes(async () => {
+    console.log(`\n=== Waveshare ${label} pixel clock vs WiFi (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/pixel-clock-radio.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/pixel-clock-radio.js", "--device", device, ...compare], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-pixel-clock",
+        name: `waveshare-${lane}-pixel-clock`,
         status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
         detail:
           exitCode === 2
-            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            ? `device unreachable at ${device}`
             : exitCode === 0
               ? "default clock moves snapshots clearly faster than 16 MHz"
               : `exit code ${exitCode} - see output above`,
@@ -992,16 +1005,16 @@ async function main() {
   // looked past LVGL for a generator. Setup screens have no designer
   // counterpart, so nothing else here would ever render one. Draws it
   // through a debug hook and puts the project back afterwards.
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B setup screen (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} setup screen (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/setup-screen.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/setup-screen.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-setup",
+        name: `waveshare-${lane}-setup`,
         status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
         detail:
           exitCode === 2
-            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            ? `device unreachable at ${device}`
             : exitCode === 0
               ? "QR decodes to the AP, text fits, countdown changes only its line"
               : `exit code ${exitCode} - see output above`,
@@ -1012,16 +1025,16 @@ async function main() {
   // The pinch proof of concept (docs/2026-10-16-charts.md, decision 15):
   // two posted fingers drawn together, apart and side by side, told apart
   // and never paging.
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B pinch (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} pinch (device: ${device}) ===`)
     {
-      const exitCode = await run("node", ["hil/waveshare4v3b/pinch.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/pinch.js", "--device", device], { cwd: REPO_ROOT })
       summary.push({
-        name: "waveshare-4v3b-pinch",
+        name: `waveshare-${lane}-pinch`,
         status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
         detail:
           exitCode === 2
-            ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+            ? `device unreachable at ${device}`
             : exitCode === 0
               ? "pinch in, pinch out and a two-finger drag told apart, none paged"
               : `exit code ${exitCode} - see output above`,
@@ -1055,30 +1068,33 @@ async function main() {
   // Runs against the 4.3B because that is where it was proven. It takes a
   // device argument and nothing else, so pointing it at another board is a
   // one-line change once that board's DDF declares a testInterface.
-  step("4v3b", async () => {
-    console.log(`\n=== conformance (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== conformance (device: ${device}) ===`)
+    // The 4.3B's keeps the name and folder it always had.
+    const report = lane === "ws4" ? "conformance/report-ws4" : "conformance/report"
+    const name = lane === "ws4" ? "ws4-conformance" : "conformance"
     {
-      const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
+      const reachable = (await httpGetStatus(`http://${device}/snapshot.bmp`)) === 200
       if (!reachable) {
-        console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)
+        console.warn(`SKIPPED - device not reachable at http://${device}/snapshot.bmp`)
         summary.push({
-          name: "conformance",
+          name,
           status: "SKIPPED",
-          detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`,
-          report: "hil/conformance/report/index.html",
+          detail: `device unreachable at ${device}`,
+          report: `hil/${report}/index.html`,
         })
       } else {
-        clearResults(path.join(__dirname, "conformance/report"))
-        const exitCode = await run("node", ["hil/conformance/run.js", "--device", WAVESHARE_4V3B_DEVICE], {
+        clearResults(path.join(__dirname, report))
+        const exitCode = await run("node", ["hil/conformance/run.js", "--device", device, "--report", path.join(__dirname, report)], {
           cwd: REPO_ROOT,
         })
-        const results = readResults(path.join(__dirname, "conformance/report"))
+        const results = readResults(path.join(__dirname, report))
         if (!results) {
           summary.push({
-            name: "conformance",
+            name,
             status: "FAIL",
             detail: `crashed (exit code ${exitCode}) - see output above`,
-            report: "hil/conformance/report/index.html",
+            report: `hil/${report}/index.html`,
           })
         } else {
           // A type whose look the designer has changed ahead of the firmware is
@@ -1092,40 +1108,41 @@ async function main() {
           const failingTypes = [...new Set(counted.filter((r) => !r.pass).map((r) => r.screenName))]
           const waiting = pending.length > 0 ? `; pending firmware: ${pending.join(", ")}` : ""
           summary.push({
-            name: "conformance",
+            name,
             status: passed === counted.length ? "PASS" : "FAIL",
             detail:
               passed === counted.length
                 ? `${types} object type(s), ${passed}/${counted.length} cases${waiting}`
                 : `${failingTypes.join(", ")} differ - ${passed}/${counted.length} cases${waiting}`,
-            report: "hil/conformance/report/index.html",
+            report: `hil/${report}/index.html`,
           })
         }
       }
     }
   }, { quick: true })
 
-  step("4v3b", async () => {
-    console.log(`\n=== Waveshare 4.3B pixel parity (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`\n=== Waveshare ${label} pixel parity (device: ${device}) ===`)
+    const report = lane === "ws4" ? "waveshare4/report" : "waveshare4v3b/report"
     {
-      const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
+      const reachable = (await httpGetStatus(`http://${device}/snapshot.bmp`)) === 200
       if (!reachable) {
-        console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp (set HIL_WAVESHARE_4V3B_DEVICE to override)`)
-        summary.push({ name: "waveshare-4v3b-HIL", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`, report: "hil/waveshare4v3b/report/index.html" })
+        console.warn(`SKIPPED - device not reachable at http://${device}/snapshot.bmp (set HIL_device to override)`)
+        summary.push({ name: `waveshare-${lane}-HIL`, status: "SKIPPED", detail: `device unreachable at ${device}`, report: `hil/${report}/index.html` })
       } else {
-        clearResults(path.join(__dirname, "waveshare4v3b/report"))
-        const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--rebake", "--dark"], { cwd: REPO_ROOT })
-        const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
+        clearResults(path.join(__dirname, report))
+        const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", device, "--rebake", "--dark", "--report", path.join(__dirname, report)], { cwd: REPO_ROOT })
+        const results = readResults(path.join(__dirname, report))
         if (!results) {
-          summary.push({ name: "waveshare-4v3b-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/waveshare4v3b/report/index.html" })
+          summary.push({ name: `waveshare-${lane}-HIL`, status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: `hil/${report}/index.html` })
         } else {
           const passed = results.filter((r) => r.pass).length
           const worst = results.reduce((m, r) => Math.max(m, r.diffPixels || 0), 0)
           summary.push({
-            name: "waveshare-4v3b-HIL",
+            name: `waveshare-${lane}-HIL`,
             status: passed === results.length && results.length > 0 ? "PASS" : "FAIL",
             detail: `${passed}/${results.length} visual cases, worst ${worst}px`,
-            report: "hil/waveshare4v3b/report/index.html",
+            report: `hil/${report}/index.html`,
           })
         }
       }
@@ -1139,23 +1156,24 @@ async function main() {
   // shows none of them, so the check above could not see it. Runs after it
   // because it installs its own project; the next run's --rebake takes that
   // one as the installed project, which is as good as any.
-  step("4v3b", async () => {
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
     console.log(`
-  === Waveshare 4.3B text styles and wide glyphs (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  === Waveshare ${label} text styles and wide glyphs (device: ${device}) ===`)
+    const report = lane === "ws4" ? "waveshare4/report" : "waveshare4v3b/report"
     {
-      const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
+      const reachable = (await httpGetStatus(`http://${device}/snapshot.bmp`)) === 200
       if (!reachable) {
-        console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)
-        summary.push({ name: "waveshare-4v3b-text-styles", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}` })
+        console.warn(`SKIPPED - device not reachable at http://${device}/snapshot.bmp`)
+        summary.push({ name: `waveshare-${lane}-text-styles`, status: "SKIPPED", detail: `device unreachable at ${device}` })
       } else {
-        const built = await run("node", ["hil/size-scale/text-styles.js", "4v3b", "--upload", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+        const built = await run("node", ["hil/size-scale/text-styles.js", lane, "--upload", "--device", device], { cwd: REPO_ROOT })
         let detail = `could not build or install the screen (exit code ${built})`
         let ok = false
         if (built === 0) {
-          clearResults(path.join(__dirname, "waveshare4v3b/report"))
-          const zip = path.join(__dirname, "size-scale", "out", "text-styles-4v3b.zip")
-          await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--project", zip], { cwd: REPO_ROOT })
-          const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
+          clearResults(path.join(__dirname, report))
+          const zip = path.join(__dirname, "size-scale", "out", `text-styles-${lane}.zip`)
+          await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", device, "--project", zip, "--report", path.join(__dirname, report)], { cwd: REPO_ROOT })
+          const results = readResults(path.join(__dirname, report))
           if (results) {
             const passed = results.filter((r) => r.pass).length
             ok = passed === results.length && results.length > 0
@@ -1164,7 +1182,7 @@ async function main() {
             detail = "the comparison crashed - see output above"
           }
         }
-        summary.push({ name: "waveshare-4v3b-text-styles", status: ok ? "PASS" : "FAIL", detail })
+        summary.push({ name: `waveshare-${lane}-text-styles`, status: ok ? "PASS" : "FAIL", detail })
       }
     }
   })
@@ -1352,6 +1370,7 @@ async function main() {
   // has had power save off since 2026-08-24 but does not report it.
   const readerBoards = [
     { name: "4v3b", device: WAVESHARE_4V3B_DEVICE },
+    { name: "ws4", device: WAVESHARE_4_DEVICE },
     { name: "papers3", device: PAPERS3_DEVICE },
     { name: "knob", device: WAVESHARE_DEVICE },
   ]
@@ -1431,8 +1450,8 @@ async function main() {
   // a restart that was not by software. Restarts the board, like the one
   // above. Each board is also sent the other's build first, which it must
   // refuse (docs/2026-09-15-firmware-ota.md, decision 5).
-  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", papers3: "m5stack-papers3", knob: "waveshare-knob-touch-lcd-1v8" }
-  const foreignEnvs = { "4v3b": "m5stack-papers3", papers3: "waveshare-touch-lcd-4v3b", knob: "waveshare-touch-lcd-4v3b" }
+  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", ws4: "waveshare-touch-lcd-4", papers3: "m5stack-papers3", knob: "waveshare-knob-touch-lcd-1v8" }
+  const foreignEnvs = { "4v3b": "m5stack-papers3", ws4: "waveshare-touch-lcd-4v3b", papers3: "waveshare-touch-lcd-4v3b", knob: "waveshare-touch-lcd-4v3b" }
   for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) step(board.name, async () => {
     console.log(`\n=== firmware upload lands (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run(

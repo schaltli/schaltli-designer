@@ -40,7 +40,7 @@ const { DEVICES: ALL_DEVICES, deviceJsonOf, fontsOf, themeOf, upload } = require
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const OUT_DIR = path.join(__dirname, "out")
-const DEVICES = { knob: ALL_DEVICES.knob, "4v3b": ALL_DEVICES["4v3b"] }
+const DEVICES = { knob: ALL_DEVICES.knob, "4v3b": ALL_DEVICES["4v3b"], ws4: ALL_DEVICES.ws4 }
 const STEPS = ["s", "m", "l"]
 
 // Values, so the bar is part full and the controls show a state; the

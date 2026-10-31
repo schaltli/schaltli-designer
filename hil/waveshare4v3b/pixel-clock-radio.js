@@ -20,12 +20,15 @@
 // The picture at a given clock is not something it can judge - 8 MHz moved
 // snapshots fastest of all and showed nothing but white on the glass.
 //
-// Run: node hil/waveshare4v3b/pixel-clock-radio.js --device <ip>
+// Run: node hil/waveshare4v3b/pixel-clock-radio.js --device <ip> [--compare <hz>]
 // Exit 0 pass, 1 fail, 2 device not reachable (skipped, loudly).
 
 const http = require("http")
 
-const COMPARE_HZ = 16000000
+// What the default is held against: Waveshare's own 16 MHz, or --compare.
+// The 4" compares with 12 (2026-10-31): at 16 its link drops altogether, so
+// there would be nothing to measure and no way to set the clock back.
+let COMPARE_HZ = 16000000
 const ROUNDS = 3
 const PER_SETTING = 2
 // The default has to win by this much on the medians. The gap depends on
@@ -38,6 +41,7 @@ function parseArgs(argv) {
   const args = { device: process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117" }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
+    else if (argv[i] === "--compare") COMPARE_HZ = Number(argv[++i])
   }
   return args
 }
