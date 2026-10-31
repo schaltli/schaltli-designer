@@ -120,7 +120,7 @@ async function rebake(page, deviceZip, { migrate = false } = {}) {
   // The fonts the DEVICE has. Without them the export bakes a fallback
   // canvas font while the reference draws real BDF glyphs, and the two
   // disagree for a reason that belongs to neither.
-  project.fonts = withDdfFontData(project.fonts)
+  project.fonts = withDdfFontData(project.fonts, project)
   for (const asset of project.assets || []) {
     if (asset.data || !asset.path) continue
     const file = source.file(asset.path)
@@ -175,7 +175,7 @@ async function loadProject(zipBuffer) {
   const entry = zip.file("project.json")
   if (!entry) throw new Error("the project zip has no project.json")
   const project = JSON.parse(await entry.async("string"))
-  project.fonts = withDdfFontData(project.fonts)
+  project.fonts = withDdfFontData(project.fonts, project)
   project.assets = await withEmbeddedAssetData(project, zip)
   return project
 }

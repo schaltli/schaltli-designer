@@ -1,5 +1,6 @@
 // Where this board's BDF font bytes come from: the firmware repo's own
-// ddf-source-waveshare4v3b, which is what the device serves and loads.
+// ddf-source-waveshare4v3b (or ddf-source-waveshare4 for the 4"), which is
+// what the device serves and loads.
 //
 // A copy of hil/waveshare/ddf-fonts.js pointed at the other DDF, rather than
 // a shared module taking a directory - the two boards' suites are meant to be
@@ -16,11 +17,30 @@ const fs = require("fs")
 const path = require("path")
 
 // SCHALTLI_FIRMWARE_REPO where the firmware is not beside this repo (a git worktree).
-const DDF_SOURCE_DIR = path.join(process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "../../../schaltli-firmware"), "ddf-source-waveshare4v3b")
+const FIRMWARE = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "../../../schaltli-firmware")
+const DDF_SOURCE_DIR = path.join(FIRMWARE, "ddf-source-waveshare4v3b")
+// The RGB boards this suite runs on, since 2026-10-30 the 4" beside the
+// 4.3B: one firmware, so one orchestrator, but each its own fonts.
+const RGB_SOURCES = ["ddf-source-waveshare4v3b", "ddf-source-waveshare4"]
 
-// Returns a copy of `fonts` with `data` filled in from the DDF source.
+// The DDF source of the board a project was made for. A project names no
+// device, but its screen tells the two apart (800 x 480, 480 x 480).
+function sourceDirFor(project) {
+  if (!project || !project.screenWidth) return DDF_SOURCE_DIR
+  for (const name of RGB_SOURCES) {
+    const devicePath = path.join(FIRMWARE, name, "device.json")
+    if (!fs.existsSync(devicePath)) continue
+    const { screen } = JSON.parse(fs.readFileSync(devicePath, "utf8"))
+    if (screen && screen.width === project.screenWidth && screen.height === project.screenHeight) return path.join(FIRMWARE, name)
+  }
+  return DDF_SOURCE_DIR
+}
+
+// Returns a copy of `fonts` with `data` filled in from the DDF source - the
+// one of the board `project` is for, the 4.3B's without one.
 // Fonts that already carry their own bytes are left alone.
-function withDdfFontData(fonts) {
+function withDdfFontData(fonts, project) {
+  const DDF_SOURCE_DIR = sourceDirFor(project)
   const devicePath = path.join(DDF_SOURCE_DIR, "device.json")
   if (!fs.existsSync(devicePath)) {
     throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out schaltli-firmware alongside this repo`)

@@ -1,5 +1,5 @@
-// Proves the 4.3B's AP setup screen: a QR code a phone can scan, text that
-// fits beside it, and a countdown that only ever changes its own line.
+// Proves the AP setup screen of the RGB boards (the 4.3B, the 4"): a QR code a phone can scan, text that
+// fits beside or below it, and a countdown that only ever changes its own line.
 //
 // Why this is a test and not a note (2026-09-15): the board had no QR code at
 // all. It inherited IDisplay's text-only default, because the only generator
@@ -29,7 +29,12 @@
 const http = require("http")
 const jsQR = require("jsqr")
 
-const EXPECTED_QR = "WIFI:S:waveshare-touch-lcd-4v3b-setup;T:WPA;P:schaltli12345;;"
+const { loadDdf } = require("../conformance/ddf")
+
+// The AP a board opens is named after its device id (WiFiSetupServer), so
+// the expected code follows the board under test - the 4.3B, or since
+// 2026-10-30 the 4" on the same firmware.
+const expectedQr = (deviceId) => `WIFI:S:${deviceId}-setup;T:WPA;P:schaltli12345;;`
 // The outer band that must stay black. Below the adapter's 32px margin, so a
 // line that ends exactly at the margin still passes.
 const EDGE_PX = 16
@@ -122,13 +127,29 @@ async function main() {
     if (!ok) failures.push(what)
   }
 
+  // Before the screen is drawn: the description comes over the broker, and
+  // a board holding its setup screen was seen not to send it in time.
+  const want = expectedQr((await loadDdf(device)).deviceId)
+
+  // A pattern drawn on a panel that has gone dark must light it: while one
+  // is up the board reads no touch, so nothing else could (the 4"'s
+  // measuring square came up black, 2026-10-31). Waited for when the board
+  // blanks soon enough to wait for; the debug page says when.
+  const debugText = async () => (await request("GET", `${base}/api/debug`)).body.toString("utf8")
+  const blankAfter = Number((/blanking after (\d+) s/.exec(await debugText()) || [])[1] || 0)
+  const waitForDark = blankAfter > 0 && blankAfter <= 30
+
   try {
+    if (waitForDark) await new Promise((r) => setTimeout(r, (blankAfter + 3) * 1000))
+    const wasDark = /display off/.test(await debugText())
     const first = await drawAndSnapshot(base, 119)
     const { width, height } = first
+    if (wasDark) check(/display on/.test(await debugText()), "0. drawn on a dark panel, the setup screen turned the backlight on")
+    else console.log(`  (0. not checked: the panel did not go dark${waitForDark ? "" : `, blanking after ${blankAfter} s`})`)
 
     const code = jsQR(first.rgba, width, height)
     check(code !== null, "1a. the snapshot holds a QR code")
-    if (code) check(code.data === EXPECTED_QR, `1b. it decodes to ${EXPECTED_QR} (got ${code.data})`)
+    if (code) check(code.data === want, `1b. it decodes to ${want} (got ${code.data})`)
 
     let edgeLit = 0
     for (let y = 0; y < height; y++)
@@ -153,9 +174,33 @@ async function main() {
       const rows = maxY - minY + 1
       check(rows <= ONE_LINE_PX, `3b. it changed one line's worth of rows (${rows}, rows ${minY}-${maxY})`)
       if (code) {
+        // Right of the code where the text stands beside it (the 4.3B), below
+        // it where the panel is too narrow for that and the text goes under
+        // it (the 4").
         const qrRight = Math.max(code.location.topRightCorner.x, code.location.bottomRightCorner.x)
-        check(minX > qrRight, `3c. all of it right of the QR code (leftmost change x=${minX}, code ends x=${Math.round(qrRight)})`)
+        const qrBottom = Math.max(code.location.bottomLeftCorner.y, code.location.bottomRightCorner.y)
+        check(minX > qrRight || minY > qrBottom,
+          `3c. all of it beside or below the QR code (first change x=${minX} y=${minY}, code ends x=${Math.round(qrRight)} y=${Math.round(qrBottom)})`)
       }
+    }
+
+    // The way into setup: the countdown a held finger sees. Its second line
+    // ran off both sides of the 4"'s 480 (2026-10-31), seen only by hand.
+    const held = await request("GET", `${base}/api/debug?set=holdcountdown=3`)
+    if (!held.body.toString("utf8").includes("hold countdown drawn")) {
+      check(false, "4. the firmware draws the hold countdown on request (?set=holdcountdown, from 2026-10-31)")
+    } else {
+      const shot = await request("GET", `${base}/snapshot.bmp`)
+      const hold = bmpToRgba(shot.body)
+      let holdEdge = 0, holdLit = 0
+      for (let y = 0; y < hold.height; y++)
+        for (let x = 0; x < hold.width; x++) {
+          if (!lit(hold, x, y)) continue
+          holdLit++
+          if (x < EDGE_PX || x >= hold.width - EDGE_PX || y < EDGE_PX || y >= hold.height - EDGE_PX) holdEdge++
+        }
+      check(holdLit > 0 && holdEdge === 0,
+        `4. the setup hold's countdown fits the panel (${holdLit} pixels drawn, ${holdEdge} within ${EDGE_PX}px of the edge)`)
     }
   } finally {
     const restore = await request("GET", `${base}/api/debug?set=aspect=0`)

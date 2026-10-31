@@ -37,6 +37,7 @@ const OUT_DIR = path.join(__dirname, "out")
 const DEVICES = {
   knob: { source: "ddf-source", host: "192.168.1.114" },
   "4v3b": { source: "ddf-source-waveshare4v3b", host: "192.168.1.117" },
+  ws4: { source: "ddf-source-waveshare4", host: "192.168.1.122" },
   papers3: { source: "ddf-source-papers3", host: "192.168.1.118" },
 }
 

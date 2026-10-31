@@ -12,8 +12,9 @@
 //   node hil/test-interface.js check --device <ip[:port]> 401 without the password
 //                                                     and with a wrong one, 200 with it
 //
-// Without --port: every board of this bench (hil/README.md: knob COM4, 4.3B
-// COM3, PaperS3 COM5). The password is HIL_PASSWORD (hil/device-auth.js), and
+// Without --port: every board of this bench (hil/README.md: 4.3B COM3,
+// PaperS3 COM5, the 4" COM10 - in the USB port the knob had until
+// 2026-10-30; the knob is reached with --port COM4 where it is plugged in). The password is HIL_PASSWORD (hil/device-auth.js), and
 // `on` writes a new one into .env.local when there is none yet.
 //
 // Through PlatformIO's own Python and its pyserial, with DTR and RTS held
@@ -25,7 +26,7 @@ const fs = require("fs")
 const os = require("os")
 const path = require("path")
 
-const BENCH = { COM4: "knob", COM3: "4.3B", COM5: "PaperS3" }
+const BENCH = { COM3: "4.3B", COM5: "PaperS3", COM10: "4\"" }
 const ENV_FILE = path.join(__dirname, "..", ".env.local")
 
 function python() {

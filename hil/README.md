@@ -56,7 +56,17 @@ results are directly comparable:
 - `waveshare4v3b/setup-screen.js` - the same setup-screen check for the
   4.3B, which is an LCD and so has no refresh rule to assert; instead it
   checks the text fits beside the code and a countdown redraw changes only
-  its own line. Also in the section below.
+  its own line. Also in the section below. Since 2026-10-30 for the 4" as
+  well (`--device`), whose square is too narrow for text beside the code and
+  stacks it underneath; the code it expects follows the board's device id.
+- `touch-corners.js --device <ip>` - with a person in it, so not in
+  `test:all`: five buttons, the four corners and the middle, each sending
+  its name over MQTT, tapped by hand in order; each must arrive in its turn.
+  The one check of a touch panel's coordinates against the display's -
+  `/api/touch`, which every other touch check uses, hands the firmware
+  coordinates that never went through the controller. Run it on a new board
+  and after any change to the touch path. The RGB boards also log
+  `[touch] down x,y` and `up` on serial, for a tap that hit nothing.
 - `placeholder-redraw.js --device <ip>` - a text whose placeholder names a
   topic (`Tank {topic:…:F1} %`) follows it through the partial redraw of
   the knob and the 4.3B, beside an object bound to the same topic and alone,
@@ -190,7 +200,7 @@ through `NODE_OPTIONS`. A script run by hand loads it with `node -r
 Switched on once per device, by someone who has it in hand:
 
 ```
-node hil/test-interface.js on            # the boards, over USB (COM3, COM4, COM5); writes HIL_PASSWORD if there is none
+node hil/test-interface.js on            # the boards, over USB (COM3, COM5, COM10); writes HIL_PASSWORD if there is none
 node hil/test-interface.js check --device 192.168.1.117   # 401 without it and with a wrong one, 200 with it
 node hil/android/test-interface.js on    # the app, over the cable
 ```
