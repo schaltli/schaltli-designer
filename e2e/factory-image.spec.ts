@@ -119,7 +119,7 @@ test.describe("factory image", () => {
   test("real build artifacts merge into a sound image", () => {
     const firmware = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "schaltli-firmware")
     const bootApp0 = path.join(os.homedir(), ".platformio", "packages", "framework-arduinoespressif32", "tools", "partitions", "boot_app0.bin")
-    const envs = ["waveshare-knob-touch-lcd-1v8", "waveshare-touch-lcd-4v3b", "m5stack-papers3"]
+    const envs = ["waveshare-knob-touch-lcd-1v8", "waveshare-touch-lcd-4v3b", "waveshare-touch-lcd-4", "m5stack-papers3"]
       .map((env) => path.join(firmware, ".pio", "build", env))
       .filter((dir) => FACTORY_PARTS.every((p) => p.key === "otaSelect" || fs.existsSync(path.join(dir, p.file))))
     if (!envs.length || !fs.existsSync(bootApp0)) {

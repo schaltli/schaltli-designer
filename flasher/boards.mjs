@@ -1,6 +1,6 @@
 // The boards a person can buy, as a person recognises them: the exact product
-// name, something visible to tell it apart from the other two, and what has to
-// appear on its glass once it is flashed. The chip cannot be asked - all three
+// name, something visible to tell it apart from the others, and what has to
+// appear on its glass once it is flashed. The chip cannot be asked - all of them
 // are ESP32-S3 with 16 MB - so this list is the only thing standing between a
 // buyer and the wrong firmware (docs/2026-09-18-factory-image.md, decision 8).
 //
@@ -23,6 +23,16 @@ export const BOARDS = [
     name: "Waveshare ESP32-S3 Touch LCD 4.3B",
     hint: "800 × 480 capacitive touch, screw terminals on the back for 7–36 V.",
     expect: "a setup screen with a QR code, and a WiFi network of its own the QR code leads to",
+  },
+  {
+    id: "waveshare-touch-lcd-4",
+    name: 'Waveshare ESP32-S3 Touch LCD 4"',
+    hint: "Square screen, 480 × 480, screw terminals on the back for 7–36 V. «Rev 4.0» is printed on the back.",
+    expect: "a setup screen with a QR code, and a WiFi network of its own the QR code leads to",
+    // The V3 of the same name has another IO expander (a TCA9554) where the
+    // panel's power and reset come from, and this firmware stops at boot on
+    // it with a black screen (schaltli-firmware, waveshare4/BoardProfile.h).
+    note: "Only the board revision with «Rev 4.0» on the back. An older V3 looks the same from the front but stays dark with this firmware.",
   },
   {
     id: "m5stack-papers3",

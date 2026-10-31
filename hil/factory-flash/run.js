@@ -39,6 +39,7 @@ const { mergeFactoryImage, verifyFactoryImage, findDeviceMarkers, refuseChip } =
 const ENVS = {
   "waveshare-knob-1v8": "waveshare-knob-touch-lcd-1v8",
   "waveshare-touch-lcd-4v3b": "waveshare-touch-lcd-4v3b",
+  "waveshare-touch-lcd-4": "waveshare-touch-lcd-4",
   "m5stack-papers3": "m5stack-papers3",
 }
 

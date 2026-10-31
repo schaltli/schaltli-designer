@@ -20,12 +20,13 @@ const ROOT = path.join(__dirname, "..")
 const KNOB = "waveshare-knob-1v8"
 const LCD = "waveshare-touch-lcd-4v3b"
 const PAPER = "m5stack-papers3"
+const WS4 = "waveshare-touch-lcd-4"
 // A board the page knows nothing about, as a release would carry it if the
 // firmware grew one before flasher/boards.mjs did.
 const STRANGER = "some-future-board"
 
 const RELEASES = [
-  { tag: "fw-2026.09.25.1", publishedAt: "2026-09-25T09:00:00Z", devices: [LCD, KNOB, STRANGER] },
+  { tag: "fw-2026.09.25.1", publishedAt: "2026-09-25T09:00:00Z", devices: [LCD, KNOB, STRANGER, WS4] },
   { tag: "fw-2026.09.24.2", publishedAt: "2026-09-24T18:00:00Z", devices: [LCD] },
   // From before the rename: it speaks screenbee/..., and a board flashed with
   // it never appears in the designer. The page must not offer it at all.
@@ -136,6 +137,12 @@ test.describe("flasher page", () => {
     // Nothing is chosen for the visitor. The chip cannot be asked which board
     // it is, so a preselected board would be a wrong flash waiting for an
     // impatient finger - the button stays out of reach until someone picks one.
+    // The 4" shares the 4.3B's name up to the size and its screw terminals;
+    // what tells a buyer which is which is the shape and the revision.
+    const square = page.getByTestId(`board-${WS4}`)
+    await expect(square).toContainText('Waveshare ESP32-S3 Touch LCD 4"')
+    await expect(square).toContainText("480 × 480")
+    await expect(square).toContainText("Rev 4.0")
     for (const id of [LCD, KNOB, PAPER]) {
       await expect(page.getByTestId(`board-${id}`)).toHaveAttribute("aria-pressed", "false")
     }
@@ -148,6 +155,10 @@ test.describe("flasher page", () => {
     await page.getByTestId(`board-${LCD}`).click()
     await expect(page.getByTestId(`board-${LCD}`)).toHaveAttribute("aria-pressed", "true")
     await expect(page.getByTestId(`board-${KNOB}`)).toHaveAttribute("aria-pressed", "false")
+
+    // A V3 looks the same from the front and stays dark with this firmware.
+    await square.click()
+    await expect(page.getByTestId("board-note")).toContainText("V3")
   })
 
   test("a board the page has never heard of is still offered, under its bare id", async ({ page }) => {
