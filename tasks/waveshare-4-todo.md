@@ -309,3 +309,17 @@ German (as the forum writes), humanizer pass, the user posts it.
 
 ## Checkpoint D
 - [ ] Sample project on the glass against the demo van; post reviewed by the user
+
+## Status 2026-10-31 (afternoon)
+
+- T9 in part (designer 2d8c438): flasher entry with the V3 note,
+  factory-flash env, flasher-page and factory-image specs green (the real
+  4" build merges into a sound image). Open: `hil/factory-flash/run.js` on
+  the board (back up NVS 0x9000/0x5000 first, write it back after), release
+  and manifest by the user.
+- T10 (designer dc304a9): `handbuch/geraete/waveshare-4.md` and the lists;
+  power from the user (green terminal block, 7-36 V, screw terminals);
+  humanizer, handbook build and handbook-labels green. The homepage showcase
+  stays three boards.
+- The 4" stopped answering HTTP after test:all (ping fine) and COM10 is gone:
+  waiting for the user to plug it back in.
