@@ -316,8 +316,9 @@ German (as the forum writes), humanizer pass, the user posts it.
   factory-flash env, flasher-page and factory-image specs green (the real
   4" build merges into a sound image). `hil/factory-flash/run.js` PASS on the
   4" (erased, flashed, booted, setup AP on the air; NVS written back after).
-  Open: release and manifest by the user, then «Install release» and
-  `firmware-designer.js --source release`.
+  Released in fw-2026.10.31.1 (designer 4d84ff9, the manifest has the 4"'s
+  image and factory image); `firmware-designer.js --source release` PASS on
+  the 4", app0 -> app1.
 - The 4" back on its cable: panel-bandwidth PASS at 17.6 ms (floor 10.8).
 - T10 (designer dc304a9): `handbuch/geraete/waveshare-4.md` and the lists;
   power from the user (green terminal block, 7-36 V, screw terminals);
