@@ -906,7 +906,12 @@ const SPECIMENS = {
   // the designer does.
   navigator: {
     build: (c) => {
-      const strip = Math.round(c.screen.width / 10);
+      // The designer's own thickness (lib/navigator.ts NAVIGATOR_SIZES,
+      // iconsAndText), which placing a navigator gives it and the firmware
+      // draws the strip at. It was a tenth of the screen's width until
+      // 2026-10-30: 80 on the 4.3B by coincidence, 48 on the 4", where the
+      // preview drew the stored 48 and the board its 80.
+      const strip = 80;
       return {
         assets: [RING],
         screen: { iconAssetId: RING.id },
