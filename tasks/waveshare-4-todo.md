@@ -106,13 +106,13 @@ checked against WiFi like the 4.3B's. Measure px/mm on the glass and correct
 the DDF if it differs.
 
 **Acceptance criteria:**
-- [ ] Test pattern correct (photo), backlight switches
-- [ ] No flicker with WiFi transmitting (a `pixel-clock-radio.js` run for this board)
-- [ ] px/mm measured and in the DDF
+- [x] Test pattern correct (photo), backlight switches - judged on the glass by the user (no photo); colours and edges right, display-off and wake work; the PWM is inverted against the README
+- [x] No flicker with WiFi transmitting (a `pixel-clock-radio.js` run for this board) - at 12 MHz, not the BSP's 16
+- [x] px/mm measured and in the DDF - 6.73 x 6.83
 
 **Verification:**
-- [ ] `node hil/waveshare4/pixel-clock-radio.js --device <ip>` green
-- [ ] Manual: photo of the test pattern
+- [x] `node hil/waveshare4v3b/pixel-clock-radio.js --device <ip>` green (the 4.3B's script, it takes any board)
+- [x] Manual: the test pattern judged on the glass
 
 **Dependencies:** T3
 **Files likely touched:** `schaltli-firmware/src/boards/waveshare4/*`, `hil/waveshare4/pixel-clock-radio.js`
@@ -126,13 +126,13 @@ QR code; the 5 s hold to get back into setup. The setup-screen check made to
 take this board.
 
 **Acceptance criteria:**
-- [ ] A tap lands where it is drawn, in all four corners
-- [ ] Setup screen: QR code and text fit on 480 × 480; the countdown redraws only its line
-- [ ] 5 s hold with a still finger opens setup, a moving finger restarts the count
+- [x] A tap lands where it is drawn, in all four corners (`hil/touch-corners.js`, by hand)
+- [x] Setup screen: QR code and text fit on 480 × 480; the countdown redraws only its line - stacked, text under the code
+- [x] 5 s hold with a still finger opens setup, a moving finger restarts the count (by hand; its countdown no longer cut off)
 
 **Verification:**
-- [ ] `node hil/waveshare4v3b/setup-screen.js --device <ip>` (or its generalised form) green
-- [ ] Manual: set up WiFi and MQTT from a phone through the QR code
+- [x] `node hil/waveshare4v3b/setup-screen.js --device <ip>` (or its generalised form) green
+- [x] Manual: set up WiFi and MQTT from a phone through the QR code
 
 **Dependencies:** T4
 **Files likely touched:** `schaltli-firmware/src/boards/waveshare4/*`, `hil/waveshare4v3b/setup-screen.js`
@@ -145,21 +145,37 @@ test interface on the 4". A project deployed from the designer shows exactly
 what the designer shows.
 
 **Acceptance criteria:**
-- [ ] `hil/conformance/run.js` against the board: 0 px, light and dark
-- [ ] Firmware upload lands in the other slot; the 4.3B's image is refused without a restart, and the other way round
-- [ ] Test interface off from the factory, on with the password (`hil/test-interface.js` knows COM10)
+- [x] `hil/conformance/run.js` against the board: 0 px, light and dark (conformance 64/64 light; the orchestrator dark, text styles 12/12 and `--rebake --dark` 2/2)
+- [x] Firmware upload lands in the other slot; the 4.3B's image is refused without a restart, and the other way round
+- [x] Test interface off from the factory, on with the password (`hil/test-interface.js` knows COM10)
 
 **Verification:**
-- [ ] `node -r ./hil/device-auth.js hil/conformance/run.js --device <ip>`
-- [ ] `node hil/firmware-upload.js --device <ip> --env waveshare-touch-lcd-4 --foreign-env waveshare-touch-lcd-4v3b`
+- [x] `node -r ./hil/device-auth.js hil/conformance/run.js --device <ip>`
+- [x] `node hil/firmware-upload.js --device <ip> --env waveshare-touch-lcd-4 --foreign-env waveshare-touch-lcd-4v3b`
 
 **Dependencies:** T5
 **Files likely touched:** `schaltli-firmware/src/boards/waveshare4/DeviceInfo.h`, `hil/test-interface.js`, `hil/boards-network.js`
 **Estimated scope:** M
 
 ## Checkpoint B
-- [ ] Conformance 0 px; firmware upload lands, foreign image refused
+- [x] Conformance 0 px; firmware upload lands, foreign image refused; an MQTT deploy lands (`deploy-check.js`)
 - [ ] Review with the user
+
+## Status 2026-10-31 (morning)
+
+T4-T6 done (schaltli-firmware 5f55978, 4d9e6e9, 7fdedb8; designer 451cff6,
+a40516f, e55a91e). The 4" is on 192.168.1.122. Found and fixed on the way:
+the conformance navigator specimen's width (80 on the 4.3B by chance), the
+setup screen and the hold countdown running off a 480 px panel, a measuring
+pattern on a dark panel staying dark.
+
+Open, for the user to weigh:
+- The 4"'s WiFi: 170-300 KB/s for snapshots where the 4.3B on the same
+  access point at the same signal does 700+, and it is touchy about how it
+  lies (36 against 318 KB/s from turning it over). Enough for what it does.
+  Once, after a failed upload, it answered ping but not HTTP until reset.
+- `4v3b-charts-draw` failed once in test:quick (the NowPoint did not pulse
+  between two snapshots) and passed alone right after.
 
 ## Phase 2: parity
 
