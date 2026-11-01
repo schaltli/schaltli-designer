@@ -115,6 +115,20 @@ Added 2026-11-01 (spec decisions 11 and 12) after T5's first step - the
 
 **Dependencies:** T4; before the rest of T5
 
+### Found on the way (T4b): the install gate opened when it could not look
+
+`ProjectInstaller::peekProjectDeviceId()` returned "" for "could not read
+the project" as for "names no device", and both gates (test-interface upload,
+MQTT deploy) let "" through. Under load the 4.3B installed
+hil/internal-heap.js's project for another device. Fixed 2026-11-01 (user):
+`readProjectDeviceId()` returns false when it cannot read - each reason said on
+the serial line - and both gates refuse then; a project without a deviceId
+still installs. Proved first that it was open: on the 4" an unreadable
+project.json got past the gate and, its install failing, wiped the board's
+project. Permanent: `hil/install-gate.js` in every board's lane (quick);
+PASS on 4", 4.3B and Knob. The MQTT deploy's gate is the same function and is
+not driven by that test.
+
 ## Phase 2: switching
 
 ## Task 5: The colour boards' DDFs

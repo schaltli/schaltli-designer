@@ -429,6 +429,18 @@ SKIPPED without a broker on `HIL_MQTT_URL` (default `mqtt://localhost:1883`),
 and when another recorder is recording on that broker - two would write the
 same topics.
 
+### A board's install gate
+
+`node hil/install-gate.js --device <ip>` (each board's lane, quick) uploads
+two projects to the test interface that must not install: one whose
+project.json does not match its zip's CRC, so its deviceId cannot be read,
+and one for another device. Both are to be refused at the gate - the answer
+names the reason - before /PROJECT is touched, and the board must not
+restart. Added 2026-11-01: «could not read» passed as «names no device» and
+the 4.3B under load installed a project for another device; on the 4" the
+unreadable one got past the gate and wiped the board's project when its
+install then failed.
+
 ### A board's chart, pixel for pixel
 
 `node hil/charts-draw.js --device <ip>` (each board's lane, quick) lays a

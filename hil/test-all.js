@@ -748,6 +748,26 @@ async function main() {
     })
   })
 
+  // The install gate (2026-11-01): a project whose deviceId cannot be read is
+  // refused before /PROJECT is touched, as one for another device is. Until
+  // then "could not read" passed as "names no device", and the 4.3B under
+  // load installed a project for another device.
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+    console.log(`
+=== ${name} install gate (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/install-gate.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-install-gate`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}`
+          : exitCode === 0
+            ? "an unreadable project and one for another device refused at the gate, no restart"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }, { quick: true })
+
   // Popups (docs/2026-10-06-popup-screens.md): opened by a tap, the screen
   // underneath set back, the popup's controls working, closed by a tap beside
   // it, a swipe and its own button - each time back to the screen exactly.
