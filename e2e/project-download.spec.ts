@@ -5,8 +5,9 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 import { SYSTEM_GENERATION_STRING } from "../lib/system-generation"
 
 // "Download Project" writes the designer's *editable* project - the
-// original assets and the BDF font data, everything needed to keep working
-// on it - as opposed to "Export Project", which bakes assets into device
+// original assets and the BDF font data (its own fonts in fonts/, the
+// device's inside _source/ddf.zip since 2026-11-01), everything needed to
+// keep working on it - as opposed to "Export Project", which bakes assets into device
 // bitmaps and drops the font data entirely (the device already has its
 // fonts from its DDF). This had no coverage at all, so neither the
 // round-trip nor the zip's own encoding was ever asserted.
@@ -57,10 +58,19 @@ test.describe("Download Project", () => {
     // (the export only carries font metadata), and there are no baked
     // screen bitmaps.
     expect(names).toContain("project.json")
-    expect(names.some((n) => n.startsWith("fonts/") && n.endsWith(".bdf"))).toBe(true)
     expect(names.some((n) => n.endsWith(".pbm") || n.endsWith(".pgm"))).toBe(false)
 
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    // Every font's data travels once: in fonts/ when it is the project's own,
+    // otherwise in the embedded DDF at its path, which is where opening the
+    // file takes it from (lib/project-font-data.ts, since 2026-11-01).
+    const ddfEntry = zip.file("_source/ddf.zip")
+    const ddf = ddfEntry ? await JSZip.loadAsync(await ddfEntry.async("uint8array")) : null
+    expect(project.fonts.length).toBeGreaterThan(0)
+    for (const font of project.fonts as { id: string; path: string }[]) {
+      const carried = names.includes(font.path) || ddf?.file(font.path) != null
+      expect(carried, `${font.id}'s data at ${font.path}`).toBe(true)
+    }
     expect(project.screens.length).toBeGreaterThan(0)
     // Master screens survive as themselves here - the export flattens them
     // away, this format must not.

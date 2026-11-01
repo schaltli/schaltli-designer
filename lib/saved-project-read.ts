@@ -1,3 +1,5 @@
+import { withFontData } from "./project-font-data"
+
 // Reads a saved project's newest version from /api/projects/<name>, telling
 // apart a project that is not there from one whose download broke off. A
 // large project (a few MB of fonts and images) over a weak link - the van's
@@ -13,7 +15,9 @@ export async function readSavedProject(name: string): Promise<SavedProjectRead> 
     const res = await fetch(`/api/projects/${encodeURIComponent(name)}`)
     if (res.status === 404) return { missing: true }
     if (!res.ok) return { broken: true }
-    return { data: (await res.json()) as SavedProjectData }
+    const data = (await res.json()) as SavedProjectData
+    // Saved without the font data its DDF holds (lib/project-font-data.ts).
+    return { data: { ...data, project: await withFontData(data.project) } }
   } catch {
     return { broken: true }
   }

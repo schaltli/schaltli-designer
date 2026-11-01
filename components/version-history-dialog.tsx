@@ -7,6 +7,7 @@
  * checkout in git: nothing is removed, and saving makes it the newest.
  */
 
+import { withFontData } from "@/lib/project-font-data"
 import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -54,7 +55,8 @@ export function VersionHistoryDialog({ projectName, onRestoreVersion, children }
     try {
       const res = await fetch(`${projectUrl(projectName)}/versions/${versionId}`)
       if (!res.ok) throw new Error("Version not found")
-      onRestoreVersion((await res.json()).project)
+      // Saved without the font data its DDF holds (lib/project-font-data.ts).
+      onRestoreVersion(await withFontData((await res.json()).project))
       setOpen(false)
     } catch (error) {
       // The reason, when there is one: a version that cannot be migrated says

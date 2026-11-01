@@ -6,6 +6,7 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
+import { slimFontData } from "@/lib/project-font-data"
 import { assertCombinedExportable } from "@/lib/combined-topics"
 import { applyColorDepth } from "@/lib/color-depth"
 import type { HardwareButtonAction, Project } from "@/components/project-editor"
@@ -46,7 +47,15 @@ import { pullTabColor } from "@/lib/pull-tabs"
 // this exact same artifact into a device export as _source/project.zip -
 // the other half of nested provenance, without which a device has nothing
 // editable to hand back on recovery.
-export async function buildEditableProjectZip(project: Project): Promise<Blob> {
+/**
+ * `withoutDdf`: leave _source/ddf.zip out, for a copy that goes to the very
+ * device whose DDF it is (buildDeviceProjectZip). Recovered from there, the
+ * designer takes the DDF the device announces itself (resolveDeviceForProject,
+ * the path every project without an embedded DDF takes) - and with the
+ * colour boards' 4-bit fonts that DDF is a megabyte (docs/2026-11-01-4bit-fonts.md,
+ * decision 12).
+ */
+export async function buildEditableProjectZip(project: Project, options: { withoutDdf?: boolean } = {}): Promise<Blob> {
   // Kept out of projectData/project.json - it lives as its own zip entry
   // below (_source/ddf.zip), not duplicated as base64 text inside the JSON.
   // `version` is a dead field this format used to write next to
@@ -137,7 +146,7 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
   // unpacked into the outer archive's own file tree, so nothing about the
   // DDF can drift and recovery is always "extract one entry" rather than a
   // reconstruction step.
-  if (embeddedDdfZipBase64) {
+  if (embeddedDdfZipBase64 && !options.withoutDdf) {
     zip.file("_source/ddf.zip", embeddedDdfZipBase64, { base64: true })
   }
 
@@ -193,9 +202,12 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
     })
   }
 
+  // Only the fonts the embedded DDF does not hold (lib/project-font-data.ts):
+  // opened again, the rest come back from _source/ddf.zip.
   const fontsFolder = zip.folder("fonts")
-  if (fontsFolder && project.fonts) {
-    project.fonts.forEach((font) => {
+  const ownFonts = (await slimFontData(project)).fonts
+  if (fontsFolder && ownFonts) {
+    ownFonts.forEach((font) => {
       // BDF fonts: save the BDF data
       if (font.data && font.path) {
         const fileName = font.path.replace("fonts/", "")
@@ -263,7 +275,12 @@ function themedObjects(screen: { id: string; name: string; objects: any[]; iconA
   return objects
 }
 
-export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
+/**
+ * `deviceHoldsDdf`: the device this goes to has the project's own DDF (its
+ * announced ddfHash is the project's settings.ddfHash), so the recovery copy
+ * leaves it out (buildEditableProjectZip, withoutDdf).
+ */
+export async function buildDeviceProjectZip(rawProject: Project, options: { deviceHoldsDdf?: boolean } = {}): Promise<Blob> {
   // A circular reference among combined topics is refused, naming it
   // (lib/combined-topics.ts).
   assertCombinedExportable(rawProject)
@@ -764,7 +781,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // fails for any reason, the deploy must still succeed - the device's
   // actual purpose (rendering) can't depend on its own backup succeeding.
   try {
-    const editableProjectBytes = await (await buildEditableProjectZip(authored)).arrayBuffer()
+    const editableProjectBytes = await (await buildEditableProjectZip(authored, { withoutDdf: options.deviceHoldsDdf })).arrayBuffer()
     zip.file("_source/project.zip", editableProjectBytes)
   } catch (error) {
     console.error("[v0] Failed to embed the editable project into the device export (deploy continues regardless):", error)

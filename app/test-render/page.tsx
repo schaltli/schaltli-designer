@@ -7,7 +7,7 @@ import { seriesData } from "@/lib/chart-layout"
 import { BACK_ARROW_ASSETS, everyEntryObject, THEME_SWITCH_ASSETS } from "@/lib/navigator-entries"
 import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
-import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
+import { pixelsPerMmOf, resolveDeviceForProject, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
 import { layoutProject } from "@/lib/layout"
 import { useEffect, useRef } from "react"
@@ -801,8 +801,21 @@ export default function TestRenderPage() {
     // How wide a text is in a font, as the layout measures it (lib/size-scale.ts).
     ;(window as any).__textWidthForTest = (text: string, font: any, weight?: string): number => textWidthIn(text, font, weight)
 
+    // Built for the board the HIL is driving, whose DDF the designer holds
+    // too (test:all checks public/ddf against the firmware's ddf-source):
+    // a fixture without an embedded DDF gets it the way a recovered project
+    // does (resolveDeviceForProject), and then goes out as a deploy to its
+    // own device does - its fonts' data and the DDF left out of the recovery
+    // copy (docs/2026-11-01-4bit-fonts.md, decisions 11 and 12).
     ;(window as any).__buildDeviceZipForTest = async (project: any): Promise<string> => {
-      const blob = await buildDeviceProjectZip(project)
+      let toBuild = project
+      if (!project.embeddedDdfZipBase64 && project.settings?.deviceId) {
+        const resolution = await resolveDeviceForProject(project.settings.deviceId, project.settings.deviceName)
+        if (resolution.ok && resolution.fields.ddfZipBase64) {
+          toBuild = { ...project, embeddedDdfZipBase64: resolution.fields.ddfZipBase64, settings: { ...project.settings, ddfHash: resolution.fields.ddfHash } }
+        }
+      }
+      const blob = await buildDeviceProjectZip(toBuild, { deviceHoldsDdf: true })
       const buffer = await blob.arrayBuffer()
       const bytes = new Uint8Array(buffer)
       let binary = ""

@@ -488,7 +488,10 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // board's platform, and the phone was sent BMPs with a white or black
       // box baked around every Switch icon (2026-09-27, in the van).
       const toPhone = device?.platform === "android" || project.settings.devicePlatform === "android"
-      const zipBlob = toPhone ? await exportAndroidProject(project) : await buildDeviceProjectZip(project)
+      // A board that announced the project's own DDF needs no copy of it in
+      // the recovery copy (lib/project-zip.ts, buildDeviceProjectZip).
+      const deviceHoldsDdf = !!device?.ddfHash && device.ddfHash === project.settings.ddfHash
+      const zipBlob = toPhone ? await exportAndroidProject(project) : await buildDeviceProjectZip(project, { deviceHoldsDdf })
       const zipBytes = new Uint8Array(await zipBlob.arrayBuffer())
       const checksum = crc32(zipBytes)
 

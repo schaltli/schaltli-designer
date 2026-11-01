@@ -118,7 +118,11 @@ async function seedDdfFrom(
     zip.file("device.json", JSON.stringify(manifest, null, 2), { date: FIXED_ENTRY_DATE })
   }
 
-  const buf = await zip.generateAsync({ type: "nodebuffer" })
+  // Compressed, as the firmware's generate-ddf-header.js writes a DDF: stored,
+  // the colour boards' 4-bit fonts made a seeded DDF 8 MB and every project
+  // made from it, which embeds it, over the 10 MB a save may send
+  // (2026-11-01, docs/2026-11-01-4bit-fonts.md).
+  const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } })
   await mkdir(DATA_DDF_DIR, { recursive: true })
   const finalPath = path.join(DATA_DDF_DIR, `${seededDeviceId}.ddf.zip`)
 

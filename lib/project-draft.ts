@@ -7,6 +7,7 @@
 // Every call fails soft: without IndexedDB (a private window, blocked
 // storage) there is simply no draft, and the designer works as before.
 
+import { slimFontData, withFontData } from "./project-font-data"
 import { projectNameKey } from "./project-name"
 
 const DB_NAME = "schaltli"
@@ -56,12 +57,16 @@ async function run<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) =>
   }
 }
 
+// Kept without the font data the project's DDF holds, and given it back on
+// reading (lib/project-font-data.ts): a draft is written on every change.
 export async function putDraft(draft: ProjectDraft): Promise<void> {
-  await run("readwrite", (store) => store.put(draft))
+  const slim = { ...draft, project: await slimFontData(draft.project) }
+  await run("readwrite", (store) => store.put(slim))
 }
 
 export async function getDraft(key: string): Promise<ProjectDraft | null> {
-  return (await run<ProjectDraft | undefined>("readonly", (store) => store.get(key))) ?? null
+  const draft = (await run<ProjectDraft | undefined>("readonly", (store) => store.get(key))) ?? null
+  return draft ? { ...draft, project: await withFontData(draft.project) } : null
 }
 
 export async function deleteDraft(key: string): Promise<void> {

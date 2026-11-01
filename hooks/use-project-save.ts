@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { sameState } from "@/lib/project-history"
+import { slimFontData } from "@/lib/project-font-data"
 
 // Explicit saving (docs/2026-09-23-explicit-save.md). The editor's state for
 // it is two values: the name the open project is saved under (null while it
@@ -46,7 +47,9 @@ async function postJson(url: string, body: unknown) {
 // Creates a project on the server whose first version is `project`. For New
 // Project, which saves before the project is open in the editor.
 export async function createProjectOnServer<T extends SavableProject>(name: string, project: T) {
-  return postJson("/api/projects", { name, project: { ...project, name } })
+  // What goes over the wire leaves out the font data its DDF holds
+  // (lib/project-font-data.ts); the project in memory keeps it.
+  return postJson("/api/projects", { name, project: await slimFontData({ ...project, name }) })
 }
 
 // What every save hands back: where it went, and the project exactly as
@@ -90,7 +93,7 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
   const saveAsNew = useCallback(
     async (name: string): Promise<SaveResult<T>> => {
       const named = { ...project, name }
-      const result = await postJson("/api/projects", { name, project: named })
+      const result = await postJson("/api/projects", { name, project: await slimFontData(named) })
       const stored = { ...named, name: result.name }
       applyName(stored)
       markSaved(result.name, stored, result.versionId)
@@ -105,7 +108,7 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
   const saveInto = useCallback(
     async (name: string): Promise<SaveResult<T>> => {
       const named = project.name === name ? project : { ...project, name }
-      const result = await postJson(`/api/projects/${encodeURIComponent(name)}/versions`, named)
+      const result = await postJson(`/api/projects/${encodeURIComponent(name)}/versions`, await slimFontData(named))
       // The server answers with the folder's spelling, which wins.
       const stored = named.name === result.name ? named : { ...named, name: result.name }
       if (stored !== project) applyName(stored)

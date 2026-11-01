@@ -100,6 +100,21 @@ Done: `BdfFont` reads `BITS_PER_PIXEL 4`; the storage was already a hex digit pe
 Moved to the start of T5: a project takes its fonts from the board's DDF, so
 the first 4-bit font in a board's DDF is that task's first step anyway.
 
+## Task 4b: Font data out of projects, DDF out of the recovery copy
+
+Added 2026-11-01 (spec decisions 11 and 12) after T5's first step - the
+4-bit fonts in the colour boards' DDFs - broke test:quick: projects over
+10 MB, installs of 1 MB, boards not back in 180 s.
+
+**Acceptance criteria:**
+- [x] Saved, drafted and zipped, a project leaves out the data of every font its embedded DDF holds byte for byte; opened (server, draft, version), it gets it back - `lib/project-font-data.ts`, `e2e/project-font-data.spec.ts` (6 cases)
+- [x] A deploy to a board that announced the project's ddfHash carries no `_source/ddf.zip` and no DDF fonts in its recovery copy; a font of the project's own still goes along - `e2e/recovery-copy-size.spec.ts`; `e2e/recover-project.spec.ts` still green
+- [x] The HIL's harness resolves a fixture's DDF as a recovery does and builds as for its own board, so no HIL script changes
+- [x] `npm run test:quick` with the 4-bit DDFs on the boards (T5 step A, not committed yet): e2e 2063/2063 green, Knob and 4" lanes all green, installs 28-31 KB instead of ~1 MB, no request over 10 MB. Also needed: `e2e/ddf-seed.ts` zipped its seeded DDF stored, not deflated - 8 MB with 4-bit fonts, every project made from it over 10 MB; and `e2e/project-download.spec.ts` now asks that each font's data travels once (fonts/ or the embedded DDF) instead of that a fonts/ folder exists
+- [ ] Open on the 4.3B with the 4-bit firmware (T5 step A): conformance 66/68, the two «snapshot failed after 3 attempts: terminated» and the run 39 min instead of ~5; and `4v3b-internal-heap` found a project for another device **installed** - `peekProjectDeviceId()` returns "" for "could not read" as well as for "no deviceId", and "" is let through (fail-open). At rest the board has 171 KB internal heap, 3.6 MB PSRAM
+
+**Dependencies:** T4; before the rest of T5
+
 ## Phase 2: switching
 
 ## Task 5: The colour boards' DDFs

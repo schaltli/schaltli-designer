@@ -88,7 +88,11 @@ the inner archive's files into the outer one.** Settled 2026-08-15. The
 inner artifact sits at a fixed path, `_source/<name>.zip` (e.g.
 `project.zip`'s `_source/ddf.zip`; `export.zip`'s `_source/project.zip`,
 which — since that project.zip already carries its own `_source/ddf.zip`
-— nests the DDF two levels deep automatically, no special-casing). A flat
+— nests the DDF two levels deep automatically, no special-casing; since
+2026-11-01 not in a deploy to a board that announced the project's own
+`ddfHash`, which leaves the DDF and its fonts' data out of the recovery copy
+and is recovered with the DDF the board announces - docs/2026-11-01-4bit-fonts.md,
+decisions 11 and 12, after the colour boards' 4-bit fonts made it a megabyte). A flat
 merge was considered and rejected: it would need per-file prefixing
 discipline to avoid collisions with the outer artifact's own same-named
 files (both could plausibly have a `fonts/helvR08.bdf`), and recovery
