@@ -383,6 +383,10 @@ async function main() {
     { name: "fw-switch-shape", repo: FIRMWARE_REPO, script: "tools/switch-shape/run.js", detail: "switch shapes and colours agree with the designer" },
     { name: "fw-pill-raster", repo: FIRMWARE_REPO, script: "tools/pill-raster/run.js", detail: "the quick pill coverage and the row spans agree with the full sampling" },
     { name: "fw-theme-variant", repo: FIRMWARE_REPO, script: "tools/theme-variant/run.js", detail: "the light/dark swap follows the designer's reader rule" },
+    // Not a port of the designer but the font tool both sides' glyphs come
+    // from (docs/2026-11-01-4bit-fonts.md); needs Python with Pillow, not a
+    // compiler, and is SKIPPED without one the same way.
+    { name: "fw-ttf-to-bdf", repo: FIRMWARE_REPO, script: "tools/ttf-to-bdf-check/run.js", detail: "1-bit fonts unchanged, 4-bit fonts reproducible and well formed" },
   ]
   for (const check of hostChecks) step("host", async () => {
     console.log(`\n=== ${check.name} (host, no hardware) ===`)

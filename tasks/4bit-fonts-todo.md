@@ -45,11 +45,17 @@ cap-height sizing into the device contract.
 go to `tools/fonts-src/` with their licences.
 
 **Acceptance criteria:**
-- [ ] A 4-bit BDF per requested size, glyph set = the family's cmap ∩ today's 753
-- [ ] Output reproducible byte for byte (same input, same file)
-- [ ] OFL/Apache texts in `tools/fonts-src/<family>/`
+- [x] A 4-bit BDF per requested size, glyph set = the family's cmap ∩ today's 753 (cmap read from the TTF in the tool, no new dependency; a mapped glyph that draws nothing - U+200B - stays). Roboto has 468 of them, Inter 738
+- [x] Output reproducible byte for byte (same input, same file)
+- [x] OFL texts in `tools/fonts-src/{roboto,roboto-condensed,inter}/` (google/fonts, ofl/)
+- [x] `--by cap` picks the size by CAP_HEIGHT (OS/2 sCapHeight at that size), written as a property; `--axes` for variable fonts; the 1-bit path byte for byte as before
 
 **Verification:** run twice, `diff` empty; spot check one glyph against the pre-study renders (`fontlab`)
+- [x] Permanent: `tools/ttf-to-bdf-check/run.js` in schaltli-firmware, a host check of test-all (`fw-ttf-to-bdf`): DSEG7 1-bit byte-identical to the shipped seg7-61.bdf, Roboto 4-bit twice identical, well formed, CAP_HEIGHT, glyph set
+- [x] Spot check: Roboto, Inter, Roboto Condensed Bold at cap 14 drawn from the generated BDFs - clean
+- [x] `npm run test:quick` (with the internal-heap fix): all green but `4v3b-internal-heap` (FAIL as intended, and now it brings the 4.3B back over USB - seen in the run) and 4.3B `conformance` 60/64: four «before any value» cases timed out waiting for the board to apply cleared values; run alone right after, 64/64. A flake, noted, not chased. `fw-ttf-to-bdf` joins the host checks from the next run on
+
+**Firmware commit:** `4bit-fonts` branch of schaltli-firmware
 **Dependencies:** T1
 **Files likely touched:** `schaltli-firmware/tools/ttf-to-bdf.py`, `tools/fonts-src/{roboto,inter,roboto-condensed}/`
 **Estimated scope:** S
