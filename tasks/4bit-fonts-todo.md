@@ -85,15 +85,20 @@ Done: `BdfFont` reads `BITS_PER_PIXEL 4`; the storage was already a hex digit pe
 `blendCoverage565`, reading what lies under from the canvas.
 
 **Acceptance criteria:**
-- [ ] Unit tests: 4-bit parse, blend against `blend565-cases.json`
-- [ ] 1-bit drawing unchanged (existing e2e renders identical)
+- [x] Unit tests: 4-bit parse, blend against `blend565-cases.json` - `e2e/bdffont-4bit.spec.ts`: `blendCoverage565` (new `lib/blend565.ts`) gives all 14 values; a 4-bit glyph drawn onto a stand-in canvas lands at ox + 1 + i, full coverage in the ink, an edge pixel mixed in RGB565 into what lies under it at 1:1, at the coverage's opacity when zoomed; a 1-bit glyph as before
+- [x] 1-bit drawing unchanged (existing e2e renders identical) - `test:quick`: all 214 pixel comparisons of the three boards 0 px, the e2e suite green
 
 **Verification:** `npm run test:quick`
+- [x] Run 2026-11-01: green but `4v3b-internal-heap` (as intended) and 4.3B `conformance` 62/64 - the «before any value» timeouts again, the third full run in a row; alone it passes 64/64. A recurring flake of the full run, not of this work; to look at separately
+
 **Dependencies:** T1
 **Files likely touched:** `lib/bdffont.ts`, new `lib/blend565.ts`, tests
 **Estimated scope:** M
 
 ### Checkpoint: one 4-bit font in a test DDF, 4.3B HIL 0 px against the designer
+
+Moved to the start of T5: a project takes its fonts from the board's DDF, so
+the first 4-bit font in a board's DDF is that task's first step anyway.
 
 ## Phase 2: switching
 

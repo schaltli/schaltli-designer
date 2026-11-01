@@ -1,3 +1,7 @@
+import { fromRgb565, toRgb565, type Rgb565 } from "@/lib/arc-raster"
+import { blendCoverage565 } from "@/lib/blend565"
+import { rgb565FromBytes } from "@/lib/level-glow"
+
 export class BDFFont {
   glyphs: any = {}
   properties: any = {}
@@ -189,6 +193,15 @@ export class BDFFont {
     return Math.max(0, g["BBox"] + g["BBw"] + 1 - g["DWIDTH"].x)
   }
 
+  /**
+   * 1 for every font until 2026-11-01; 4 for one with BITS_PER_PIXEL 4, whose
+   * rows hold one pixel's coverage (0-15) per hex digit
+   * (docs/device-contract.md, «Font depth»).
+   */
+  get bitsPerPixel(): 1 | 4 {
+    return this.properties["BITS_PER_PIXEL"] === 4 ? 4 : 1
+  }
+
   getGlyphOf(c: number) {
     const glyph = this.glyphs[c] || this.glyphs[this.properties["DEFAULT_CHAR"]]
     return glyph || null
@@ -217,6 +230,11 @@ export class BDFFont {
 
     // Ensure pixel-perfect rendering
     ctx.imageSmoothingEnabled = false
+
+    if (this.bitsPerPixel === 4) {
+      drawCoverageRows(ctx, b, ox, oy)
+      return { x: bx + g["DWIDTH"].x, y: by + g["DWIDTH"].y }
+    }
 
     for (let y = 0, len = b.length; y < len; y++) {
       const row: string = b[y]
@@ -309,4 +327,63 @@ function bitFromRight(row: string, i: number): number {
   const digit = row.length - 1 - (i >> 2)
   if (i < 0 || digit < 0) return 0
   return (Number.parseInt(row[digit], 16) >> (i & 3)) & 1
+}
+
+/**
+ * One 4-bit glyph's rows. Pixel i of a row lands at ox + 1 + i - the 1-bit
+ * loop's one-to-the-right, so both kinds of font sit on the same pixels, and
+ * the firmware's BdfFont::drawCoverageRow does the same.
+ *
+ * Where the canvas is drawn at 1:1 - the reference render every board is
+ * compared against - an edge pixel is mixed into what is already there in
+ * RGB565, as the board mixes it (blendCoverage565), and full coverage is the
+ * ink as it is. The zoomed editor canvas cannot be read back pixel for pixel
+ * and gets the ink at the coverage's opacity instead, as the pills' glow does
+ * (paint-pills.ts, underOf).
+ */
+function drawCoverageRows(ctx: CanvasRenderingContext2D, rows: string[], ox: number, oy: number): void {
+  const height = rows.length
+  const width = rows.reduce((w, r) => Math.max(w, r.length), 0)
+  if (width === 0 || height === 0) return
+  const style = ctx.fillStyle
+  const alpha = ctx.globalAlpha
+  const t = ctx.getTransform()
+  const exact = t.a === 1 && t.d === 1 && t.b === 0 && t.c === 0 && Number.isInteger(t.e) && Number.isInteger(t.f)
+  const ink = exact ? inkOf(style) : null
+  const under = ink ? ctx.getImageData(ox + 1 + t.e, oy + t.f, width, height).data : null
+  for (let y = 0; y < height; y++) {
+    const row = rows[y]
+    for (let i = 0; i < row.length; i++) {
+      const a = Number.parseInt(row[i], 16)
+      if (!a) continue
+      if (a === 15) {
+        ctx.fillStyle = style
+        ctx.globalAlpha = alpha
+      } else if (ink && under) {
+        const k = (y * width + i) * 4
+        const mixed = blendCoverage565(rgb565FromBytes(under[k], under[k + 1], under[k + 2]), ink, a)
+        ctx.fillStyle = hexOf(fromRgb565(mixed))
+        ctx.globalAlpha = alpha
+      } else {
+        ctx.fillStyle = style
+        ctx.globalAlpha = (alpha * a) / 15
+      }
+      ctx.fillRect(ox + 1 + i, oy + y, 1, 1)
+    }
+  }
+  ctx.fillStyle = style
+  ctx.globalAlpha = alpha
+}
+
+// The text colour as the board holds it: a canvas reports an opaque colour as
+// "#rrggbb", a translucent one as "rgba(r, g, b, a)".
+function inkOf(style: string | CanvasGradient | CanvasPattern): Rgb565 | null {
+  if (typeof style !== "string") return null
+  if (style.startsWith("#")) return toRgb565(style)
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(style)
+  return m ? rgb565FromBytes(+m[1], +m[2], +m[3]) : null
+}
+
+function hexOf(c: { r: number; g: number; b: number }): string {
+  return "#" + [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join("")
 }
