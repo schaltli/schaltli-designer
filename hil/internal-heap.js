@@ -34,7 +34,7 @@
 // The 4.3B reports both numbers in its plain-text /api/debug:
 // "heap 130 KB (lowest 125 KB, largest block 63 KB)".
 //
-// Run: node hil/internal-heap.js --device <ip> [--own-device-id <id>]
+// Run: node hil/internal-heap.js --device <ip> [--own-device-id <id> [--usb-port <COM>]]
 // Exit 0 pass, 1 fail, 2 device not reachable (skipped, loudly).
 
 const http = require("http")
@@ -54,10 +54,11 @@ const LEAK_TOLERANCE = 2048
 const MIN_FREE = 32 * 1024
 
 function parseArgs(argv) {
-  const args = { device: null, ownDeviceId: null }
+  const args = { device: null, ownDeviceId: null, usbPort: null }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     else if (argv[i] === "--own-device-id") args.ownDeviceId = argv[++i]
+    else if (argv[i] === "--usb-port") args.usbPort = argv[++i]
   }
   if (!args.device) {
     console.error("usage: node hil/internal-heap.js --device <ip>")
@@ -106,11 +107,11 @@ async function round(base) {
 }
 
 // The smoke test's project, its screens repeated, for another device or for this one.
-async function largeProject(deviceId = "not-this-device") {
+async function largeProject(deviceId = "not-this-device", copies = REFUSED_COPIES) {
   const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "waveshare", "fixtures", "smoke-test.zip")))
   const project = JSON.parse(await zip.file("project.json").async("string"))
   const screens = []
-  for (let i = 0; i < REFUSED_COPIES; i++) {
+  for (let i = 0; i < copies; i++) {
     for (const s of project.screens) screens.push({ ...JSON.parse(JSON.stringify(s)), id: `${s.id}-c${i}` })
   }
   project.screens = screens
@@ -129,9 +130,11 @@ async function refusedInstall(base) {
 }
 
 // The large project installed for the board itself; it restarts onto it.
-async function ownInstall(base, deviceId) {
+// With copies = 1 it is the smoke test's own six screens, which is what
+// putBack() leaves behind.
+async function ownInstall(base, deviceId, copies = REFUSED_COPIES, settleMs = 20000) {
   const form = new FormData()
-  form.append("file", new Blob([await largeProject(deviceId)]), "large.zip")
+  form.append("file", new Blob([await largeProject(deviceId, copies)]), "large.zip")
   const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) })
   const answer = await res.text()
   if (!res.ok) throw new Error(`the large project of its own was refused: ${res.status} ${answer.slice(0, 120)}`)
@@ -146,11 +149,90 @@ async function ownInstall(base, deviceId) {
     await new Promise((r) => setTimeout(r, 2000))
   }
   // Running on it a while: its topics subscribed, its first screens drawn.
-  await new Promise((r) => setTimeout(r, 20000))
+  await new Promise((r) => setTimeout(r, settleMs))
+}
+
+// The large project must not stay on the board. Left there (until
+// 2026-11-01), the 4.3B preloaded all 240 screens on its next start and had
+// no internal RAM left for WiFi (esp_wifi_init 257, retried every 15 s), so
+// no later suite could reach it to install anything else - the next
+// test:quick found its whole lane unreachable, and only erasing LittleFS over
+// USB brought it back. Installed while the board still has its network, the
+// small project replaces it.
+//
+// Over the network that only works while the board still has it, and the
+// 4.3B often loses it the moment it restarts onto the large project
+// (2026-11-01: «never came back»). Then, given --usb-port, its LittleFS is
+// erased over USB: the board starts on its built-in fixture, WiFi comes up,
+// and the next suite installs whatever it needs.
+async function putBack(base, deviceId, usbPort) {
+  try {
+    await ownInstall(base, deviceId, 1, 0)
+    console.log("  the smoke test's own screens put back in place of the large project")
+    return
+  } catch (e) {
+    if (!usbPort) {
+      console.log(`  WARNING - the large project could not be replaced (${e.message}); after its next restart the board may have no WiFi - pass --usb-port to clear it over USB`)
+      return
+    }
+    console.log(`  the board is not reachable on its network (${e.message}); clearing its project over USB (${usbPort})`)
+  }
+  try {
+    eraseProjectOverUsb(usbPort)
+    await waitForDebug(base, 120000)
+    console.log("  its LittleFS erased over USB; back on its network with its built-in fixture")
+  } catch (e) {
+    console.log(`  WARNING - clearing the project over USB failed too (${e.message}); erase LittleFS by hand (esptool erase_region 0xc90000 0x360000)`)
+  }
+}
+
+// LittleFS is the `spiffs` partition of default_16MB.csv, which every
+// 16 MB board of this bench uses (schaltli-firmware platformio.ini): the
+// deployed project is all it holds - settings and WiFi live in NVS.
+const LITTLEFS_OFFSET = "0xc90000"
+const LITTLEFS_SIZE = "0x360000"
+
+// Through PlatformIO's Python and esptool, as hil/test-interface.js's reset.
+function eraseProjectOverUsb(port) {
+  const { execFileSync } = require("child_process")
+  const os = require("os")
+  const home = os.homedir()
+  const python = [path.join(home, ".platformio", "penv", "Scripts", "python.exe"), path.join(home, ".platformio", "penv", "bin", "python")]
+    .find((p) => fs.existsSync(p))
+  const packages = path.join(home, ".platformio", "packages")
+  const esptool = fs.readdirSync(packages)
+    .filter((d) => d.startsWith("tool-esptoolpy"))
+    .map((d) => path.join(packages, d, "esptool.py"))
+    .find((p) => fs.existsSync(p))
+  if (!python || !esptool) throw new Error("PlatformIO's Python or esptool was not found")
+  // The board's USB drops while it restarts; a second try catches it settled.
+  let last
+  for (let i = 0; i < 3; i++) {
+    try {
+      execFileSync(python, [esptool, "--port", port, "erase_region", LITTLEFS_OFFSET, LITTLEFS_SIZE], { stdio: "ignore", timeout: 120000 })
+      return
+    } catch (e) {
+      last = e
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000)
+    }
+  }
+  throw new Error(`esptool erase_region failed on ${port}: ${last && last.message}`)
+}
+
+async function waitForDebug(base, ms) {
+  const deadline = Date.now() + ms
+  for (;;) {
+    try {
+      const d = await debug(base)
+      if (typeof d.freeInternalHeap === "number") return d
+    } catch {}
+    if (Date.now() > deadline) throw new Error(`${base} did not answer within ${ms / 1000} s`)
+    await new Promise((r) => setTimeout(r, 2000))
+  }
 }
 
 async function main() {
-  const { device, ownDeviceId } = parseArgs(process.argv)
+  const { device, ownDeviceId, usbPort } = parseArgs(process.argv)
   const base = `http://${device}`
   let before
   try {
@@ -173,10 +255,14 @@ async function main() {
   }
   let afterOwn = null
   if (ownDeviceId) {
-    await ownInstall(base, ownDeviceId)
-    await round(base)
-    afterOwn = await debug(base)
-    console.log(`  a large project of its own installed and run; free ${afterOwn.freeInternalHeap}, minimum since boot ${afterOwn.minFreeInternalHeap}`)
+    try {
+      await ownInstall(base, ownDeviceId)
+      await round(base)
+      afterOwn = await debug(base)
+      console.log(`  a large project of its own installed and run; free ${afterOwn.freeInternalHeap}, minimum since boot ${afterOwn.minFreeInternalHeap}`)
+    } finally {
+      await putBack(base, ownDeviceId, usbPort)
+    }
   }
   const fails = []
   const leak = first.freeInternalHeap - second.freeInternalHeap

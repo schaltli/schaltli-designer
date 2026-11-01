@@ -30,9 +30,13 @@ cap-height sizing into the device contract.
   the 4.3B preloads all 240 screens and WiFi cannot start
   (`esp_wifi_init 257`, ESP_ERR_NO_MEM, every 15 s) - so no test can send it
   another project. Repaired 2026-11-01 by erasing its LittleFS over USB
-  (backup kept). The test should put a small project back when it is done;
-  the firmware issue underneath is the one the test exists for (van,
-  2026-10-30). Not part of this plan.
+  (backup kept). Fixed the same day (user): the test now puts the smoke
+  test's own screens back, and when the board has lost its network - the
+  4.3B does, the moment it restarts onto the large project - erases its
+  LittleFS over USB (`--usb-port`, COM3 from test-all), after which it is on
+  its network again with its built-in fixture. Proved on the 4.3B: FAIL as
+  before (the firmware issue it exists for, van 2026-10-30), board reachable
+  after. The firmware issue itself is not part of this plan.
 
 ## Task 2: Font build tool
 

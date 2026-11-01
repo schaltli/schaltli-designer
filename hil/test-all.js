@@ -62,6 +62,9 @@ const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zi
 // The 4.3B is a second, separate device on the network - not another mode
 // of the knob - so it has its own address.
 const WAVESHARE_4V3B_DEVICE = process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117"
+// Its USB port, for internal-heap.js to clear the large project it installs
+// when the board comes back from it without a network (2026-11-01).
+const WAVESHARE_4V3B_PORT = process.env.HIL_WAVESHARE_4V3B_PORT || "COM3"
 // The Waveshare 4" (tasks/waveshare-4-plan.md, 2026-10-31): the 4.3B's
 // firmware on a 480 x 480 square, so the 4.3B's suites, in a lane of its
 // own ("ws4").
@@ -1408,11 +1411,12 @@ async function main() {
   }, { quick: true })
   // The 4.3B's: the same, and room under a large project of its own. In the
   // van an fopen found no internal RAM left under one and aborted the board
-  // (2026-10-30). Installs that project, which is why it runs last in the lane.
+  // (2026-10-30). Installs that project, which is why it runs last in the lane,
+  // and puts a small one back after, over USB if the board lost its network.
   step("4v3b", async () => {
     console.log(`
 === internal heap (4v3b, device: ${WAVESHARE_4V3B_DEVICE}) ===`)
-    const exitCode = await run("node", ["hil/internal-heap.js", "--device", WAVESHARE_4V3B_DEVICE, "--own-device-id", "waveshare-touch-lcd-4v3b"], { cwd: REPO_ROOT })
+    const exitCode = await run("node", ["hil/internal-heap.js", "--device", WAVESHARE_4V3B_DEVICE, "--own-device-id", "waveshare-touch-lcd-4v3b", "--usb-port", WAVESHARE_4V3B_PORT], { cwd: REPO_ROOT })
     summary.push({
       name: "4v3b-internal-heap",
       status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
