@@ -69,8 +69,10 @@ pixels per byte, PSRAM), and `drawGlyph()` blends coverage 1-14 onto the
 canvas pixel, writes 15 straight. 1-bit path untouched.
 
 **Acceptance criteria:**
-- [ ] Native tests: 4-bit parse, blend against `blend565-cases.json`
-- [ ] Every existing fixture on 4.3B and 4" still 0 px
+- [x] Native tests: 4-bit parse, blend against `blend565-cases.json` - `test/test_glyph_pixels` (5 cases) on the pure helpers moved out of `BdfFont.cpp` into `src/project/GlyphPixels.h`; the table embedded as a raw string in `blend565_cases.h`, and the designer's `e2e/blend565-cases.spec.ts` checks that copy equals its own
+- [x] Every existing fixture on 4.3B and 4" still 0 px (and the Knob's): `test:quick` on the new firmware - fw-native with the new test, every 0-px fixture of the three boards green; red in that run were knob-live-values (fetch failed), ws4-charts-draw (a second pixel change between two snapshots), ws4-charts-actions (no description within 30 s), 4.3B conformance 61/64 (three «before any value» timeouts) and 4v3b-internal-heap (as intended; it brought the board back over USB). Each of the four run alone right after: PASS, 0 px, conformance 64/64. The run took 20 min against 11 - load, not pixels
+
+Done: `BdfFont` reads `BITS_PER_PIXEL 4`; the storage was already a hex digit per 4 bits, so nothing new in PSRAM. `drawCoverageRow()` writes coverage 15 as runs and mixes 1-14 into `getPixel()` under it; pixel i lands at ox + 1 + i, the 1-bit path's one-to-the-right. Firmware built for all four boards and installed on 4.3B, 4" and Knob over WiFi (`hil/firmware-upload.js --install-checkout`, all four checks passed).
 
 **Verification:** `pio test -e native`; `npm run test:quick` (4.3B and 4" lanes)
 **Dependencies:** T1
