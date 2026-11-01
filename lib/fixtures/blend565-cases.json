@@ -1,0 +1,16 @@
+[
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":0,"out":{"r":3,"g":9,"b":5},"note":"dark card, light text: nothing drawn"},
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":1,"out":{"r":5,"g":12,"b":7},"note":"faintest edge"},
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":7,"out":{"r":16,"g":33,"b":17},"note":"just under half"},
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":8,"out":{"r":17,"g":37,"b":18},"note":"just over half"},
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":14,"out":{"r":28,"g":58,"b":28},"note":"almost full"},
+  {"under":{"r":3,"g":9,"b":5},"ink":{"r":30,"g":61,"b":30},"coverage":15,"out":{"r":30,"g":61,"b":30},"note":"full: the ink as it is"},
+  {"under":{"r":31,"g":63,"b":31},"ink":{"r":0,"g":0,"b":0},"coverage":5,"out":{"r":21,"g":42,"b":21},"note":"light theme, black text"},
+  {"under":{"r":31,"g":63,"b":31},"ink":{"r":0,"g":0,"b":0},"coverage":10,"out":{"r":10,"g":21,"b":10},"note":"light theme, black text"},
+  {"under":{"r":2,"g":6,"b":3},"ink":{"r":7,"g":42,"b":29},"coverage":3,"out":{"r":3,"g":13,"b":8},"note":"accent on the screen colour"},
+  {"under":{"r":2,"g":6,"b":3},"ink":{"r":7,"g":42,"b":29},"coverage":12,"out":{"r":6,"g":35,"b":24},"note":"accent on the screen colour"},
+  {"under":{"r":30,"g":39,"b":1},"ink":{"r":31,"g":63,"b":31},"coverage":6,"out":{"r":30,"g":49,"b":13},"note":"white text on an orange button"},
+  {"under":{"r":0,"g":0,"b":0},"ink":{"r":31,"g":63,"b":31},"coverage":15,"out":{"r":31,"g":63,"b":31},"note":"extremes"},
+  {"under":{"r":0,"g":0,"b":0},"ink":{"r":31,"g":63,"b":31},"coverage":1,"out":{"r":2,"g":4,"b":2},"note":"extremes, rounding at the low end"},
+  {"under":{"r":16,"g":32,"b":16},"ink":{"r":16,"g":32,"b":16},"coverage":9,"out":{"r":16,"g":32,"b":16},"note":"same colour: unchanged"}
+]

@@ -167,6 +167,45 @@ that same file over HTTP, so the bytes the designer downloads and the bytes
 it draws with are one file rather than two copies. Both are fine. What is
 not fine is a second copy nothing compares - see §1's build scripts.
 
+**Font depth** (docs/2026-11-01-4bit-fonts.md). A font is 1-bit unless its
+entry says `"bpp": 4`. A 4-bit font is a BDF with the property
+`BITS_PER_PIXEL 4` and bitmap rows written one hex digit per pixel: the digit
+is the glyph's coverage of that pixel, `0` empty to `F` full. Everything else
+- `BBX`, `DWIDTH`, `FONT_ASCENT`, `FONT_DESCENT`, `CAP_HEIGHT`, the glyph
+set - means what it means in a 1-bit BDF, and the layout rules above
+(including the reproduced off-by-one of `drawGlyph()`) apply unchanged. The
+fonts are rasterised once, by schaltli-firmware `tools/ttf-to-bdf.py --bpp 4`;
+neither a device nor the designer rasterises an outline font, because two
+rasterisers never agree to the pixel.
+
+Drawing a 4-bit pixel mixes the text colour into whatever is already on the
+canvas there, in RGB565, the same integer arithmetic on every side:
+
+```
+alpha  = (coverage * 256 + 7) / 15          // 0..15 -> 0..256, floor
+out.c  = (under.c * (256 - alpha) + ink.c * alpha + 128) >> 8
+         for c in r (5 bit), g (6 bit), b (5 bit)
+```
+
+Coverage 0 leaves the pixel alone and 15 writes the text colour as it is;
+the second line is firmware `levelglow::blend565`. Worked values are in
+`lib/fixtures/blend565-cases.json`, which the designer's tests and the
+firmware's native tests both check against.
+
+`fonts[].replaces` lists the ids of fonts this one stands in for. A project
+that names a replaced id is drawn with the replacing font - by the firmware
+at once, by the designer when it opens the project and rewrites the id
+(docs/2026-11-01-4bit-fonts.md). An id appears in at most one `replaces`
+list of a DDF.
+
+The typographies' sizes are matched by line height for 1-bit fonts and by
+cap height for 4-bit fonts: a style's target becomes a capital height of
+`0.69 × line` in pixels, and the 4-bit face whose `CAP_HEIGHT` is closest
+wins (a tie to the smaller). 0.69 is what today's Helvetica BDFs have
+(helvR12 12/18, helvR18 19/27), so capitals stay as tall as they were. Outline
+families keep more room above and below their letters (Roboto and Inter 0.60,
+Source Sans 3 less): picked by line height, every Label would have shrunk.
+
 `allowedRotations` lists which 90°-multiples the device's physical
 enclosure supports being mounted in, beyond native 0°. Omitted = native
 orientation only.
