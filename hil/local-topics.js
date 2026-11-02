@@ -34,7 +34,11 @@ const { deviceTag } = require("./device-tag")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const RUN = Date.now().toString(36)
+// The board in it as well as the time (hil/device-tag.js): two lanes
+// starting this suite in the same millisecond shared one prefix, and each
+// board heard the other's values - live-values read the next step's
+// combined topic on the 4.3B in test:quick (2026-11-02).
+const RUN = `${require("./device-tag").deviceTag()}-${Date.now().toString(36)}`
 const NAME = `local/hil-${RUN}/view`
 const OUT_DIR = path.join(__dirname, "local-topics-report", deviceTag())
 const DARK = "#202020"

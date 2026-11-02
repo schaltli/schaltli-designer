@@ -40,7 +40,11 @@ const OUT_DIR = path.join(__dirname, "live-value-redraw-report", deviceTag())
 
 // Fresh topics each run: a value the broker kept from an earlier run would
 // make «nothing arrived yet» impossible to show.
-const RUN = Date.now().toString(36)
+// The board in it as well as the time (hil/device-tag.js): two lanes
+// starting this suite in the same millisecond shared one prefix, and each
+// board heard the other's values - live-values read the next step's
+// combined topic on the 4.3B in test:quick (2026-11-02).
+const RUN = `${require("./device-tag").deviceTag()}-${Date.now().toString(36)}`
 const T = (leaf) => `hil-live-${RUN}/${leaf}`
 const HEAT = T("heat")
 const TIMER = T("timer")
