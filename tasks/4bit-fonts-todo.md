@@ -309,7 +309,9 @@ on their own and what to look for (texts that got wider), device pages.
 `npm run test:all` green before.
 
 **Acceptance criteria:**
-- [ ] Spec success criteria 1-8 ticked with evidence
+- [x] Spec success criteria 1-8 ticked with evidence - 1 and 2: text-styles 11/11 at 0 px against the designer's blend on the 4.3B, the 4" and the Knob; 3: T7, T10; 4: the 1-bit fonts are still in the DDFs, redraw-time installs a project in them; 5: the largest image (Knob) 2.78 MB of 6.5 MB; 6: +13 % (T11); 7: test:all 2026-11-02 Android 4/4 green, the PaperS3's three red checks (install-gate, charts-actions, text-field: timeouts under load) green alone; 8: T12
+- [x] `npm run test:all` (2026-11-02, two runs): red only in timeouts under load, each green alone, and in the knob's smoke verifier, which still wanted the DDF in a recovery copy (since T4b left out when the board holds it): it now takes a copy naming the hash the board announces, and deploy-check names it (d931321). `e2e timing` 1007 ms over 1000 (main: 1112 ms on this machine), 4v3b-internal-heap as intended
+- [x] Released as fw-2026.11.02.1 (firmware 81a4b3e, designer 9607cfc), both branches fast-forwarded into master/main
 
 **Verification:** `npm run test:all`
 **Dependencies:** T9-T12
