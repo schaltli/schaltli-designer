@@ -123,6 +123,17 @@ results are directly comparable:
   `waveshare4v3b/orchestrator.js --project`: the wide glyphs were cut off
   by designer and firmware alike until 2026-09-30. Needs the dev server and
   schaltli-firmware next to this repo.
+- `font-budget.js --device <ip> --project <zip> --report <dir>` - the
+  text-styles project once more with the font cache's reserve set beyond
+  the PSRAM (`?set=fontreserve=`): fonts let go on every screen change,
+  every screen still exact. `test:all` runs it after text-styles on the 4"
+  and the 4.3B.
+- `redraw-time.js --device <ip>` - a screen of 32 texts the board draws
+  itself (each with a value in it), installed once in the old 1-bit fonts
+  and once in the 4-bit ones that replace them, timed with the board's own
+  `/api/debug?set=render=1`; fails when the 4-bit one is more than 20 %
+  slower (docs/2026-11-01-4bit-fonts.md T11). `test:all` runs it on the
+  4.3B. Needs the dev server and the broker.
 - `layout/containers.js` - layout containers (docs/2026-10-02-layout.md) on
   the Knob and the 4.3B: one screen with a stack, a «Name and control» grid
   and a row of buttons, at the size steps S, M and L, sized and laid out by

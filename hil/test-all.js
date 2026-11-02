@@ -1224,6 +1224,19 @@ async function main() {
             report: `hil/${lane === "ws4" ? "waveshare4" : "waveshare4v3b"}/report-font-budget/index.html`,
           })
         }
+
+        // A screen of text the board draws, in the 1-bit fonts and in the
+        // 4-bit ones replacing them: at most 20 % slower to redraw
+        // (hil/redraw-time.js, docs/2026-11-01-4bit-fonts.md T11). The 4.3B
+        // only, the board the limit was set on.
+        if (lane === "4v3b") {
+          const exit = await run("node", ["hil/redraw-time.js", "--device", device], { cwd: REPO_ROOT })
+          summary.push({
+            name: "waveshare-4v3b-redraw-time",
+            status: exit === 2 ? "SKIPPED" : exit === 0 ? "PASS" : "FAIL",
+            detail: exit === 2 ? `device unreachable at ${device}` : exit === 0 ? "4-bit text at most 20 % slower to redraw than 1-bit" : `exit code ${exit} - see output above`,
+          })
+        }
       }
     }
   })

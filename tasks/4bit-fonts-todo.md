@@ -279,7 +279,8 @@ project; fix every overflow T7 lists.
 before and after (HIL timing).
 
 **Acceptance criteria:**
-- [ ] At most 20 % slower; if not, optimise (blend only coverage 1-14, skip blank rows) and measure again
+- [x] At most 20 % slower: `hil/redraw-time.js` installs a screen of 32 texts the board draws (a value in each), once in the 1-bit fonts of the Standard typography (Helvetica, FreeUniversal) and once in the 4-bit faces that replace them, and times it with `/api/debug?set=render=1`. First measurement (2026-11-02): 96.1 ms against 126.7 ms, 32 % slower. Blank rows and runs of full coverage were skipped and written whole already; what cost was every edge pixel going through `getPixel`/`drawPixel` - two virtual calls, a clip test and a bounds test each. `BdfFont::drawCoverageRow` now writes the row straight into the canvas's buffer (rotation 0), clipped once per row, a word without ink skipped whole: 96.5 ms against 109.4 ms, +13 %. The pixels are the same: text-styles 11/11 at 0 px on the 4.3B, the 4" and the Knob with it. The profiler (`?set=render=1`) says where a text's time goes now: «text: font, box», «text: measure», «text: glyphs»
+- [x] `test-all.js`: `waveshare-4v3b-redraw-time`, full run
 
 **Verification:** timing fixture in the 4.3B lane
 **Dependencies:** T9
