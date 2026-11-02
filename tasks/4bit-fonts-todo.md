@@ -129,6 +129,27 @@ project. Permanent: `hil/install-gate.js` in every board's lane (quick);
 PASS on 4", 4.3B and Knob. The MQTT deploy's gate is the same function and is
 not driven by that test.
 
+### Found on the way (T5 step A on the boards): the board's description and font loading
+
+Two causes behind the 4.3B dropping off and slow, flaky lanes, both made
+visible by the 4-bit DDFs:
+
+- Every HIL script asked each board for its description afresh over MQTT
+  (`hil/device-mqtt.js` deviceDdfAt): eleven times a lane, 1.0-1.25 MB each,
+  three boards at once on one WiFi, the 4.3B at times at -86 dBm. Now it
+  takes the broker's retained copy when its hash is the one the board's
+  hello names, as the designer does; ~3 s, the board sends nothing.
+- Only the knob preloaded a project's fonts; the RGB boards and the PaperS3
+  parsed each at its first draw - 634 ms for a 4.3B screen with three 4-bit
+  fonts, popups opening in 1.1 s. All boards preload now (6 fonts, 752 ms at
+  boot; that switch 54 ms), energy-diagram and chart fonts included.
+  Measured: 4-bit text draws ~8 % slower than 1-bit (55-57 against 51-54 ms
+  for the conformance text screen on the 4.3B) - inside criterion 6.
+
+Left after both: lanes still flaky in the full run - «before any value»
+timeouts (on the 4.3B since before this work, now on the 4" too), a live
+value one step late, a «fetch failed»; each passes run alone.
+
 ## Phase 2: switching
 
 ## Task 5: The colour boards' DDFs

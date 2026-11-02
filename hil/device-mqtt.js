@@ -103,11 +103,35 @@ async function deviceDdf(clientId, url, options = {}) {
   return withClient(url, (client) => deviceDdfOn(client, clientId, { fresh, ...rest }))
 }
 
-// The device's description by the address of its test interface.
-async function deviceDdfAt(host, url, options) {
+// The ddfHash a device's retained hello names, or null.
+async function helloDdfHash(clientId, url, waitMs = 1500) {
+  return withClient(url, async (client) => {
+    const topic = `${TOPIC_PREFIX}/${clientId}/hello`
+    let hash = null
+    const onMessage = (t, payload) => {
+      if (t !== topic) return
+      try {
+        hash = JSON.parse(payload.toString()).ddfHash || null
+      } catch {}
+    }
+    client.on("message", onMessage)
+    await client.subscribeAsync(topic)
+    await new Promise((r) => setTimeout(r, waitMs))
+    client.removeListener("message", onMessage)
+    return hash
+  })
+}
+
+// The device's description by the address of its test interface - the
+// retained copy when it is the one its hello names, as the designer takes it.
+// Asked for afresh on every script, a lane moved some 14 MB per board once the
+// colour boards' DDFs carried 4-bit fonts (1.0-1.25 MB each), and the 4.3B on
+// a weak link dropped off its network mid-run (2026-11-01).
+async function deviceDdfAt(host, url, options = {}) {
   const clientId = await instanceAt(host, url)
   if (!clientId) throw new Error(`no device on the broker says its test interface is at ${host}`)
-  return deviceDdf(clientId, url, options)
+  const hash = options.hash ?? (await helloDdfHash(clientId, url))
+  return deviceDdf(clientId, url, { ...options, ...(hash ? { hash } : {}) })
 }
 
 // The project a device keeps for recovery, asked for on `recovery/get` the
