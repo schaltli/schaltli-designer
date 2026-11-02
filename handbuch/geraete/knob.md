@@ -11,6 +11,7 @@ Ein rundes Farbdisplay mit 360 × 360 Pixeln in einem Drehring. Der Ring ist ein
 | Display | rund, 360 × 360 Pixel, Farbe |
 | Bedienung | Touch und Drehring |
 | Strom | USB-C |
+| Schriften | Roboto, Inter und Roboto Condensed, mit 16 Graustufen, siehe [Stile](/objekte/anzeigen#stile) |
 | Im Designer | «Waveshare Knob-Touch LCD 1.8» |
 | Einrichtungs-WLAN | `waveshare-knob-1v8-setup`, Passwort `schaltli12345` |
 

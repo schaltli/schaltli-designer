@@ -293,8 +293,8 @@ before and after (HIL timing).
 on their own and what to look for (texts that got wider), device pages.
 
 **Acceptance criteria:**
-- [ ] `handbuch/designer/icons-schriften.md`, `handbuch/geraete/{waveshare-4,waveshare-4-3b,knob}.md` updated; no «Helvetica»/«Lucida» left where the colour boards are meant
-- [ ] Through `maettel-humanizer`; `e2e/handbook-labels.spec.ts` green
+- [x] `handbuch/designer/icons-schriften.md`, `handbuch/geraete/{waveshare-4,waveshare-4-3b,knob}.md` updated; no «Helvetica»/«Lucida» left where the colour boards are meant - icons-schriften: the colour boards' faces, their old fonts still in Settings › Fonts and every Font field for older projects, take a new one for a chart, navigator or energy diagram; each device page (the PaperS3's too) a «Schriften» row. The typographies, the switch on open and texts that no longer fit were already in objekte/anzeigen.md «Stile» (T6, T7, T9)
+- [x] Through `maettel-humanizer`; `e2e/handbook-labels.spec.ts` green
 
 **Verification:** `npm run test:quick`; `npm run dev --prefix handbuch` read through
 **Dependencies:** T10
