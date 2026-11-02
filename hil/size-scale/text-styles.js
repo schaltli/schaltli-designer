@@ -415,25 +415,49 @@ async function uptimeOf(host) {
 // install error: on the 4.3B an install with a full-screen picture took 28 s,
 // this gave up at 25, called a board that never restarted "back up", and the
 // comparison then photographed the project from before (2026-11-02).
+//
+// Restarted is measured against the clock: a board that ran on through the
+// install has an uptime of what it had before plus the seconds since. The
+// first version wanted the uptime under what it was before and called a
+// board still up 20 s past that a failure - but the 4.3B answers an install
+// of text-styles after 17-28 s and restarts after answering, so a board
+// polled in that moment, or one installed on at an uptime of 4 s and back at
+// 8, was "not restarted" (test:all 2026-11-02, three times). Not restarted is
+// a board up and on the same count 20 s after it answered.
+//
+// `before` the uptime in s when the install was sent (null: not known),
+// `sent`/`answered`/`at` wall-clock ms, `now` the uptime read at `at` (null:
+// no answer). "restarted", "not restarted", or "wait".
+function restartVerdict({ before, sent, answered, at, now }) {
+  if (now === null || now === undefined) return "wait"
+  if (before === null || before === undefined) return "restarted"
+  if (now < before + (at - sent) / 1000 - 3) return "restarted"
+  return at - answered >= 20000 ? "not restarted" : "wait"
+}
+
 async function upload(zipPath, host) {
   let before = null
   try {
     before = await uptimeOf(host)
   } catch {}
+  const sent = Date.now()
   const form = new FormData()
   form.append("file", new Blob([fs.readFileSync(zipPath)]), path.basename(zipPath))
   try {
-    // The device reboots into the project and never answers this request.
+    // The board answers once the project is in and then restarts into it;
+    // it may also drop the request as it goes.
     await fetch(`http://${host}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) })
   } catch {
     // expected
   }
-  const deadline = Date.now() + 120000
+  const answered = Date.now()
+  const deadline = answered + 120000
   while (Date.now() < deadline) {
     try {
       const now = await uptimeOf(host)
-      if (now !== null && (before === null || now < before)) return true
-      if (now !== null && now >= before + 20) {
+      const verdict = restartVerdict({ before, sent, answered, at: Date.now(), now })
+      if (verdict === "restarted") return true
+      if (verdict === "not restarted") {
         const fsInfo = await (await fetch(`http://${host}/api/fs`, { signal: AbortSignal.timeout(4000) })).json().catch(() => ({}))
         console.error(`  ${host} answers but did not restart into the project (uptime ${before} -> ${now} s, install error: ${fsInfo.lastInstallError || "none said"})`)
         return false
@@ -517,7 +541,7 @@ async function main() {
 }
 
 // hil/layout/containers.js builds its projects the same way.
-module.exports = { DEVICES, deviceJsonOf, fontsOf, themeOf, upload }
+module.exports = { DEVICES, deviceJsonOf, fontsOf, themeOf, upload, restartVerdict }
 
 if (require.main === module) {
   main().catch((e) => {

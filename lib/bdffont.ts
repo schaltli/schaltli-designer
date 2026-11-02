@@ -351,6 +351,7 @@ function drawCoverageRows(ctx: CanvasRenderingContext2D, rows: string[], ox: num
   const exact = t.a === 1 && t.d === 1 && t.b === 0 && t.c === 0 && Number.isInteger(t.e) && Number.isInteger(t.f)
   const ink = exact ? inkOf(style) : null
   const under = ink ? ctx.getImageData(ox + 1 + t.e, oy + t.f, width, height).data : null
+  if (drawCoverageImage(ctx, rows, ox, oy, width, height, style, alpha, ink, under)) return
   for (let y = 0; y < height; y++) {
     const row = rows[y]
     for (let i = 0; i < row.length; i++) {
@@ -373,6 +374,92 @@ function drawCoverageRows(ctx: CanvasRenderingContext2D, rows: string[], ox: num
   }
   ctx.fillStyle = style
   ctx.globalAlpha = alpha
+}
+
+// The glyph as one picture, put down with one drawImage: what the loop below
+// draws pixel by pixel - a fillRect and a colour string for every edge pixel
+// - made a large project's preview miss its 1000 ms for a click at 10x CPU
+// once its texts were in 4-bit faces (2026-11-02: 2283 ms, test:all). The
+// pixels are the same: at 1:1 full coverage is the text colour and an edge
+// the RGB565 mix, each opaque, and a pixel without ink is left clear, so
+// drawImage copies them exactly and keeps to the clip; zoomed, the ink at
+// the coverage's opacity, without smoothing. Where there is no canvas to
+// draw the picture on (a test's stand-in), or the colour is not a plain
+// opaque one, false, and the loop draws.
+let scratch: HTMLCanvasElement | OffscreenCanvas | null | undefined
+function scratchOf(width: number, height: number): HTMLCanvasElement | OffscreenCanvas | null {
+  if (scratch === undefined) {
+    scratch =
+      typeof OffscreenCanvas !== "undefined"
+        ? new OffscreenCanvas(1, 1)
+        : typeof document !== "undefined"
+          ? document.createElement("canvas")
+          : null
+  }
+  if (!scratch) return null
+  if (scratch.width < width) scratch.width = width
+  if (scratch.height < height) scratch.height = height
+  return scratch
+}
+
+function drawCoverageImage(
+  ctx: CanvasRenderingContext2D,
+  rows: string[],
+  ox: number,
+  oy: number,
+  width: number,
+  height: number,
+  style: string | CanvasGradient | CanvasPattern,
+  alpha: number,
+  ink: Rgb565 | null,
+  under: Uint8ClampedArray | null,
+): boolean {
+  if (typeof ctx.drawImage !== "function") return false
+  const colour = opaqueBytesOf(style)
+  if (!colour) return false
+  const canvas = scratchOf(width, height)
+  const sctx = canvas?.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined
+  if (!canvas || !sctx) return false
+  const image = sctx.createImageData(width, height)
+  const px = image.data
+  for (let y = 0; y < height; y++) {
+    const row = rows[y]
+    for (let i = 0; i < row.length; i++) {
+      const a = Number.parseInt(row[i], 16)
+      if (!a) continue
+      const k = (y * width + i) * 4
+      if (a === 15 || !(ink && under)) {
+        px[k] = colour.r
+        px[k + 1] = colour.g
+        px[k + 2] = colour.b
+        px[k + 3] = a === 15 ? 255 : Math.round((a * 255) / 15)
+      } else {
+        const mixed = fromRgb565(blendCoverage565(rgb565FromBytes(under[k], under[k + 1], under[k + 2]), ink, a))
+        px[k] = mixed.r
+        px[k + 1] = mixed.g
+        px[k + 2] = mixed.b
+        px[k + 3] = 255
+      }
+    }
+  }
+  sctx.putImageData(image, 0, 0)
+  const smoothing = ctx.imageSmoothingEnabled
+  ctx.imageSmoothingEnabled = false
+  ctx.globalAlpha = alpha
+  ctx.drawImage(canvas as CanvasImageSource, 0, 0, width, height, ox + 1, oy, width, height)
+  ctx.imageSmoothingEnabled = smoothing
+  return true
+}
+
+// A plain opaque colour's bytes: "#rrggbb", or "rgb(r, g, b)" / "rgba(r, g, b, 1)".
+function opaqueBytesOf(style: string | CanvasGradient | CanvasPattern): { r: number; g: number; b: number } | null {
+  if (typeof style !== "string") return null
+  if (/^#[0-9a-f]{6}$/i.test(style)) {
+    return { r: parseInt(style.slice(1, 3), 16), g: parseInt(style.slice(3, 5), 16), b: parseInt(style.slice(5, 7), 16) }
+  }
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(style)
+  if (!m || (m[4] !== undefined && Number(m[4]) !== 1)) return null
+  return { r: +m[1], g: +m[2], b: +m[3] }
 }
 
 // The text colour as the board holds it: a canvas reports an opaque colour as
