@@ -49,8 +49,9 @@ test.describe("what a copy carries and how it merges", () => {
       "van/energy/solar_watts",
     ])
     expect(payload.combinedTopics).toEqual([])
-    // helvR18 is the switch's.
-    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-helvB24", "font-helvR18", "font-luRS14", "font-luRS18"])
+    // The 4.3B's 4-bit faces (2026-11-02): the title's bold, the switch's
+    // Label, the diagram's names and values in Inter.
+    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-inter-c12", "font-inter-c18", "font-roboto-c18", "font-robotob-c27"])
     expect([payload.screenWidth, payload.screenHeight]).toEqual([800, 480])
 
     // Licht's icon asks a combined topic, which comes with the topics it asks.

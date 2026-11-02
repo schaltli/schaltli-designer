@@ -9,6 +9,7 @@ import { createProjectStore } from "../lib/project-store"
 import { computeCombined } from "../lib/combined-topics"
 import { evaluate, formatValue } from "../lib/live-value"
 import { DEFAULT_SEPARATORS } from "../lib/placeholders"
+import { BDFFont } from "../lib/bdffont"
 
 // The start project of demo.schaltli.com (docs/2026-10-09-demo-instance.md,
 // decision 7), built by deploy/demo/camper-project.ts from the 4.3B's
@@ -295,4 +296,40 @@ test("written into a project store, «Camper» reads back as built", async ({}, 
   const back = await store.readNewest("Camper")
   expect(back.name).toBe("Camper")
   expect(JSON.parse(JSON.stringify(back.project))).toEqual(JSON.parse(JSON.stringify({ ...project, name: "Camper" })))
+})
+
+// In the 4.3B's 4-bit fonts since 2026-11-02 (docs/2026-11-01-4bit-fonts.md,
+// T10): its texts in styles, as a new project's are, and every font it names
+// one of the faces the board sets text in now - none a 1-bit font the opening
+// designer would have to move it off. And every text fits its box, the names
+// as the demo van sends them: Roboto is wider than the Helvetica the pages
+// were laid out in, and «Frischwasser» and «Grauwasser» stand side by side.
+test("«Camper» is in the 4.3B's 4-bit fonts, and every text fits its box", async () => {
+  const project = (await built()) as any
+  const fonts = new Map(project.fonts.map((f: any) => [f.id, f]))
+  const named = new Set<string>()
+  const objects: any[] = []
+  const all = (list: any[]) => list.forEach((o) => (objects.push(o), all(o.children ?? [])))
+  project.screens.forEach((s: any) => all(s.objects))
+  for (const o of objects) walk(o.properties, (key, v) => {
+    if ((key === "fontId" || key.endsWith("FontId")) && typeof v === "string") named.add(v)
+  })
+  expect(named.size).toBeGreaterThan(3)
+  for (const id of named) expect((fonts.get(id) as any)?.bpp, `${id} is a 4-bit face of the 4.3B`).toBe(4)
+
+  // The names the demo van gives its lights, tanks and relays.
+  const logic = createBridgeLogic()
+  const pekaway = fakePekaway()
+  const values: Record<string, string> = {}
+  for (const kind of ["dimmer", "relay", "level"]) for (const u of logic.flatten(kind, pekaway.answer(kind), {})) values[u.topic] = String(u.value)
+  const tooWide: string[] = []
+  for (const o of objects.filter((x) => x.type === "text")) {
+    let text: string = o.properties.text
+    for (const lv of o.properties.liveValues ?? []) text = text.replace(`{live:${lv.id}}`, values[lv.source.path] ?? "")
+    expect(text, `${o.id}: every value known`).not.toContain("{")
+    const font: any = fonts.get(o.properties.fontId)
+    const width = new BDFFont(font.data).measureText(text).width
+    if (width > o.width) tooWide.push(`${o.id} «${text}» ${width} px in ${o.width}`)
+  }
+  expect(tooWide).toEqual([])
 })

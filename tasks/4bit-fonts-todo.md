@@ -265,7 +265,8 @@ Handbook: objekte/anzeigen.md «Stile», which characters the colour boards' fon
 project; fix every overflow T7 lists.
 
 **Acceptance criteria:**
-- [ ] No overflowing text in either; their e2e specs green
+- [x] No overflowing text in either; their e2e specs green - there is no starter project apart from the demo's «Camper». `deploy/demo/camper-project.ts`: its texts, switches, slider, dial and tanks in styles (Label; Title bold for titles and values; Display for «Coming soon»), resolved for the 4.3B by `resolveScale`; the diagram's names and values in Inter c12/c18 and the navigator in Roboto c12, the faces that replace the old ones. Looked at in the designer, page by page: everything fits, «Frischwasser» and «Grauwasser» side by side just so. `e2e/demo-camper.spec.ts` «"Camper" is in the 4.3B's 4-bit fonts, and every text fits its box» (the names as the demo van sends them); `e2e/clipboard-transfer.spec.ts` expects the new fonts
+- [x] `npm run test:quick`: e2e green but clipboard-transfer (expected the old fonts, now updated); red in the run and green alone right after: knob-placeholder-redraw and 4.3B conformance (an install that did not come back), 4v3b-charts-actions (a timeout); 4v3b-internal-heap as intended
 
 **Verification:** `npm run test:quick`
 **Dependencies:** T7

@@ -34,6 +34,8 @@ import { parseDeviceDescriptionFile, deviceDescriptionToProjectFields } from "@/
 import { declaresTouch } from "@/lib/object-types"
 import { defaultThemeIdFor } from "@/lib/themes"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
+import { resolveScale } from "@/lib/size-scale"
+import type { Project } from "@/components/project-editor"
 
 const S = "schaltli/state/"
 const C = "schaltli/cmnd/"
@@ -213,7 +215,7 @@ const id = (what: string) => `obj-${what}-${next++}`
 
 // A text showing a name the bridge brings from Pekaway, so a renamed light in
 // Pekaway is renamed here too.
-function name(x: number, y: number, width: number, path: string, fontId = "font-helvR18") {
+function name(x: number, y: number, width: number, path: string) {
   const lv = `lv${next}`
   return {
     id: id("name"),
@@ -226,7 +228,8 @@ function name(x: number, y: number, width: number, path: string, fontId = "font-
     properties: {
       text: `{live:${lv}}`,
       liveValues: [{ id: lv, source: { namespace: "topic", path }, rules: [] }],
-      fontId,
+      textStyle: "label",
+      textBold: false,
       color: "text",
       textAlign: "left",
       backgroundColor: "transparent",
@@ -244,7 +247,7 @@ function title(text: string) {
     width: 300,
     height: 40,
     zIndex: next,
-    properties: { text, fontId: "font-helvB24", color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
+    properties: { text, textStyle: "title", textBold: true, color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
   }
 }
 
@@ -275,7 +278,8 @@ function onOff(
       ],
       switchStyle: "filled",
       switchColor: "accent",
-      fontId: "font-helvR18",
+      textStyle: "label",
+      textBold: false,
     },
   }
 }
@@ -318,7 +322,8 @@ function lightScreen() {
           displayValue: "percentage",
           fillColor: "accent",
           textColor: "text",
-          fontId: "font-helvB24",
+          textStyle: "title",
+          textBold: true,
           step: 5,
         },
       },
@@ -340,7 +345,8 @@ function lightScreen() {
           fillColor: "accent",
           thickness: 24,
           textColor: "text",
-          fontId: "font-helvR18",
+          textStyle: "label",
+          textBold: false,
           step: 5,
         },
       },
@@ -371,7 +377,8 @@ function tank(x: number, n: number, fillColor: string) {
         displayValue: "percentage",
         fillColor,
         textColor: "text",
-        fontId: "font-helvB24",
+        textStyle: "title",
+        textBold: true,
       },
     },
     name(x - 10, 392, 160, `${S}tank/${n}/name`),
@@ -477,8 +484,10 @@ function energyDiagram(mode: "flow" | "sankey", box: { width: number; height: nu
       mode,
       motion: true,
       fullScale: 1000,
-      fontId: "font-luRS14",
-      valueFontId: "font-luRS18",
+      // No style for a diagram's names and values: the 4.3B's 4-bit Inter,
+      // which replaced the Lucida Sans they were in (2026-11-02).
+      fontId: "font-inter-c12",
+      valueFontId: "font-inter-c18",
       nodes: [
         { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.4) },
         { id: "solar", role: "source", name: "Solar", iconAssetId: "icon-sun", colorRole: "energySun", topic: "van/energy/solar_watts", lines: WATTS, ...at(0.14, 0.16) },
@@ -518,13 +527,18 @@ function comingSoon(id: string, pageName: string, icon: string) {
         width: 660,
         height: 60,
         zIndex: 2,
-        properties: { text: "Coming soon", fontId: "font-fur42", color: "textMuted", textAlign: "center", backgroundColor: "transparent", borderColor: "transparent" },
+        properties: { text: "Coming soon", textStyle: "display", textBold: false, color: "textMuted", textAlign: "center", backgroundColor: "transparent", borderColor: "transparent" },
       },
     ],
   }
 }
 
-/** The project, from the device's description (a DDF zip). */
+/**
+ * The project, from the device's description (a DDF zip). Its texts are in
+ * styles, as a new project's are, and take the device's fonts for them here
+ * (resolveScale) - the 4.3B's 4-bit typography since 2026-11-02
+ * (docs/2026-11-01-4bit-fonts.md, T10).
+ */
 export async function buildCamperProject(ddfZip: Uint8Array) {
   next = 1
   const parsed = await parseDeviceDescriptionFile(Buffer.from(ddfZip))
@@ -543,13 +557,13 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
         width: 104,
         height: fields.screenHeight,
         zIndex: 100,
-        properties: { edge: "left", shows: "iconsAndText", fontId: "font-helvR12" },
+        properties: { edge: "left", shows: "iconsAndText", fontId: "font-roboto-c12" },
       },
       // Top right on every page: light or dark, for every device at once.
       onOff(fields.screenWidth - 196, 14, `${S}theme`, `${C}theme`, ["Hell", "Dunkel"], ["light", "dark"], [180, 48], ["icon-sun", "icon-moon"]),
     ],
   }
-  return {
+  const project = {
     name: "Camper",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
@@ -586,4 +600,5 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
     combinedTopics: COMBINED,
     nextId: next + 1,
   }
+  return resolveScale(project as unknown as Project) as unknown as typeof project
 }
