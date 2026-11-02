@@ -160,4 +160,4 @@ async function deviceRecovery(clientId, url, { timeoutMs = 45_000 } = {}) {
   })
 }
 
-module.exports = { TOPIC_PREFIX, brokerUrl, withClient, testInterfaces, testInterfacesOn, instanceAt, deviceDdf, deviceDdfOn, deviceDdfAt, deviceRecovery }
+module.exports = { TOPIC_PREFIX, brokerUrl, withClient, testInterfaces, testInterfacesOn, instanceAt, deviceDdf, deviceDdfOn, deviceDdfAt, deviceRecovery, helloDdfHash }

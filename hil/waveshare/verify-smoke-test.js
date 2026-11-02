@@ -26,7 +26,7 @@ const JSZip = require("jszip")
 const http = require("http")
 
 const ip = process.argv[2]
-const { instanceAt, deviceRecovery } = require("../device-mqtt")
+const { instanceAt, deviceRecovery, helloDdfHash } = require("../device-mqtt")
 const skipUpload = process.argv.includes("--skip-upload")
 if (!ip) {
   console.error("usage: node hil/waveshare/verify-smoke-test.js <device-ip> [--skip-upload]")
@@ -921,9 +921,11 @@ async function main() {
   // Asked for over the broker since 2026-10-14 (recovery/get), as the
   // designer's «recover» dialog asks (#70).
   let recovery = Buffer.alloc(0)
+  let announcedDdfHash = null
   try {
     const instanceId = await instanceAt(ip)
     if (instanceId) recovery = await deviceRecovery(instanceId)
+    if (instanceId) announcedDdfHash = await helloDdfHash(instanceId)
   } catch (e) {
     console.log(`  (${e.message})`)
   }
@@ -944,7 +946,16 @@ async function main() {
         Array.isArray(project.screens) && project.screens.length > 0,
         `${project.screens?.length} screen(s)`,
       )
-      check("it carries its own DDF, so it opens self-contained", editable.file("_source/ddf.zip") !== null)
+      // Self-contained either way: its own DDF inside, or - since 4bit-fonts
+      // T4b (docs/2026-11-01-4bit-fonts.md, decision 12) - left out because
+      // it went to the board whose DDF it is, and the designer takes the one
+      // the board announces. The project then names that DDF's hash.
+      const embedded = editable.file("_source/ddf.zip") !== null
+      check(
+        "it carries its own DDF, or names the one the board announces",
+        embedded || (!!project.settings?.ddfHash && project.settings.ddfHash === announcedDdfHash),
+        embedded ? "embedded" : `project ${project.settings?.ddfHash}, board ${announcedDdfHash}`,
+      )
     }
   }
 

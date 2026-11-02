@@ -109,6 +109,11 @@ async function main() {
   // verifier failed "it carries its own DDF" on 2026-09-15, reading the copy
   // this test had left behind.
   project.embeddedDdfZipBase64 = ddf.zipBase64
+  // And its hash, as a project opened in the designer names its DDF: the
+  // deploy then leaves the DDF out of the recovery copy, since the board
+  // holds it (docs/2026-11-01-4bit-fonts.md, decision 12), and the smoke
+  // verifier finds the copy naming the DDF the board announces.
+  project.settings = { ...project.settings, ddfHash: require("crypto").createHash("sha256").update(Buffer.from(ddf.zipBase64, "base64")).digest("hex").slice(0, 16) }
 
   const client = mqtt.connect(brokerUrl, { connectTimeout: 5000, reconnectPeriod: 0 })
   try {
