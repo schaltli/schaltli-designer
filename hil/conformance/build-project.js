@@ -101,7 +101,16 @@ function palette(colorDepth) {
   return { bg: "#ffffff", fg: "#000000", border: "#3a3a3a", accent: "#4CAF50", track: "#3a3a3a" };
 }
 
-function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
+// Each board its own topics: test:quick runs the 4" and the 4.3B side by side
+// on one broker, and with one shared "hil-conformance" prefix the values one
+// lane published reached the other board while it was asked to show "before
+// any value" - «did not apply published values within 30000ms» on whichever
+// board the timing hit, every case passing alone (2026-11-02).
+function conformancePrefix(ddf) {
+  return `hil-conformance/${ddf.deviceId || "device"}`.toLowerCase();
+}
+
+function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
   const { screen, fonts, supportedObjectTypes } = ddf;
   const { square, wide } = slots(screen);
   const { font, fontSize } = fontPicker(fonts);
@@ -137,6 +146,8 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
       colors,
       font,
       fontSize,
+      // For a specimen that names a topic itself rather than through topic().
+      topicPrefix,
       // What the device says it can draw, for the specimens that need a
       // child object rather than just themselves.
       //
@@ -291,4 +302,4 @@ function chunkProject(project, screenTopicsOf, size) {
   return chunks;
 }
 
-module.exports = { buildProject, slots, INSTALL_BUDGET_BYTES, unpackedBytes, chunkProject };
+module.exports = { buildProject, conformancePrefix, slots, INSTALL_BUDGET_BYTES, unpackedBytes, chunkProject };

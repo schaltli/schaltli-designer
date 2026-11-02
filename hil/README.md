@@ -1180,6 +1180,16 @@ Two things were done about it rather than three:
   which is where every one of these appeared. Worth its own session with a
   serial cable, not a guess at 2am.
 
+**The «did not apply» timeouts were the other lane (2026-11-02).** Once
+`test:quick` ran the 4" and the 4.3B in parallel lanes, both conformance runs
+used the same topics (`hil-conformance/gauge/level`, the button a fixed
+`hil-conformance/button`). While one board was asked to report "" before any
+value, the other lane published values on those very topics, and it reported
+them: 4/64 cases on the 4.3B in a run without any 4-bit font, 7/68 on the 4"
+in another, every case green alone. Each board's project now names its topics
+under `hil-conformance/<deviceId>/`, and `e2e/hil-conformance-topics.spec.ts`
+fails when two boards' projects share one. The next run was 68/68 on both.
+
 ## Factory flash over USB (armed by hand)
 
 `hil/factory-flash/run.js` writes a factory image onto a board over the USB

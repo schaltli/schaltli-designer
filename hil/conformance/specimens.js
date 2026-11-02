@@ -634,7 +634,7 @@ const SPECIMENS = {
           what: "the button",
           x: c.wide.x + Math.round(c.wide.width / 2),
           y: c.wide.y + Math.round(c.wide.height / 2),
-          topic: "hil-conformance/button",
+          topic: `${c.topicPrefix}/button`,
           value: "pressed",
         },
       ],
@@ -659,7 +659,7 @@ const SPECIMENS = {
             fontId: c.font("medium"),
             action: {
               type: "send-mqtt",
-              mqttTopic: "hil-conformance/button",
+              mqttTopic: `${c.topicPrefix}/button`,
               mqttMessage: "pressed",
             },
           },
