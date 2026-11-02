@@ -221,7 +221,10 @@ is marked changed, and lists texts that no longer fit.
 `replaces` when a project names a font the DDF only lists as replaced.
 
 **Acceptance criteria:**
-- [ ] HIL: old project uploaded, firmware updated, every text drawn
+- [x] `src/project/FontIndex.h` (pure): an id draws as itself while declared, else as the font whose `replaces` names it; `DdfFontStore` uses it, and `ColorScreenRenderer`'s metric getters (and the keyboard's font choice) take a stand-in's own ascent and descent, not the old entry's in project.json
+- [x] Native test `test/test_font_index` (in fw-native): the rules on a small DDF, and the three boards' device.json - every 1-bit id draws as itself, and with the 1-bit fonts dropped as T14 will, as a 4-bit font of its own weight
+- [x] `npm run test:quick`: e2e 2073/2073, every lane green but `4v3b-internal-heap` (as intended); all four envs build
+- [ ] HIL: old project uploaded, firmware updated, every text drawn - moved to T14: while the 1-bit fonts are still declared an old project draws them, and the fallback has nothing to do on hardware
 
 **Verification:** fixture in `hil/waveshare/fixtures/` (old project + new firmware); `npm run test:quick`
 **Dependencies:** T5
@@ -303,6 +306,9 @@ on their own and what to look for (texts that got wider), device pages.
 **Description:** Remove the 1-bit BDFs from the colour boards' DDFs once a
 release with the migration is out; `replaces` stays so old projects still
 resolve.
+
+**Acceptance criteria:**
+- [ ] HIL (from T8): a project naming 1-bit ids, on a board whose DDF no longer declares them, draws every text in the 4-bit fonts that replace them - a fixture in `hil/waveshare/fixtures/`
 
 **Dependencies:** T13 released
 **Estimated scope:** S
