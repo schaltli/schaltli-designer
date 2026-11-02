@@ -29,7 +29,11 @@ const { dateOf, midnightOf, keptDates, nextDate, previousDate } = require("../re
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const RUN = Date.now().toString(36)
+// The board in it as well as the time (hil/device-tag.js): two lanes
+// starting this suite in the same millisecond shared one prefix, and each
+// board heard the other's values - live-values read the next step's
+// combined topic on the 4.3B in test:quick (2026-11-02).
+const RUN = `${require("./device-tag").deviceTag()}-${Date.now().toString(36)}`
 const LEVEL = `hil-chart-${RUN}/level`
 const HEATER = `hil-chart-${RUN}/heater`
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -48,7 +52,12 @@ function chartProject(ddf, stamp) {
   const round = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const side = round ? Math.floor(Math.min(width, height) / Math.SQRT2) : null
   const inner = round ? { x: Math.round((width - side) / 2), y: Math.round((height - side) / 2), w: side, h: side } : { x: 0, y: 0, w: width, h: height }
-  const sorted = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
+  // A board with 4-bit fonts sets its chart in them (2026-11-02,
+  // docs/2026-11-01-4bit-fonts.md T9): the labels, legend and annotations
+  // then blend into the plot's lines, zones and fills, and are compared at
+  // 0 px like everything else here.
+  const fourBit = ddf.fonts.filter((f) => f.bpp === 4 && f.family !== "Seven Segment")
+  const sorted = [...(fourBit.length ? fourBit : ddf.fonts)].sort((a, b) => (a.size || 0) - (b.size || 0))
   const font = sorted[Math.floor(sorted.length * 0.4)]
   // The days' names above the plot in a larger font of their own (2026-10-30).
   const dateFont = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.7))]

@@ -240,7 +240,19 @@ weight, light and dark, over a gradient, a chart and an image, diacritics and
 `€ — …`; conformance specimens for the same.
 
 **Acceptance criteria:**
-- [ ] 4.3B and 4" lanes 0 px on all of them; Knob lane skips with its warning
+- [x] 4.3B and 4" lanes 0 px on all of them; the Knob too (it is back on the bench) - `hil/size-scale/text-styles.js` grew «Live» screens: text the board draws itself (a value in it), every typography, every style regular and bold, `Grüezi Łódź Ærø € — … °C`, on white, on black and over a picture of colours: 11/11 screens at 0 px on the 4.3B, the 4" and the Knob. Chart text over lines, zones and fills: `hil/charts-draw.js` sets its chart in a 4-bit font where the board has them, 0 px on all three. Conformance keeps its `text-4bit` screen
+- [x] `test-all.js`: `knob-text-styles` added (full run); after each RGB board's text styles, `hil/font-budget.js`
+
+Found on the way, each fixed (2026-11-02):
+
+- **A Display face's BDF did not load on the 4.3B.** «[zip] no room for fonts/inter-c42.bdf (1062993 bytes)»: the font store extracted a whole BDF into one PSRAM block before parsing it, and Humanist's Display drew in the fallback font. `BdfFont::parse` now reads lines from a source it can rewind (`BdfLineSource`), and the DDF's fonts come through `ProjectInstaller::MemoryZipEntryReader` in 4 KB pieces, never whole.
+- **Three typographies used up the 4.3B's PSRAM**: 26 fonts parsed, 11 KB left, fonts missing, the next install refused. The user decided (cache and a smaller character set): the 4-bit fonts are written with the Windows code pages 1250 and 1252 plus the chart's «→ −» (`ttf-to-bdf.py --charset cp1250+cp1252`; the user asked for 1250, which lacks French à è ê ù œ - 1252 added for them) - 271 glyphs instead of 468-738; all three typographies on the 4.3B 1.7 MB instead of 3.9. DDFs 0.65-0.78 MB instead of 1.0-1.25. And `DdfFontStore` keeps a reserve of free PSRAM (1 MB): fonts are loaded ahead only above it, and on a screen change the least recently used ones the new screen does not name are let go while below it - never in the middle of a draw. `tools/ttf-to-bdf-check` checks the code pages (French, German, Czech, Polish, € — … ° •, nothing Cyrillic or Greek, Inter's →); `hil/font-budget.js` sets the reserve beyond the PSRAM (`?set=fontreserve=`, /api/debug says «fonts: …»), compares every text-styles screen again and wants fonts let go: 11/11 at 0 px, 49 let go, on the 4.3B.
+- **`text-styles.js` called a board that never restarted "back up"**: its install of a full-screen picture took 28 s and the upload gave up at 25; the comparison then photographed the project from before. `upload()` waits 120 s and wants the uptime to have gone back, else says the board's install error.
+- **`__applyScaleForTest` and `text-styles.js` gave fonts no `bpp`/`capHeight`**: the HIL's styles picked by line, the designer's by capitals. Both carry them now.
+- **Chart texts in another order than the board's**: the designer drew them as Text objects with one zIndex, so by id - «-text-10» before «-text-2». Two labels overlap on the Knob's time axis, and in 4 bits the later one's edges mix into the other's: 9 px. Each text's zIndex is its place in the layout now.
+- **Lanes heard each other's values**: nine HIL scripts made their topics from the time alone; two lanes starting a suite in the same millisecond shared them (live-values read the next step's combined topic). The board's tag is in the prefix now (`hil/device-tag.js`).
+
+Handbook: objekte/anzeigen.md «Stile», which characters the colour boards' fonts have.
 
 **Verification:** `npm run test:all`
 **Dependencies:** T5-T8

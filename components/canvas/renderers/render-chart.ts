@@ -195,7 +195,11 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
           y: Math.round(t.y),
           width: Math.max(1, Math.round(t.w)),
           height: t.h,
-          zIndex: 1,
+          // In the layout's order, as a board draws them: with one zIndex the
+          // ids decided, "-text-10" before "-text-2", and where two labels
+          // overlap - the Knob's time axis - the later one's 4-bit edges
+          // were mixed into the other's (2026-11-02).
+          zIndex: i + 1,
           properties: {
             text: t.text.replace(/\{/g, "{{").replace(/\}/g, "}}"),
             fontId: t.font === "date" ? (p.dateFontId ?? p.fontId) : p.fontId,

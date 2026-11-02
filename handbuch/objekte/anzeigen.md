@@ -36,6 +36,8 @@ Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften für 
 | «Humanist» | Inter |
 | «Technic» | Roboto Condensed, Display in Sieben-Segment-Ziffern |
 
+Diese Schriften haben die Buchstaben für Deutsch, Französisch und Englisch und für die meisten Sprachen Mitteleuropas, etwa Tschechisch und Polnisch, dazu Zeichen wie € — … und °. Zeichen anderer Schriften, etwa kyrillische, fehlen. Steht eines im Text, fällt es weg, im Designer wie auf dem Gerät.
+
 Die PaperS3 hat dieselben drei Typografien, aber mit scharfkantigen Schriften, weil ihr E-Paper Graustufen beim schnellen Auffrischen schlecht zeigt.
 
 | Typografie | Schriften auf der PaperS3 |

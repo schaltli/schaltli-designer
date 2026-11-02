@@ -42,6 +42,8 @@ next-env.d.ts
 /hil/conformance/report/
 /hil/conformance/report-ws4/
 /hil/waveshare4/report/
+/hil/waveshare4v3b/report-font-budget/
+/hil/waveshare4/report-font-budget/
 /hil/placeholder-redraw-report/
 /hil/popup-report/
 /hil/local-topics-report/

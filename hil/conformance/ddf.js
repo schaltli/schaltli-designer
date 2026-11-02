@@ -67,6 +67,9 @@ async function fontsWithData(deviceJson, readFile) {
       // 4 for an anti-aliased font (docs/device-contract.md, «Font depth»):
       // build-project.js gives those a text screen of their own.
       ...(font.bpp === 4 ? { bpp: 4 } : {}),
+      // Its family, so a fixture can leave one out (hil/charts-draw.js: no
+      // chart in Seven Segment).
+      ...(font.family ? { family: font.family } : {}),
       data,
     });
   }

@@ -16,6 +16,15 @@
 // The device only needs the fonts it already has: the style picks among
 // them. A device on older firmware renders this as well as a new one.
 //
+// The colour boards set text in 4-bit fonts since 2026-11-02
+// (docs/2026-11-01-4bit-fonts.md, T9). Static text reaches a device baked
+// into its screen's bitmap, so the designer drew it; text with a value in it
+// the device draws itself, blending each glyph's edge into what lies under
+// it. The «Live» screens are that text: every typography the device has,
+// every style regular and bold, letters beyond ASCII and `€ — …`, on white,
+// on black, and over a picture of colours. hil/charts-draw.js has a chart's
+// own text in them.
+//
 // Needs the designer dev server (npm run dev) and schaltli-firmware next to
 // this repo.
 //
@@ -56,7 +65,22 @@ const TOPICS = [
   { id: "topic-steps-level", topic: "size-scale/level", type: "numeric", examples: ["60"] },
   { id: "topic-steps-switch", topic: "size-scale/switch", type: "text", examples: ["on"] },
   { id: "topic-steps-mode", topic: "size-scale/mode", type: "text", examples: ["eco"] },
+  { id: "topic-live-value", topic: "size-scale/value", type: "text", examples: ["21.5"] },
 ]
+
+// What the «Live» screens say per style: a value the device fills in, and
+// letters a 1-bit font of old did not need to blend.
+const LIVE = [
+  ["caption", "Caption Grüezi {topic:size-scale/value} € — …"],
+  ["label", "Label Łódź {topic:size-scale/value} °C"],
+  ["title", "Title Ærø {topic:size-scale/value}"],
+  ["display", "{topic:size-scale/value} €"],
+]
+
+// A picture of colours for text to lie on: baked into the screen's bitmap,
+// the text drawn over it on the device.
+const PICTURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e3a8a"/><stop offset="0.5" stop-color="#f59e0b"/><stop offset="1" stop-color="#10b981"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><circle cx="70" cy="35" r="22" fill="#ffffff" fill-opacity="0.6"/></svg>`
+const PICTURE = { id: "asset-live-picture", name: "picture", type: "icon", data: `data:image/svg+xml;base64,${Buffer.from(PICTURE_SVG).toString("base64")}` }
 
 // What the canvas gives a new object of each kind (components/canvas/
 // canvas.tsx), in a style and on a step; resolveScale sizes it for the
@@ -128,6 +152,13 @@ function fontsOf(source, device) {
     ascent: f.ascent,
     descent: f.descent,
     data: fs.readFileSync(path.join(FIRMWARE, source, f.file), "utf8"),
+    // As the designer reads them from the DDF: the style picks by family,
+    // and a 4-bit face by its capitals (lib/size-scale.ts fontFor).
+    ...(f.family ? { family: f.family } : {}),
+    ...(f.weight ? { weight: f.weight } : {}),
+    ...(f.bpp === 4 ? { bpp: 4 } : {}),
+    ...(f.capHeight ? { capHeight: f.capHeight } : {}),
+    ...(f.replaces ? { replaces: f.replaces } : {}),
   }))
 }
 
@@ -174,7 +205,7 @@ function projectFor(source, device, typography) {
     screenHeight: height,
     settings: { colorDepth: device.screen.colorDepth },
     topics: TOPICS,
-    assets: [],
+    assets: [PICTURE],
     fonts,
     hardwareButtons: [],
     snapGuides: [],
@@ -184,8 +215,56 @@ function projectFor(source, device, typography) {
       { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects, ...(typography ? { typography } : {}) },
       wideGlyphScreen(fonts, device),
       ...stepScreens(),
+      ...liveScreens(device),
     ].map((screen) => ({ ...screen, ...themeOf(device) })),
   }
+}
+
+// Text the device draws: each typography on white; Standard on black; and
+// Standard, transparent, over the picture.
+function liveScreens(device) {
+  const texts = (prefix, colour, under) =>
+    LIVE.flatMap(([style, words]) =>
+      [false, true].map((bold) => ({
+        id: `${prefix}-${style}${bold ? "-bold" : ""}`,
+        type: "text",
+        x: 0,
+        y: 0,
+        width: device.screen.width,
+        height: 10,
+        zIndex: 10,
+        properties: {
+          text: words,
+          textStyle: style,
+          textBold: bold,
+          color: colour,
+          textAlign: "center",
+          fontWeight: "normal",
+          backgroundColor: under,
+          borderColor: "transparent",
+        },
+      })),
+    )
+  const names = (device.typography ?? []).map((t) => t.name)
+  return [
+    ...names.map((name, i) => ({
+      id: `screen-live-${i}`,
+      name: `Live: ${name}`,
+      backgroundColor: "#ffffff",
+      typography: name,
+      objects: texts(`obj-live-${i}`, "#000000", "transparent"),
+    })),
+    { id: "screen-live-dark", name: "Live: on black", backgroundColor: "#000000", objects: texts("obj-live-dark", "#ffffff", "transparent") },
+    {
+      id: "screen-live-picture",
+      name: "Live: over a picture",
+      backgroundColor: "#ffffff",
+      objects: [
+        { id: "obj-live-picture", type: "icon", x: 0, y: 0, width: device.screen.width, height: device.screen.height, zIndex: 1, properties: { assetId: PICTURE.id, backgroundColor: "transparent" } },
+        ...texts("obj-live-over", "#ffffff", "transparent"),
+      ],
+    },
+  ]
 }
 
 // The glyphs wider than 32 px, in the font that has the widest: both the
@@ -240,15 +319,18 @@ function wideGlyphScreen(fonts, device) {
 }
 
 // Stacks the texts top to bottom once their heights are known, centred as
-// a block so the round Knob does not cut the first and last lines.
+// a block so the round Knob does not cut the first and last lines. The
+// first screen and the «Live» ones; the picture stays where it is.
 function layOut(project, pixelsPerMm) {
-  const objects = project.screens[0].objects
   const gap = Math.round(MARGIN_MM * pixelsPerMm)
-  const total = objects.reduce((sum, o) => sum + o.height, 0) + gap * (objects.length - 1)
-  let y = Math.max(0, Math.round((project.screenHeight - total) / 2))
-  for (const o of objects) {
-    o.y = y
-    y += o.height + gap
+  for (const screen of project.screens.filter((sc, i) => i === 0 || sc.id.startsWith("screen-live-"))) {
+    const objects = screen.objects.filter((o) => o.type === "text")
+    const total = objects.reduce((sum, o) => sum + o.height, 0) + gap * (objects.length - 1)
+    let y = Math.max(0, Math.round((project.screenHeight - total) / 2))
+    for (const o of objects) {
+      o.y = y
+      y += o.height + gap
+    }
   }
   return project
 }
@@ -314,20 +396,48 @@ function layOutSteps(project) {
   return project
 }
 
+// Seconds since boot: the knob's JSON (uptimeMs) or the 4.3B's text
+// ("uptime 1056 s"); null when the board says neither.
+async function uptimeOf(host) {
+  const res = await fetch(`http://${host}/api/debug`, { signal: AbortSignal.timeout(4000) })
+  if (!res.ok) return null
+  const body = await res.text()
+  try {
+    const j = JSON.parse(body)
+    if (typeof j.uptimeMs === "number") return j.uptimeMs / 1000
+  } catch {}
+  const m = body.match(/uptime (\d+) s/)
+  return m ? Number(m[1]) : null
+}
+
+// Installs the zip and waits for the board to come back from the restart
+// into it. Back, but not restarted, is a failure, said with the board's own
+// install error: on the 4.3B an install with a full-screen picture took 28 s,
+// this gave up at 25, called a board that never restarted "back up", and the
+// comparison then photographed the project from before (2026-11-02).
 async function upload(zipPath, host) {
+  let before = null
+  try {
+    before = await uptimeOf(host)
+  } catch {}
   const form = new FormData()
   form.append("file", new Blob([fs.readFileSync(zipPath)]), path.basename(zipPath))
   try {
     // The device reboots into the project and never answers this request.
-    await fetch(`http://${host}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(25000) })
+    await fetch(`http://${host}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) })
   } catch {
     // expected
   }
-  const deadline = Date.now() + 90000
+  const deadline = Date.now() + 120000
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`http://${host}/api/debug`, { signal: AbortSignal.timeout(4000) })
-      if (res.ok) return true
+      const now = await uptimeOf(host)
+      if (now !== null && (before === null || now < before)) return true
+      if (now !== null && now >= before + 20) {
+        const fsInfo = await (await fetch(`http://${host}/api/fs`, { signal: AbortSignal.timeout(4000) })).json().catch(() => ({}))
+        console.error(`  ${host} answers but did not restart into the project (uptime ${before} -> ${now} s, install error: ${fsInfo.lastInstallError || "none said"})`)
+        return false
+      }
     } catch {
       // still rebooting
     }

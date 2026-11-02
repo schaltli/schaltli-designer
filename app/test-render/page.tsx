@@ -788,7 +788,18 @@ export default function TestRenderPage() {
         ...project,
         fonts: project.fonts.map((f: any) => {
           const declared: any = byId.get(f.id)
-          return declared ? { ...f, family: declared.family, weight: declared.weight } : f
+          // What the designer reads from a DDF for a style to pick by: family
+          // and weight, and a 4-bit face's depth, capitals and the fonts it
+          // replaces (docs/2026-11-01-4bit-fonts.md).
+          if (!declared) return f
+          return {
+            ...f,
+            family: declared.family,
+            weight: declared.weight,
+            ...(declared.bpp === 4 ? { bpp: 4 } : {}),
+            ...(declared.capHeight ? { capHeight: declared.capHeight } : {}),
+            ...(declared.replaces ? { replaces: declared.replaces } : {}),
+          }
         }),
         settings: {
           ...project.settings,

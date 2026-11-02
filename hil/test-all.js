@@ -1210,8 +1210,51 @@ async function main() {
           }
         }
         summary.push({ name: `waveshare-${lane}-text-styles`, status: ok ? "PASS" : "FAIL", detail })
+
+        // The same project with the font cache's reserve beyond the PSRAM
+        // (hil/font-budget.js): every screen change lets go of the fonts it
+        // does not name, and every screen is still exact.
+        if (built === 0) {
+          const budgetReport = path.join(__dirname, lane === "ws4" ? "waveshare4/report-font-budget" : "waveshare4v3b/report-font-budget")
+          const exit = await run("node", ["hil/font-budget.js", "--device", device, "--project", path.join(__dirname, "size-scale", "out", `text-styles-${lane}.zip`), "--report", budgetReport], { cwd: REPO_ROOT })
+          summary.push({
+            name: `waveshare-${lane}-font-budget`,
+            status: exit === 2 ? "SKIPPED" : exit === 0 ? "PASS" : "FAIL",
+            detail: exit === 2 ? "no font report in /api/debug" : exit === 0 ? "fonts let go on every screen change, every screen exact" : `exit code ${exit} - see output above`,
+            report: `hil/${lane === "ws4" ? "waveshare4" : "waveshare4v3b"}/report-font-budget/index.html`,
+          })
+        }
       }
     }
+  })
+
+  // The text styles on the Knob too: its 4-bit fonts in every typography,
+  // drawn by the board where a value is in the text (2026-11-02,
+  // docs/2026-11-01-4bit-fonts.md T9). Its own orchestrator, the screens only.
+  step("knob", async () => {
+    console.log(`
+  === Waveshare Knob text styles (device: ${WAVESHARE_DEVICE}) ===`)
+    if ((await httpGetStatus(`http://${WAVESHARE_DEVICE}/snapshot.bmp`)) !== 200) {
+      console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_DEVICE}/snapshot.bmp`)
+      summary.push({ name: "knob-text-styles", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_DEVICE}` })
+      return
+    }
+    const built = await run("node", ["hil/size-scale/text-styles.js", "knob", "--upload", "--device", WAVESHARE_DEVICE], { cwd: REPO_ROOT })
+    let detail = `could not build or install the screens (exit code ${built})`
+    let ok = false
+    if (built === 0) {
+      clearResults(path.join(__dirname, "waveshare/report"))
+      await run("node", ["hil/waveshare/orchestrator.js", "--device", WAVESHARE_DEVICE, "--project", path.join(__dirname, "size-scale", "out", "text-styles-knob.zip"), "--screens-only"], { cwd: REPO_ROOT })
+      const results = readResults(path.join(__dirname, "waveshare/report"))
+      if (results) {
+        const passed = results.filter((r) => r.pass).length
+        ok = passed === results.length && results.length > 0
+        detail = `${passed}/${results.length} screens, worst ${results.reduce((m, r) => Math.max(m, r.diffPixels || 0), 0)}px`
+      } else {
+        detail = "the comparison crashed - see output above"
+      }
+    }
+    summary.push({ name: "knob-text-styles", status: ok ? "PASS" : "FAIL", detail, report: "hil/waveshare/report/index.html" })
   })
 
   // There is no Android DDF freshness check any more, and there is nothing
