@@ -36,6 +36,13 @@ export interface DeviceDescriptionFontEntry {
   // without them is in no family and never chosen by a style.
   family?: string
   weight?: "regular" | "bold"
+  // A 4-bit face (docs/2026-11-01-4bit-fonts.md, device-contract «Font
+  // depth»): its pixels carry coverage, and a style picks it by `capHeight`,
+  // the height of its capitals in pixels. `replaces` names the 1-bit fonts it
+  // stands in for, which a project still on them is moved off.
+  bpp?: 1 | 4
+  capHeight?: number
+  replaces?: string[]
 }
 
 /** The four text styles a typography names a family for. */
@@ -356,6 +363,11 @@ export async function parseDeviceDescriptionFile(
         format,
         ...(typeof fontEntry.family === "string" && fontEntry.family.trim() !== "" ? { family: fontEntry.family.trim() } : {}),
         ...(fontEntry.weight === "regular" || fontEntry.weight === "bold" ? { weight: fontEntry.weight } : {}),
+        ...(fontEntry.bpp === 4 ? { bpp: 4 as const } : {}),
+        ...(typeof fontEntry.capHeight === "number" && fontEntry.capHeight > 0 ? { capHeight: fontEntry.capHeight } : {}),
+        ...(Array.isArray(fontEntry.replaces) && fontEntry.replaces.length > 0
+          ? { replaces: fontEntry.replaces.filter((id): id is string => typeof id === "string") }
+          : {}),
       }
       return font
     }),

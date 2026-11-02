@@ -170,9 +170,11 @@ regular and bold), with `bpp: 4` and `replaces` generated from typography,
 style, weight and nearest size. The old BDFs stay (plan: one release).
 
 **Acceptance criteria:**
-- [ ] Every old font id on the three boards appears in exactly one `replaces`
-- [ ] Firmware of each board fits its app slot with ≥ 10 % headroom
-- [ ] PaperS3's DDF byte-identical to before
+- [x] Every old font id on the three boards appears in exactly one `replaces` - by the style the old font served in the old typographies (FreeUniversal only ever Display, Logisoso Title), the same weight; Courier to Roboto. By capitals alone Lucida Sans 24px, Humanist's Title, went to Inter at Label size. `e2e/size-scale.spec.ts` «every 1-bit font is replaced by exactly one 4-bit font»
+- [x] Firmware of each board fits its app slot with ≥ 10 % headroom - 44-49 %
+- [x] PaperS3's DDF byte-identical to before (`generate-ddf-header --check`)
+- [x] The colour boards' typographies replaced: Standard Roboto, Humanist Inter, Technic Roboto Condensed + Seven Segment (4-bit), same names
+- [x] `npm run test:quick` (with T6): e2e 2071/2071, Knob and 4" green; 4.3B `placeholder-redraw` and `local-topics` «terminated», `charts-actions` a timeout - each 3/3 (and 1/1) green alone right after, -64 dBm; `4v3b-internal-heap` as intended
 
 **Verification:** `pio run` for the three envs (size printed); script check of the `replaces` coverage; `npm run test:quick`
 **Dependencies:** T2, T3
@@ -185,8 +187,9 @@ style, weight and nearest size. The old BDFs stay (plan: one release).
 style's target; 1-bit as before.
 
 **Acceptance criteria:**
-- [ ] Unit test: Roboto and Inter Label within 1 px cap height of each other
-- [ ] PaperS3 project font choices unchanged
+- [x] Unit test: Roboto and Inter Label within 1 px cap height of each other - `e2e/size-scale.spec.ts` «4-bit typographies»: every style of every typography on the three boards a 4-bit face at round(0.69 × line), bold at the same capitals; Roboto and Inter equal
+- [x] PaperS3 project font choices unchanged - same spec, its picks pinned
+- [x] `ProjectFont` carries `bpp`, `capHeight`, `replaces` from the DDF; a family with 4-bit faces is set in those only (Seven Segment has both until T14). The Knob's style tests in `size-scale.spec.ts` now expect Roboto
 
 **Verification:** `npm run test:quick`
 **Dependencies:** T4, T5

@@ -342,7 +342,10 @@ export function fontFor(
   fonts: ProjectFont[],
   pixelsPerMm: number,
 ): ProjectFont | undefined {
-  const family = fonts.filter((f) => f.family === typography.styles[style])
+  const named = fonts.filter((f) => f.family === typography.styles[style])
+  const fourBit = named.filter((f) => f.bpp === 4)
+  if (fourBit.length > 0) return fourBitFontFor(style, bold, fourBit, pixelsPerMm)
+  const family = named
   const regular = family.filter((f) => f.weight !== "bold")
   const sized = closest(regular.length > 0 ? regular : family, stylePx(style, pixelsPerMm))
   if (!sized || !bold || sized.weight === "bold") return sized
@@ -351,6 +354,33 @@ export function fontFor(
     lineHeight(sized),
   )
   return boldFace && Math.abs(lineHeight(boldFace) - lineHeight(sized)) <= SAME_SIZE_PX ? boldFace : sized
+}
+
+/**
+ * The capital height a 4-bit face is picked by: this share of the style's
+ * line, the ratio today's Helvetica BDFs have (docs/2026-11-01-4bit-fonts.md,
+ * decision 10). Roboto and Inter keep more room around their letters - their
+ * capitals are 0.60 of their line - so picked by line every text would have
+ * shrunk.
+ */
+export const CAP_PER_LINE = 0.69
+
+// A family with 4-bit faces is set in those only: the 1-bit faces of the
+// same name (Seven Segment has both while the old ones are still shipped)
+// are what the 4-bit ones replace. Picked by capital height where the face
+// says it, else by line (Seven Segment, rasterised at the Display line).
+// Bold takes the bold face of the same capitals, as fontFor does by line.
+function fourBitFontFor(style: TextStyle, bold: boolean, faces: ProjectFont[], pixelsPerMm: number): ProjectFont | undefined {
+  const line = stylePx(style, pixelsPerMm)
+  const cap = CAP_PER_LINE * line
+  const off = (f: ProjectFont) => (f.capHeight ? Math.abs(f.capHeight - cap) : Math.abs(lineHeight(f) - line))
+  const size = (f: ProjectFont) => f.capHeight ?? lineHeight(f)
+  const pick = (list: ProjectFont[]) =>
+    list.reduce<ProjectFont | undefined>((best, f) => (!best || off(f) < off(best) || (off(f) === off(best) && size(f) < size(best)) ? f : best), undefined)
+  const regular = faces.filter((f) => f.weight !== "bold")
+  const sized = pick(regular.length > 0 ? regular : faces)
+  if (!sized || !bold || sized.weight === "bold") return sized
+  return faces.find((f) => f.weight === "bold" && size(f) === size(sized)) ?? sized
 }
 
 // A bold face counts as the same size as a regular one within this many

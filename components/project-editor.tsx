@@ -317,6 +317,12 @@ export interface ProjectFont {
   // (docs/2026-09-30-size-scale.md). A font added by hand has neither.
   family?: string
   weight?: "regular" | "bold"
+  // From the DDF, for a 4-bit face (docs/2026-11-01-4bit-fonts.md): its
+  // depth, the height of its capitals a style picks it by, and the 1-bit
+  // fonts it stands in for.
+  bpp?: 1 | 4
+  capHeight?: number
+  replaces?: string[]
   // Distance from a TTF font's top to its baseline, measured once when the
   // font is added (add-ttf-font-dialog.tsx) from the browser's own text
   // metrics. Only meaningful for format "ttf" - a BDF carries its ascent

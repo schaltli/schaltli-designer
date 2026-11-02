@@ -13,6 +13,7 @@ import { seedRoundFixtureDdf, seedWaveshareDdf } from "./ddf-seed"
 import {
   TEXT_STYLES,
   fontFor,
+  CAP_PER_LINE,
   isOnScale,
   lineHeight,
   nearestStep,
@@ -20,6 +21,7 @@ import {
   resolveScale,
   stepKindOf,
   stepPx,
+  stylePx,
   textScaleOf,
   typographyFor,
   typographyNameOf,
@@ -191,17 +193,18 @@ test.describe("the firmware devices' scale", () => {
   }
 
   const DEVICES = [
-    // 360 px over a 45.68 mm round panel. Display is FreeUniversal on all
-    // three since the typographies of 2026-09-30, up to its 42 pt.
-    { source: "ddf-source", pxPerMm: 7.88, display: "FreeUniversal" },
+    // 360 px over a 45.68 mm round panel. The colour boards' Standard is
+    // Roboto in 4 bits throughout since 2026-11-02 (docs/2026-11-01-4bit-fonts.md);
+    // the PaperS3 keeps Helvetica with FreeUniversal for Display.
+    { source: "ddf-source", pxPerMm: 7.88, text: "Roboto", display: "Roboto" },
     // 800 × 480 over 95.04 × 53.86 mm: 8.42 across and 8.91 down, not square;
     // the mean is what the scale uses.
-    { source: "ddf-source-waveshare4v3b", pxPerMm: 8.66, display: "FreeUniversal" },
+    { source: "ddf-source-waveshare4v3b", pxPerMm: 8.66, text: "Roboto", display: "Roboto" },
     // 480 × 480 over 71.28 × 70.32 mm, measured on the glass (2026-10-31):
     // 6.73 across and 6.83 down, the mean what the scale uses.
-    { source: "ddf-source-waveshare4", pxPerMm: 6.78, display: "FreeUniversal" },
+    { source: "ddf-source-waveshare4", pxPerMm: 6.78, text: "Roboto", display: "Roboto" },
     // 960 × 540 over 103.68 × 58.32 mm, the ED047TC1's 0.108 mm pitch.
-    { source: "ddf-source-papers3", pxPerMm: 9.26, display: "FreeUniversal" },
+    { source: "ddf-source-papers3", pxPerMm: 9.26, text: "Helvetica", display: "FreeUniversal" },
   ]
   for (const device of DEVICES) {
     test(`${device.source} has a scale, fonts in families and a Standard typography`, async () => {
@@ -212,7 +215,7 @@ test.describe("the firmware devices' scale", () => {
       expect(fields.pixelsPerMm).toBeCloseTo(device.pxPerMm, 2)
       expect(fields.fonts.every((f) => f.family && (f.weight === "regular" || f.weight === "bold"))).toBe(true)
       const standard = fields.typographies?.find((t) => t.name === "Standard")
-      expect(standard?.styles).toEqual({ caption: "Helvetica", label: "Helvetica", title: "Helvetica", display: device.display })
+      expect(standard?.styles).toEqual({ caption: device.text, label: device.text, title: device.text, display: device.display })
       // Every family a style names has fonts on the device.
       for (const family of Object.values(standard!.styles)) {
         expect(fields.fonts.some((f) => f.family === family)).toBe(true)
@@ -411,7 +414,8 @@ test.describe("the scale", () => {
 // Custom, and Snap moves it to the nearest style.
 test.describe("a text's style", () => {
   // The Knob: its round 360 px screen fits the test window, and since
-  // Task 2 its DDF gives a scale - 7.88 px/mm, Helvetica throughout.
+  // Task 2 its DDF gives a scale - 7.88 px/mm, Roboto in 4 bits throughout
+  // since 2026-11-02.
   async function textOnKnob(page: Page) {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
@@ -439,22 +443,22 @@ test.describe("a text's style", () => {
 
   test("a style sets the font of the device's typography; Bold its bold face", async ({ page }) => {
     await textOnKnob(page)
-    // On the Knob Label is 24 px: Helvetica 18, a 27 px line.
+    // On the Knob Label is 24 px: Roboto in 4 bits, by its capitals - 16 px,
+    // 0.69 of the line (docs/2026-11-01-4bit-fonts.md, decision 10).
     await page.locator("#textStyle").selectOption("label")
     await expect(page.locator("#textStyle")).toHaveValue("label")
     let [text] = await texts(page)
-    expect(text.properties).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
+    expect(text.properties).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-roboto-c16" })
 
     // The row's label is what a click lands on; the checkbox itself is hidden.
     await page.locator("label", { has: page.getByRole("checkbox", { name: "Bold" }) }).click()
     ;[text] = await texts(page)
-    expect(text.properties).toMatchObject({ textStyle: "label", textBold: true, fontId: "font-helvB18" })
+    expect(text.properties).toMatchObject({ textStyle: "label", textBold: true, fontId: "font-robotob-c16" })
 
-    // Display is 55 px: FreeUniversal, the Standard typography's Display
-    // family, at its 42 pt (a 51 px line), bold too.
+    // Display is 55 px: Roboto Bold at 38 px capitals.
     await page.locator("#textStyle").selectOption("display")
     ;[text] = await texts(page)
-    expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-fub42" })
+    expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-robotob-c38" })
   })
 
   test("an object in a font by hand shows as Custom, and Snap moves it to the nearest style", async ({ page }) => {
@@ -466,13 +470,13 @@ test.describe("a text's style", () => {
     await objectTreeRow(page, "obj-switch-1").click()
     await expect(page.locator("#textStyle")).toHaveValue("")
     await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
-    // 12 px is nearest Caption (16 px on the Knob): Helvetica 12, an 18 px line.
+    // 12 px is nearest Caption (16 px on the Knob): Roboto, 11 px capitals.
     await page.getByRole("button", { name: "Snap to Caption" }).click()
     await expect(page.locator("#textStyle")).toHaveValue("caption")
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const sw = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.id === "obj-switch-1")
-    expect(sw.properties).toMatchObject({ textStyle: "caption", fontId: "font-helvR12" })
+    expect(sw.properties).toMatchObject({ textStyle: "caption", fontId: "font-roboto-c11" })
   })
 
   // Task 6a: a level's value takes a style as text does.
@@ -490,8 +494,8 @@ test.describe("a text's style", () => {
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const [gauge] = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "gauge")
-    // 7 mm on the Knob is 55 px: FreeUniversal 42, a 51 px line.
-    expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-fur42" })
+    // 7 mm on the Knob is 55 px: Roboto, 38 px capitals.
+    expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-roboto-c38" })
   })
 
   // Task 6b: a switch's and a button's labels take a style as text does.
@@ -515,9 +519,9 @@ test.describe("a text's style", () => {
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const objects = deep(project.screens.flatMap((s: any) => s.objects))
-    // Title on the Knob is 35 px: Helvetica 24. Label is 24 px: Helvetica 18.
-    expect(objects.find((o: any) => o.type === "switch").properties).toMatchObject({ textStyle: "title", fontId: "font-helvR24" })
-    expect(objects.find((o: any) => o.type === "button").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+    // Title on the Knob is 35 px: Roboto, 24 px capitals. Label is 24 px: 16 px capitals.
+    expect(objects.find((o: any) => o.type === "switch").properties).toMatchObject({ textStyle: "title", fontId: "font-roboto-c24" })
+    expect(objects.find((o: any) => o.type === "button").properties).toMatchObject({ textStyle: "label", fontId: "font-roboto-c16" })
   })
 
   // Task 7: on a device with a scale nothing new starts in a font by hand.
@@ -542,11 +546,11 @@ test.describe("a text's style", () => {
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const byType = (type: string) => deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === type)
-    // Label on the Knob is Helvetica 18; Display FreeUniversal 42.
+    // Label on the Knob is Roboto at 16 px capitals; Display at 38.
     for (const type of ["text", "bar", "switch", "button"]) {
-      expect(byType(type).properties, type).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
+      expect(byType(type).properties, type).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-roboto-c16" })
     }
-    expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-fur42" })
+    expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-roboto-c38" })
     // The text's height follows its font, as the Text panel sets it.
     expect(byType("text").height).toBe(calculateTextObjectHeight(27))
   })
@@ -606,7 +610,7 @@ test.describe("a text's style", () => {
       const project = await downloadProject(page)
       const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
       const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
-      expect(label.properties).toMatchObject({ text: "Pumpe", textStyle: "label", fontId: "font-helvR18" })
+      expect(label.properties).toMatchObject({ text: "Pumpe", textStyle: "label", fontId: "font-roboto-c16" })
     } finally {
       await broker.publishAsync(topic, "", { retain: true })
       broker.end(true)
@@ -673,7 +677,7 @@ test.describe("styled objects follow the device", () => {
     // In Technic, whose Seven Segment Display each board carries at exactly
     // its own Display line - 61 px on the 4.3B, 55 on the Knob. Already
     // resolved for the 4.3B.
-    const styled = { id: "a", type: "text", x: 0, y: 0, width: 100, height: calculateTextObjectHeight(61), zIndex: 1, properties: { text: "21.5", textStyle: "display", textBold: false, fontId: "font-seg7-61", fontSize: 61 } }
+    const styled = { id: "a", type: "text", x: 0, y: 0, width: 100, height: calculateTextObjectHeight(61), zIndex: 1, properties: { text: "21.5", textStyle: "display", textBold: false, fontId: "font-seg7-61-4bit", fontSize: 61 } }
     const custom = { id: "b", type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 2, properties: { text: "B", fontId: "font-fur35", fontSize: 43 } }
     const on43b = projectOn(v43b!, [styled, custom], "Technic")
 
@@ -684,7 +688,7 @@ test.describe("styled objects follow the device", () => {
     const moved = resolveScale({ ...projectOn(knob!, [styled, custom], "Technic") })
     const [a, b] = moved.screens[0].objects
     // Display on the Knob: its own Seven Segment; the height follows the font.
-    expect(a.properties).toMatchObject({ textStyle: "display", fontId: "font-seg7-55", fontSize: 55 })
+    expect(a.properties).toMatchObject({ textStyle: "display", fontId: "font-seg7-55-4bit", fontSize: 55 })
     expect(a.height).toBe(calculateTextObjectHeight(55))
     // The Custom text keeps what it had, even a font the Knob does not have.
     expect(b).toBe(custom)
@@ -698,7 +702,7 @@ test.describe("styled objects follow the device", () => {
     const resolved = resolveScale(projectOn(knob!, [group]))
     const [g] = resolved.screens[0].objects
     // A switch's height is not its text's: only the font changes.
-    expect(g.children![0]).toMatchObject({ height: 30, properties: { textStyle: "title", fontId: "font-helvR24" } })
+    expect(g.children![0]).toMatchObject({ height: 30, properties: { textStyle: "title", fontId: "font-roboto-c24" } })
 
     const noScale = { ...projectOn(knob!, [group]), settings: {} } as unknown as Project
     expect(resolveScale(noScale)).toBe(noScale)
@@ -724,10 +728,10 @@ test.describe("styled objects follow the device", () => {
       return knob!.fonts.find((f) => f.id === o.properties.fontId)?.family
     }
     const resolved = resolveScale(project)
-    expect(family(resolved, "on-master")).toBe("Lucida Sans")
-    expect(family(resolved, "inherits")).toBe("Lucida Sans")
-    expect(family(resolved, "own")).toBe("Helvetica")
-    expect(family(resolved, "alone")).toBe("Helvetica")
+    expect(family(resolved, "on-master")).toBe("Roboto Condensed")
+    expect(family(resolved, "inherits")).toBe("Roboto Condensed")
+    expect(family(resolved, "own")).toBe("Roboto")
+    expect(family(resolved, "alone")).toBe("Roboto")
     expect(typographyNameOf(resolved.screens[1], resolved.screens)).toBe("Technic")
   })
 
@@ -855,7 +859,7 @@ test.describe("styled objects follow the device", () => {
     const saved = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const objects = deep(saved.screens.flatMap((s: any) => s.objects))
-    expect(objects.find((o: any) => o.id === "e2e-styled").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+    expect(objects.find((o: any) => o.id === "e2e-styled").properties).toMatchObject({ textStyle: "label", fontId: "font-roboto-c16" })
     expect(objects.find((o: any) => o.id === "e2e-custom").properties).toMatchObject({ fontId: "font-helvR08" })
     expect(objects.find((o: any) => o.id === "e2e-custom").properties.textStyle).toBeUndefined()
   })
@@ -912,7 +916,7 @@ test.describe("choosing a typography", () => {
     // Label on the Knob is 24 px; Courier has 15 and 22: Courier 18, a 22 px line.
     expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-courR18" })
 
-    // The screen picks Standard for itself: back to Helvetica.
+    // The screen picks Standard for itself: back to Helvetica (this test's own Standard).
     await page.locator("[data-screen-id]").filter({ hasText: "Screen 1" }).click()
     await expect(typography.locator("option:checked")).toHaveText("Inherit from Master (Mono)")
     await typography.selectOption("Standard")
@@ -1103,5 +1107,75 @@ test.describe("a BDF glyph of any width", () => {
     expect(pixels(bdfWith(8, ["81"]))).toEqual(["1,0", "8,0"].sort())
     // A 12 px row padded to 16 bits.
     expect(pixels(bdfWith(12, ["F010"]))).toEqual(["1,0", "2,0", "3,0", "4,0", "12,0"].sort())
+  })
+})
+
+// The colour boards' typographies in 4 bits (docs/2026-11-01-4bit-fonts.md,
+// T5-T6), from the very DDFs the designer serves: every style set in a 4-bit
+// face picked by its capitals - 0.69 of the style's line, decision 10 - and
+// bold at the same capitals. Picked by line, as 1-bit faces are, every text
+// would have shrunk (Roboto's capitals are 0.60 of its line). The PaperS3
+// stays on 1 bit and picks as it did.
+test.describe("4-bit typographies", () => {
+  const STYLES = ["caption", "label", "title", "display"] as const
+  async function boardFields(board: string) {
+    const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", `${board}.ddf.zip`))
+    return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), "")
+  }
+
+  for (const board of ["waveshare-touch-lcd-4", "waveshare-touch-lcd-4v3b", "waveshare-knob-1v8"]) {
+    test(`${board}: each style a 4-bit face at its capital height, bold at the same`, async () => {
+      const fields = await boardFields(board)
+      const ppmm = fields.pixelsPerMm!
+      expect(fields.typographies!.map((t) => t.name)).toEqual(["Standard", "Humanist", "Technic"])
+      for (const typography of fields.typographies!) {
+        for (const style of STYLES) {
+          const regular = fontFor(style, false, typography, fields.fonts, ppmm)
+          const bold = fontFor(style, true, typography, fields.fonts, ppmm)
+          const where = `${board} ${typography.name} ${style}`
+          expect(regular?.bpp, where).toBe(4)
+          expect(bold?.bpp, where).toBe(4)
+          expect(bold?.weight, where).toBe("bold")
+          if (regular?.family === "Seven Segment") continue
+          expect(regular?.capHeight, where).toBe(Math.round(CAP_PER_LINE * stylePx(style, ppmm)))
+          expect(bold?.capHeight, where).toBe(regular?.capHeight)
+        }
+      }
+      // Spec T6: Roboto and Inter set a Label within a pixel of each other.
+      const [standard, humanist] = fields.typographies!
+      const roboto = fontFor("label", false, standard, fields.fonts, ppmm)!
+      const inter = fontFor("label", false, humanist, fields.fonts, ppmm)!
+      expect(Math.abs(roboto.capHeight! - inter.capHeight!)).toBeLessThanOrEqual(1)
+    })
+
+    test(`${board}: every 1-bit font is replaced by exactly one 4-bit font`, async () => {
+      const fields = await boardFields(board)
+      const by = new Map<string, string[]>()
+      for (const f of fields.fonts) for (const id of f.replaces ?? []) by.set(id, [...(by.get(id) ?? []), f.id])
+      for (const f of fields.fonts) {
+        if (f.bpp === 4) continue
+        expect(by.get(f.id), f.id).toHaveLength(1)
+      }
+      // Each by the 4-bit face of the same weight.
+      for (const f of fields.fonts) {
+        for (const id of f.replaces ?? []) {
+          const old = fields.fonts.find((o) => o.id === id)!
+          expect(old.weight ?? "regular", `${id} -> ${f.id}`).toBe(f.weight ?? "regular")
+        }
+      }
+    })
+  }
+
+  test("the PaperS3 picks its 1-bit faces as before", async () => {
+    const fields = await boardFields("m5stack-papers3")
+    const picks = fields.typographies!.map((t) =>
+      STYLES.map((style) => [false, true].map((bold) => fontFor(style, bold, t, fields.fonts, fields.pixelsPerMm!)?.id).join("/")).join(" "),
+    )
+    expect(picks).toEqual([
+      "font-helvR12/font-helvB12 font-helvR18/font-helvB18 font-helvR24/font-helvB24 font-fur42/font-fub42",
+      "font-luRS14/font-luBS14 font-luRS24/font-luBS24 font-luRS24/font-luBS24 font-fur42/font-fub42",
+      "font-luRS14/font-luBS14 font-luRS24/font-luBS24 font-logisoso34/font-logisoso34 font-seg7-65/font-seg7b-65",
+    ])
+    expect(fields.fonts.some((f) => f.bpp === 4)).toBe(false)
   })
 })
