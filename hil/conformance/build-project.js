@@ -113,7 +113,12 @@ function conformancePrefix(ddf) {
 function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
   const { screen, fonts, supportedObjectTypes } = ddf;
   const { square, wide } = slots(screen);
-  const { font, fontSize } = fontPicker(fonts);
+  // The specimens keep to 1-bit fonts while a board has any, so the cases they
+  // compared before 4-bit fonts came (2026-11-01) stay the same cases; the
+  // text specimen runs once more with the 4-bit ones below.
+  const oneBit = fonts.filter((f) => f.bpp !== 4);
+  const fourBit = fonts.filter((f) => f.bpp === 4);
+  const picker = fontPicker(oneBit.length ? oneBit : fonts);
   const colors = palette(screen.colorDepth);
 
   const screens = [];
@@ -124,6 +129,11 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
   const assets = new Map();
   const skipped = [];
 
+  // Each specimen once, under its type's name; the text specimen a second time
+  // as "text-4bit" with only the board's 4-bit fonts, where it has any
+  // (docs/2026-11-01-4bit-fonts.md): anti-aliased glyph edges blended into the
+  // background, compared at 0 px like every other case.
+  const runs = [];
   for (const type of supportedObjectTypes) {
     // Declared by every board, which still draws one for a project already on
     // it, but no longer made by the designer: Live Text went into Text with a
@@ -137,7 +147,13 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
       skipped.push(type);
       continue;
     }
+    runs.push({ type, specimen, picker });
+  }
+  if (fourBit.length && supportedObjectTypes.includes("text")) {
+    runs.push({ type: "text-4bit", specimen: SPECIMENS.text, picker: fontPicker(fourBit) });
+  }
 
+  for (const { type, specimen, picker: { font, fontSize } } of runs) {
     const screenTopics = [];
     const ctx = {
       square,

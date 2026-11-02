@@ -64,6 +64,9 @@ async function fontsWithData(deviceJson, readFile) {
       size: font.size,
       ascent: font.ascent,
       descent: font.descent,
+      // 4 for an anti-aliased font (docs/device-contract.md, «Font depth»):
+      // build-project.js gives those a text screen of their own.
+      ...(font.bpp === 4 ? { bpp: 4 } : {}),
       data,
     });
   }

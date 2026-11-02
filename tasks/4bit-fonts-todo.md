@@ -111,7 +111,7 @@ Added 2026-11-01 (spec decisions 11 and 12) after T5's first step - the
 - [x] A deploy to a board that announced the project's ddfHash carries no `_source/ddf.zip` and no DDF fonts in its recovery copy; a font of the project's own still goes along - `e2e/recovery-copy-size.spec.ts`; `e2e/recover-project.spec.ts` still green
 - [x] The HIL's harness resolves a fixture's DDF as a recovery does and builds as for its own board, so no HIL script changes
 - [x] `npm run test:quick` with the 4-bit DDFs on the boards (T5 step A, not committed yet): e2e 2063/2063 green, Knob and 4" lanes all green, installs 28-31 KB instead of ~1 MB, no request over 10 MB. Also needed: `e2e/ddf-seed.ts` zipped its seeded DDF stored, not deflated - 8 MB with 4-bit fonts, every project made from it over 10 MB; and `e2e/project-download.spec.ts` now asks that each font's data travels once (fonts/ or the embedded DDF) instead of that a fonts/ folder exists
-- [ ] Open on the 4.3B with the 4-bit firmware (T5 step A): conformance 66/68, the two «snapshot failed after 3 attempts: terminated» and the run 39 min instead of ~5; and `4v3b-internal-heap` found a project for another device **installed** - `peekProjectDeviceId()` returns "" for "could not read" as well as for "no deviceId", and "" is let through (fail-open). At rest the board has 171 KB internal heap, 3.6 MB PSRAM
+- [x] Open on the 4.3B with the 4-bit firmware (T5 step A) - fixed by the install gate, the retained description and the preload below: conformance 66/68, the two «snapshot failed after 3 attempts: terminated» and the run 39 min instead of ~5; and `4v3b-internal-heap` found a project for another device **installed** - `peekProjectDeviceId()` returns "" for "could not read" as well as for "no deviceId", and "" is let through (fail-open). At rest the board has 171 KB internal heap, 3.6 MB PSRAM
 
 **Dependencies:** T4; before the rest of T5
 
@@ -149,6 +149,16 @@ visible by the 4-bit DDFs:
 Left after both: lanes still flaky in the full run - «before any value»
 timeouts (on the 4.3B since before this work, now on the 4" too), a live
 value one step late, a «fetch failed»; each passes run alone.
+
+Run 2026-11-02 for comparison, firmware and DDFs without step A: e2e
+2063/2063, 4" and Knob green, the 4.3B's conformance 60/64 with the same
+«before any value» timeouts - older than this work. Cause: the 4" and 4.3B
+conformance lanes published on the same topics (designer 600385d, each board
+its own prefix now, `e2e/hil-conformance-topics.spec.ts`). With step A and
+that fix: conformance 68/68 on both. Still red in that run, each green
+alone or known: `4v3b-install-gate` (the 4.3B silent for 10 s after a refusal),
+`knob-screen-graph` («fetch failed»), `4v3b-internal-heap` (as intended; under
+load its own large project was refused as unreadable instead of installed).
 
 ## Phase 2: switching
 
