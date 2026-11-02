@@ -28,9 +28,17 @@ Du wählst für einen Text keine Schrift, sondern einen Stil:
 
 Jeder Stil hat eine feste Grösse in Millimetern. Ein Label ist auf dem kleinen Knob gleich gross wie auf dem 4.3B, der 4.3B hat einfach mehr Platz. Welche Schrift ein Stil bekommt, legt das Gerät fest, der Designer wählt nur die passende Grösse dazu. Mit <span class="ui">Bold</span> wird der Text fett, sofern das Gerät die Schrift in fett hat.
 
-Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften für die vier Stile. Knob, 4.3B und PaperS3 haben drei:
+Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften für die vier Stile. Knob, 4" und 4.3B haben drei. Ihre Schriften haben 16 Graustufen, die Ränder der Buchstaben gehen also weich in den Hintergrund über statt in Treppenstufen.
 
-| Typografie | Schriften |
+| Typografie | Schriften auf Knob, 4" und 4.3B |
+|---|---|
+| «Standard» | Roboto |
+| «Humanist» | Inter |
+| «Technic» | Roboto Condensed, Display in Sieben-Segment-Ziffern |
+
+Die PaperS3 hat dieselben drei Typografien, aber mit scharfkantigen Schriften, weil ihr E-Paper Graustufen beim schnellen Auffrischen schlecht zeigt.
+
+| Typografie | Schriften auf der PaperS3 |
 |---|---|
 | «Standard» | Helvetica, Display in FreeUniversal |
 | «Humanist» | Lucida Sans, Display in FreeUniversal |
