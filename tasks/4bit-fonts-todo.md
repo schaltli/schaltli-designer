@@ -203,9 +203,12 @@ font ids gets them rewritten (`fontId`, `valueFontId`, every font field),
 is marked changed, and lists texts that no longer fit.
 
 **Acceptance criteria:**
-- [ ] e2e: a 1-bit project on the 4.3B opens with only new ids, unsaved-changes marker set
-- [ ] e2e: an overflowing text is listed by name
-- [ ] Opening twice changes nothing more
+- [x] e2e: a 1-bit project on the 4.3B opens with only new ids, unsaved-changes marker set - `e2e/4bit-font-migration.spec.ts`
+- [x] e2e: an overflowing text is listed by name - in the «Fonts updated» toast, as «screen: text» (objects have no name)
+- [x] Opening twice changes nothing more - same spec, saved and reopened
+- [x] How: `lib/font-migration.ts` rewrites every `fontId`/`…FontId` at any depth through `replaces`; `projectOnDevice` does it (Load Device, Switch this project); `withCurrentFonts` on every door (saved, draft, upload, version) moves a project onto the device's current DDF when that replaces fonts it names - a project keeps its embedded DDF otherwise. The editable zip keeps `bpp`, `capHeight`, `replaces`
+- [x] `npm run test:quick`: HIL all green (4v3b-internal-heap as intended); e2e 5 red, all followed up: two expected «Custom (Roboto 18px)», navigator-device-change now in the 4.3B's 4-bit fonts, themes-export's edge budget 1100 → 1600 (4-bit glyph edges), snap-table ECONNRESET; rerun 109/110, the one (switch deploy, Save timeout) green alone
+- [x] Handbook: objekte/anzeigen.md «Stile», the switch on opening and «Fonts updated»
 
 **Verification:** new `e2e/4bit-font-migration.spec.ts`; `npm run test:quick`
 **Dependencies:** T5, T6

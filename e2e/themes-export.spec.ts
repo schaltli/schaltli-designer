@@ -532,8 +532,10 @@ test.describe("the reference render in dark", () => {
     for (let i = 0; i < lightRender.length; i += 3) {
       if (lightRender[i] !== lightThumb[i] || lightRender[i + 1] !== lightThumb[i + 1] || lightRender[i + 2] !== lightThumb[i + 2]) geometry.add(i)
     }
-    // Measured 2026-09-25: 973 pixels, all at glyph and corner edges.
-    expect(geometry.size, "light render vs light thumbnail: only a few edge pixels").toBeLessThan(1100)
+    // Measured 2026-09-25: 973 pixels, all at glyph and corner edges. 1358 on
+    // 2026-11-02, the Knob's text in 4-bit fonts: a glyph edge a pixel off is
+    // now its grey coverage pixels too.
+    expect(geometry.size, "light render vs light thumbnail: only a few edge pixels").toBeLessThan(1600)
     const wrong: string[] = []
     for (let i = 0; i < darkRender.length; i += 3) {
       if (geometry.has(i)) continue

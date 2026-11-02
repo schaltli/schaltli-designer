@@ -89,7 +89,8 @@ import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
-import { useToast } from "@/hooks/use-toast"
+import { useToast, toast as showToast } from "@/hooks/use-toast"
+import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, withHonestSteps } from "@/lib/size-scale"
@@ -128,6 +129,25 @@ import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-conte
 import { useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
+
+/**
+ * A project as it opens, on the fonts its device sets text in now: when the
+ * device's description replaces fonts the project still names (the colour
+ * boards' 1-bit fonts, 2026-11-02), it moves onto that description and says
+ * so - how many objects, and which texts no longer fit their box. The project
+ * then shows as changed; saving keeps it. Every door a project comes in
+ * through calls this (docs/2026-11-01-4bit-fonts.md, decision 2).
+ */
+export async function withCurrentFonts(project: Project): Promise<Project> {
+  const moved = await projectOnCurrentFonts(project)
+  if (!moved) return project
+  const tooWide = moved.tooWide.length > 0 ? ` No longer fits its box: ${moved.tooWide.join(", ")}.` : ""
+  showToast({
+    title: "Fonts updated",
+    description: `${moved.moved} object(s) now use the device's new fonts.${tooWide} Save to keep the change.`,
+  })
+  return moved.project
+}
 
 export interface ScreenObject {
   id: string
@@ -971,9 +991,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // A version saved before a migration (a type rename, colours becoming
       // roles) comes in through this door too, so it goes through the same
       // migration as a file import - it used to skip it.
-      const restored = migrateProject(structuredClone(snapshot))
-      history.replace(restored)
-      applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
+      void withCurrentFonts(migrateProject(structuredClone(snapshot))).then((restored) => {
+        history.replace(restored)
+        applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
+      })
     },
     [history.replace, applyRestoredView, currentScreenId],
   )
@@ -3141,7 +3162,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // unsaved against the newest saved version.
       const draft = demo === false ? await getDraft(draftKeyForName(data.name)) : undefined
       const fromDraft = draft ? migrateOpened(structuredClone(draft.project as Project)) : undefined
-      const opened: Project = fromDraft ? { ...fromDraft.project, name: data.name } : saved
+      const opened: Project = await withCurrentFonts(fromDraft ? { ...fromDraft.project, name: data.name } : saved)
       history.replace(opened)
       if (fromDraft ? fromDraft.menuGone : savedMenuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
       save.markSaved(data.name, saved, data.versionId)
@@ -3161,7 +3182,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const draft = await getDraft(key)
       if (!draft) return
       // Migrated like every other door a project comes in through.
-      const { project: opened, menuGone } = migrateOpened(structuredClone(draft.project as Project))
+      const migrated = migrateOpened(structuredClone(draft.project as Project))
+      const { menuGone } = migrated
+      const opened = await withCurrentFonts(migrated.project)
       history.replace(opened)
       if (menuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
       save.markUnnamed()
@@ -3670,7 +3693,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // object on a device.
           // Styled objects take the fonts of the device as it is now - a new
           // DDF may have come with it (docs/2026-09-30-size-scale.md).
-          finalProject = resolveScale(finalProject)
+          finalProject = await withCurrentFonts(resolveScale(finalProject))
           history.replace(withIntegerProjectGeometry(finalProject))
           if (menuGone) toast({ title: "Screen menu removed", description: SCREEN_MENU_GONE })
           save.markUnnamed()

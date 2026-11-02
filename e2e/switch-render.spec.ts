@@ -82,8 +82,9 @@ test.describe("Switch object", () => {
     // The labels' size - shared across every segment, and the same field
     // every other panel uses. The Knob gives a scale since 2026-09-30, so it
     // is a Style (docs/2026-09-30-size-scale.md); the fixture's Switch was set
-    // in font-helvR08 by hand and shows as Custom with that font's name.
-    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
+    // in font-helvR08 by hand and shows as Custom with the name of the 4-bit
+    // font that replaces it on opening (2026-11-02, e2e/4bit-font-migration.spec.ts).
+    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Roboto 18px)")
 
     // Editing a state's label updates the object (and, since it's the
     // active segment's label, redraws on canvas) - the cheapest signal that

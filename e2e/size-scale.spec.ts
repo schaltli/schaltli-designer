@@ -465,11 +465,12 @@ test.describe("a text's style", () => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     // The switch fixture was made before the scale: its switch is set in
-    // Helvetica 8px, a 12 px line, by hand.
+    // Helvetica 8px, a 12 px line, by hand - opened on the Knob, in the
+    // Roboto that replaces it (e2e/4bit-font-migration.spec.ts).
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
     await expect(page.locator("#textStyle")).toHaveValue("")
-    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
+    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Roboto 18px)")
     // 12 px is nearest Caption (16 px on the Knob): Roboto, 11 px capitals.
     await page.getByRole("button", { name: "Snap to Caption" }).click()
     await expect(page.locator("#textStyle")).toHaveValue("caption")
@@ -860,7 +861,9 @@ test.describe("styled objects follow the device", () => {
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const objects = deep(saved.screens.flatMap((s: any) => s.objects))
     expect(objects.find((o: any) => o.id === "e2e-styled").properties).toMatchObject({ textStyle: "label", fontId: "font-roboto-c16" })
-    expect(objects.find((o: any) => o.id === "e2e-custom").properties).toMatchObject({ fontId: "font-helvR08" })
+    // The text in a font by hand stays Custom, in the 4-bit font that
+    // replaces its Helvetica 8px (docs/2026-11-01-4bit-fonts.md, T7).
+    expect(objects.find((o: any) => o.id === "e2e-custom").properties).toMatchObject({ fontId: "font-roboto-c11" })
     expect(objects.find((o: any) => o.id === "e2e-custom").properties.textStyle).toBeUndefined()
   })
 })

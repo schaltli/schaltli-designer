@@ -1,6 +1,8 @@
 import { resolveRotatedScreenSize, type ProjectDeviceFields } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
 import { navigatorStrip } from "@/lib/navigator"
+import { replacedFontIdsUsed, textsNoLongerFitting, withReplacedFonts } from "@/lib/font-migration"
+import { resolveDeviceForProject } from "@/lib/device-description"
 import type { Project } from "@/components/project-editor"
 
 /**
@@ -50,9 +52,12 @@ export function projectOnDevice(
       screenMotion: fields.screenMotion,
     },
   })
+  // A font the device replaces (a 1-bit face its 4-bit one stands in for,
+  // docs/2026-11-01-4bit-fonts.md) becomes that font in every font field.
+  const replaced = withReplacedFonts(moved).project
   // A navigator fills its edge of the new screen: placed for the old one,
   // it kept the old size until moved (the user, 2026-10-12, 4.3B to a phone).
-  const fitted = withFontsOnDevice(withNavigatorsFitted(moved, rotated.screenWidth, rotated.screenHeight), project.fonts ?? [])
+  const fitted = withFontsOnDevice(withNavigatorsFitted(replaced, rotated.screenWidth, rotated.screenHeight), project.fonts ?? [])
   return { project: fitted, screenWidth: rotated.screenWidth, screenHeight: rotated.screenHeight, rotationWasReset: rotated.rotationWasReset }
 }
 
@@ -119,4 +124,48 @@ function withFontsOnDevice(project: Project, oldFonts: readonly { id: string; si
     return objects.some((o, i) => o !== screen.objects[i]) ? { ...screen, objects } : screen
   })
   return changed ? { ...project, screens } : project
+}
+
+/**
+ * A project as it opens, moved onto its device's description as the designer
+ * has it now - when that description replaces fonts the project's objects
+ * still name (docs/2026-11-01-4bit-fonts.md, decision 2: every project
+ * switches over on its own). The embedded description is kept otherwise, as
+ * it always was. null when nothing is to move or the device is unknown here.
+ * `moved` counts the objects whose fonts changed; `tooWide` lists the texts
+ * that fitted their box and no longer do.
+ */
+export async function projectOnCurrentFonts(
+  project: Project,
+): Promise<{ project: Project; moved: number; tooWide: string[] } | null> {
+  // On the description it has already - a project opened without an
+  // embedded one takes the device's as it is - only the fields move.
+  const own = withReplacedFonts(project)
+  if (own.moved > 0) return { project: own.project, moved: own.moved, tooWide: textsNoLongerFitting(project, own.project) }
+  const deviceId = project.settings?.deviceId
+  if (!deviceId) return null
+  let resolution
+  try {
+    resolution = await resolveDeviceForProject(deviceId, project.settings?.deviceName)
+  } catch {
+    return null
+  }
+  if (!resolution.ok) return null
+  const { fields } = resolution
+  if (fields.ddfHash && fields.ddfHash === project.settings?.ddfHash) return null
+  if (replacedFontIdsUsed(project, fields.fonts).length === 0) return null
+  const moved = projectOnDevice(project, fields).project
+  let count = 0
+  const index = new Map<string, unknown>()
+  const walk = (objects: Project["screens"][number]["objects"], prefix: string, store: boolean) => {
+    for (const o of objects) {
+      const key = `${prefix}/${o.id}`
+      if (store) index.set(key, JSON.stringify(o.properties))
+      else if (index.get(key) !== JSON.stringify(o.properties)) count++
+      if (o.children) walk(o.children, key, store)
+    }
+  }
+  for (const s of project.screens) walk(s.objects, s.id, true)
+  for (const s of moved.screens) walk(s.objects, s.id, false)
+  return { project: moved, moved: count, tooWide: textsNoLongerFitting(project, moved) }
 }

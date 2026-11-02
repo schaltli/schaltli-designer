@@ -130,6 +130,12 @@ export async function buildEditableProjectZip(project: Project, options: { witho
         // they were.
         family: font.family,
         weight: font.weight,
+        // A 4-bit face's depth, capitals and the fonts it replaces
+        // (docs/2026-11-01-4bit-fonts.md), left out where absent like the two
+        // above.
+        bpp: font.bpp,
+        capHeight: font.capHeight,
+        replaces: font.replaces,
       }
     }),
     hardwareButtons: project.hardwareButtons || [],

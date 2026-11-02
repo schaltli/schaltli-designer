@@ -44,9 +44,14 @@ test("moved to a phone, the navigator fills the phone's edge and a diagram takes
   saved.assets = [...(saved.assets ?? []), { id: "sq", name: "sq", type: "icon", data: SQUARE }]
   master.objects.push({ id: "nav", type: "navigator", x: 0, y: 0, width: 80, height: 480, zIndex: 50, properties: { edge: "left", shows: "iconsAndText", backgroundColor: "#e5e5e5", textColor: "#000000", activeColor: "#6750a4", activeTextColor: "#ffffff" } })
   saved.topics = [...(saved.topics ?? []), { id: "t-level", topic: "Freshwater/Level", type: "numeric", examples: ["12"] }]
-  // An energy diagram in the 4.3B's Lucida, 17 and 22 px tall.
+  // An energy diagram in the 4.3B's own fonts - Inter in 4 bits since
+  // 2026-11-02, at Caption and Label (Lucida until then, which opening now
+  // moves to Inter on its own, e2e/4bit-font-migration.spec.ts).
+  const lineOf = (id: string) => saved.fonts.find((f: any) => f.id === id)?.size as number
+  const [nameFont, valueFont] = ["font-inter-c12", "font-inter-c18"]
+  expect(lineOf(nameFont), "the 4.3B has the font").toBeGreaterThan(0)
   const screen = saved.screens.find((s: any) => !s.isMaster && s.screenType !== "popup")
-  screen.objects.push({ id: "e", type: "energy-diagram", x: 100, y: 20, width: 500, height: 400, zIndex: 1, properties: { ...defaultDiagram({ width: 500, height: 400 }), fontId: "font-luRS14", valueFontId: "font-luRS18" } })
+  screen.objects.push({ id: "e", type: "energy-diagram", x: 100, y: 20, width: 500, height: 400, zIndex: 1, properties: { ...defaultDiagram({ width: 500, height: 400 }), fontId: nameFont, valueFontId: valueFont } })
   for (const s of saved.screens) if (!s.isMaster && s.screenType !== "popup") s.iconLive = { id: "lv1", source: { namespace: "topic", path: "Freshwater/Level" }, rules: [], otherwise: { kind: "icon", icon: "sq" } }
   const zip = new JSZip()
   zip.file("project.json", JSON.stringify(saved))
@@ -69,15 +74,15 @@ test("moved to a phone, the navigator fills the phone's edge and a diagram takes
   const moved = await downloadProjectJson(page)
   await page.keyboard.press("Escape")
   const nav = moved.screens.find((s: any) => s.isMaster).objects.find((o: any) => o.type === "navigator")
-  // The diagram in the phone's fonts nearest the old sizes (17 and 22 px): the
-  // 4.3B's stayed, in a box the phone's fonts sized, cut off at the bottom.
+  // The diagram in the phone's fonts nearest the old sizes: the 4.3B's
+  // stayed, in a box the phone's fonts sized, cut off at the bottom.
   const diagram = moved.screens.flatMap((s: any) => s.objects).find((o: any) => o.type === "energy-diagram")
   const size = (id: string) => moved.fonts.find((f: any) => f.id === id)?.size
   expect(size(diagram.properties.fontId), "the name's font is the phone's").toBeDefined()
   expect(size(diagram.properties.valueFontId), "the value's font is the phone's").toBeDefined()
   const nearest = (px: number) => Math.min(...moved.fonts.map((f: any) => Math.abs(f.size - px)))
-  expect(Math.abs(size(diagram.properties.fontId) - 17)).toBe(nearest(17))
-  expect(Math.abs(size(diagram.properties.valueFontId) - 22)).toBe(nearest(22))
+  expect(Math.abs(size(diagram.properties.fontId) - lineOf(nameFont))).toBe(nearest(lineOf(nameFont)))
+  expect(Math.abs(size(diagram.properties.valueFontId) - lineOf(valueFont))).toBe(nearest(lineOf(valueFont)))
 
   // Along the left edge, as tall as the phone's screen, as deep as «Icons and text» makes it.
   expect(moved.screenHeight).not.toBe(480)
