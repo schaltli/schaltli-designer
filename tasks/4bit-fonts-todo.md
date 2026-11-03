@@ -324,7 +324,10 @@ release with the migration is out; `replaces` stays so old projects still
 resolve.
 
 **Acceptance criteria:**
-- [ ] HIL (from T8): a project naming 1-bit ids, on a board whose DDF no longer declares them, draws every text in the 4-bit fonts that replace them - a fixture in `hil/waveshare/fixtures/`
+- [x] The three colour boards' DDFs without their 1-bit fonts (`tools/build-typography-fonts.py` works `replaces` out once more while they are there, then drops them and their files; a second run changes nothing; the `replaces` lists are the same as before). DDFs: Knob 752 -> 432 KB, 4" 655 -> 365 KB, 4.3B 777 -> 487 KB. The PaperS3 keeps its 1-bit fonts
+- [x] HIL (from T8): a project naming 1-bit ids, on a board whose DDF no longer declares them, draws every text in the 4-bit fonts that replace them - the Knob's `hil/waveshare/fixtures/smoke-test.zip` names `font-helvR12` and `font-helvR18`; the reference draws a font the DDF no longer declares as the board does, in the font that `replaces` it and in its metrics (`hil/waveshare/ddf-fonts.js`, `hil/waveshare4v3b/ddf-fonts.js`); the orchestrator fails if the fixture stops naming such a font. 16/16 at 0 px. Rebuilt, the fixture also carries a main row: the reference now draws the pull tabs the board does (`pullTabs`, as conformance and screen-graph)
+- [x] Tests that read the 1-bit fonts off the colour boards: `test_font_index` and `e2e/size-scale.spec.ts` check the boards declare only 4-bit fonts and every old id is replaced once, of its weight on the PaperS3; `ttf-to-bdf-check` compares 1 bit against the PaperS3's `seg7-65.bdf`; `e2e/4bit-font-migration.spec.ts` builds the 4.3B's description as it was from the PaperS3's 1-bit fonts (`seedDdfFrom`'s mutator may return files); `hil/redraw-time.js` measures the 4-bit screen against the 1-bit time recorded on fw-2026.11.02.1 (96.8 ms; now 108.2 ms, +12 %)
+- [x] Handbook: designer/icons-schriften.md (the old fonts are gone), objekte/anzeigen.md «Stile» (an old project still on a board draws in the new fonts until deployed again)
 
 **Dependencies:** T13 released
 **Estimated scope:** S

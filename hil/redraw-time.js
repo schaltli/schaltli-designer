@@ -13,6 +13,11 @@
 // /api/debug?set=render=1 («render N ms (best of 5)»), three times; the
 // best of those counts.
 //
+// Since T14 the board carries no 1-bit font: a project naming one draws in
+// the 4-bit font that replaces it, so the first project would time the
+// second. The 1-bit time is the one measured last while the board had them
+// (ONE_BIT_MS), and only the 4-bit project is installed now.
+//
 // The values are published retained before the installs, under the board's
 // tag (hil/device-tag.js), so the texts are drawn with them.
 //
@@ -30,6 +35,12 @@ const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const OUT_DIR = path.join(__dirname, "size-scale", "out")
 const LIMIT = 1.2
+// The 1-bit project's time, best of three, on the last firmware whose DDF
+// still had the 1-bit fonts (schaltli-firmware 81a4b3e, fw-2026.11.02.1,
+// measured 2026-11-02; the 4-bit one then: 109.6 ms).
+const ONE_BIT_MS = { "ddf-source-waveshare4v3b": 96.8 }
+// The old fonts' lines (ascent + descent) in that DDF.
+const OLD_LINE = { "font-helvB24": 35, "font-helvR18": 27, "font-helvR12": 18, "font-helvB12": 18, "font-fur42": 51 }
 
 // What a column holds, top to bottom: the old font, how many lines, and
 // what they say. Every line has the value in it.
@@ -71,8 +82,9 @@ function projectFor(device, fonts, fontFor, topic, name) {
     let y = 4
     for (const [old, lines, words] of COLUMN) {
       // The box is the taller of the two fonts' lines, so both projects lay
-      // out alike.
-      const lineOf = (id) => (byId.get(id).ascent || 0) + (byId.get(id).descent || 0)
+      // out alike - the 1-bit one's as the 4.3B's DDF had it (OLD_LINE), as
+      // it was when ONE_BIT_MS was measured.
+      const lineOf = (id) => (byId.has(id) ? (byId.get(id).ascent || 0) + (byId.get(id).descent || 0) : OLD_LINE[id])
       const h = Math.max(lineOf(old), lineOf(replaced.get(old)))
       for (let i = 0; i < lines; i++) {
         objects.push({
@@ -141,6 +153,8 @@ async function main() {
     console.warn(`SKIPPED - ${host} not reachable (${e.message})`)
     process.exit(2)
   }
+  const oneBit = ONE_BIT_MS[source]
+  if (!oneBit) throw new Error(`no 1-bit time recorded for ${source}`)
   const device = deviceJsonOf(source)
   const replaced = replacements(device)
   for (const [old] of COLUMN) if (!replaced.get(old)) throw new Error(`${source} names no 4-bit font that replaces ${old}`)
@@ -161,10 +175,7 @@ async function main() {
     await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 180000 })
     fs.mkdirSync(OUT_DIR, { recursive: true })
     console.log(`\n${device.device.name} (${host}): a screen of ${COLUMN.reduce((n, c) => n + c[1], 0) * 2} texts the board draws`)
-    for (const [label, fontFor] of [
-      ["1-bit", (old) => old],
-      ["4-bit", (old) => replaced.get(old)],
-    ]) {
+    for (const [label, fontFor] of [["4-bit", (old) => replaced.get(old)]]) {
       const project = projectFor(device, fonts, fontFor, topic, `Redraw time (${label})`)
       const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
       const zipPath = path.join(OUT_DIR, `redraw-time-${label}.zip`)
@@ -177,13 +188,14 @@ async function main() {
   } finally {
     await browser.close()
   }
+  times["1-bit"] = oneBit
   const ratio = times["4-bit"] / times["1-bit"]
   const pct = ((ratio - 1) * 100).toFixed(0)
   if (ratio > LIMIT) {
-    console.log(`FAIL - ${host}: 4-bit ${times["4-bit"].toFixed(1)} ms against 1-bit ${times["1-bit"].toFixed(1)} ms, ${pct} % slower (at most ${((LIMIT - 1) * 100).toFixed(0)} %)`)
+    console.log(`FAIL - ${host}: 4-bit ${times["4-bit"].toFixed(1)} ms against 1-bit ${times["1-bit"].toFixed(1)} ms (recorded), ${pct} % slower (at most ${((LIMIT - 1) * 100).toFixed(0)} %)`)
     process.exit(1)
   }
-  console.log(`PASS - ${host}: 4-bit ${times["4-bit"].toFixed(1)} ms against 1-bit ${times["1-bit"].toFixed(1)} ms (${ratio >= 1 ? "+" : ""}${pct} %)`)
+  console.log(`PASS - ${host}: 4-bit ${times["4-bit"].toFixed(1)} ms against 1-bit ${times["1-bit"].toFixed(1)} ms (recorded) (${ratio >= 1 ? "+" : ""}${pct} %)`)
 }
 
 main().catch((e) => {

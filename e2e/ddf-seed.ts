@@ -27,7 +27,7 @@ const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname,
 const WAVESHARE_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source")
 const WAVESHARE_4V3B_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4v3b")
 const WAVESHARE_4_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4")
-const PAPERS3_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-papers3")
+export const PAPERS3_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-papers3")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 
@@ -68,8 +68,10 @@ async function seedDdfFrom(
   // Lets a spec seed a variant of the real DDF (e.g. one declaring a
   // deviceAction id the designer's registry doesn't know) without checking a
   // second, hand-maintained copy of a whole device into this repo, where it
-  // would silently drift from the firmware repo's real one.
-  mutateDeviceJson?: (manifest: any) => void,
+  // would silently drift from the firmware repo's real one. It may return
+  // files to add, by their path in the zip - fonts the variant declares that
+  // the source no longer carries.
+  mutateDeviceJson?: (manifest: any) => void | Record<string, Buffer>,
   // Same idea for the artwork. Needed because some designer behaviour is a
   // response to a *mistake* a DDF can make - an adornment that paints over
   // the screen cutout - and no shipping device makes it, so there is nothing
@@ -113,7 +115,8 @@ async function seedDdfFrom(
     // the picker.
     manifest.device.name = `[e2e fixture] ${manifest.device.name} - ${seededDeviceId}`
   }
-  mutateDeviceJson?.(manifest)
+  const added = mutateDeviceJson?.(manifest)
+  for (const [name, bytes] of Object.entries(added ?? {})) zip.file(name, bytes, { date: FIXED_ENTRY_DATE })
   if (isVariant || mutateDeviceJson) {
     zip.file("device.json", JSON.stringify(manifest, null, 2), { date: FIXED_ENTRY_DATE })
   }
@@ -192,7 +195,7 @@ export async function seedWaveshareDdf(options?: {
 // The 4.3B's DDF from its source in the firmware repo, always under a
 // fixture id: the real board announces itself and would overwrite a copy
 // seeded under its own id mid-run, the same way the knob did.
-export async function seedWaveshare4v3bDdf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
+export async function seedWaveshare4v3bDdf(deviceId: string, mutateDeviceJson?: (manifest: any) => void | Record<string, Buffer>): Promise<boolean> {
   return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId, mutateDeviceJson)
 }
 

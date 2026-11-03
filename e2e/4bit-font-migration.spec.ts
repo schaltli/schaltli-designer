@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import JSZip from "jszip"
-import { seedWaveshare4v3bDdf } from "./ddf-seed"
+import { PAPERS3_DDF_SOURCE, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { chooseDevice, createProject, deleteProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { BDFFont } from "../lib/bdffont"
 import { withReplacedFonts } from "../lib/font-migration"
@@ -16,7 +16,9 @@ import type { Project, ProjectFont } from "../components/project-editor"
 //
 // The board is a fixture id seeded twice: first with its description as it
 // was - no 4-bit fonts, the Helvetica typographies - for the project to be
-// made on, then as it is now.
+// made on, then as it is now. Its 1-bit fonts left its description with T14;
+// the PaperS3 keeps the same u8g2 bitmaps, so the description as it was is
+// put together from those.
 
 const FIRMWARE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-waveshare4v3b")
 const OLD_TYPOGRAPHY = [
@@ -24,13 +26,17 @@ const OLD_TYPOGRAPHY = [
   { name: "Humanist", styles: { caption: "Lucida Sans", label: "Lucida Sans", title: "Lucida Sans", display: "FreeUniversal" } },
   { name: "Technic", styles: { caption: "Lucida Sans", label: "Lucida Sans", title: "Logisoso", display: "Seven Segment" } },
 ]
-const asBefore = (manifest: any) => {
-  manifest.fonts = manifest.fonts.filter((f: any) => f.bpp !== 4)
+const asBefore = (manifest: any): Record<string, Buffer> => {
+  const old = JSON.parse(fs.readFileSync(path.join(PAPERS3_DDF_SOURCE, "device.json"), "utf8")).fonts
+  manifest.fonts = old
   manifest.typography = OLD_TYPOGRAPHY
+  return Object.fromEntries(old.map((f: any) => [f.file, fs.readFileSync(path.join(PAPERS3_DDF_SOURCE, f.file))]))
 }
 
+// A 1-bit font from the PaperS3's description, a 4-bit one from the 4.3B's.
 function widthIn(file: string, text: string): number {
-  return new BDFFont(fs.readFileSync(path.join(FIRMWARE, "fonts", file), "utf8")).measureText(text).width
+  const dir = fs.existsSync(path.join(FIRMWARE, "fonts", file)) ? FIRMWARE : PAPERS3_DDF_SOURCE
+  return new BDFFont(fs.readFileSync(path.join(dir, "fonts", file), "utf8")).measureText(text).width
 }
 
 async function downloadProject(page: Page): Promise<any> {

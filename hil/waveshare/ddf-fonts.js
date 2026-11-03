@@ -39,10 +39,19 @@ function withDdfFontData(fonts) {
   return (fonts || []).map((font) => {
     if (font.data) return font
     const ddfFont = byInternalName.get(font.internalName)
-    if (!ddfFont) throw new Error(`Font "${font.id}" (internalName "${font.internalName}") is not in the DDF`)
-    const fontPath = path.join(DDF_SOURCE_DIR, ddfFont.file)
-    if (!fs.existsSync(fontPath)) throw new Error(`DDF source is missing "${ddfFont.file}" for font "${font.id}"`)
-    return { ...font, data: fs.readFileSync(fontPath, "utf8") }
+    // A font the DDF no longer declares - the colour boards' 1-bit fonts
+    // since T14 (docs/2026-11-01-4bit-fonts.md) - draws on the board as the
+    // first font whose `replaces` names it, in that font's own metrics
+    // (schaltli-firmware FontIndex.h). The reference draws it the same way.
+    const standIn = ddfFont ? null : (ddfDevice.fonts || []).find((f) => (f.replaces || []).includes(font.id))
+    const from = ddfFont || standIn
+    if (!from) throw new Error(`Font "${font.id}" (internalName "${font.internalName}") is not in the DDF, and no font there replaces it`)
+    const fontPath = path.join(DDF_SOURCE_DIR, from.file)
+    if (!fs.existsSync(fontPath)) throw new Error(`DDF source is missing "${from.file}" for font "${font.id}"`)
+    const data = fs.readFileSync(fontPath, "utf8")
+    if (!standIn) return { ...font, data }
+    const { size, ascent, descent, bpp, capHeight } = standIn
+    return { ...font, data, size, ascent, descent, ...(bpp ? { bpp } : {}), ...(capHeight ? { capHeight } : {}) }
   })
 }
 

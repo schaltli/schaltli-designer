@@ -48,6 +48,8 @@ import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FI
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 const STANDARD = { caption: "Helvetica", label: "Helvetica", title: "Helvetica", display: "Helvetica" }
+// The colour boards' own families since T14: no 1-bit font left on them.
+const ROBOTO = { caption: "Roboto", label: "Roboto", title: "Roboto", display: "Roboto" }
 
 async function ddfZip(device: Record<string, unknown>): Promise<Buffer> {
   const zip = new JSZip()
@@ -152,11 +154,7 @@ test.describe("a project on a device with a scale", () => {
       mutateDeviceJson: (manifest) => {
         manifest.screen.widthMm = 32.4
         manifest.screen.heightMm = 32.4
-        for (const font of manifest.fonts) {
-          font.family = String(font.internalName).includes("cour") ? "Courier" : "Helvetica"
-          font.weight = /B\d/.test(font.internalName) ? "bold" : "regular"
-        }
-        manifest.typography = [{ name: "Standard", styles: STANDARD }]
+        manifest.typography = [{ name: "Standard", styles: ROBOTO }]
       },
     })
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
@@ -169,8 +167,8 @@ test.describe("a project on a device with a scale", () => {
 
     const project = await downloadProject(page)
     expect(project.settings.pixelsPerMm).toBeCloseTo(11.11, 2)
-    expect(project.settings.typographies).toEqual([{ name: "Standard", styles: STANDARD }])
-    expect(project.fonts.find((f: any) => f.id === "font-helvB18")).toMatchObject({ family: "Helvetica", weight: "bold" })
+    expect(project.settings.typographies).toEqual([{ name: "Standard", styles: ROBOTO }])
+    expect(project.fonts.find((f: any) => f.id === "font-robotob-c16")).toMatchObject({ family: "Roboto", weight: "bold" })
   })
 })
 
@@ -802,7 +800,7 @@ test.describe("styled objects follow the device", () => {
     test.skip(!v43b, "schaltli-firmware not checked out alongside this repo")
     const ppm = v43b!.pixelsPerMm!
     const fonts = v43b!.fonts
-    const label = fonts.find((f) => f.id === "font-helvR18")!
+    const label = fonts.find((f) => f.id === "font-roboto-c18")!
     expect(label.data, "the firmware DDF's fonts come with their bitmaps").toBeTruthy()
     const states = [{ label: "Aus" }, { label: "Automatik und Nacht" }]
     const make = (type: string, width: number, properties: Record<string, unknown>) =>
@@ -875,7 +873,7 @@ test.describe("choosing a typography", () => {
   async function knobProject(page: Page, deviceId: string, typography?: Typography[]) {
     const seeded = await seedWaveshareDdf({
       deviceId,
-      mutateDeviceJson: typography ? (manifest) => (manifest.typography = typography) : undefined,
+      mutateDeviceJson: typography ? (manifest) => { manifest.typography = typography } : undefined,
     })
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     await page.goto("/")
@@ -886,8 +884,8 @@ test.describe("choosing a typography", () => {
   }
 
   test("a second typography is offered, and choosing it gives styled text its family", async ({ page }) => {
-    const mono: Typography = { name: "Mono", styles: { ...STANDARD, label: "Courier" } }
-    await knobProject(page, "e2e-scale-knob-mono", [{ name: "Standard", styles: STANDARD }, mono])
+    const mono: Typography = { name: "Mono", styles: { ...ROBOTO, label: "Inter" } }
+    await knobProject(page, "e2e-scale-knob-mono", [{ name: "Standard", styles: ROBOTO }, mono])
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
@@ -916,16 +914,16 @@ test.describe("choosing a typography", () => {
     let project = await downloadProject(page)
     expect(project.screens.find((s: any) => s.isMaster).typography).toBe("Mono")
     expect(project.screens.find((s: any) => !s.isMaster).typography).toBeUndefined()
-    // Label on the Knob is 24 px; Courier has 15 and 22: Courier 18, a 22 px line.
-    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-courR18" })
+    // Label on the Knob is 24 px, capitals of 16: Inter's face at 16.
+    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-inter-c16" })
 
-    // The screen picks Standard for itself: back to Helvetica (this test's own Standard).
+    // The screen picks Standard for itself: back to Roboto (this test's own Standard).
     await page.locator("[data-screen-id]").filter({ hasText: "Screen 1" }).click()
     await expect(typography.locator("option:checked")).toHaveText("Inherit from Master (Mono)")
     await typography.selectOption("Standard")
     project = await downloadProject(page)
     expect(project.screens.find((s: any) => !s.isMaster).typography).toBe("Standard")
-    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-roboto-c16" })
   })
 
   test("a device with only Standard shows no choice", async ({ page }) => {
@@ -1151,19 +1149,22 @@ test.describe("4-bit typographies", () => {
       expect(Math.abs(roboto.capHeight! - inter.capHeight!)).toBeLessThanOrEqual(1)
     })
 
-    test(`${board}: every 1-bit font is replaced by exactly one 4-bit font`, async () => {
+    // Since T14 the board carries no 1-bit font; its 4-bit fonts' `replaces`
+    // still name the ones it had, each once, so an old project resolves.
+    test(`${board}: only 4-bit fonts, and every old 1-bit font replaced by exactly one of them`, async () => {
       const fields = await boardFields(board)
+      expect(fields.fonts.filter((f) => f.bpp !== 4).map((f) => f.id)).toEqual([])
       const by = new Map<string, string[]>()
       for (const f of fields.fonts) for (const id of f.replaces ?? []) by.set(id, [...(by.get(id) ?? []), f.id])
-      for (const f of fields.fonts) {
-        if (f.bpp === 4) continue
-        expect(by.get(f.id), f.id).toHaveLength(1)
-      }
-      // Each by the 4-bit face of the same weight.
+      expect(by.size).toBeGreaterThanOrEqual(30)
+      for (const [id, claims] of by) expect(claims, id).toHaveLength(1)
+      // Each by the 4-bit face of the same weight - the weight the PaperS3,
+      // which keeps its 1-bit fonts, gives the same id.
+      const paper = await boardFields("m5stack-papers3")
       for (const f of fields.fonts) {
         for (const id of f.replaces ?? []) {
-          const old = fields.fonts.find((o) => o.id === id)!
-          expect(old.weight ?? "regular", `${id} -> ${f.id}`).toBe(f.weight ?? "regular")
+          const old = paper.fonts.find((o) => o.id === id)
+          if (old) expect(old.weight ?? "regular", `${id} -> ${f.id}`).toBe(f.weight ?? "regular")
         }
       }
     })

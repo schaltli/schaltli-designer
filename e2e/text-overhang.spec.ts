@@ -10,9 +10,10 @@ import { BDFFont } from "../lib/bdffont"
 // read «jetzt 2 %» with the «%» shaved off at the box's edge: in luRS10 it
 // is 11 px of ink on an advance of 9. charts-draw holds the board's legend
 // to the designer's at 0 px.
+// The colour boards dropped luRS10 in 4bit-fonts T14; the PaperS3 keeps it.
 
 async function luRS10(): Promise<BDFFont> {
-  const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")))
+  const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "public", "ddf", "m5stack-papers3.ddf.zip")))
   return new BDFFont(await zip.file("fonts/luRS10.bdf")!.async("string"))
 }
 

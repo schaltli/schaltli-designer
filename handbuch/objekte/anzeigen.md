@@ -46,7 +46,7 @@ Die PaperS3 hat dieselben drei Typografien, aber mit scharfkantigen Schriften, w
 | «Humanist» | Lucida Sans, Display in FreeUniversal |
 | «Technic» | Lucida Sans, Title in Logisoso, Display in Sieben-Segment-Ziffern |
 
-Ein Projekt, das du für Knob, 4" oder 4.3B gemacht hast, bevor sie die neuen Schriften bekamen, stellt der Designer beim Öffnen von selbst um. Auch Texte in einer von Hand gewählten Schrift bekommen die neue Schrift, die an ihre Stelle tritt. Der Hinweis <span class="ui">Fonts updated</span> sagt, wie viele Objekte betroffen sind, und nennt jeden Text, der nicht mehr in sein Feld passt. Zieh solche Felder breiter. Die Umstellung gilt erst, wenn du speicherst.
+Ein Projekt, das du für Knob, 4" oder 4.3B gemacht hast, bevor sie die neuen Schriften bekamen, stellt der Designer beim Öffnen von selbst um. Auch Texte in einer von Hand gewählten Schrift bekommen die neue Schrift, die an ihre Stelle tritt. Der Hinweis <span class="ui">Fonts updated</span> sagt, wie viele Objekte betroffen sind, und nennt jeden Text, der nicht mehr in sein Feld passt. Zieh solche Felder breiter. Die Umstellung gilt erst, wenn du speicherst. Ein altes Projekt, das noch auf dem Gerät läuft, zeigt seine Texte dort schon in den neuen Schriften, aber in den alten Feldern, bis du es neu überträgst.
 
 <Screenshot name="typografie-technic.webp" alt="Caption, Label, Title und ein Display-Wert in der Typografie Technic auf dem 4.3B" caption="«Technic» auf dem 4.3B" />
 

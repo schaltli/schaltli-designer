@@ -17,14 +17,14 @@ const OWN_FONT = "STARTFONT 2.1\nFONT mine\nSIZE 10 75 75\nFONTBOUNDINGBOX 1 1 0
 
 test("the recovery copy of a deploy to its own board leaves out the DDF and the DDF's fonts", async ({ page }) => {
   const ddf = await JSZip.loadAsync(readFileSync(path.join(__dirname, "..", "public", "ddf", `${DEVICE_ID}.ddf.zip`)))
-  const deviceFont = await ddf.file("fonts/helvR12.bdf")!.async("string")
+  const deviceFont = await ddf.file("fonts/roboto-c12.bdf")!.async("string")
   const project = {
     name: "recovery-copy-size",
     screenWidth: 800,
     screenHeight: 480,
     settings: { colorDepth: "24bit", deviceId: DEVICE_ID, deviceName: "Waveshare 4.3B" },
     fonts: [
-      { id: "font-helvR12", name: "Helvetica 12", displayName: "Helvetica 12", path: "fonts/helvR12.bdf", size: 18, ascent: 14, descent: 4, data: deviceFont },
+      { id: "font-roboto-c12", name: "Roboto 21px", displayName: "Roboto 21px", path: "fonts/roboto-c12.bdf", size: 21, ascent: 16, descent: 5, bpp: 4, capHeight: 12, data: deviceFont },
       { id: "font-mine", name: "Mine", displayName: "Mine", path: "fonts/mine.bdf", size: 10, ascent: 8, descent: 2, data: OWN_FONT },
     ],
     assets: [],
@@ -34,7 +34,7 @@ test("the recovery copy of a deploy to its own board leaves out the DDF and the 
         id: "s1",
         name: "Main",
         objects: [
-          { id: "t", type: "text", zIndex: 1, x: 10, y: 10, width: 200, height: 30, properties: { text: "Kühlschrank", fontId: "font-helvR12", color: "#000000" } },
+          { id: "t", type: "text", zIndex: 1, x: 10, y: 10, width: 200, height: 30, properties: { text: "Kühlschrank", fontId: "font-roboto-c12", color: "#000000" } },
         ],
       },
     ],
@@ -46,11 +46,11 @@ test("the recovery copy of a deploy to its own board leaves out the DDF and the 
 
   // What the board draws from is unchanged: every font's metrics, no data.
   const exported = JSON.parse(await zip.file("project.json")!.async("string"))
-  expect(exported.fonts.map((f: any) => f.id)).toEqual(["font-helvR12", "font-mine"])
+  expect(exported.fonts.map((f: any) => f.id)).toEqual(["font-roboto-c12", "font-mine"])
 
   const recovery = await JSZip.loadAsync(await zip.file("_source/project.zip")!.async("uint8array"))
   expect(recovery.file("_source/ddf.zip"), "no DDF in the recovery copy").toBeNull()
-  expect(recovery.file("fonts/helvR12.bdf"), "no device font in the recovery copy").toBeNull()
+  expect(recovery.file("fonts/roboto-c12.bdf"), "no device font in the recovery copy").toBeNull()
   expect(await recovery.file("fonts/mine.bdf")!.async("string")).toBe(OWN_FONT)
   // The whole deploy is the project's own size again, not the DDF's.
   expect(Buffer.from(zipBase64, "base64").length).toBeLessThan(100_000)

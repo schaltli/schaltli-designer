@@ -62,6 +62,11 @@ const IMG_DIR = path.join(OUT_DIR, "images")
 // one - same arrangement as the M5 Dial since 2026-08-16.
 const { DDF_SOURCE_DIR, withDdfFontData } = require("./ddf-fonts")
 const DEFAULT_PROJECT = path.join(__dirname, "fixtures", "smoke-test.zip")
+// A board that declares screen-graph draws pull tabs at the edges of a
+// project with a main row, as the designer's export now writes one
+// (device contract 2.10); the reference draws them too, as conformance and
+// screen-graph ask it to.
+const PULL_TABS = (JSON.parse(fs.readFileSync(path.join(DDF_SOURCE_DIR, "device.json"), "utf8")).supportedFeatures || []).includes("screen-graph")
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name)
@@ -254,6 +259,20 @@ async function main() {
   fs.mkdirSync(IMG_DIR, { recursive: true })
   const project = await loadProjectFromZip(projectZip)
   console.log(`project "${project.name}", ${project.screens.length} screen(s), ${project.fonts.length} font(s) resolved`)
+
+  // The fixture names Helvetica ids the Knob's DDF dropped with T14
+  // (docs/2026-11-01-4bit-fonts.md): an old project on the board, which draws
+  // them in the 4-bit fonts that replace them, as the reference does
+  // (ddf-fonts.js). Every visual case is that check; this keeps the fixture
+  // from moving onto the new fonts and leaving the old ids untested.
+  const declared = new Set(JSON.parse(fs.readFileSync(path.join(DDF_SOURCE_DIR, "device.json"), "utf8")).fonts.map((f) => f.id))
+  const standIns = project.fonts.filter((f) => !declared.has(f.id)).map((f) => f.id)
+  let standInFailures = 0
+  if (path.resolve(projectZip) === path.resolve(DEFAULT_PROJECT)) {
+    const ok = standIns.length > 0
+    if (!ok) standInFailures++
+    console.log(`${ok ? "ok  " : "FAIL"} the fixture names fonts the DDF no longer declares  ${standIns.join(", ") || "none"}`)
+  }
 
   let installFailures = 0
   let bootScreenFailures = 0
@@ -1016,6 +1035,7 @@ async function main() {
       fs.writeFileSync(devicePath, deviceBuf)
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: "rgb565",
+        pullTabs: PULL_TABS,
         project,
         screenIndex: adjustIndex,
         topicOverrides: { ...adjustStart, "hil-test/adj/value": "100" },
@@ -1100,7 +1120,7 @@ async function main() {
   // separately rather than given fake ones.
   const nonVisualFailures =
     (knobOk ? 0 : 1) + adjustFailures + helloFailures + blankingFailures + installFailures + bootScreenFailures +
-    partialFailures + tapFailures
+    partialFailures + tapFailures + standInFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]
@@ -1140,6 +1160,7 @@ async function main() {
       // the framebuffer can store.
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
         quantize: "rgb565",
+        pullTabs: PULL_TABS,
         project,
         screenIndex: si,
         topicOverrides: overrides,
