@@ -11,6 +11,7 @@ import type { ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { isSnapTable } from "@/lib/snap-table"
+import { withUpdates } from "@/lib/anchor"
 
 export function findObjectById(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
@@ -63,7 +64,7 @@ export function getAbsolutePosition(objects: ScreenObject[], id: string): { x: n
 
 export function updateObjectById(objects: ScreenObject[], id: string, updates: Partial<ScreenObject>): ScreenObject[] {
   return objects.map((obj) => {
-    if (obj.id === id) return { ...obj, ...updates }
+    if (obj.id === id) return withUpdates(obj, updates)
     if (obj.children && obj.children.length > 0) {
       return { ...obj, children: updateObjectById(obj.children, id, updates) }
     }
@@ -73,7 +74,7 @@ export function updateObjectById(objects: ScreenObject[], id: string, updates: P
 
 export function updateObjectsById(objects: ScreenObject[], ids: string[], updates: Partial<ScreenObject>): ScreenObject[] {
   return objects.map((obj) => {
-    if (ids.includes(obj.id)) return { ...obj, ...updates }
+    if (ids.includes(obj.id)) return withUpdates(obj, updates)
     if (obj.children && obj.children.length > 0) {
       return { ...obj, children: updateObjectsById(obj.children, ids, updates) }
     }

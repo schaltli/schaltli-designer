@@ -11,6 +11,7 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { translateObject } from "@/lib/object-groups"
 
 export type AnchorX = "left" | "center" | "right" | "stretch"
 export type AnchorY = "top" | "middle" | "bottom" | "stretch"
@@ -84,4 +85,73 @@ export function migrateCellAnchor(obj: { type: string; properties?: Record<strin
   obj.properties = { ...obj.properties, cell: next }
   if (isText && X.has(align) && align !== "stretch") obj.properties.textAlign = align
   return true
+}
+
+// ---------------------------------------------------------------------------
+// In a free area (Task 2): which edges of the area an object keeps its
+// distance to when the area changes size. Stored in `properties.anchor` of
+// an object directly in the area; absent means Left/Top, which is what every
+// object did before - nothing in an untouched area moves.
+
+/** What can stretch in a free area: what can in a cell, and a text across. */
+export const STRETCHES_WIDTH_IN_AREA = new Set([...STRETCHES_WIDTH, "text"])
+export const STRETCHES_HEIGHT_IN_AREA = STRETCHES_HEIGHT
+
+/** An object's anchor in the free area it stands in, Left/Top where unset. */
+export function areaAnchorOf(obj: ScreenObject): Required<Anchor> {
+  const saved: Anchor = obj.properties?.anchor && typeof obj.properties.anchor === "object" ? obj.properties.anchor : {}
+  return {
+    x: saved.x && X.has(saved.x) ? saved.x : "left",
+    y: saved.y && Y.has(saved.y) ? saved.y : "top",
+  }
+}
+
+// How far a thing anchored this way moves, and how much it grows, when its
+// room grows by `delta`: Center keeps its offset from the centre (Figma).
+function follow(anchor: AnchorX | AnchorY, delta: number): { move: number; grow: number } {
+  if (anchor === "right" || anchor === "bottom") return { move: delta, grow: 0 }
+  if (anchor === "center" || anchor === "middle") return { move: Math.round(delta / 2), grow: 0 }
+  if (anchor === "stretch") return { move: 0, grow: delta }
+  return { move: 0, grow: 0 }
+}
+
+const hasPoints = (obj: ScreenObject) => Array.isArray(obj.properties?.points) && obj.properties!.points.length > 0
+
+/**
+ * A free area at a new size, its objects moved and stretched by their
+ * anchors from the size it had - a free area among them resized the same
+ * way, at any depth. Anything but a free area only takes the size; an area
+ * whose size does not change keeps everything where it is.
+ */
+export function resizeFree(area: ScreenObject, width: number, height: number): ScreenObject {
+  if (area.type !== "free" || (width === area.width && height === area.height)) return { ...area, width, height }
+  const dw = width - area.width
+  const dh = height - area.height
+  const children = (area.children ?? []).map((child) => {
+    const anchor = areaAnchorOf(child)
+    const h = follow(anchor.x, dw)
+    const v = follow(anchor.y, dh)
+    if (h.move === 0 && v.move === 0 && h.grow === 0 && v.grow === 0) return child
+    // A line is moved whole, its points with it; it does not stretch.
+    if (hasPoints(child)) return translateObject(child, h.move, v.move)
+    const moved = { ...child, x: child.x + h.move, y: child.y + v.move }
+    const w = Math.max(1, child.width + h.grow)
+    const ht = Math.max(1, child.height + v.grow)
+    return child.type === "free" ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
+  })
+  return { ...area, width, height, children }
+}
+
+/**
+ * `obj` with `updates` - a free area whose width or height they change taking
+ * its objects along by their anchors. The one door every edit of an object
+ * goes through (lib/object-tree.ts), so dragging a corner, typing into Frame
+ * and Apply size all agree, in one undo step.
+ */
+export function withUpdates(obj: ScreenObject, updates: Partial<ScreenObject>): ScreenObject {
+  if (obj.type !== "free" || "children" in updates) return { ...obj, ...updates }
+  const width = typeof updates.width === "number" ? updates.width : obj.width
+  const height = typeof updates.height === "number" ? updates.height : obj.height
+  if (width === obj.width && height === obj.height) return { ...obj, ...updates }
+  return { ...resizeFree(obj, width, height), ...updates }
 }

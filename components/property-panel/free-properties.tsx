@@ -6,7 +6,8 @@
  */
 
 import type { ScreenObject } from "../project-editor"
-import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, frameSummary } from "./fields"
+import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
+import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type AnchorX, type AnchorY } from "@/lib/anchor"
 
 /** A free area: only its frame - what is in it stays where it is placed. */
 export function FreeProperties({
@@ -26,7 +27,10 @@ export function FreeProperties({
   return (
     <PropertySections>
       <PropertySection title="Free">
-        <FieldNote>What is put into it stays where it is placed, as on a free screen. It looks like a Box, if you give it a fill or an edge.</FieldNote>
+        <FieldNote>
+          What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a
+          Box, if you give it a fill or an edge.
+        </FieldNote>
       </PropertySection>
       <PropertySection title="Shape">
         <NumberField
@@ -75,5 +79,48 @@ export function FreeProperties({
         />
       </PropertySection>
     </PropertySections>
+  )
+}
+
+const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+  { value: "stretch", label: "Stretch" },
+]
+const VERTICAL: Array<{ value: AnchorY; label: string }> = [
+  { value: "top", label: "Top" },
+  { value: "middle", label: "Middle" },
+  { value: "bottom", label: "Bottom" },
+  { value: "stretch", label: "Stretch" },
+]
+
+/**
+ * An object directly in a free area (docs/2026-11-03-anchor-dock.md): which
+ * edges of the area it keeps its distance to when the area is resized.
+ * Left/Top, the default, is not stored.
+ */
+export function FreePositionProperties({
+  selectedObject,
+  onUpdateObject,
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+}) {
+  const anchor = areaAnchorOf(selectedObject)
+  const set = (axis: "x" | "y", value: string) => {
+    const next: Record<string, string> = { ...(selectedObject.properties?.anchor ?? {}), [axis]: value }
+    if (next.x === "left") delete next.x
+    if (next.y === "top") delete next.y
+    const { anchor: _old, ...rest } = selectedObject.properties ?? {}
+    onUpdateObject(selectedObject.id, { properties: Object.keys(next).length > 0 ? { ...rest, anchor: next } : rest })
+  }
+  const offer = <T extends { value: string }>(options: T[], stretches: boolean) => (stretches ? options : options.filter((o) => o.value !== "stretch"))
+  return (
+    <PropertySection title="Position">
+      <SelectField id="areaHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, STRETCHES_WIDTH_IN_AREA.has(selectedObject.type))} onChange={(x) => set("x", x)} />
+      <SelectField id="areaVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, STRETCHES_HEIGHT_IN_AREA.has(selectedObject.type))} onChange={(y) => set("y", y)} />
+      <FieldNote>When the free area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both.</FieldNote>
+    </PropertySection>
   )
 }

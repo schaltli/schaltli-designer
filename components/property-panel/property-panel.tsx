@@ -24,8 +24,9 @@ import { MultiSelectionProperties } from "./multi-selection-properties"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
-import { FreeProperties } from "./free-properties"
+import { FreePositionProperties, FreeProperties } from "./free-properties"
 import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties"
+import { cellAnchorOf } from "@/lib/anchor"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
@@ -145,6 +146,12 @@ function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boole
   return isSnapTable(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
+// Whether it stands directly in a free area (docs/2026-11-03-anchor-dock.md).
+function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolean {
+  if (!screen) return false
+  return findParentOf(screen.objects ?? [], id)?.parent?.type === "free"
+}
+
 /**
  * What a table sets for the object being shown (lib/snap-table.ts): its
  * place and its width, when the object stands in a table's cell. Hidden in
@@ -171,8 +178,8 @@ function layoutFrameLock(
       return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours." }
     }
     const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "button"
-    if (byContent || obj?.properties?.cell?.fill?.width) {
-      return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows, or from Fill: see Cell." }
+    if (byContent || (obj && cellAnchorOf(obj).x === "stretch")) {
+      return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows, or from Stretch: see Cell." }
     }
     return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its width and height are yours; its column grows with it." }
   }
@@ -309,6 +316,7 @@ export function PropertyPanel({
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
               {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {inFreeArea(currentScreen, selectedObject.id) && <FreePositionProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 
               {selectedObject.type === "text" && (

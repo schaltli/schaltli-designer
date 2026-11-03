@@ -18,7 +18,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { fit, naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
-import { cellAnchorOf, offsetIn, type Anchor } from "@/lib/anchor"
+import { cellAnchorOf, offsetIn, resizeFree, type Anchor } from "@/lib/anchor"
 
 /** What marks a table as this kind. */
 export const SNAP_GRID = 1
@@ -242,7 +242,10 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
       const b = objectBounds(child)
       return translateObject({ ...child, properties: { ...child.properties, cell: placedCell } }, left - b.minX, top - b.minY)
     }
-    return { ...sizedChild, width, height, properties, x: left, y: top }
+    // A free area at a new size takes its objects along by their anchors,
+    // from the size it was laid out at last (lib/anchor.ts).
+    const children = child.type === "free" ? resizeFree(child, width, height).children : sizedChild.children
+    return { ...sizedChild, width, height, properties, x: left, y: top, ...(children ? { children } : {}) }
   })
   const total = (sizes: number[]) => (sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap : 0)
   return { ...table, width: total(widths), height: total(heights), children: placed }
@@ -339,8 +342,10 @@ function tidied(table: ScreenObject): ScreenObject {
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
   const { cell: _cell, ...properties } = child.properties ?? {}
   const own = drawn(child)
+  // Back at its drawn size, a free area taking its objects along.
+  const sized = child.type === "free" ? { ...resizeFree(child, own.width, own.height), properties } : { ...child, width: own.width, height: own.height, properties }
   // Moved into the table's space with its points, if it has any.
-  return translateObject({ ...child, width: own.width, height: own.height, properties }, table.x, table.y)
+  return translateObject(sized, table.x, table.y)
 }
 
 /**

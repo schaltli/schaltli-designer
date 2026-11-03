@@ -34,14 +34,18 @@ the area changes size - dragged, typed into Frame, stretched in a cell; a
 section «Position» with Horizontal and Vertical on an area's objects.
 
 **Acceptance criteria:**
-- [ ] Left/Top stay, Right/Bottom keep their distance to that edge, Center/Middle their offset from the centre, Stretch grows; default Left/Top, so untouched areas behave as before
-- [ ] A resize to the same size, and a second layout pass, move nothing
-- [ ] Dragging an area's corner moves its children in the same undo step
-- [ ] A free area stretched in a cell takes its anchored children along
-- [ ] «Position» in the property panel for objects directly in a free area; Stretch for the cell's types and text
-- [ ] Handbook `objekte/anordnen.md`, free area section
+- [x] Left/Top stay, Right/Bottom keep their distance to that edge, Center/Middle their offset from the centre, Stretch grows; default Left/Top, so untouched areas behave as before
+- [x] A resize to the same size, and a second layout pass, move nothing
+- [x] Dragging an area's corner moves its children in the same undo step
+- [x] A free area stretched in a cell takes its anchored children along
+- [x] «Position» in the property panel for objects directly in a free area; Stretch for the cell's types and text
+- [x] Handbook `objekte/anordnen.md`, free area section
 
 **Verification:** `e2e/anchor-dock.spec.ts` (resizeFree), new `e2e/anchor-dock-canvas.spec.ts` (drag, undo, panel); `npm run test:quick`
+
+- [x] `npm run test:quick` 2026-11-03: host 2092 passed; 4v3b-live-values, 4v3b-popups, 4v3b conformance (fetch failed) and ws4-charts-draw (terminated) green alone, conformance 68/68; 4v3b-internal-heap red as always
+
+**Done:** `resizeFree` and `withUpdates` in `lib/anchor.ts`; every object edit goes through `withUpdates` (`lib/object-tree.ts`), so dragging, Frame and Apply size agree in one undo step. A free area stretched in its cell, or taken out of its table, takes its objects along (`lib/snap-table.ts`). Found on the way: the frame lock in the property panel still read `cell.fill.width` (Task 1) - reads the anchor now. A click on a free area's row in the object list opens it rather than selecting it, so the canvas test selects it with a click on the canvas.
 
 **Dependencies:** Task 1
 **Files likely touched:** `lib/anchor.ts`, `lib/layout.ts`, `components/canvas/canvas.tsx`, new `components/property-panel/free-area-properties.tsx`, `handbuch/objekte/anordnen.md`
