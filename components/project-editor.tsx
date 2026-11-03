@@ -2497,7 +2497,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const moveIntoAreaOf = useCallback(
     (ids: string[], into: string | null, drop: SnapDrop | null) => {
       const newTableId = `obj-${project.nextId}`
-      const snaps = !!drop && !!into && ids.length === 1
+      const snaps = !!drop && ids.length === 1
       setProject((prev) => {
         const scale = layoutScaleOf(prev)
         return {
@@ -2508,8 +2508,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             let objects = moveIntoArea(screen.objects, ids, into)
             if (objects === screen.objects) return screen
             if (snaps) {
-              const area = findObjectById(objects, into!)
-              if (area) objects = updateObjectById(objects, area.id, { children: applySnapDrop(area.children ?? [], ids[0], drop!, scale, newTableId) })
+              // Into a table there, in the space it went into.
+              if (!into) objects = applySnapDrop(objects, ids[0], drop!, scale, newTableId)
+              else {
+                const space = findObjectById(objects, into)
+                if (space) objects = updateObjectById(objects, space.id, { children: applySnapDrop(space.children ?? [], ids[0], drop!, scale, newTableId) })
+              }
             }
             return { ...screen, objects }
           }),

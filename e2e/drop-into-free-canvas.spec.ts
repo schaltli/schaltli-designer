@@ -6,7 +6,8 @@ import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
 
 // Dragging an object into a card and out again, on the canvas
-// (docs/2026-11-03-drop-into-free.md).
+// (docs/2026-11-03-drop-into-free.md, by the pointer since
+// docs/2026-11-03-placing.md).
 
 type Obj = Record<string, any>
 
@@ -42,7 +43,7 @@ const find = (list: Obj[], id: string): Obj | undefined => {
 
 // From `from` to `to`, screen pixels; `fresh` lets go of any selection and
 // open area first, so the press takes the object on the screen.
-async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, opts: { fresh?: boolean; ctrl?: boolean } = {}) {
+async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, opts: { fresh?: boolean; alt?: boolean } = {}) {
   const { box } = await getMainCanvas(page)
   const a = devicePoint(box, from.x, from.y)
   const b = devicePoint(box, to.x, to.y)
@@ -53,10 +54,10 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()
   await page.mouse.move(a.x + 4, a.y + 4)
-  if (opts.ctrl) await page.keyboard.down("Control")
+  if (opts.alt) await page.keyboard.down("Alt")
   for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12)
   await page.mouse.up()
-  if (opts.ctrl) await page.keyboard.up("Control")
+  if (opts.alt) await page.keyboard.up("Alt")
 }
 
 test("a text dragged onto a card goes into it where it was let go, and moves with the card", async ({ page }) => {
@@ -103,31 +104,23 @@ test("dragged out over the card's edge it is on the screen again, where it was l
   expect(objects.find((o) => o.id === "label")).toMatchObject({ x: 170, y: 250 })
 })
 
-test("with Ctrl held it stays on the screen, over the card", async ({ page }) => {
-  await loadProject(page, await project([card(), label()]))
-  await drag(page, { x: 50, y: 260 }, { x: 200, y: 135 }, { ctrl: true })
-  const objects = await saved(page)
-  expect(objects.map((o) => o.id).sort()).toEqual(["card", "label"])
-  expect(find(objects, "card")!.children ?? []).toEqual([])
-})
-
-test("near the card's edge from outside it makes a table with the card, as before", async ({ page }) => {
+test("with Alt, near the card's edge from outside it makes a table with the card", async ({ page }) => {
   await loadProject(page, await project([card(), label()]))
   // The label's left edge 3 px right of the card's right edge (300).
-  await drag(page, { x: 50, y: 260 }, { x: 333, y: 135 })
+  await drag(page, { x: 50, y: 260 }, { x: 333, y: 135 }, { alt: true })
   const objects = await saved(page)
   const table = objects.find((o) => o.type === "table")
   expect(table, JSON.stringify(objects.map((o) => o.id))).toBeTruthy()
   expect(table!.children.map((c: Obj) => c.id).sort()).toEqual(["card", "label"])
 })
 
-test("a table in the card still takes it into a new column", async ({ page }) => {
+test("with Alt, a table in the card takes it into a new column", async ({ page }) => {
   const cell = (id: string, column: number, x: number) => ({ id, type: "text", x, y: 0, width: 40, height: 20, zIndex: column + 1, properties: { text: id, cell: { row: 0, column } } })
   const table = { id: "inner-table", type: "table", x: 20, y: 40, width: 85, height: 20, zIndex: 1, properties: { grid: 1, columns: [{}, {}], rows: [{}] }, children: [cell("t1", 0, 0), cell("t2", 1, 45)] }
   await loadProject(page, await project([card([table]), label()]))
   // The table is laid out to its texts: 46 px wide, its right edge at 100 + 20 + 46 = 166.
   // The label's left edge 3 px right of it, its middle well inside the card.
-  await drag(page, { x: 50, y: 260 }, { x: 199, y: 110 })
+  await drag(page, { x: 50, y: 260 }, { x: 199, y: 110 }, { alt: true })
   const objects = await saved(page)
   const inner = find(objects, "inner-table")!
   expect(inner.children.map((c: Obj) => c.id).sort()).toEqual(["label", "t1", "t2"])

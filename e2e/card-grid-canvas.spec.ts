@@ -52,8 +52,11 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.keyboard.press("Escape")
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()
+  // Alt held: tables are built (docs/2026-11-03-placing.md).
+  await page.keyboard.down("Alt")
   for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12)
   await page.mouse.up()
+  await page.keyboard.up("Alt")
 }
 
 test("four cards dragged together make a 2 × 2 grid, each filling its cell; Gap, Width and Equal columns in the Table section", async ({ page }) => {

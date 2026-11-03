@@ -49,9 +49,12 @@ async function carry(page: Page, from: { x: number; y: number }, to: { x: number
   const b = await at(page, to)
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()
+  // Alt held: tables are built (docs/2026-11-03-placing.md).
+  await page.keyboard.down("Alt")
   for (let i = 1; i <= 10; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 10, a.y + ((b.y - a.y) * i) / 10)
   if (before) await before()
   await page.mouse.up()
+  await page.keyboard.up("Alt")
 }
 
 async function sizeOf(page: Page, tool: string): Promise<{ width: number; height: number }> {

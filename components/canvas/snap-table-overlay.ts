@@ -200,3 +200,71 @@ export function drawSnapChip(ctx: CanvasRenderingContext2D, at: { x: number; y: 
   ctx.fillText(text, x + padX, y + height / 2)
   ctx.restore()
 }
+
+/**
+ * What letting go does now, at the pointer (docs/2026-11-03-placing.md):
+ * `now` in a chip; beside it, where Alt would do something else, the key
+ * drawn as a keycap with what it would do - faint, or pressed and strong
+ * while Alt is held (then `now` is what Alt does and `alt` is null).
+ */
+export function drawPlaceHint(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  hint: { now: string | null; alt: string | null; held: boolean },
+  color: string,
+  zoom: number,
+): void {
+  const size = 11 / zoom
+  const padX = 5 / zoom
+  const padY = 3 / zoom
+  const height = size + 2 * padY
+  const keyW = 22 / zoom
+  ctx.save()
+  ctx.font = `500 ${size}px system-ui, sans-serif`
+  ctx.textBaseline = "middle"
+  let x = at.x + 14 / zoom
+  const y = at.y + 14 / zoom
+  const keycap = (pressed: boolean) => {
+    // A key: a light cap on a darker base, pressed lower and in the hint's colour.
+    const lift = pressed ? 0 : 2 / zoom
+    ctx.fillStyle = pressed ? color : "#9ca3af"
+    ctx.beginPath()
+    ctx.roundRect(x, y, keyW, height, 3 / zoom)
+    ctx.fill()
+    ctx.fillStyle = pressed ? "#ccfbf1" : "#ffffff"
+    ctx.beginPath()
+    ctx.roundRect(x + 1 / zoom, y + 1 / zoom, keyW - 2 / zoom, height - 1 / zoom - lift, 2.5 / zoom)
+    ctx.fill()
+    ctx.fillStyle = pressed ? color : "#374151"
+    ctx.font = `600 ${size * 0.85}px system-ui, sans-serif`
+    const w = ctx.measureText("Alt").width
+    ctx.fillText("Alt", x + (keyW - w) / 2, y + (height - lift) / 2)
+    ctx.font = `500 ${size}px system-ui, sans-serif`
+    x += keyW + 3 / zoom
+  }
+  const chip = (text: string, strong: boolean) => {
+    const width = ctx.measureText(text).width + 2 * padX
+    ctx.globalAlpha = strong ? 1 : 0.55
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.roundRect(x, y, width, height, 3 / zoom)
+    ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText(text, x + padX, y + height / 2)
+    ctx.globalAlpha = 1
+    x += width + 6 / zoom
+  }
+  if (hint.held) {
+    keycap(true)
+    if (hint.now) chip(hint.now, true)
+  } else {
+    if (hint.now) chip(hint.now, true)
+    if (hint.alt) {
+      ctx.globalAlpha = 0.7
+      keycap(false)
+      ctx.globalAlpha = 1
+      chip(hint.alt, false)
+    }
+  }
+  ctx.restore()
+}

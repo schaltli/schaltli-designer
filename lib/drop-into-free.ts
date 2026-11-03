@@ -2,12 +2,11 @@
  * Dragging objects into a free area and out of it again
  * (docs/2026-11-03-drop-into-free.md).
  *
- * Which area a dragged selection goes into is decided by one point, the
- * middle of what is dragged, in screen coordinates. An area takes it when
- * that point is inside it by more than the snap zone - near its edge,
- * snapping to tables keeps deciding, as before. Of nested areas the
- * innermost wins. An object of an area leaves it once the point is outside
- * the area altogether.
+ * Which area something carried goes into is decided by one point, the
+ * pointer, in screen coordinates (docs/2026-11-03-placing.md - until then the
+ * middle of what was dragged, with a snap zone at the edge). Of nested areas
+ * the innermost under it wins. An object of an area leaves it once the
+ * pointer is outside the area.
  */
 
 import type { ScreenObject } from "@/components/project-editor"
@@ -33,13 +32,7 @@ export function middleOf(objects: Array<{ x: number; y: number; width: number; h
   return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
 }
 
-/** How far inside an area the point has to be: the snap zone, at most a quarter of the area, so a small card still takes something. */
-function depthIn(area: ScreenObject, zone: number): number {
-  return Math.max(0, Math.min(zone, area.width / 4, area.height / 4))
-}
-
-const inside = (p: Point, x: number, y: number, w: number, h: number, inset = 0) =>
-  p.x >= x + inset && p.x <= x + w - inset && p.y >= y + inset && p.y <= y + h - inset
+const inside = (p: Point, x: number, y: number, w: number, h: number) => p.x >= x && p.x < x + w && p.y >= y && p.y < y + h
 
 /**
  * The innermost free area under `point`, among `list` (children measured from
@@ -48,18 +41,18 @@ const inside = (p: Point, x: number, y: number, w: number, h: number, inset = 0)
  * areas overlap. Excluded objects are neither taken nor looked into: a free
  * area never goes into itself or what it holds.
  */
-function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, zone: number): ScreenObject | null {
+function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>): ScreenObject | null {
   const topmostFirst = [...list].sort((a, b) => b.zIndex - a.zIndex)
   for (const obj of topmostFirst) {
     if (exclude.has(obj.id)) continue
     const x = origin.x + obj.x
     const y = origin.y + obj.y
     if (obj.type === "free") {
-      if (!inside(point, x, y, obj.width, obj.height, depthIn(obj, zone))) continue
-      return areaIn(obj.children ?? [], { x, y }, point, exclude, zone) ?? obj
+      if (!inside(point, x, y, obj.width, obj.height)) continue
+      return areaIn(obj.children ?? [], { x, y }, point, exclude) ?? obj
     }
     if ((obj.type === "table" || obj.type === "group") && inside(point, x, y, obj.width, obj.height)) {
-      const found = areaIn(obj.children ?? [], { x, y }, point, exclude, zone)
+      const found = areaIn(obj.children ?? [], { x, y }, point, exclude)
       if (found) return found
     }
   }
@@ -81,14 +74,14 @@ function panelOf(objects: ScreenObject[], id: string | null): string | null {
  * stands in. Null: it stays with its parent. Looked for only in the screen or
  * panel the objects are in.
  */
-export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point, zone: number): AreaDrop | null {
+export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point): AreaDrop | null {
   const root = panelOf(objects, parentId)
   const rootList = root ? (findObjectById(objects, root)?.children ?? []) : objects
-  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids), zone)
+  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids))
   if (area) return area.id === parentId ? null : { into: area.id }
   const parent = parentId ? findObjectById(objects, parentId) : null
   if (parent?.type !== "free") return null
-  // Still over the area it is in, near its edge: it stays.
+  // Still over the area it is in: it stays.
   const at = childOrigin(objects, findParentOf(objects, parent.id)?.parent?.id ?? null)
   if (inside(point, at.x + parent.x, at.y + parent.y, parent.width, parent.height)) return null
   return { into: root }

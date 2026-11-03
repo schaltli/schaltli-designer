@@ -3,10 +3,10 @@ import type { ScreenObject } from "../components/project-editor"
 import { areaDropAt, middleOf, moveIntoArea } from "../lib/drop-into-free"
 import { findObjectById, findParentOf, getAbsolutePosition } from "../lib/object-tree"
 
-// Dragging into a free area and out of it (docs/2026-11-03-drop-into-free.md):
-// the pure part - which area, and the move.
+// Dragging into a free area and out of it - the pure part: which area is
+// under the pointer, and the move (docs/2026-11-03-placing.md, which took in
+// docs/2026-11-03-drop-into-free.md).
 
-const ZONE = 20
 const o = (id: string, type: string, x: number, y: number, width: number, height: number, extra: Partial<ScreenObject> = {}): ScreenObject =>
   ({ id, type, x, y, width, height, zIndex: 1, properties: {}, ...extra }) as ScreenObject
 
@@ -30,33 +30,33 @@ test("the middle of what is dragged", () => {
   expect(middleOf([o("a", "text", 0, 0, 10, 10), o("b", "text", 30, 20, 10, 10)])).toEqual({ x: 20, y: 15 })
 })
 
-test("into: the innermost area under the middle, deeper than the zone; near the edge nothing", () => {
+test("into: the innermost area under the pointer, right up to its edge", () => {
   const objects = screen()
-  expect(areaDropAt(objects, ["label"], null, { x: 150, y: 150 }, ZONE)).toEqual({ into: "card" })
-  expect(areaDropAt(objects, ["label"], null, { x: 320, y: 200 }, ZONE)).toEqual({ into: "inner" })
-  // Within the zone of the card's edge: snapping keeps deciding.
-  expect(areaDropAt(objects, ["label"], null, { x: 105, y: 200 }, ZONE)).toBeNull()
+  expect(areaDropAt(objects, ["label"], null, { x: 150, y: 150 })).toEqual({ into: "card" })
+  expect(areaDropAt(objects, ["label"], null, { x: 320, y: 200 })).toEqual({ into: "inner" })
+  expect(areaDropAt(objects, ["label"], null, { x: 101, y: 200 })).toEqual({ into: "card" })
+  expect(areaDropAt(objects, ["label"], null, { x: 99, y: 200 })).toBeNull()
   // A card in a table's cell takes it too.
-  expect(areaDropAt(objects, ["label"], null, { x: 600, y: 150 }, ZONE)).toEqual({ into: "cell-card" })
+  expect(areaDropAt(objects, ["label"], null, { x: 600, y: 150 })).toEqual({ into: "cell-card" })
   // Not into a switcher's panel from the screen: that is opened to be worked in.
-  expect(areaDropAt(objects, ["label"], null, { x: 600, y: 380 }, ZONE)).toBeNull()
+  expect(areaDropAt(objects, ["label"], null, { x: 600, y: 380 })).toBeNull()
 })
 
 test("a free area never goes into itself or what it holds", () => {
   const objects = screen()
-  expect(areaDropAt(objects, ["card"], null, { x: 320, y: 200 }, ZONE)).toBeNull()
-  expect(areaDropAt(objects, ["inner"], "card", { x: 320, y: 200 }, ZONE)).toBeNull()
+  expect(areaDropAt(objects, ["card"], null, { x: 320, y: 200 })).toBeNull()
+  expect(areaDropAt(objects, ["inner"], "card", { x: 320, y: 200 })).toBeNull()
   expect(moveIntoArea(objects, ["card"], "inner")).toBe(objects)
 })
 
-test("out: past the area's edge it leaves for the screen, or for another area there; near its edge inside it stays", () => {
+test("out: with the pointer past the area's edge it leaves for the screen, or for another area there", () => {
   const objects = screen()
-  expect(areaDropAt(objects, ["head"], "card", { x: 50, y: 50 }, ZONE)).toEqual({ into: null })
-  expect(areaDropAt(objects, ["head"], "card", { x: 600, y: 150 }, ZONE)).toEqual({ into: "cell-card" })
-  expect(areaDropAt(objects, ["head"], "card", { x: 105, y: 200 }, ZONE)).toBeNull()
-  expect(areaDropAt(objects, ["head"], "card", { x: 150, y: 150 }, ZONE)).toBeNull()
+  expect(areaDropAt(objects, ["head"], "card", { x: 50, y: 50 })).toEqual({ into: null })
+  expect(areaDropAt(objects, ["head"], "card", { x: 600, y: 150 })).toEqual({ into: "cell-card" })
+  expect(areaDropAt(objects, ["head"], "card", { x: 101, y: 200 })).toBeNull()
+  expect(areaDropAt(objects, ["head"], "card", { x: 150, y: 150 })).toBeNull()
   // In a panel's area, out into the panel.
-  expect(areaDropAt(objects, [], "panel-card", { x: 505, y: 305 }, ZONE)).toEqual({ into: "panel" })
+  expect(areaDropAt(objects, [], "panel-card", { x: 505, y: 305 })).toEqual({ into: "panel" })
 })
 
 test("moved in and out where it stood on the glass, above the others, without Position or Dock", () => {

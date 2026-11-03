@@ -277,18 +277,26 @@ export const ROUND_FIXTURE_SCREEN = { width: 360, height: 360 }
 // is a point that is reliably empty canvas, for tests that need to click
 // "nowhere" to deselect.
 /**
- * Runs the moves of a drag or a drawn rectangle with Ctrl held, which places
- * freely: nothing snaps into a table or makes one with a neighbour
- * (docs/2026-10-09-snap-tables.md, decided 2026-10-10). Call it after
- * mouse.down - Ctrl at the press itself adds to the selection - and let it
- * include the mouse.up.
+ * Runs the moves of a drag or a drawn rectangle placing freely. Since
+ * docs/2026-11-03-placing.md that is what no key does (until then Ctrl was
+ * held here); kept so a test says it means to place freely.
  */
-export async function placingFreely<T>(page: Page, moves: () => Promise<T>): Promise<T> {
-  await page.keyboard.down("Control")
+export async function placingFreely<T>(_page: Page, moves: () => Promise<T>): Promise<T> {
+  return moves()
+}
+
+/**
+ * Runs the moves of a drag, a placed tool or a carried row with Alt held,
+ * which builds tables: a new column or row, a table with a neighbour, a row
+ * into a table (docs/2026-11-03-placing.md). Call it after mouse.down and
+ * let it include the mouse.up.
+ */
+export async function buildingTables<T>(page: Page, moves: () => Promise<T>): Promise<T> {
+  await page.keyboard.down("Alt")
   try {
     return await moves()
   } finally {
-    await page.keyboard.up("Control")
+    await page.keyboard.up("Alt")
   }
 }
 
@@ -444,8 +452,11 @@ export async function carryUnderSnapTable(
   const b = devicePoint(box, rect.x + rect.width / 2, rect.y + rect.height + 4, screen)
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()
+  // Alt held: into the table as its next row (docs/2026-11-03-placing.md).
+  await page.keyboard.down("Alt")
   await page.mouse.move(b.x, b.y, { steps: 10 })
   await page.mouse.up()
+  await page.keyboard.up("Alt")
 }
 
 /**

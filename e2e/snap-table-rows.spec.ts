@@ -5,7 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
 import { applyRowDrop, arrangeSnapTable, columnRoles, insertRowOf, isSnapTable, rowAsTable, rowTargetAt, snapCellOf, snapTableGeometry } from "../lib/snap-table"
-import { devicePoint, getMainCanvas, loadProject, placingFreely, saveProjectAs, ROUND_FIXTURE_SCREEN } from "./helpers"
+import { buildingTables, devicePoint, getMainCanvas, loadProject, placingFreely, saveProjectAs, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Rows (docs/2026-10-09-snap-tables.md, module snap-table-rows): several
@@ -178,7 +178,8 @@ async function point(page: Page, p: { x: number; y: number }) {
   return devicePoint(box, p.x, p.y, ROUND_FIXTURE_SCREEN)
 }
 // Pressed at `from` with the Row tool in hand, carried to `to`; `meanwhile`
-// runs before letting go, Ctrl held throughout when `freely`.
+// runs before letting go; Alt held throughout - a row goes into a table -
+// unless `freely` (docs/2026-11-03-placing.md).
 async function carry(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, meanwhile?: () => Promise<void>, freely = false) {
   const a = await point(page, from)
   const b = await point(page, to)
@@ -189,7 +190,7 @@ async function carry(page: Page, from: { x: number; y: number }, to: { x: number
     if (meanwhile) await meanwhile()
     await page.mouse.up()
   }
-  await (freely ? placingFreely(page, moves) : moves())
+  await (freely ? placingFreely(page, moves) : buildingTables(page, moves))
 }
 async function canvasAttribute(page: Page, name: string): Promise<string | null> {
   const { canvas } = await getMainCanvas(page)

@@ -177,14 +177,17 @@ test.describe("placing a catalog entry", () => {
     await expect(page.getByRole("dialog")).toContainText(`Insert ${entryName}`)
   }
 
-  async function drag(page: Page, start: [number, number] = [60, 140], end: [number, number] = [300, 200]) {
+  async function drag(page: Page, start: [number, number] = [60, 140], end: [number, number] = [300, 200], alt = true) {
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, start[0], start[1], ROUND_FIXTURE_SCREEN)
     const to = devicePoint(box, end[0], end[1], ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
+    // Alt held: it snaps where it is let go (docs/2026-11-03-placing.md).
+    if (alt) await page.keyboard.down("Alt")
     await page.mouse.move(to.x, to.y, { steps: 8 })
     await page.mouse.up()
+    if (alt) await page.keyboard.up("Alt")
   }
 
   // What the Topics tab lists for `wanted`: its type and its line of examples,
@@ -366,8 +369,11 @@ test.describe("placing a catalog entry", () => {
     const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
+    // Alt held: into the table as a row (docs/2026-11-03-placing.md).
+    await page.keyboard.down("Alt")
     await page.mouse.move(to.x, to.y, { steps: 10 })
     await page.mouse.up()
+    await page.keyboard.up("Alt")
   }
 
   // The checkpoint of the old tables (docs/2026-10-02-layout-tables.md), on
@@ -407,11 +413,9 @@ test.describe("placing a catalog entry", () => {
       const table = await snapTableOf(page)
       await pick(page, "Bedroom Fan")
       await page.getByTestId("baustein-insert").click()
-      // Placed freely (Ctrl): a card snaps, and a large one let go near the
-      // table would go into it - what this guards is the open table left whole.
-      await page.keyboard.down("Control")
-      await drag(page, [60, 140], [300, 320])
-      await page.keyboard.up("Control")
+      // Placed freely (no Alt): a large card let go near the table would go
+      // into it with Alt - what this guards is the open table left whole.
+      await drag(page, [60, 140], [300, 320], false)
       const objects = (await savedScreen(page)).objects
       expect(byCell(objects.find((o: { id: string }) => o.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
       // The fan a card of its own on the screen, beside it (docs/2026-11-03-card-blocks.md).
@@ -439,10 +443,13 @@ test.describe("placing a catalog entry", () => {
       const to = devicePoint(box, table.x + table.width / 2, table.y + table.height / 2, ROUND_FIXTURE_SCREEN)
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
+      // Alt held: onto an occupied cell it snaps (docs/2026-11-03-placing.md).
+      await page.keyboard.down("Alt")
       await page.mouse.move(to.x, to.y, { steps: 10 })
-      // Nothing shows where it would go: it goes nowhere.
+      // Nothing shows where it would go as a row: it is a card.
       expect(await canvas.getAttribute("data-row-drop")).toBeNull()
       await page.mouse.up()
+      await page.keyboard.up("Alt")
       const objects = (await savedScreen(page)).objects
       const tables = objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)

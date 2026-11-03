@@ -97,7 +97,7 @@ import {
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
-import { areaDropAt, middleOf, type AreaDrop } from "@/lib/drop-into-free"
+import { areaDropAt, type AreaDrop } from "@/lib/drop-into-free"
 
 // Interaction imports
 import {
@@ -116,7 +116,7 @@ import {
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
 import { TABLE_TYPE } from "@/lib/table"
-import { drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
+import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
 import { dimensions, isSnapTable, liftOut, planRow, resizeSpan, rowAsTable, rowTargetAt, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, ROW_TEMPLATES, type RowTemplate, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
 
@@ -1070,6 +1070,7 @@ export function Canvas({
     return { id: parent?.id ?? null, origin, objects: list.map((child) => translateObject(child, origin.x, origin.y)) }
   }, [editingContainer, editingOrigin, interactionObjects, screen.objects])
 
+
   // What a finger can reach in preview: every group dissolved, so a button
   // inside one is pressed like any other (lib/object-groups.ts) - the
   // device never sees the group either.
@@ -1145,11 +1146,16 @@ export function Canvas({
       createSnapRef.current = null
       // In the space it is drawn in (drawSpace): out of an open table into
       // the space the table stands in, which is open from now on.
+      // Or, placed by dragging, in the free area under the pointer
+      // (docs/2026-11-03-placing.md), which is open from now on.
       const leavesTable = isSnapTable(editingContainer)
-      if (snapTo || leavesTable) {
-        const placed = drawSpace.id !== null ? translateObject(object as ScreenObject, -drawSpace.origin.x, -drawSpace.origin.y) : object
-        if (leavesTable) onSetEditingContainer(drawSpace.id)
-        onAddObject(placed, drawSpace.id ?? undefined, snapTo ? { snap: snapTo } : undefined)
+      const space = placeSpaceRef.current ?? drawSpace
+      placeSpaceRef.current = null
+      const elsewhere = space.id !== drawSpace.id
+      if (snapTo || leavesTable || elsewhere) {
+        const placed = space.id !== null ? translateObject(object as ScreenObject, -space.origin.x, -space.origin.y) : object
+        if (leavesTable || elsewhere) onSetEditingContainer(space.id)
+        onAddObject(placed, space.id ?? undefined, snapTo ? { snap: snapTo } : undefined)
         return
       }
       if (editingContainer) {
@@ -1215,6 +1221,16 @@ export function Canvas({
   // (lib/drop-into-free.ts) - with how a table inside it takes one of them,
   // worked out in that area's space.
   const [areaDrop, setAreaDrop] = useState<(AreaDrop & { ids: string[]; snap: SnapDrop | null; space: ScreenObject[] }) | null>(null)
+  // Placing (docs/2026-11-03-placing.md): the free area outlined as where
+  // something carried goes; the space a snap shown is worked out in, where
+  // that is not the open one; what letting go does, at the pointer; the
+  // space a new object, row or block is let go into; the last pointer, to
+  // show again when Alt is pressed or let go without moving.
+  const [placeArea, setPlaceArea] = useState<string | null>(null)
+  const [snapSpace, setSnapSpace] = useState<ScreenObject[] | null>(null)
+  const [placeHint, setPlaceHint] = useState<{ at: { x: number; y: number }; now: string | null; alt: string | null; held: boolean } | null>(null)
+  const placeSpaceRef = useRef<{ id: string | null; origin: { x: number; y: number } } | null>(null)
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
   const createSnapRef = useRef<SnapDrop | null>(null)
   // Where a carried new object was let go, its middle (placing by dragging).
@@ -1265,6 +1281,50 @@ export function Canvas({
   const layoutScale = useMemo(
     () => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts, topics, separators: numberSeparators }),
     [textScale, fonts, topics, numberSeparators],
+  )
+
+  // Where something carried goes (docs/2026-11-03-placing.md): the innermost
+  // free area under the pointer - or, carried out of the open area, the
+  // screen or panel it stands in - with its objects in screen coordinates;
+  // else the space open now. `moved`: not the space open now.
+  const spaceAtPointer = useCallback(
+    (p: { x: number; y: number }, exclude: string[]) => {
+      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p)
+      if (!drop) return { ...drawSpace, moved: false }
+      const origin = childOrigin(screen.objects, drop.into)
+      const list = drop.into ? (findObjectById(screen.objects, drop.into)?.children ?? []) : screen.objects
+      return { id: drop.into, origin, objects: list.map((c) => translateObject(c, origin.x, origin.y)), moved: true }
+    },
+    [screen.objects, drawSpace],
+  )
+
+  // How something carried snaps in a space: with Alt as tables are built,
+  // by its edges (docs/2026-10-09-snap-tables.md); without, only into the
+  // empty cell under the pointer.
+  const placingSnap = useCallback(
+    (objects: ScreenObject[], movingId: string, rect: SnapRect, p: { x: number; y: number }, alt: boolean): SnapDrop | null => {
+      if (alt) return snapDropAt(objects, movingId, rect, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
+      const under = snapDropAt(objects, movingId, { x: p.x - 0.5, y: p.y - 0.5, width: 1, height: 1 }, 0, layoutScale)
+      return under?.kind === "table" && under.target.kind === "cell" ? under : null
+    },
+    [layoutScale],
+  )
+
+  // What the hint at the pointer says: what letting go does now, and what
+  // Alt would do instead where that is something else.
+  const placeHintFor = useCallback(
+    (at: { x: number; y: number }, into: string | null | undefined, snap: SnapDrop | null, altSnap: SnapDrop | null, held: boolean, rowInto = false, rowWithAlt = false) => {
+      const describe = (d: SnapDrop | null) =>
+        !d ? null : d.kind === "pair" ? "Table" : d.target.kind === "cell" ? "Into cell" : d.target.kind === "column" ? "New column" : "New row"
+      const area = into ? findObjectById(screen.objects, into) : null
+      const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Free") : null
+      const where = rowInto ? "Into table" : (describe(snap) ?? areaWord)
+      const would = held ? null : rowWithAlt ? "Into table" : describe(altSnap)
+      const now = where ?? (would || held ? "Free" : null)
+      const alt = would && would !== now ? would : null
+      return now || alt ? { at, now, alt, held } : null
+    },
+    [screen.objects],
   )
 
   // What a table put together by snapping sizes: the table itself (as large
@@ -1879,11 +1939,11 @@ export function Canvas({
     // An object carried out of a table: its outline at the pointer.
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
     if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create"))
-      drawSnapDrop(ctx, snapDrop, outDrag && dragState?.mode === "drag" ? outDrag.space : drawSpace.objects, layoutScale, LAYOUT_HINT_COLOR, zoom)
+      drawSnapDrop(ctx, snapDrop, snapSpace ?? (outDrag && dragState?.mode === "drag" ? outDrag.space : drawSpace.objects), layoutScale, LAYOUT_HINT_COLOR, zoom)
     // The free area a dragged object goes into: its outline, and where a
     // table in it takes the object.
-    if (areaDrop && dragState?.mode === "drag") {
-      const area = areaDrop.into ? findObjectById(screen.objects, areaDrop.into) : null
+    if (placeArea && (dragState?.mode === "drag" || dragState?.mode === "create")) {
+      const area = findObjectById(screen.objects, placeArea)
       if (area?.type === "free") {
         const at = childOrigin(screen.objects, area.id)
         ctx.save()
@@ -1896,8 +1956,10 @@ export function Canvas({
         ctx.strokeRect(at.x, at.y, area.width, area.height)
         ctx.restore()
       }
-      if (areaDrop.snap) drawSnapDrop(ctx, areaDrop.snap, areaDrop.space, layoutScale, LAYOUT_HINT_COLOR, zoom)
     }
+    if (areaDrop?.snap && dragState?.mode === "drag") drawSnapDrop(ctx, areaDrop.snap, areaDrop.space, layoutScale, LAYOUT_HINT_COLOR, zoom)
+    // What letting go does, at the pointer, and the Alt key where it would do something else.
+    if (placeHint && (dragState?.mode === "drag" || dragState?.mode === "create")) drawPlaceHint(ctx, placeHint.at, placeHint, LAYOUT_HINT_COLOR, zoom)
 
     // A carried row's place: the row line drawn thick, and the columns it adds.
     if (rowDrop && dragState?.mode === "create") {
@@ -1970,6 +2032,9 @@ export function Canvas({
     lineLabel,
     snapDrop,
     areaDrop,
+    placeArea,
+    snapSpace,
+    placeHint,
     outDrag,
     interactionObjects,
     drawSpace,
@@ -3442,6 +3507,7 @@ export function Canvas({
       const rect = canvas.getBoundingClientRect()
       const x = (e.clientX - rect.left) / zoom
       const y = (e.clientY - rect.top) / zoom
+      lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
 
       const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
       const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
@@ -3687,33 +3753,51 @@ export function Canvas({
           const type = dragState.creatingType
           // A block of several parts is a card (docs/2026-11-03-card-blocks.md):
           // it snaps as a card from the Card tool does.
+          // Where it goes by the pointer, and what Alt builds there
+          // (docs/2026-11-03-placing.md).
+          const target = spaceAtPointer(coords, [])
+          placeSpaceRef.current = { id: target.id, origin: target.origin }
+          setSnapSpace(target.moved ? target.objects : null)
           if (type === "row" && blockTableRef.current) {
             setRowDrop(null)
-            const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey)
+            const snaps = onSnapDrop && !previewMode
             const carried = { ...blockTableRef.current, id: NEW_OBJECT, ...held, zIndex: 0 } as ScreenObject
-            const snapping = snaps ? snapDropAt([...drawSpace.objects, carried], NEW_OBJECT, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+            const there = [...target.objects, carried]
+            const snapping = snaps ? placingSnap(there, NEW_OBJECT, held, coords, e.altKey) : null
+            const altSnap = snaps && !e.altKey ? placingSnap(there, NEW_OBJECT, held, coords, true) : null
             setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
+            setSnapSpace(target.moved ? there : null)
+            setPlaceArea(target.moved && !snapping ? target.id : null)
+            setPlaceHint(placeHintFor(coords, target.moved ? target.id : undefined, snapping, altSnap, e.altKey))
             return
           }
           if (type === "row") {
-            const target = !previewMode && !(e.ctrlKey || e.metaKey) ? rowTargetAt(drawSpace.objects, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
-            const table = target && drawSpace.objects.find((o) => o.id === target.tableId)
+            const reach = previewMode ? null : rowTargetAt(target.objects, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
+            const into = e.altKey ? reach : null
+            const table = into && target.objects.find((o) => o.id === into.tableId)
             let found: typeof rowDrop = null
-            if (target && table && rowPartsRef.current) {
+            if (into && table && rowPartsRef.current) {
               const g = snapTableGeometry(table, layoutScale)
-              const y = target.at < g.tops.length ? table.y + g.tops[target.at] - g.gap / 2 : table.y + table.height + g.gap / 2
+              const y = into.at < g.tops.length ? table.y + g.tops[into.at] - g.gap / 2 : table.y + table.height + g.gap / 2
               const parts = rowPartsRef.current.map((part, i) => ({ ...part, id: `row-${i}`, zIndex: i }) as ScreenObject)
-              const roles = planRow(table, target.at, parts).inserts.map((n) => n.role[0].toUpperCase() + n.role.slice(1))
+              const roles = planRow(table, into.at, parts).inserts.map((n) => n.role[0].toUpperCase() + n.role.slice(1))
               const adds = roles.length ? `+ ${roles.join(", ")} column${roles.length > 1 ? "s" : ""}` : null
-              found = { ...target, line: { x1: table.x, x2: table.x + table.width, y }, adds }
+              found = { ...into, line: { x1: table.x, x2: table.x + table.width, y }, adds }
             }
             setRowDrop((current) => (JSON.stringify(current) === JSON.stringify(found) ? current : found))
+            setPlaceArea(target.moved && !found ? target.id : null)
+            setPlaceHint(placeHintFor(coords, target.moved ? target.id : undefined, null, null, e.altKey, !!found, !e.altKey && !!reach))
             return
           }
-          const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey) && type !== "navigator"
+          const snaps = onSnapDrop && !previewMode && type !== "navigator"
           const carried = { id: NEW_OBJECT, type, ...held, zIndex: 0 } as ScreenObject
-          const snapping = snaps ? snapDropAt([...drawSpace.objects, carried], NEW_OBJECT, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+          const there = [...target.objects, carried]
+          const snapping = snaps ? placingSnap(there, NEW_OBJECT, held, coords, e.altKey) : null
+          const altSnap = snaps && !e.altKey ? placingSnap(there, NEW_OBJECT, held, coords, true) : null
           setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
+          setSnapSpace(target.moved ? there : null)
+          setPlaceArea(target.moved && !snapping && type !== "navigator" ? target.id : null)
+          setPlaceHint(type === "navigator" ? null : placeHintFor(coords, target.moved ? target.id : undefined, snapping, altSnap, e.altKey))
         } else {
           // Still drawn as a rectangle: the old table's tool, a block.
           const width = Math.abs(deltaX)
@@ -3736,24 +3820,13 @@ export function Canvas({
         const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !staysPut(obj))
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
-        // Near a table put together by snapping or a free object: where it
-        // snaps, about 5 mm around (docs/2026-10-09-snap-tables.md). One
-        // free object at a time, never from inside such a table (taking an
-        // object out is its own gesture).
-        // Ctrl/⌘ held while dragging: placed freely, nothing snaps (decided
-        // 2026-10-10 - snapping is on by default, as in Figma).
-        const snapping =
-          draggedObject && !previewMode && onSnapDrop && !(e.ctrlKey || e.metaKey) && selectedObjects.length === 1 && !isSnapTable(editingContainer)
-            ? snapDropAt(
-                interactionObjects,
-                draggedObject.id,
-                // Where the object stands now, by its edges (asked 2026-10-10).
-                { x: dragState.startObjectPos.x + deltaX, y: dragState.startObjectPos.y + deltaY, width: draggedObject.width, height: draggedObject.height },
-                SNAP_ZONE_MM * layoutScale.pixelsPerMm,
-                layoutScale,
-              )
-            : null
-        setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
+        // Where it goes when let go (docs/2026-11-03-placing.md): by the
+        // pointer into the free area or the empty cell under it, else free;
+        // with Alt it builds tables as snapping did (docs/2026-10-09-snap-
+        // tables.md, by its edges). One object at a time into a cell or a
+        // table, any number into an area.
+        const pointer = coords
+        const alt = e.altKey
         // Out of a table put together by snapping (Task 6): the object is
         // carried as an outline, and where it would snap is worked out
         // against the space the table stands in with the object already out
@@ -3765,38 +3838,39 @@ export function Canvas({
           const lifted = liftOut(drawSpace.objects, editingContainer!.id, draggedObject.id, layoutScale, true)
           const space = lifted.objects.map((o) => (o.id === draggedObject.id ? translateObject(o, Math.round(rect.x - o.x), Math.round(rect.y - o.y)) : o))
           setOutDrag({ tableId: editingContainer!.id, id: draggedObject.id, rect, space })
-          const snapping = e.ctrlKey || e.metaKey ? null : snapDropAt(space, draggedObject.id, rect, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
-          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
+          const target = spaceAtPointer(pointer, [draggedObject.id, editingContainer!.id])
+          const there = target.moved ? [...target.objects, { ...draggedObject, ...rect }] : space
+          const snapping = previewMode ? null : placingSnap(there, draggedObject.id, rect, pointer, alt)
+          const altSnap = previewMode || alt ? null : placingSnap(there, draggedObject.id, rect, pointer, true)
+          const into = target.moved && onMoveIntoArea ? { into: target.id, ids: [draggedObject.id], snap: snapping, space: there } : null
+          setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(into) ? current : into))
+          const here = into ? null : snapping
+          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(here) ? current : here))
+          setPlaceArea(into && !snapping ? target.id : null)
+          setPlaceHint(placeHintFor(pointer, into ? target.id : undefined, snapping, altSnap, alt))
           return
         }
         // In a table an object stays put while it is dragged - the table
         // places it - and moves when it is let go.
         if (draggedObject && selectedObjects.every((obj) => placedByLayout(obj.id))) return
 
-        // Into a free area, or out of the one it is in, by the middle of
-        // what is dragged (docs/2026-11-03-drop-into-free.md). It wins over
-        // snapping in the space dragged in; a table inside the area takes a
-        // single object as snapping would.
-        const intoArea = (() => {
-          if (!draggedObject || !onMoveIntoArea || previewMode || e.ctrlKey || e.metaKey || isSnapTable(editingContainer)) return null
-          if (selectedObjects.some((obj) => placedByLayout(obj.id))) return null
+        if (draggedObject && !previewMode && !selectedObjects.some((obj) => placedByLayout(obj.id))) {
           const shiftX = dragState.startObjectPos.x + deltaX - draggedObject.x
           const shiftY = dragState.startObjectPos.y + deltaY - draggedObject.y
-          const rects = selectedObjects.map((obj) => ({ x: obj.x + shiftX, y: obj.y + shiftY, width: obj.width, height: obj.height }))
+          const rect = { x: draggedObject.x + shiftX, y: draggedObject.y + shiftY, width: draggedObject.width, height: draggedObject.height }
           const ids = selectedObjects.map((obj) => obj.id)
-          const zone = SNAP_ZONE_MM * layoutScale.pixelsPerMm
-          const drop = areaDropAt(screen.objects, ids, editingContainer?.id ?? null, middleOf(rects), zone)
-          if (!drop) return null
-          const area = drop.into ? findObjectById(screen.objects, drop.into) : null
-          if (area?.type !== "free" || ids.length !== 1) return { ...drop, ids, snap: null, space: [] }
-          const at = childOrigin(screen.objects, area.id)
-          const rect = rects[0]
-          const space = [...(area.children ?? []).map((c) => translateObject(c, at.x, at.y)), { ...draggedObject, x: rect.x, y: rect.y }]
-          const snap = snapDropAt(space, draggedObject.id, rect, zone, layoutScale)
-          return { ...drop, ids, snap: snap?.kind === "table" ? snap : null, space }
-        })()
-        setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(intoArea) ? current : intoArea))
-        if (intoArea) setSnapDrop(null)
+          const target = spaceAtPointer(pointer, ids)
+          const there = target.moved ? [...target.objects, { ...draggedObject, ...rect }] : interactionObjects
+          const single = ids.length === 1 && !!onSnapDrop
+          const snapping = single ? placingSnap(there, draggedObject.id, rect, pointer, alt) : null
+          const altSnap = single && !alt ? placingSnap(there, draggedObject.id, rect, pointer, true) : null
+          const into = target.moved && onMoveIntoArea ? { into: target.id, ids, snap: snapping, space: there } : null
+          setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(into) ? current : into))
+          const here = into ? null : snapping
+          setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(here) ? current : here))
+          setPlaceArea(into && !snapping ? target.id : null)
+          setPlaceHint(placeHintFor(pointer, into ? target.id : undefined, snapping, altSnap, alt))
+        }
 
         if (draggedObject) {
           const rawX = dragState.startObjectPos.x + deltaX
@@ -4172,6 +4246,9 @@ export function Canvas({
       drawSpace,
       onSnapMoveOut,
       onMoveIntoArea,
+      spaceAtPointer,
+      placingSnap,
+      placeHintFor,
       spanHandles,
       sizeLines,
       layoutScale,
@@ -4535,6 +4612,28 @@ export function Canvas({
     return objectType in defaultObjects ? defaultObjects[objectType] : null
   }
 
+  // Alt while carrying (docs/2026-11-03-placing.md): kept from the browser
+  // - Chrome on Windows moves the focus to its menu on a lone Alt - and
+  // shown at once, as if the pointer had moved.
+  const carrying = dragState?.mode === "drag" || dragState?.mode === "create"
+  useEffect(() => {
+    if (!carrying) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Alt") return
+      e.preventDefault()
+      const last = lastPointerRef.current
+      const canvas = canvasRef.current
+      if (!last || !canvas) return
+      canvas.dispatchEvent(new MouseEvent("mousemove", { clientX: last.clientX, clientY: last.clientY, altKey: e.type === "keydown", buttons: 1, bubbles: true }))
+    }
+    window.addEventListener("keydown", onKey)
+    window.addEventListener("keyup", onKey)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      window.removeEventListener("keyup", onKey)
+    }
+  }, [carrying])
+
   const handleMouseUp = useCallback(() => {
     // A chart let go settles on whole days (lib/chart-range.ts settled).
     if (chartDragRef.current) {
@@ -4658,18 +4757,23 @@ export function Canvas({
       }
     }
 
-    // Let go over a free area, or out of the one it was in.
-    if (dragState?.mode === "drag" && areaDrop && onMoveIntoArea) onMoveIntoArea(areaDrop.ids, areaDrop.into, areaDrop.snap)
-    // Let go out of a table put together by snapping: out, and free or snapped.
-    else if (dragState?.mode === "drag" && outDrag && onSnapMoveOut) {
-      onSnapMoveOut(outDrag.tableId, outDrag.id, { x: outDrag.rect.x - drawSpace.origin.x, y: outDrag.rect.y - drawSpace.origin.y }, snapDrop)
+    // Let go out of a table put together by snapping: out, and free or
+    // snapped - or on into the free area under the pointer.
+    if (dragState?.mode === "drag" && outDrag && onSnapMoveOut) {
+      onSnapMoveOut(outDrag.tableId, outDrag.id, { x: outDrag.rect.x - drawSpace.origin.x, y: outDrag.rect.y - drawSpace.origin.y }, areaDrop ? null : snapDrop)
+      if (areaDrop && onMoveIntoArea) onMoveIntoArea(areaDrop.ids, areaDrop.into, areaDrop.snap)
     }
+    // Let go over a free area, or out of the one it was in.
+    else if (dragState?.mode === "drag" && areaDrop && onMoveIntoArea) onMoveIntoArea(areaDrop.ids, areaDrop.into, areaDrop.snap)
     // Let go where it snaps: into the table, or a table with its neighbour.
     else if (dragState?.mode === "drag" && dragState.objectId && snapDrop && onSnapDrop) onSnapDrop(dragState.objectId, snapDrop)
-    if (dragState?.mode === "drag") {
+    if (dragState?.mode === "drag" || dragState?.mode === "create") {
       setSnapDrop(null)
       setOutDrag(null)
       setAreaDrop(null)
+      setPlaceArea(null)
+      setPlaceHint(null)
+      setSnapSpace(null)
     }
 
     // A row let go: into the table at the line shown, or a table of its own.
@@ -4682,8 +4786,10 @@ export function Canvas({
       if (table) {
         const snap = snapDrop ?? undefined
         setSnapDrop(null)
-        if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
-        onPlaceBlockTable?.(table, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined, snap)
+        const space = placeSpaceRef.current ?? drawSpace
+        placeSpaceRef.current = null
+        if (isSnapTable(editingContainer) || space.id !== drawSpace.id) onSetEditingContainer(space.id)
+        onPlaceBlockTable?.(table, { x: Math.round(r.x - space.origin.x), y: Math.round(r.y - space.origin.y) }, space.id ?? undefined, snap)
         onToolChange("select")
         setRowDrop(null)
         setDragState(null)
@@ -4692,8 +4798,10 @@ export function Canvas({
       const parts = rowPartsRef.current
       rowPartsRef.current = null
       if (parts && onInsertRow) {
-        if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
-        onInsertRow(parts, rowDrop && { tableId: rowDrop.tableId, at: rowDrop.at }, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined)
+        const space = placeSpaceRef.current ?? drawSpace
+        placeSpaceRef.current = null
+        if (isSnapTable(editingContainer) || space.id !== drawSpace.id) onSetEditingContainer(space.id)
+        onInsertRow(parts, rowDrop && { tableId: rowDrop.tableId, at: rowDrop.at }, { x: Math.round(r.x - space.origin.x), y: Math.round(r.y - space.origin.y) }, space.id ?? undefined)
         onToolChange("select")
       }
       setRowDrop(null)
@@ -4916,6 +5024,9 @@ export function Canvas({
         setSnapDrop(null)
         setOutDrag(null)
         setAreaDrop(null)
+        setPlaceArea(null)
+        setPlaceHint(null)
+        setSnapSpace(null)
         return
       }
       if (e.key === "Escape") {
@@ -5109,6 +5220,9 @@ export function Canvas({
         data-span-handles={spanHandles ? JSON.stringify(spanHandles.handles) : undefined}
         data-size-lines={sizeLines ? JSON.stringify(sizeLines.lines) : undefined}
         data-editing-container={editingContainerId ?? undefined}
+        // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.
+        data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}
+        data-place-area={placeArea ?? undefined}
         style={{
           imageRendering: "pixelated",
           WebkitFontSmoothing: "none",

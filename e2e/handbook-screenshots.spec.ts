@@ -265,6 +265,9 @@ test.describe("handbook: Erste Schritte", () => {
       const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, SCREEN)
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
+      // With Alt, as the handbook says (docs/2026-11-03-placing.md): the
+      // picture shows the hint with the key pressed.
+      await page.keyboard.down("Alt")
       await page.mouse.move(to.x, to.y, { steps: 10 })
       await expect(canvas).toHaveAttribute("data-row-drop", /"at":2/)
       const corner = devicePoint(box, -20, -20, SCREEN)
@@ -273,6 +276,7 @@ test.describe("handbook: Erste Schritte", () => {
         clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
       })
       await page.mouse.up()
+      await page.keyboard.up("Alt")
     }
     // The dimmer is a block of several parts, a switch and a slider: a
     // table of its own, clicked under the first.
