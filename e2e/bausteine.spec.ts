@@ -80,9 +80,17 @@ const byCell = (table: any) =>
 // Control column, its last (docs/2026-10-09-snap-tables.md).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const partsOf = (block: any): any[] => {
-  const last = Math.max(...block.children.map((c: any) => snapCellOf(c).column))
-  return block.children.filter((c: any) => snapCellOf(c).column === last).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+  // A block placed as a card (docs/2026-11-03-card-blocks.md): its parts in
+  // the table docked Fill, in its one column.
+  const table = isBlockCard(block) ? block.children.find((c: any) => c.properties?.dock === "fill") : block
+  const last = Math.max(...table.children.map((c: any) => snapCellOf(c).column))
+  return table.children.filter((c: any) => snapCellOf(c).column === last).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isBlockCard = (o: any) => o?.type === "free" && o.properties?.look === "card"
+// A block of several parts as placed: a card.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isBlock = (o: any) => isBlockCard(o) || isSnapTable(o)
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -349,7 +357,7 @@ test.describe("placing a catalog entry", () => {
     return JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string")).screens[0]
   }
   // The one table put together by snapping on the screen.
-  const snapTableOf = async (page: Page) => (await savedScreen(page)).objects.find(isSnapTable)
+  const snapTableOf = async (page: Page) => (await savedScreen(page)).objects.find(isBlock)
   // The armed block carried from low on the screen to just under `table`,
   // and let go there: in as a row.
   async function carryUnder(page: Page, table: { x: number; y: number; width: number; height: number }) {
@@ -399,20 +407,24 @@ test.describe("placing a catalog entry", () => {
       const table = await snapTableOf(page)
       await pick(page, "Bedroom Fan")
       await page.getByTestId("baustein-insert").click()
+      // Placed freely (Ctrl): a card snaps, and a large one let go near the
+      // table would go into it - what this guards is the open table left whole.
+      await page.keyboard.down("Control")
       await drag(page, [60, 140], [300, 320])
+      await page.keyboard.up("Control")
       const objects = (await savedScreen(page)).objects
       expect(byCell(objects.find((o: { id: string }) => o.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
-      // The fan a table of its own on the screen, beside it.
-      expect(objects.filter((o: { type: string }) => o.type === "table")).toHaveLength(2)
+      // The fan a card of its own on the screen, beside it (docs/2026-11-03-card-blocks.md).
+      expect(objects.filter(isBlockCard)).toHaveLength(1)
     } finally {
       await clear()
     }
   })
 
-  // docs/2026-10-09-snap-tables.md: a block of several parts is a table of
-  // its own and is never inserted into another - carried onto one and let
-  // go, it lies there free.
-  test("a block of several parts carried onto a table goes into none: a table of its own where it was let go", async ({ page }, testInfo) => {
+  // docs/2026-11-03-card-blocks.md: a block of several parts is a card and
+  // snaps as one - carried onto a table and let go, it goes into it and
+  // fills its cell. (Before, a table of its own that went into none.)
+  test("a block of several parts carried onto a table snaps into it as a card, filling its cell", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "ha-docs-fan-bedroom"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -431,13 +443,45 @@ test.describe("placing a catalog entry", () => {
       // Nothing shows where it would go: it goes nowhere.
       expect(await canvas.getAttribute("data-row-drop")).toBeNull()
       await page.mouse.up()
-      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
-      expect(tables).toHaveLength(2)
-      expect(byCell(tables.find((t: { id: string }) => t.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
-      const fan = tables.find((t: { id: string }) => t.id !== table.id)
+      const objects = (await savedScreen(page)).objects
+      const tables = objects.filter(isSnapTable)
+      expect(tables).toHaveLength(1)
+      const fan = tables[0].children.find(isBlockCard)
+      expect(fan).toBeTruthy()
       expect(partsOf(fan).map((c: { type: string }) => c.type)).toContain("slider")
-      // Its middle where it was let go.
-      expect(Math.abs(fan.x + fan.width / 2 - (table.x + table.width / 2))).toBeLessThanOrEqual(2)
+      expect(snapCellOf(fan).anchor).toEqual({ x: "stretch", y: "stretch" })
+      // The plug's row still there.
+      expect(tables[0].children.filter((c: { type: string }) => c.type === "button-group").length).toBeGreaterThan(0)
+    } finally {
+      await clear()
+    }
+  })
+
+  // docs/2026-11-03-card-blocks.md: two blocks of several parts, the second
+  // let go below the first, make a table of two cards, each filling its cell.
+  test("a block of several parts let go below another makes a table of two cards, each filling its cell", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Bedroom Fan")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 180, 60)
+      const first = (await savedScreen(page)).objects.find(isBlockCard)
+      expect(first).toBeTruthy()
+      await pick(page, "Bedroom Fan")
+      await page.getByTestId("baustein-insert").click()
+      // Carried at its middle; let go with its top edge 3 px below the first.
+      await drag(page, [180, 300], [first.x + first.width / 2, first.y + first.height + 3 + first.height / 2])
+      const objects = (await savedScreen(page)).objects
+      const tables = objects.filter(isSnapTable)
+      expect(tables).toHaveLength(1)
+      const cards = tables[0].children.filter(isBlockCard)
+      expect(cards).toHaveLength(2)
+      for (const card of cards) expect(snapCellOf(card).anchor).toEqual({ x: "stretch", y: "stretch" })
+      expect(cards.map((c: { width: number }) => c.width)[0]).toBe(cards[1].width)
+      // Each card brings its heading and parts, with ids of their own.
+      const ids = cards.flatMap((c: any) => [c.id, ...c.children.map((k: any) => k.id)])
+      expect(new Set(ids).size).toBe(ids.length)
     } finally {
       await clear()
     }
@@ -493,13 +537,13 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      // A table of its own (docs/2026-10-09-snap-tables.md): the name, and
-      // beside it the five controls without a label each, one below the
-      // other in the Control column.
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      // A card (docs/2026-11-03-card-blocks.md): the name docked at the top,
+      // below it the five controls without a label each, one below the other.
+      const block = (await savedScreen(page)).objects.find(isBlock)
+      expect(isBlockCard(block)).toBe(true)
       expect(partsOf(block).map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
       const name = block.children.find((c: { type: string }) => c.type === "text")
-      expect(name.properties.cell).toMatchObject({ row: 0, anchor: { y: "top" } })
+      expect(name.properties.dock).toBe("top")
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
       expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
     } finally {
@@ -518,7 +562,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button", "button", "button", "slider"])
       expect(asPlaceholders(parts[0])).toBe("State {topic:van/markise/state}")
@@ -528,7 +572,7 @@ test.describe("placing a catalog entry", () => {
         ["Close", { type: "send-mqtt", mqttTopic: "van/markise/set", mqttMessage: "CLOSE" }],
       ])
       const name = block.children.find((c: { type: string; properties: { text?: string } }) => c.type === "text" && c.properties.text === "Markise")
-      expect(name.properties.cell).toMatchObject({ row: 0 })
+      expect(name.properties.dock).toBe("top")
       expect(snapCellOf(parts[0]).row).toBe(0)
     } finally {
       await clear()
@@ -543,7 +587,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button", "button"])
       expect(asPlaceholders(parts[0])).toBe("State {topic:van/grau/state}")
@@ -599,7 +643,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "slider", "text"])
       expect(parts[1].properties).toMatchObject({
@@ -625,7 +669,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button-group"])
       expect(asPlaceholders(parts[0])).toBe("State {topic:van/zv/state}")
@@ -644,7 +688,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const field = partsOf(block).find((c: { type: string }) => c.type === "text-field")
       expect(field?.properties).toMatchObject({ topic: "txt/state", writeTopic: "txt/cmd", minLength: 2, maxLength: 20 })
     } finally {
@@ -660,7 +704,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const field = partsOf(block).find((c: { type: string }) => c.type === "time-field")
       expect(field?.properties).toMatchObject({ topic: "timer/start_state", writeTopic: "timer/start", minuteStep: 5 })
     } finally {
@@ -679,7 +723,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByRole("button", { name: "File" }).click()
       const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
       const project = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
-      const parts = partsOf(project.screens[0].objects.find(isSnapTable))
+      const parts = partsOf(project.screens[0].objects.find(isBlock))
       const code = "local/alarmdecoder/panel/code"
 
       const state = parts.find((c: any) => c.type === "text" && (c.properties.liveValues ?? []).some((lv: any) => lv.rules?.length))
@@ -704,7 +748,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const buttons = block.children.filter((c: { type: string }) => c.type === "button")
       expect(buttons.map((b: any) => [b.properties.text, b.properties.action])).toEqual([
         ["Party Scene", { type: "send-mqtt", mqttTopic: "home/living_room/party_scene/set", mqttMessage: "ON" }],
@@ -722,7 +766,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "slider", "bar"])
       expect(parts[1].properties).toMatchObject({
@@ -747,7 +791,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group"])
       const [power, tones] = parts.map((p: any) => JSON.stringify(p.properties))
@@ -772,7 +816,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
       expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "text", "button"])
       expect(asPlaceholders(parts[0])).toBe("Installed version {topic:van/display/fw#installed_version}")
@@ -794,7 +838,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       const texts = block.children.filter((c: { type: string }) => c.type === "text").map((c: any) => asPlaceholders(c))
       expect(texts).toEqual(["Doorbell", "{topic:home/doorbell/state#event_type}"])
     } finally {
@@ -830,7 +874,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const block = (await savedScreen(page)).objects.find(isSnapTable)
+      const block = (await savedScreen(page)).objects.find(isBlock)
       // The Control column, after the icon and the name.
       const rows = partsOf(block)
       expect(rows.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group", "switcher"])
@@ -885,7 +929,7 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
-      const rows = partsOf((await savedScreen(page)).objects.find(isSnapTable))
+      const rows = partsOf((await savedScreen(page)).objects.find(isBlock))
       expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, asPlaceholders(c)])).toEqual([
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],

@@ -1,7 +1,7 @@
 # Blocks as cards
 
 Spec for module `card-blocks` of docs/2026-11-03-cards.md, drafted
-2026-11-03. **Status: awaiting the user's approval.**
+2026-11-03. **Status: approved by the user on 2026-11-03; built 2026-11-03.** `npm run test:quick`: host 2123 passed, every board green but 4v3b-internal-heap (red as always). Found on the way: the parts were built as wide as the whole card and left out inside its padding (the card is now its padding wider); the snap path of adding an object gave its children no ids (it does now).
 
 ## Objective
 
@@ -41,9 +41,9 @@ light block of one part still arrives as a row and snaps into a list.
   - **Parts:** the table `blockTable` builds today, without its name column,
     with Dock Fill: across the card's width, its parts stretched as today,
     a switcher's panels with it.
-  - **Size:** as wide as the block is built today (60 % of the screen); as
-    tall as its heading, the gap and its parts need inside the card's
-    padding.
+  - **Size:** its parts as wide as the block is built today (60 % of the
+    screen), the card its padding wider on each side; as tall as its
+    heading, the gap and its parts need inside the card's padding.
 - **Carried and let go** it snaps as a card from the Card tool does: into a
   cell (green), at a table's edge (a line), beside a free object (a pair);
   with Ctrl held, nowhere. Where it snaps it fills its cell (`landed`,
@@ -63,8 +63,9 @@ light block of one part still arrives as a row and snaps into a list.
 
 - `lib/block-card.ts` (new): `blockCard(built, scale)` - the card with its
   heading and parts docked, sized by laying it out.
-- `lib/bausteine.ts`: `blockTable` able to leave out its name column
-  (`{ name: false }`).
+- `lib/bausteine.ts`: unchanged - `blockTable` of the controls alone
+  (`labelCount: 0`) is the parts table, of the name pieces alone the heading
+  row (as built).
 - `components/project-editor.tsx` `armedBlockCarry`: a block of several
   parts carried as `{ card }`; placing it with the snap it was let go at.
 - `components/canvas/canvas.tsx`: a carried card snaps as a placed object
@@ -76,9 +77,11 @@ light block of one part still arrives as a row and snaps into a list.
 - `e2e/card-blocks.spec.ts` (new, model): blockCard for the MaxxFan (name
   Top, parts table Fill, a switcher in it), with an icon (a heading row),
   its height its content's; exported, a box and the block's objects.
-- `e2e/card-blocks-canvas.spec.ts` (new): a block of several parts placed
-  on an empty screen is a card; let go beside a card it forms a table with
-  it, both filling their cells; a block of one part still a row in a list.
+- In `e2e/bausteine.spec.ts` rather than a file of its own (its broker and
+  catalog helpers are there): a block of several parts placed is a card;
+  carried onto a table it snaps into it; let go below another it forms a
+  table of two cards, each filling its cell, every piece with an id of its
+  own; a block of one part still a row in a list.
 - `e2e/bausteine.spec.ts`: the expectations of «a block of several parts is
   a table of its own» rewritten for the card; the rest unchanged.
 - `e2e/handbook-labels.spec.ts`.
@@ -98,9 +101,9 @@ card, snaps like one; one part as a row as before. `objekte/anordnen.md`
 
 ## Success criteria
 
-- [ ] A block of several parts arrives as a card, name at the top, parts
+- [x] A block of several parts arrives as a card, name at the top, parts
       filling it, its height its content's
-- [ ] With an icon, icon and name at the top
-- [ ] It snaps into a table and beside another card, filling its cell
-- [ ] A block of one part still a row
-- [ ] Handbook updated; `test:quick` green apart from known load failures
+- [x] With an icon, icon and name at the top
+- [x] It snaps into a table and beside another card, filling its cell
+- [x] A block of one part still a row
+- [x] Handbook updated; `test:quick` green apart from known load failures

@@ -327,7 +327,7 @@ export interface CanvasProps {
   /** The Block tool's block, made now: a row (one part) or a table of its own (several); null with none armed. */
   onBlockCarry?: () => { row: Omit<ScreenObject, "id" | "zIndex">[] } | { table: Omit<ScreenObject, "id" | "zIndex"> } | null
   /** A block of several parts let go: a table of its own, its top left corner at `at` (in the space `parentId` names). */
-  onPlaceBlockTable?: (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string) => void
+  onPlaceBlockTable?: (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string, snap?: SnapDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
@@ -3651,9 +3651,14 @@ export function Canvas({
           // (docs/2026-10-09-snap-tables.md). Among what stands where it is
           // placed - beside an open table too. A navigator goes onto its edge.
           const type = dragState.creatingType
-          // A block of several parts goes into no table.
+          // A block of several parts is a card (docs/2026-11-03-card-blocks.md):
+          // it snaps as a card from the Card tool does.
           if (type === "row" && blockTableRef.current) {
             setRowDrop(null)
+            const snaps = onSnapDrop && !previewMode && !(e.ctrlKey || e.metaKey)
+            const carried = { ...blockTableRef.current, id: NEW_OBJECT, ...held, zIndex: 0 } as ScreenObject
+            const snapping = snaps ? snapDropAt([...drawSpace.objects, carried], NEW_OBJECT, held, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale) : null
+            setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snapping) ? current : snapping))
             return
           }
           if (type === "row") {
@@ -4609,11 +4614,13 @@ export function Canvas({
       const table = blockTableRef.current
       blockTableRef.current = null
       const r = dragState.startObjectPos
-      // A block of several parts: a table of its own where it was let go,
-      // over another table too - never into it.
+      // A block of several parts: a card where it was let go, or where it
+      // snaps (docs/2026-11-03-card-blocks.md).
       if (table) {
+        const snap = snapDrop ?? undefined
+        setSnapDrop(null)
         if (isSnapTable(editingContainer)) onSetEditingContainer(drawSpace.id)
-        onPlaceBlockTable?.(table, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined)
+        onPlaceBlockTable?.(table, { x: Math.round(r.x - drawSpace.origin.x), y: Math.round(r.y - drawSpace.origin.y) }, drawSpace.id ?? undefined, snap)
         onToolChange("select")
         setRowDrop(null)
         setDragState(null)

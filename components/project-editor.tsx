@@ -129,6 +129,7 @@ import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-conte
 import { useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
+import { blockCard } from "@/lib/block-card"
 
 /**
  * A project as it opens, on the fonts its device sets text in now: when the
@@ -2172,16 +2173,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // Drawn where a table put together by snapping takes it: added, then
       // snapped there as if dragged (docs/2026-10-09-snap-tables.md).
       if (at && "snap" in at) {
-        const id = `obj-${project.nextId}`
-        const newTableId = `obj-${project.nextId + 1}`
+        // What it holds gets ids too: a block placed as a card
+        // (docs/2026-11-03-card-blocks.md) brings its heading and parts.
+        const fresh = withFreshIds({ ...object, id: "", zIndex: 0 } as ScreenObject, project.nextId)
+        const id = fresh.object.id
+        const newTableId = `obj-${fresh.nextId}`
         const drop = at.snap
         setProject((prev) => {
           const scale = layoutScaleOf(prev)
           const add = (list: ScreenObject[]) =>
-            applySnapDrop([...list, { ...object, id, zIndex: Math.max(0, ...list.map((o) => o.zIndex)) + 1 } as ScreenObject], id, drop, scale, newTableId)
+            applySnapDrop([...list, { ...fresh.object, zIndex: Math.max(0, ...list.map((o) => o.zIndex)) + 1 }], id, drop, scale, newTableId)
           return {
             ...prev,
-            nextId: prev.nextId + (drop.kind === "pair" ? 2 : 1),
+            nextId: fresh.nextId + (drop.kind === "pair" ? 1 : 0),
             screens: prev.screens.map((screen) => {
               if (screen.id !== currentScreenId) return screen
               if (!parentId) return { ...screen, objects: add(screen.objects) }
@@ -2384,21 +2388,25 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width, height: 40 })
     blockRegisterRef.current = register
     const row = blockRow({ ...built, objects: stepped })
-    return row ? { row } : { table: blockTable({ ...built, objects: stepped }) }
-  }, [armedBlock, buildArmed, project.screenWidth, project.screenHeight])
+    // Of several parts: a card, its name at the top (docs/2026-11-03-card-blocks.md).
+    return row ? { row } : { table: blockCard({ ...built, objects: stepped }, width, layoutScaleOf(project)) }
+  }, [armedBlock, buildArmed, project])
 
   // A block of several parts let go: a table of its own at `at`, in the
   // space `parentId` names; the topics and icons it brings registered, the
   // Block tool put down.
   const placeBlockTable = useCallback(
-    (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string) => {
+    (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string, snap?: SnapDrop) => {
       const register = blockRegisterRef.current
       blockRegisterRef.current = null
       register?.()
       setArmedBlock(null)
-      addObjects([{ ...table, x: at.x, y: at.y }], parentId)
+      // A card let go where it snaps: into that table, or a table with its
+      // neighbour, as a card from the Card tool (docs/2026-11-03-card-blocks.md).
+      if (snap) addObject({ ...table, x: at.x, y: at.y }, parentId, { snap })
+      else addObjects([{ ...table, x: at.x, y: at.y }], parentId)
     },
-    [addObjects],
+    [addObjects, addObject],
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing
