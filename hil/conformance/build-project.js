@@ -110,7 +110,7 @@ function conformancePrefix(ddf) {
   return `hil-conformance/${ddf.deviceId || "device"}`.toLowerCase();
 }
 
-function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
+function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = false } = {}) {
   const { screen, fonts, supportedObjectTypes } = ddf;
   const { square, wide } = slots(screen);
   // The specimens keep to 1-bit fonts while a board has any, so the cases they
@@ -154,7 +154,9 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
   }
   // A card clipping what it holds, where the board says it can
   // (docs/2026-11-03-card-clip.md).
-  if ((ddf.supportedFeatures || []).includes("clip") && supportedObjectTypes.includes("box")) {
+  // Not for a caller that asked for its types' specimens only (deploy-check:
+  // exactly one screen - it ran two, and failed on every board, 2026-11-03).
+  if (!typesOnly && (ddf.supportedFeatures || []).includes("clip") && supportedObjectTypes.includes("box")) {
     runs.push({ type: "card-clip", specimen: SPECIMENS["card-clip"], picker });
   }
 

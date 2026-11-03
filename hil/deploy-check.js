@@ -97,7 +97,7 @@ async function main() {
     console.error(`FAIL - ${ddf.deviceId} declares none of ${PREFERRED_TYPES.join(", ")}`)
     process.exit(1)
   }
-  const { project } = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: `hil-deploy-${deviceTag()}` })
+  const { project } = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: `hil-deploy-${deviceTag()}`, typesOnly: true })
   const screenId = `screen-deploy-${crypto.randomBytes(4).toString("hex")}`
   project.screens[0].id = screenId
   project.screens[0].name = `deploy ${screenId.slice(-8)}`
