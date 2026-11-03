@@ -92,6 +92,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast, toast as showToast } from "@/hooks/use-toast"
 import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
+import { moveIntoArea } from "@/lib/drop-into-free"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
@@ -2489,6 +2490,37 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId, editingContainerId, project.nextId, setProject],
   )
 
+  // Objects dragged into a free area or out of one (docs/2026-11-03-drop-
+  // into-free.md): moved into `into` - the screen for null - where they stood
+  // on the glass; a single one into a table in that area where `drop` says.
+  // That area (or the table) is open afterwards, the objects still chosen.
+  const moveIntoAreaOf = useCallback(
+    (ids: string[], into: string | null, drop: SnapDrop | null) => {
+      const newTableId = `obj-${project.nextId}`
+      const snaps = !!drop && !!into && ids.length === 1
+      setProject((prev) => {
+        const scale = layoutScaleOf(prev)
+        return {
+          ...prev,
+          nextId: snaps && drop!.kind === "pair" ? prev.nextId + 1 : prev.nextId,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            let objects = moveIntoArea(screen.objects, ids, into)
+            if (objects === screen.objects) return screen
+            if (snaps) {
+              const area = findObjectById(objects, into!)
+              if (area) objects = updateObjectById(objects, area.id, { children: applySnapDrop(area.children ?? [], ids[0], drop!, scale, newTableId) })
+            }
+            return { ...screen, objects }
+          }),
+        }
+      })
+      setEditingContainerId(snaps ? (drop!.kind === "table" ? drop!.tableId : newTableId) : into)
+      setSelectedObjectIds(ids)
+    },
+    [currentScreenId, project.nextId, setProject],
+  )
+
   // A row the Row tool carried, let go (docs/2026-10-09-snap-tables.md,
   // module snap-table-rows): into the table at the row line `target` names,
   // each part into the column of its role, or a table of one row with its
@@ -4631,6 +4663,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMoveObject={moveObject}
             onSnapDrop={snapDrop}
             onSnapMoveOut={snapMoveOut}
+            onMoveIntoArea={moveIntoAreaOf}
             rowTemplate={rowTemplate}
             onInsertRow={insertRow}
             onBlockCarry={armedBlockCarry}

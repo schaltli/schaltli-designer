@@ -1,8 +1,8 @@
 # Drop into a free area
 
 Spec for module `drop-into-free`, a follow-up to the cards
-(docs/2026-11-03-cards.md), drafted 2026-11-03. **Status: awaiting
-approval.**
+(docs/2026-11-03-cards.md), drafted 2026-11-03. **Status: approved by the user
+on 2026-11-03.**
 
 ## Objective
 

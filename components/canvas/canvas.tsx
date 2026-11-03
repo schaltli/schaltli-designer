@@ -97,6 +97,7 @@ import {
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
+import { areaDropAt, middleOf, type AreaDrop } from "@/lib/drop-into-free"
 
 // Interaction imports
 import {
@@ -319,6 +320,12 @@ export interface CanvasProps {
   ) => void
   /** A dragged object let go where it snaps (lib/snap-table.ts snapDropAt). */
   onSnapDrop?: (movingId: string, drop: SnapDrop) => void
+  /**
+   * Objects dragged into a free area or out of one (lib/drop-into-free.ts):
+   * into `into`, or the screen for null; where a table in that area takes the
+   * one object, `drop` says how.
+   */
+  onMoveIntoArea?: (ids: string[], into: string | null, drop: SnapDrop | null) => void
   /** An object dragged out of a table put together by snapping, let go at `to` (the table's space) and snapped or free. */
   onSnapMoveOut?: (tableId: string, objectId: string, to: { x: number; y: number }, drop: SnapDrop | null) => void
   /** The row the Row tool carries (lib/snap-table.ts ROW_TEMPLATES). */
@@ -786,6 +793,7 @@ export function Canvas({
   onMoveObject,
   onSnapDrop,
   onSnapMoveOut,
+  onMoveIntoArea,
   rowTemplate,
   onInsertRow,
   onBlockCarry,
@@ -1203,6 +1211,10 @@ export function Canvas({
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
   // Where the object being dragged snaps when let go (lib/snap-table.ts).
   const [snapDrop, setSnapDrop] = useState<SnapDrop | null>(null)
+  // The free area the objects being dragged go into, or the one they leave
+  // (lib/drop-into-free.ts) - with how a table inside it takes one of them,
+  // worked out in that area's space.
+  const [areaDrop, setAreaDrop] = useState<(AreaDrop & { ids: string[]; snap: SnapDrop | null; space: ScreenObject[] }) | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
   const createSnapRef = useRef<SnapDrop | null>(null)
   // Where a carried new object was let go, its middle (placing by dragging).
@@ -1868,6 +1880,24 @@ export function Canvas({
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
     if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create"))
       drawSnapDrop(ctx, snapDrop, outDrag && dragState?.mode === "drag" ? outDrag.space : drawSpace.objects, layoutScale, LAYOUT_HINT_COLOR, zoom)
+    // The free area a dragged object goes into: its outline, and where a
+    // table in it takes the object.
+    if (areaDrop && dragState?.mode === "drag") {
+      const area = areaDrop.into ? findObjectById(screen.objects, areaDrop.into) : null
+      if (area?.type === "free") {
+        const at = childOrigin(screen.objects, area.id)
+        ctx.save()
+        ctx.strokeStyle = LAYOUT_HINT_COLOR
+        ctx.fillStyle = LAYOUT_HINT_COLOR
+        ctx.globalAlpha = 0.08
+        ctx.fillRect(at.x, at.y, area.width, area.height)
+        ctx.globalAlpha = 1
+        ctx.lineWidth = 3 / zoom
+        ctx.strokeRect(at.x, at.y, area.width, area.height)
+        ctx.restore()
+      }
+      if (areaDrop.snap) drawSnapDrop(ctx, areaDrop.snap, areaDrop.space, layoutScale, LAYOUT_HINT_COLOR, zoom)
+    }
 
     // A carried row's place: the row line drawn thick, and the columns it adds.
     if (rowDrop && dragState?.mode === "create") {
@@ -1939,6 +1969,7 @@ export function Canvas({
     sizeLines,
     lineLabel,
     snapDrop,
+    areaDrop,
     outDrag,
     interactionObjects,
     drawSpace,
@@ -3742,6 +3773,31 @@ export function Canvas({
         // places it - and moves when it is let go.
         if (draggedObject && selectedObjects.every((obj) => placedByLayout(obj.id))) return
 
+        // Into a free area, or out of the one it is in, by the middle of
+        // what is dragged (docs/2026-11-03-drop-into-free.md). It wins over
+        // snapping in the space dragged in; a table inside the area takes a
+        // single object as snapping would.
+        const intoArea = (() => {
+          if (!draggedObject || !onMoveIntoArea || previewMode || e.ctrlKey || e.metaKey || isSnapTable(editingContainer)) return null
+          if (selectedObjects.some((obj) => placedByLayout(obj.id))) return null
+          const shiftX = dragState.startObjectPos.x + deltaX - draggedObject.x
+          const shiftY = dragState.startObjectPos.y + deltaY - draggedObject.y
+          const rects = selectedObjects.map((obj) => ({ x: obj.x + shiftX, y: obj.y + shiftY, width: obj.width, height: obj.height }))
+          const ids = selectedObjects.map((obj) => obj.id)
+          const zone = SNAP_ZONE_MM * layoutScale.pixelsPerMm
+          const drop = areaDropAt(screen.objects, ids, editingContainer?.id ?? null, middleOf(rects), zone)
+          if (!drop) return null
+          const area = drop.into ? findObjectById(screen.objects, drop.into) : null
+          if (area?.type !== "free" || ids.length !== 1) return { ...drop, ids, snap: null, space: [] }
+          const at = childOrigin(screen.objects, area.id)
+          const rect = rects[0]
+          const space = [...(area.children ?? []).map((c) => translateObject(c, at.x, at.y)), { ...draggedObject, x: rect.x, y: rect.y }]
+          const snap = snapDropAt(space, draggedObject.id, rect, zone, layoutScale)
+          return { ...drop, ids, snap: snap?.kind === "table" ? snap : null, space }
+        })()
+        setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(intoArea) ? current : intoArea))
+        if (intoArea) setSnapDrop(null)
+
         if (draggedObject) {
           const rawX = dragState.startObjectPos.x + deltaX
           const rawY = dragState.startObjectPos.y + deltaY
@@ -4115,6 +4171,7 @@ export function Canvas({
       sizedBySnapTable,
       drawSpace,
       onSnapMoveOut,
+      onMoveIntoArea,
       spanHandles,
       sizeLines,
       layoutScale,
@@ -4601,8 +4658,10 @@ export function Canvas({
       }
     }
 
+    // Let go over a free area, or out of the one it was in.
+    if (dragState?.mode === "drag" && areaDrop && onMoveIntoArea) onMoveIntoArea(areaDrop.ids, areaDrop.into, areaDrop.snap)
     // Let go out of a table put together by snapping: out, and free or snapped.
-    if (dragState?.mode === "drag" && outDrag && onSnapMoveOut) {
+    else if (dragState?.mode === "drag" && outDrag && onSnapMoveOut) {
       onSnapMoveOut(outDrag.tableId, outDrag.id, { x: outDrag.rect.x - drawSpace.origin.x, y: outDrag.rect.y - drawSpace.origin.y }, snapDrop)
     }
     // Let go where it snaps: into the table, or a table with its neighbour.
@@ -4610,6 +4669,7 @@ export function Canvas({
     if (dragState?.mode === "drag") {
       setSnapDrop(null)
       setOutDrag(null)
+      setAreaDrop(null)
     }
 
     // A row let go: into the table at the line shown, or a table of its own.
@@ -4717,6 +4777,8 @@ export function Canvas({
     onSnapDrop,
     snapDrop,
     onSnapMoveOut,
+    onMoveIntoArea,
+    areaDrop,
     onSetEditingContainer,
     rowDrop,
     onInsertRow,
@@ -4853,6 +4915,7 @@ export function Canvas({
         setDragState(null)
         setSnapDrop(null)
         setOutDrag(null)
+        setAreaDrop(null)
         return
       }
       if (e.key === "Escape") {
