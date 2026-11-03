@@ -3,30 +3,29 @@
 /**
  * A table put together by snapping, in the property panel
  * (docs/2026-10-09-snap-tables.md, module snap-table-panel): the table -
- * its size, «Auto sizes» - and how an object stands in its cell: Align and,
- * where it can, Fill. x, y and width are the table's and not shown
+ * its size, «Auto sizes» - and how an object stands in its cell: Horizontal
+ * and Vertical (lib/anchor.ts). x, y and width are the table's and not shown
  * (property-panel.tsx layoutFrameLock).
  */
 
 import type { ScreenObject } from "../project-editor"
-import { dimensions, roleOf, snapColumnsOf, snapRowsOf, type SnapAlign, type SnapAlignY } from "@/lib/snap-table"
-import { ButtonGroupRow, FieldNote, PropertySection, SelectField, ToggleRow } from "./fields"
+import { dimensions, snapColumnsOf, snapRowsOf } from "@/lib/snap-table"
+import { cellAnchorOf, cellDefault, STRETCHES_HEIGHT, STRETCHES_WIDTH, type AnchorX, type AnchorY } from "@/lib/anchor"
+import { ButtonGroupRow, FieldNote, PropertySection, SelectField } from "./fields"
 
-// What can fill its cell's width or height (open question 1, proposed): a
-// text, an icon, a switch or a ring keeps its own size.
-const FILLS_WIDTH = new Set(["button", "button-group", "bar", "slider", "box", "free", "text-field"])
-const FILLS_HEIGHT = new Set(["button", "box", "free"])
-
-const ALIGN: Array<{ value: SnapAlign; label: string }> = [
+const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
   { value: "left", label: "Left" },
   { value: "center", label: "Center" },
   { value: "right", label: "Right" },
+  { value: "stretch", label: "Stretch" },
 ]
-const ALIGN_Y: Array<{ value: SnapAlignY; label: string }> = [
+const VERTICAL: Array<{ value: AnchorY; label: string }> = [
   { value: "top", label: "Top" },
   { value: "middle", label: "Middle" },
   { value: "bottom", label: "Bottom" },
+  { value: "stretch", label: "Stretch" },
 ]
+const TEXT_ALIGN = HORIZONTAL.filter((o) => o.value !== "stretch")
 
 type Update = (id: string, updates: Partial<ScreenObject>) => void
 
@@ -54,33 +53,34 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
 
 export function SnapCellProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
   const cell: Record<string, any> = selectedObject.properties?.cell ?? {}
-  const startAlign: SnapAlign = roleOf(selectedObject) === "label" ? "left" : "center"
-  const set = (updates: Record<string, unknown>) => {
-    const next: Record<string, any> = { ...cell, ...updates }
-    if (next.align === undefined || next.align === startAlign) delete next.align
-    if (next.alignY === undefined || next.alignY === "middle") delete next.alignY
-    if (next.fill && !next.fill.width && !next.fill.height) delete next.fill
+  const anchor = cellAnchorOf(selectedObject)
+  const defaults = cellDefault(selectedObject)
+  // Only what was chosen is stored: an axis at its default is dropped.
+  const set = (axis: "x" | "y", value: string) => {
+    const nextAnchor: Record<string, string> = { ...(cell.anchor ?? {}), [axis]: value }
+    if (nextAnchor.x === undefined || nextAnchor.x === defaults.x) delete nextAnchor.x
+    if (nextAnchor.y === undefined || nextAnchor.y === defaults.y) delete nextAnchor.y
+    const { anchor: _old, ...rest } = cell
+    const next = Object.keys(nextAnchor).length > 0 ? { ...rest, anchor: nextAnchor } : rest
     onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, cell: next } })
   }
-  const fill = (key: "width" | "height", on: boolean) => {
-    const next = { ...(cell.fill ?? {}) }
-    if (on) next[key] = true
-    else delete next[key]
-    set({ fill: next })
-  }
-  const width = FILLS_WIDTH.has(selectedObject.type)
-  const height = FILLS_HEIGHT.has(selectedObject.type)
-  // A text spans its cell (lib/snap-table.ts): Align is its own alignment.
+  const offer = <T extends { value: string }>(options: T[], stretches: boolean) => (stretches ? options : options.filter((o) => o.value !== "stretch"))
+  // A text spans its cell (lib/snap-table.ts): Horizontal is its own alignment.
   const isText = selectedObject.type === "text"
-  const align = isText ? (selectedObject.properties?.textAlign ?? "left") : (cell.align ?? startAlign)
-  const setAlign = (value: SnapAlign) =>
-    isText ? onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, textAlign: value } }) : set({ align: value })
   return (
     <PropertySection title="Cell">
-      <SelectField id="snapAlign" label="Align" value={align} options={ALIGN} onChange={(value) => setAlign(value as SnapAlign)} />
-      <SelectField id="snapAlignY" label="Vertical align" value={cell.alignY ?? "middle"} options={ALIGN_Y} onChange={(alignY) => set({ alignY })} />
-      {width ? <ToggleRow label="Fill" text="Width" checked={!!cell.fill?.width} onChange={(on) => fill("width", on)} /> : null}
-      {height ? <ToggleRow label={width ? "" : "Fill"} text="Height" checked={!!cell.fill?.height} onChange={(on) => fill("height", on)} /> : null}
+      {isText ? (
+        <SelectField
+          id="cellHorizontal"
+          label="Horizontal"
+          value={selectedObject.properties?.textAlign ?? "left"}
+          options={TEXT_ALIGN}
+          onChange={(textAlign) => onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, textAlign } })}
+        />
+      ) : (
+        <SelectField id="cellHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, STRETCHES_WIDTH.has(selectedObject.type))} onChange={(x) => set("x", x)} />
+      )}
+      <SelectField id="cellVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, STRETCHES_HEIGHT.has(selectedObject.type))} onChange={(y) => set("y", y)} />
       <FieldNote>The table places it in its cell. Drag ⇤ ⇥ ⤒ ⤓ on the canvas to make it span more cells.</FieldNote>
     </PropertySection>
   )

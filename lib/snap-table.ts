@@ -18,6 +18,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { fit, naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
+import { cellAnchorOf, offsetIn, type Anchor } from "@/lib/anchor"
 
 /** What marks a table as this kind. */
 export const SNAP_GRID = 1
@@ -37,18 +38,11 @@ export interface SnapCell {
   column: number
   rowSpan?: number
   columnSpan?: number
-  align?: SnapAlign
-  alignY?: SnapAlignY
-  fill?: SnapFill
-  /** The drawn size, kept while Fill overwrites it. */
+  /** How it stands in its cell (lib/anchor.ts); absent axes take the defaults. */
+  anchor?: Anchor
+  /** The drawn size, kept while Stretch overwrites it. */
   drawnWidth?: number
   drawnHeight?: number
-}
-export type SnapAlign = "left" | "center" | "right"
-export type SnapAlignY = "top" | "middle" | "bottom"
-export interface SnapFill {
-  width?: true
-  height?: true
 }
 /** A column or row; `mm` is a size set by hand. */
 export interface SnapLine {
@@ -136,7 +130,7 @@ export interface SnapGeometry {
 
 const px = (mm: number, scale: LayoutScale) => Math.round(mm * scale.pixelsPerMm)
 
-// An object as drawn: Fill overwrites its width or height with its cell's,
+// An object as drawn: Stretch overwrites its width or height with its cell's,
 // so the drawn size is kept beside it - read back here, or the next layout
 // pass would take the filled size for the natural one and the column would
 // grow on every change.
@@ -207,8 +201,9 @@ export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): Snap
 
 /**
  * A table laid out: each object placed in its cell (or span) by its
- * alignment - a text left, everything else centred, all vertically centred
- * unless set - at its natural size, or across the cell where it fills it.
+ * anchor (lib/anchor.ts) - a text across it, everything else centred, all
+ * vertically centred unless set - at its natural size, or across the cell
+ * where it stretches.
  * Children's coordinates are relative to the table, as every container's
  * are, so the export dissolves it like any other. The table keeps its
  * place and is as large as its content.
@@ -222,27 +217,24 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
   const placed = sized.map(({ child, cell, size }) => {
     const room = across(widths, cell.column, cell.columnSpan!)
     const roomHeight = across(heights, cell.row, cell.rowSpan!)
-    const fill: SnapFill = cell.fill ?? {}
+    const anchor = cellAnchorOf(child)
     const own = drawn(child)
     // A text spans its cell and is aligned in it by its own textAlign: as wide
     // as its words, it was clipped where a live value read longer, and a
-    // column dragged wider gave it no room (the demo, 2026-10-11). An older
-    // cell's Align becomes the text's.
+    // column dragged wider gave it no room (the demo, 2026-10-11).
     const isText = child.type === "text"
-    const sizedChild = fill.width || isText ? fit(own, room, scale) : size
-    const width = fill.width || isText ? room : sizedChild.width
-    const height = fill.height ? roomHeight : sizedChild.height
-    const align: SnapAlign = isText ? "left" : (cell.align ?? (roleOf(child) === "label" ? "left" : "center"))
-    const alignY: SnapAlignY = cell.alignY ?? "middle"
-    const dx = align === "left" ? 0 : align === "right" ? room - width : Math.round((room - width) / 2)
-    const dy = alignY === "top" ? 0 : alignY === "bottom" ? roomHeight - height : Math.round((roomHeight - height) / 2)
-    // The drawn size kept while filled, dropped once it is not.
+    const stretchWidth = anchor.x === "stretch" || isText
+    const sizedChild = stretchWidth ? fit(own, room, scale) : size
+    const width = stretchWidth ? room : sizedChild.width
+    const height = anchor.y === "stretch" ? roomHeight : sizedChild.height
+    const dx = isText ? 0 : offsetIn(room, width, anchor.x)
+    const dy = offsetIn(roomHeight, height, anchor.y)
+    // The drawn size kept while stretched, dropped once it is not.
     const { drawnWidth: _w, drawnHeight: _h, ...kept } = child.properties?.cell ?? {}
     const placedCell: Record<string, any> = { ...kept }
-    if (isText) delete placedCell.align
-    if (fill.width) placedCell.drawnWidth = own.width
-    if (fill.height) placedCell.drawnHeight = own.height
-    const properties = { ...sizedChild.properties, ...(isText && cell.align ? { textAlign: cell.align } : {}), cell: placedCell }
+    if (anchor.x === "stretch") placedCell.drawnWidth = own.width
+    if (anchor.y === "stretch") placedCell.drawnHeight = own.height
+    const properties = { ...sizedChild.properties, cell: placedCell }
     const left = lefts[cell.column] + dx
     const top = tops[cell.row] + dy
     // A line moved there whole, its points with it (translateObject).
@@ -265,7 +257,7 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
 export type SnapSide = "left" | "right" | "top" | "bottom"
 
 // An object moved to another place in its table; how it stands there
-// (align, fill, drawn size) goes with it.
+// (anchor, drawn size) goes with it.
 const withCell = (obj: ScreenObject, cell: SnapCell): ScreenObject => {
   const { rowSpan: _r, columnSpan: _c, ...how } = obj.properties?.cell ?? {}
   const clean: Record<string, any> = { ...how, row: cell.row, column: cell.column }

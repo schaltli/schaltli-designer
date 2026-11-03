@@ -602,24 +602,25 @@ test("TTF text is measured as drawn: a loaded font, one without data; one still 
 })
 
 test.describe("snap table: panel and tree", () => {
-  // A text spans its cell (2026-10-11): Align is its own alignment there.
-  test("Align right on a text aligns it right across its cell; one Ctrl+Z takes it back", async ({ page }) => {
+  // A text spans its cell (2026-10-11): Horizontal is its own alignment there.
+  test("Horizontal right on a text aligns it right across its cell, without Stretch; one Ctrl+Z takes it back", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)
     await chooseInTable(page, table, "bad")
-    await page.locator("#snapAlign").selectOption("right")
+    await expect(page.locator("#cellHorizontal option")).toHaveText(["Left", "Center", "Right"])
+    await page.locator("#cellHorizontal").selectOption("right")
     const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
     const bad = grid.children!.find((c) => c.id === "bad")!
     const licht = grid.children!.find((c) => c.id === "licht")!
     expect(bad.properties!.textAlign).toBe("right")
-    expect(bad.properties!.cell.align).toBeUndefined()
+    expect(bad.properties!.cell.anchor).toBeUndefined()
     // Column 0's right edge is the wider «Licht»'s, and the text reaches it.
     expect(bad.x + bad.width).toBe(licht.x + licht.width)
     await page.keyboard.press("ControlOrMeta+z")
     expect((await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "bad")!.properties!.textAlign ?? "left").toBe("left")
   })
 
-  test("Fill Width makes a box as wide as its column; Fill is offered only where it fits", async ({ page }) => {
+  test("Horizontal Stretch makes a box as wide as its column; Stretch is offered only where it fits", async ({ page }) => {
     const box: Obj = { id: "kasten", type: "box", x: 0, y: 0, width: 20, height: 10, zIndex: 4, properties: { cell: { row: 1, column: 1 } } }
     const { zip, table } = await snapProject([])
     // The box in the empty cell, laid out by the designer on load.
@@ -629,10 +630,10 @@ test.describe("snap table: panel and tree", () => {
     z.file("project.json", JSON.stringify(project))
     fs.writeFileSync(zip, await z.generateAsync({ type: "nodebuffer" }))
     await loadProject(page, zip)
-    // A text has no Fill.
+    // A text cannot stretch either way.
     await chooseInTable(page, table, "bad")
-    await expect(page.getByLabel("Width", { exact: true })).toHaveCount(0)
-    // The box has.
+    await expect(page.locator("#cellVertical option")).toHaveText(["Top", "Middle", "Bottom"])
+    // The box can, both ways.
     await page.keyboard.press("Escape")
     await page.keyboard.press("Escape")
     const grid0 = (await savedObjects(page)).find((o) => o.id === "grid")!
@@ -641,12 +642,13 @@ test.describe("snap table: panel and tree", () => {
     await click(page, middle)
     await doubleClick(page, middle)
     await expect.poll(() => getSelectedHeader(page)).toContain("kasten")
-    // The toggle's own checkbox is hidden; its label is what one clicks.
-    await page.locator("label:has(input[type=checkbox])", { hasText: /^Width$/ }).click()
+    await expect(page.locator("#cellHorizontal option")).toHaveText(["Left", "Center", "Right", "Stretch"])
+    await expect(page.locator("#cellVertical option")).toHaveText(["Top", "Middle", "Bottom", "Stretch"])
+    await page.locator("#cellHorizontal").selectOption("stretch")
     const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
     const k = grid.children!.find((c) => c.id === "kasten")!
     const pumpe = grid.children!.find((c) => c.id === "pumpe")!
-    expect(k.properties!.cell.fill).toEqual({ width: true })
+    expect(k.properties!.cell.anchor).toEqual({ x: "stretch" })
     expect(k.width).toBe(pumpe.width)
   })
 

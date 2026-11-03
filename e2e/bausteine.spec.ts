@@ -499,7 +499,7 @@ test.describe("placing a catalog entry", () => {
       const block = (await savedScreen(page)).objects.find(isSnapTable)
       expect(partsOf(block).map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
       const name = block.children.find((c: { type: string }) => c.type === "text")
-      expect(name.properties.cell).toMatchObject({ row: 0, alignY: "top" })
+      expect(name.properties.cell).toMatchObject({ row: 0, anchor: { y: "top" } })
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
       expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
     } finally {
@@ -1526,9 +1526,9 @@ test.describe("a block from a catalog entry", () => {
       expect(isSnapTable(fan as any)).toBe(true)
       expect(blockRow(build("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom"))).toBeNull()
       const cells = (fan.children ?? []).map((c) => [c.type, c.properties!.cell])
-      expect(cells.slice(0, 1)).toEqual([["text", { row: 0, column: 0, alignY: "top" }]])
-      expect(cells.slice(1).map(([type, cell]: any) => [type, cell.row, cell.column, cell.fill])).toEqual(
-        cells.slice(1).map(([type]: any, i) => [type, i, 1, { width: true }]),
+      expect(cells.slice(0, 1)).toEqual([["text", { row: 0, column: 0, anchor: { y: "top" } }]])
+      expect(cells.slice(1).map(([type, cell]: any) => [type, cell.row, cell.column, cell.anchor])).toEqual(
+        cells.slice(1).map(([type]: any, i) => [type, i, 1, { x: "stretch" }]),
       )
       expect(cells.slice(1).map(([type]) => type)).toContain("slider")
     })

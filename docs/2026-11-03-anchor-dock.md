@@ -116,7 +116,9 @@ export type AnchorX = "left" | "center" | "right" | "stretch"
 export type AnchorY = "top" | "middle" | "bottom" | "stretch"
 export type Dock = "top" | "bottom" | "left" | "right" | "fill"
 
-// on any object in a cell or directly in a free area
+// on an object in a cell, with everything else about its place there
+properties.cell.anchor?: { x?: AnchorX; y?: AnchorY }
+// on an object directly in a free area
 properties.anchor?: { x?: AnchorX; y?: AnchorY }
 // on an object directly in a free area
 properties.dock?: Dock
@@ -127,6 +129,11 @@ properties.padding?: number // mm
 `SnapCell` loses `align`, `alignY` and `fill`; it keeps row, column, spans
 and `drawnWidth`/`drawnHeight` (the drawn size while stretched). Absent
 means the place's default, so a project only stores what was chosen.
+
+Two places, not one (decided while building Task 1): an object taken out of
+a table loses `cell` and with it how it stood there, as before; moved into
+a free area it starts at Left/Top, so nothing jumps. A cell's Center would
+otherwise turn into «keep the offset from the area's centre».
 
 ## Code
 

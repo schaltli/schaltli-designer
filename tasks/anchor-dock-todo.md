@@ -11,13 +11,17 @@ projects converted on load; blocks write `anchor`; the Cell section shows
 Horizontal and Vertical.
 
 **Acceptance criteria:**
-- [ ] `properties.anchor {x, y}` places an object in its cell exactly as align/alignY/fill did, spans and texts included
-- [ ] `migrateProject` converts align/alignY/fill; a project with every combination lays out to the same pixels before and after
-- [ ] `lib/bausteine.ts` writes `anchor`; blocks unchanged on screen
-- [ ] The Cell section: Horizontal (Left/Center/Right/Stretch) and Vertical (Top/Middle/Bottom/Stretch), Stretch only where Fill was offered; a text's Horizontal is its text alignment
-- [ ] Handbook `objekte/anordnen.md` («In den Eigenschaften», the free area's «Fill» sentence), through maettel-humanizer
+- [x] `properties.anchor {x, y}` places an object in its cell exactly as align/alignY/fill did, spans and texts included
+- [x] `migrateProject` converts align/alignY/fill; a project with every combination lays out to the same pixels before and after
+- [x] `lib/bausteine.ts` writes `anchor`; blocks unchanged on screen
+- [x] The Cell section: Horizontal (Left/Center/Right/Stretch) and Vertical (Top/Middle/Bottom/Stretch), Stretch only where Fill was offered; a text's Horizontal is its text alignment
+- [x] Handbook `objekte/anordnen.md` («In den Eigenschaften», the free area's «Fill» sentence), through maettel-humanizer
 
 **Verification:** `e2e/anchor-dock.spec.ts` (new, placeInRoom), `e2e/snap-table-model.spec.ts` (rewritten, migration), `e2e/snap-table-canvas.spec.ts`, `e2e/bausteine.spec.ts`, `e2e/handbook-labels.spec.ts`; `npm run test:quick`
+
+- [x] `npm run test:quick` 2026-11-03: host 2084 passed; knob-charts-draw (terminated) and papers3-screen-graph (board not back within 180 s) green alone; 4v3b-internal-heap red as always
+
+**Done:** cell placement in `properties.cell.anchor` (not `properties.anchor`: an object taken out of a table loses it with its cell, as before - noted in the spec). Switcher added to what stretches in width, as blocks always did. The migration test compares against `lib/fixtures/cells-before-anchor.json`, recorded with the code before the change (all 64 combinations, texts, spans). `hil/layout/containers.js` written with anchors, its geometry unchanged on all three boards.
 
 **Dependencies:** None
 **Files likely touched:** new `lib/anchor.ts`, `lib/snap-table.ts`, `lib/object-types.ts`, `lib/bausteine.ts`, `components/property-panel/snap-table-properties.tsx`, `handbuch/objekte/anordnen.md`

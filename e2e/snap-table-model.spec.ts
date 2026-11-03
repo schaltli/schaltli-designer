@@ -39,7 +39,7 @@ const EMPTY = Math.round(SNAP_EMPTY_MM * SCALE.pixelsPerMm)
 
 let ids = 0
 // A box is as large as it is drawn: its natural size is its own. `how` is
-// how it stands in its cell (align, fill), kept in the cell with its place.
+// how it stands in its cell (its anchor, lib/anchor.ts), kept in the cell with its place.
 function box(width: number, height: number, cell: Record<string, unknown>, how: Record<string, unknown> = {}): ScreenObject {
   return { id: `b${++ids}`, type: "box", x: 0, y: 0, width, height, zIndex: ids, properties: { cell: { ...cell, ...how } } }
 }
@@ -102,29 +102,31 @@ test.describe("snap table: layout", () => {
     expect(g.widths).toEqual([50, EMPTY])
   })
 
-  test("align and fill place an object in its cell", () => {
+  test("Horizontal and Vertical place an object in its cell", () => {
     const wide = box(100, 40, { row: 0, column: 0 })
     const place = (extra: Record<string, unknown>) => {
       const o = box(20, 10, { row: 1, column: 0 }, extra)
       return rect(child(arrangeSnapTable(table([wide, o], [{}], [{}, { mm: 8 }]), SCALE), o.id))
     }
     const top = 40 + GAP
-    expect(place({ align: "left", alignY: "top" })).toEqual({ x: 0, y: top, width: 20, height: 10 })
-    expect(place({ align: "right", alignY: "bottom" })).toEqual({ x: 80, y: top + 30, width: 20, height: 10 })
+    expect(place({ anchor: { x: "left", y: "top" } })).toEqual({ x: 0, y: top, width: 20, height: 10 })
+    expect(place({ anchor: { x: "right", y: "bottom" } })).toEqual({ x: 80, y: top + 30, width: 20, height: 10 })
     expect(place({})).toEqual({ x: 40, y: top + 15, width: 20, height: 10 })
-    expect(place({ fill: { width: true } })).toEqual({ x: 0, y: top + 15, width: 100, height: 10 })
-    expect(place({ fill: { width: true, height: true } })).toEqual({ x: 0, y: top, width: 100, height: 40 })
+    expect(place({ anchor: { x: "center", y: "middle" } })).toEqual({ x: 40, y: top + 15, width: 20, height: 10 })
+    expect(place({ anchor: { x: "stretch" } })).toEqual({ x: 0, y: top + 15, width: 100, height: 10 })
+    expect(place({ anchor: { x: "stretch", y: "stretch" } })).toEqual({ x: 0, y: top, width: 100, height: 40 })
+    expect(place({ anchor: { x: "right", y: "stretch" } })).toEqual({ x: 80, y: top, width: 20, height: 40 })
   })
 
-  test("fill keeps the drawn size: laying out again changes nothing, and without fill the object is as drawn", () => {
+  test("Stretch keeps the drawn size: laying out again changes nothing, and without it the object is as drawn", () => {
     const top = box(100, 40, { row: 0, column: 0 })
-    const filled = box(20, 10, { row: 1, column: 0 }, { fill: { width: true, height: true } })
+    const filled = box(20, 10, { row: 1, column: 0 }, { anchor: { x: "stretch", y: "stretch" } })
     const once = arrangeSnapTable(table([top, filled], [{}], [{}, { mm: 8 }]), SCALE)
     const twice = arrangeSnapTable(once, SCALE)
     expect(snapTableGeometry(twice, SCALE).widths).toEqual([100])
     expect(rect(child(twice, filled.id))).toEqual(rect(child(once, filled.id)))
     const was = child(twice, filled.id)
-    const unfilled = { ...was, properties: { ...was.properties, cell: { ...was.properties!.cell, fill: {} } } }
+    const unfilled = { ...was, properties: { ...was.properties, cell: { ...was.properties!.cell, anchor: {} } } }
     const back = arrangeSnapTable({ ...twice, children: [child(twice, top.id), unfilled] }, SCALE)
     expect([child(back, filled.id).width, child(back, filled.id).height]).toEqual([20, 10])
   })
@@ -139,13 +141,12 @@ test.describe("snap table: layout", () => {
   // cell, and dragging the column wider did not help. A text spans its cell,
   // aligned by its own textAlign, and a live value is measured by what it
   // shows.
-  test("a text spans its cell: a column dragged wider gives it the room; an older cell Align becomes its textAlign", () => {
+  test("a text spans its cell, whatever its anchor says: a column dragged wider gives it the room", () => {
     const wide = box(100, 20, { row: 0, column: 0 })
-    const text: ScreenObject = { id: "txt", type: "text", x: 0, y: 0, width: 30, height: 18, zIndex: 0, properties: { text: "Bad", cell: { row: 1, column: 0, align: "right" } } }
+    const text: ScreenObject = { id: "txt", type: "text", x: 0, y: 0, width: 30, height: 18, zIndex: 0, properties: { text: "Bad", textAlign: "right", cell: { row: 1, column: 0, anchor: { x: "right" } } } }
     const laid = child(arrangeSnapTable(table([wide, text], [{}], [{}, {}]), SCALE), "txt")
     expect(laid).toMatchObject({ x: 0, width: 100 })
     expect(laid.properties!.textAlign).toBe("right")
-    expect(laid.properties!.cell.align).toBeUndefined()
     const dragged = child(arrangeSnapTable(table([wide, text], [{ mm: 40 }], [{}, {}]), SCALE), "txt")
     expect(dragged.width).toBe(40 * SCALE.pixelsPerMm)
   })
@@ -269,9 +270,9 @@ test.describe("snap table: editing", () => {
     expect(out.left!.properties?.cell).toBeUndefined()
   })
 
-  test("a filled object taken out is as drawn again", () => {
+  test("a stretched object taken out is as drawn again", () => {
     const top = { ...box(100, 20, { row: 0, column: 0 }), id: "top" }
-    const filled = { ...box(20, 10, { row: 1, column: 0 }, { fill: { width: true } }), id: "filled" }
+    const filled = { ...box(20, 10, { row: 1, column: 0 }, { anchor: { x: "stretch" } }), id: "filled" }
     const out = takeOutOf(arrangeSnapTable(table([top, filled, { ...box(20, 10, { row: 1, column: 1 }), id: "x" }], [{}, {}], [{}, {}]), SCALE), "filled")
     expect([out.taken.width, out.taken.height]).toEqual([20, 10])
     // Nothing of its place in the table is left; its own properties are untouched.
@@ -290,16 +291,16 @@ test.describe("snap table: editing", () => {
   })
 
   // The spec's success criterion (docs/2026-10-09-snap-tables.md): a button
-  // grows over three empty cells to its left and, with Fill Width, is as
+  // grows over three empty cells to its left and, with Horizontal Stretch, is as
   // wide as all it spans.
-  test("a button grown over three empty cells to its left with ⇤ fills them all with Fill Width", () => {
+  test("a button grown over three empty cells to its left with ⇤ fills them all with Horizontal Stretch", () => {
     const heads = [0, 1, 2, 3].map((c) => ({ ...box(40 + 10 * c, 20, { row: 0, column: c }), id: `h${c}` }))
     const button: ScreenObject = { ...box(30, 20, { row: 1, column: 3 }), id: "btn", type: "button", properties: { text: "Weiter", cell: { row: 1, column: 3 } } }
     const t = arrangeSnapTable(table([...heads, button], [{}, {}, {}, {}], [{}, {}]), SCALE)
     const grown = resizeSpan(t, "btn", "left", 0)!
     expect(cellOfId(grown, "btn")).toMatchObject({ column: 0, columnSpan: 4 })
     const filled = arrangeSnapTable(
-      { ...grown, children: grown.children!.map((c) => (c.id === "btn" ? { ...c, properties: { ...c.properties, cell: { ...c.properties!.cell, fill: { width: true } } } } : c)) },
+      { ...grown, children: grown.children!.map((c) => (c.id === "btn" ? { ...c, properties: { ...c.properties, cell: { ...c.properties!.cell, anchor: { x: "stretch" } } } } : c)) },
       SCALE,
     )
     const g = snapTableGeometry(filled, SCALE)
@@ -548,7 +549,7 @@ test.describe("snap table: in a project", () => {
       [
         { ...box(40, 20, { row: 0, column: 0 }), id: "p" },
         { ...box(60, 30, { row: 0, column: 1 }), id: "q" },
-        { ...box(30, 20, { row: 1, column: 1 }, { align: "right" }), id: "s" },
+        { ...box(30, 20, { row: 1, column: 1 }, { anchor: { x: "right" } }), id: "s" },
       ],
       [{}, {}],
       [{}, {}],

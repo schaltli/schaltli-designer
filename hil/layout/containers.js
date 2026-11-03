@@ -99,7 +99,9 @@ const text = (id, words, style = "label") =>
   })
 
 // An object in its table's cell (docs/2026-10-09-snap-tables.md): row,
-// column, and how it stands there - a span, an align, a fill.
+// column, and how it stands there - a span, an anchor (lib/anchor.ts).
+// A text in a cell spans it; it stands by its own alignment.
+const centred = (o) => ({ ...o, properties: { ...o.properties, textAlign: "center" } })
 const at = (o, row, column, extra = {}) => ({ ...o, properties: { ...o.properties, cell: { row, column, ...extra } } })
 
 // One screen, a table put together by snapping: a title across both
@@ -117,15 +119,15 @@ function screenAt(step) {
     backgroundColor: "#ffffff",
     objects: [
       object(s("table"), "table", { grid: 1, columns: [{ mm: 22 }, {}], rows: [{}, {}, {}, {}, {}] }, [
-        at(text(s("title"), "Wohnraum", "title"), 0, 0, { columnSpan: 2, align: "center" }),
+        at(centred(text(s("title"), "Wohnraum", "title")), 0, 0, { columnSpan: 2 }),
         at(text(s("name-light"), "Licht"), 1, 0),
-        at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1, { align: "right" }),
+        at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1, { anchor: { x: "right" } }),
         at(text(s("name-heat"), "Heizung"), 2, 0),
         at(object(s("modes"), "button-group", { ...CONTROL, sizeStep: step, topic: "layout/mode", writeTopic: "layout/mode/set", states: MODES }), 2, 1),
         at(text(s("name-water"), "Wasser"), 3, 0),
-        at(object(s("bar"), "bar", { ...LEVEL, sizeStep: step }), 3, 1, { fill: { width: true } }),
-        at(object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 0, { fill: { width: true } }),
-        at(object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 1, { fill: { width: true } }),
+        at(object(s("bar"), "bar", { ...LEVEL, sizeStep: step }), 3, 1, { anchor: { x: "stretch" } }),
+        at(object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 0, { anchor: { x: "stretch" } }),
+        at(object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 4, 1, { anchor: { x: "stretch" } }),
       ]),
     ],
   }

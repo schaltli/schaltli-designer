@@ -1186,13 +1186,14 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
 const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field"])
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
-type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; alignY?: "top" | "bottom" }
+type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; y?: "top" | "bottom" }
 // `fills` false: a button beside a wider side - «Nullen» by its line - takes
 // only what it needs.
 const inCell = (piece: Piece, cell: Cell, fills = true): Piece => {
   const { cell: _old, ...properties } = piece.properties ?? {}
-  const fill = fills && FILLS_ITS_CELL.has(piece.type) ? { fill: { width: true } } : {}
-  return { ...piece, properties: { ...properties, cell: { ...cell, ...fill } } }
+  const { y, ...place } = cell
+  const anchor = { ...(fills && FILLS_ITS_CELL.has(piece.type) ? { x: "stretch" as const } : {}), ...(y ? { y } : {}) }
+  return { ...piece, properties: { ...properties, cell: { ...place, ...(anchor.x || anchor.y ? { anchor } : {}) } } }
 }
 
 /** `children`, each with its cell, as a table put together by snapping. */
@@ -1224,7 +1225,7 @@ export function blockTable(built: BausteinBuildResult): Piece {
   const controls = built.objects.slice(count)
   const cells: Piece[] = []
   let column = 0
-  const top = controls.length > 1 ? ({ alignY: "top" } as const) : {}
+  const top = controls.length > 1 ? ({ y: "top" } as const) : {}
   if (name.length > 1) cells.push(inCell(name[0], { row: 0, column: column++, ...top }))
   if (name.length > 0) cells.push(inCell(name[name.length - 1], { row: 0, column: column++, ...top }))
   const first = column
@@ -1245,7 +1246,7 @@ export function blockTable(built: BausteinBuildResult): Piece {
     sides.forEach((side, s) =>
       side.forEach((piece, k) => {
         const last = k === side.length - 1
-        const cell = { row: row + k, column: first + s, ...(last && rows - k > 1 ? { rowSpan: rows - k } : {}), ...(last && endsInRing ? ({ alignY: "bottom" } as const) : {}) }
+        const cell = { row: row + k, column: first + s, ...(last && rows - k > 1 ? { rowSpan: rows - k } : {}), ...(last && endsInRing ? ({ y: "bottom" } as const) : {}) }
         cells.push(inCell(piece, cell, piece.type !== "button"))
       }),
     )

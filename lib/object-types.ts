@@ -27,6 +27,7 @@ import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 import { stillIconData } from "@/lib/svg-still"
 import { withoutScreenMenu } from "@/lib/screen-menu"
 import { chartNeedsNormalizing, normalizeChart } from "@/lib/chart"
+import { migrateCellAnchor } from "@/lib/anchor"
 
 export const OBJECT_TYPES = [
   "text",
@@ -426,6 +427,9 @@ export function migrateObjects(objects: MigratableObject[] | undefined, separato
       obj.properties = normalizeChart(obj.properties) as unknown as Record<string, any>
       changed = true
     }
+    // A cell's Align, Vertical align and Fill become its anchor
+    // (docs/2026-11-03-anchor-dock.md), standing where it stood.
+    if (migrateCellAnchor(obj)) changed = true
     if (obj.children && migrateObjects(obj.children, separators)) changed = true
   }
   return changed
