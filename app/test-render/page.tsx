@@ -12,7 +12,7 @@ import { resolveScale } from "@/lib/size-scale"
 import { layoutProject } from "@/lib/layout"
 import { useEffect, useRef } from "react"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
-import type { BDFFont } from "@/lib/bdffont"
+import { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { projectSeparators } from "@/lib/placeholders"
 import { renderScreenObjects, placeholderScope, withCombinedBindings } from "@/lib/render-screen"
@@ -687,6 +687,41 @@ export default function TestRenderPage() {
         }
       }
       return ink
+    }
+
+    // A text in a BDF font on a canvas of its own, under a transform as the
+    // editor sets one (zoomed, panned, or half a pixel off when it centres
+    // the screen): each pixel's darkness 0-255, rows top down
+    // (e2e/text-editor-canvas.spec.ts).
+    // `glyphs`: where on the canvas each glyph picture went, in canvas pixels -
+    // whole ones, or the GPU rounds column by column; a software rasterizer
+    // (this test's Chromium) rounds evenly, so the pixels alone cannot tell.
+    ;(window as any).__textOnCanvasForTest = (req: { bdf: string; text: string; transform: [number, number, number, number, number, number]; width: number; height: number }): { rows: number[][]; glyphs: { x: number; y: number; smoothed: boolean }[] } => {
+      const canvas = document.createElement("canvas")
+      canvas.width = req.width
+      canvas.height = req.height
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, req.width, req.height)
+      ctx.setTransform(...req.transform)
+      ctx.fillStyle = "#000000"
+      const glyphs: { x: number; y: number; smoothed: boolean }[] = []
+      const drawImage = ctx.drawImage.bind(ctx) as (...a: any[]) => void
+      ;(ctx as any).drawImage = (...a: any[]) => {
+        const t = ctx.getTransform()
+        if (a.length === 9) glyphs.push({ x: t.a * a[5] + t.c * a[6] + t.e, y: t.b * a[5] + t.d * a[6] + t.f, smoothed: ctx.imageSmoothingEnabled })
+        drawImage(...a)
+      }
+      const font = new BDFFont(req.bdf)
+      font.drawText(ctx, req.text, 0, Number(font.properties.FONT_ASCENT ?? 12))
+      const data = ctx.getImageData(0, 0, req.width, req.height).data
+      const rows: number[][] = []
+      for (let y = 0; y < req.height; y++) {
+        const row: number[] = []
+        for (let x = 0; x < req.width; x++) row.push(255 - data[(y * req.width + x) * 4])
+        rows.push(row)
+      }
+      return { rows, glyphs }
     }
 
     // A chart on a canvas of its own (tasks/charts-designer-plan.md D4): its

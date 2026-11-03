@@ -444,11 +444,71 @@ function drawCoverageImage(
   }
   sctx.putImageData(image, 0, 0)
   const smoothing = ctx.imageSmoothingEnabled
-  ctx.imageSmoothingEnabled = false
+  const quality = ctx.imageSmoothingQuality
   ctx.globalAlpha = alpha
-  ctx.drawImage(canvas as CanvasImageSource, 0, 0, width, height, ox + 1, oy, width, height)
+  // At a whole scale (1:1, or zoomed 2x, 3x) each pixel becomes a square of
+  // whole pixels: nearest neighbour, sharp. At any other - the editor fitting
+  // a 480 px screen into 290 px, or zoomed 2.3x - nearest neighbour drops or
+  // doubles columns, and thin strokes came apart (the user, 2026-11-03,
+  // a caption in a card). There the glyph is blown up by the next whole
+  // factor and brought down to the real scale smoothed: each pixel covers
+  // the area its square covers, as the fillRect per pixel this replaced did.
+  const t = ctx.getTransform()
+  const scale = Math.hypot(t.a, t.b)
+  const whole = Math.abs(scale - Math.round(scale)) < 1e-6 && Math.round(scale) >= 1
+  const big = whole ? null : enlargedOf(canvas, width, height, Math.max(1, Math.ceil(scale)))
+  if (big) {
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(big.canvas as CanvasImageSource, 0, 0, big.width, big.height, ox + 1, oy, width, height)
+  } else if (t.b === 0 && t.c === 0) {
+    // On whole pixels of the glass. The editor centres the screen and may
+    // put it half a pixel off (matrix(1, 0, 0, 1, 454.5, 373.5)); a glyph
+    // drawn there without smoothing came apart column by column (the user,
+    // 2026-11-03). The clip stays: it lives in device space.
+    const s = Math.round(scale)
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(canvas as CanvasImageSource, 0, 0, width, height, Math.round(t.a * (ox + 1) + t.e), Math.round(t.d * oy + t.f), width * s, height * s)
+    ctx.restore()
+  } else {
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(canvas as CanvasImageSource, 0, 0, width, height, ox + 1, oy, width, height)
+  }
   ctx.imageSmoothingEnabled = smoothing
+  ctx.imageSmoothingQuality = quality
   return true
+}
+
+// The glyph picture `factor` times larger, each pixel a sharp square - the
+// step before a smoothed draw at a scale that is not whole.
+let enlarged: HTMLCanvasElement | OffscreenCanvas | null | undefined
+function enlargedOf(
+  source: HTMLCanvasElement | OffscreenCanvas,
+  width: number,
+  height: number,
+  factor: number,
+): { canvas: HTMLCanvasElement | OffscreenCanvas; width: number; height: number } | null {
+  if (enlarged === undefined) {
+    enlarged =
+      typeof OffscreenCanvas !== "undefined"
+        ? new OffscreenCanvas(1, 1)
+        : typeof document !== "undefined"
+          ? document.createElement("canvas")
+          : null
+  }
+  if (!enlarged) return null
+  const w = width * factor
+  const h = height * factor
+  if (enlarged.width < w) enlarged.width = w
+  if (enlarged.height < h) enlarged.height = h
+  const ectx = enlarged.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+  if (!ectx) return null
+  ectx.clearRect(0, 0, w, h)
+  ectx.imageSmoothingEnabled = false
+  ectx.drawImage(source as CanvasImageSource, 0, 0, width, height, 0, 0, w, h)
+  return { canvas: enlarged, width: w, height: h }
 }
 
 // A plain opaque colour's bytes: "#rrggbb", or "rgb(r, g, b)" / "rgba(r, g, b, 1)".
