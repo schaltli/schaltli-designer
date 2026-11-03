@@ -625,6 +625,16 @@ const CREATION_PREVIEW_COLOR = "#3b82f6"
 // the places it gave what it holds - shown only while it is active, so a
 // screen full of containers does not look like a construction drawing.
 export const LAYOUT_HINT_COLOR = "#0d9488"
+
+/** The hint at the pointer while carrying (docs/2026-11-03-placing.md, drawPlaceHint). */
+type PlaceHint = {
+  at: { x: number; y: number }
+  now: string | null
+  alt: string | null
+  held: boolean
+  first: string
+  second: { key: "Press" | "Release"; text: string } | null
+}
 const CREATION_PREVIEW_FILL = "rgba(59, 130, 246, 0.1)"
 
 function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, zoom: number): void {
@@ -1228,7 +1238,7 @@ export function Canvas({
   // show again when Alt is pressed or let go without moving.
   const [placeArea, setPlaceArea] = useState<string | null>(null)
   const [snapSpace, setSnapSpace] = useState<ScreenObject[] | null>(null)
-  const [placeHint, setPlaceHint] = useState<{ at: { x: number; y: number }; now: string | null; alt: string | null; held: boolean } | null>(null)
+  const [placeHint, setPlaceHint] = useState<PlaceHint | null>(null)
   const placeSpaceRef = useRef<{ id: string | null; origin: { x: number; y: number } } | null>(null)
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
@@ -1312,19 +1322,40 @@ export function Canvas({
 
   // What the hint at the pointer says: what letting go does now, and what
   // Alt would do instead where that is something else.
+  // What the hint at the pointer says (docs/2026-11-03-placing.md): what
+  // releasing the mouse button does now, and what Alt would do instead
+  // where that is something else - or, with Alt held, what letting go of it
+  // brings back. `now` and `alt` name the same in a word, for tests.
   const placeHintFor = useCallback(
-    (at: { x: number; y: number }, into: string | null | undefined, snap: SnapDrop | null, altSnap: SnapDrop | null, held: boolean, rowInto = false, rowWithAlt = false) => {
-      const describe = (d: SnapDrop | null) =>
+    (at: { x: number; y: number }, into: string | null | undefined, snap: SnapDrop | null, altSnap: SnapDrop | null, held: boolean, rowInto = false, rowWithAlt = false): PlaceHint | null => {
+      const word = (d: SnapDrop | null) =>
         !d ? null : d.kind === "pair" ? "Table" : d.target.kind === "cell" ? "Into cell" : d.target.kind === "column" ? "New column" : "New row"
+      const phrase = (d: SnapDrop | null) =>
+        !d ? null : d.kind === "pair" ? "to make a table" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
       const area = into ? findObjectById(screen.objects, into) : null
       const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Free") : null
-      const where = rowInto ? "Into table" : (describe(snap) ?? areaWord)
-      const would = held ? null : rowWithAlt ? "Into table" : describe(altSnap)
+      const where = rowInto ? "Into table" : (word(snap) ?? areaWord)
+      const would = held ? null : rowWithAlt ? "Into table" : word(altSnap)
       const now = where ?? (would || held ? "Free" : null)
       const alt = would && would !== now ? would : null
-      return now || alt ? { at, now, alt, held } : null
+      if (!now && !alt) return null
+      // Where it lies when nothing takes it: the area under the pointer, or the space open now.
+      const spaceId = into !== undefined ? into : drawSpace.id
+      const space = spaceId ? findObjectById(screen.objects, spaceId) : null
+      const spaceName = !space ? screen.name || "the screen" : space.type === "free" ? (space.properties?.look ? "Card" : "Free") : "the panel"
+      const drop = `to drop into ${spaceName}`
+      const nowPhrase = rowInto ? "to add it to the table" : (phrase(snap) ?? drop)
+      const altPhrase = held ? null : rowWithAlt ? "to add it to the table" : phrase(altSnap)
+      const second: PlaceHint["second"] = held
+        ? nowPhrase !== drop
+          ? { key: "Release", text: drop }
+          : null
+        : altPhrase && altPhrase !== nowPhrase
+          ? { key: "Press", text: altPhrase }
+          : null
+      return { at, now, alt, held, first: `Release mouse button ${nowPhrase}`, second }
     },
-    [screen.objects],
+    [screen.objects, screen.name, drawSpace.id],
   )
 
   // What a table put together by snapping sizes: the table itself (as large
@@ -1959,7 +1990,7 @@ export function Canvas({
     }
     if (areaDrop?.snap && dragState?.mode === "drag") drawSnapDrop(ctx, areaDrop.snap, areaDrop.space, layoutScale, LAYOUT_HINT_COLOR, zoom)
     // What letting go does, at the pointer, and the Alt key where it would do something else.
-    if (placeHint && (dragState?.mode === "drag" || dragState?.mode === "create")) drawPlaceHint(ctx, placeHint.at, placeHint, LAYOUT_HINT_COLOR, zoom)
+    if (placeHint && (dragState?.mode === "drag" || dragState?.mode === "create")) drawPlaceHint(ctx, placeHint.at, placeHint, zoom)
 
     // A carried row's place: the row line drawn thick, and the columns it adds.
     if (rowDrop && dragState?.mode === "create") {
@@ -5222,6 +5253,7 @@ export function Canvas({
         data-editing-container={editingContainerId ?? undefined}
         // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.
         data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}
+        data-place-hint-text={placeHint ? [placeHint.first, placeHint.second ? `${placeHint.second.key} [Alt] ${placeHint.second.text}` : ""].filter(Boolean).join(" / ") : undefined}
         data-place-area={placeArea ?? undefined}
         style={{
           imageRendering: "pixelated",

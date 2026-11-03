@@ -202,69 +202,83 @@ export function drawSnapChip(ctx: CanvasRenderingContext2D, at: { x: number; y: 
 }
 
 /**
- * What letting go does now, at the pointer (docs/2026-11-03-placing.md):
- * `now` in a chip; beside it, where Alt would do something else, the key
- * drawn as a keycap with what it would do - faint, or pressed and strong
- * while Alt is held (then `now` is what Alt does and `alt` is null).
+ * What letting go does, at the pointer (docs/2026-11-03-placing.md): plain
+ * text on a light panel, as a tooltip - «Release mouse button to drop into
+ * Card» - and below it the Alt key drawn as a key, with ⌥ for a Mac: «Press
+ * [Alt ⌥] to add a new column», or with Alt held «Release [Alt ⌥] to drop
+ * into Screen 1». Nothing in it looks like a button.
  */
 export function drawPlaceHint(
   ctx: CanvasRenderingContext2D,
   at: { x: number; y: number },
-  hint: { now: string | null; alt: string | null; held: boolean },
-  color: string,
+  hint: { first: string; second: { key: string; text: string } | null; held: boolean },
   zoom: number,
 ): void {
-  const size = 11 / zoom
-  const padX = 5 / zoom
-  const padY = 3 / zoom
-  const height = size + 2 * padY
-  const keyW = 22 / zoom
+  const size = 12 / zoom
+  const small = 11 / zoom
+  const pad = 7 / zoom
+  const lineGap = 5 / zoom
+  const keyLabel = "Alt \u2325"
   ctx.save()
-  ctx.font = `500 ${size}px system-ui, sans-serif`
   ctx.textBaseline = "middle"
-  let x = at.x + 14 / zoom
-  const y = at.y + 14 / zoom
-  const keycap = (pressed: boolean) => {
-    // A key: a light cap on a darker base, pressed lower and in the hint's colour.
-    const lift = pressed ? 0 : 2 / zoom
-    ctx.fillStyle = pressed ? color : "#9ca3af"
+  ctx.font = `600 ${small * 0.9}px system-ui, sans-serif`
+  const keyW = ctx.measureText(keyLabel).width + 10 / zoom
+  const keyH = small + 6 / zoom
+  ctx.font = `500 ${size}px system-ui, sans-serif`
+  const firstW = ctx.measureText(hint.first).width
+  ctx.font = `400 ${small}px system-ui, sans-serif`
+  const before = hint.second ? `${hint.second.key} ` : ""
+  const after = hint.second ? ` ${hint.second.text}` : ""
+  const secondW = hint.second ? ctx.measureText(before).width + keyW + ctx.measureText(after).width : 0
+  const width = Math.max(firstW, secondW) + 2 * pad
+  const height = pad * 2 + size + (hint.second ? lineGap + keyH : 0)
+  // Beside the pointer, right and below - left or above where it would run
+  // off the canvas.
+  const t = ctx.getTransform()
+  const fitsRight = t.a * (at.x + 16 / zoom + width) + t.e <= ctx.canvas.width
+  const fitsBelow = t.d * (at.y + 18 / zoom + height) + t.f <= ctx.canvas.height
+  const x = fitsRight ? at.x + 16 / zoom : at.x - 12 / zoom - width
+  const y = fitsBelow ? at.y + 18 / zoom : at.y - 12 / zoom - height
+  // The panel: light, a thin border, a soft shadow.
+  ctx.shadowColor = "rgba(0, 0, 0, 0.18)"
+  ctx.shadowBlur = 8 / zoom
+  ctx.shadowOffsetY = 2 / zoom
+  ctx.fillStyle = "rgba(255, 255, 255, 0.97)"
+  ctx.beginPath()
+  ctx.roundRect(x, y, width, height, 6 / zoom)
+  ctx.fill()
+  ctx.shadowColor = "transparent"
+  ctx.strokeStyle = "#d1d5db"
+  ctx.lineWidth = 1 / zoom
+  ctx.stroke()
+  // The first line: what releasing does now.
+  ctx.fillStyle = "#111827"
+  ctx.font = `500 ${size}px system-ui, sans-serif`
+  ctx.fillText(hint.first, x + pad, y + pad + size / 2)
+  if (hint.second) {
+    // The second: the key, drawn as a key - pressed while held.
+    let cx = x + pad
+    const cy = y + pad + size + lineGap
+    ctx.font = `400 ${small}px system-ui, sans-serif`
+    ctx.fillStyle = "#4b5563"
+    ctx.fillText(before, cx, cy + keyH / 2)
+    cx += ctx.measureText(before).width
+    const lift = hint.held ? 0 : 2 / zoom
+    ctx.fillStyle = "#9ca3af"
     ctx.beginPath()
-    ctx.roundRect(x, y, keyW, height, 3 / zoom)
+    ctx.roundRect(cx, cy, keyW, keyH, 3 / zoom)
     ctx.fill()
-    ctx.fillStyle = pressed ? "#ccfbf1" : "#ffffff"
+    ctx.fillStyle = hint.held ? "#e5e7eb" : "#ffffff"
     ctx.beginPath()
-    ctx.roundRect(x + 1 / zoom, y + 1 / zoom, keyW - 2 / zoom, height - 1 / zoom - lift, 2.5 / zoom)
+    ctx.roundRect(cx + 1 / zoom, cy + 1 / zoom, keyW - 2 / zoom, keyH - 1 / zoom - lift, 2.5 / zoom)
     ctx.fill()
-    ctx.fillStyle = pressed ? color : "#374151"
-    ctx.font = `600 ${size * 0.85}px system-ui, sans-serif`
-    const w = ctx.measureText("Alt").width
-    ctx.fillText("Alt", x + (keyW - w) / 2, y + (height - lift) / 2)
-    ctx.font = `500 ${size}px system-ui, sans-serif`
-    x += keyW + 3 / zoom
-  }
-  const chip = (text: string, strong: boolean) => {
-    const width = ctx.measureText(text).width + 2 * padX
-    ctx.globalAlpha = strong ? 1 : 0.55
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.roundRect(x, y, width, height, 3 / zoom)
-    ctx.fill()
-    ctx.fillStyle = "#ffffff"
-    ctx.fillText(text, x + padX, y + height / 2)
-    ctx.globalAlpha = 1
-    x += width + 6 / zoom
-  }
-  if (hint.held) {
-    keycap(true)
-    if (hint.now) chip(hint.now, true)
-  } else {
-    if (hint.now) chip(hint.now, true)
-    if (hint.alt) {
-      ctx.globalAlpha = 0.7
-      keycap(false)
-      ctx.globalAlpha = 1
-      chip(hint.alt, false)
-    }
+    ctx.fillStyle = "#1f2937"
+    ctx.font = `600 ${small * 0.9}px system-ui, sans-serif`
+    ctx.fillText(keyLabel, cx + 5 / zoom, cy + (keyH - lift) / 2)
+    cx += keyW
+    ctx.font = `400 ${small}px system-ui, sans-serif`
+    ctx.fillStyle = "#4b5563"
+    ctx.fillText(after, cx, cy + keyH / 2)
   }
   ctx.restore()
 }

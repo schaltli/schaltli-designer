@@ -63,6 +63,8 @@ const parentOf = (list: Obj[], id: string, parent: Obj | null = null): Obj | nul
 }
 
 type Hint = { now: string | null; alt: string | null; held: boolean } | null
+// The hint's words as last shown by carry().
+let lastText: string | null = null
 async function hint(page: Page): Promise<Hint> {
   const { canvas } = await getMainCanvas(page)
   const raw = await canvas.getAttribute("data-place-hint")
@@ -87,6 +89,7 @@ async function carry(page: Page, from: { x: number; y: number }, to: { x: number
   if (opts.altAt === "end") await page.keyboard.down("Alt")
   if (opts.altAt === "released") await page.keyboard.up("Alt")
   const shown = await hint(page)
+  lastText = await (await getMainCanvas(page)).canvas.getAttribute("data-place-hint-text")
   await page.mouse.up()
   if (opts.alt || opts.altAt === "end") await page.keyboard.up("Alt")
   return shown
@@ -97,6 +100,8 @@ test("no key: let go beside an object it lies free; the hint offers Alt for a ta
   // «moving» held at its middle (50, 270), let go with its left edge 3 px right of «still» (80).
   const shown = await carry(page, { x: 50, y: 270 }, { x: 113, y: 210 })
   expect(shown).toEqual({ now: "Free", alt: "Table", held: false })
+  // In words, as a tooltip: what releasing does, and below it the key.
+  expect(lastText).toBe("Release mouse button to drop into label-tests-white-background / Press [Alt] to make a table")
   const objects = await saved(page)
   expect(objects.some((o) => o.type === "table")).toBe(false)
   expect(find(objects, "moving")).toMatchObject({ x: 83, y: 200 })
@@ -106,6 +111,7 @@ test("Alt: the same drop makes a table of the two", async ({ page }) => {
   await loadProject(page, await project([text("still", 20, 200), text("moving", 20, 260)]))
   const shown = await carry(page, { x: 50, y: 270 }, { x: 113, y: 210 }, { alt: true })
   expect(shown).toEqual({ now: "Table", alt: null, held: true })
+  expect(lastText).toBe("Release mouse button to make a table / Release [Alt] to drop into label-tests-white-background")
   const objects = await saved(page)
   const made = objects.find((o) => o.type === "table")
   expect(made?.children.map((c: Obj) => c.id).sort()).toEqual(["moving", "still"])
@@ -141,6 +147,7 @@ test("no key: the pointer over an empty cell puts it there; over an occupied one
 test("no key: over a card it goes into the card, outlined; Alt changes nothing there but offers nothing either", async ({ page }) => {
   await loadProject(page, await project([card, text("moving", 20, 260)]))
   expect(await carry(page, { x: 50, y: 270 }, { x: 290, y: 210 })).toEqual({ now: "Into Card", alt: null, held: false })
+  expect(lastText).toBe("Release mouse button to drop into Card")
   const objects = await saved(page)
   expect(parentOf(objects, "moving")?.id).toBe("card")
 })
