@@ -6,10 +6,11 @@
  */
 
 import type { ScreenObject } from "../project-editor"
-import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
+import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, ToggleRow, frameSummary } from "./fields"
 import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type AnchorX, type AnchorY } from "@/lib/anchor"
 import { dockOf, type Dock } from "@/lib/dock"
 import { cardLookOf } from "@/lib/card"
+import { clipsContents } from "@/lib/clip"
 
 const LOOK = [
   { value: "none", label: "None" },
@@ -48,6 +49,14 @@ export function FreeProperties({
           Box, if you give it a fill or an edge.
         </FieldNote>
         <SelectField id="freeLook" label="Look" value={look ?? "none"} options={LOOK} onChange={setLook} />
+        {/* What it holds cut to its shape inside its edge (docs/2026-11-03-card-clip.md):
+            on for a card unless set. */}
+        <ToggleRow
+          label="Clip"
+          text="Cut what it holds to its shape"
+          checked={clipsContents(selectedObject)}
+          onChange={(on) => set("clipContents", on)}
+        />
         {look ? (
           <FieldNote>
             {look === "card-accent" ? "Panel with an Accent edge" : "Panel with an Outline edge"}, from the theme; corner radius, edge and padding from

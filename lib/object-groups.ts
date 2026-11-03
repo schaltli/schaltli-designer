@@ -20,6 +20,7 @@ import type { Project, ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
+import { areaShape, clipsContents, clipsOf, type ClipShape } from "@/lib/clip"
 
 export const GROUP_TYPE = "group" as const
 
@@ -202,16 +203,29 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
     // numbers, which count inside the area, so the box must not take the
     // area's - with it a box at 1 lay over a switch at 0, took its taps in
     // the preview and hid it on the device (reported 2026-10-05).
+    // Clipped by an area around it (docs/2026-11-03-card-clip.md): the
+    // shapes it carries, its own box among what they clip.
+    const around = clipsOf(obj)
     const background = obj.type === "free" ? freeBackground(obj) : undefined
     if (background) {
       const lowest = Math.min(obj.zIndex, ...(obj.children ?? []).map((child) => child.zIndex))
-      out.push({ ...background, zIndex: lowest - 1 })
+      out.push(withClip({ ...background, zIndex: lowest - 1 }, around))
     }
+    // What it holds: clipped by what clips the area, and by the area's own
+    // shape inside its edge where it clips - outermost first, in the space
+    // the children are moved into.
+    const clip = obj.type === "free" && clipsContents(obj) ? [...around, areaShape(obj)] : around
     // What its docking left no room for is not exported (lib/dock.ts).
     const kept = (obj.children ?? []).filter((child) => !child.properties?.dockedOut)
-    out.push(...dissolveContainerList(kept.map((child) => translateObject(child, obj.x, obj.y))))
+    out.push(...dissolveContainerList(kept.map((child) => withClip(translateObject(child, obj.x, obj.y), clip))))
   }
   return out
+}
+
+// An object with the shapes it is clipped by (lib/clip.ts); unchanged where there are none.
+function withClip(obj: ScreenObject, clip: ClipShape[]): ScreenObject {
+  if (clip.length === 0) return obj
+  return { ...obj, properties: { ...obj.properties, clip } }
 }
 
 // One sibling list with its groups replaced by their children, in the

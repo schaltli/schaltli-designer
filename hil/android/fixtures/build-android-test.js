@@ -1424,6 +1424,43 @@ function buildProject(fonts) {
           },
         ],
       },
+      // A card clipping what it holds to its round corners (the designer's
+      // docs/2026-11-03-card-clip.md, device contract §2.1 `clip`): a heading
+      // with a fill across its top, cut inside the edge at the corners; a
+      // smaller clipping card in it, a box past its corner cut by both. Last,
+      // so no screen before it moves.
+      {
+        id: "screen-card-clip",
+        name: "Karte",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-square",
+        objects: [
+          {
+            id: "clip-card",
+            type: "free",
+            zIndex: 1,
+            x: 24,
+            y: 100,
+            width: 312,
+            height: 170,
+            properties: { fillColor: "#e5e5e5", strokeColor: BLACK, strokeWidth: 2, cornerRadius: 16, clipContents: true },
+            children: [
+              { id: "clip-heading", type: "box", zIndex: 2, x: 0, y: 0, width: 312, height: 44, properties: { fillColor: ACCENT, strokeWidth: 0, cornerRadius: 0 } },
+              {
+                id: "clip-inner",
+                type: "free",
+                zIndex: 3,
+                x: 180,
+                y: 80,
+                width: 120,
+                height: 80,
+                properties: { fillColor: "#3a3a3a", strokeColor: BLACK, strokeWidth: 1, cornerRadius: 10, clipContents: true },
+                children: [{ id: "clip-past", type: "box", zIndex: 1, x: 60, y: 40, width: 100, height: 60, properties: { fillColor: ACCENT, strokeWidth: 0, cornerRadius: 0 } }],
+              },
+            ],
+          },
+        ],
+      },
     ],
   };
 }

@@ -131,6 +131,63 @@ const SPECIMENS = {
     },
   },
 
+  // Not a type: a free area that clips what it holds to its round corners
+  // (docs/2026-11-03-card-clip.md), run where the board declares the feature
+  // `clip` (build-project.js). A heading with a fill of its own across the
+  // card's top, cut at the corners inside the edge; a smaller clipping card
+  // inside, a box standing out past its corner, cut by both.
+  "card-clip": {
+    build: (c) => {
+      const w = c.wide.width
+      const h = c.wide.height
+      return {
+        objects: [
+          {
+            id: c.id("card"),
+            type: "free",
+            zIndex: 1,
+            ...c.wide,
+            properties: { fillColor: c.colors.bg, strokeColor: c.colors.fg, strokeWidth: 2, cornerRadius: 14, clipContents: true },
+            children: [
+              {
+                id: c.id("heading"),
+                type: "box",
+                zIndex: 2,
+                x: 0,
+                y: 0,
+                width: w,
+                height: Math.round(h / 3),
+                properties: { fillColor: c.colors.accent, strokeWidth: 0, cornerRadius: 0 },
+              },
+              {
+                id: c.id("inner"),
+                type: "free",
+                zIndex: 3,
+                x: w - Math.round(w / 3) - 4,
+                y: h - Math.round(h / 2) - 4,
+                width: Math.round(w / 3),
+                height: Math.round(h / 2),
+                properties: { fillColor: c.colors.track, strokeColor: c.colors.fg, strokeWidth: 1, cornerRadius: 9, clipContents: true },
+                children: [
+                  {
+                    id: c.id("past"),
+                    type: "box",
+                    zIndex: 1,
+                    x: Math.round(w / 6),
+                    y: Math.round(h / 4),
+                    width: Math.round(w / 3),
+                    height: Math.round(h / 2),
+                    properties: { fillColor: c.colors.accent, strokeWidth: 0, cornerRadius: 0 },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }
+    },
+  },
+
   box: {
     build: (c) => ({
       objects: [

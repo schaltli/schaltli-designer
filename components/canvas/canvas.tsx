@@ -52,6 +52,7 @@ import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont,
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderArcLevel, arcValueFromPoint } from "./renderers/render-arc-level"
+import { areaShape, clipCanvasTo, clipsContents } from "@/lib/clip"
 import {
   renderLevelIndicator,
   isSettableLevel,
@@ -2540,6 +2541,8 @@ export function Canvas({
         const background = obj.type === "free" ? freeBackground(obj) : undefined
         if (background) drawObject(ctx, background, false, false, zoom, placeholders)
         ctx.save()
+        // Clipped to its shape inside its edge (docs/2026-11-03-card-clip.md).
+        if (clipsContents(obj)) clipCanvasTo(ctx, areaShape(obj))
         ctx.translate(obj.x, obj.y)
         for (const child of sortChildrenByZIndex(obj.children ?? [])) {
           const childSelected = !previewMode && selectedObjectIds.includes(child.id)

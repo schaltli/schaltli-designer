@@ -580,6 +580,31 @@ repo's type definitions for the full field list):
   numeric for the rest) — shown only when its condition matches the
   switcher's current value.
 
+**`clip`, on any object - feature `clip` (designer side 2026-11-03,
+docs/2026-11-03-card-clip.md).** A free area in the designer can clip what it
+holds to its own round corners; the export dissolves the area, so each object
+it held carries the shapes instead: `clip`, an array of
+`{ "x", "y", "width", "height", "radius" }`, outermost first, in the same
+coordinate space as the object's own `x` and `y` (for a child of a
+switcher's panel, the panel's). A shape is already inside the area's edge.
+
+A device that declares `clip` in `supportedFeatures` draws no pixel of the
+object outside any of its shapes. A shape's pixels are exactly those
+`Adafruit_GFX::fillRoundRect(x, y, width, height, radius)` sets - the radius
+clamped to half the shorter side as the library does, no anti-aliasing - the
+same set the area's own `box` is drawn with, so a clipped heading meets the
+box's corner pixel for pixel. Row by row: the middle `fillRect(x + r, y,
+width - 2r, height)` and the two `fillCircleHelper` quarter columns; the
+designer's `roundRectSpans` (lib/clip.ts) and the cases in
+`lib/fixtures/clip-spans.json` are the reference. Everything the object
+draws is clipped - a switcher's panels with it, glyphs, pills and rings
+written straight into a frame buffer too; the firmware narrows its canvas
+region to the shapes' rectangles and puts back, after the object drew, the
+pixels inside them but outside a shape's corners.
+
+A device without the feature never receives `clip`: the designer refuses
+the project for it, or offers the firmware that declares it.
+
 ### 2.2 Zip compression — DEFLATE support is mandatory
 
 `buildDeviceProjectZip()` (`lib/project-zip.ts`) **always** compresses the
