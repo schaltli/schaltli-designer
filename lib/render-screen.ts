@@ -41,7 +41,7 @@ import { barLayout, clampScroll, cornerInset, dividerRect, entryRect, markerRect
 import { BACK_ARROW_ASSETS, entryLook, markerBox, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
-import { areaShape, clipCanvasTo, clipsContents } from "@/lib/clip"
+import { areaShape, clipCanvasTo, clipsContents, clipsOf } from "@/lib/clip"
 
 // The live-editing preview value for a topic: its first example, or a
 // placeholder when there's no topic/no examples/the example is blank after
@@ -518,6 +518,14 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
   const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, getAskedValueFromTopic, placeholders, requestRedraw, screenBackgroundColor } = options
 
   for (const obj of sortChildrenByZIndex(objects)) {
+    // Clipped by the free area it came from, as exported (`clip`, device
+    // contract 2.1): the shapes in the space it stands in. A project still in
+    // the designer's own form clips at the area instead (below).
+    const clips = clipsOf(obj)
+    if (clips.length > 0) {
+      ctx.save()
+      for (const shape of clips) clipCanvasTo(ctx, shape)
+    }
     switch (obj.type) {
       case "switcher": {
         const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
@@ -686,5 +694,6 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         })
         break
     }
+    if (clips.length > 0) ctx.restore()
   }
 }

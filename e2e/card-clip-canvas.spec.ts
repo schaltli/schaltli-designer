@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { areaShape, insideShape, roundRectSpans } from "../lib/clip"
+import { dissolveGroups } from "../lib/object-groups"
 import type { ScreenObject } from "../components/project-editor"
 
 // A card's round corners cut what it holds, in the designer's reference
@@ -17,7 +18,9 @@ const card = (clipContents: boolean) => ({
   children: [{ id: "kopf", type: "box", zIndex: 2, x: 0, y: 0, width: 200, height: 30, properties: { fillColor: "#ff0000", strokeWidth: 0, cornerRadius: 0 } }],
 })
 
-async function render(page: import("@playwright/test").Page, clipContents: boolean): Promise<number[][]> {
+async function render(page: import("@playwright/test").Page, clipContents: boolean, exported = false): Promise<number[][]> {
+  // As the designer holds it, or as exported - the area dissolved, each object carrying `clip` (the Android HIL's reference renders this).
+  const objects = exported ? dissolveGroups([card(clipContents) as unknown as ScreenObject]) : [card(clipContents)]
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
@@ -29,7 +32,7 @@ async function render(page: import("@playwright/test").Page, clipContents: boole
       fonts: [],
       assets: [],
       topics: [],
-      screens: [{ id: "s1", name: "One", backgroundColor: "#ffffff", objects: [card(clipContents)] }],
+      screens: [{ id: "s1", name: "One", backgroundColor: "#ffffff", objects }],
     },
     screenIndex: 0,
   })
@@ -71,4 +74,13 @@ test("with Clip off the heading covers the corners, as before", async ({ page })
   const red = await render(page, false)
   expect(red[0][0]).toBe(1)
   expect(red[0][100]).toBe(1)
+})
+
+// The Android HIL's reference renders the exported bundle: there the area is
+// gone and each object carries `clip`. It drew the heading unclipped until
+// 2026-11-03 while the phone clipped it - 1.85 % of the screen apart.
+test("as exported - each object carrying its clip - the same pixels", async ({ page }) => {
+  const tree = await render(page, true)
+  const exported = await render(page, true, true)
+  expect(exported).toEqual(tree)
 })

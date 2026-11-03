@@ -152,6 +152,11 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf) } = {}) {
   if (fourBit.length && supportedObjectTypes.includes("text")) {
     runs.push({ type: "text-4bit", specimen: SPECIMENS.text, picker: fontPicker(fourBit) });
   }
+  // A card clipping what it holds, where the board says it can
+  // (docs/2026-11-03-card-clip.md).
+  if ((ddf.supportedFeatures || []).includes("clip") && supportedObjectTypes.includes("box")) {
+    runs.push({ type: "card-clip", specimen: SPECIMENS["card-clip"], picker });
+  }
 
   for (const { type, specimen, picker: { font, fontSize } } of runs) {
     const screenTopics = [];
