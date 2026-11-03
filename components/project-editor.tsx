@@ -381,6 +381,9 @@ export interface ProjectSettings {
   gridSize: number
   snapTolerance: number
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
+  // Settings › Cards (docs/2026-11-03-card.md, lib/card.ts): every card's
+  // corner radius, edge and padding; unset values at their defaults.
+  cards?: { radiusMm?: number; edgePx?: number; accentEdgePx?: number; paddingMm?: number }
   selectedIconAssetId?: string // Temporary storage for selected icon
   colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
   supportsSoftwareButtons?: boolean // Hardware supports software buttons (touch screen)
@@ -1046,7 +1049,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       window.removeEventListener("mouseup", handleMouseUp)
     }
   }, [isResizingRightPanel])
-  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row">("select")
+  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row" | "card">("select")
   // The row the Row tool carries (docs/2026-10-09-snap-tables.md, module
   // snap-table-rows).
   const [rowTemplate, setRowTemplate] = useState<RowTemplate>("icon-label-switch")

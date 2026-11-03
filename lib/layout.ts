@@ -20,6 +20,7 @@ import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 import { dockFree } from "@/lib/dock"
+import { CARD_DEFAULTS, cardSettingsOf, withCardLook, type CardSettings } from "@/lib/card"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
 // stacks, the grid and the spacer of layout Tasks 1-12 and the old tables
@@ -52,6 +53,8 @@ export interface LayoutScale {
    */
   topics?: readonly { topic: string; type?: string; examples?: readonly string[] }[]
   separators?: Separators
+  /** Settings › Cards (lib/card.ts): what a card's look comes to. */
+  cards?: CardSettings
 }
 export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 
@@ -207,7 +210,9 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 }
 
 // An object with its subtree laid out inside its own width and height.
-function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
+function layoutOne(given: ScreenObject, scale: LayoutScale): ScreenObject {
+  // A card's look first (lib/card.ts): its padding is what it docks in.
+  const obj = given.type === "free" ? withCardLook(given, scale.cards ?? CARD_DEFAULTS, scale.pixelsPerMm) : given
   // A table put together by snapping: what it holds laid out first (a
   // switcher's panels, a free area's tables), then placed in its cells.
   // A free area in a cell may have been given a new size there: what it
@@ -289,6 +294,7 @@ export function layoutScaleOf(project: ScaledProject): LayoutScale {
     fonts: project.fonts,
     topics: project.topics,
     separators: projectSeparators(project.settings ?? {}),
+    cards: cardSettingsOf(project.settings as { cards?: Partial<CardSettings> } | undefined),
   }
 }
 

@@ -39,7 +39,9 @@ function card(): Obj {
     width: 200,
     height: 150,
     zIndex: 1,
-    properties: { fillColor: "panel", strokeColor: "outline", strokeWidth: 1, cornerRadius: 8, padding: 2 },
+    // Its panel, edge, corners and padding from Settings › Cards
+    // (docs/2026-11-03-card.md).
+    properties: { look: "card" },
     children: [
       text("kopf", "Batterie", 3, { dock: "top" }),
       text("wert", "92 %", 2, { dock: "top", textAlign: "right" }),

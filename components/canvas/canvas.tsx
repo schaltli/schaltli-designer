@@ -306,7 +306,7 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | ObjectType | "background" | "baustein" | "row"
+  activeTool: "select" | ObjectType | "background" | "baustein" | "row" | "card"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
@@ -331,7 +331,7 @@ export interface CanvasProps {
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
-    tool: "select" | ObjectType | "background" | "baustein" | "row",
+    tool: "select" | ObjectType | "background" | "baustein" | "row" | "card",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -483,7 +483,7 @@ type LineHandle = number
 // DragState is now imported from interactions module
 
 interface PendingFieldCreation {
-  type: ObjectType | "background" | "baustein" | "row"
+  type: ObjectType | "background" | "baustein" | "row" | "card"
   x: number
   y: number
   width: number
@@ -4386,10 +4386,13 @@ export function Canvas({
       children: [],
     })
     const defaultObjects: Record<
-      "text" | "icon" | "line" | "box" | "free",
+      "text" | "icon" | "line" | "box" | "free" | "card",
       Omit<ScreenObject, "id" | "zIndex">
     > = {
       free: container("free"),
+      // A free area with the look Card: the layout pass gives it its look
+      // from Settings › Cards (lib/card.ts).
+      card: { ...container("free"), properties: { look: "card" } },
       text: {
         type: "text",
         x: Math.round(x),

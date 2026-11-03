@@ -55,6 +55,9 @@ export function placedSize(tool: string, pixelsPerMm: number): { width: number; 
       return { width: mm(BOX_MM.width), height: mm(BOX_MM.height) }
     case "free":
       return { width: mm(FREE_MM.width), height: mm(FREE_MM.height) }
+    // A free area with the look Card (docs/2026-11-03-card.md).
+    case "card":
+      return { width: mm(40), height: mm(30) }
     case "switcher":
       return { width: mm(SWITCHER_MM.width), height: mm(SWITCHER_MM.height) }
     // Goes onto its edge wherever it is let go (lib/navigator.ts).

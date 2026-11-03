@@ -17,7 +17,7 @@ export interface DragState {
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
-  creatingType?: ObjectType | "background" | "baustein" | "row"
+  creatingType?: ObjectType | "background" | "baustein" | "row" | "card"
   // A new object carried at the pointer at its default size, its middle
   // under it, instead of a rectangle drawn (docs/2026-10-09-snap-tables.md,
   // «Placing by dragging»); startObjectPos is where it stands now.

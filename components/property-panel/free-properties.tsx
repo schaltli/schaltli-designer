@@ -9,6 +9,13 @@ import type { ScreenObject } from "../project-editor"
 import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
 import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type AnchorX, type AnchorY } from "@/lib/anchor"
 import { dockOf, type Dock } from "@/lib/dock"
+import { cardLookOf } from "@/lib/card"
+
+const LOOK = [
+  { value: "none", label: "None" },
+  { value: "card", label: "Card" },
+  { value: "card-accent", label: "Card, accent" },
+]
 
 /** A free area: only its frame - what is in it stays where it is placed. */
 export function FreeProperties({
@@ -25,6 +32,14 @@ export function FreeProperties({
   // A box's look (asked 2026-10-05): fill, edge and corners, the same
   // properties a Box has. A device gets it as a box behind what the area
   // holds (lib/object-groups.ts freeBox). Without them it draws nothing.
+  // With a card's look (docs/2026-11-03-card.md) they come from Settings ›
+  // Cards and the theme, and are not shown; set back to None, the area keeps
+  // them as its own.
+  const look = cardLookOf(selectedObject)
+  const setLook = (value: string) => {
+    const { look: _old, ...rest } = selectedObject.properties ?? {}
+    onUpdateObject(selectedObject.id, { properties: value === "none" ? rest : { ...rest, look: value } })
+  }
   return (
     <PropertySections>
       <PropertySection title="Free">
@@ -32,7 +47,14 @@ export function FreeProperties({
           What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a
           Box, if you give it a fill or an edge.
         </FieldNote>
-        <NumberField
+        <SelectField id="freeLook" label="Look" value={look ?? "none"} options={LOOK} onChange={setLook} />
+        {look ? (
+          <FieldNote>
+            {look === "card-accent" ? "Panel with an Accent edge" : "Panel with an Outline edge"}, from the theme; corner radius, edge and padding from
+            Settings › Cards. Set Look to None to change them here.
+          </FieldNote>
+        ) : null}
+        {look ? null : <NumberField
           id="padding"
           label="Padding"
           value={selectedObject.properties.padding ?? 0}
@@ -42,9 +64,9 @@ export function FreeProperties({
           step={0.5}
           unit="mm"
           hint="Room left free inside its edge for what is docked in it."
-        />
+        />}
       </PropertySection>
-      <PropertySection title="Shape">
+      {look ? null : <PropertySection title="Shape">
         <NumberField
           id="strokeWidth"
           label="Stroke width"
@@ -64,8 +86,8 @@ export function FreeProperties({
           max={20}
           unit="px"
         />
-      </PropertySection>
-      <PropertySection title="Colour">
+      </PropertySection>}
+      {look ? null : <PropertySection title="Colour">
         <ColorField
           label="Fill"
           value={selectedObject.properties.fillColor || "transparent"}
@@ -80,7 +102,7 @@ export function FreeProperties({
           colorDepth={colorDepth}
           allowTransparent={false}
         />
-      </PropertySection>
+      </PropertySection>}
       <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
         <FrameFields
           x={selectedObject.x}

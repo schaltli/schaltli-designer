@@ -2,6 +2,7 @@
 
 import { CombinedTopicsSection } from "@/components/combined-topics-section"
 import { LocalTopicsSection } from "@/components/local-topics-section"
+import { CardSettingsSection } from "@/components/card-settings-section"
 import { resolveScale } from "@/lib/size-scale"
 import { useEffect, useMemo } from "react"
 
@@ -321,6 +322,7 @@ export function ProjectSettingsDialog({
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
     { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
+    { id: "cards", label: "Cards", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
   ]
 
@@ -959,6 +961,8 @@ export function ProjectSettingsDialog({
                     </div>
                   </div>
                 )}
+
+                {activeTab === "cards" && <CardSettingsSection project={project} currentScreenId={currentScreenId} onProjectUpdate={onProjectUpdate} />}
 
                 {activeTab === "snapgrid" && (
                   <div className="p-6 overflow-y-auto">

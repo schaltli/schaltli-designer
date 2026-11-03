@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
 import type { CatalogEntry } from "@/lib/ha-discovery"
-import { MousePointer2, Blocks, Rows3 } from "lucide-react"
+import { MousePointer2, Blocks, Rows3, SquareStack } from "lucide-react"
 import { ROW_TEMPLATES, type RowTemplate } from "@/lib/snap-table"
 import { objectTypeLabel } from "@/lib/object-types"
 import { isLayoutOnlyType } from "@/lib/layout"
@@ -33,6 +33,8 @@ type ToolType =
   // Not a type either: a row of several objects, one per role, carried as
   // one (docs/2026-10-09-snap-tables.md, module snap-table-rows).
   | "row"
+  // Not a type either: a free area with the look Card (docs/2026-11-03-card.md).
+  | "card"
 
 // The row templates, as the menu names them.
 const ROW_TEMPLATE_LABELS: Record<RowTemplate, string> = {
@@ -170,6 +172,13 @@ export function Toolbar({
       label: "Tables",
       tools: [
         tool("free", "Free", "An area where what is put into it stays where it is placed - in a table's cell too - with a background of its own"),
+        {
+          type: "card",
+          icon: SquareStack,
+          shortLabel: "Card",
+          label: "Card",
+          description: "A free area that looks like a card: panel, edge, round corners and padding from Settings › Cards",
+        },
       ],
     },
   ]
@@ -179,6 +188,7 @@ export function Toolbar({
     (t.type !== "navigator" || navigatorPlaceable) &&
     (t.type === "select" ||
     isLayoutOnlyType(t.type) ||
+    t.type === "card" ||
     // Offered on a device that does not declare it too (tasks/charts-designer-plan.md
     // D7): a chart can be built and seen in the preview; Deploy refuses it there.
     (t.type === "chart" && !(supportedObjectTypes ?? []).includes("chart")) ||
@@ -287,7 +297,13 @@ export function Toolbar({
     // "select" is always available; other tools are disabled if the loaded
     // device's firmware doesn't render that object type.
     const isDisabled =
-      tool.type !== "select" && !isLayoutOnlyType(tool.type) && tool.type !== "chart" && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(tool.type)
+      tool.type !== "select" &&
+      !isLayoutOnlyType(tool.type) &&
+      // A card is a free area: layout-only, as Free is.
+      tool.type !== "card" &&
+      tool.type !== "chart" &&
+      supportedObjectTypes !== undefined &&
+      !supportedObjectTypes.includes(tool.type)
 
     return (
       <Tooltip key={tool.type}>
