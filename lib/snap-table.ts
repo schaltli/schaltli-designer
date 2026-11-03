@@ -162,7 +162,7 @@ function natural(child: ScreenObject, scale: LayoutScale): ScreenObject {
 
 function measure(table: ScreenObject, scale: LayoutScale) {
   const { rows, columns } = dimensions(table)
-  const gap = px(SNAP_GAP_MM, scale)
+  const gap = px(gapMmOf(table), scale)
   const empty = px(SNAP_EMPTY_MM, scale)
   const sized = (table.children ?? []).map((child) => ({ child, cell: snapCellOf(child), size: natural(child, scale) }))
 
@@ -177,6 +177,7 @@ function measure(table: ScreenObject, scale: LayoutScale) {
   const byHand = (lines: SnapLine[], i: number) => (typeof lines[i]?.mm === "number" ? px(lines[i].mm!, scale) : 0)
   const widths = naturalWidths.map((w, c) => Math.max(w, byHand(snapColumnsOf(table), c)))
   const heights = naturalHeights.map((h, r) => Math.max(h, byHand(snapRowsOf(table), r)))
+  shareWidth(table, widths, gap, scale)
 
   // A span that does not fit makes the last line it covers larger.
   const across = (sizes: number[], from: number, count: number) => sizes.slice(from, from + count).reduce((a, b) => a + b, 0) + (count - 1) * gap
@@ -192,6 +193,46 @@ function measure(table: ScreenObject, scale: LayoutScale) {
   }
   const starts = (sizes: number[]) => sizes.map((_, i) => sizes.slice(0, i).reduce((sum, s) => sum + s + gap, 0))
   return { gap, widths, heights, lefts: starts(widths), tops: starts(heights), naturalWidths, naturalHeights, sized, across }
+}
+
+/** The gap between a table's columns and rows, in mm (docs/2026-11-03-card-grid.md): 1.5 unless set. */
+export function gapMmOf(table: ScreenObject): number {
+  const g = table.properties?.gapMm
+  return typeof g === "number" && Number.isFinite(g) && g >= 0 ? g : SNAP_GAP_MM
+}
+
+/** A table's width set in mm, or undefined: as wide as its content. */
+export function widthMmOf(table: ScreenObject): number | undefined {
+  const w = table.properties?.widthMm
+  return typeof w === "number" && Number.isFinite(w) && w > 0 ? w : undefined
+}
+
+// Equal columns and a width (docs/2026-11-03-card-grid.md), in place: the
+// columns not sized by hand made equal - as wide as the widest of them, or
+// sharing the width the table is given - and without Equal columns the last
+// column taking what the width leaves. Never narrower than what a column
+// holds: a column that needs more makes the table wider than its width.
+function shareWidth(table: ScreenObject, widths: number[], gap: number, scale: LayoutScale) {
+  if (widths.length === 0) return
+  const lines = snapColumnsOf(table)
+  const free = widths.map((_, c) => typeof lines[c]?.mm !== "number")
+  const widthMm = widthMmOf(table)
+  const target = widthMm !== undefined ? px(widthMm, scale) : undefined
+  const total = () => widths.reduce((a, b) => a + b, 0) + (widths.length - 1) * gap
+  if (table.properties?.equalColumns === true) {
+    const freeIdx = widths.map((_, c) => c).filter((c) => free[c])
+    if (freeIdx.length === 0) return
+    const handSum = widths.reduce((sum, w, c) => (free[c] ? sum : sum + w), 0)
+    const widest = Math.max(...freeIdx.map((c) => widths[c]))
+    // Equal even where a share is too small for one of them: then all are as
+    // wide as the widest, and the table wider than its width.
+    const share = target !== undefined ? Math.max(widest, Math.floor((target - (widths.length - 1) * gap - handSum) / freeIdx.length)) : widest
+    for (const c of freeIdx) widths[c] = Math.max(widths[c], share)
+    // What rounding left goes to the last of them, so the table is its width.
+    if (target !== undefined && total() < target) widths[freeIdx[freeIdx.length - 1]] += target - total()
+    return
+  }
+  if (target !== undefined && total() < target) widths[widths.length - 1] += target - total()
 }
 
 export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): SnapGeometry {
@@ -301,7 +342,19 @@ export const insertSnapRow = (table: ScreenObject, at: number) => insertLine(tab
 /** `obj` put into the cell at `row`, `column`, which the caller has found empty. */
 export function placeInCell(table: ScreenObject, obj: ScreenObject, row: number, column: number): ScreenObject {
   const t = padded(table)
-  return padded({ ...t, children: [...(t.children ?? []), withCell(obj, { row, column })] })
+  return padded({ ...t, children: [...(t.children ?? []), landed(withCell(obj, { row, column }))] })
+}
+
+/**
+ * An object just put into a cell: a card (a free area with a Look,
+ * docs/2026-11-03-card.md) fills it, Stretch both ways, unless how it stands
+ * there is set already (docs/2026-11-03-card-grid.md). Anything else as it is.
+ */
+export function landed(obj: ScreenObject): ScreenObject {
+  if (obj.type !== "free" || !obj.properties?.look) return obj
+  const cell = obj.properties.cell ?? {}
+  if (cell.anchor) return obj
+  return { ...obj, properties: { ...obj.properties, cell: { ...cell, anchor: { x: "stretch", y: "stretch" } } } }
 }
 
 /** A column's width or a row's height set by hand, in millimetres; undefined makes it automatic again. */
@@ -445,7 +498,7 @@ export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSi
   const first = side === "left" || side === "top" ? moving : still
   const second = first === moving ? still : moving
   // Where they stood: the layout moves each into its cell, a line with its points.
-  const at = (obj: ScreenObject, i: number) => withCell(obj, along ? { row: 0, column: i } : { row: i, column: 0 })
+  const at = (obj: ScreenObject, i: number) => landed(withCell(obj, along ? { row: 0, column: i } : { row: i, column: 0 }))
   const table: ScreenObject = {
     id,
     type: "table",

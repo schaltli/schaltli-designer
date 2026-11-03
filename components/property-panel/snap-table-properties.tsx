@@ -9,9 +9,9 @@
  */
 
 import type { ScreenObject } from "../project-editor"
-import { dimensions, snapColumnsOf, snapRowsOf } from "@/lib/snap-table"
+import { dimensions, gapMmOf, snapColumnsOf, snapRowsOf, widthMmOf } from "@/lib/snap-table"
 import { cellAnchorOf, cellDefault, STRETCHES_HEIGHT, STRETCHES_WIDTH, type AnchorX, type AnchorY } from "@/lib/anchor"
-import { ButtonGroupRow, FieldNote, PropertySection, SelectField } from "./fields"
+import { ButtonGroupRow, FieldNote, NumberField, PropertySection, SelectField, ToggleRow } from "./fields"
 
 const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
   { value: "left", label: "Left" },
@@ -32,6 +32,10 @@ type Update = (id: string, updates: Partial<ScreenObject>) => void
 export function SnapTableProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
   const { rows, columns } = dimensions(selectedObject)
   const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => typeof line?.mm === "number")
+  const set = (key: string, value: unknown) => {
+    const { [key]: _old, ...rest } = selectedObject.properties ?? {}
+    onUpdateObject(selectedObject.id, { properties: value === undefined ? rest : { ...rest, [key]: value } })
+  }
   const automatic = () =>
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -47,6 +51,30 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
         column or a row.
       </FieldNote>
       {byHand ? <ButtonGroupRow label="" buttons={[{ label: "Auto sizes", onClick: automatic }]} /> : null}
+      {/* A grid of cards (docs/2026-11-03-card-grid.md). */}
+      <NumberField
+        id="tableGap"
+        label="Gap"
+        value={gapMmOf(selectedObject)}
+        onChange={(value) => set("gapMm", value === 1.5 ? undefined : value)}
+        min={0}
+        max={10}
+        step={0.5}
+        unit="mm"
+        hint="Between its columns and between its rows."
+      />
+      <NumberField
+        id="tableWidth"
+        label="Width"
+        value={widthMmOf(selectedObject) ?? 0}
+        onChange={(value) => set("widthMm", value > 0 ? value : undefined)}
+        min={0}
+        max={500}
+        step={1}
+        unit="mm"
+        hint="Zero: as wide as what it holds. Set, the last column takes what is left, or with Equal columns all share it."
+      />
+      <ToggleRow label="" text="Equal columns" checked={selectedObject.properties?.equalColumns === true} onChange={(on) => set("equalColumns", on ? true : undefined)} />
     </PropertySection>
   )
 }
