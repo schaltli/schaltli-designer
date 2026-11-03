@@ -27,6 +27,7 @@ import { GroupProperties } from "./group-properties"
 import { FreePositionProperties, FreeProperties } from "./free-properties"
 import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties"
 import { cellAnchorOf } from "@/lib/anchor"
+import { dockSets } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
@@ -160,11 +161,16 @@ function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolea
 function layoutFrameLock(
   screen: { objects?: any[] } | undefined,
   id: string,
-): { locked: readonly ("x" | "y" | "width")[]; hint: string; hidden?: readonly ("x" | "y" | "width")[] } | null {
+): { locked: readonly ("x" | "y" | "width" | "height")[]; hint: string; hidden?: readonly ("x" | "y" | "width" | "height")[] } | null {
   if (!screen) return null
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
   const placedBy = found.parent?.type
+  // Docked in a free area (lib/dock.ts): the area places and sizes it.
+  const docked = placedBy === "free" ? findObjectById(screen.objects ?? [], id) : null
+  if (docked && dockSets(docked).length > 0) {
+    return { locked: dockSets(docked), hint: "Docked: the free area places it, and sizes it across its edge where it can stretch. See Position." }
+  }
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x and y are the table's to
   // work out, and not shown (docs/2026-10-09-snap-tables.md). Its width is

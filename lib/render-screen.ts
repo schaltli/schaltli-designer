@@ -549,7 +549,8 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         }
         ctx.save()
         ctx.translate(obj.x, obj.y)
-        renderScreenObjects(ctx, obj.children ?? [], options)
+        // What docking left no room for is not exported (lib/dock.ts).
+        renderScreenObjects(ctx, (obj.children ?? []).filter((child) => !child.properties?.dockedOut), options)
         ctx.restore()
         break
 

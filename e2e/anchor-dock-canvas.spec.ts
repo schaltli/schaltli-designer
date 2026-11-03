@@ -110,3 +110,37 @@ test("Position in the panel: Horizontal and Vertical for an object in a free are
   await objectTreeRow(page, "karte").click()
   await expect(page.locator("#areaHorizontal")).toHaveCount(0)
 })
+
+// Task 3: Dock and Padding.
+test("Dock in Position places it along the area's edge, marks its row and locks what the area sets; Padding moves it in", async ({ page }) => {
+  await loadProject(page, await areaProject())
+  await objectTreeRow(page, "kopf").click()
+  await expect(page.locator("#areaDock option")).toHaveText(["None", "Top", "Bottom", "Left", "Right", "Fill"])
+  await page.locator("#areaDock").selectOption("top")
+  await expect(objectTreeRow(page, "kopf").getByTestId("dock-mark")).toHaveText("⤒ Top")
+  await expect(objectTreeRow(page, "wert").getByTestId("dock-mark")).toHaveCount(0)
+  // Along the top, across the whole width: Vertical is the area's now, and
+  // so is Horizontal, a box stretching across.
+  await expect(page.locator("#areaVertical")).toHaveCount(0)
+  await expect(page.locator("#areaHorizontal")).toHaveCount(0)
+  await openFrameSection(page)
+  await expect(page.locator("#width")).toHaveAttribute("readonly", "")
+  await expect(page.locator("#height")).not.toHaveAttribute("readonly", "")
+  let area = await savedArea(page)
+  expect(geom(area, "kopf")).toEqual([0, 0, 200, 20])
+  // The area's padding, 2 mm on this device's scale.
+  const inArea = await screenPoint(page, 100, 150)
+  await page.mouse.click(inArea.x, inArea.y)
+  await page.locator("#padding").fill("2")
+  await page.locator("#padding").blur()
+  area = await savedArea(page)
+  const kopf = area.children.find((c: Obj) => c.id === "kopf")
+  expect(kopf.x).toBeGreaterThan(0)
+  expect(kopf.x).toBe(kopf.y)
+  expect(kopf.width).toBe(200 - 2 * kopf.x)
+  // Undocked, it has its own width back.
+  await objectTreeRow(page, "kopf").click()
+  await page.locator("#areaDock").selectOption("none")
+  area = await savedArea(page)
+  expect(area.children.find((c: Obj) => c.id === "kopf").width).toBe(180)
+})

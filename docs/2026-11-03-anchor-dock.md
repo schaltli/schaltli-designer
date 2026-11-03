@@ -235,11 +235,17 @@ Padding, Dock, with a small example: a heading at the top, a table below);
 3. **The section** for a free area's objects is called «Position».
 4. **An area smaller than its docked contents** clips them.
 
-## Open
+## Clipping (answered while planning, tasks/anchor-dock-plan.md)
 
-- **How the clip of 4 reaches the device.** A free area is dissolved on
-  export, and no device clips an object to the area it came from. The
-  designer can only shrink what it exports - a docked object's docked size
-  cut to the room left, one left with no room not exported - which clips a
-  box or a table, not a text's glyphs. To be settled while planning, before
-  `dockFree` is built; a device change is out of scope without asking.
+A free area is dissolved on export and no device clips to it; a device clips
+a text to its own width, its height being the font's. So the designer clips
+by what it exports: a docked object is cut along its dock to the room left;
+one that cannot be made smaller that way - a text's height, an icon, a ring,
+a table - and does not fit whole is left out (`properties.dockedOut`): not
+exported, not in the preview, a dashed outline in the editor. No device
+change.
+
+Docking overwrites an object's size; what it overwrote is kept in
+`properties.ownSize` and given back when the object is undocked or has room
+again. Frame locks only what docking sets: x and y, and the size across the
+dock where the object stretches - a heading docked Top keeps its own height.

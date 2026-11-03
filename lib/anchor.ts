@@ -128,6 +128,8 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
   const dw = width - area.width
   const dh = height - area.height
   const children = (area.children ?? []).map((child) => {
+    // A docked object is placed by the area itself (lib/dock.ts dockFree).
+    if (child.properties?.dock) return child
     const anchor = areaAnchorOf(child)
     const h = follow(anchor.x, dw)
     const v = follow(anchor.y, dh)

@@ -8,6 +8,7 @@
 import type { ScreenObject } from "../project-editor"
 import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
 import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type AnchorX, type AnchorY } from "@/lib/anchor"
+import { dockOf, type Dock } from "@/lib/dock"
 
 /** A free area: only its frame - what is in it stays where it is placed. */
 export function FreeProperties({
@@ -31,6 +32,17 @@ export function FreeProperties({
           What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a
           Box, if you give it a fill or an edge.
         </FieldNote>
+        <NumberField
+          id="padding"
+          label="Padding"
+          value={selectedObject.properties.padding ?? 0}
+          onChange={(value) => set("padding", value > 0 ? value : undefined)}
+          min={0}
+          max={20}
+          step={0.5}
+          unit="mm"
+          hint="Room left free inside its edge for what is docked in it."
+        />
       </PropertySection>
       <PropertySection title="Shape">
         <NumberField
@@ -88,6 +100,14 @@ const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
   { value: "right", label: "Right" },
   { value: "stretch", label: "Stretch" },
 ]
+const DOCK: Array<{ value: Dock | "none"; label: string }> = [
+  { value: "none", label: "None" },
+  { value: "top", label: "Top" },
+  { value: "bottom", label: "Bottom" },
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+  { value: "fill", label: "Fill" },
+]
 const VERTICAL: Array<{ value: AnchorY; label: string }> = [
   { value: "top", label: "Top" },
   { value: "middle", label: "Middle" },
@@ -116,11 +136,31 @@ export function FreePositionProperties({
     onUpdateObject(selectedObject.id, { properties: Object.keys(next).length > 0 ? { ...rest, anchor: next } : rest })
   }
   const offer = <T extends { value: string }>(options: T[], stretches: boolean) => (stretches ? options : options.filter((o) => o.value !== "stretch"))
+  const dock = dockOf(selectedObject)
+  const setDock = (value: string) => {
+    const { dock: _old, ...rest } = selectedObject.properties ?? {}
+    onUpdateObject(selectedObject.id, { properties: value === "none" ? rest : { ...rest, dock: value } })
+  }
+  // Docked, an axis is the area's to set: along the dock always, across it
+  // where the object can stretch that way (lib/dock.ts).
+  const canW = STRETCHES_WIDTH_IN_AREA.has(selectedObject.type) || selectedObject.type === "table"
+  const canH = STRETCHES_HEIGHT_IN_AREA.has(selectedObject.type)
+  const showX = !dock || ((dock === "top" || dock === "bottom" || dock === "fill") && !canW)
+  const showY = !dock || ((dock === "left" || dock === "right" || dock === "fill") && !canH)
   return (
     <PropertySection title="Position">
-      <SelectField id="areaHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, STRETCHES_WIDTH_IN_AREA.has(selectedObject.type))} onChange={(x) => set("x", x)} />
-      <SelectField id="areaVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, STRETCHES_HEIGHT_IN_AREA.has(selectedObject.type))} onChange={(y) => set("y", y)} />
-      <FieldNote>When the free area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both.</FieldNote>
+      <SelectField id="areaDock" label="Dock" value={dock ?? "none"} options={DOCK} onChange={setDock} />
+      {showX ? (
+        <SelectField id="areaHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, !dock && STRETCHES_WIDTH_IN_AREA.has(selectedObject.type))} onChange={(x) => set("x", x)} />
+      ) : null}
+      {showY ? (
+        <SelectField id="areaVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, !dock && STRETCHES_HEIGHT_IN_AREA.has(selectedObject.type))} onChange={(y) => set("y", y)} />
+      ) : null}
+      <FieldNote>
+        {dock
+          ? "The area places it along its edge, inside its padding, in the order of the object list."
+          : "When the free area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both."}
+      </FieldNote>
     </PropertySection>
   )
 }

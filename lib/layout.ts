@@ -19,6 +19,7 @@ import { formatValue, liveTextSegments, type LiveValue, type Result } from "@/li
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
+import { dockFree } from "@/lib/dock"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
 // stacks, the grid and the spacer of layout Tasks 1-12 and the old tables
@@ -209,8 +210,15 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
   // A table put together by snapping: what it holds laid out first (a
   // switcher's panels, a free area's tables), then placed in its cells.
-  if (isSnapTable(obj)) return arrangeSnapTable({ ...obj, children: layoutObjects(obj.children ?? [], scale) }, scale)
+  // A free area in a cell may have been given a new size there: what it
+  // docks is placed again (lib/dock.ts).
+  if (isSnapTable(obj)) {
+    const arranged = arrangeSnapTable({ ...obj, children: layoutObjects(obj.children ?? [], scale) }, scale)
+    return { ...arranged, children: (arranged.children ?? []).map((child) => (child.type === "free" ? dockFree(child, scale) : child)) }
+  }
   if (!obj.children || obj.children.length === 0) return obj
+  // A free area places what is docked in it once what it holds is laid out.
+  if (obj.type === "free") return dockFree({ ...obj, children: layoutObjects(obj.children, scale) }, scale)
   return { ...obj, children: layoutObjects(obj.children, scale) }
 }
 

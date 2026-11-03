@@ -207,7 +207,9 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
       const lowest = Math.min(obj.zIndex, ...(obj.children ?? []).map((child) => child.zIndex))
       out.push({ ...background, zIndex: lowest - 1 })
     }
-    out.push(...dissolveContainerList((obj.children ?? []).map((child) => translateObject(child, obj.x, obj.y))))
+    // What its docking left no room for is not exported (lib/dock.ts).
+    const kept = (obj.children ?? []).filter((child) => !child.properties?.dockedOut)
+    out.push(...dissolveContainerList(kept.map((child) => translateObject(child, obj.x, obj.y))))
   }
   return out
 }

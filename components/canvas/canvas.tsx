@@ -2544,6 +2544,18 @@ export function Canvas({
         for (const child of sortChildrenByZIndex(obj.children ?? [])) {
           const childSelected = !previewMode && selectedObjectIds.includes(child.id)
           const childHovered = !previewMode && child.id === hoveredObjectId && !childSelected
+          // Docking left it no room (lib/dock.ts): not on the device, so not
+          // in the preview; in the editor an outline, to find it by.
+          if (child.properties?.dockedOut) {
+            if (previewMode) continue
+            ctx.save()
+            ctx.strokeStyle = childSelected ? "#2563eb" : "#9ca3af"
+            ctx.lineWidth = 1 / zoom
+            ctx.setLineDash([3 / zoom, 3 / zoom])
+            ctx.strokeRect(Math.round(child.x) + 0.5, Math.round(child.y) + 0.5, Math.round(child.width) - 1, Math.round(child.height) - 1)
+            ctx.restore()
+            continue
+          }
           drawObject(ctx, child, childSelected, childHovered, zoom, placeholders)
         }
         ctx.restore()

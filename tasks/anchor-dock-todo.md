@@ -58,14 +58,20 @@ section «Position» with Horizontal and Vertical on an area's objects.
 docked objects cut to the room left or left out (plan, «clipping»).
 
 **Acceptance criteria:**
-- [ ] The spec's «Open» answered with the plan's clipping rule
-- [ ] Top/Bottom/Left/Right/Fill in list order, 1.5 mm between, inside the padding; across the dock stretched where the object can, else by its Horizontal/Vertical; a table docked Top stretched like a switcher's panel
-- [ ] Too little room: cut along the dock, or left out of export and preview and outlined in the editor
-- [ ] Padding field on the area; Dock in «Position»; Frame of a docked object greyed, the docked axis' Horizontal/Vertical hidden; the dock mark in the object list
-- [ ] The spec's card by hand: heading docked Top, table Fill, area dragged and stretched in a cell - shown to the user
-- [ ] Handbook `objekte/anordnen.md`: Padding, Dock, the example of a heading and a table
+- [x] The spec's «Open» answered with the plan's clipping rule
+- [x] Top/Bottom/Left/Right/Fill in list order, 1.5 mm between, inside the padding; across the dock stretched where the object can, else by its Horizontal/Vertical; a table docked Top stretched like a switcher's panel
+- [x] Too little room: cut along the dock, or left out of export and preview and outlined in the editor
+- [x] Padding field on the area; Dock in «Position»; Frame of a docked object greyed, the docked axis' Horizontal/Vertical hidden; the dock mark in the object list
+- [x] The spec's card by hand: heading docked Top, table Fill, area dragged and stretched in a cell - shown to the user
+- [x] Handbook `objekte/anordnen.md`: Padding, Dock, the example of a heading and a table
 
 **Verification:** `e2e/anchor-dock.spec.ts` (dockFree, clipping, layout twice equal), `e2e/anchor-dock-canvas.spec.ts` (Dock in the panel, mark, greyed Frame), an export test that the left-out object is not in the device's project; `npm run test:quick`
+
+- [x] `npm run test:quick` 2026-11-03: host 2100 passed, every board green but 4v3b-internal-heap (red as always)
+
+**Done:** `lib/dock.ts` (`dockFree`, `dockSets`); the layout pass docks after every change, free areas in cells included; export (`lib/object-groups.ts`) and preview (`lib/render-screen.ts`, canvas) leave out what has no room, the editor draws it as a dashed outline. Frame locks only what docking sets, so a heading docked Top keeps its own height (first built locking all four - changed on the way). The card by hand: `e2e/anchor-dock-card.spec.ts`, on the round 24-bit fixture (the combined test project is 1-bit, where Panel is white), screenshots shown to the user. Left: while a docked object is cut for lack of room, a new height typed into Frame takes effect only once there is room again.
+
+**Found on the way:** the user, seeing a label with a fill docked at the top of a round free area, asked for the round corners to clip it. No device can (the area is dissolved on export; the colour boards clip to rectangles) - added as module `card-clip` to docs/2026-11-03-cards.md, its own firmware release.
 
 **Dependencies:** Task 2
 **Files likely touched:** `lib/anchor.ts`, `lib/layout.ts`, `lib/object-groups.ts` (export leaves out), `components/property-panel/free-area-properties.tsx`, the object list component, `handbuch/objekte/anordnen.md`

@@ -77,6 +77,8 @@ interface DropTarget {
 // How close to the list's edge a drag starts scrolling it, and how long a
 // closed container must be held over before it opens.
 const SCROLL_EDGE_PX = 32
+// The mark on a docked object's row, by its dock.
+const DOCK_MARKS: Record<string, string> = { top: "⤒ Top", bottom: "⤓ Bottom", left: "⇤ Left", right: "⇥ Right", fill: "▣ Fill" }
 const HOVER_OPEN_MS = 600
 
 // A layers-panel-style tree: frontmost object at the top (matches zIndex
@@ -331,6 +333,13 @@ export function ObjectTreePanel({
           <GripVertical className="w-3 h-3 shrink-0 text-muted-foreground/40" />
           <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{getObjectLabel(obj)}</span>
+          {/* Docked in its free area (lib/dock.ts): the list's order is the
+              docking order, so the row says it is docked, and where. */}
+          {typeof obj.properties?.dock === "string" ? (
+            <span data-testid="dock-mark" title={`Docked: ${obj.properties.dock}`} className="shrink-0 rounded bg-muted px-1 text-[10px] leading-4 text-muted-foreground">
+              {DOCK_MARKS[obj.properties.dock] ?? obj.properties.dock}
+            </span>
+          ) : null}
           {/* Shown while locked, and on hover to lock: a row that always
               carried an open padlock would say nothing on every other row. */}
           <button

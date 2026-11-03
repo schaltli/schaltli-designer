@@ -3,7 +3,9 @@ import fs from "fs"
 import path from "path"
 import type { ScreenObject } from "../components/project-editor"
 import { arrangeSnapTable, takeOutOf } from "../lib/snap-table"
-import { layoutProject } from "../lib/layout"
+import { layoutProject, layoutObjects } from "../lib/layout"
+import { dockFree, dockSets } from "../lib/dock"
+import { dissolveGroups } from "../lib/object-groups"
 import { migrateProject } from "../lib/object-types"
 import { areaAnchorOf, cellAnchorOf, migrateCellAnchor, offsetIn, resizeFree, withUpdates } from "../lib/anchor"
 
@@ -183,5 +185,101 @@ test.describe("anchor: in a free area", () => {
     const out = takeOutOf(once, "area")
     expect(out.taken.width).toBe(100)
     expect(kid(out.taken, "rb").x).toBe(70)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 3: Padding and Dock.
+
+// At 5 px/mm: padding 2 mm is 10 px, the gap 1.5 mm is 8 px.
+const PAD = 10
+const G = Math.round(1.5 * SCALE.pixelsPerMm)
+// zIndex decides the list's order: the highest stands at the top of the list
+// and docks first.
+const docked = (id: string, type: string, w: number, h: number, dock: string, z: number, extra: Record<string, any> = {}): ScreenObject =>
+  ({ id, type, x: 0, y: 0, width: w, height: h, zIndex: z, properties: { dock, ...extra } }) as ScreenObject
+const card = (children: ScreenObject[], width = 200, height = 120) =>
+  ({ ...obj("card", "free", 0, 0, width, height, { padding: 2 }), children }) as ScreenObject
+
+test.describe("dock: in a free area", () => {
+  test("Top, Bottom, Left, Right and Fill in the list's order, inside the padding, the gap between", () => {
+    const a = dockFree(
+      card([
+        docked("head", "box", 40, 20, "top", 5),
+        docked("foot", "box", 40, 10, "bottom", 4),
+        docked("side", "box", 30, 40, "left", 3),
+        docked("east", "box", 20, 40, "right", 2),
+        docked("body", "box", 10, 10, "fill", 1),
+      ]),
+      SCALE,
+    )
+    const inner = 200 - 2 * PAD
+    expect(at(kid(a, "head"))).toEqual([PAD, PAD, inner, 20])
+    expect(at(kid(a, "foot"))).toEqual([PAD, 120 - PAD - 10, inner, 10])
+    const top = PAD + 20 + G
+    const height = 120 - PAD - 10 - G - top
+    expect(at(kid(a, "side"))).toEqual([PAD, top, 30, height])
+    expect(at(kid(a, "east"))).toEqual([200 - PAD - 20, top, 20, height])
+    expect(at(kid(a, "body"))).toEqual([PAD + 30 + G, top, inner - 30 - 20 - 2 * G, height])
+  })
+
+  test("across the dock an object that cannot stretch stands by its Horizontal; a text spans; a table is stretched", () => {
+    const icon = docked("icon", "icon", 16, 16, "top", 3, { anchor: { x: "right" } })
+    const text = docked("title", "text", 30, 18, "top", 2, { text: "Batterie" })
+    const t = { ...docked("grid", "table", 1, 1, "top", 1, { grid: 1, columns: [{}, {}], rows: [{}] }), children: [
+      { ...obj("l", "box", 0, 0, 20, 10), properties: { cell: { row: 0, column: 0 } } },
+      { ...obj("r", "box", 0, 0, 20, 10), properties: { cell: { row: 0, column: 1, anchor: { x: "stretch" } } } },
+    ] } as ScreenObject
+    const a = dockFree(card([icon, text, t]), SCALE)
+    expect(at(kid(a, "icon"))).toEqual([200 - PAD - 16, PAD, 16, 16])
+    expect(kid(a, "title").width).toBe(200 - 2 * PAD)
+    expect(kid(a, "grid").width).toBe(200 - 2 * PAD)
+  })
+
+  test("too little room: what can be cut is cut along the dock, what cannot is left out of export and preview", () => {
+    const a = dockFree(
+      card([docked("head", "text", 50, 18, "top", 3, { text: "Kopf" }), docked("big", "box", 50, 200, "top", 2), docked("late", "text", 50, 18, "top", 1, { text: "Rest" })], 200, 60),
+      SCALE,
+    )
+    // The box is cut to what is left; the text after it has no room and is left out.
+    expect(kid(a, "big").height).toBe(60 - 2 * PAD - 18 - G)
+    expect(kid(a, "big").properties!.ownSize).toEqual({ width: 50, height: 200 })
+    expect(kid(a, "late").properties!.dockedOut).toBe(true)
+    expect(kid(a, "head").properties!.dockedOut).toBeUndefined()
+    const exported = dissolveGroups([a]).map((o) => o.id)
+    expect(exported).toContain("big")
+    expect(exported).not.toContain("late")
+    // Made larger again, the box has its own height back and the text is in.
+    const larger = dockFree({ ...a, height: 400 }, SCALE)
+    expect(kid(larger, "big").height).toBe(200)
+    expect(kid(larger, "big").properties!.ownSize).toEqual({ width: 50 })
+    expect(kid(larger, "late").properties).not.toHaveProperty("dockedOut")
+  })
+
+  test("undocked, an object has its own size back; docking again and laying out twice changes nothing", () => {
+    const a = dockFree(card([docked("head", "box", 40, 20, "top", 1)]), SCALE)
+    expect(kid(a, "head").properties!.ownSize).toEqual({ width: 40 })
+    const { dock: _d, ...rest } = kid(a, "head").properties!
+    const freed = dockFree({ ...a, children: [{ ...kid(a, "head"), properties: rest }] }, SCALE)
+    expect([kid(freed, "head").width, kid(freed, "head").height]).toEqual([40, 20])
+    expect(kid(freed, "head").properties).toEqual({})
+    expect(dockFree(a, SCALE)).toEqual(a)
+    const once = layoutObjects([card([docked("head", "box", 40, 20, "top", 2), docked("body", "box", 10, 10, "fill", 1)])], SCALE)
+    expect(layoutObjects(once, SCALE)).toEqual(once)
+  })
+
+  test("a resized area docks again; anchors leave docked objects to the dock", () => {
+    const a = dockFree(card([docked("head", "box", 40, 20, "top", 1), obj("free", "box", 150, 90, 20, 10, { anchor: { x: "right" } })]), SCALE)
+    const wider = layoutObjects([withUpdates(a, { width: 300 })], SCALE)[0]
+    expect(kid(wider, "head").width).toBe(300 - 2 * PAD)
+    expect(kid(wider, "free").x).toBe(250)
+  })
+
+  test("what docking sets of the frame: x and y, and the size across where it stretches", () => {
+    expect(dockSets(docked("b", "box", 1, 1, "top", 0))).toEqual(["x", "y", "width"])
+    expect(dockSets(docked("i", "icon", 1, 1, "top", 0))).toEqual(["x", "y"])
+    expect(dockSets(docked("b", "box", 1, 1, "fill", 0))).toEqual(["x", "y", "width", "height"])
+    expect(dockSets(docked("b", "box", 1, 1, "left", 0))).toEqual(["x", "y", "height"])
+    expect(dockSets(obj("b", "box", 0, 0, 1, 1))).toEqual([])
   })
 })
