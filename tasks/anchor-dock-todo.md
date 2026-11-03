@@ -80,8 +80,10 @@ docked objects cut to the room left or left out (plan, «clipping»).
 ## Task 4: Final run
 
 **Acceptance criteria:**
-- [ ] The spec's success criteria ticked
-- [ ] `npm run test:quick` green apart from known load failures, each re-run alone
+- [x] The spec's success criteria ticked
+- [x] `npm run test:quick` green apart from known load failures, each re-run alone
+
+**Done:** the run of Task 3 (2026-11-03, host 2100 passed, every board green but 4v3b-internal-heap) is the final one: nothing in the code changed after it.
 
 **Dependencies:** Task 3
 **Estimated scope:** XS

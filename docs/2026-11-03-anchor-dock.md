@@ -1,7 +1,7 @@
 # Anchor and Dock
 
 Spec for module `anchor-dock` of docs/2026-11-03-cards.md, drafted
-2026-11-03. **Status: approved by the user on 2026-11-03.**
+2026-11-03. **Status: approved by the user on 2026-11-03; built 2026-11-03 (tasks/anchor-dock-todo.md).**
 
 ## Objective
 
@@ -214,18 +214,18 @@ Padding, Dock, with a small example: a heading at the top, a table below);
 
 ## Success criteria
 
-- [ ] In a cell, Horizontal/Vertical place an object exactly as
+- [x] In a cell, Horizontal/Vertical place an object exactly as
       Align/Vertical align/Fill did; Align and Fill are gone from the panel.
-- [ ] A project saved before this opens with every object at the same
+- [x] A project saved before this opens with every object at the same
       pixels (migration test).
-- [ ] Resizing a free area keeps Right/Bottom objects at their distance to
+- [x] Resizing a free area keeps Right/Bottom objects at their distance to
       that edge, Center/Middle at their offset from the centre, stretches
       Stretch objects, and leaves Left/Top ones.
-- [ ] A free area with Padding, a text docked Top and a table docked Fill
+- [x] A free area with Padding, a text docked Top and a table docked Fill
       keeps both in place when dragged larger or smaller, and when it
       stretches in a cell.
-- [ ] Export unchanged in form: devices get placed objects and the area's box.
-- [ ] Handbook updated, `test:quick` green apart from known load failures.
+- [x] Export unchanged in form: devices get placed objects and the area's box.
+- [x] Handbook updated, `test:quick` green apart from known load failures.
 
 ## Decided (the user, 2026-11-03)
 
