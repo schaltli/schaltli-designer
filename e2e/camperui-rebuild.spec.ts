@@ -56,6 +56,10 @@ test("each page drawn as the boards are compared against", async ({ page }) => {
     const data = String(png).replace(/^data:image\/png;base64,/, "")
     fs.writeFileSync(path.join(out, `${String(i).padStart(2, "0")}-${screen.name}.png`), Buffer.from(data, "base64"))
   }
+  // The project as a file, to put into the designer outside a test run:
+  // global-teardown deletes every project a run created, so CAMPERUI_PUSH
+  // alone does not keep it.
+  if (process.env.CAMPERUI_JSON) fs.writeFileSync(path.resolve(ROOT, process.env.CAMPERUI_JSON), JSON.stringify({ name: project.name, project }))
   if (process.env.CAMPERUI_PUSH) {
     // Created the first time, a new version after that.
     const exists = (await page.request.get(`/api/projects/${encodeURIComponent(project.name)}`)).ok()
