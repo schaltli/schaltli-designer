@@ -41,6 +41,7 @@ import { barLayout, clampScroll, cornerInset, dividerRect, entryRect, markerRect
 import { BACK_ARROW_ASSETS, entryLook, markerBox, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
 import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
+import { areaShape, clipCanvasTo, clipsContents } from "@/lib/clip"
 
 // The live-editing preview value for a topic: its first example, or a
 // placeholder when there's no topic/no examples/the example is blank after
@@ -548,6 +549,9 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           if (background) renderScreenObjects(ctx, [background], options)
         }
         ctx.save()
+        // Clipped to its shape inside its edge (docs/2026-11-03-card-clip.md),
+        // in the space it stands in; nested areas clip by both.
+        if (clipsContents(obj)) clipCanvasTo(ctx, areaShape(obj))
         ctx.translate(obj.x, obj.y)
         // What docking left no room for is not exported (lib/dock.ts).
         renderScreenObjects(ctx, (obj.children ?? []).filter((child) => !child.properties?.dockedOut), options)

@@ -62,6 +62,7 @@ import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
 import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 import { DeviceAddressLine } from "./device-address-line"
+import { clipFeature } from "@/lib/clip"
 
 interface DeployDialogProps {
   project: Project
@@ -712,11 +713,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const chartFeature = chartsFeature(project as any)
   // And two fingers, for a pinch gesture (decision 15).
   const pinch = pinchFeature(project as any)
+  // And a card that cuts what it holds to its round corners (docs/2026-11-03-card-clip.md).
+  const clip = clipFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, clip, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [
