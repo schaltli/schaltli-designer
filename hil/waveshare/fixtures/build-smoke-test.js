@@ -1151,10 +1151,12 @@ async function main() {
     (list || []).flatMap((o) => [o, ...alleObjekte(o.children)])
   const objects = exported.screens.flatMap((s) => alleObjekte(s.objects))
   const buttons = objects.filter((o) => o.type === "button")
-  const baked = buttons.filter((o) => o.pathNormal && o.pathActive)
+  // Since 2026-11-04 a button reaches the device as its look, not two
+  // pictures (designer docs/2026-11-04-native-buttons.md).
+  const baked = buttons.filter((o) => o.look && o.look.normal && o.look.pressed)
   console.log(`Wrote ${OUT_PATH} (${buf.length} bytes)`)
   console.log(`  ${exported.screens.length} screen(s), ${objects.length} object(s)`)
-  console.log(`  ${baked.length}/${buttons.length} SoftwareButton(s) carry a baked bitmap`)
+  console.log(`  ${baked.length}/${buttons.length} SoftwareButton(s) carry their look`)
   const shippedFonts = Object.keys(zip.files).filter((n) => n.startsWith("fonts/") && !zip.files[n].dir)
   console.log(`  ${shippedFonts.length} font file(s) in the zip (expected 0 - the device has its own)`)
   for (const s of exported.screens) {
@@ -1162,7 +1164,7 @@ async function main() {
     console.log(`  ${s.id}: ${actions.length} button action(s)${actions.length ? " - " + actions.join(", ") : ""}`)
   }
   if (baked.length !== buttons.length) {
-    console.error("a SoftwareButton came out without its bitmap - the device would draw nothing there")
+    console.error("a SoftwareButton came out without its look - the device would draw nothing there")
     process.exit(1)
   }
 

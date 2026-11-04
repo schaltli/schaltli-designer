@@ -684,45 +684,47 @@ const SPECIMENS = {
   // What is worth knowing is that the press was understood - that the device
   // found the object under the finger, worked out which segment or slot, and
   // sent that state's value.
+  // Three buttons in the square, one per style, since the board draws them
+  // itself (designer docs/2026-11-04-native-buttons.md): until then each was
+  // a picture the designer baked and the board only blitted. Filled - the
+  // one that is tapped - tonal with an icon, outlined; each photographed
+  // against the designer's render at 0 px like everything else.
   button: {
-    build: (c) => ({
-      taps: [
-        {
-          what: "the button",
-          x: c.wide.x + Math.round(c.wide.width / 2),
-          y: c.wide.y + Math.round(c.wide.height / 2),
-          topic: `${c.topicPrefix}/button`,
-          value: "pressed",
+    build: (c) => {
+      const gap = Math.round(c.square.height * 0.06);
+      const h = Math.round((c.square.height - 2 * gap) / 3);
+      const row = (i) => ({ x: c.square.x, y: c.square.y + i * (h + gap), width: c.square.width, height: h });
+      const first = row(0);
+      const button = (name, i, properties) => ({
+        id: c.id(name),
+        type: "button",
+        zIndex: 1,
+        ...row(i),
+        properties: {
+          buttonColor: c.colors.accent,
+          fontId: c.font("medium"),
+          action: { type: "send-mqtt", mqttTopic: `${c.topicPrefix}/${name}`, mqttMessage: "pressed" },
+          ...properties,
         },
-      ],
-      objects: [
-        {
-          id: c.id("button"),
-          type: "button",
-          zIndex: 1,
-          ...c.wide,
-          properties: {
-            text: "SENDEN",
-            // A Material 3 button since 2026-09-19 (designer
-            // docs/2026-09-19-button-look.md): a pill in one colour. Filled,
-            // so the label is the only thing on it besides the container.
-            // The square corners this specimen used to insist on - an
-            // anti-aliased curve surviving the bake differently on each side -
-            // are gone with the box; the bake is now drawn by the preview's own
-            // function (e2e/software-button-look.spec.ts holds the two equal),
-            // and the first run on glass says whether the 565 step agrees.
-            buttonStyle: "filled",
-            buttonColor: c.colors.accent,
-            fontId: c.font("medium"),
-            action: {
-              type: "send-mqtt",
-              mqttTopic: `${c.topicPrefix}/button`,
-              mqttMessage: "pressed",
-            },
+      });
+      return {
+        assets: [RING],
+        taps: [
+          {
+            what: "the button",
+            x: first.x + Math.round(first.width / 2),
+            y: first.y + Math.round(first.height / 2),
+            topic: `${c.topicPrefix}/button`,
+            value: "pressed",
           },
-        },
-      ],
-    }),
+        ],
+        objects: [
+          button("button", 0, { text: "SENDEN", buttonStyle: "filled" }),
+          button("button-tonal", 1, { text: "Pumpe", buttonStyle: "tonal", iconAssetId: RING.id }),
+          button("button-outlined", 2, { text: "Licht", buttonStyle: "outlined" }),
+        ],
+      };
+    },
   },
 
   // A text field (designer tasks/ha-text-plan.md): its container and the line
