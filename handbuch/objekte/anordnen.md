@@ -71,10 +71,10 @@ Ein Klick auf den Master setzt ihn an den linken Rand. Verschieben oder in der G
 - <span class="ui">Edge</span>: links, rechts, oben oder unten. Der Navigator füllt diese Kante ganz aus.
 - <span class="ui">Shows</span>: <span class="ui">Icons</span> oder <span class="ui">Icons and text</span>. Das Icon ist das Icon des Screens, der Text sein Name. Mit Text wird die Leiste breiter.
 - <span class="ui">Font</span>: die Schrift der Namen, nur bei <span class="ui">Icons and text</span>.
-- <span class="ui">Background</span>: <span class="ui">Panel</span> oder <span class="ui">Accent</span>, siehe unten.
+- <span class="ui">Background</span>: <span class="ui">Card</span> oder <span class="ui">Accent</span>, siehe unten.
 - <span class="ui">Theme switch</span>: <span class="ui">None</span>, <span class="ui">Near</span> oder <span class="ui">Far</span>. Ein Schalter zwischen hell und dunkel am Anfang (oben oder links) oder am Ende der Leiste.
 
-Die Farben kommen aus dem Theme. Mit <span class="ui">Panel</span> ist der Grund «Panel», eine Linie zum Screen hin «Outline», Icons und Namen «Text», der offene Eintrag «Accent» mit «Text on accent». Mit <span class="ui">Accent</span> steht die Leiste in der Akzentfarbe, Icons und Namen in «Text on accent», und der offene Eintrag ist umgekehrt: ein Kasten in der Farbe des Screens, Icon und Name in «Accent». Eine Linie braucht es dann nicht.
+Die Farben kommen aus dem Theme. Mit <span class="ui">Card</span> ist der Grund «Card», eine Linie zum Screen hin «Card border», Icons und Namen «Text», der offene Eintrag «Accent» mit «Text on accent». Mit <span class="ui">Accent</span> steht die Leiste in der Akzentfarbe, Icons und Namen in «Text on accent», und der offene Eintrag ist umgekehrt: ein Kasten in der Farbe des Screens, Icon und Name in «Accent». Eine Linie braucht es dann nicht.
 
 **Hell und dunkel:** Der Schalter ist ein Switch. Ist die Anlage hell, steht sein Knopf links und trägt eine Sonne, ist sie dunkel, steht er rechts und trägt einen Mond. Ein Tipp darauf schaltet um, auf allen Geräten. Er bleibt an seinem Platz, auch wenn du die Einträge daneben scrollst. In der Vorschau schaltet er auch die Ansicht um, wie der Schalter <span class="ui">Dark</span> unten rechts. Er braucht ein Gerät ab Systemgeneration 1.6; ein älteres Board bringt Deploy zuerst auf die aktuelle Firmware, eine ältere App musst du aktualisieren. Auf dem PaperS3 bleibt der Screen hell, ein Tipp schaltet aber die anderen Geräte um.
 

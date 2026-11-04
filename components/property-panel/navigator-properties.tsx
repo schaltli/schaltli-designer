@@ -32,7 +32,7 @@ const EDGES: { value: Edge; label: string }[] = [
 ]
 
 const GROUNDS: { value: "panel" | "accent"; label: string }[] = [
-  { value: "panel", label: "Panel" },
+  { value: "panel", label: "Card" },
   { value: "accent", label: "Accent" },
 ]
 
@@ -110,7 +110,7 @@ export function NavigatorProperties({
             }
             onUpdateObject(selectedObject.id, { properties })
           }}
-          hint="Panel with a line towards the screen, or the theme's accent with the open screen the other way round."
+          hint="Card with a line towards the screen, or the theme's accent with the open screen the other way round."
         />
         <SelectField
           id="navigatorThemeSwitch"
