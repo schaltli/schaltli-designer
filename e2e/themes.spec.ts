@@ -6,14 +6,14 @@ import JSZip from "jszip"
 import { loadProject, getMainCanvas, objectTreeRow, devicePoint, createProject, placingFreely, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { levelTrackLook } from "../lib/level-shape"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEME_STATE_TOPIC, THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
+import { THEME_STATE_TOPIC, THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, LEGACY_PALETTE, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
 import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
 import { applyColorDepth } from "../lib/color-depth"
 
 // Themes (docs/2026-09-24-themes-model.md): the catalogue, drawn with the
 // real renderers through app/test-render, and the promises the catalogue
-// makes - that "lavender" is today's palette, that every theme really draws,
+// makes - that the legacy palette is the one before themes, that every theme really draws,
 // that light and dark differ where a device can show it and are one where
 // it cannot.
 //
@@ -21,8 +21,11 @@ import { applyColorDepth } from "../lib/color-depth"
 // chooses the themes; it is a test so it cannot rot.
 
 test.describe("theme catalogue", () => {
-  test("lavender is today's creation palette, value for value", () => {
-    const lavender = THEMES.find((t) => t.id === "lavender")!
+  // Lavender itself has changed with the colour model (2026-11-04); the
+  // palette colours from before themes are matched against is Lavender as
+  // it was.
+  test("the legacy palette is the creation palette before themes, value for value", () => {
+    const lavender = LEGACY_PALETTE
     const today = controlPalette("24bit")
     expect(lavender.light.surface).toBe(today.background)
     expect(lavender.light.outline).toBe(today.border)
@@ -639,8 +642,8 @@ test.describe("roles at creation and on loading", () => {
     return out
   }
 
-  test("the creation palette is roles, and draws what the old palette drew", () => {
-    const lavender = THEMES.find((t) => t.id === "lavender")!
+  test("the creation palette is roles, and against the legacy palette draws what the old palette drew", () => {
+    const lavender = LEGACY_PALETTE
     const old = controlPalette("24bit")
     for (const key of ["background", "border", "text", "textOnFill", "stroke", "fill", "accent"] as const) {
       const role = ROLE_PALETTE[key]
@@ -675,21 +678,27 @@ test.describe("roles at creation and on loading", () => {
     expect(() => migrateColorsToRoles(project)).toThrow(/obj-7/)
   })
 
-  test("an object created with default colours exports exactly as before themes", async ({ page }) => {
-    // The 24-bit fixture's colours are the old defaults. Exported before and
-    // after migration, the device sees the same colours.
-    const raw = await readProject("test-projects/switch-test-project.zip")
-    const migrated = migrateProject(structuredClone(raw))
-    await page.goto("/test-render")
-    await page.waitForFunction(() => (window as any).__testRenderReady === true)
-    const exported = async (project: any) => {
-      const base64: string = await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), project)
-      const json = JSON.parse(await (await JSZip.loadAsync(Buffer.from(base64, "base64"))).file("project.json")!.async("string"))
-      return colourValues(json.screens)
-        .filter(({ key }) => ["color", "backgroundColor", "borderColor", "fillColor", "strokeColor", "textColor", "buttonColor", "switchColor", "iconColor"].includes(key))
-        .map(({ key, value }) => `${key}=${value.toLowerCase()}`)
-    }
-    expect(await exported(migrated)).toEqual(await exported(raw))
+  test("an object created with default colours gets the roles those colours were", () => {
+    // The 24-bit fixture's colours are the old defaults. Its roles, resolved
+    // against the legacy palette, are the colours it had; on a device it now
+    // shows Lavender as it is since the colour model (2026-11-04).
+    return readProject("test-projects/switch-test-project.zip").then((raw) => {
+      const migrated = migrateProject(structuredClone(raw))
+      const KEYS = ["color", "backgroundColor", "borderColor", "fillColor", "strokeColor", "textColor", "buttonColor", "switchColor", "iconColor"]
+      // Only the colours the file set: a colour it left unset is drawn in
+      // its default role, which the old palette did not know.
+      const rawObjects = raw.screens.flatMap((s: any) => s.objects ?? [])
+      const resolved = migrated.screens.flatMap((s: any) => applyTheme(s.objects ?? [], LEGACY_PALETTE, "light", "24bit"))
+      const pairs = rawObjects.flatMap((o: any, i: number) =>
+        KEYS.filter((k) => typeof o.properties?.[k] === "string" && o.properties[k].startsWith("#")).map((k) => ({
+          at: `${o.id}.${k}`,
+          was: o.properties[k].toLowerCase(),
+          now: String(resolved[i].properties[k]).toLowerCase(),
+        })),
+      )
+      expect(pairs.length).toBeGreaterThan(0)
+      for (const { at, was, now } of pairs) expect(now, at).toBe(was)
+    })
   })
 
   test("a hand-picked colour lands on the nearest role", () => {
@@ -1018,13 +1027,13 @@ test.describe("themes by colour depth", () => {
 // surface mixed to before, so an LCD looks as it did; they have no edge.
 // Paper has a light track inside a black edge.
 test.describe("the track roles", () => {
-  test("the colour themes keep the track they had, and no edge", () => {
-    // Slate's track is CamperUI's own since 2026-11-04: recessed, darker
-    // than the card in dark, not half its accent.
-    for (const theme of themesFor("24bit").filter((t) => t.id !== "slate")) {
+  test("the colour themes have a track of their own apart from the card, and no edge", () => {
+    // Since the colour model (2026-11-04) the track is no longer half the
+    // accent: a quiet grey of the ground, darker than the card in dark.
+    for (const theme of themesFor("24bit")) {
       for (const variant of ["light", "dark"] as const) {
-        const { accent, surface, track, trackEdge } = theme[variant]
-        expect(track, `${theme.id} ${variant}`).toBe(levelTrackLook(accent, surface, "24bit").track)
+        const { panel, track, trackEdge } = theme[variant]
+        expect(track, `${theme.id} ${variant}`).not.toBe(panel)
         expect(trackEdge, `${theme.id} ${variant}`).toBe("transparent")
       }
     }
@@ -1038,7 +1047,7 @@ test.describe("the track roles", () => {
       fillColor: "#000000", trackColor: "#dddddd", trackEdgeColor: "#000000",
     })
     expect(applyTheme(level, lavender, "light", "24bit")[0].properties).toMatchObject({
-      trackColor: "#b3a8d2", trackEdgeColor: "transparent",
+      trackColor: "#dcd8e8", trackEdgeColor: "transparent",
     })
   })
 

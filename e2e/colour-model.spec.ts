@@ -68,6 +68,42 @@ test.describe("the colour model", () => {
     expect(LEGACY_THEME_ID).toBe("lavender")
   })
 
+  test("the other colour themes after the user's choice: cards on a tinted ground, four distinct colours", () => {
+    // The proposal of 2026-11-04 (tasks/colour-model-plan.md T3), taken as it was.
+    const hue = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+      if (d === 0) return 0
+      const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+      return (h * 60 + 360) % 360
+    }
+    const apart = (a: string, b: string) => Math.min(Math.abs(hue(a) - hue(b)), 360 - Math.abs(hue(a) - hue(b)))
+    for (const theme of THEMES.filter((t) => t.id !== "paper")) {
+      expect(theme.light.panel, `${theme.id} light card`).toBe("#ffffff")
+      expect(theme.light.surface, `${theme.id} light ground`).not.toBe("#ffffff")
+      // Slate's are CamperUI's own, sky and cyan side by side.
+      if (theme.id === "slate") continue
+      for (const variant of ["light", "dark"] as const) {
+        const v = theme[variant]
+        const colours = [v.accent, v.accentAlt, v.accent3, v.accent4]
+        for (let i = 0; i < colours.length; i++)
+          for (let j = i + 1; j < colours.length; j++)
+            expect(apart(colours[i], colours[j]), `${theme.id} ${variant} ${colours[i]} ${colours[j]}`).toBeGreaterThan(25)
+      }
+    }
+    expect(themeById("lavender").light).toMatchObject({ surface: "#f6f5fa", accent: "#6750a4", accentAlt: "#db2777", accent3: "#0d9488", accent4: "#d97706" })
+    expect(themeById("garden").dark).toMatchObject({ surface: "#121411", accent: "#a4dd3a", accentAlt: "#4fb3d4", accent3: "#fb923c", accent4: "#e879f9" })
+  })
+
+  test("a colour from before themes becomes the role it always did, though Lavender changed", () => {
+    const project = {
+      settings: { colorDepth: "24bit" },
+      screens: [{ id: "s", objects: [{ id: "b", type: "box", properties: { fillColor: "#e5e5e5", strokeColor: "#cccccc" } }, { id: "t", type: "text", properties: { color: "#6750A4" } }] }],
+    }
+    migrateColorsToRoles(project)
+    expect(project.screens[0].objects.map((o) => o.properties)).toEqual([{ fillColor: "panel", strokeColor: "outline" }, { color: "accent" }])
+  })
+
   test("a colour from before themes is never matched to one of the new roles", () => {
     // Emerald, cyan, violet, yellow, red: each exactly a new role's in Slate,
     // and still matched to a role an old project could have meant.

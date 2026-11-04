@@ -22,7 +22,7 @@ Meldet sich ein Gerät beim Broker, aber seine Beschreibung kommt nicht beim Des
 
 Dann gibst du dem Projekt einen Namen. <span class="ui">Create Project</span> speichert es und öffnet es im Editor. Ist der Name schon vergeben, sagt der Dialog das und legt nichts an. <span class="ui">Back</span> führt zurück zur Geräteauswahl.
 
-Ein neues Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Lavender und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
+Ein neues Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Slate (auf dem PaperS3 Paper) und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
 
 Über das Feld <span class="ui">Add</span> in der Geräteauswahl fügst du ein Gerät hinzu, dessen Beschreibung (eine `.ddf.zip`-Datei) im Internet liegt.
 

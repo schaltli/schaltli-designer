@@ -6,7 +6,7 @@ Farben wählst du im Designer nicht einzeln. Jeder Screen hat ein Theme, und jed
 
 Der Designer bringt acht farbige Themes mit: Lavender, Schaltli, Slate, Forest, Ocean, Amber, Terracotta und Garden. Jedes gibt es hell und dunkel. Dazu kommt Paper, schwarz auf weiss, gemacht für die 16 Graustufen des [PaperS3](/geraete/papers3). Die Themes lassen sich nicht bearbeiten.
 
-Welche Themes du siehst, hängt vom Gerät ab. Ein Gerät mit Farbdisplay bekommt die acht farbigen. Neue Master fangen dort seit November 2026 mit Slate an, vorher mit Lavender. Slate hat einen ruhigen, neutralen Grund und darauf vier deutlich verschiedene Farben. Der PaperS3 bekommt nur Paper: In Graustufen sähen die farbigen Themes fast gleich aus, und ihre Balken wären ein blasses Grau. Ein Screen, der schon ein anderes Theme hat, etwa nach einem Gerätewechsel, behält es, bis du ein anderes wählst.
+Welche Themes du siehst, hängt vom Gerät ab. Ein Gerät mit Farbdisplay bekommt die acht farbigen. Neue Master fangen dort seit November 2026 mit Slate an, vorher mit Lavender. Seither sind alle farbigen Themes gleich aufgebaut. Der Grund ist ruhig, bei Slate neutral, bei den anderen leicht in ihre Farbe getönt. Im hellen Theme liegen weisse Karten darauf. Die Farbe des Themes ist der Accent, daneben gibt es drei Farben mit deutlich anderem Ton. Der PaperS3 bekommt nur Paper: In Graustufen sähen die farbigen Themes fast gleich aus, und ihre Balken wären ein blasses Grau. Ein Screen, der schon ein anderes Theme hat, etwa nach einem Gerätewechsel, behält es, bis du ein anderes wählst.
 
 ## Master und Screen
 
@@ -37,7 +37,7 @@ Unter <span class="ui">Colour</span> wählt jedes Objekt für jede seiner Farben
 | <span class="ui">Track</span> | der leere Teil von Bar, Slider, Gauge und Dial |
 | <span class="ui">Track edge</span> | ein Rand um diesen leeren Teil, 2 Pixel breit. Die farbigen Themes haben keinen, Paper einen schwarzen |
 
-Bis November 2026 hiessen einige Rollen anders: Surface, Panel, Outline, Muted text und Second accent. Ein Projekt behält seine Farben, nur die Namen sind neu. Dazugekommen sind Accent 3, Accent 4 und die drei Zustände. In allen Themes ausser Slate sind deren Farben vorläufig.
+Bis November 2026 hiessen einige Rollen anders: Surface, Panel, Outline, Muted text und Second accent. Die Objekte eines Projekts behalten ihre Rollen, nur die Namen sind neu. Dazugekommen sind Accent 3, Accent 4 und die drei Zustände. Zur selben Zeit haben alle farbigen Themes ausser Slate neue Farben bekommen. Ein Projekt in einem dieser Themes sieht seither anders aus.
 
 Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sein darf, und beim Icon <span class="ui">Icon's own color</span> für die Farben, die das Icon selbst hat. Neue Objekte bekommen die Rolle, die zu ihnen passt: Text die Rolle Text, eine Bar den Akzent. Eine neue Beschriftung hat keinen Hintergrund und keinen Rahmen.
 
@@ -65,4 +65,4 @@ Der [PaperS3](/geraete/papers3) hat nur eine Variante, die helle, auf die Farben
 
 ## Ältere Projekte
 
-Ein Projekt aus der Zeit vor den Themes öffnet der Designer mit dem Theme Lavender. Jede Farbe darin wird zu der Rolle, die ihr am nächsten kommt. Objekte mit den früheren Standardfarben sehen danach aus wie vorher, eine selbst gewählte Farbe wird zur nächsten Rolle. Screens ohne Master bekommen einen, mit ausgeschaltetem <span class="ui">Show master</span>, damit sich an ihnen sonst nichts ändert. Beim nächsten Speichern ist das Projekt umgestellt.
+Ein Projekt aus der Zeit vor den Themes öffnet der Designer mit dem Theme Lavender. Jede Farbe darin wird zu der Rolle, die ihr am nächsten kommt. Eine der früheren Standardfarben wird zu der Rolle, für die sie stand, eine selbst gewählte Farbe zur nächsten Rolle. Danach sehen die Objekte aus wie in Lavender heute, nicht mehr genau wie früher. Screens ohne Master bekommen einen, mit ausgeschaltetem <span class="ui">Show master</span>, damit sich an ihnen sonst nichts ändert. Beim nächsten Speichern ist das Projekt umgestellt.

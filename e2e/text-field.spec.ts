@@ -220,8 +220,8 @@ test.describe("the Text field in the designer", () => {
         return "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")
       }, [point.x, point.y])
     }
-    // Lavender, light (lib/themes.ts): Panel #e5e5e5, Accent #6750a4.
-    await expect.poll(() => colourAt(FIELD.x + FIELD.width - 20, FIELD.y + 10)).toBe("#e5e5e5")
+    // Lavender, light (lib/themes.ts): Panel #ffffff, Accent #6750a4.
+    await expect.poll(() => colourAt(FIELD.x + FIELD.width - 20, FIELD.y + 10)).toBe("#ffffff")
     expect(await colourAt(FIELD.x + FIELD.width / 2, FIELD.y + FIELD.height - 1)).toBe("#6750a4")
   })
 })
@@ -284,9 +284,9 @@ test.describe("the Text field in the exports", () => {
         maxLength: 20,
         hidden: true,
         // Lavender (lib/themes.ts): Panel, Accent, Text - and their darks.
-        fieldColor: "#e5e5e5",
-        lineColor: "#6750A4",
-        textColor: "#000000",
+        fieldColor: "#ffffff",
+        lineColor: "#6750a4",
+        textColor: "#1c1b1f",
       })
       expect(field.properties.fieldColorDark).toMatch(/^#[0-9a-f]{6}$/i)
       expect(field.properties.lineColorDark).toMatch(/^#[0-9a-f]{6}$/i)

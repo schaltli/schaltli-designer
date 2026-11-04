@@ -39,7 +39,7 @@ rest.
 - **T2 Slate and the default**: values, new masters in Slate, old files
   still Lavender. Verify: themes spec, a new project's master is Slate, an
   unmigrated file's master Lavender.
-- **T3 proposal page** for the other themes' values (artifact), the user
+- **T3 proposal page** (done 2026-11-04: all accepted; Schaltli keeps ink on orange) for the other themes' values (artifact), the user
   chooses; then built.
 - **T4 handbook** `designer/themes.md` (Rollen, Die Themes), screenshots;
   `test:quick`.
