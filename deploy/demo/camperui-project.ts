@@ -7,15 +7,14 @@
 // draw what CamperUI draws. The pictures it is held to are in the artifact
 // «CamperUI im Vergleich» (read off the 4" on 2026-11-01).
 //
+// Built anew on 2026-11-04 (the user): every page laid out by tables, the
+// cards with the project's card look, every colour a role of the Slate theme.
+//
 // Every value comes from the VanPi bridge (integrations/vanpi/bridge-logic.js,
 // schaltli/state/...), except where the van has no such value yet: the
 // chargers (as the author's van has them, ble/charger and ble/orion), what
 // draws (van/energy/consumers_watts) and the time of day (van/clock/time) -
 // see GAPS below.
-//
-// Colours are CamperUI's own, written as colours rather than theme roles:
-// CamperUI is always dark, so the rebuild is too, whatever light or dark the
-// bridge says.
 
 import { parseDeviceDescriptionFile, deviceDescriptionToProjectFields } from "@/lib/device-description"
 import { declaresTouch } from "@/lib/object-types"
@@ -35,23 +34,6 @@ export const GAPS = [
   "Auswahlliste «Heizen (Temp)»: Schaltli hat keine Ausklappliste; hier als Knopfgruppe.",
   "Name auf einem Schalter: das Label eines Zustands ist fester Text, der Name aus Pekaway kommt nicht hinein.",
 ]
-
-// CamperUI's colours (read off its screens).
-const BG = "#0f1217"
-const HEADER = "#13161c"
-const CARD = "#1b1e24"
-const EDGE = "#2a2e36"
-const TEXT = "#f3f5f7"
-const MUTED = "#8b95a5"
-const BLUE = "#0ea5e9"
-const ORANGE = "#f59e0b"
-const GREEN = "#22c55e"
-const PURPLE = "#a855f7"
-const RED = "#ef4444"
-const CYAN = "#14b8d6"
-const GREY = "#7d8a9a"
-const TRACK = "#121a1c"
-const KHAKI = "#b8a27a"
 
 // In the seven text sizes since 2026-11-04 (docs/2026-11-04-text-sizes-and-
 // colours.md), set by the designer's own rule (lib/size-scale.ts) in the
@@ -147,16 +129,43 @@ const TOPICS = [
 let next = 1
 const id = (what: string) => `obj-${what}-${next++}`
 
+// ---- Colours: the Slate theme's roles ----
+
+// CamperUI's colours as roles of Slate (lib/themes.ts), the theme made after
+// CamperUI's model: its master names Slate, and no colour is a hex. Until
+// 2026-11-04 the rebuild wrote CamperUI's hex values and named no theme; the
+// designer took it for a project from before themes and matched every hex to
+// the nearest role of the old Lavender (migrateColorsToRoles), so it opened
+// in Lavender's purples. With roles it is CamperUI's dark on a dark installation
+// and Slate's light on a light one.
+const BG = "surface"
+const CARD = "panel"
+const EDGE = "outline"
+const TEXT = "text"
+const MUTED = "textMuted"
+const BLUE = "accent"
+const ORANGE = "accentAlt"
+const CYAN = "accent3"
+const PURPLE = "accent4"
+const GREEN = "good"
+const RED = "alarm"
+const TRACK = "track"
+
+// Pixels on the 4" in mm, for the tables' gaps, widths and rows: set from
+// the device's description before any page is built.
+let PX_PER_MM = 6.73
+const mm = (px: number) => Math.round((px / PX_PER_MM) * 1000) / 1000
+
 const NONE = { kind: "text", parts: ["–"] }
 const VALUE = { value: true }
 
-/** A text, in one of the four sizes, its colour and alignment; `live` binds {live:…} parts. */
-function text(x: number, y: number, width: number, height: number, content: string, font: Size, color: string, align = "left", live: any[] = []) {
+/** A text in one of the sizes, its colour and alignment; `live` binds {live:…} parts. */
+function text(width: number, height: number, content: string, font: Size, color: string, align = "left", live: any[] = []) {
   return {
     id: id("text"),
     type: "text",
-    x,
-    y,
+    x: 0,
+    y: 0,
     width,
     height,
     zIndex: next,
@@ -185,27 +194,12 @@ function plain(lvId: string, path: string) {
   return { id: lvId, source: { namespace: "topic", path }, rules: [], noValueYet: NONE }
 }
 
-/** A card: CamperUI's panel - a shade off the screen, a thin edge, round corners - holding `children` at its own 0,0. */
-function card(x: number, y: number, width: number, height: number, children: any[], edge = EDGE, radius = 10) {
-  return {
-    id: id("card"),
-    type: "free",
-    x,
-    y,
-    width,
-    height,
-    zIndex: next,
-    properties: { fillColor: CARD, strokeColor: edge, strokeWidth: 1, cornerRadius: radius, clipContents: true },
-    children,
-  }
-}
-
-function icon(x: number, y: number, size: number, asset: string, color: string) {
-  return { id: id("icon"), type: "icon", x, y, width: size, height: size, zIndex: next, properties: { assetId: asset, iconColor: color, backgroundColor: "transparent" } }
+function icon(size: number, asset: string, color: string) {
+  return { id: id("icon"), type: "icon", x: 0, y: 0, width: size, height: size, zIndex: next, properties: { assetId: asset, iconColor: color, backgroundColor: "transparent" } }
 }
 
 function box(x: number, y: number, width: number, height: number, fill: string, radius = 0) {
-  return { id: id("box"), type: "box", x, y, width, height, zIndex: next, properties: { fillColor: fill, strokeColor: "", strokeWidth: 0, cornerRadius: radius } }
+  return { id: id("box"), type: "box", x, y, width, height, zIndex: next, properties: { fillColor: fill, strokeColor: "transparent", strokeWidth: 0, cornerRadius: radius } }
 }
 
 function line(x1: number, y1: number, x2: number, y2: number, color: string, width = 2) {
@@ -227,12 +221,12 @@ const LINEAR = (max: number) => [
 ]
 
 /** A ring with its percentage inside: CamperUI's gauges on Power. */
-function ring(x: number, y: number, size: number, path: string, max: number, color: string, thickness: number, font: Size) {
+function ring(size: number, path: string, max: number, color: string, thickness: number, font: Size) {
   return {
     id: id("ring"),
     type: "gauge",
-    x,
-    y,
+    x: 0,
+    y: 0,
     width: size,
     height: size,
     zIndex: next,
@@ -243,7 +237,7 @@ function ring(x: number, y: number, size: number, path: string, max: number, col
       direction: "cw",
       thickness,
       backgroundColor: "transparent",
-      trackColor: "#2a2e36",
+      trackColor: TRACK,
       fillColor: color,
       displayValue: "percentage",
       calibrationPoints: LINEAR(max),
@@ -253,6 +247,107 @@ function ring(x: number, y: number, size: number, path: string, max: number, col
   }
 }
 
+function bar(width: number, height: number, path: string, direction: string, color: string) {
+  return {
+    id: id("bar"),
+    type: "bar",
+    x: 0,
+    y: 0,
+    width,
+    height,
+    zIndex: next,
+    properties: { topic: path, barDirection: direction, calibrationPoints: LINEAR(100), displayValue: "none", thickness: Math.min(width, height), fillColor: color, trackColor: TRACK },
+  }
+}
+
+// ---- Tables ----
+
+/*
+ * Every page is laid out by tables (the user, 2026-11-04): no coordinate
+ * but a page table's own. A page is one table of cards - equal columns
+ * across the width, the gap set on the table - and each card holds a table
+ * of what it shows, docked to fill its padding. The card's look (padding,
+ * corners, edge) comes from the project's Settings › Cards, its colours from
+ * the theme. What tables cannot give is in TABLE_GAPS.
+ */
+
+/** Where the table layout is not like CamperUI, and why. */
+export const TABLE_GAPS = [
+  "Kartenhöhe: eine Karte wächst nicht mit ihrem Inhalt, ihre Höhe ist von Hand gesetzt; die Zeile nimmt die höchste.",
+  "Innenabstand: ein Wert für alle Karten und alle vier Seiten; CamperUI hat 12 px links und 8 bis 10 px oben.",
+  "Ein Abstand pro Tabelle, zwischen Spalten und Zeilen gleich: CamperUI hat auf «Schalter» 16 px zwischen den Spalten und 8 px zwischen den Zeilen.",
+  "Linien zwischen den Karten auf «Power»: eine Linie steht in keiner Zelle von selbst; sie liegen in einer Fläche ohne Look, die eine Zeile der Tabelle ist.",
+  "Zahlen über dem Regler auf «Klima»: Objekte übereinander gibt es in einer Tabelle nicht; Regler und Texte liegen in einer Fläche in der Zelle.",
+]
+
+type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; anchor?: Record<string, string> }
+
+/** An object in a table's cell, standing there by `anchor`. */
+const at = (obj: any, cell: Cell) => ({ ...obj, properties: { ...obj.properties, cell } })
+const STRETCH = { x: "stretch", y: "stretch" }
+
+/**
+ * A table: `columns` columns, `gapPx` apart. With `widthPx` it is that wide,
+ * its columns equal unless `columnPx` sizes one by hand; `rowPx` sizes rows
+ * by hand.
+ */
+function table(children: any[], options: { columns?: number; gapPx?: number; widthPx?: number; equal?: boolean; columnPx?: (number | undefined)[]; rowPx?: (number | undefined)[]; x?: number; y?: number; dock?: string } = {}) {
+  const columns = options.columns ?? 1
+  return {
+    id: id("table"),
+    type: "table",
+    x: options.x ?? 0,
+    y: options.y ?? 0,
+    width: options.widthPx ?? 1,
+    height: 1,
+    zIndex: next,
+    properties: {
+      grid: 1,
+      gapMm: mm(options.gapPx ?? 0),
+      ...(options.widthPx ? { widthMm: mm(options.widthPx) } : {}),
+      ...(options.equal === false ? {} : { equalColumns: true }),
+      columns: Array.from({ length: columns }, (_, c) => (options.columnPx?.[c] !== undefined ? { mm: mm(options.columnPx[c]!) } : {})),
+      rows: (options.rowPx ?? []).map((h) => (h !== undefined ? { mm: mm(h) } : {})),
+      ...(options.dock ? { dock: options.dock } : {}),
+    },
+    children,
+  }
+}
+
+/** A card: a free area with the project's card look, its contents in a table filling its padding. */
+function card(height: number, inside: any, edge?: string, width = 40) {
+  return {
+    id: id("card"),
+    type: "free",
+    x: 0,
+    y: 0,
+    // Narrow of its own: stretched to its cell, and a table's equal columns
+    // are never narrower than the widest thing in them.
+    width,
+    height,
+    zIndex: next,
+    // An edge of its own colour (the battery's green) is a card drawn by hand:
+    // a look's edge is Outline or Accent.
+    properties: edge
+      ? { fillColor: CARD, strokeColor: edge, strokeWidth: 2, cornerRadius: CARD_RADIUS_PX, padding: CARD_PADDING_MM, clipContents: true }
+      : { look: "card", clipContents: true },
+    children: [{ ...inside, properties: { ...inside.properties, dock: "fill" } }],
+  }
+}
+
+/** A free area without a look: objects placed in it by hand, for what a table cannot hold. */
+function area(height: number, children: any[]) {
+  return { id: id("area"), type: "free", x: 0, y: 0, width: 40, height, zIndex: next, properties: {}, children }
+}
+
+/** A page: its table at the top left of the room between the bar and the navigator. */
+const page = (pageId: string, name: string, iconId: string, grid: any) => ({ id: pageId, name, masterScreenId: "master-1", iconAssetId: iconId, backgroundColor: BG, objects: [{ ...grid, x: grid.x || 8, y: grid.y || 48 }] })
+
+// The card look (Settings › Cards): CamperUI's 10 px corners and padding on the 4".
+const CARD_RADIUS_PX = 10
+const CARD_PADDING_PX = 10
+let CARD_PADDING_MM = 1.5
+
 /**
  * A relay as CamperUI's big tile: its name on it, coloured while on, a tap
  * switching it. A switch draws a knob and a button group its segments, so
@@ -260,21 +355,25 @@ function ring(x: number, y: number, size: number, path: string, max: number, col
  * button in that state's colour sending the other state. Its corners are
  * the project's button radius (1.5 mm, CamperUI's 10 px).
  */
-function relayTile(x: number, y: number, width: number, height: number, n: number, onColor = GREEN, words: [string, string] = ["", ""]) {
+function relayTile(width: number, height: number, n: number, onColor = GREEN, words: [string, string] = ["", ""]) {
   const name = RELAYS[n - 1]
-  return stateTile(x, y, width, height, `${S}relay/${n}/power`, `${C}relay/${n}`, [
+  return stateTile(width, height, `${S}relay/${n}/power`, `${C}relay/${n}`, [
     { state: "off", label: `${name}${words[0]}`, color: CARD, send: "on" },
     { state: "on", label: `${name}${words[1]}`, color: onColor, send: "off" },
   ])
 }
 
-/** A tile per state of `read`: a button in that state's colour and label, sending what switches it. */
-function stateTile(x: number, y: number, width: number, height: number, read: string, write: string, states: { state: string; label: string; color: string; send: string }[]) {
+/**
+ * A tile per state of `read`: a button in that state's colour and label,
+ * sending what switches it. As wide as its column: a switcher stretched in
+ * a cell does not take its panels along.
+ */
+function stateTile(width: number, height: number, read: string, write: string, states: { state: string; label: string; color: string; send: string }[]) {
   return {
     id: id("tiles"),
     type: "switcher",
-    x,
-    y,
+    x: 0,
+    y: 0,
     width,
     height,
     zIndex: next,
@@ -301,6 +400,8 @@ function stateTile(x: number, y: number, width: number, height: number, read: st
             text: st.label,
             buttonStyle: "filled",
             buttonColor: st.color,
+            // On the card's colour the label is the text's, on a colour the one for on it.
+            textColor: st.color === CARD ? TEXT : "onAccent",
             ...sized(F.medium),
             action: { type: "send-mqtt", mqttTopic: write, mqttMessage: st.send },
           },
@@ -317,17 +418,26 @@ function master(width: number, height: number) {
     id: "master-1",
     name: "Master",
     isMaster: true,
+    // CamperUI's model: a neutral ground, four colours of distinct hues.
+    themeId: "slate",
     // Inter, as CamperUI's Montserrat: the sizes' fonts are this typography's.
     typography: "Humanist",
     backgroundColor: BG,
     objects: [
-      box(0, 0, width, 40, HEADER),
-      box(0, 39, width, 1, "#22262d"),
-      text(20, 8, 90, 26, "{live:clock}", F.small, TEXT, "left", [plain("clock", "van/clock/time")]),
-      icon(272, 10, 18, "icon-fire", RED),
-      text(304, 8, 82, 26, "IN: {live:inside}", F.small, TEXT, "left", [num("inside", `${S}temp/1/value`, 1, " C")]),
-      icon(386, 9, 20, "icon-battery", BLUE),
-      text(410, 8, 60, 26, "{live:soc}", F.small, TEXT, "left", [num("soc", `${S}battery/soc`, 0, "%")]),
+      box(0, 0, width, 40, CARD),
+      box(0, 39, width, 1, EDGE),
+      // The bar's contents in a table: the time, then on the right the
+      // heater's flame, the inside temperature and the battery.
+      table(
+        [
+          at(text(120, 26, "{live:clock}", F.small, TEXT, "left", [plain("clock", "van/clock/time")]), { row: 0, column: 0 }),
+          at(icon(18, "icon-fire", RED), { row: 0, column: 1 }),
+          at(text(80, 26, "IN: {live:inside}", F.small, TEXT, "left", [num("inside", `${S}temp/1/value`, 1, " C")]), { row: 0, column: 2 }),
+          at(icon(20, "icon-battery", BLUE), { row: 0, column: 3 }),
+          at(text(50, 26, "{live:soc}", F.small, TEXT, "left", [num("soc", `${S}battery/soc`, 0, "%")]), { row: 0, column: 4 }),
+        ],
+        { columns: 5, equal: false, x: 20, y: 7, widthPx: width - 40, gapPx: 6, columnPx: [width - 40 - 6 * 4 - 18 - 80 - 20 - 50, 18, 80, 20, undefined], rowPx: [26] },
+      ),
       {
         id: "obj-navigator",
         type: "navigator",
@@ -340,343 +450,244 @@ function master(width: number, height: number) {
           edge: "bottom",
           shows: "icons",
           fontId: sized(F.small).fontId,
-          backgroundColor: HEADER,
-          borderColor: "#22262d",
-          textColor: GREY,
+          backgroundColor: CARD,
+          borderColor: EDGE,
+          textColor: MUTED,
           activeColor: BLUE,
-          activeTextColor: "#ffffff",
+          activeTextColor: "onAccent",
         },
       },
     ],
   }
 }
 
-const page = (pageId: string, name: string, icon: string, objects: any[]) => ({ id: pageId, name, masterScreenId: "master-1", iconAssetId: icon, backgroundColor: BG, objects })
-
 // ---- Home ----
 
+/** A card of a name over a value, as Home's temperatures. */
+function nameValueCard(height: number, nameText: any, valueText: any) {
+  return card(height, table([at(nameText, { row: 0, column: 0 }), at(valueText, { row: 1, column: 0 })]))
+}
+
 function home() {
-  return page("screen-home", "Home", "icon-home", [
-    relayTile(8, 48, 228, 56, 1, BLUE, [" AUS", " EIN"]),
-    relayTile(244, 48, 228, 56, 3, BLUE, [" AUS", " EIN"]),
-    card(8, 112, 228, 70, [text(12, 8, 200, 20, "{live:n1}", F.mini, TEXT, "left", [plain("n1", `${S}temp/1/name`)]), text(12, 30, 200, 30, "{live:t1}", F.medium, TEXT, "left", [num("t1", `${S}temp/1/value`, 1, " C")])]),
-    card(244, 112, 228, 70, [text(12, 8, 200, 20, "{live:n2}", F.mini, TEXT, "left", [plain("n2", `${S}temp/2/name`)]), text(12, 30, 200, 30, "{live:t2}", F.medium, TEXT, "left", [num("t2", `${S}temp/2/value`, 1, " C")])]),
-    card(8, 190, 228, 122, [
-      text(12, 10, 200, 22, "Batterie {live:bsoc}", F.large16, BLUE, "left", [num("bsoc", `${S}battery/soc`, 0, "%")]),
-      text(12, 34, 210, 42, "{live:bw}", F.large, ORANGE, "left", [num("bw", `${S}battery/power`, 1, " W")]),
-      text(12, 74, 210, 28, "{live:bv}  {live:ba}", F.large16, TEXT, "left", [num("bv", `${S}battery/voltage`, 1, " V"), num("ba", `${S}battery/current`, 1, " A")]),
-    ]),
-    card(244, 190, 228, 122, [
-      text(12, 10, 200, 22, "Solar", F.large16, TEXT),
-      text(12, 34, 210, 42, "{live:sw}", F.large, ORANGE, "left", [num("sw", `${S}mppt/pv_watts`, 0, " W")]),
-      text(12, 74, 210, 28, "{live:sv}  {live:sa}", F.large16, TEXT, "left", [num("sv", `${S}mppt/pv_volts`, 1, " V"), num("sa", `${S}mppt/pv_amps`, 1, " A")]),
-      text(12, 98, 210, 20, "PV-Leistung", F.mini, TEXT),
-    ]),
-    card(8, 320, 464, 60, [
-      text(12, 6, 280, 26, "{live:fn}", F.large16, TEXT, "left", [plain("fn", `${S}tank/1/name`)]),
-      text(330, 6, 120, 26, "{live:fl}", F.medium, TEXT, "right", [num("fl", `${S}tank/1/level`, 0, "%")]),
-      {
-        id: id("bar"),
-        type: "bar",
-        x: 12,
-        y: 38,
-        width: 440,
-        height: 10,
-        zIndex: next,
-        properties: { topic: `${S}tank/1/level`, barDirection: "left-to-right", calibrationPoints: LINEAR(100), displayValue: "none", thickness: 10, fillColor: CYAN, trackColor: TRACK },
-      },
-    ]),
-  ])
-}
-
-// ---- Home again, with tables: no coordinate but the table's own ----
-
-/*
- * The same Home as home(), asked for by the user on 2026-11-04 to see how
- * near Schaltli's tables come: CamperUI places its cards by a computed grid
- * (column × (width + 8), 8 px margins) and the texts inside them by hand.
- * Here one table holds the cards - two equal columns across 464 px, an
- * 8 px gap - and each card a one-column table of its texts, docked to fill
- * its padding. What this needs that tables do not give is listed in
- * TABLE_GAPS.
- */
-
-/** Where the table version of Home is not like the hand-placed one, and why. */
-export const TABLE_GAPS = [
-  "Kartenhöhe: eine Karte wächst nicht mit ihrem Inhalt, ihre Höhe ist von Hand gesetzt; die Zeile nimmt die höchste.",
-  "Innenabstand: ein Wert für alle vier Seiten; CamperUI hat 12 px links und 8 bis 10 px oben.",
-  "Abstand zwischen angedockten Objekten: fest 1,5 mm; darum steht in der Karte eine Tabelle mit eigenem Abstand statt gedockter Texte.",
-  "Zu wenig Platz: ist die Tabelle in einer Karte auch nur 2 px höher als ihr Inneres, fällt sie ganz weg (dockedOut) und die Karte ist leer.",
-]
-
-/** An object in a table's cell, standing there by `anchor`. */
-const inCell = (obj: any, row: number, column: number, extra: Record<string, unknown> = {}) => ({
-  ...obj,
-  properties: { ...obj.properties, cell: { row, column, ...extra } },
-})
-
-/** A text for a cell: no position, its height the line's, its width what it may take. */
-const cellText = (row: number, column: number, height: number, content: string, font: Size, color: string, live: any[] = [], align = "left", anchor?: Record<string, string>) =>
-  inCell(text(0, 0, 200, height, content, font, color, align, live), row, column, anchor ? { anchor } : {})
-
-/** A card with its contents in a table of rows: padding `padMm`, the rows `gapMm` apart. */
-function tableCard(height: number, rows: any[], padMm: number, gapMm: number, columns = 1) {
-  const c = card(0, 0, 200, height, [
-    {
-      id: id("rows"),
-      type: "table",
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-      zIndex: next,
-      properties: { grid: 1, columns: Array.from({ length: columns }, () => ({})), rows: [], gapMm, dock: "fill" },
-      children: rows,
-    },
-  ])
-  return { ...c, properties: { ...c.properties, padding: padMm } }
-}
-
-function homeWithTables(pixelsPerMm: number) {
-  const mm = (px: number) => px / pixelsPerMm
-  const PAD = mm(10)
-  const ROW_GAP = 0
-  const stretch = { anchor: { x: "stretch", y: "stretch" } }
-  const tank = {
-    id: id("bar"),
-    type: "bar",
-    x: 0,
-    y: 0,
-    width: 200,
-    height: 10,
-    zIndex: next,
-    properties: { topic: `${S}tank/1/level`, barDirection: "left-to-right", calibrationPoints: LINEAR(100), displayValue: "none", thickness: 10, fillColor: CYAN, trackColor: TRACK },
-  }
-  const grid = {
-    id: id("home-grid"),
-    type: "table",
-    x: 8,
-    y: 48,
-    width: 464,
-    height: 1,
-    zIndex: next,
-    properties: { grid: 1, gapMm: mm(8), widthMm: mm(464), equalColumns: true, columns: [{}, {}], rows: [] },
-    children: [
-      inCell(relayTile(0, 0, 228, 56, 1, BLUE, [" AUS", " EIN"]), 0, 0, { anchor: { x: "stretch" } }),
-      inCell(relayTile(0, 0, 228, 56, 3, BLUE, [" AUS", " EIN"]), 0, 1, { anchor: { x: "stretch" } }),
-      ...[1, 2].map((n, i) =>
-        inCell(
-          tableCard(
-            70,
-            [
-              cellText(0, 0, 18, `{live:hn${n}}`, F.mini, TEXT, [plain(`hn${n}`, `${S}temp/${n}/name`)]),
-              cellText(1, 0, 30, `{live:ht${n}}`, F.medium, TEXT, [num(`ht${n}`, `${S}temp/${n}/value`, 1, " C")]),
-            ],
-            PAD,
-            ROW_GAP,
+  return page(
+    "screen-home",
+    "Home",
+    "icon-home",
+    table(
+      [
+        at(relayTile(228, 56, 1, BLUE, [" AUS", " EIN"]), { row: 0, column: 0, anchor: STRETCH }),
+        at(relayTile(228, 56, 3, BLUE, [" AUS", " EIN"]), { row: 0, column: 1, anchor: STRETCH }),
+        ...[1, 2].map((n, i) =>
+          at(
+            nameValueCard(
+              70,
+              text(200, 18, `{live:hn${n}}`, F.mini, MUTED, "left", [plain(`hn${n}`, `${S}temp/${n}/name`)]),
+              text(200, 30, `{live:ht${n}}`, F.medium, TEXT, "left", [num(`ht${n}`, `${S}temp/${n}/value`, 1, " C")]),
+            ),
+            { row: 1, column: i, anchor: STRETCH },
           ),
-          1,
-          i,
-          stretch,
         ),
-      ),
-      inCell(
-        tableCard(
-          122,
-          [
-            cellText(0, 0, 20, "Batterie {live:hbsoc}", F.large16, BLUE, [num("hbsoc", `${S}battery/soc`, 0, "%")]),
-            cellText(1, 0, 40, "{live:hbw}", F.large, ORANGE, [num("hbw", `${S}battery/power`, 1, " W")]),
-            cellText(2, 0, 26, "{live:hbv}  {live:hba}", F.large16, TEXT, [num("hbv", `${S}battery/voltage`, 1, " V"), num("hba", `${S}battery/current`, 1, " A")]),
-          ],
-          PAD,
-          ROW_GAP,
+        at(
+          card(
+            122,
+            table([
+              at(text(200, 20, "Batterie {live:hbsoc}", F.large16, BLUE, "left", [num("hbsoc", `${S}battery/soc`, 0, "%")]), { row: 0, column: 0 }),
+              at(text(200, 40, "{live:hbw}", F.large, ORANGE, "left", [num("hbw", `${S}battery/power`, 1, " W")]), { row: 1, column: 0 }),
+              at(text(200, 26, "{live:hbv}  {live:hba}", F.large16, TEXT, "left", [num("hbv", `${S}battery/voltage`, 1, " V"), num("hba", `${S}battery/current`, 1, " A")]), { row: 2, column: 0 }),
+            ]),
+          ),
+          { row: 2, column: 0, anchor: STRETCH },
         ),
-        2,
-        0,
-        stretch,
-      ),
-      inCell(
-        tableCard(
-          122,
-          [
-            cellText(0, 0, 20, "Solar", F.large16, TEXT),
-            cellText(1, 0, 38, "{live:hsw}", F.large, ORANGE, [num("hsw", `${S}mppt/pv_watts`, 0, " W")]),
-            cellText(2, 0, 26, "{live:hsv}  {live:hsa}", F.large16, TEXT, [num("hsv", `${S}mppt/pv_volts`, 1, " V"), num("hsa", `${S}mppt/pv_amps`, 1, " A")]),
-            cellText(3, 0, 18, "PV-Leistung", F.mini, TEXT),
-          ],
-          PAD,
-          ROW_GAP,
+        at(
+          card(
+            122,
+            table([
+              at(text(200, 20, "Solar", F.large16, TEXT), { row: 0, column: 0 }),
+              at(text(200, 38, "{live:hsw}", F.large, ORANGE, "left", [num("hsw", `${S}mppt/pv_watts`, 0, " W")]), { row: 1, column: 0 }),
+              at(text(200, 26, "{live:hsv}  {live:hsa}", F.large16, TEXT, "left", [num("hsv", `${S}mppt/pv_volts`, 1, " V"), num("hsa", `${S}mppt/pv_amps`, 1, " A")]), { row: 2, column: 0 }),
+              at(text(200, 18, "PV-Leistung", F.mini, MUTED), { row: 3, column: 0 }),
+            ]),
+          ),
+          { row: 2, column: 1, anchor: STRETCH },
         ),
-        2,
-        1,
-        stretch,
-      ),
-      inCell(
-        tableCard(
-          60,
-          [
-            cellText(0, 0, 26, "{live:hfn}", F.large16, TEXT, [plain("hfn", `${S}tank/1/name`)]),
-            cellText(0, 1, 26, "{live:hfl}", F.medium, TEXT, [num("hfl", `${S}tank/1/level`, 0, "%")], "right", { x: "right" }),
-            inCell(tank, 1, 0, { columnSpan: 2, anchor: { x: "stretch" } }),
-          ],
-          PAD,
-          mm(4),
-          2,
+        at(
+          card(
+            60,
+            table(
+              [
+                at(text(200, 26, "{live:hfn}", F.large16, TEXT, "left", [plain("hfn", `${S}tank/1/name`)]), { row: 0, column: 0 }),
+                at(text(120, 26, "{live:hfl}", F.medium, TEXT, "right", [num("hfl", `${S}tank/1/level`, 0, "%")]), { row: 0, column: 1, anchor: { x: "right" } }),
+                at(bar(200, 10, `${S}tank/1/level`, "left-to-right", CYAN), { row: 1, column: 0, columnSpan: 2, anchor: { x: "stretch" } }),
+              ],
+              { columns: 2, equal: false, gapPx: 4 },
+            ),
+          ),
+          { row: 3, column: 0, columnSpan: 2, anchor: STRETCH },
         ),
-        3,
-        0,
-        { columnSpan: 2, ...stretch },
-      ),
-    ],
-  }
-  return page("screen-home", "Home", "icon-home", [grid])
+      ],
+      { columns: 2, widthPx: 464, gapPx: 8 },
+    ),
+  )
 }
 
 // ---- Dimmer ----
 
-function dimmerRow(y: number, n: number) {
-  return card(20, y, 440, 78, [
-    text(16, 24, 128, 30, `{live:dn${n}}`, F.medium, TEXT, "left", [plain(`dn${n}`, `${S}dimmer/${n}/name`)]),
-    {
-      id: id("slider"),
-      type: "slider",
-      x: 146,
-      y: 22,
-      width: 226,
-      height: 34,
-      zIndex: next,
-      properties: {
-        topic: `${S}dimmer/${n}/level`,
-        writeTopic: `${C}dimmer/${n}`,
-        step: 5,
-        barDirection: "left-to-right",
-        calibrationPoints: LINEAR(100),
-        displayValue: "none",
-        thickness: 34,
-        fillColor: n === 1 ? ORANGE : KHAKI,
-        trackColor: TRACK,
-      },
-    },
-    text(380, 24, 52, 30, `{live:dl${n}}`, F.medium, n === 1 ? ORANGE : KHAKI, "right", [
-      {
-        id: `dl${n}`,
-        source: { namespace: "topic", path: `${S}dimmer/${n}/level` },
-        format: { kind: "number", decimals: 0, grouped: false },
-        rules: [{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }],
-        otherwise: { kind: "text", parts: [VALUE, "%"] },
-        noValueYet: NONE,
-      },
-    ]),
-  ])
+function dimmerCard(n: number) {
+  const color = n === 1 ? ORANGE : MUTED
+  return card(
+    78,
+    table(
+      [
+        at(text(120, 30, `{live:dn${n}}`, F.medium, TEXT, "left", [plain(`dn${n}`, `${S}dimmer/${n}/name`)]), { row: 0, column: 0, anchor: { y: "center" } }),
+        at(
+          {
+            ...bar(200, 34, `${S}dimmer/${n}/level`, "left-to-right", color),
+            id: id("slider"),
+            type: "slider",
+            properties: { ...bar(200, 34, `${S}dimmer/${n}/level`, "left-to-right", color).properties, writeTopic: `${C}dimmer/${n}`, step: 5 },
+          },
+          { row: 0, column: 1, anchor: { x: "stretch", y: "center" } },
+        ),
+        at(
+          text(56, 30, `{live:dl${n}}`, F.medium, color, "right", [
+            {
+              id: `dl${n}`,
+              source: { namespace: "topic", path: `${S}dimmer/${n}/level` },
+              format: { kind: "number", decimals: 0, grouped: false },
+              rules: [{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }],
+              otherwise: { kind: "text", parts: [VALUE, "%"] },
+              noValueYet: NONE,
+            },
+          ]),
+          { row: 0, column: 2, anchor: { y: "center" } },
+        ),
+      ],
+      // The name and the value as wide as CamperUI has them, the slider the rest.
+      { columns: 3, equal: false, gapPx: 8, columnPx: [120, 212, 56], rowPx: [78 - 2 * CARD_PADDING_PX] },
+    ),
+  )
 }
 
 function dimmer() {
-  return page("screen-dimmer", "Dimmer", "icon-bulb", [dimmerRow(48, 1), dimmerRow(136, 2), dimmerRow(224, 3), dimmerRow(312, 4)])
+  return page("screen-dimmer", "Dimmer", "icon-bulb", table([1, 2, 3, 4].map((n, i) => at(dimmerCard(n), { row: i, column: 0, anchor: STRETCH })), { widthPx: 440, gapPx: 10, x: 20 }))
 }
 
 // ---- Power ----
 
-function source(x: number, name: string, color: string, watts: string, sub: any[], subText: string, max: number) {
-  return card(x, 50, 140, 74, [
-    text(8, 6, 92, 20, name, F.small, color),
-    text(8, 26, 92, 30, "{live:w}", F.medium, color, "left", [num("w", watts, 0, " W")]),
-    text(8, 54, 96, 18, subText, F.small, MUTED, "left", sub),
-    ring(86, 12, 50, watts, max, color, 6, F.small),
-  ])
+function source(name: string, color: string, watts: string, sub: any[], subText: string, max: number) {
+  return card(
+    74,
+    table(
+      [
+        at(text(80, 16, name, F.small, color), { row: 0, column: 0 }),
+        at(text(80, 22, "{live:w}", F.medium, color, "left", [num("w", watts, 0, " W")]), { row: 1, column: 0 }),
+        at(text(80, 14, subText, F.mini, MUTED, "left", sub), { row: 2, column: 0 }),
+        at(ring(48, watts, max, color, 6, F.mini), { row: 0, column: 1, rowSpan: 3, anchor: { x: "right", y: "center" } }),
+      ],
+      { columns: 2, equal: false },
+    ),
+  )
 }
 
 function power() {
-  return page("screen-power", "Power", "icon-battery", [
-    source(20, "Solar", ORANGE, `${S}mppt/pv_watts`, [num("pv", `${S}mppt/pv_volts`, 1, "V"), num("pa", `${S}mppt/pv_amps`, 1, "A")], "{live:pv}  {live:pa}", 250),
-    source(170, "Landstrom", BLUE, "ble/charger/watts#value", [], "230V", 500),
-    source(320, "Lichtmasch.", PURPLE, "ble/orion/watts#value", [], "14.2V", 300),
-    // The lines into the battery.
-    line(90, 124, 90, 146, GREEN),
-    line(90, 146, 170, 164, GREEN),
-    line(240, 124, 240, 164, GREEN),
-    line(390, 124, 390, 146, GREEN),
-    line(390, 146, 310, 164, GREEN),
-    card(46, 164, 388, 132, [
-      ring(14, 14, 104, `${S}battery/soc`, 100, BLUE, 12, F.large),
-      icon(134, 18, 18, "icon-battery-flat", MUTED),
-      text(158, 16, 200, 22, "Batterie", F.small, MUTED),
-      text(134, 42, 250, 42, "{live:bp}  {live:bc}", F.large, GREEN, "left", [signed("bp", `${S}battery/power`, 0, " W"), signed("bc", `${S}battery/current`, 1, " A")]),
-      text(134, 88, 200, 22, "{live:bvv}", F.small, MUTED, "left", [num("bvv", `${S}battery/voltage`, 1, " V")]),
-    ], GREEN, 14),
-    line(240, 296, 240, 336, "#3a3f48"),
-    card(60, 336, 360, 74, [
-      icon(16, 26, 22, "icon-power", ORANGE),
-      text(46, 24, 160, 28, "Verbraucher", F.medium, TEXT),
-      text(220, 10, 124, 30, "{live:cw}", F.medium, MUTED, "right", [num("cw", "van/energy/consumers_watts", 0, " W")]),
-      text(150, 44, 194, 22, "{live:charging}", F.small, GREEN, "right", [
-        {
-          id: "charging",
-          source: { namespace: "topic", path: `${S}battery/power` },
-          rules: [{ op: ">", operand: "0", result: { kind: "text", parts: ["Wird geladen"] } }],
-          otherwise: { kind: "text", parts: ["Entlädt"] },
-          noValueYet: NONE,
-        },
-      ]),
-    ], EDGE, 12),
-  ])
+  // The lines into the battery and out to what draws, in areas between the
+  // card rows: the three sources' centres are 71, 220 and 369 px across.
+  const into = area(22, [line(71, 0, 71, 10, GREEN), line(71, 10, 150, 22, GREEN), line(220, 0, 220, 22, GREEN), line(369, 0, 369, 10, GREEN), line(369, 10, 290, 22, GREEN)])
+  const out = area(16, [line(220, 0, 220, 16, EDGE)])
+  return page(
+    "screen-power",
+    "Power",
+    "icon-battery",
+    table(
+      [
+        at(source("Solar", ORANGE, `${S}mppt/pv_watts`, [num("pv", `${S}mppt/pv_volts`, 1, "V"), num("pa", `${S}mppt/pv_amps`, 1, "A")], "{live:pv} {live:pa}", 250), { row: 0, column: 0, anchor: STRETCH }),
+        at(source("Landstrom", BLUE, "ble/charger/watts#value", [], "230V", 500), { row: 0, column: 1, anchor: STRETCH }),
+        at(source("Lichtmasch.", PURPLE, "ble/orion/watts#value", [], "14.2V", 300), { row: 0, column: 2, anchor: STRETCH }),
+        at(into, { row: 1, column: 0, columnSpan: 3, anchor: { x: "stretch" } }),
+        at(
+          card(
+            128,
+            table(
+              [
+                at(ring(100, `${S}battery/soc`, 100, BLUE, 12, F.large), { row: 0, column: 0, rowSpan: 3, anchor: { y: "center" } }),
+                at(icon(18, "icon-battery-flat", MUTED), { row: 0, column: 1 }),
+                at(text(200, 22, "Batterie", F.small, MUTED), { row: 0, column: 2 }),
+                at(text(240, 40, "{live:bp}  {live:bc}", F.large, GREEN, "left", [signed("bp", `${S}battery/power`, 0, " W"), signed("bc", `${S}battery/current`, 1, " A")]), { row: 1, column: 1, columnSpan: 2 }),
+                at(text(200, 22, "{live:bvv}", F.small, MUTED, "left", [num("bvv", `${S}battery/voltage`, 1, " V")]), { row: 2, column: 1, columnSpan: 2 }),
+              ],
+              { columns: 3, equal: false, gapPx: 8, columnPx: [100, 18, undefined] },
+            ),
+            GREEN,
+          ),
+          { row: 2, column: 0, columnSpan: 3, anchor: STRETCH },
+        ),
+        at(out, { row: 3, column: 0, columnSpan: 3, anchor: { x: "stretch" } }),
+        at(
+          card(
+            70,
+            table(
+              [
+                at(icon(22, "icon-power", ORANGE), { row: 0, column: 0, rowSpan: 2, anchor: { y: "center" } }),
+                at(text(150, 28, "Verbraucher", F.medium, TEXT), { row: 0, column: 1, rowSpan: 2, anchor: { y: "center" } }),
+                at(text(150, 24, "{live:cw}", F.medium, MUTED, "right", [num("cw", "van/energy/consumers_watts", 0, " W")]), { row: 0, column: 2 }),
+                at(
+                  text(150, 20, "{live:charging}", F.small, GREEN, "right", [
+                    {
+                      id: "charging",
+                      source: { namespace: "topic", path: `${S}battery/power` },
+                      rules: [{ op: ">", operand: "0", result: { kind: "text", parts: ["Wird geladen"] } }],
+                      otherwise: { kind: "text", parts: ["Entlädt"] },
+                      noValueYet: NONE,
+                    },
+                  ]),
+                  { row: 1, column: 2 },
+                ),
+              ],
+              { columns: 3, equal: false, gapPx: 4, columnPx: [22, 150, undefined] },
+            ),
+          ),
+          { row: 4, column: 0, columnSpan: 3, anchor: STRETCH },
+        ),
+      ],
+      { columns: 3, widthPx: 440, gapPx: 6, x: 20, y: 50 },
+    ),
+  )
 }
 
 // ---- Wasser ----
 
-function tankColumn(x: number, n: number, color: string) {
+function tankColumn(n: number, color: string, column: number) {
+  const centre = { x: "center" }
   return [
-    text(x - 40, 22, 160, 26, `{live:tn${n}}`, F.medium, TEXT, "center", [plain(`tn${n}`, `${S}tank/${n}/name`)]),
-    {
-      id: id("tank"),
-      type: "bar",
-      x,
-      y: 56,
-      width: 80,
-      height: 200,
-      zIndex: next,
-      properties: { topic: `${S}tank/${n}/level`, barDirection: "bottom-to-top", calibrationPoints: LINEAR(100), displayValue: "none", thickness: 80, fillColor: color, trackColor: "#0f1514" },
-    },
-    text(x - 40, 262, 160, 26, `{live:tl${n}}`, F.medium, TEXT, "center", [num(`tl${n}`, `${S}tank/${n}/level`, 0, "%")]),
-    text(x - 40, 288, 160, 22, `{live:tli${n}}`, F.small, MUTED, "center", [num(`tli${n}`, `${S}tank/${n}/level`, 0, " / 100 L")]),
+    at(text(160, 26, `{live:tn${n}}`, F.medium, TEXT, "center", [plain(`tn${n}`, `${S}tank/${n}/name`)]), { row: 0, column }),
+    at(bar(80, 200, `${S}tank/${n}/level`, "bottom-to-top", color), { row: 1, column, anchor: centre }),
+    at(text(160, 26, `{live:tl${n}}`, F.medium, TEXT, "center", [num(`tl${n}`, `${S}tank/${n}/level`, 0, "%")]), { row: 2, column }),
+    at(text(160, 20, `{live:tli${n}}`, F.small, MUTED, "center", [num(`tli${n}`, `${S}tank/${n}/level`, 0, " / 100 L")]), { row: 3, column }),
   ]
 }
 
 function water() {
-  return page("screen-wasser", "Wasser", "icon-drop", [card(20, 50, 440, 356, [...tankColumn(76, 1, CYAN), ...tankColumn(284, 2, GREY)], EDGE, 14)])
+  return page(
+    "screen-wasser",
+    "Wasser",
+    "icon-drop",
+    table([at(card(340, table([...tankColumn(1, CYAN, 0), ...tankColumn(2, MUTED, 1)], { columns: 2, gapPx: 8 })), { row: 0, column: 0, anchor: STRETCH })], { widthPx: 440, x: 20, y: 56 }),
+  )
 }
 
 // ---- Klima (Autoterm) ----
 
 function climate() {
-  return page("screen-klima", "Klima", "icon-fire", [
-    card(20, 50, 150, 58, [icon(12, 8, 14, "icon-home-small", MUTED), text(30, 5, 100, 20, "Außen", F.small, MUTED), text(12, 26, 130, 28, "{live:ka}", F.medium, TEXT, "left", [num("ka", `${S}temp/2/value`, 1, " C")])]),
-    {
-      id: id("modes"),
-      type: "button-group",
-      x: 236,
-      y: 50,
-      width: 224,
-      height: 58,
-      zIndex: next,
-      properties: {
-        topic: `${S}heater/power`,
-        writeTopic: `${C}heater`,
-        states: [
-          { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
-          { id: "heat", label: "Heizen", readValue: "on", writeValue: "heat" },
-        ],
-        switchStyle: "filled",
-        switchColor: BLUE,
-        ...sized(F.small),
-      },
-    },
+  // The dial with the temperatures over it: objects over each other, which
+  // a table does not hold, so in an area of its own (TABLE_GAPS).
+  const dialArea = area(226, [
     {
       id: id("target"),
       type: "dial",
-      x: 120,
-      y: 108,
-      width: 240,
-      height: 240,
+      x: 107,
+      y: 0,
+      width: 226,
+      height: 226,
       zIndex: next,
       properties: {
         topic: `${S}heater/target`,
@@ -687,8 +698,8 @@ function climate() {
         direction: "cw",
         thickness: 16,
         backgroundColor: "transparent",
-        trackColor: "#1a1d22",
-        fillColor: "#7b7fa6",
+        trackColor: TRACK,
+        fillColor: PURPLE,
         displayValue: "none",
         calibrationPoints: [
           { value: 12, barSizePercent: 0 },
@@ -698,113 +709,202 @@ function climate() {
         ...sized(F.large),
       },
     },
-    text(140, 186, 200, 44, "{live:ki}", F.large, TEXT, "center", [num("ki", `${S}temp/1/value`, 1, " C")]),
-    text(140, 232, 200, 24, "Ziel: {live:kz}", F.small, MUTED, "center", [num("kz", `${S}heater/target`, 0, " C")]),
-    text(140, 318, 200, 24, "{live:ks}", F.small, ORANGE, "center", [plain("ks", `${S}heater/state_text`)]),
-    {
-      id: id("stop"),
-      type: "button",
-      x: 110,
-      y: 352,
-      width: 260,
-      height: 54,
-      zIndex: next,
-      properties: { text: "Stop", buttonStyle: "filled", buttonColor: RED, ...sized(F.medium), action: { type: "send-mqtt", mqttTopic: `${C}heater`, mqttMessage: "off" } },
-    },
-    card(382, 352, 54, 54, [icon(13, 13, 28, "icon-stethoscope", BLUE)], EDGE, 10),
+    { ...text(200, 44, "{live:ki}", F.large, TEXT, "center", [num("ki", `${S}temp/1/value`, 1, " C")]), x: 120, y: 74 },
+    { ...text(200, 24, "Ziel: {live:kz}", F.small, MUTED, "center", [num("kz", `${S}heater/target`, 0, " C")]), x: 120, y: 120 },
+    { ...text(200, 24, "{live:ks}", F.small, ORANGE, "center", [plain("ks", `${S}heater/state_text`)]), x: 120, y: 198 },
   ])
+  return page(
+    "screen-klima",
+    "Klima",
+    "icon-fire",
+    table(
+      [
+        at(
+          card(
+            58,
+            table(
+              [
+                at(icon(14, "icon-home-small", MUTED), { row: 0, column: 0, anchor: { y: "center" } }),
+                at(text(100, 16, "Aussen", F.small, MUTED), { row: 0, column: 1 }),
+                at(text(130, 22, "{live:ka}", F.medium, TEXT, "left", [num("ka", `${S}temp/2/value`, 1, " C")]), { row: 1, column: 0, columnSpan: 2 }),
+              ],
+              { columns: 2, equal: false, gapPx: 0, columnPx: [18, undefined] },
+            ),
+          ),
+          { row: 0, column: 0, anchor: STRETCH },
+        ),
+        at(
+          {
+            id: id("modes"),
+            type: "button-group",
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 58,
+            zIndex: next,
+            properties: {
+              topic: `${S}heater/power`,
+              writeTopic: `${C}heater`,
+              states: [
+                { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
+                { id: "heat", label: "Heizen", readValue: "on", writeValue: "heat" },
+              ],
+              switchStyle: "filled",
+              switchColor: BLUE,
+              ...sized(F.small),
+            },
+          },
+          { row: 0, column: 1, anchor: STRETCH },
+        ),
+        at(dialArea, { row: 1, column: 0, columnSpan: 2, anchor: { x: "stretch" } }),
+        at(
+          {
+            id: id("stop"),
+            type: "button",
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 54,
+            zIndex: next,
+            properties: { text: "Stop", buttonStyle: "filled", buttonColor: RED, textColor: "onAccent", ...sized(F.medium), action: { type: "send-mqtt", mqttTopic: `${C}heater`, mqttMessage: "off" } },
+          },
+          { row: 2, column: 0, anchor: STRETCH },
+        ),
+        at(card(54, table([at(icon(28, "icon-stethoscope", BLUE), { row: 0, column: 0, anchor: { x: "center", y: "center" } })], { rowPx: [54 - 2 * CARD_PADDING_PX] }), undefined, 54), { row: 2, column: 1, anchor: { x: "right", y: "stretch" } }),
+      ],
+      { columns: 2, widthPx: 440, gapPx: 8, x: 20, y: 50 },
+    ),
+  )
 }
 
 // ---- Temperaturen ----
 
-function tempCard(x: number, n: number, color: string) {
-  return card(x, 50, 212, 58, [
-    box(8, 8, 4, 42, color, 2),
-    text(20, 4, 120, 22, `{live:tn${n}}`, F.small, TEXT, "left", [plain(`tn${n}`, `${S}temp/${n}/name`)]),
-    text(20, 24, 140, 32, `{live:tv${n}}`, F.medium, color, "left", [num(`tv${n}`, `${S}temp/${n}/value`, 1, " C")]),
-  ])
+function tempCard(n: number, color: string) {
+  return card(
+    58,
+    table(
+      [
+        at(box(0, 0, 4, 38, color, 2), { row: 0, column: 0, rowSpan: 2 }),
+        at(text(150, 16, `{live:tn${n}}`, F.small, TEXT, "left", [plain(`tn${n}`, `${S}temp/${n}/name`)]), { row: 0, column: 1 }),
+        at(text(150, 22, `{live:tv${n}}`, F.medium, color, "left", [num(`tv${n}`, `${S}temp/${n}/value`, 1, " C")]), { row: 1, column: 1 }),
+      ],
+      { columns: 2, equal: false, gapPx: 0, columnPx: [12, undefined] },
+    ),
+  )
 }
 
 function temps() {
-  return { ...page("screen-temps", "Temperaturen", "icon-thermometer", [
-    tempCard(20, 2, BLUE),
-    tempCard(244, 1, GREEN),
-    card(20, 118, 440, 290, [
-      {
-        id: id("chart"),
-        type: "chart",
-        x: 8,
-        y: 10,
-        width: 424,
-        height: 270,
-        zIndex: next,
-        properties: {
-          mode: "time",
-          scroll: false,
-          legend: "none",
-          fontId: sized(F.small).fontId,
-          dateFontId: sized(F.small).fontId,
-          textColor: MUTED,
-          mutedColor: MUTED,
-          lineColor: "#2a2e36",
-          nowColor: "#2a2e36",
-          left: { scale: "fixed", min: 12, max: 24, unit: "C" },
-          series: [
-            { id: "s-in", source: { kind: "topic", topic: `${S}temp/1/value` }, name: "Innen", valueKind: "level", unit: "C", draw: "line", color: GREEN },
-            { id: "s-out", source: { kind: "topic", topic: `${S}temp/2/value` }, name: "Außen", valueKind: "level", unit: "C", draw: "line", color: BLUE },
-          ],
-        },
-      },
-    ], EDGE, 12),
-  ]), timeRange: "1h" }
+  const chart = {
+    id: id("chart"),
+    type: "chart",
+    x: 0,
+    y: 0,
+    width: 400,
+    height: 262,
+    zIndex: next,
+    properties: {
+      mode: "time",
+      scroll: false,
+      legend: "none",
+      fontId: sized(F.small).fontId,
+      dateFontId: sized(F.small).fontId,
+      textColor: MUTED,
+      mutedColor: MUTED,
+      lineColor: EDGE,
+      nowColor: EDGE,
+      left: { scale: "fixed", min: 12, max: 24, unit: "C" },
+      series: [
+        { id: "s-in", source: { kind: "topic", topic: `${S}temp/1/value` }, name: "Innen", valueKind: "level", unit: "C", draw: "line", color: GREEN },
+        { id: "s-out", source: { kind: "topic", topic: `${S}temp/2/value` }, name: "Aussen", valueKind: "level", unit: "C", draw: "line", color: BLUE },
+      ],
+    },
+  }
+  return {
+    ...page(
+      "screen-temps",
+      "Temperaturen",
+      "icon-thermometer",
+      table(
+        [
+          at(tempCard(2, BLUE), { row: 0, column: 0, anchor: STRETCH }),
+          at(tempCard(1, GREEN), { row: 0, column: 1, anchor: STRETCH }),
+          at(card(286, table([at(chart, { row: 0, column: 0, anchor: STRETCH })], { rowPx: [286 - 2 * CARD_PADDING_PX] })), { row: 1, column: 0, columnSpan: 2, anchor: STRETCH }),
+        ],
+        { columns: 2, widthPx: 440, gapPx: 10, x: 20, y: 50 },
+      ),
+    ),
+    timeRange: "1h",
+  }
 }
 
 // ---- MaxxFan ----
 
 function maxxfan() {
-  return page("screen-maxxfan", "MaxxFan", "icon-fan", [
-    {
-      id: id("fanmodes"),
-      type: "button-group",
-      x: 8,
-      y: 48,
-      width: 464,
-      height: 72,
-      zIndex: next,
-      properties: {
-        topic: `${S}maxxfan/mode`,
-        writeTopic: `${C}maxxfan/mode`,
-        states: [
-          { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
-          { id: "manual", label: "Manuell", readValue: "manual", writeValue: "fan_only" },
-          { id: "auto", label: "Auto", readValue: "auto", writeValue: "auto" },
-        ],
-        switchStyle: "filled",
-        switchColor: RED,
-        ...sized(F.medium),
-      },
-    },
-    stateTile(8, 144, 464, 76, `${S}maxxfan/cover`, `${C}maxxfan/cover`, [
-      { state: "closed", label: "Dachhaube Zu", color: CARD, send: "open" },
-      { state: "open", label: "Dachhaube Offen", color: BLUE, send: "closed" },
-    ]),
-    icon(176, 248, 128, "icon-roof", "#9fb3c8"),
-  ])
+  return page(
+    "screen-maxxfan",
+    "MaxxFan",
+    "icon-fan",
+    table(
+      [
+        at(
+          {
+            id: id("fanmodes"),
+            type: "button-group",
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 72,
+            zIndex: next,
+            properties: {
+              topic: `${S}maxxfan/mode`,
+              writeTopic: `${C}maxxfan/mode`,
+              states: [
+                { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
+                { id: "manual", label: "Manuell", readValue: "manual", writeValue: "fan_only" },
+                { id: "auto", label: "Auto", readValue: "auto", writeValue: "auto" },
+              ],
+              switchStyle: "filled",
+              switchColor: RED,
+              ...sized(F.medium),
+            },
+          },
+          { row: 0, column: 0, anchor: { x: "stretch" } },
+        ),
+        at(
+          stateTile(464, 76, `${S}maxxfan/cover`, `${C}maxxfan/cover`, [
+            { state: "closed", label: "Dachhaube Zu", color: CARD, send: "open" },
+            { state: "open", label: "Dachhaube Offen", color: BLUE, send: "closed" },
+          ]),
+          { row: 1, column: 0, anchor: { x: "stretch" } },
+        ),
+        at(icon(128, "icon-roof", MUTED), { row: 2, column: 0, anchor: { x: "center" } }),
+      ],
+      { widthPx: 464, gapPx: 24 },
+    ),
+  )
 }
 
 // ---- Schalter ----
 
 function switches() {
-  const tiles = []
-  for (let i = 0; i < 8; i++) tiles.push(relayTile(i % 2 === 0 ? 20 : 248, 48 + Math.floor(i / 2) * 92, 212, 84, i + 1))
-  return page("screen-schalter", "Schalter", "icon-toggle", tiles)
+  return page(
+    "screen-schalter",
+    "Schalter",
+    "icon-toggle",
+    table(
+      Array.from({ length: 8 }, (_, i) => at(relayTile(216, 84, i + 1), { row: Math.floor(i / 2), column: i % 2, anchor: STRETCH })),
+      { columns: 2, widthPx: 440, gapPx: 8, x: 20 },
+    ),
+  )
 }
 
-/** The project, from the 4"'s description (a DDF zip); `homeWithTables` puts in the Home laid out by tables. */
-export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWithTables?: boolean } = {}) {
+/** The project, from the 4"'s description (a DDF zip). */
+export async function buildCamperUiProject(ddfZip: Uint8Array) {
   next = 1
   const parsed = await parseDeviceDescriptionFile(Buffer.from(ddfZip))
   const fields = deviceDescriptionToProjectFields(parsed, Buffer.from(ddfZip).toString("base64"))
+  PX_PER_MM = fields.pixelsPerMm ?? 6.73
+  CARD_PADDING_MM = mm(CARD_PADDING_PX)
   // Each size's font on this device, in Humanist (Inter) as CamperUI's
   // Montserrat; resolved once, before any page is built.
   const scale = textScaleOf({ pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies }, "Humanist")!
@@ -814,12 +914,11 @@ export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWi
       return [size, { textStyle: size, textBold: false as const, fontId: f.fontId, fontSize: f.fontSize }]
     }),
   )
-  const homePage = options.homeWithTables ? homeWithTables(fields.pixelsPerMm ?? 6.73) : home()
   const project = {
-    name: "CamperUI nachgebaut",
+    name: "CamperUI",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master(fields.screenWidth, fields.screenHeight), homePage, dimmer(), power(), water(), climate(), temps(), maxxfan(), switches()],
+    screens: [master(fields.screenWidth, fields.screenHeight), home(), dimmer(), power(), water(), climate(), temps(), maxxfan(), switches()],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,
@@ -847,9 +946,11 @@ export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWi
       typographies: fields.typographies,
       screenShape: fields.screenShape,
       popupCloseRadius: fields.popupCloseRadius,
-      // CamperUI's tiles have 10 px corners on the 4": 1.5 mm
-      // (docs/2026-11-04-native-buttons.md, module button-radius).
-      cards: { buttonRadiusMm: 1.5 },
+      themeId: "slate",
+      // CamperUI's cards and tiles on the 4": 10 px corners and padding, a
+      // 1 px edge (docs/2026-11-03-card.md; buttons: docs/2026-11-04-native-
+      // buttons.md, module button-radius).
+      cards: { radiusMm: mm(CARD_RADIUS_PX), edgePx: 1, accentEdgePx: 2, paddingMm: CARD_PADDING_MM, buttonRadiusMm: mm(CARD_RADIUS_PX) },
     },
     topics: TOPICS,
     combinedTopics: [],

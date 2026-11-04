@@ -4,13 +4,14 @@ import path from "path"
 import JSZip from "jszip"
 import { buildCamperUiProject } from "../deploy/demo/camperui-project"
 import { mergeMasterAndScreenObjects } from "../lib/object-order"
+import { applyTheme, isRole, migrateColorsToRoles, resolveColor, themeById } from "../lib/themes"
 
 // CamperUI rebuilt in Schaltli (deploy/demo/camperui-project.ts): every page
 // drawn by the reference renderer the boards are compared against, its
 // objects of types the 4" draws, every live value bound to a topic of the
 // project. With CAMPERUI_SHOTS=<dir> each page is written there as a PNG;
 // with CAMPERUI_PUSH=1 the project goes into the designer's store as
-// «CamperUI nachgebaut».
+// «CamperUI».
 
 const ROOT = path.join(__dirname, "..")
 const DDF = path.join(ROOT, "public", "ddf", "waveshare-touch-lcd-4.ddf.zip")
@@ -22,7 +23,7 @@ test("the eight pages: types the 4\" draws, every value bound to a topic of the 
   expect(project.screens.filter((s: any) => !s.isMaster).map((s: any) => s.name)).toEqual(["Home", "Dimmer", "Power", "Wasser", "Klima", "Temperaturen", "MaxxFan", "Schalter"])
   const supported = new Set(project.settings.supportedObjectTypes)
   const objects = project.screens.flatMap((s: any) => deep(s.objects))
-  for (const o of objects) expect(supported.has(o.type) || o.type === "free", `${o.id} ${o.type}`).toBe(true)
+  for (const o of objects) expect(supported.has(o.type) || o.type === "free" || o.type === "table", `${o.id} ${o.type}`).toBe(true)
   const topics = new Set(project.topics.map((t: any) => t.topic))
   const known = (t: string) => topics.has(t.split("#")[0])
   for (const o of objects) {
@@ -46,16 +47,28 @@ test("each page drawn as the boards are compared against", async ({ page }) => {
   fs.mkdirSync(out, { recursive: true })
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
-  for (let i = 0; i < project.screens.length; i++) {
-    const screen = project.screens[i]
+  // Laid out first, as the designer has it: the tables place their objects.
+  const laid: any = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), project)
+  const theme = themeById("slate")
+  const depth = laid.settings.colorDepth
+  for (let i = 0; i < laid.screens.length; i++) {
+    const screen = laid.screens[i]
     if (screen.isMaster) continue
-    // With its master's bar and navigator, as the export merges them.
-    const master = project.screens.find((s: any) => s.id === screen.masterScreenId)
-    const merged = { ...project, screens: project.screens.map((s: any) => (s === screen ? { ...s, objects: mergeMasterAndScreenObjects(master.objects, s.objects, s) } : s)) }
-    const png: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: merged, screenIndex: i, topicOverrides: {} })
-    expect(png, screen.name).toBeTruthy()
-    const data = String(png).replace(/^data:image\/png;base64,/, "")
-    fs.writeFileSync(path.join(out, `${String(i).padStart(2, "0")}-${screen.name}.png`), Buffer.from(data, "base64"))
+    // With its master's bar and navigator, as the export merges them, its
+    // roles resolved as the export resolves them: dark as CamperUI, and light.
+    const master = laid.screens.find((s: any) => s.id === screen.masterScreenId)
+    for (const variant of ["dark", "light"] as const) {
+      const drawn = {
+        ...screen,
+        backgroundColor: resolveColor(screen.backgroundColor, theme, variant, depth),
+        objects: applyTheme(mergeMasterAndScreenObjects(master.objects, screen.objects, screen), theme, variant, depth),
+      }
+      const merged = { ...laid, screens: laid.screens.map((s: any) => (s === screen ? drawn : s)) }
+      const png: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: merged, screenIndex: i, topicOverrides: {} })
+      expect(png, screen.name).toBeTruthy()
+      const data = String(png).replace(/^data:image\/png;base64,/, "")
+      fs.writeFileSync(path.join(out, `${String(i).padStart(2, "0")}-${screen.name}${variant === "light" ? "-hell" : ""}.png`), Buffer.from(data, "base64"))
+    }
   }
   // The project as a file, to put into the designer outside a test run:
   // global-teardown deletes every project a run created, so CAMPERUI_PUSH
@@ -90,39 +103,53 @@ test("the rebuild for the 4\": no pictures of buttons, under 600 KB unpacked", a
   for (const b of buttons) expect(b.look?.normal, b.id).toBeTruthy()
 })
 
-// Home a second time with tables instead of coordinates (2026-11-04): one
-// table of the cards, two equal columns 8 px apart, and a table of texts in
-// each card. Laid out, its cards stand where home() puts them by hand, to
-// the pixel or two; the page is drawn beside the other as 00-Home-tabellen.
-test("Home with tables: its cards where the hand-placed Home has them", async ({ page }) => {
-  test.setTimeout(120_000)
-  const ddf = new Uint8Array(fs.readFileSync(DDF))
-  const hand: any = await buildCamperUiProject(ddf)
-  const tables: any = await buildCamperUiProject(ddf, { homeWithTables: true })
+// Every page laid out by tables (the user, 2026-11-04): a page is one table,
+// laid out nothing in it is left out for want of room - a docked table even
+// 2 px too tall for its card drops out whole and leaves the card empty - and
+// every page's table stands between the bar (40 px) and the navigator.
+test("every page a table: nothing left out, between the bar and the navigator", async ({ page }) => {
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
-  const laid: any = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), tables)
-  const homeOf = (p: any) => p.screens.find((s: any) => s.id === "screen-home")
-  const grid = homeOf(laid).objects[0]
-  expect(grid.type).toBe("table")
-  // Nothing left out for want of room: a docked table 2 px too tall for its
-  // card drops out whole and leaves the card empty.
-  for (const o of deep(grid.children)) expect(o.properties?.dockedOut, `${o.id} left out`).toBeFalsy()
-  const cards = grid.children.map((c: any) => ({ x: grid.x + c.x, y: grid.y + c.y, width: c.width, height: c.height }))
-  const wanted = homeOf(hand).objects.map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height }))
-  expect(cards.length).toBe(wanted.length)
-  for (let i = 0; i < cards.length; i++)
-    for (const k of ["x", "y", "width", "height"] as const) expect(Math.abs(cards[i][k] - wanted[i][k]), `card ${i} ${k}: ${cards[i][k]} vs ${wanted[i][k]}`).toBeLessThanOrEqual(2)
+  const laid: any = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), project)
+  const navigatorTop = project.screenHeight - 64
+  for (const screen of laid.screens) {
+    if (screen.isMaster) continue
+    expect(screen.objects.map((o: any) => o.type), screen.name).toEqual(["table"])
+    const grid = screen.objects[0]
+    for (const o of deep(grid.children)) expect(o.properties?.dockedOut, `${screen.name}: ${o.id} left out`).toBeFalsy()
+    expect(grid.x, screen.name).toBeGreaterThanOrEqual(0)
+    expect(grid.y, screen.name).toBeGreaterThanOrEqual(40)
+    expect(grid.x + grid.width, `${screen.name}: ${grid.width} px wide`).toBeLessThanOrEqual(project.screenWidth)
+    expect(grid.y + grid.height, `${screen.name}: ${grid.height} px tall`).toBeLessThanOrEqual(navigatorTop)
+  }
+  // The bar's contents are a table too.
+  expect(laid.screens.find((s: any) => s.isMaster).objects.some((o: any) => o.type === "table")).toBe(true)
+})
 
-  const out = process.env.CAMPERUI_SHOTS ? path.resolve(ROOT, process.env.CAMPERUI_SHOTS) : test.info().outputPath("pages")
-  fs.mkdirSync(out, { recursive: true })
-  const i = laid.screens.indexOf(homeOf(laid))
-  const master = laid.screens.find((s: any) => s.isMaster)
-  const merged = { ...laid, screens: laid.screens.map((s: any, j: number) => (j === i ? { ...s, objects: mergeMasterAndScreenObjects(master.objects, s.objects, s) } : s)) }
-  const png: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: merged, screenIndex: i, topicOverrides: {} })
-  expect(png).toBeTruthy()
-  fs.writeFileSync(path.join(out, "00-Home-tabellen.png"), Buffer.from(String(png).replace(/^data:image\/png;base64,/, ""), "base64"))
-  if (process.env.CAMPERUI_JSON_TABLES) fs.writeFileSync(path.resolve(ROOT, process.env.CAMPERUI_JSON_TABLES), JSON.stringify({ name: `${tables.name} (Tabellen)`, project: { ...tables, name: `${tables.name} (Tabellen)` } }))
+// Its colours are the Slate theme's roles (2026-11-04): until then the
+// rebuild wrote CamperUI's hex values and named no theme, and the designer
+// took it for a project from before themes - every hex matched to the
+// nearest role of the old Lavender, and it opened in purples.
+test("colours: roles of Slate, nothing for the designer to guess", async () => {
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
+  const master = project.screens.find((s: any) => s.isMaster)
+  expect(master.themeId).toBe("slate")
+  const before = JSON.stringify(project)
+  expect(migrateColorsToRoles(JSON.parse(before)), "migrateColorsToRoles changed something").toBe(false)
+  // Every colour key holds a role or "transparent", never a hex.
+  const colours: string[] = []
+  const walk = (node: any) => {
+    if (Array.isArray(node)) return node.forEach(walk)
+    if (!node || typeof node !== "object") return
+    for (const [k, v] of Object.entries(node)) {
+      if (/color$/i.test(k) && typeof v === "string") colours.push(`${k}=${v}`)
+      else walk(v)
+    }
+  }
+  walk(project.screens)
+  expect(colours.length).toBeGreaterThan(50)
+  expect(colours.filter((c) => { const v = c.split("=")[1]; return v !== "transparent" && !isRole(v) })).toEqual([])
 })
 
 // On the 4" itself, with CAMPERUI_DEVICE=<its address>: the project installed
@@ -145,13 +172,12 @@ test("on the 4\": installed, the demo's values published, each page photographed
   const out = process.env.CAMPERUI_SHOTS ? path.resolve(ROOT, process.env.CAMPERUI_SHOTS) : test.info().outputPath("device")
   fs.mkdirSync(out, { recursive: true })
 
-  // CAMPERUI_HOME_TABLES=1 installs the Home laid out by tables.
-  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)), { homeWithTables: !!process.env.CAMPERUI_HOME_TABLES })
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   // Laid out first, as the designer always has it: a table places its
   // objects there (lib/layout.ts), and a project straight from the builder
-  // put the tables Home's cards on top of each other on the glass.
+  // put the cards on top of each other on the glass.
   const laid = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), project)
   const zip = Buffer.from(await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), laid), "base64")
   const form = new FormData()
