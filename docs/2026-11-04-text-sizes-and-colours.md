@@ -3,7 +3,7 @@
 Spec drafted 2026-11-04, from the CamperUI comparison
 (https://claude.ai/artifact/BPnD3obEVUqjN3zEYHwdvT) and the rebuild on the
 branch `camperui-rebuild`. Two modules, built in this order:
-`text-sizes`, then `colour-model`. **Status: decisions taken 2026-11-04, awaiting approval of the whole.**
+`text-sizes`, then `colour-model`. **Status: approved by the user on 2026-11-04.**
 
 ## Objective
 

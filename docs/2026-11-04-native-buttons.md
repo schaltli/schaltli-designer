@@ -3,7 +3,7 @@
 Spec drafted 2026-11-04. Two modules, built in this order: `native-buttons`,
 then `button-radius` (moved here from docs/2026-11-04-text-sizes-and-
 colours.md, since both change how a device draws a button).
-**Status: awaiting approval.**
+**Status: approved by the user on 2026-11-04.**
 
 ## Objective
 
