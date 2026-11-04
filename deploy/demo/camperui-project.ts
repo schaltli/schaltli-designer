@@ -30,7 +30,6 @@ export const GAPS = [
   "Uhrzeit oben links: Schaltli hat keinen Platzhalter für die Uhrzeit des Geräts; hier aus dem Topic van/clock/time.",
   "Starterbatterie: die VanPi-Brücke meldet keine Spannung der Starterbatterie.",
   "Min/Max der Temperaturen: ein Text kann das Minimum und Maximum eines Verlaufs nicht zeigen.",
-  "Kacheln mit kleinen Ecken: ein Button ist in Schaltli immer eine Pille; die Kacheln der Relais sind darum runder als bei CamperUI.",
   "Liste mit mehr als vier Dimmern oder acht Relais: ein Screen scrollt nicht.",
   "Auswahlliste «Heizen (Temp)»: Schaltli hat keine Ausklappliste; hier als Knopfgruppe.",
   "Name auf einem Schalter: das Label eines Zustands ist fester Text, der Name aus Pekaway kommt nicht hinein.",
@@ -253,8 +252,8 @@ function ring(x: number, y: number, size: number, path: string, max: number, col
  * A relay as CamperUI's big tile: its name on it, coloured while on, a tap
  * switching it. A switch draws a knob and a button group its segments, so
  * the tile is composed: a switcher on the relay's state, and in each panel a
- * button in that state's colour sending the other state. A button is a pill,
- * so its corners are rounder than CamperUI's (GAPS).
+ * button in that state's colour sending the other state. Its corners are
+ * the project's button radius (1.5 mm, CamperUI's 10 px).
  */
 function relayTile(x: number, y: number, width: number, height: number, n: number, onColor = GREEN, words: [string, string] = ["", ""]) {
   const name = RELAYS[n - 1]
@@ -836,6 +835,9 @@ export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWi
       typographies: fields.typographies,
       screenShape: fields.screenShape,
       popupCloseRadius: fields.popupCloseRadius,
+      // CamperUI's tiles have 10 px corners on the 4": 1.5 mm
+      // (docs/2026-11-04-native-buttons.md, module button-radius).
+      cards: { buttonRadiusMm: 1.5 },
     },
     topics: TOPICS,
     combinedTopics: [],

@@ -72,6 +72,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
 - <span class="ui">Size</span>: wie hoch der Button ist, wie beim [Switch](#switch).
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.
+- <span class="ui">Button radius</span> unter <span class="ui">Settings</span> › <span class="ui">Cards</span>: Ohne Eintrag ist ein Button eine Pille mit runden Enden. Ein Wert in Millimetern gibt allen Buttons des Projekts Ecken mit diesem Radius. Gedrückt wird ein Button eckiger, nie runder als in Ruhe.
 
 Bei <span class="ui">Send an MQTT message</span> darf die <span class="ui">Message</span> `{topic:…}` enthalten. Beim Antippen steht an dieser Stelle, was das Topic gerade hält, etwa der Code, den jemand in ein [Text field](#text-field) getippt hat. Alle anderen geschweiften Klammern bleiben stehen, ein JSON-Befehl geht also unverändert hinaus. Zwei Felder gehören dazu:
 
@@ -79,6 +80,8 @@ Bei <span class="ui">Send an MQTT message</span> darf die <span class="ui">Messa
 - <span class="ui">Then clear</span>: ein [Local topic](/designer/topics#local), das nach dem Senden leer wird. So bleibt ein Code nicht im Feld stehen.
 
 Das können Knob, 4.3B und PaperS3 ab der Firmware fw-2026.10.28.1, die Android-App ab Version 0.14.0. Kann es ein Gerät nicht, sagt dir das der Deploy.
+
+Seit November 2026 zeichnen die Geräte und die Android-App den Button selbst. Der Designer schickt nur noch seine Farben und Masse, und ein Projekt braucht auf dem Gerät viel weniger Platz. Läuft auf einem Gerät noch eine ältere Firmware, fehlen nach dem nächsten Deploy die Buttons. Spiel dann zuerst die neue Firmware auf.
 
 Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder aus ist, nimm einen [Switch](#switch).
 

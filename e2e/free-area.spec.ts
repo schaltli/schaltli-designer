@@ -169,6 +169,13 @@ test("a free area's look: a box behind its contents on the device; nothing witho
   // area at 3 stays on top of the area's box (reported 2026-10-05).
   const low = dissolveGroups([{ ...area, children: [{ ...child, zIndex: 0, type: "switch" }] }])
   expect(low[0].zIndex).toBeLessThan(low[1].zIndex)
+  // Through a table the area holds, too: its texts are dissolved into the
+  // same list, and a card's box at the area's number lay over them on the
+  // glass (CamperUI's Home in tables, 2026-11-04).
+  const table: ScreenObject = { id: "rows", type: "table", x: 0, y: 0, width: 80, height: 60, zIndex: 9, properties: { grid: 1, columns: [{}], rows: [] }, children: [{ ...child, zIndex: 1, properties: { text: "x", cell: { row: 0, column: 0 } } }] }
+  const deep = dissolveGroups([{ ...area, zIndex: 9, children: [table] }])
+  const box = deep.find((o) => o.type === "box")!
+  for (const o of deep.filter((o) => o.type !== "box")) expect(box.zIndex, o.id).toBeLessThan(o.zIndex)
   // An edge alone is a frame; neither, nothing.
   expect(freeBackground({ ...area, properties: { strokeWidth: 1 } })?.properties).toMatchObject({ fillColor: "transparent", strokeWidth: 1, strokeColor: "text" })
   expect(freeBackground({ ...area, properties: {} })).toBeUndefined()

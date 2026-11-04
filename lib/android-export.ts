@@ -478,7 +478,8 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         ...light,
         ...(darkEntry
           ? {
-              lookDark: { normal: darkEntry.look.normal, pressed: darkEntry.look.pressed },
+              // Whole: darkVariantOf swaps `look` for it entire.
+              lookDark: darkEntry.look,
               ...(darkEntry.iconPath ? { iconPathDark: darkEntry.iconPath } : {}),
               ...(darkEntry.iconPathPressed ? { iconPathPressedDark: darkEntry.iconPathPressed } : {}),
             }

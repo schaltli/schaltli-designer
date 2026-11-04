@@ -58,17 +58,19 @@ const CASES = [
     },
   },
   {
-    name: "top-level paths of an icon and a button",
+    name: "top-level paths of an icon, and a button's look and icon",
     input: {
       objects: [
         { id: "icon", type: "icon", path: "assets/s1_icon.bmp", pathDark: "assets/s1_icon-dark.bmp", properties: {} },
         {
+          // Since 2026-11-04 a button is drawn from its look; the dark one
+          // replaces it whole (docs/2026-11-04-native-buttons.md).
           id: "btn",
           type: "button",
-          pathNormal: "assets/b.bmp",
-          pathNormalDark: "assets/b-dark.bmp",
-          pathActive: "assets/b-a.bmp",
-          pathActiveDark: "assets/b-a-dark.bmp",
+          look: { normal: { r: 20, fill: "#6750a4", outline: null, ink: "#ffffff" }, pressed: { r: 8, fill: "#7662ad", outline: null, ink: "#ffffff" }, textX: 24, baseline: 26, clipX: 10, clipW: 60 },
+          lookDark: { normal: { r: 20, fill: "#d0bcff", outline: null, ink: "#381e72" }, pressed: { r: 8, fill: "#c4b0f0", outline: null, ink: "#381e72" }, textX: 24, baseline: 26, clipX: 10, clipW: 60 },
+          iconPath: "assets/b-icon.bmp",
+          iconPathDark: "assets/b-icon-dark.bmp",
           properties: {},
         },
       ],

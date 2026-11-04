@@ -398,6 +398,9 @@ test.describe("the dark bitmaps for the app", () => {
         expect(await pixel(page, zip, path, "center"), `${id}: switch icon ink, ${on ? "on" : "off"}`).toBe(lc(ink))
       }
       expect(lc(obj(id, "btn").lookDark.normal.fill), `${id}: button fill`).toBe(lc(accent))
+      // Whole, since the app swaps look for lookDark entire: the layout is there.
+      expect(obj(id, "btn").lookDark.textX, `${id}: dark look's layout`).toBe(obj(id, "btn").look.textX)
+      expect(obj(id, "btn").lookDark.icon, `${id}: dark look's icon box`).toEqual(obj(id, "btn").look.icon)
     }
     // A master's object on two screens in two themes: two dark looks and icons.
     expect(obj("a", "btn").lookDark.normal.fill).not.toBe(obj("b", "btn").lookDark.normal.fill)

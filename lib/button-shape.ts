@@ -173,9 +173,13 @@ export function buttonFaces(
 ): { normal: ButtonFace; pressed: ButtonFace } {
   const w = Math.max(1, Math.round(obj.width))
   const h = Math.max(1, Math.round(obj.height))
+  // The layout pass writes the project's radius into the button
+  // (lib/card.ts withButtonRadius); a caller that knows it may say so.
+  const own = obj.properties?.buttonRadius
+  const r = radiusPx ?? (typeof own === "number" && Number.isFinite(own) ? own : undefined)
   return {
-    normal: faceOf(buttonLook(obj, background, colorDepth, false), buttonCornerRadius(w, h, false, radiusPx)),
-    pressed: faceOf(buttonLook(obj, background, colorDepth, true), buttonCornerRadius(w, h, true, radiusPx)),
+    normal: faceOf(buttonLook(obj, background, colorDepth, false), buttonCornerRadius(w, h, false, r)),
+    pressed: faceOf(buttonLook(obj, background, colorDepth, true), buttonCornerRadius(w, h, true, r)),
   }
 }
 

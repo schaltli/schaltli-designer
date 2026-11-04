@@ -19,6 +19,12 @@ export interface CardSettings {
   edgePx: number
   accentEdgePx: number
   paddingMm: number
+  /**
+   * Every button's corner radius (docs/2026-11-04-native-buttons.md, module
+   * button-radius); unset: a pill, as before. Not a card's, but where a
+   * project's corners are set.
+   */
+  buttonRadiusMm?: number
 }
 
 /** The defaults (the user, 2026-11-03): about CamperUI's on the 4". */
@@ -34,7 +40,27 @@ export function cardSettingsOf(settings: { cards?: Partial<CardSettings> } | und
     edgePx: number(c.edgePx, CARD_DEFAULTS.edgePx),
     accentEdgePx: number(c.accentEdgePx, CARD_DEFAULTS.accentEdgePx),
     paddingMm: number(c.paddingMm, CARD_DEFAULTS.paddingMm),
+    ...(typeof c.buttonRadiusMm === "number" && Number.isFinite(c.buttonRadiusMm) && c.buttonRadiusMm >= 0 ? { buttonRadiusMm: c.buttonRadiusMm } : {}),
   }
+}
+
+/**
+ * A button with the project's button radius written into it, in px
+ * (`properties.buttonRadius`), the way a card gets its look's values: the
+ * editor, the preview, the reference render and the export all read the
+ * object. Taken out again when the setting is cleared - a pill.
+ */
+export function withButtonRadius(button: ScreenObject, cards: CardSettings, pixelsPerMm: number): ScreenObject {
+  if (button.type !== "button") return button
+  const p = button.properties ?? {}
+  const wanted = typeof cards.buttonRadiusMm === "number" ? Math.round(cards.buttonRadiusMm * pixelsPerMm) : undefined
+  if (p.buttonRadius === wanted) return button
+  if (wanted === undefined) {
+    if (!("buttonRadius" in p)) return button
+    const { buttonRadius: _gone, ...rest } = p
+    return { ...button, properties: rest }
+  }
+  return { ...button, properties: { ...p, buttonRadius: wanted } }
 }
 
 export function cardLookOf(obj: ScreenObject): CardLook | undefined {

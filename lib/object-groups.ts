@@ -189,6 +189,12 @@ export function freeBackground(obj: ScreenObject): ScreenObject | undefined {
   }
 }
 
+// The stacking numbers of what a container's children turn into once
+// dissolved: each child's own, and through a layout container its children's.
+function dissolvedStack(children: ScreenObject[]): number[] {
+  return children.flatMap((child) => [child.zIndex, ...(isContainerType(child.type) ? dissolvedStack(child.children ?? []) : [])])
+}
+
 function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
   if (!objects.some((obj) => isLayoutOnlyType(obj.type))) return objects
   const out: ScreenObject[] = []
@@ -208,7 +214,12 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
     const around = clipsOf(obj)
     const background = obj.type === "free" ? freeBackground(obj) : undefined
     if (background) {
-      const lowest = Math.min(obj.zIndex, ...(obj.children ?? []).map((child) => child.zIndex))
+      // Below everything that ends up in this list from the area - through
+      // a table or another area inside it too, which are dissolved into it
+      // just the same. Counting only the area's own children put a card's
+      // box over the texts of the table it held, on the glass (CamperUI's
+      // Home in tables, 2026-11-04).
+      const lowest = Math.min(obj.zIndex, ...dissolvedStack(obj.children ?? []))
       out.push(withClip({ ...background, zIndex: lowest - 1 }, around))
     }
     // What it holds: clipped by what clips the area, and by the area's own

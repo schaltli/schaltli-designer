@@ -577,7 +577,7 @@ repo's type definitions for the full field list):
     "textX": 61, "baseline": 37, "clipX": 14, "clipW": 184,
     "icon": { "x": 40, "y": 26, "size": 11 }   // only with an icon
   },
-  "lookDark": { "normal": {…}, "pressed": {…} }, // colours of the dark theme
+  "lookDark": { … },   // the whole look again, the dark theme's colours
   "iconPath": "assets/…", "iconPathPressed": "assets/…" // + …Dark
   ```
 
@@ -685,7 +685,7 @@ Where `XDark` appears:
 | Screen | `backgroundColor` | `backgroundColorDark` |
 | Object `properties` | any colour: `color`, `backgroundColor`, `borderColor`, `fillColor`, `strokeColor`, `textColor`, `buttonColor`, `switchColor`, `iconColor` | the same name + `Dark` (`fillColorDark`, …) |
 | Icon, live-icon rule, level header icon (firmware) | `path` | `pathDark` |
-| Button (firmware and Android) | `look`, `iconPath`, `iconPathPressed` | `lookDark` (colours only), `iconPathDark`, `iconPathPressedDark` |
+| Button (firmware and Android) | `look`, `iconPath`, `iconPathPressed` | `lookDark` (whole; only its colours differ), `iconPathDark`, `iconPathPressedDark` |
 | Switch state (firmware) | `path`, `pathActive` | `pathDark`, `pathActiveDark` |
 | Screen (Android) | `backgroundImage` | `backgroundImageDark` |
 | Icon, live-icon rule, level icon, switch state (Android) | `path`, `activePath` | `pathDark`, `activePathDark` |

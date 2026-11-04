@@ -314,7 +314,8 @@ async function rehydrateIconAssets(project, zip) {
       const props = obj.properties || {};
       const untinted = !props.iconColor;
       if (obj.type === "icon") remember(props.assetId, obj.path, untinted);
-      if (obj.type === "button") remember(props.iconAssetId, obj.path, untinted);
+      // A button's icon reaches the app as its square, already drawn on the
+      // button (iconPath, since 2026-11-04) - a picture, not an SVG to take back.
       for (const state of props.states || []) {
         remember(state.iconAssetId, state.path, untinted);
         remember(state.activeIconAssetId, state.activePath, untinted);

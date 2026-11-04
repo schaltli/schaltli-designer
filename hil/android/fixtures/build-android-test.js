@@ -1572,12 +1572,18 @@ async function main() {
     if (font.path && !zip.file(font.path)) fail(`font ${font.id} points at a missing ${font.path}`);
   }
 
+  // A button is drawn by the app from its look since 2026-11-04 (designer
+  // docs/2026-11-04-native-buttons.md); only one with an icon has a picture,
+  // its icon's square.
   const buttons = objects.filter((o) => o.type === "button");
   for (const button of buttons) {
-    if (!button.path) fail(`SoftwareButton ${button.id} carries no icon path`);
-    else if (!zip.file(button.path)) fail(`SoftwareButton ${button.id} points at a missing ${button.path}`);
+    if (!button.look || !button.look.normal || !button.look.pressed) fail(`SoftwareButton ${button.id} carries no look`);
+    for (const key of ["iconPath", "iconPathPressed", "iconPathDark", "iconPathPressedDark"]) {
+      if (button[key] && !zip.file(button[key])) fail(`SoftwareButton ${button.id} points at a missing ${button[key]}`);
+    }
+    if (button.look && button.look.icon && !button.iconPath) fail(`SoftwareButton ${button.id} has an icon but no iconPath`);
   }
-  console.log(`  ${buttons.length} SoftwareButton(s) with a resolved icon`);
+  console.log(`  ${buttons.length} SoftwareButton(s) with their look`);
 
   const states = objects
     .filter((o) => ["switch", "button-group"].includes(o.type))

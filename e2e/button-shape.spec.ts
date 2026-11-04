@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { buttonContentLayout, buttonCornerRadius, buttonFaces, buttonLook, buttonPills, BUTTON_ICON_GAP } from "../lib/button-shape"
 import { fontMetricsOf } from "../lib/level-shape"
+import { layoutProject } from "../lib/layout"
 
 // What a device is told to draw for a button (docs/2026-11-04-native-
 // buttons.md): both faces - radius, fill, ring, ink - and where icon and label
@@ -76,5 +77,34 @@ test.describe("a face as the rasteriser's runs", () => {
       { band: { x: 10, y: 20, w: 100, h: 40, rLow: 20, rHigh: 20 }, colour: "#445566" },
     ])
     expect(buttonPills(10, 20, 100, 40, { r: 0, fill: null, outline: null, ink: "#000000" })).toEqual([])
+  })
+})
+
+// Settings › Cards › Button radius (module button-radius): the layout pass
+// writes it into every button in px, the way a card gets its look; cleared,
+// it is taken out again and the button is a pill.
+test.describe("the project's button radius", () => {
+  const settings = (buttonRadiusMm?: number) => ({ pixelsPerMm: 6.73, cards: buttonRadiusMm === undefined ? {} : { buttonRadiusMm } })
+  const projectWith = (s: any, objects: any[]) => ({ settings: s, screens: [{ id: "s", objects }] }) as any
+
+  test("written into every button at any depth, in px, and its faces take it", () => {
+    const nested = { id: "g", type: "group", x: 0, y: 0, width: 300, height: 200, zIndex: 1, properties: {}, children: [button({}, 212, 84)] }
+    const laid = layoutProject(projectWith(settings(1.5), [button({}, 212, 84), nested]))
+    const [top, group] = laid.screens[0].objects as any[]
+    expect(top.properties.buttonRadius).toBe(10)
+    expect(group.children[0].properties.buttonRadius).toBe(10)
+    expect(buttonFaces(top, "#ffffff", "24bit").normal.r).toBe(10)
+  })
+
+  test("cleared, it is taken out again: a pill", () => {
+    const laid = layoutProject(projectWith(settings(), [button({ buttonRadius: 10 }, 212, 84)]))
+    const b = (laid.screens[0].objects as any[])[0]
+    expect(b.properties).not.toHaveProperty("buttonRadius")
+    expect(buttonFaces(b, "#ffffff", "24bit").normal.r).toBe(42)
+  })
+
+  test("an unset radius changes nothing in a project from before", () => {
+    const project = projectWith(settings(), [button({}, 212, 84)])
+    expect(layoutProject(project)).toBe(project)
   })
 })

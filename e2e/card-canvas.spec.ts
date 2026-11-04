@@ -93,3 +93,28 @@ test("Settings › Cards changes every card at once; one Ctrl+Z takes it back", 
   const undone = await saved(page)
   expect(undone.objects.map((o) => o.properties.cornerRadius)).toEqual([Math.round(2 * ppm), Math.round(2 * ppm)])
 })
+
+// Module button-radius (docs/2026-11-04-native-buttons.md): Button radius
+// beside the cards' settings; every button gets it, empty brings the pill back.
+test("Settings › Cards › Button radius rounds every button's corners; empty is a pill again", async ({ page }) => {
+  const knopf = { id: "knopf", type: "button", x: 40, y: 200, width: 160, height: 60, zIndex: 2, properties: { text: "Licht", buttonStyle: "filled", buttonColor: "accent", action: { type: "next-screen" } } }
+  await loadProject(page, await project([knopf]))
+  const before = await saved(page)
+  const ppm = before.settings.pixelsPerMm ?? 4
+  expect(before.objects[0].properties).not.toHaveProperty("buttonRadius")
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByText("Cards", { exact: true }).click()
+  await expect(page.getByTestId("button-preview")).toBeVisible()
+  await page.locator("#buttonRadius").fill("1.5")
+  await page.getByRole("button", { name: "Close" }).click()
+  const after = await saved(page)
+  expect(after.settings.cards).toMatchObject({ buttonRadiusMm: 1.5 })
+  expect(after.objects[0].properties.buttonRadius).toBe(Math.round(1.5 * ppm))
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByText("Cards", { exact: true }).click()
+  await page.locator("#buttonRadius").fill("")
+  await page.getByRole("button", { name: "Close" }).click()
+  const cleared = await saved(page)
+  expect(cleared.settings.cards ?? {}).not.toHaveProperty("buttonRadiusMm")
+  expect(cleared.objects[0].properties).not.toHaveProperty("buttonRadius")
+})

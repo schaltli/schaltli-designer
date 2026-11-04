@@ -451,11 +451,12 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // beside its light field as `…Dark` - the one rule of the export
   // (docs/2026-09-25-themes-export.md).
   const iconDarkPathMap = new Map(dark.iconUsages.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
-  // The dark faces: colours only, the radius and the layout are the light's.
+  // The dark look: whole, since the app swaps `look` for `lookDark` entire
+  // (its darkVariantOf); only the faces' colours differ from the light one.
   const buttonDarkMap = new Map(dark.softwareButtons.map((b) => [
     assetKey(b.screenId, b.objectId),
     {
-      lookDark: { normal: b.look.normal, pressed: b.look.pressed },
+      lookDark: b.look,
       ...(b.iconFilename ? { iconPathDark: `assets/${b.iconFilename}` } : {}),
       ...(b.iconPressedFilename ? { iconPathPressedDark: `assets/${b.iconPressedFilename}` } : {}),
     },

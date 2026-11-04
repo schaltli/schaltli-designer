@@ -149,7 +149,11 @@ test("on the 4\": installed, the demo's values published, each page photographed
   const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)), { homeWithTables: !!process.env.CAMPERUI_HOME_TABLES })
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
-  const zip = Buffer.from(await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), project), "base64")
+  // Laid out first, as the designer always has it: a table places its
+  // objects there (lib/layout.ts), and a project straight from the builder
+  // put the tables Home's cards on top of each other on the glass.
+  const laid = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), project)
+  const zip = Buffer.from(await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), laid), "base64")
   const form = new FormData()
   form.append("file", new Blob([zip]), "camperui.zip")
   const installed = await fetch(`${base}/api/project`, { method: "POST", body: form, headers: auth, signal: AbortSignal.timeout(120_000) })
