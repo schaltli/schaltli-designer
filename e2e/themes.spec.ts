@@ -426,8 +426,8 @@ test.describe("drawing and export from roles", () => {
     // The eight roles, and "Transparent" because a new box has no fill and
     // must be able to go back to none. No colour list, no hex.
     expect(options).toEqual(["Transparent", ...ROLES.map((r) => ROLE_LABELS[r])])
-    await page.getByRole("option", { name: "Second accent", exact: true }).click()
-    await expect(fill).toHaveText("Second accent")
+    await page.getByRole("option", { name: "Accent 2", exact: true }).click()
+    await expect(fill).toHaveText("Accent 2")
 
     await page.locator('[data-screen-id="theme-inherits"]').click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accentAlt.toLowerCase())
@@ -955,7 +955,7 @@ test.describe("theme-model review findings", () => {
 // made for it, and is offered nothing else; LCDs and the 1-bit e-paper keep
 // the colour themes.
 test.describe("themes by colour depth", () => {
-  test("each depth is offered the themes made for it, and starts in the first", () => {
+  test("each depth is offered the themes made for it, and starts in Slate where it is offered, else the first", () => {
     expect(themesFor("4bit").map((t) => t.id)).toEqual(["paper"])
     const colour = themesFor("24bit").map((t) => t.id)
     expect(colour).toHaveLength(8)
@@ -963,7 +963,8 @@ test.describe("themes by colour depth", () => {
     expect(themesFor("1bit").map((t) => t.id)).toEqual(colour)
     expect(themesFor(undefined).map((t) => t.id)).toEqual(colour)
     expect(defaultThemeIdFor("4bit")).toBe("paper")
-    expect(defaultThemeIdFor("24bit")).toBe("lavender")
+    // Slate since 2026-11-04 (docs/2026-11-04-text-sizes-and-colours.md).
+    expect(defaultThemeIdFor("24bit")).toBe("slate")
   })
 
   test("Paper's track is a plain mid grey on the PaperS3, where the colour themes' are pale", () => {
@@ -1018,7 +1019,9 @@ test.describe("themes by colour depth", () => {
 // Paper has a light track inside a black edge.
 test.describe("the track roles", () => {
   test("the colour themes keep the track they had, and no edge", () => {
-    for (const theme of themesFor("24bit")) {
+    // Slate's track is CamperUI's own since 2026-11-04: recessed, darker
+    // than the card in dark, not half its accent.
+    for (const theme of themesFor("24bit").filter((t) => t.id !== "slate")) {
       for (const variant of ["light", "dark"] as const) {
         const { accent, surface, track, trackEdge } = theme[variant]
         expect(track, `${theme.id} ${variant}`).toBe(levelTrackLook(accent, surface, "24bit").track)

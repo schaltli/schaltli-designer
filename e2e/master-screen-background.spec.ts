@@ -52,9 +52,9 @@ test.describe("Master screen background inheritance", () => {
 
     // Override locally.
     await backgroundColorSelect(page).click()
-    await page.getByRole("option", { name: "Surface", exact: true }).click()
+    await page.getByRole("option", { name: "Background", exact: true }).click()
     expect(await readScreenCenterPixel(page)).toEqual({ r: 255, g: 255, b: 255 })
-    await expect(backgroundColorSelect(page)).toHaveText("Surface")
+    await expect(backgroundColorSelect(page)).toHaveText("Background")
 
     // Switch back to inheriting via the dropdown entry itself.
     await backgroundColorSelect(page).click()

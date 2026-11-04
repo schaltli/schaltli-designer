@@ -33,6 +33,15 @@ export const ROLES = [
   "onAccent",
   "accentAlt",
   "accentEnd",
+  // Since 2026-11-04 (docs/2026-11-04-text-sizes-and-colours.md, module
+  // colour-model): two more colours of distinct hues, so a page of dimmers,
+  // one of switches and one of levels can each have its own, and three
+  // states that mean the same in every theme.
+  "accent3",
+  "accent4",
+  "good",
+  "warning",
+  "alarm",
   "track",
   "trackEdge",
   // The energy diagram's (docs/2026-10-11-energy-diagram.md decision 12):
@@ -45,6 +54,9 @@ export const ROLES = [
   "energyDischarge",
   "energyLoad",
 ] as const
+
+/** The roles of 2026-11-04: not what a colour from before themes is matched to either (nearestRole). */
+export const COLOUR_MODEL_ROLES = ["accent3", "accent4", "good", "warning", "alarm"] as const
 
 /** The energy diagram's roles: not what a colour from before themes is matched to (nearestRole). */
 export const ENERGY_ROLES = ["energySun", "energyGrid", "energyEngine", "energyCharge", "energyDischarge", "energyLoad"] as const
@@ -74,15 +86,21 @@ export type RoleValues = Record<Role, string>
 
 /** What the property panel calls a role. Quoted by the handbook. */
 export const ROLE_LABELS: Record<Role, string> = {
-  surface: "Surface",
-  panel: "Panel",
-  outline: "Outline",
+  // Neutral names since 2026-11-04, after CamperUI's model (the ids stay).
+  surface: "Background",
+  panel: "Card",
+  outline: "Card border",
   text: "Text",
-  textMuted: "Muted text",
+  textMuted: "Text low",
   accent: "Accent",
   onAccent: "Text on accent",
-  accentAlt: "Second accent",
+  accentAlt: "Accent 2",
   accentEnd: "Gradient end",
+  accent3: "Accent 3",
+  accent4: "Accent 4",
+  good: "Good",
+  warning: "Warning",
+  alarm: "Alarm",
   track: "Track",
   trackEdge: "Track edge",
   energySun: "Sun",
@@ -181,6 +199,16 @@ const ENERGY_DARK = {
   energyLoad: "#c3b0ff",
 }
 
+// The states mean the same in every colour theme (spec): good, warning,
+// alarm - CamperUI's emerald, yellow and red.
+const STATES_LIGHT = { good: "#059669", warning: "#ca8a04", alarm: "#dc2626" }
+const STATES_DARK = { good: "#10b981", warning: "#eab308", alarm: "#ef4444" }
+// Accent 3 and 4 of the colour themes whose own are still to be chosen
+// (tasks/colour-model-plan.md T3): cyan and violet, which sit beside every
+// theme's accent without being it.
+const MORE_LIGHT = { accent3: "#0891b2", accent4: "#9333ea", ...STATES_LIGHT }
+const MORE_DARK = { accent3: "#06b6d4", accent4: "#a855f7", ...STATES_DARK }
+
 export const THEMES: Theme[] = [
   {
     id: "lavender",
@@ -192,6 +220,7 @@ export const THEMES: Theme[] = [
     // as accent, chosen by the user on 2026-09-19.
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#ffffff",
       panel: "#e5e5e5",
       outline: "#cccccc",
@@ -207,6 +236,7 @@ export const THEMES: Theme[] = [
     // Material 3's dark scheme for the same seed.
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#1c1b1f",
       panel: "#2b2930",
       outline: "#49454f",
@@ -230,6 +260,7 @@ export const THEMES: Theme[] = [
     // no second colour in the brand, so the second accent is a grey.
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#ffffff",
       panel: "#eeeeee",
       outline: "#cccccc",
@@ -244,6 +275,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#111111",
       panel: "#222222",
       outline: "#444444",
@@ -261,32 +293,42 @@ export const THEMES: Theme[] = [
     id: "slate",
     name: "Slate",
     depths: COLOUR,
+    // CamperUI's «Camper Slate» in Schaltli's roles (docs/2026-11-04-text-
+    // sizes-and-colours.md, the user's choice of 2026-11-04): a neutral
+    // ground, four colours of distinct hues, the shared states. The theme
+    // of new masters since then.
     light: {
       ...ENERGY_LIGHT,
-      surface: "#f4f6f8",
-      panel: "#e3e8ee",
-      outline: "#b8c2cc",
-      text: "#1e2a36",
-      textMuted: "#5b6b7a",
-      accent: "#2f6f9f",
+      ...STATES_LIGHT,
+      surface: "#f1f5f9",
+      panel: "#ffffff",
+      outline: "#e2e8f0",
+      text: "#0f172a",
+      textMuted: "#64748b",
+      accent: "#0284c7",
       onAccent: "#ffffff",
-      accentAlt: "#d98c2b",
-      accentEnd: "#2b8f9a",
-      track: "#92b3cc",
+      accentAlt: "#d97706",
+      accentEnd: "#0ea5e9",
+      accent3: "#0891b2",
+      accent4: "#9333ea",
+      track: "#dbe2ec",
       trackEdge: "transparent",
     },
     dark: {
       ...ENERGY_DARK,
-      surface: "#15202b",
-      panel: "#1f2d3a",
-      outline: "#3b4a58",
-      text: "#e6edf3",
-      textMuted: "#9fb0bf",
-      accent: "#6aa8d8",
-      onAccent: "#0f1a24",
-      accentAlt: "#e8a94f",
-      accentEnd: "#7fd0d2",
-      track: "#3f6481",
+      ...STATES_DARK,
+      surface: "#101318",
+      panel: "#181c24",
+      outline: "#272d3b",
+      text: "#f1f5f9",
+      textMuted: "#94a3b8",
+      accent: "#0ea5e9",
+      onAccent: "#ffffff",
+      accentAlt: "#f59e0b",
+      accentEnd: "#38bdf8",
+      accent3: "#06b6d4",
+      accent4: "#a855f7",
+      track: "#12151c",
       trackEdge: "transparent",
     },
   },
@@ -296,6 +338,7 @@ export const THEMES: Theme[] = [
     depths: COLOUR,
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#f6f8f2",
       panel: "#e6ecdc",
       outline: "#b9c4a8",
@@ -310,6 +353,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#121a12",
       panel: "#1c261c",
       outline: "#3a4a3a",
@@ -329,6 +373,7 @@ export const THEMES: Theme[] = [
     depths: COLOUR,
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#f3f8fa",
       panel: "#dfeef3",
       outline: "#a9c7d3",
@@ -343,6 +388,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#0f1c22",
       panel: "#16282f",
       outline: "#2e4a54",
@@ -362,6 +408,7 @@ export const THEMES: Theme[] = [
     depths: COLOUR,
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#fbf7f0",
       panel: "#f1e8d8",
       outline: "#d4c4a8",
@@ -376,6 +423,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#1a150d",
       panel: "#262016",
       outline: "#4a3f2c",
@@ -395,6 +443,7 @@ export const THEMES: Theme[] = [
     depths: COLOUR,
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#faf5ef",
       panel: "#efe4d6",
       outline: "#cfb9a2",
@@ -409,6 +458,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#1b1512",
       panel: "#29201b",
       outline: "#4d3b31",
@@ -428,6 +478,7 @@ export const THEMES: Theme[] = [
     depths: COLOUR,
     light: {
       ...ENERGY_LIGHT,
+      ...MORE_LIGHT,
       surface: "#f5f5f5",
       panel: "#e4e4e4",
       outline: "#bdbdbd",
@@ -442,6 +493,7 @@ export const THEMES: Theme[] = [
     },
     dark: {
       ...ENERGY_DARK,
+      ...MORE_DARK,
       surface: "#161616",
       panel: "#232323",
       outline: "#3d3d3d",
@@ -483,6 +535,13 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#555555",
       accentEnd: "#000000",
+      // The colours and states of 2026-11-04 as greys of the ramp: Alarm
+      // black as the strongest, Good and Warning apart from it.
+      accent3: "#444444",
+      accent4: "#666666",
+      good: "#333333",
+      warning: "#777777",
+      alarm: "#000000",
       // One grey lighter than first tried (#cccccc) - the user, on the
       // PaperS3, 2026-09-30.
       track: "#dddddd",
@@ -495,6 +554,11 @@ export const THEMES: Theme[] = [
       energyCharge: "#bbbbbb",
       energyDischarge: "#cccccc",
       energyLoad: "#666666",
+      accent3: "#bbbbbb",
+      accent4: "#999999",
+      good: "#cccccc",
+      warning: "#888888",
+      alarm: "#ffffff",
       surface: "#000000",
       panel: "#222222",
       outline: "#777777",
@@ -510,7 +574,15 @@ export const THEMES: Theme[] = [
   },
 ]
 
-export const DEFAULT_THEME_ID = "lavender"
+/** The theme of a new master since 2026-11-04 (the user): Slate, CamperUI's model. */
+export const DEFAULT_THEME_ID = "slate"
+
+/**
+ * What a file from before themes opens in, and what an old master without a
+ * theme is given: Lavender, the palette such a project was drawn in. Not
+ * the default for new work any more, so an old project still looks as it did.
+ */
+export const LEGACY_THEME_ID = "lavender"
 
 /**
  * The themes a device of this depth is offered, in catalogue order. A depth
@@ -523,7 +595,8 @@ export function themesFor(colorDepth: string | undefined): Theme[] {
 
 /** The theme a new project's master, or a new master, starts in on this depth. */
 export function defaultThemeIdFor(colorDepth: string | undefined): string {
-  return themesFor(colorDepth)[0].id
+  const offered = themesFor(colorDepth)
+  return (offered.find((t) => t.id === DEFAULT_THEME_ID) ?? offered[0]).id
 }
 
 export interface ThemedScreen {
@@ -788,6 +861,9 @@ export function nearestRole(hex: string, theme: Theme, colorDepth: string | unde
     // Nor an energy role: a green from before themes was an accent, not a
     // storage charging.
     if ((ENERGY_ROLES as readonly string[]).includes(role)) continue
+    // Nor one of 2026-11-04: a project from before themes matches what it
+    // always matched.
+    if ((COLOUR_MODEL_ROLES as readonly string[]).includes(role)) continue
     const d = distance(shown, resolveRole(theme, role, "light", colorDepth))
     if (d < bestDistance || (d === bestDistance && role === preferred)) {
       best = role
@@ -874,7 +950,7 @@ export function migrateColorsToRoles(project: {
   settings?: { colorDepth?: string; themeId?: string }
   screens?: Array<{ id?: string; isMaster?: boolean; themeId?: string; backgroundColor?: string; gridColor?: string; objects?: ColouredObject[] }>
 }): boolean {
-  const theme = themeById(DEFAULT_THEME_ID)
+  const theme = themeById(LEGACY_THEME_ID)
   const depth = project.settings?.colorDepth
   let changed = false
 
@@ -952,7 +1028,7 @@ export function migrateColorsToRoles(project: {
       changed = true
     }
     if (screen.isMaster && !screen.themeId) {
-      screen.themeId = DEFAULT_THEME_ID
+      screen.themeId = LEGACY_THEME_ID
       changed = true
     }
     walkObjects(screen.objects, where)
@@ -981,7 +1057,7 @@ export function ensureEveryScreenHasAMaster(project: {
     // At the end, not the start: the editor opens a project on its first
     // screen, and that should stay the screen the user had, not a new empty
     // master.
-    screens.push({ id: `master-${n}`, name: `Master ${n}`, isMaster: true, themeId: DEFAULT_THEME_ID, objects: [] })
+    screens.push({ id: `master-${n}`, name: `Master ${n}`, isMaster: true, themeId: LEGACY_THEME_ID, objects: [] })
     masters = [screens[screens.length - 1]]
     changed = true
   }
