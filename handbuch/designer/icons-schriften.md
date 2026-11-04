@@ -26,6 +26,6 @@ Die Schriften kommen vom Gerät: Jedes Gerät bringt einen festen Satz Schriften
 
 Welche es gibt, zeigt <span class="ui">Settings</span> › <span class="ui">Fonts</span>. <span class="ui">Preview</span> zeigt einen Text deiner Wahl in der jeweiligen Schrift.
 
-Knob, 4" und 4.3B zeichnen Texte in Schriften mit 16 Graustufen: Roboto, Inter und Roboto Condensed. Ihre alten Schriften Helvetica, Lucida Sans, FreeUniversal, Logisoso und die alten Sieben-Segment-Ziffern haben sie nicht mehr. Ein Projekt, das noch alte Schriften nennt, stellt der Designer beim Öffnen von selbst um, siehe [Stile](/objekte/anzeigen#stile).
+Knob, 4" und 4.3B zeichnen Texte in Schriften mit 16 Graustufen: Roboto, Inter und Roboto Condensed. Ihre alten Schriften Helvetica, Lucida Sans, FreeUniversal, Logisoso und die alten Sieben-Segment-Ziffern haben sie nicht mehr. Ein Projekt, das noch alte Schriften nennt, stellt der Designer beim Öffnen von selbst um, siehe [Schriftgrössen und Typografie](/objekte/anzeigen#stile).
 
-Wo ein Objekt Text zeigt, wählst du einen [Stil](/objekte/anzeigen#stile), und das Gerät bestimmt, welche seiner Schriften dazu gehört. Nur auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählst du die Schrift selbst. Die Höhe eines Textfelds richtet sich nach der Schrift, du änderst sie über einen anderen Stil oder eine andere Schrift, nicht durch Ziehen.
+Wo ein Objekt Text zeigt, wählst du eine [Schriftgrösse](/designer/schriftgroessen), und das Gerät bestimmt, welche seiner Schriften dazu gehört. Nur auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählst du die Schrift selbst. Die Höhe eines Textfelds richtet sich nach der Schrift, du änderst sie über eine andere Schriftgrösse oder Schrift, nicht durch Ziehen.

@@ -11,7 +11,7 @@ Ein E-Paper-Display mit 960 × 540 Pixeln in 16 Graustufen und Touch. E-Paper is
 | Display | E-Paper, 960 × 540 Pixel, 16 Graustufen, nur quer |
 | Bedienung | Touch |
 | Strom | USB-C |
-| Schriften | Helvetica, Lucida Sans, Logisoso, FreeUniversal und Sieben-Segment-Ziffern, scharfkantig, siehe [Stile](/objekte/anzeigen#stile) |
+| Schriften | Helvetica, Lucida Sans, Logisoso, FreeUniversal und Sieben-Segment-Ziffern, scharfkantig, siehe [Schriftgrössen und Typografie](/objekte/anzeigen#stile) |
 | Im Designer | «M5Stack PaperS3» |
 | Einrichtungs-WLAN | `m5stack-papers3-setup`, Passwort `schaltli12345` |
 

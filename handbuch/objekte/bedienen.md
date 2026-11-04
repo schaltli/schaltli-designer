@@ -42,7 +42,7 @@ Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Ein [Baustei
   - <span class="ui">Read / write</span>: den Wert, der für diesen Zustand auf dem Lese-Topic ankommt, und den, der beim Wählen geschickt wird. Oft dasselbe Wort, etwa `on`.
   - <span class="ui">Icon</span>: ein Icon auf dem Knopf.
   - <span class="ui">Shows as on</span>: ob dieser Zustand als «an» gilt. Dann hat die Spur volle Farbe.
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftungen stehen, siehe [Stile](/objekte/anzeigen#stile).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftungen stehen, siehe [Schriftgrössen](/designer/schriftgroessen).
 - <span class="ui">Colour</span>: die eine Farbe des Schalters. Alles andere leitet der Designer daraus ab.
 
 **Am Gerät:** Bei zwei Zuständen schaltet ein Tippen irgendwo auf den Schalter um. Bei mehr Zuständen wählt ein Tippen auf die Spur die Stelle unter dem Finger, ein Tippen daneben den nächsten Zustand. Der Knopf springt sofort an die gewünschte Stelle; die Farbe folgt, wenn die Anlage den neuen Zustand meldet.
@@ -70,7 +70,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
   - <span class="ui">Open a popup</span>, mit <span class="ui">Popup</span>: ein [Popup](/designer/screens#popups) öffnen; auf einem Popup auch <span class="ui">Close this popup</span>
 - <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span> oder <span class="ui">Outlined</span>.
 - <span class="ui">Size</span>: wie hoch der Button ist, wie beim [Switch](#switch).
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Schriftgrössen](/designer/schriftgroessen).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.
 - <span class="ui">Button radius</span> unter <span class="ui">Settings</span> › <span class="ui">Cards</span>: Ohne Eintrag ist ein Button eine Pille mit runden Enden. Ein Wert in Millimetern gibt allen Buttons des Projekts Ecken mit diesem Radius. Gedrückt wird ein Button eckiger, nie runder als in Ruhe.
 
@@ -96,7 +96,7 @@ Ein Feld mit einem Text, den du am Gerät neu eintippst, etwa den Namen, den ein
 - <span class="ui">Min length</span> und <span class="ui">Max length</span>: wie viele Zeichen der Text haben darf, höchstens 255. Gezählt werden Zeichen, ein «ü» zählt also einmal.
 - <span class="ui">Keyboard</span>: <span class="ui">Letters</span> oder <span class="ui">Digits</span>. Mit <span class="ui">Digits</span> öffnet die Tastatur bei den Ziffern, für einen Code aus Zahlen.
 - <span class="ui">Hide text</span>: Punkte statt Buchstaben, für ein Passwort.
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie beim [Button](#button).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie beim [Button](#button).
 - <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: die Farben des Feldes, der Linie darunter und der Schrift. Ohne eigene Wahl nimmt das Feld die Farben des Themes.
 
 Klickst du in der Vorschau auf das Feld, öffnet sich unten eine Eingabezeile mit dem jetzigen Text, und du tippst auf der Tastatur des Computers. <span class="ui">OK</span> oder die Eingabetaste schickt den Text so, wie er ist, <span class="ui">Cancel</span> oder Escape schickt nichts. Unter der Mindestlänge bleibt <span class="ui">OK</span> grau, bei der Höchstlänge nimmt die Zeile nichts mehr an. Bis das Topic den neuen Text meldet, zeigt das Feld den gesendeten.
@@ -112,7 +112,7 @@ Ein Feld mit einer Uhrzeit, die du am Gerät neu einstellst, etwa die Startzeit 
 - <span class="ui">Topic</span>: welche Zeit im Feld steht. Ohne Topic zeigt das Feld, was zuletzt gesendet wurde.
 - <span class="ui">Write topic</span>: wohin die eingestellte Zeit geht.
 - <span class="ui">Minute step</span>: in welchen Schritten sich die Minuten einstellen lassen, voreingestellt sind 5 Minuten. Was gesendet wird, liegt immer auf dem Schritt: 06:43 wird bei 5 Minuten zu 06:45.
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: wie beim [Text field](#text-field).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Field</span>, <span class="ui">Line</span> und <span class="ui">Text</span>: wie beim [Text field](#text-field).
 
 Das Feld zeigt die Zeit immer mit 24 Stunden, etwa 18:30. Es liest eine Zeit wie `06:45` oder `06:45:00` und auch ein Datum mit Zeit wie `2026-10-27T06:45:00+01:00`, davon die Zeit, wie sie dasteht. Steht nichts Lesbares im Topic, zeigt es «--:--». Gesendet wird die Zeit so, wie Home Assistant sie schreibt: `06:45:00`.
 

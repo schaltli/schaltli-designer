@@ -101,6 +101,7 @@ export default defineConfig({
           { text: "MQTT an drei Beispielen", link: "/designer/mqtt-beispiele" },
           { text: "Vorschau", link: "/designer/vorschau" },
           { text: "Icons und Schriften", link: "/designer/icons-schriften" },
+          { text: "Schriftgrössen", link: "/designer/schriftgroessen" },
           { text: "Auf ein Gerät übertragen", link: "/designer/deploy" },
           { text: "Versionen und Wiederherstellen", link: "/designer/versionen" },
           { text: "Tastatur und Maus", link: "/designer/tastatur" },

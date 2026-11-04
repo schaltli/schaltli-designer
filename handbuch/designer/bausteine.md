@@ -21,7 +21,7 @@ Als Icon schlägt der Dialog vor, was das Gerät in seiner Ankündigung nennt. N
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" />
 
-Die Beschriftung ist der Name des Dings als fester Text, im Stil <span class="ui">Label</span>, siehe [Stile](/objekte/anzeigen#stile). Auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählt der Designer die Schrift passend zur Grösse des Screens.
+Die Beschriftung ist der Name des Dings als fester Text, in der Grösse <span class="ui">XL</span>, siehe [Schriftgrössen](/designer/schriftgroessen). Auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählt der Designer die Schrift passend zur Grösse des Screens.
 
 ## Was entsteht
 
@@ -99,7 +99,7 @@ Ein Teil kann auch ein Text sein, der so erscheint, wie er auf dem Broker liegt,
 
 ## Zwei Spalten {#zwei-spalten}
 
-Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über beide Spalten, die übrigen stehen in zwei Spalten nebeneinander, jede von oben nach unten. Hat eine Seite weniger Teile, reicht ihr letzter Teil über die übrigen Zeilen der anderen. Mehrere solche Abschnitte mit zwei Spalten kann sie untereinander setzen. Eine Taste in der zweiten Spalte nimmt nur so viel Platz, wie sie braucht. Einen Text kann die Beschreibung klein setzen, im Stil <span class="ui">Caption</span>, und für einen Schalter die Form <span class="ui">Switch</span> statt der Knöpfe wählen. Stehen in einer solchen Zeile auf beiden Seiten Dials, stehen sie unten auf derselben Linie.
+Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über beide Spalten, die übrigen stehen in zwei Spalten nebeneinander, jede von oben nach unten. Hat eine Seite weniger Teile, reicht ihr letzter Teil über die übrigen Zeilen der anderen. Mehrere solche Abschnitte mit zwei Spalten kann sie untereinander setzen. Eine Taste in der zweiten Spalte nimmt nur so viel Platz, wie sie braucht. Einen Text kann die Beschreibung klein setzen, in <span class="ui">Standard</span>, und für einen Schalter die Form <span class="ui">Switch</span> statt der Knöpfe wählen. Stehen in einer solchen Zeile auf beiden Seiten Dials, stehen sie unten auf derselben Linie.
 
 Die Heizung der VanPi-Brücke hat zuoberst klein ihren Zustand, darunter die Betriebsart über die ganze Breite. Dann stehen nebeneinander der Regler der Betriebsart und der Timer, zuunterst der Verbrauch mit «Nullen» daneben. So passt sie auf einen Screen von 800 × 480.
 

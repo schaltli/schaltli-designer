@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
+import { styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
+import { calculateTextObjectHeight } from "../lib/font-utils"
 import mqtt from "mqtt"
 import fs from "node:fs"
 import path from "node:path"
@@ -843,7 +845,7 @@ test.describe("handbook: the homepage showcase", () => {
     for (const mode of ["flow", "sankey"]) expect(fs.existsSync(path.join(dir, `energie-${mode}.webp`)), mode).toBe(true)
   })
 
-  // The Stile section's picture: the four styles in the typography Technic
+  // The Stile section's picture: four of the sizes in the typography Technic
   // on the 4.3B, laid out in styles only - the designer picks the fonts once
   // Technic is chosen on the master.
   test("the typography Technic", async ({ page }, testInfo) => {
@@ -870,10 +872,10 @@ test.describe("handbook: the homepage showcase", () => {
     delete screen.typography
 
     const lines: [string, string, number][] = [
-      ["caption", "Caption: Samstag, 14:32", 40],
-      ["label", "Label: Frischwasser", 90],
-      ["title", "Title: Wohnraum", 150],
-      ["display", "21.5", 230],
+      ["standard", "Standard: Samstag, 14:32", 40],
+      ["xl", "XL: Frischwasser", 90],
+      ["xxl", "XXL: Wohnraum", 150],
+      ["huge", "21.5", 230],
     ]
     screen.objects = lines.map(([style, t, y], i) => ({
       id: `obj-${i + 1}`, type: "text", x: 60, y, width: 680, height: 20, zIndex: i,
@@ -908,6 +910,130 @@ test.describe("handbook: the homepage showcase", () => {
   })
 })
 
+// The page «Schriftgrössen» (docs/2026-11-04-text-sizes-and-colours.md): a
+// card on the 4" with one text in each of the seven sizes, as CamperUI's
+// home card has them, and beside each a callout naming its size - drawn
+// into the picture here, so it is made anew with every change.
+test.describe("handbook: the seven text sizes", () => {
+  test.use({ viewport: { width: 2000, height: 1200 }, deviceScaleFactor: 2 })
+
+  test("a card in the seven sizes, with callouts", async ({ page }, testInfo) => {
+    test.setTimeout(300_000)
+    const dir = shotsDir(testInfo)
+    const screenSize = { width: 480, height: 480 }
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, "waveshare-touch-lcd-4", "curated")).dblclick()
+    const base = `handbook sizes ${Date.now().toString(36)}`
+    await createProject(page, base)
+    await waitForEditorReady(page)
+    await page.keyboard.press("Control+s")
+    let template: any
+    await expect(async () => {
+      const res = await page.request.get(`/api/projects/${encodeURIComponent(base)}`)
+      expect(res.status()).toBe(200)
+      template = (await res.json()).project
+    }).toPass({ timeout: 20000 })
+    const screen = template.screens.find((s: any) => !s.isMaster)
+    // Top to bottom, each line a size; y is where it stands on the 4".
+    const lines: [string, string, string, number][] = [
+      ["large", "Large", "Batterie 92 %", 66],
+      ["xxl", "XXL", "261.5 W", 96],
+      ["standard", "Standard", "13.5 V   19.3 A", 138],
+      ["mini", "Mini", "Starter 14.1 V", 166],
+      ["xl", "XL", "22.4 °C", 204],
+      ["micro", "Micro", "Max 22.8 · Min 22.6", 236],
+      ["huge", "Huge", "68 %", 276],
+    ]
+    // Each in the font its size resolves to on the 4", as the editor sets it.
+    const scale = textScaleOf(template.settings)!
+    screen.objects = [
+      { id: "card", type: "box", x: 40, y: 50, width: 400, height: 280, zIndex: 0, properties: { fillColor: "panel", strokeColor: "outline", strokeWidth: 1, cornerRadius: 13 } },
+      ...lines.map(([size, , t, y], i) => {
+        const styled = styledFont(size as TextStyle, false, scale, template.fonts)!
+        return {
+          id: `obj-${i + 1}`, type: "text", x: 64, y, width: 360, height: calculateTextObjectHeight(styled.fontSize), zIndex: i + 1,
+          properties: { text: t, ...styled, color: size === "xxl" || size === "huge" ? "accent" : size === "mini" || size === "micro" ? "textMuted" : "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
+        }
+      }),
+    ]
+    const project = `${base} sizes`
+    expect((await page.request.post("/api/projects", { data: { name: project, project: template } })).status()).toBe(201)
+    try {
+      await page.goto(`/projects/${encodeURIComponent(project)}`)
+      await waitForEditorReady(page)
+      await page.keyboard.press("Escape")
+      await page.waitForTimeout(600)
+      const { box } = await getMainCanvas(page)
+      const png = await page.screenshot({
+        clip: {
+          x: box.x + box.width / 2 - screenSize.width / 2,
+          y: box.y + box.height / 2 - screenSize.height / 2,
+          width: screenSize.width,
+          height: screenSize.height,
+        },
+      })
+      // Where each text's line is, in screen pixels, from the saved project.
+      const res = await page.request.get(`/api/projects/${encodeURIComponent(project)}`)
+      const saved = (await res.json()).project
+      const objects = saved.screens.find((s: any) => !s.isMaster).objects
+      const px = (size: string) => {
+        const ppm = saved.settings.pixelsPerMm as number
+        const mm: Record<string, number> = { micro: 1.5, mini: 1.8, standard: 2.1, large: 2.4, xl: 3.0, xxl: 4.2, huge: 6.2 }
+        return Math.round(mm[size] * ppm)
+      }
+      const callouts = lines.map(([size, name], i) => {
+        const o = objects.find((x: any) => x.id === `obj-${i + 1}`)
+        expect(o.properties.textStyle, name).toBe(size)
+        return { name: `${name} · ${px(size)} px`, y: o.y + o.height / 2, x: 64 }
+      })
+      const dataUrl = await page.evaluate(
+        async ({ src, callouts, w, h }) => {
+          const img = new Image()
+          img.src = src
+          await img.decode()
+          const k = img.width / w
+          const right = 230
+          const c = document.createElement("canvas")
+          c.width = img.width + right * k
+          c.height = img.height
+          const ctx = c.getContext("2d")!
+          ctx.fillStyle = "#ffffff"
+          ctx.fillRect(0, 0, c.width, c.height)
+          ctx.drawImage(img, 0, 0)
+          ctx.scale(k, k)
+          ctx.font = "600 15px system-ui, sans-serif"
+          ctx.textBaseline = "middle"
+          // Each label on its text's line, right of the screen: a dot at the
+          // card's edge, a dashed line out to the name.
+          for (const cl of callouts as { name: string; x: number; y: number }[]) {
+            ctx.strokeStyle = "#e11d74"
+            ctx.fillStyle = "#e11d74"
+            ctx.lineWidth = 1.5
+            ctx.setLineDash([4, 3])
+            ctx.beginPath()
+            ctx.moveTo(424, cl.y)
+            ctx.lineTo(w + 14, cl.y)
+            ctx.stroke()
+            ctx.setLineDash([])
+            ctx.beginPath()
+            ctx.arc(424, cl.y, 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillText(cl.name, w + 22, cl.y)
+          }
+          return c.toDataURL("image/webp", 0.9)
+        },
+        { src: `data:image/png;base64,${png.toString("base64")}`, callouts, w: screenSize.width, h: screenSize.height },
+      )
+      fs.writeFileSync(path.join(dir, "schriftgroessen.webp"), Buffer.from(dataUrl.replace(/^data:image\/webp;base64,/, ""), "base64"))
+    } finally {
+      await deleteProject(page, project)
+      await deleteProject(page, base)
+    }
+    expect(fs.existsSync(path.join(dir, "schriftgroessen.webp"))).toBe(true)
+  })
+})
+
 // The size scale's three fields, as the handbook shows them (Task 11 of the
 // size scale): Text style and Bold, Size, and Typography beside the theme -
 // on a 4.3B, which gives a scale and three typographies.
@@ -935,7 +1061,7 @@ test.describe("handbook: the scale's fields", () => {
       const section = (field: string) => page.locator(field).locator("xpath=ancestor::section[1]")
       await expect(page.locator("#sizeStep")).toHaveValue("m")
       await section("#sizeStep").screenshot({ path: path.join(dir, "feld-size.png") })
-      await expect(page.locator("#textStyle")).toHaveValue("label")
+      await expect(page.locator("#textStyle")).toHaveValue("xl")
       await section("#textStyle").screenshot({ path: path.join(dir, "feld-text-style.png") })
 
       await page.keyboard.press("Escape")

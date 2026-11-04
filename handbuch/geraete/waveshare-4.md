@@ -11,7 +11,7 @@ Ein quadratisches Farbdisplay mit 480 × 480 Pixeln und Touch. Es ist kleiner al
 | Display | 480 × 480 Pixel, Farbe |
 | Bedienung | Touch |
 | Strom | 7–36 V an den Schraubklemmen auf der Rückseite, oder USB-C |
-| Schriften | Roboto, Inter und Roboto Condensed, mit 16 Graustufen, siehe [Stile](/objekte/anzeigen#stile) |
+| Schriften | Roboto, Inter und Roboto Condensed, mit 16 Graustufen, siehe [Schriftgrössen und Typografie](/objekte/anzeigen#stile) |
 | Im Designer | «Waveshare ESP32-S3-Touch-LCD-4» |
 | Einrichtungs-WLAN | `waveshare-touch-lcd-4-setup`, Passwort `schaltli12345` |
 

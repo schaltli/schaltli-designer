@@ -7,34 +7,25 @@ Objekte, die etwas zeigen und nichts schalten.
 Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Werte im Text](#platzhalter).
 
 - <span class="ui">Text</span>: der Text.
-- <span class="ui">Text style</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Stile](#stile).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Schriftgrössen](/designer/schriftgroessen).
 - <span class="ui">Align</span>: die Ausrichtung.
 - <span class="ui">Colour</span>: Textfarbe, Hintergrund und Rahmen. Hintergrund und Rahmen können durchsichtig sein.
 
-Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du einen grösseren Stil.
+Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du eine grössere Schriftgrösse.
 
-### Stile {#stile}
+### Schriftgrössen und Typografie {#stile}
 
-<Screenshot narrow name="feld-text-style" alt="Unter Text die Felder Text style und Bold" />
+<Screenshot narrow name="feld-text-style" alt="Unter Text die Felder Text size und Bold" />
 
-Du wählst für einen Text keine Schrift, sondern einen Stil:
+Du wählst für einen Text keine Schrift, sondern eine von sieben Grössen, von <span class="ui">Micro</span> bis <span class="ui">Huge</span>. Welche es gibt und wofür sie gedacht sind, steht unter [Schriftgrössen](/designer/schriftgroessen).
 
-| Stil | wofür |
-|---|---|
-| <span class="ui">Caption</span> | der kleinste Text, nebenher: eine Einheit, ein Hinweis, eine Uhrzeit |
-| <span class="ui">Label</span> | der gewöhnliche Text, der etwas benennt, etwa «Frischwasser» |
-| <span class="ui">Title</span> | eine Überschrift, für einen Screen oder einen Abschnitt |
-| <span class="ui">Display</span> | ein grosser Wert, etwa «21.5» |
-
-Jeder Stil hat eine feste Grösse in Millimetern. Ein Label ist auf dem kleinen Knob gleich gross wie auf dem 4.3B, der 4.3B hat einfach mehr Platz. Welche Schrift ein Stil bekommt, legt das Gerät fest, der Designer wählt nur die passende Grösse dazu. Mit <span class="ui">Bold</span> wird der Text fett, sofern das Gerät die Schrift in fett hat.
-
-Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften für die vier Stile. Knob, 4" und 4.3B haben drei. Ihre Schriften haben 16 Graustufen, die Ränder der Buchstaben gehen also weich in den Hintergrund über statt in Treppenstufen.
+Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften. Knob, 4" und 4.3B haben drei. Ihre Schriften haben 16 Graustufen: Die Ränder der Buchstaben gehen weich in den Hintergrund über statt in Treppenstufen.
 
 | Typografie | Schriften auf Knob, 4" und 4.3B |
 |---|---|
 | «Standard» | Roboto |
 | «Humanist» | Inter |
-| «Technic» | Roboto Condensed, Display in Sieben-Segment-Ziffern |
+| «Technic» | Roboto Condensed, Huge in Sieben-Segment-Ziffern |
 
 Diese Schriften haben die Buchstaben für Deutsch, Französisch und Englisch und für die meisten Sprachen Mitteleuropas, etwa Tschechisch und Polnisch, dazu Zeichen wie € — … und °. Zeichen anderer Schriften, etwa kyrillische, fehlen. Steht eines im Text, fällt es weg, im Designer wie auf dem Gerät.
 
@@ -42,19 +33,17 @@ Die PaperS3 hat dieselben drei Typografien, aber mit scharfkantigen Schriften, w
 
 | Typografie | Schriften auf der PaperS3 |
 |---|---|
-| «Standard» | Helvetica, Display in FreeUniversal |
-| «Humanist» | Lucida Sans, Display in FreeUniversal |
-| «Technic» | Lucida Sans, Title in Logisoso, Display in Sieben-Segment-Ziffern |
+| «Standard» | Helvetica, Huge in FreeUniversal |
+| «Humanist» | Lucida Sans, Huge in FreeUniversal |
+| «Technic» | Lucida Sans, XXL in Logisoso, Huge in Sieben-Segment-Ziffern |
 
 Ein Projekt, das du für Knob, 4" oder 4.3B gemacht hast, bevor sie die neuen Schriften bekamen, stellt der Designer beim Öffnen von selbst um. Auch Texte in einer von Hand gewählten Schrift bekommen die neue Schrift, die an ihre Stelle tritt. Der Hinweis <span class="ui">Fonts updated</span> sagt, wie viele Objekte betroffen sind, und nennt jeden Text, der nicht mehr in sein Feld passt. Zieh solche Felder breiter. Die Umstellung gilt erst, wenn du speicherst. Ein altes Projekt, das noch auf dem Gerät läuft, zeigt seine Texte dort schon in den neuen Schriften, aber in den alten Feldern, bis du es neu überträgst.
 
-<Screenshot name="typografie-technic.webp" alt="Caption, Label, Title und ein Display-Wert in der Typografie Technic auf dem 4.3B" caption="«Technic» auf dem 4.3B" />
+<Screenshot name="typografie-technic.webp" alt="Standard, XL, XXL und ein Wert in Huge in der Typografie Technic auf dem 4.3B" caption="«Technic» auf dem 4.3B" />
 
-Das Display von «Technic» sieht aus wie eine alte Digitalanzeige. Ziffern stehen darin sauber, Buchstaben nur so weit, wie sieben Striche sie hergeben: ein «M» oder «W» ist kaum zu lesen. Nimm Display in «Technic» deshalb für Zahlen. Die Typografie wählst du wie das Theme für einen Master oder einen Screen, unter <span class="ui">Look</span> › <span class="ui">Typography</span>, siehe [Die Eigenschaften eines Screens](/designer/screens#die-eigenschaften-eines-screens).
+<span class="ui">Huge</span> sieht in «Technic» aus wie eine alte Digitalanzeige. Ziffern stehen darin sauber, Buchstaben nur so weit, wie sieben Striche sie hergeben: ein «M» oder «W» ist kaum zu lesen. Nimm <span class="ui">Huge</span> in «Technic» deshalb für Zahlen. Die Typografie wählst du wie das Theme für einen Master oder einen Screen, unter <span class="ui">Look</span> › <span class="ui">Typography</span>, siehe [Die Eigenschaften eines Screens](/designer/screens#die-eigenschaften-eines-screens).
 
-Neue Objekte beginnen im Stil <span class="ui">Label</span>. Nur der Wert in der Mitte von Gauge und Dial beginnt in <span class="ui">Display</span>, weil er dort allein steht.
-
-Ein Text aus der Zeit vor den Stilen zeigt unter <span class="ui">Text style</span> «Custom» und die Schrift, in der er steht. Er bleibt so, bis du einen Stil wählst. Der Knopf «Snap to …» setzt ihn auf den Stil, der seiner Grösse am nächsten kommt.
+Ein Text aus der Zeit vor den Schriftgrössen zeigt unter <span class="ui">Text size</span> «Custom» und die Schrift, in der er steht. So bleibt er, bis du eine Grösse wählst. Der Knopf «Snap to …» setzt ihn auf die Grösse, die seiner Schrift am nächsten kommt.
 
 Geräte, die ihre Grösse in Millimetern noch nicht angeben, zeigen stattdessen wie bisher <span class="ui">Font</span> mit den Schriften des Geräts.
 
@@ -131,7 +120,7 @@ Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nic
 Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Werte](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 
 - <span class="ui">Show value</span>: am Ende des Balkens nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>). Bei einem waagrechten Balken steht die Zahl rechts, bei einem senkrechten darunter.
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).
+- <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Schriftgrössen](/designer/schriftgroessen).
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
 - <span class="ui">Size</span>: wie dick der Balken ist, in vier Stufen, <span class="ui">XS</span>, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (1.15, 1.7, 2.9 und 4.6 mm, auf dem 4.3B 10, 15, 25 und 40 Pixel). Bar, Slider, Gauge und Dial haben dieselben Stufen, ihre Balken und Ringe sind also gleich dick. Beim Slider steht der Anfasser über den Balken hinaus. Ein neuer Bar beginnt in <span class="ui">M</span>. Passt die Dicke zu keiner Stufe, etwa bei einem Balken aus der Zeit vor den Stufen, steht «Custom» mit der Dicke in Pixeln da, und «Snap to …» setzt ihn auf die nächste Stufe. Auf älteren Geräten fehlt das Feld.
@@ -150,7 +139,7 @@ Ohne Wert zeigt der Bar nur den leeren Balken.
 
 Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mitte. Immer quadratisch.
 
-- <span class="ui">Show value</span>, <span class="ui">Text style</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
+- <span class="ui">Show value</span>, <span class="ui">Text size</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
 - <span class="ui">Show value</span> kennt beim Ring zusätzlich <span class="ui">Duration</span>. Der Wert gilt dann als Sekunden und steht als Stunden, Minuten und Sekunden in der Mitte, aus 5009 wird 1:23:29. So sieht man einer Restzeit an, dass sie abläuft. Auf einem Gerät geht das ab der nächsten Firmware-Release und App-Version; Deploy sagt es, wenn eines es noch nicht kann.
 - <span class="ui">Angles</span>: wo der Bogen beginnt und endet, in Grad, 0 ist oben. Voreingestellt ist ein Dreiviertelkreis. Die Enden lassen sich auch auf dem Screen an ihren Anfassern ziehen.
 - <span class="ui">Direction</span>: im oder gegen den Uhrzeigersinn.

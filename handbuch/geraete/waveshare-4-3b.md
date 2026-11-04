@@ -11,7 +11,7 @@ Ein Farbdisplay mit 800 × 480 Pixeln und Touch, gross genug für eine ganze Üb
 | Display | 800 × 480 Pixel, Farbe |
 | Bedienung | Touch |
 | Strom | 7–36 V an den Schraubklemmen auf der Rückseite, oder USB-C |
-| Schriften | Roboto, Inter und Roboto Condensed, mit 16 Graustufen, siehe [Stile](/objekte/anzeigen#stile) |
+| Schriften | Roboto, Inter und Roboto Condensed, mit 16 Graustufen, siehe [Schriftgrössen und Typografie](/objekte/anzeigen#stile) |
 | Im Designer | «Waveshare ESP32-S3-Touch-LCD-4.3B» |
 | Einrichtungs-WLAN | `waveshare-touch-lcd-4v3b-setup`, Passwort `schaltli12345` |
 
