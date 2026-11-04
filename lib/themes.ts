@@ -34,8 +34,8 @@ export const ROLES = [
   "accentAlt",
   "accentEnd",
   // Since 2026-11-04 (docs/2026-11-04-text-sizes-and-colours.md, module
-  // colour-model): two more colours of distinct hues, so a page of dimmers,
-  // one of switches and one of levels can each have its own, and three
+  // colour-model): two more colours of distinct hues, so each page or each
+  // kind of control can have a colour of its own, and three
   // states that mean the same in every theme.
   "accent3",
   "accent4",
@@ -293,7 +293,7 @@ export const THEMES: Theme[] = [
     id: "slate",
     name: "Slate",
     depths: COLOUR,
-    // CamperUI's «Camper Slate» in Schaltli's roles (docs/2026-11-04-text-
+    // CamperUI's own slate theme in Schaltli's roles (docs/2026-11-04-text-
     // sizes-and-colours.md, the user's choice of 2026-11-04): a neutral
     // ground, four colours of distinct hues, the shared states. The theme
     // of new masters since then.

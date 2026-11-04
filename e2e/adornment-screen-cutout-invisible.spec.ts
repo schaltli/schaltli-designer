@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
+import { defaultThemeIdFor, themeById } from "../lib/themes"
 import { createProject, chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
 import { seedPapers3Ddf, seedWaveshare4Ddf, seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
 
@@ -94,8 +95,13 @@ const DEVICES = [
   },
 ]
 // A fresh project's default screen background - dead center of the screen
-// rect, far from any button/bezel artwork.
+// rect, far from any button/bezel artwork: white in Paper on the PaperS3,
+// Slate's light background on a colour device since 2026-11-04 (new masters
+// start in Slate, docs/2026-11-04-text-sizes-and-colours.md).
 const WHITE = { r: 255, g: 255, b: 255 }
+const rgbOf = (hex: string) => ({ r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) })
+const FRESH_COLOUR = rgbOf(themeById(defaultThemeIdFor("24bit")).light.surface)
+const freshBackground = (name: string) => (name.includes("PaperS3") ? WHITE : FRESH_COLOUR)
 // What a pixel would be if the designer failed to strip an authored #screen
 // fill. It was the M5 Dial's own (style="fill:#606060;...") until that device
 // was dropped on 2026-09-10; no shipping device authors one now, so the two
@@ -170,7 +176,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
       )
       // A fresh project's screen background. Anything else here means the
       // adornment is on top of it.
-      expect(centre).toEqual(WHITE)
+      expect(centre).toEqual(freshBackground(device.name))
     })
   }
 
@@ -204,7 +210,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
 
     const mainPixel = await readCanvasPixel(page, "canvas", 0, FILLED_SCREEN_WIDTH / 2, FILLED_SCREEN_HEIGHT / 2, true)
     expect(mainPixel).not.toEqual(AUTHORED_GRAY)
-    expect(mainPixel).toEqual(WHITE)
+    expect(mainPixel).toEqual(FRESH_COLOUR)
 
     // Thumbnail: whichever <canvas> isn't the (largest, interactive) main
     // one - screens-panel.tsx renders one per screen at native screen size,
@@ -225,6 +231,6 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
       },
     )
     expect(thumbPixel).not.toEqual(AUTHORED_GRAY)
-    expect(thumbPixel).toEqual(WHITE)
+    expect(thumbPixel).toEqual(FRESH_COLOUR)
   })
 })
