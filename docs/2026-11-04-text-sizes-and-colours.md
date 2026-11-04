@@ -2,8 +2,8 @@
 
 Spec drafted 2026-11-04, from the CamperUI comparison
 (https://claude.ai/artifact/BPnD3obEVUqjN3zEYHwdvT) and the rebuild on the
-branch `camperui-rebuild`. Three modules, built in this order:
-`text-sizes`, `colour-model`, then `button-radius`. **Status: decisions taken 2026-11-04, awaiting approval of the whole.**
+branch `camperui-rebuild`. Two modules, built in this order:
+`text-sizes`, then `colour-model`. **Status: decisions taken 2026-11-04, awaiting approval of the whole.**
 
 ## Objective
 
@@ -177,21 +177,7 @@ the five new roles; «Die Themes» with what changed. Through
       callouts
 - [ ] The roles above in every theme, light and dark; Slate as proposed
 - [ ] The other themes redone after the user chose their values
-- [ ] Button corner radius in mm, default a pill, drawn by every device
 - [ ] `test:quick` green apart from known load failures
-
-## Module `button-radius`
-
-- Buttons (and a switch's button) get a corner radius, set in millimetres
-  beside the cards' in Settings › Cards; the default stays a pill, so
-  existing projects look as today. CamperUI's 10 px on the 4" is 1.5 mm.
-- Unlike colours this reaches the devices: the 4", 4.3B, Knob, PaperS3 and
-  the Android app draw the radius they are given. Firmware and app releases
-  follow only on the user's word.
-- Handbook: the setting where Settings › Cards is described, and on the
-  Button's and Switch's properties.
-- Tests: the radius in the reference renderer (`e2e/`), on the boards in
-  the HIL conformance specimens.
 
 ## Decisions (the user, 2026-11-04)
 
@@ -199,7 +185,9 @@ the five new roles; «Die Themes» with what changed. Through
    smaller (4.5 → 4.2, 7.0 → 6.2 mm).
 2. Slate, with the values above, is the theme of new masters instead of
    Lavender.
-3. The button corner radius comes now, as the module `button-radius`.
+3. The button corner radius comes now, as the module `button-radius` -
+   moved to docs/2026-11-04-native-buttons.md, since the devices then draw
+   their buttons themselves.
 
 The proposal is shown, with sample cards light and dark, at
 https://claude.ai/artifact/BPnD3obEVUqjN3zEYHwdvT.
