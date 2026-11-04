@@ -581,11 +581,12 @@ repo's type definitions for the full field list):
   "iconPath": "assets/…", "iconPathPressed": "assets/…" // + …Dark
   ```
 
-  1. `fill` (or nothing): a rounded rectangle over the whole button with
-     radius `r` - Adafruit_GFX's `fillRoundRect`, the integer shape the
-     designer draws too.
-  2. `outline` (or nothing): a 1-px ring of the same shape, cut out of it
-     (the designer's `fillRoundRectRing`).
+  1. The pill through the Switch's rasteriser (PillRaster: soft at 24 bit,
+     whole pixels below), one run over the whole button with both ends'
+     radius `r`, in `fill`.
+  2. With an `outline`: two runs in priority order instead - the inside
+     (1 px in, radius `r - 1`) in `fill`, or a hole where `fill` is null,
+     then the whole button in `outline` - the Switch's ring.
   3. With an icon: the `iconPath` picture (`iconPathPressed` while pressed,
      where present) at `icon.x`, `icon.y` - its square as drawn, the face
      under it included.

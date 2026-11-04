@@ -21,6 +21,7 @@ import { applyColorDepth } from "@/lib/color-depth"
 import { controlPalette } from "@/lib/control-palette"
 import { blendColors, onColorFor } from "@/lib/material-colors"
 import { fontMetricsOf, levelTrackLook } from "@/lib/level-shape"
+import type { PillBand } from "@/lib/pill-raster"
 
 /**
  * Material's three common buttons. Filled for the one action a screen is
@@ -176,4 +177,23 @@ export function buttonFaces(
     normal: faceOf(buttonLook(obj, background, colorDepth, false), buttonCornerRadius(w, h, false, radiusPx)),
     pressed: faceOf(buttonLook(obj, background, colorDepth, true), buttonCornerRadius(w, h, true, radiusPx)),
   }
+}
+
+/**
+ * A face as runs for the pill rasteriser (paint-pills.ts; PillRaster.h and
+ * PillRaster.kt on the devices), in priority order: a ring is the outer pill
+ * in the outline's colour with the inside, 1 px in, taken back - filled where
+ * the face has a fill, a hole (null) where it has none, so what is behind the
+ * button shows through. The Switch's ring, and the devices build the same.
+ */
+export function buttonPills(x: number, y: number, w: number, h: number, face: ButtonFace): { band: PillBand; colour: string | null }[] {
+  const outer: PillBand = { x, y, w, h, rLow: face.r, rHigh: face.r }
+  if (face.outline) {
+    const r = Math.max(0, face.r - 1)
+    return [
+      { band: { x: x + 1, y: y + 1, w: w - 2, h: h - 2, rLow: r, rHigh: r }, colour: face.fill },
+      { band: outer, colour: face.outline },
+    ]
+  }
+  return face.fill ? [{ band: outer, colour: face.fill }] : []
 }

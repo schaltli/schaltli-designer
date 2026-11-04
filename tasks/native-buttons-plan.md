@@ -19,14 +19,13 @@ draws only:
 4. the label in the project's font at `textX`, `baseline`, in `ink`,
    clipped to `clipX … clipX + clipW`.
 
-So no colour logic is ported, and nothing can drift: the firmware and the
-app already have the integer rounded rectangle and ring the Switch uses
-(Adafruit_GFX's `fillRoundRect`, `lib/switch-shape.ts`, Android's
-`render/fillRoundRect`). The designer draws the button with that same
-integer rasteriser at every depth - today only 1 bit does - so all three
-are the same pixels by construction; the anti-aliased pill goes. Its edges
-change by a pixel; the look spec (`e2e/software-button-look.spec.ts`) and
-the renders are updated for it.
+So no colour logic is ported, and nothing can drift: the pill goes through
+the rasteriser the Switch already shares on all three (designer
+`paint-pills.ts`/`lib/pill-raster.ts`, firmware `PillRaster.h` and
+`paintPills`, Android `PillRaster.kt`) - soft at 24 bit, whole pixels below
+- and a ring is the Switch's: the inside run, then the outer one. Found on
+2026-11-04 while porting: whole pixels at every depth would have put a
+stair-stepped button beside a soft switch.
 
 What a device gets on a `button` (light; each colour also as `…Dark`):
 

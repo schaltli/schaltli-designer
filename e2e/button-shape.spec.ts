@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { buttonContentLayout, buttonCornerRadius, buttonFaces, buttonLook, BUTTON_ICON_GAP } from "../lib/button-shape"
+import { buttonContentLayout, buttonCornerRadius, buttonFaces, buttonLook, buttonPills, BUTTON_ICON_GAP } from "../lib/button-shape"
 import { fontMetricsOf } from "../lib/level-shape"
 
 // What a device is told to draw for a button (docs/2026-11-04-native-
@@ -63,5 +63,18 @@ test.describe("where a button's content goes", () => {
   test("a label longer than the button starts at the straight part and is cut by the clip", () => {
     const layout = buttonContentLayout(button(), FONTS, 500)
     expect(layout.textX).toBe(20)
+  })
+})
+
+test.describe("a face as the rasteriser's runs", () => {
+  test("filled: one run over the button; outlined: the inside taken back, then the ring; nothing: no run", () => {
+    expect(buttonPills(10, 20, 100, 40, { r: 20, fill: "#112233", outline: null, ink: "#ffffff" })).toEqual([
+      { band: { x: 10, y: 20, w: 100, h: 40, rLow: 20, rHigh: 20 }, colour: "#112233" },
+    ])
+    expect(buttonPills(10, 20, 100, 40, { r: 20, fill: null, outline: "#445566", ink: "#445566" })).toEqual([
+      { band: { x: 11, y: 21, w: 98, h: 38, rLow: 19, rHigh: 19 }, colour: null },
+      { band: { x: 10, y: 20, w: 100, h: 40, rLow: 20, rHigh: 20 }, colour: "#445566" },
+    ])
+    expect(buttonPills(10, 20, 100, 40, { r: 0, fill: null, outline: null, ink: "#000000" })).toEqual([])
   })
 })

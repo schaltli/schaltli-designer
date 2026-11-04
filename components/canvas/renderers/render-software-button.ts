@@ -5,17 +5,17 @@
  * docs/2026-09-19-button-look.md; since 2026-11-04 (docs/2026-11-04-native-
  * buttons.md) the look and the layout are lib/button-shape.ts, which the export
  * writes into the project for a device to draw from - no picture of a button
- * leaves the designer. This draws the same: the integer rounded rectangle and
- * ring of the devices (render-box.ts fillRoundRect, Adafruit_GFX's), the icon
- * in the ink colour, the label at its place.
+ * leaves the designer. This draws the same: the pill through the Switch's
+ * rasteriser (paint-pills.ts), the icon in the ink colour, the label at its
+ * place.
  */
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { BDFFont } from "@/lib/bdffont"
-import { buttonContentLayout, buttonFaces, type ButtonContentLayout } from "@/lib/button-shape"
+import { buttonContentLayout, buttonFaces, buttonPills, type ButtonContentLayout } from "@/lib/button-shape"
 import { loadBdfFont } from "./render-text-box"
-import { fillRoundRect, fillRoundRectRing } from "./render-box"
+import { paintPills } from "./paint-pills"
 
 export {
   BUTTON_ICON_GAP,
@@ -97,13 +97,12 @@ export function drawSoftwareButton(o: DrawSoftwareButtonOptions): ButtonContentL
   const faces = buttonFaces(obj, o.background, o.colorDepth, o.radiusPx)
   const face = o.pressed ? faces.pressed : faces.normal
 
-  // Whole pixels at every depth, the devices' own rasteriser: an
-  // anti-aliased edge would be the browser's and differ at the corners from
-  // the panel's - the reason the button was a picture until 2026-11-04.
-  if (face.fill) fillRoundRect(ctx, x, y, w, h, face.r, face.fill)
-  // Cut out of a filled pill rather than drawn over one, so whatever is
-  // behind the button still shows in the middle.
-  if (face.outline) fillRoundRectRing(ctx, x, y, w, h, face.r, 1, face.outline)
+  // Through the Switch's rasteriser (paint-pills.ts; PillRaster.h and
+  // PillRaster.kt on the devices): soft at 24 bit, whole pixels below, the
+  // same pixels on all three. The browser's own anti-aliasing would differ
+  // from the panel's at every corner - the reason the button was a picture
+  // until 2026-11-04.
+  paintPills(ctx, buttonPills(x, y, w, h, face), o.background, o.colorDepth)
 
   const text = obj.properties.text || "Button"
   const fontMeta = o.fonts?.find((f) => f.id === obj.properties.fontId)
