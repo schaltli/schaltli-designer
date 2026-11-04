@@ -233,7 +233,8 @@ test.describe("what a button draws", () => {
     let top = Infinity
     let bottom = -Infinity
     for (let y = obj.y; y < obj.y + obj.height; y++)
-      for (let x = layout.icon!.x; x < layout.icon!.x + cap; x++) {
+      // The layout is the button's own (lib/button-shape.ts), from its corner.
+      for (let x = obj.x + layout.icon!.x; x < obj.x + layout.icon!.x + cap; x++) {
         const [r, g, b] = at(x, y)
         // Black on the tonal tint: the label's colour, which the tint picks.
         if (r + g + b < 330) {
@@ -241,8 +242,8 @@ test.describe("what a button draws", () => {
           bottom = Math.max(bottom, y)
         }
       }
-    expect(bottom).toBe(layout.baseline - 1)
-    expect(Math.abs(top - (layout.baseline - cap))).toBeLessThanOrEqual(1)
+    expect(bottom).toBe(obj.y + layout.baseline - 1)
+    expect(Math.abs(top - (obj.y + layout.baseline - cap))).toBeLessThanOrEqual(1)
   })
 
   test("the bake is the preview, and pressed is Material's state layer", async ({ page }) => {
