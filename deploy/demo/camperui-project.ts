@@ -20,6 +20,7 @@
 import { parseDeviceDescriptionFile, deviceDescriptionToProjectFields } from "@/lib/device-description"
 import { declaresTouch } from "@/lib/object-types"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
+import { styledFont, textScaleOf, type TextStyle } from "@/lib/size-scale"
 import type { Project } from "@/components/project-editor"
 
 const S = "schaltli/state/"
@@ -52,9 +53,15 @@ const GREY = "#7d8a9a"
 const TRACK = "#121a1c"
 const KHAKI = "#b8a27a"
 
-// The 4"'s fonts: Inter at 15, 24, 36 and 55 px.
-const F = { small: "font-inter-c9", medium: "font-inter-c14", large: "font-inter-c21", huge: "font-inter-c33" } as const
-const SIZE: Record<string, number> = { "font-inter-c9": 15, "font-inter-c14": 24, "font-inter-c21": 36, "font-inter-c33": 55 }
+// In the seven text sizes since 2026-11-04 (docs/2026-11-04-text-sizes-and-
+// colours.md), set by the designer's own rule (lib/size-scale.ts) in the
+// 4"'s Humanist typography, Inter like CamperUI's Montserrat: until then
+// Inter by hand at 15, 24, 36 and 55 px.
+const F = { mini: "mini", small: "standard", large16: "large", medium: "xl", large: "xxl", huge: "huge" } as const
+type Size = (typeof F)[keyof typeof F]
+let SIZED: Record<string, { textStyle: string; textBold: false; fontId: string; fontSize: number }> = {}
+/** A size's properties, its font resolved on this device. */
+const sized = (size: Size) => SIZED[size]
 
 const svg = (body: string) =>
   `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${body}</svg>`).toString("base64")}`
@@ -144,7 +151,7 @@ const NONE = { kind: "text", parts: ["–"] }
 const VALUE = { value: true }
 
 /** A text, in one of the four sizes, its colour and alignment; `live` binds {live:…} parts. */
-function text(x: number, y: number, width: number, height: number, content: string, font: string, color: string, align = "left", live: any[] = []) {
+function text(x: number, y: number, width: number, height: number, content: string, font: Size, color: string, align = "left", live: any[] = []) {
   return {
     id: id("text"),
     type: "text",
@@ -156,8 +163,7 @@ function text(x: number, y: number, width: number, height: number, content: stri
     properties: {
       text: content,
       ...(live.length ? { liveValues: live } : {}),
-      fontId: font,
-      fontSize: SIZE[font],
+      ...sized(font),
       color,
       textAlign: align,
       backgroundColor: "transparent",
@@ -221,7 +227,7 @@ const LINEAR = (max: number) => [
 ]
 
 /** A ring with its percentage inside: CamperUI's gauges on Power. */
-function ring(x: number, y: number, size: number, path: string, max: number, color: string, thickness: number, font: string) {
+function ring(x: number, y: number, size: number, path: string, max: number, color: string, thickness: number, font: Size) {
   return {
     id: id("ring"),
     type: "gauge",
@@ -242,8 +248,7 @@ function ring(x: number, y: number, size: number, path: string, max: number, col
       displayValue: "percentage",
       calibrationPoints: LINEAR(max),
       textColor: color,
-      fontId: font,
-      fontSize: SIZE[font],
+      ...sized(font),
     },
   }
 }
@@ -296,8 +301,7 @@ function stateTile(x: number, y: number, width: number, height: number, read: st
             text: st.label,
             buttonStyle: "filled",
             buttonColor: st.color,
-            fontId: F.medium,
-            fontSize: SIZE[F.medium],
+            ...sized(F.medium),
             action: { type: "send-mqtt", mqttTopic: write, mqttMessage: st.send },
           },
         },
@@ -313,6 +317,8 @@ function master(width: number, height: number) {
     id: "master-1",
     name: "Master",
     isMaster: true,
+    // Inter, as CamperUI's Montserrat: the sizes' fonts are this typography's.
+    typography: "Humanist",
     backgroundColor: BG,
     objects: [
       box(0, 0, width, 40, HEADER),
@@ -333,7 +339,7 @@ function master(width: number, height: number) {
         properties: {
           edge: "bottom",
           shows: "icons",
-          fontId: F.small,
+          fontId: sized(F.small).fontId,
           backgroundColor: HEADER,
           borderColor: "#22262d",
           textColor: GREY,
@@ -353,21 +359,21 @@ function home() {
   return page("screen-home", "Home", "icon-home", [
     relayTile(8, 48, 228, 56, 1, BLUE, [" AUS", " EIN"]),
     relayTile(244, 48, 228, 56, 3, BLUE, [" AUS", " EIN"]),
-    card(8, 112, 228, 70, [text(12, 8, 200, 20, "{live:n1}", F.small, TEXT, "left", [plain("n1", `${S}temp/1/name`)]), text(12, 30, 200, 30, "{live:t1}", F.medium, TEXT, "left", [num("t1", `${S}temp/1/value`, 1, " C")])]),
-    card(244, 112, 228, 70, [text(12, 8, 200, 20, "{live:n2}", F.small, TEXT, "left", [plain("n2", `${S}temp/2/name`)]), text(12, 30, 200, 30, "{live:t2}", F.medium, TEXT, "left", [num("t2", `${S}temp/2/value`, 1, " C")])]),
+    card(8, 112, 228, 70, [text(12, 8, 200, 20, "{live:n1}", F.mini, TEXT, "left", [plain("n1", `${S}temp/1/name`)]), text(12, 30, 200, 30, "{live:t1}", F.medium, TEXT, "left", [num("t1", `${S}temp/1/value`, 1, " C")])]),
+    card(244, 112, 228, 70, [text(12, 8, 200, 20, "{live:n2}", F.mini, TEXT, "left", [plain("n2", `${S}temp/2/name`)]), text(12, 30, 200, 30, "{live:t2}", F.medium, TEXT, "left", [num("t2", `${S}temp/2/value`, 1, " C")])]),
     card(8, 190, 228, 122, [
-      text(12, 10, 200, 22, "Batterie {live:bsoc}", F.small, BLUE, "left", [num("bsoc", `${S}battery/soc`, 0, "%")]),
+      text(12, 10, 200, 22, "Batterie {live:bsoc}", F.large16, BLUE, "left", [num("bsoc", `${S}battery/soc`, 0, "%")]),
       text(12, 34, 210, 42, "{live:bw}", F.large, ORANGE, "left", [num("bw", `${S}battery/power`, 1, " W")]),
-      text(12, 74, 210, 28, "{live:bv}  {live:ba}", F.medium, TEXT, "left", [num("bv", `${S}battery/voltage`, 1, " V"), num("ba", `${S}battery/current`, 1, " A")]),
+      text(12, 74, 210, 28, "{live:bv}  {live:ba}", F.large16, TEXT, "left", [num("bv", `${S}battery/voltage`, 1, " V"), num("ba", `${S}battery/current`, 1, " A")]),
     ]),
     card(244, 190, 228, 122, [
-      text(12, 10, 200, 22, "Solar", F.small, TEXT),
+      text(12, 10, 200, 22, "Solar", F.large16, TEXT),
       text(12, 34, 210, 42, "{live:sw}", F.large, ORANGE, "left", [num("sw", `${S}mppt/pv_watts`, 0, " W")]),
-      text(12, 74, 210, 28, "{live:sv}  {live:sa}", F.medium, TEXT, "left", [num("sv", `${S}mppt/pv_volts`, 1, " V"), num("sa", `${S}mppt/pv_amps`, 1, " A")]),
-      text(12, 98, 210, 20, "PV-Leistung", F.small, TEXT),
+      text(12, 74, 210, 28, "{live:sv}  {live:sa}", F.large16, TEXT, "left", [num("sv", `${S}mppt/pv_volts`, 1, " V"), num("sa", `${S}mppt/pv_amps`, 1, " A")]),
+      text(12, 98, 210, 20, "PV-Leistung", F.mini, TEXT),
     ]),
     card(8, 320, 464, 60, [
-      text(12, 6, 280, 26, "{live:fn}", F.medium, TEXT, "left", [plain("fn", `${S}tank/1/name`)]),
+      text(12, 6, 280, 26, "{live:fn}", F.large16, TEXT, "left", [plain("fn", `${S}tank/1/name`)]),
       text(330, 6, 120, 26, "{live:fl}", F.medium, TEXT, "right", [num("fl", `${S}tank/1/level`, 0, "%")]),
       {
         id: id("bar"),
@@ -410,7 +416,7 @@ const inCell = (obj: any, row: number, column: number, extra: Record<string, unk
 })
 
 /** A text for a cell: no position, its height the line's, its width what it may take. */
-const cellText = (row: number, column: number, height: number, content: string, font: string, color: string, live: any[] = [], align = "left", anchor?: Record<string, string>) =>
+const cellText = (row: number, column: number, height: number, content: string, font: Size, color: string, live: any[] = [], align = "left", anchor?: Record<string, string>) =>
   inCell(text(0, 0, 200, height, content, font, color, align, live), row, column, anchor ? { anchor } : {})
 
 /** A card with its contents in a table of rows: padding `padMm`, the rows `gapMm` apart. */
@@ -463,7 +469,7 @@ function homeWithTables(pixelsPerMm: number) {
           tableCard(
             70,
             [
-              cellText(0, 0, 18, `{live:hn${n}}`, F.small, TEXT, [plain(`hn${n}`, `${S}temp/${n}/name`)]),
+              cellText(0, 0, 18, `{live:hn${n}}`, F.mini, TEXT, [plain(`hn${n}`, `${S}temp/${n}/name`)]),
               cellText(1, 0, 30, `{live:ht${n}}`, F.medium, TEXT, [num(`ht${n}`, `${S}temp/${n}/value`, 1, " C")]),
             ],
             PAD,
@@ -478,9 +484,9 @@ function homeWithTables(pixelsPerMm: number) {
         tableCard(
           122,
           [
-            cellText(0, 0, 20, "Batterie {live:hbsoc}", F.small, BLUE, [num("hbsoc", `${S}battery/soc`, 0, "%")]),
+            cellText(0, 0, 20, "Batterie {live:hbsoc}", F.large16, BLUE, [num("hbsoc", `${S}battery/soc`, 0, "%")]),
             cellText(1, 0, 40, "{live:hbw}", F.large, ORANGE, [num("hbw", `${S}battery/power`, 1, " W")]),
-            cellText(2, 0, 26, "{live:hbv}  {live:hba}", F.medium, TEXT, [num("hbv", `${S}battery/voltage`, 1, " V"), num("hba", `${S}battery/current`, 1, " A")]),
+            cellText(2, 0, 26, "{live:hbv}  {live:hba}", F.large16, TEXT, [num("hbv", `${S}battery/voltage`, 1, " V"), num("hba", `${S}battery/current`, 1, " A")]),
           ],
           PAD,
           ROW_GAP,
@@ -493,10 +499,10 @@ function homeWithTables(pixelsPerMm: number) {
         tableCard(
           122,
           [
-            cellText(0, 0, 20, "Solar", F.small, TEXT),
+            cellText(0, 0, 20, "Solar", F.large16, TEXT),
             cellText(1, 0, 38, "{live:hsw}", F.large, ORANGE, [num("hsw", `${S}mppt/pv_watts`, 0, " W")]),
-            cellText(2, 0, 26, "{live:hsv}  {live:hsa}", F.medium, TEXT, [num("hsv", `${S}mppt/pv_volts`, 1, " V"), num("hsa", `${S}mppt/pv_amps`, 1, " A")]),
-            cellText(3, 0, 18, "PV-Leistung", F.small, TEXT),
+            cellText(2, 0, 26, "{live:hsv}  {live:hsa}", F.large16, TEXT, [num("hsv", `${S}mppt/pv_volts`, 1, " V"), num("hsa", `${S}mppt/pv_amps`, 1, " A")]),
+            cellText(3, 0, 18, "PV-Leistung", F.mini, TEXT),
           ],
           PAD,
           ROW_GAP,
@@ -509,7 +515,7 @@ function homeWithTables(pixelsPerMm: number) {
         tableCard(
           60,
           [
-            cellText(0, 0, 26, "{live:hfn}", F.medium, TEXT, [plain("hfn", `${S}tank/1/name`)]),
+            cellText(0, 0, 26, "{live:hfn}", F.large16, TEXT, [plain("hfn", `${S}tank/1/name`)]),
             cellText(0, 1, 26, "{live:hfl}", F.medium, TEXT, [num("hfl", `${S}tank/1/level`, 0, "%")], "right", { x: "right" }),
             inCell(tank, 1, 0, { columnSpan: 2, anchor: { x: "stretch" } }),
           ],
@@ -661,8 +667,7 @@ function climate() {
         ],
         switchStyle: "filled",
         switchColor: BLUE,
-        fontId: F.small,
-        fontSize: SIZE[F.small],
+        ...sized(F.small),
       },
     },
     {
@@ -690,8 +695,7 @@ function climate() {
           { value: 30, barSizePercent: 100 },
         ],
         textColor: TEXT,
-        fontId: F.large,
-        fontSize: SIZE[F.large],
+        ...sized(F.large),
       },
     },
     text(140, 186, 200, 44, "{live:ki}", F.large, TEXT, "center", [num("ki", `${S}temp/1/value`, 1, " C")]),
@@ -705,7 +709,7 @@ function climate() {
       width: 260,
       height: 54,
       zIndex: next,
-      properties: { text: "Stop", buttonStyle: "filled", buttonColor: RED, fontId: F.medium, fontSize: SIZE[F.medium], action: { type: "send-mqtt", mqttTopic: `${C}heater`, mqttMessage: "off" } },
+      properties: { text: "Stop", buttonStyle: "filled", buttonColor: RED, ...sized(F.medium), action: { type: "send-mqtt", mqttTopic: `${C}heater`, mqttMessage: "off" } },
     },
     card(382, 352, 54, 54, [icon(13, 13, 28, "icon-stethoscope", BLUE)], EDGE, 10),
   ])
@@ -738,8 +742,8 @@ function temps() {
           mode: "time",
           scroll: false,
           legend: "none",
-          fontId: F.small,
-          dateFontId: F.small,
+          fontId: sized(F.small).fontId,
+          dateFontId: sized(F.small).fontId,
           textColor: MUTED,
           mutedColor: MUTED,
           lineColor: "#2a2e36",
@@ -777,8 +781,7 @@ function maxxfan() {
         ],
         switchStyle: "filled",
         switchColor: RED,
-        fontId: F.medium,
-        fontSize: SIZE[F.medium],
+        ...sized(F.medium),
       },
     },
     stateTile(8, 144, 464, 76, `${S}maxxfan/cover`, `${C}maxxfan/cover`, [
@@ -802,6 +805,15 @@ export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWi
   next = 1
   const parsed = await parseDeviceDescriptionFile(Buffer.from(ddfZip))
   const fields = deviceDescriptionToProjectFields(parsed, Buffer.from(ddfZip).toString("base64"))
+  // Each size's font on this device, in Humanist (Inter) as CamperUI's
+  // Montserrat; resolved once, before any page is built.
+  const scale = textScaleOf({ pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies }, "Humanist")!
+  SIZED = Object.fromEntries(
+    Object.values(F).map((size) => {
+      const f = styledFont(size as TextStyle, false, scale, fields.fonts)!
+      return [size, { textStyle: size, textBold: false as const, fontId: f.fontId, fontSize: f.fontSize }]
+    }),
+  )
   const homePage = options.homeWithTables ? homeWithTables(fields.pixelsPerMm ?? 6.73) : home()
   const project = {
     name: "CamperUI nachgebaut",
