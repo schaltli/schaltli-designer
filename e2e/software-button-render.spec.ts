@@ -161,7 +161,7 @@ test.describe("SoftwareButton base-state rendering", () => {
     // started with.
     // On the Knob a font is a style (docs/2026-09-30-size-scale.md):
     // Caption is Helvetica 12px, Title Helvetica 24px.
-    await chooseStyle(page, "caption")
+    await chooseStyle(page, "standard")
     await page.waitForTimeout(200)
 
     const hashCanvas = () =>
@@ -187,7 +187,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
     const beforeHash = await hashCanvas()
 
-    await chooseStyle(page, "title")
+    await chooseStyle(page, "xxl")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()

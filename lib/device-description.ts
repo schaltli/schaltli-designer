@@ -45,9 +45,13 @@ export interface DeviceDescriptionFontEntry {
   replaces?: string[]
 }
 
-/** The four text styles a typography names a family for. */
-export const TEXT_STYLES = ["caption", "label", "title", "display"] as const
-export type TextStyle = (typeof TEXT_STYLES)[number]
+/**
+ * The four keys a typography names a family for - once the four text
+ * styles, since 2026-11-04 the families the seven text sizes take theirs
+ * from (lib/size-scale.ts SIZE_FAMILY). A DDF keeps saying these four.
+ */
+export const TYPOGRAPHY_KEYS = ["caption", "label", "title", "display"] as const
+export type TypographyKey = (typeof TYPOGRAPHY_KEYS)[number]
 
 /**
  * A named set of families, one per text style: which of its fonts a device
@@ -57,7 +61,7 @@ export type TextStyle = (typeof TEXT_STYLES)[number]
  */
 export interface Typography {
   name: string
-  styles: Record<TextStyle, string>
+  styles: Record<TypographyKey, string>
 }
 
 /** The typography every device must offer, and the fallback for one it lacks. */
@@ -699,7 +703,7 @@ export function typographiesOf(declared: unknown): Typography[] {
       entry.name.trim() !== "" &&
       typeof entry.styles === "object" &&
       entry.styles !== null &&
-      TEXT_STYLES.every((style) => typeof entry.styles[style] === "string" && entry.styles[style].trim() !== ""),
+      TYPOGRAPHY_KEYS.every((style) => typeof entry.styles[style] === "string" && entry.styles[style].trim() !== ""),
   )
   return valid.some((t) => t.name === STANDARD_TYPOGRAPHY) ? valid.map((t) => ({ name: t.name, styles: { ...t.styles } })) : []
 }

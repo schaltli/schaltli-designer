@@ -48,7 +48,7 @@ test("moved to a phone, the navigator fills the phone's edge and a diagram takes
   // 2026-11-02, at Caption and Label (Lucida until then, which opening now
   // moves to Inter on its own, e2e/4bit-font-migration.spec.ts).
   const lineOf = (id: string) => saved.fonts.find((f: any) => f.id === id)?.size as number
-  const [nameFont, valueFont] = ["font-inter-c12", "font-inter-c18"]
+  const [nameFont, valueFont] = ["font-inter-c13", "font-inter-c18"]
   expect(lineOf(nameFont), "the 4.3B has the font").toBeGreaterThan(0)
   const screen = saved.screens.find((s: any) => !s.isMaster && s.screenType !== "popup")
   screen.objects.push({ id: "e", type: "energy-diagram", x: 100, y: 20, width: 500, height: 400, zIndex: 1, properties: { ...defaultDiagram({ width: 500, height: 400 }), fontId: nameFont, valueFontId: valueFont } })

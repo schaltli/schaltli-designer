@@ -376,7 +376,7 @@ export async function getSelectedHeader(page: Page): Promise<string> {
 // Sets the selected object's text style, where the device gives a scale
 // (docs/2026-09-30-size-scale.md) - the Style field that stands in for the
 // font picker there. The round fixture's Knob has one since 2026-09-30.
-export async function chooseStyle(page: Page, style: "caption" | "label" | "title" | "display"): Promise<void> {
+export async function chooseStyle(page: Page, style: "micro" | "mini" | "standard" | "large" | "xl" | "xxl" | "huge"): Promise<void> {
   await page.locator("#textStyle").selectOption(style)
 }
 

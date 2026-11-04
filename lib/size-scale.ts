@@ -11,7 +11,7 @@
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/components/project-editor"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
-import { STANDARD_TYPOGRAPHY, type TextStyle, type Typography } from "@/lib/device-description"
+import { STANDARD_TYPOGRAPHY, type TypographyKey, type Typography } from "@/lib/device-description"
 import { themeMaster } from "@/lib/themes"
 import {
   levelFontMetrics,
@@ -27,18 +27,59 @@ import { SWITCH_BUTTON_GAP, SWITCH_GAP, SWITCH_PAD, switchTrack } from "@/lib/sw
 import { fontMetricsOf } from "@/lib/level-shape"
 import { BDFFont } from "@/lib/bdffont"
 
-export type { TextStyle } from "@/lib/device-description"
-export { TEXT_STYLES } from "@/lib/device-description"
+/**
+ * The seven text sizes (docs/2026-11-04-text-sizes-and-colours.md, the
+ * user's names, 2026-11-04): sizes, not styles - a height in millimetres,
+ * the same on every device, Bold apart. Until then four styles, Caption 2,
+ * Label 3, Title 4.5 and Display 7 mm, which left most of CamperUI's text
+ * below the smallest. Kept in `properties.textStyle`.
+ */
+export const TEXT_STYLES = ["micro", "mini", "standard", "large", "xl", "xxl", "huge"] as const
+export type TextStyle = (typeof TEXT_STYLES)[number]
+
+/** Line height per text size, in millimetres: CamperUI's steps on the 4" (10 to 42 px). */
+export const TEXT_STYLE_MM: Record<TextStyle, number> = {
+  micro: 1.5,
+  mini: 1.8,
+  standard: 2.1,
+  large: 2.4,
+  xl: 3.0,
+  xxl: 4.2,
+  huge: 6.2,
+}
 
 /**
- * Line height per text style, in millimetres. A starting point from
- * 2026-09-30, to be checked on the devices (Checkpoint B).
+ * Which of a typography's four families a size is set in (lib/device-
+ * description.ts TYPOGRAPHY_KEYS): the small ones in the caption family, the
+ * middle in the label family, XXL in the title's, Huge in the display's -
+ * Technic's Seven Segment.
  */
-export const TEXT_STYLE_MM: Record<TextStyle, number> = {
-  caption: 2.0,
-  label: 3.0,
-  title: 4.5,
-  display: 7.0,
+export const SIZE_FAMILY: Record<TextStyle, TypographyKey> = {
+  micro: "caption",
+  mini: "caption",
+  standard: "caption",
+  large: "label",
+  xl: "label",
+  xxl: "title",
+  huge: "display",
+}
+
+/**
+ * The size each of the four old styles became (the user, 2026-11-04: the
+ * nearest; Title and Display a little smaller).
+ */
+export const SIZE_OF_OLD_STYLE: Record<TypographyKey, TextStyle> = {
+  caption: "standard",
+  label: "xl",
+  title: "xxl",
+  display: "huge",
+}
+
+/** A stored text size, an old style moved to its size; undefined for anything else. */
+export function textSizeOf(value: unknown): TextStyle | undefined {
+  if (typeof value !== "string") return undefined
+  if ((TEXT_STYLES as readonly string[]).includes(value)) return value as TextStyle
+  return (SIZE_OF_OLD_STYLE as Record<string, TextStyle>)[value]
 }
 
 // XS since 2026-10-05: a button you seldom press, as «Nullen» beside its
@@ -342,7 +383,7 @@ export function fontFor(
   fonts: ProjectFont[],
   pixelsPerMm: number,
 ): ProjectFont | undefined {
-  const named = fonts.filter((f) => f.family === typography.styles[style])
+  const named = fonts.filter((f) => f.family === typography.styles[SIZE_FAMILY[style]])
   const fourBit = named.filter((f) => f.bpp === 4)
   if (fourBit.length > 0) return fourBitFontFor(style, bold, fourBit, pixelsPerMm)
   const family = named
@@ -498,10 +539,11 @@ export function resolveScale(project: Project): Project {
 
   const resolve = (object: ScreenObject, scale: TextScale): ScreenObject => {
     let next = object
-    const style = object.properties?.textStyle as TextStyle | undefined
+    // An old style (caption, label, title, display) moves to its size here.
+    const style = textSizeOf(object.properties?.textStyle)
     if (style) {
       const styled = styledFont(style, object.properties.textBold === true, scale, project.fonts)
-      if (styled && (styled.fontId !== object.properties.fontId || styled.fontSize !== object.properties.fontSize)) {
+      if (styled && (styled.fontId !== object.properties.fontId || styled.fontSize !== object.properties.fontSize || style !== object.properties.textStyle)) {
         next = {
           ...object,
           ...(TEXT_BOX_TYPES.has(object.type) ? { height: calculateTextObjectHeight(styled.fontSize) } : {}),

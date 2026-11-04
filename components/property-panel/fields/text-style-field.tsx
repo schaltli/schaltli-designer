@@ -1,14 +1,12 @@
 "use client"
 
 /**
- * A text's style and Bold, where the device gives a scale
- * (docs/2026-09-30-size-scale.md): the four styles instead of a font list,
- * the font following from the device's typography. Text set in a font by
- * hand - every text made before the scale - shows as Custom, with the font
- * it has, and Snap moves it to the nearest style.
- *
- * Labelled "Text style", not "Style": Switch and Button already have a
- * Style, their look, in the same panel.
+ * A text's size and Bold, where the device gives a scale
+ * (docs/2026-09-30-size-scale.md; seven sizes since 2026-11-04,
+ * docs/2026-11-04-text-sizes-and-colours.md): the sizes instead of a font
+ * list, each with its pixels on this device, the font following from the
+ * device's typography. Text set in a font by hand shows as Custom, with the
+ * font it has, and Snap moves it to the nearest size.
  */
 
 import type { ProjectFont } from "@/components/project-editor"
@@ -17,6 +15,7 @@ import {
   lineHeight,
   nearestStyle,
   styledFont,
+  stylePx,
   type TextScale,
   type TextStyle,
 } from "@/lib/size-scale"
@@ -27,12 +26,17 @@ import { ToggleRow } from "./toggle-row"
 // Written out rather than capitalised from the ids: the handbook quotes
 // these names, and e2e/handbook-labels.spec.ts looks for them in the source.
 const STYLE_LABELS: Record<TextStyle, string> = {
-  caption: "Caption",
-  label: "Label",
-  title: "Title",
-  display: "Display",
+  micro: "Micro",
+  mini: "Mini",
+  standard: "Standard",
+  large: "Large",
+  xl: "XL",
+  xxl: "XXL",
+  huge: "Huge",
 }
-const STYLE_OPTIONS = TEXT_STYLES.map((style) => ({ value: style, label: STYLE_LABELS[style] }))
+// Each with its line on this device, as the handbook's table gives it.
+const optionsAt = (pixelsPerMm: number) =>
+  TEXT_STYLES.map((style) => ({ value: style, label: `${STYLE_LABELS[style]} · ${Math.round(stylePx(style, pixelsPerMm))} px` }))
 
 export type StyledFont = NonNullable<ReturnType<typeof styledFont>>
 
@@ -48,6 +52,7 @@ export interface TextStyleFieldProps {
 }
 
 export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, scale, onChange }: TextStyleFieldProps) {
+  const STYLE_OPTIONS = optionsAt(scale.pixelsPerMm)
   const choose = (style: TextStyle, bold: boolean) => {
     const update = styledFont(style, bold, scale, fonts)
     if (update) onChange(update)
@@ -60,7 +65,7 @@ export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, s
       <>
         <SelectField
           id="textStyle"
-          label="Text style"
+          label="Text size"
           value={undefined}
           placeholder={`Custom (${current?.displayName ?? `${fontSize ?? 16} px`})`}
           options={STYLE_OPTIONS}
@@ -70,7 +75,7 @@ export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, s
           label=""
           buttons={[
             {
-              label: `Snap to ${STYLE_OPTIONS.find((o) => o.value === snapTo)!.label}`,
+              label: `Snap to ${STYLE_LABELS[snapTo]}`,
               onClick: () => choose(snapTo, current?.weight === "bold"),
             },
           ]}
@@ -83,7 +88,7 @@ export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, s
     <>
       <SelectField
         id="textStyle"
-        label="Text style"
+        label="Text size"
         value={textStyle}
         options={STYLE_OPTIONS}
         onChange={(value) => choose(value as TextStyle, textBold)}

@@ -4369,7 +4369,7 @@ export function Canvas({
           fillColor: ROLE_PALETTE.fill,
           textColor: ROLE_PALETTE.text,
           // Display: the value stands alone in the ring.
-          ...(startStyled("display") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
+          ...(startStyled("huge") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
         },
       }
 
@@ -4394,7 +4394,7 @@ export function Canvas({
           fillColor: ROLE_PALETTE.fill,
           thickness: LEVEL_DEFAULT_THICKNESS,
           textColor: ROLE_PALETTE.text,
-          ...(startStyled("label") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
+          ...(startStyled("xl") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
         },
       }
 
@@ -4415,7 +4415,7 @@ export function Canvas({
           // (docs/2026-09-19-button-look.md).
           buttonStyle: "tonal",
           buttonColor: ROLE_PALETTE.fill,
-          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+          ...(startStyled("xl") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
           action: { type: "next-screen" },
         },
       }
@@ -4436,7 +4436,7 @@ export function Canvas({
           topic: undefined,
           writeTopic: undefined,
           ...(type === "text-field" ? { minLength: 0, maxLength: 255 } : { minuteStep: 5 }),
-          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+          ...(startStyled("xl") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
         },
       }
     }
@@ -4462,7 +4462,7 @@ export function Canvas({
           // label follow from it (docs/2026-09-20-switch-look.md).
           switchStyle: "filled",
           switchColor: palette.fill,
-          ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+          ...(startStyled("xl") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
         },
       }
 
@@ -4545,7 +4545,8 @@ export function Canvas({
 
       return tabControlObject
     }
-    const textStyled = startStyled("label")
+    // A new text in Standard, the most common size (docs/2026-11-04-text-sizes-and-colours.md).
+    const textStyled = startStyled("standard")
     // Keyed by the tool, which is the type it makes.
     // A layout container drawn as a rectangle: empty, its own defaults
     // (lib/layout.ts) until its properties say otherwise.

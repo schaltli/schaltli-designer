@@ -2304,9 +2304,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     ): { built: BausteinBuildResult; stepped: Omit<ScreenObject, "id" | "zIndex">[]; register: () => void } => {
       const { entry, values, options } = armed
 
-      // The Label style's font, on a device with a scale.
+      // The XL size's font (the old Label style), on a device with a scale.
       const scale = screenTextScale(project, currentScreen)
-      const label = scale ? fontFor("label", false, scale.typography, project.fonts, scale.pixelsPerMm) : undefined
+      const label = scale ? fontFor("xl", false, scale.typography, project.fonts, scale.pixelsPerMm) : undefined
       const labelFont = label
         ? { id: label.id, size: label.size, internalName: label.internalName, name: label.name, format: label.format }
         : undefined
@@ -2351,10 +2351,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const styled = (object: Omit<ScreenObject, "id" | "zIndex">): Omit<ScreenObject, "id" | "zIndex"> => {
         const { blockTextStyle, ...properties } = object.properties ?? {}
         if (blockTextStyle === "caption") {
-          const caption = scale ? styledFont("caption", false, scale, project.fonts) : undefined
+          const caption = scale ? styledFont("standard", false, scale, project.fonts) : undefined
           return { ...object, properties: { ...properties, ...(caption ?? {}) } }
         }
-        return labelFont && properties.fontId === labelFont.id ? { ...object, properties: { ...properties, textStyle: "label", textBold: false } } : object
+        return labelFont && properties.fontId === labelFont.id ? { ...object, properties: { ...properties, textStyle: "xl", textBold: false } } : object
       }
       const pieces = built.objects.map(styled)
       // Its controls at M where the device gives a scale, wherever it lands -

@@ -228,7 +228,7 @@ function name(x: number, y: number, width: number, path: string) {
     properties: {
       text: `{live:${lv}}`,
       liveValues: [{ id: lv, source: { namespace: "topic", path }, rules: [] }],
-      textStyle: "label",
+      textStyle: "xl",
       textBold: false,
       color: "text",
       textAlign: "left",
@@ -247,7 +247,7 @@ function title(text: string) {
     width: 300,
     height: 40,
     zIndex: next,
-    properties: { text, textStyle: "title", textBold: true, color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
+    properties: { text, textStyle: "xxl", textBold: true, color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
   }
 }
 
@@ -278,7 +278,7 @@ function onOff(
       ],
       switchStyle: "filled",
       switchColor: "accent",
-      textStyle: "label",
+      textStyle: "xl",
       textBold: false,
     },
   }
@@ -322,7 +322,7 @@ function lightScreen() {
           displayValue: "percentage",
           fillColor: "accent",
           textColor: "text",
-          textStyle: "title",
+          textStyle: "xxl",
           textBold: true,
           step: 5,
         },
@@ -345,7 +345,7 @@ function lightScreen() {
           fillColor: "accent",
           thickness: 24,
           textColor: "text",
-          textStyle: "label",
+          textStyle: "xl",
           textBold: false,
           step: 5,
         },
@@ -377,7 +377,7 @@ function tank(x: number, n: number, fillColor: string) {
         displayValue: "percentage",
         fillColor,
         textColor: "text",
-        textStyle: "title",
+        textStyle: "xxl",
         textBold: true,
       },
     },
@@ -486,7 +486,7 @@ function energyDiagram(mode: "flow" | "sankey", box: { width: number; height: nu
       fullScale: 1000,
       // No style for a diagram's names and values: the 4.3B's 4-bit Inter,
       // which replaced the Lucida Sans they were in (2026-11-02).
-      fontId: "font-inter-c12",
+      fontId: "font-inter-c13",
       valueFontId: "font-inter-c18",
       nodes: [
         { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.4) },
@@ -527,7 +527,7 @@ function comingSoon(id: string, pageName: string, icon: string) {
         width: 660,
         height: 60,
         zIndex: 2,
-        properties: { text: "Coming soon", textStyle: "display", textBold: false, color: "textMuted", textAlign: "center", backgroundColor: "transparent", borderColor: "transparent" },
+        properties: { text: "Coming soon", textStyle: "huge", textBold: false, color: "textMuted", textAlign: "center", backgroundColor: "transparent", borderColor: "transparent" },
       },
     ],
   }
@@ -557,7 +557,7 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
         width: 104,
         height: fields.screenHeight,
         zIndex: 100,
-        properties: { edge: "left", shows: "iconsAndText", fontId: "font-roboto-c12" },
+        properties: { edge: "left", shows: "iconsAndText", fontId: "font-roboto-c13" },
       },
       // Top right on every page: light or dark, for every device at once.
       onOff(fields.screenWidth - 196, 14, `${S}theme`, `${C}theme`, ["Hell", "Dunkel"], ["light", "dark"], [180, 48], ["icon-sun", "icon-moon"]),

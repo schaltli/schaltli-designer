@@ -945,8 +945,8 @@ test.describe("placing a catalog entry", () => {
       // A button the description sizes XS comes in XS, not M.
       expect(rows[2]).toMatchObject({ type: "button", properties: { text: "Reset", sizeStep: "xs" } })
       expect(rows[2].properties.blockSizeStep).toBeUndefined()
-      // Set small: in the Caption style, not the Label.
-      expect(rows[1].properties.textStyle).toBe("caption")
+      // Set small: in Standard (the old Caption), not XL.
+      expect(rows[1].properties.textStyle).toBe("standard")
       expect(rows[1].properties.blockTextStyle).toBeUndefined()
     } finally {
       await publish(client, topic, "")

@@ -202,8 +202,8 @@ test.describe("Switch object", () => {
 
     // font-helvR08 (fixture default, 12px) -> font-helvR24 (35px) - the
     // largest size jump available, so a real change is unambiguous.
-    // Title on the Knob is Helvetica 24px.
-    await chooseStyle(page, "title")
+    // XXL (the old Title) on the Knob.
+    await chooseStyle(page, "xxl")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()

@@ -83,7 +83,7 @@ test("a 1-bit project on the 4.3B opens on its 4-bit fonts, changed, and names t
       } as any,
     )
     expect((await page.request.post(`/api/projects/${encodeURIComponent(name)}/versions`, { data: saved })).ok()).toBe(true)
-    expect(widthIn("roboto-c12.bdf", tight), "Roboto at Caption is wider than Helvetica 8").toBeGreaterThan(tightWidth)
+    expect(widthIn("roboto-c13.bdf", tight), "Roboto at Standard (the old Caption) is wider than Helvetica 8").toBeGreaterThan(tightWidth)
 
     // The board's description as it is now.
     await seedWaveshare4v3bDdf(deviceId)
@@ -102,8 +102,8 @@ test("a 1-bit project on the 4.3B opens on its 4-bit fonts, changed, and names t
     const named = objects.flatMap((o: any) => Object.entries(o.properties ?? {}).filter(([k]) => k === "fontId" || k.endsWith("FontId")).map(([, v]) => v))
     expect(named.filter((id) => old.has(id)), "no object names a replaced font").toEqual([])
     expect(objects.find((o: any) => o.id === "mig-roomy").properties).toMatchObject({ fontId: "font-roboto-c18" })
-    expect(objects.find((o: any) => o.id === "mig-tight").properties).toMatchObject({ fontId: "font-roboto-c12" })
-    expect(objects.find((o: any) => o.id === "mig-inner").properties).toMatchObject({ fontId: "font-interb-c27" })
+    expect(objects.find((o: any) => o.id === "mig-tight").properties).toMatchObject({ fontId: "font-roboto-c13" })
+    expect(objects.find((o: any) => o.id === "mig-inner").properties).toMatchObject({ fontId: "font-interb-c25" })
     // Custom stays Custom: no style is given to a text set by hand.
     expect(objects.find((o: any) => o.id === "mig-roomy").properties.textStyle).toBeUndefined()
     // Its size follows its new font, as a style change does.
