@@ -13,7 +13,7 @@ import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/proje
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { BDFFont } from "@/lib/bdffont"
-import { buttonContentLayout, buttonFaces } from "@/lib/button-shape"
+import { buttonContentLayout, buttonFaces, type ButtonContentLayout } from "@/lib/button-shape"
 import { loadBdfFont } from "./render-text-box"
 import { fillRoundRect, fillRoundRectRing } from "./render-box"
 
@@ -83,8 +83,12 @@ export interface DrawSoftwareButtonOptions {
   requestRedraw?: () => void
 }
 
-/** The button, at its own position: what a device draws from the same numbers. */
-export function drawSoftwareButton(o: DrawSoftwareButtonOptions): void {
+/**
+ * The button, at its own position: what a device draws from the same numbers.
+ * Returns where its content went, relative to the button - what the export
+ * writes for a device (lib/button-shape.ts).
+ */
+export function drawSoftwareButton(o: DrawSoftwareButtonOptions): ButtonContentLayout {
   const { ctx, obj } = o
   const x = Math.round(obj.x)
   const y = Math.round(obj.y)
@@ -142,6 +146,7 @@ export function drawSoftwareButton(o: DrawSoftwareButtonOptions): void {
     ctx.fillText(text, x + layout.textX, y + layout.baseline)
   }
   ctx.restore()
+  return layout
 }
 
 interface RenderSoftwareButtonOptions {

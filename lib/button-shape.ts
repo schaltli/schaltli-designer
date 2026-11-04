@@ -143,6 +143,16 @@ export function buttonContentLayout(obj: ScreenObject, fonts: ProjectFont[] | un
   }
 }
 
+/**
+ * The project's button radius in px (Settings › Cards, `buttonRadiusMm`),
+ * undefined while it is unset: a pill.
+ */
+export function buttonRadiusPxOf(settings: { cards?: { buttonRadiusMm?: number }; pixelsPerMm?: number } | undefined): number | undefined {
+  const mm = settings?.cards?.buttonRadiusMm
+  const ppm = Number(settings?.pixelsPerMm)
+  return typeof mm === "number" && Number.isFinite(mm) && mm >= 0 && ppm > 0 ? Math.round(mm * ppm) : undefined
+}
+
 /** One state of a button as a device draws it: radius, fill, ring, ink. */
 export interface ButtonFace {
   r: number

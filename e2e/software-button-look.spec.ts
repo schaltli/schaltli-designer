@@ -246,7 +246,10 @@ test.describe("what a button draws", () => {
     expect(Math.abs(top - (obj.y + layout.baseline - cap))).toBeLessThanOrEqual(1)
   })
 
-  test("the bake is the preview, and pressed is Material's state layer", async ({ page }) => {
+  // Since 2026-11-04 (docs/2026-11-04-native-buttons.md) no picture of a
+  // button leaves the designer: the device gets the faces and the layout and
+  // draws them. What it gets is what the preview drew from.
+  test("the export is the preview's numbers, and pressed is Material's state layer", async ({ page }) => {
     const objects = [
       button({ buttonStyle: "filled" }),
       { ...button({ buttonStyle: "outlined", text: "Pumpe", iconAssetId: WATER.id }), id: "btn2", x: 20, y: 70 },
@@ -254,31 +257,36 @@ test.describe("what a button draws", () => {
     const p = project("24bit", objects)
     const at = await render(page, p)
     const zip = await JSZip.loadAsync(Buffer.from(await page.evaluate((q) => (window as any).__buildDeviceZipForTest(q), p), "base64"))
-    const baked = JSON.parse(await zip.file("project.json")!.async("string")).screens[0].objects
-    for (const obj of objects) {
-      const b = baked.find((o: any) => o.id === obj.id)
-      const normal = decodeBake(await zip.file(b.pathNormal)!.async("nodebuffer"))
-      let differing = 0
-      for (let y = 0; y < normal.h; y++)
-        for (let x = 0; x < normal.w; x++) {
-          const a = normal.at(x, y)
-          const e = at(obj.x + x, obj.y + y)
-          if (a[0] !== e[0] || a[1] !== e[1] || a[2] !== e[2]) differing++
-        }
-      expect(differing, `${obj.id}: pixels where the bake differs from the preview`).toBe(0)
-    }
-    const pressed = decodeBake(await zip.file(baked.find((o: any) => o.id === "btn").pathActive)!.async("nodebuffer"))
-    expect(pressed.at(70, 2)).toEqual([0x76, 0x62, 0xad])
-    // And its corners closed: a pixel four in from the corner is outside the
-    // pill at rest and inside the pressed shape.
-    const normal = decodeBake(await zip.file(baked.find((o: any) => o.id === "btn").pathNormal)!.async("nodebuffer"))
-    expect(normal.at(4, 4)).toEqual([255, 255, 255])
-    expect(pressed.at(4, 4)).toEqual([0x76, 0x62, 0xad])
-    const pressedOutline = decodeBake(await zip.file(baked.find((o: any) => o.id === "btn2").pathActive)!.async("nodebuffer"))
-    expect(pressedOutline.at(70, 3)).toEqual([0xf0, 0xee, 0xf6])
+    expect(Object.keys(zip.files).filter((f) => /-button-(normal|active)\./.test(f)), "pictures of whole buttons").toEqual([])
+    const exported = JSON.parse(await zip.file("project.json")!.async("string")).screens[0].objects
+    const btn = exported.find((o: any) => o.id === "btn")
+    // A pill: half its height; pressed, a fifth.
+    expect(btn.look.normal).toMatchObject({ r: Math.trunc(btn.height / 2), outline: null })
+    // The fill is the one the preview shows, and pressed lays the label's
+    // colour over it at 10 % with corners a fifth of the height.
+    const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("")
+    expect(btn.look.normal.fill.toLowerCase()).toBe(hex(at(btn.x + 70, btn.y + 2)))
+    expect(btn.look.pressed.fill.toLowerCase()).toBe("#7662ad")
+    expect(btn.look.pressed.r).toBe(Math.trunc(btn.height / 5))
+    // The label where the preview put it: its ink lies on the baseline's row band.
+    expect(btn.look.textX).toBeGreaterThan(btn.look.clipX)
+    // The icon, as the preview drew it, square for square.
+    const btn2 = exported.find((o: any) => o.id === "btn2")
+    expect(btn2.look.icon).toBeTruthy()
+    const icon = decodeBake(await zip.file(btn2.iconPath)!.async("nodebuffer"))
+    let differing = 0
+    for (let y = 0; y < icon.h; y++)
+      for (let x = 0; x < icon.w; x++) {
+        const a = icon.at(x, y)
+        const e = at(btn2.x + btn2.look.icon.x + x, btn2.y + btn2.look.icon.y + y)
+        if (a[0] !== e[0] || a[1] !== e[1] || a[2] !== e[2]) differing++
+      }
+    expect(differing, "pixels where the exported icon differs from the preview").toBe(0)
+    // Outlined, pressed: the state layer fills it.
+    expect(btn2.look.pressed.fill.toLowerCase()).toBe("#f0eef6")
   })
 
-  test("on 1 bit the outline is closed, the bake is the preview, and pressed turns it inside out", async ({ page }) => {
+  test("on 1 bit the outline is closed, and pressed turns it inside out", async ({ page }) => {
     const obj = button({ buttonColor: "#000000" })
     const p = project("1bit", [obj])
     const at = await render(page, p)
@@ -302,13 +310,9 @@ test.describe("what a button draws", () => {
 
     const zip = await JSZip.loadAsync(Buffer.from(await page.evaluate((q) => (window as any).__buildDeviceZipForTest(q), p), "base64"))
     const b = JSON.parse(await zip.file("project.json")!.async("string")).screens[0].objects[0]
-    const normal = decodeBake(await zip.file(b.pathNormal)!.async("nodebuffer"))
-    let differing = 0
-    for (let y = 0; y < normal.h; y++)
-      for (let x = 0; x < normal.w; x++) if (normal.at(x, y)[0] !== at(obj.x + x, obj.y + y)[0]) differing++
-    expect(differing).toBe(0)
-    const pressed = decodeBake(await zip.file(b.pathActive)!.async("nodebuffer"))
-    expect(pressed.at(70, 3), "pressed is filled black").toEqual([0, 0, 0])
+    // What the device draws: a black ring at rest, filled black pressed.
+    expect(b.look.normal).toMatchObject({ fill: null, outline: "#000000", ink: "#000000" })
+    expect(b.look.pressed, "pressed is filled black").toMatchObject({ fill: "#000000", outline: null, ink: "#ffffff" })
   })
 })
 

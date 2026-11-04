@@ -841,15 +841,12 @@ test.describe("theme-model review findings", () => {
       const screen = (id: string) => json.screens.find((s: any) => s.id === id)
       const obj = (id: string, objId: string) => screen(id).objects.find((o: any) => o.id === objId)
       const bytes = async (p: string) => zip.file(p)!.async("base64")
-      const buttonPath = (id: string): string => {
-        const o = obj(id, "btn")
-        // The firmware's bundle says pathNormal, the app's path.
-        return o.pathNormal ?? o.path
-      }
-      const [ba, bb] = [buttonPath("a"), buttonPath("b")]
+      // A button is drawn from its look on both (2026-11-04): two screens in
+      // two themes, two looks.
+      const buttonLook = (id: string) => obj(id, "btn").look
+      const [ba, bb] = [buttonLook("a"), buttonLook("b")]
       expect(ba, `${hook}: button on A`).toBeTruthy()
-      expect(ba, `${hook}: two screens, two buttons`).not.toBe(bb)
-      expect(await bytes(ba), `${hook}: the two buttons are different pictures`).not.toBe(await bytes(bb))
+      expect(ba.normal.fill, `${hook}: two screens, two buttons`).not.toBe(bb.normal.fill)
       if (hook === "__buildDeviceZipForTest") {
         // Firmware switch state icons carry the backdrop, so they differ too.
         const icon = (id: string): string => obj(id, "sw").properties.states[1].path

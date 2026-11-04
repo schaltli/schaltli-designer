@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
+import JSZip from "jszip"
 import { buildCamperUiProject } from "../deploy/demo/camperui-project"
 import { mergeMasterAndScreenObjects } from "../lib/object-order"
 
@@ -68,6 +69,25 @@ test("each page drawn as the boards are compared against", async ({ page }) => {
       : await page.request.post("/api/projects", { data: { name: project.name, project } })
     expect(res.ok(), await res.text()).toBe(true)
   }
+})
+
+// What the 4" unpacks (docs/2026-11-04-native-buttons.md): 2.9 MB while
+// every button was two pictures - more than the 4" has - and now its
+// buttons are drawn by the board from their looks.
+test("the rebuild for the 4\": no pictures of buttons, under 600 KB unpacked", async ({ page }) => {
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const zip = await JSZip.loadAsync(Buffer.from(await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), project), "base64"))
+  const files = Object.values(zip.files).filter((f) => !f.dir && !f.name.startsWith("_source/"))
+  expect(files.map((f) => f.name).filter((n) => /-button-(normal|active)/.test(n))).toEqual([])
+  let unpacked = 0
+  for (const f of files) unpacked += (await f.async("uint8array")).length
+  expect(unpacked, `${Math.round(unpacked / 1024)} KB unpacked`).toBeLessThan(600 * 1024)
+  const json = JSON.parse(await zip.file("project.json")!.async("string"))
+  const buttons = json.screens.flatMap((s: any) => deep(s.objects)).filter((o: any) => o.type === "button")
+  expect(buttons.length).toBeGreaterThan(20)
+  for (const b of buttons) expect(b.look?.normal, b.id).toBeTruthy()
 })
 
 // Home a second time with tables instead of coordinates (2026-11-04): one

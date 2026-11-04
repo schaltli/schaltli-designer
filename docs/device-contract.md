@@ -372,7 +372,7 @@ here", never "at the origin".
 Each `ScreenObject`: `type`, `id`, `x/y/width/height`, `zIndex`,
 `properties {…}`, plus (firmware-export only, not `properties`) bitmap
 paths the designer's export flattens onto the object: `path` (icon),
-`pathNormal`/`pathActive` (SoftwareButton). `tab-control`/`panel` nest via
+`iconPath`/`iconPathPressed` and the `look` of a SoftwareButton (below). `tab-control`/`panel` nest via
 `children[]`, coordinates relative to the parent's own origin (the
 renderer accumulates an offset descending).
 
@@ -563,14 +563,37 @@ repo's type definitions for the full field list):
   `abs(value)` to stroke width.
 - **box**: `strokeColor` (empty = no border), `strokeWidth`,
   `cornerRadius`.
-- **button**: exported as pre-rendered `pathNormal`/`pathActive`
-  bitmaps (background + icon + text baked in) — a device just blits
-  whichever bitmap matches current press state, no live text/icon
-  rendering needed for this type. Its look (a Material 3 pill in one of
-  three `buttonStyle`s, one `buttonColor`) is therefore entirely the
-  designer's and needs nothing from a device; only a target that draws
-  buttons natively - the Android app - has to follow it
-  (`docs/2026-09-19-button-look.md`).
+- **button**: drawn by the device from `look` (since 2026-11-04,
+  `docs/2026-11-04-native-buttons.md`; until then two pictures,
+  `pathNormal`/`pathActive`). Every judgement - colours from
+  `buttonStyle`/`buttonColor` and the screen, the radius and its pressed
+  morph, where icon and label go - is the designer's
+  (`lib/button-shape.ts`); a device draws, relative to the button:
+
+  ```jsonc
+  "look": {
+    "normal":  { "r": 28, "fill": "#0ea5e9", "outline": null, "ink": "#ffffff" },
+    "pressed": { "r": 11, "fill": "#2aaeea", "outline": null, "ink": "#ffffff" },
+    "textX": 61, "baseline": 37, "clipX": 14, "clipW": 184,
+    "icon": { "x": 40, "y": 26, "size": 11 }   // only with an icon
+  },
+  "lookDark": { "normal": {…}, "pressed": {…} }, // colours of the dark theme
+  "iconPath": "assets/…", "iconPathPressed": "assets/…" // + …Dark
+  ```
+
+  1. `fill` (or nothing): a rounded rectangle over the whole button with
+     radius `r` - Adafruit_GFX's `fillRoundRect`, the integer shape the
+     designer draws too.
+  2. `outline` (or nothing): a 1-px ring of the same shape, cut out of it
+     (the designer's `fillRoundRectRing`).
+  3. With an icon: the `iconPath` picture (`iconPathPressed` while pressed,
+     where present) at `icon.x`, `icon.y` - its square as drawn, the face
+     under it included.
+  4. `text` in `fontId`'s font, colour `ink`, its baseline at `baseline`,
+     starting at `textX`, clipped to the columns `clipX … clipX + clipW`.
+
+  The pressed face while a finger is on it; `lookDark`'s colours and the
+  `…Dark` icons in dark. The Android app gets the same fields.
 - **switch** / **button-group**: `states[]` (`id`, `label`, `readValue`,
   `writeValue`, `iconAssetId`, and for a `switch` `showAsOn`), `topic`,
   `writeTopic`, `switchStyle`, `switchColor`. The form is the type: there is
@@ -661,11 +684,10 @@ Where `XDark` appears:
 | Screen | `backgroundColor` | `backgroundColorDark` |
 | Object `properties` | any colour: `color`, `backgroundColor`, `borderColor`, `fillColor`, `strokeColor`, `textColor`, `buttonColor`, `switchColor`, `iconColor` | the same name + `Dark` (`fillColorDark`, …) |
 | Icon, live-icon rule, level header icon (firmware) | `path` | `pathDark` |
-| Button (firmware) | `pathNormal`, `pathActive` | `pathNormalDark`, `pathActiveDark` |
+| Button (firmware and Android) | `look`, `iconPath`, `iconPathPressed` | `lookDark` (colours only), `iconPathDark`, `iconPathPressedDark` |
 | Switch state (firmware) | `path`, `pathActive` | `pathDark`, `pathActiveDark` |
 | Screen (Android) | `backgroundImage` | `backgroundImageDark` |
 | Icon, live-icon rule, level icon, switch state (Android) | `path`, `activePath` | `pathDark`, `activePathDark` |
-| Button (Android) | `path`, `pressedPath` | `pathDark`, `pressedPathDark` |
 
 - A colour gets an `XDark` when it came from a role - even where both
   variants share a value (`onAccent` does in several themes), so an `XDark`

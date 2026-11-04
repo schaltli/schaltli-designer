@@ -37,6 +37,7 @@ import {
   switchKnobLook,
   switchLook,
 } from "@/lib/switch-shape"
+import { buttonFaces, buttonRadiusPxOf } from "@/lib/button-shape"
 
 // Exports a project targeting an "android" platform DDF (see
 // lib/device-description.ts's DeviceDescriptionFile.device.platform) as a
@@ -302,23 +303,14 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     (objects || []).flatMap((obj) => [obj, ...everyObject(obj.children)])
 
   /**
-   * A SoftwareButton, baked whole - both of its states.
-   *
-   * The same decision as the Switch's icons one step further, and the same
-   * one every firmware already gets (lib/asset-export.ts): a Material button
-   * is a pill whose radius changes under a finger, in one of three styles
-   * whose colours are derived from the button's own colour and what it stands
-   * on, with an icon trimmed to its ink beside a label measured in the
-   * project's font. Drawing that a second time in Kotlin would be a second
-   * set of pixels to keep in step - and its anti-aliased edge would be
-   * Skia's rather than the browser's, which is a difference no tolerance
-   * hides at a corner.
-   *
-   * Transparent outside the pill, unlike a firmware's copy: this platform can
-   * blend, so the edge meets whatever is really behind it rather than a baked
-   * copy of the background.
+   * A SoftwareButton as the app draws it (docs/2026-11-04-native-buttons.md):
+   * its look - both faces, where icon and label go (lib/button-shape.ts) - and
+   * with an icon, the icon square as the designer draws it in each face. The
+   * same fields a firmware gets. Until 2026-11-04 the whole button was two
+   * pictures; the app now draws the pill with the integer rasteriser the
+   * Switch already uses, so the edge is the same pixels as the designer's.
    */
-  const bakedButtons = new Map<string, { normal: string; pressed: string }>() // `${screenId}:${objectId}[:dark]`
+  const drawnButtons = new Map<string, any>() // `${screenId}:${objectId}[:dark]`
   const bakeButton = async (obj: any, background: string, screenId: string, dark: boolean): Promise<void> => {
     const w = Math.max(1, Math.round(obj.width))
     const h = Math.max(1, Math.round(obj.height))
@@ -339,34 +331,52 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       if (img.naturalWidth > 0) icon = img
     }
 
+    const radiusPx = buttonRadiusPxOf(project.settings)
     const bdfFontCache = new Map<string, any>()
-    const drawState = async (pressed: boolean): Promise<string | undefined> => {
+    const drawState = (pressed: boolean) => {
       const canvas = document.createElement("canvas")
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return undefined
+      const ctx = canvas.getContext("2d")!
       ctx.translate(-x, -y)
-      drawSoftwareButton({
-        ctx,
-        obj,
-        fonts: project.fonts || [],
-        bdfFontCache,
-        colorDepth: "24bit",
-        background,
-        pressed,
-        icon,
-      })
+      const layout = drawSoftwareButton({ ctx, obj, fonts: project.fonts || [], bdfFontCache, colorDepth: "24bit", background, pressed, icon, radiusPx })
       ctx.setTransform(1, 0, 0, 1, 0, 0)
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
+      return { canvas, layout }
+    }
+    const iconPng = async (canvas: HTMLCanvasElement, box: { x: number; y: number; size: number }, pressed: boolean) => {
+      const square = document.createElement("canvas")
+      square.width = box.size
+      square.height = box.size
+      square.getContext("2d")!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
+      const blob = await new Promise<Blob | null>((resolve) => square.toBlob((b) => resolve(b), "image/png"))
       if (!blob) return undefined
-      const filename = `buttons/${screenId}_${obj.id}${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
-      return writeBake(filename, new Uint8Array(await blob.arrayBuffer()), dark)
+      const filename = `buttons/${screenId}_${obj.id}-icon${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
+      return { bytes: new Uint8Array(await blob.arrayBuffer()), filename }
     }
 
-    const normal = await drawState(false)
-    const pressed = await drawState(true)
-    if (normal && pressed) bakedButtons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, { normal, pressed })
+    const normal = drawState(false)
+    const pressed = drawState(true)
+    const faces = buttonFaces(obj, background, "24bit", radiusPx)
+    const layout = normal.layout
+    const entry: any = {
+      look: {
+        normal: faces.normal,
+        pressed: faces.pressed,
+        textX: layout.textX,
+        baseline: layout.baseline,
+        clipX: layout.clipX,
+        clipW: layout.clipW,
+        ...(layout.icon ? { icon: layout.icon } : {}),
+      },
+    }
+    if (layout.icon) {
+      const a = await iconPng(normal.canvas, layout.icon, false)
+      const b = await iconPng(pressed.canvas, layout.icon, true)
+      if (a) entry.iconPath = await writeBake(a.filename, a.bytes, dark)
+      const same = !!a && !!b && a.bytes.length === b.bytes.length && a.bytes.every((v, i) => v === b.bytes[i])
+      if (a && b && !same) entry.iconPathPressed = await writeBake(b.filename, b.bytes, dark)
+    }
+    drawnButtons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, entry)
   }
 
   // Each screen's bakes twice, light and dark, through the same code - the
@@ -459,19 +469,20 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       }
     }
     if (obj.type === "button") {
-      // The whole button, in both of its states - not its icon. What
-      // the app blits is what the designer drew, pill, label, icon and
-      // all; see the baking above.
-      const baked = bakedButtons.get(`${keyId}:${obj.id}`)
-      const bakedDark = bakedButtons.get(`${keyId}:${obj.id}:dark`)
+      // What the app draws it from - the firmware's fields (see above).
+      const light = drawnButtons.get(`${keyId}:${obj.id}`)
+      const darkEntry = drawnButtons.get(`${keyId}:${obj.id}:dark`)
+      if (!light) return obj
       return {
         ...obj,
-        path: baked?.normal,
-        pressedPath: baked?.pressed,
-        // Only beside a light picture: an XDark without its X would be
-        // read differently by a device than by the reference render.
-        pathDark: baked ? bakedDark?.normal : undefined,
-        pressedPathDark: baked ? bakedDark?.pressed : undefined,
+        ...light,
+        ...(darkEntry
+          ? {
+              lookDark: { normal: darkEntry.look.normal, pressed: darkEntry.look.pressed },
+              ...(darkEntry.iconPath ? { iconPathDark: darkEntry.iconPath } : {}),
+              ...(darkEntry.iconPathPressed ? { iconPathPressedDark: darkEntry.iconPathPressed } : {}),
+            }
+          : {}),
       }
     }
     if (obj.type === "icon") {

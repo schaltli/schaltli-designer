@@ -349,11 +349,11 @@ test.describe("Android-Export", () => {
     expect(manual.activePath).toBeUndefined()
 
     const btn = objects.find((o: any) => o.id === "btn")
-    expect(btn.path).toBeTruthy()
+    expect(btn.iconPath).toBeTruthy()
 
     // Every referenced file is actually in the bundle - a path pointing at
     // nothing is the failure that looks exactly like "the author set no icon".
-    for (const p of [auto.path, auto.activePath, btn.path, btn.pressedPath]) {
+    for (const p of [auto.path, auto.activePath, btn.iconPath, btn.iconPathPressed].filter(Boolean)) {
       expect(zip.file(p), `${p} missing from the bundle`).not.toBeNull()
     }
 
@@ -377,16 +377,15 @@ test.describe("Android-Export", () => {
     expect(await pngSize(auto.path)).toEqual({ w: 9, h: 9 })
     expect(await pngSize(auto.activePath)).toEqual({ w: 9, h: 9 })
 
-    // A SoftwareButton goes one step further: the WHOLE button is baked, in
-    // both of its states, exactly as a firmware gets it. Its pill, its
-    // colours, its trimmed icon and its measured label are all rules this
-    // repo owns, and the app only blits - so `path` is the button, not the
-    // icon it happens to carry, and it is the size of the object.
-    expect(btn.path.endsWith(".png")).toBe(true)
-    expect(btn.pressedPath.endsWith(".png")).toBe(true)
-    expect(btn.path).not.toBe(btn.pressedPath)
-    expect(await pngSize(btn.path)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
-    expect(await pngSize(btn.pressedPath)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
+    // A SoftwareButton is drawn by the app from its look since 2026-11-04
+    // (docs/2026-11-04-native-buttons.md), as by a firmware: no picture of
+    // it, only its icon's square - a capital tall - as the designer drew it.
+    expect(btn.path).toBeUndefined()
+    expect(btn.look.normal.r).toBe(Math.trunc(btn.height / 2))
+    expect(btn.look.pressed.r).toBe(Math.trunc(btn.height / 5))
+    expect(btn.iconPath.endsWith(".png")).toBe(true)
+    const side = btn.look.icon.size
+    expect(await pngSize(btn.iconPath)).toEqual({ w: side, h: side })
 
     // A level indicator has no header icon any more (2026-09-29): nothing is
     // baked for it, and neither the name nor the icon reaches the app.
@@ -395,12 +394,10 @@ test.describe("Android-Export", () => {
     expect(tank.properties).not.toHaveProperty("label")
     expect(tank.properties).not.toHaveProperty("iconAssetId")
 
-    // The two states are not the same picture: pressed, Material's shape
-    // morph squares the ends off and a state layer goes over the container.
-    // A port that baked one bitmap twice would pass every check above.
-    const normalBytes = await zip.file(btn.path)!.async("nodebuffer")
-    const pressedBytes = await zip.file(btn.pressedPath)!.async("nodebuffer")
-    expect(normalBytes.equals(pressedBytes)).toBe(false)
+    // The two faces are not the same: pressed, a state layer goes over the
+    // container, so the icon's square differs too.
+    expect(btn.look.pressed.fill).not.toBe(btn.look.normal.fill)
+    expect(btn.iconPathPressed).toBeTruthy()
   })
 
   test("a master screen is resolved away, exactly as it is for a firmware", async ({ page }) => {

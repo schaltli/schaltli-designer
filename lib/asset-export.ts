@@ -18,6 +18,7 @@ import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
+import { buttonFaces, buttonRadiusPxOf, type ButtonContentLayout, type ButtonFace } from '@/lib/button-shape'
 import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
 import { BDFFont } from '@/lib/bdffont'
 import { isSwitchType } from "@/lib/object-types"
@@ -56,14 +57,33 @@ export interface IconUsageExport {
   }
 }
 
+/**
+ * A software button as a device draws it (docs/2026-11-04-native-buttons.md):
+ * no picture of it, its look - both faces and where icon and label go - and,
+ * only with an icon, the icon as the button draws it, in each face. Until
+ * 2026-11-04 this was two pictures of the whole button.
+ */
 export interface SoftwareButtonExport {
   objectId: string
   screenId: string
-  normalFilename: string
-  activeFilename: string
-  normalData: Uint8Array
-  activeData: Uint8Array
+  look: DeviceButtonLook
+  iconFilename?: string
+  iconData?: Uint8Array
+  /** Only where the pressed face's icon differs from the normal one. */
+  iconPressedFilename?: string
+  iconPressedData?: Uint8Array
   format: 'pbm' | 'bmp'
+}
+
+/** What a device gets as a button's `look`: lib/button-shape.ts's numbers. */
+export interface DeviceButtonLook {
+  normal: ButtonFace
+  pressed: ButtonFace
+  textX: number
+  baseline: number
+  clipX: number
+  clipW: number
+  icon?: { x: number; y: number; size: number }
 }
 
 // A Switch state's icon, baked twice - once against the segment's normal
@@ -345,8 +365,8 @@ export class AssetExporter {
         dark.iconUsages.push(...baked.iconUsages.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
         dark.softwareButtons.push(...baked.softwareButtons.map((b) => ({
           ...b,
-          normalFilename: darkName(b.normalFilename, b.normalData, lightFiles),
-          activeFilename: darkName(b.activeFilename, b.activeData, lightFiles),
+          ...(b.iconFilename && b.iconData ? { iconFilename: darkName(b.iconFilename, b.iconData, lightFiles) } : {}),
+          ...(b.iconPressedFilename && b.iconPressedData ? { iconPressedFilename: darkName(b.iconPressedFilename, b.iconPressedData, lightFiles) } : {}),
         })))
         dark.switchStateIcons.push(...baked.switchStateIcons.map((b) => ({
           ...b,
@@ -565,9 +585,8 @@ export class AssetExporter {
         const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
         if (buttonExport) {
           out.softwareButtons.push(buttonExport)
-          out.files.set(buttonExport.normalFilename, buttonExport.normalData)
-          out.files.set(buttonExport.activeFilename, buttonExport.activeData)
-          console.log(`[AssetExport] Exported SoftwareButton: ${buttonExport.normalFilename} and ${buttonExport.activeFilename}`)
+          if (buttonExport.iconFilename && buttonExport.iconData) out.files.set(buttonExport.iconFilename, buttonExport.iconData)
+          if (buttonExport.iconPressedFilename && buttonExport.iconPressedData) out.files.set(buttonExport.iconPressedFilename, buttonExport.iconPressedData)
         }
       }
       // Handle Switch objects with per-state icons
@@ -771,60 +790,39 @@ export class AssetExporter {
       console.log(`[AssetExport] Button dimensions: ${buttonObject.width}x${buttonObject.height}`)
       console.log(`[AssetExport] Target color depth: ${this.options.colorDepth}`)
 
-      // Create normal version
-      const normalCanvas = await this.renderSoftwareButtonOnBackground(
-        buttonObject,
-        project,
-        screen,
-        flattenedBackground,
-        false // not active
-      )
-
-      // And the pressed one - Material's state layer, drawn by the same
-      // function (buttonLook in render-software-button.ts).
-      const activeCanvas = await this.renderSoftwareButtonOnBackground(
-        buttonObject,
-        project,
-        screen,
-        flattenedBackground,
-        true // active
-      )
-
-      // Convert both to bitmaps
-      const normalImageData = normalCanvas.getContext('2d')!.getImageData(0, 0, normalCanvas.width, normalCanvas.height)
-      const activeImageData = activeCanvas.getContext('2d')!.getImageData(0, 0, activeCanvas.width, activeCanvas.height)
-
-      const normalBitmap = convertImageToColorDepth(
-        { width: normalCanvas.width, height: normalCanvas.height, data: normalImageData.data },
-        this.bitmapDepth
-      )
-
-      const activeBitmap = convertImageToColorDepth(
-        { width: activeCanvas.width, height: activeCanvas.height, data: activeImageData.data },
-        this.bitmapDepth
-      )
-
-      // Generate filenames
-      // Screen-scoped for the same reason as the icon bakes above: these
-      // have the screen's background composited into them.
-      const normalFilename = `${screen.id}_${buttonObject.id}-button-normal.${this.getFileExtension()}`
-      const activeFilename = `${screen.id}_${buttonObject.id}-button-active.${this.getFileExtension()}`
-
-      // Convert to file format
-      const normalData = this.bitmapToFile(normalBitmap)
-      const activeData = this.bitmapToFile(activeBitmap)
-
-      console.log(`[AssetExport] Generated button files: ${normalFilename}, ${activeFilename}`)
-
-      return {
-        objectId: buttonObject.id,
-        screenId: screen.id,
-        normalFilename,
-        activeFilename,
-        normalData,
-        activeData,
-        format: this.getFileFormat()
+      // Drawn once in each face, as the preview draws it - not to ship, but
+      // for the layout the drawing used and, with an icon, the icon's pixels.
+      const normal = await this.renderSoftwareButtonOnBackground(buttonObject, project, screen, flattenedBackground, false)
+      const pressed = await this.renderSoftwareButtonOnBackground(buttonObject, project, screen, flattenedBackground, true)
+      const faces = buttonFaces(buttonObject, screen.backgroundColor || '#ffffff', this.options.colorDepth, this.buttonRadiusPx(project))
+      const layout = normal.layout
+      const look: DeviceButtonLook = {
+        normal: faces.normal,
+        pressed: faces.pressed,
+        textX: layout.textX,
+        baseline: layout.baseline,
+        clipX: layout.clipX,
+        clipW: layout.clipW,
+        ...(layout.icon ? { icon: layout.icon } : {}),
       }
+      const result: SoftwareButtonExport = { objectId: buttonObject.id, screenId: screen.id, look, format: this.getFileFormat() }
+      if (layout.icon) {
+        // The icon with what is under it in the button - its face's fill or
+        // the screen - exactly the square the preview drew.
+        const crop = (canvas: HTMLCanvasElement) => {
+          const { x, y, size } = layout.icon!
+          const data = canvas.getContext('2d')!.getImageData(x, y, size, size)
+          return this.bitmapToFile(convertImageToColorDepth({ width: size, height: size, data: data.data }, this.bitmapDepth))
+        }
+        result.iconData = crop(normal.canvas)
+        result.iconFilename = `${screen.id}_${buttonObject.id}-button-icon.${this.getFileExtension()}`
+        const pressedData = crop(pressed.canvas)
+        if (!sameBytes(pressedData, result.iconData)) {
+          result.iconPressedData = pressedData
+          result.iconPressedFilename = `${screen.id}_${buttonObject.id}-button-icon-pressed.${this.getFileExtension()}`
+        }
+      }
+      return result
     } catch (error) {
       console.error(`[AssetExport] Failed to export software button ${buttonObject.id}:`, error)
       return null
@@ -843,7 +841,7 @@ export class AssetExporter {
     screen: any,
     flattenedBackground: HTMLCanvasElement,
     isActive: boolean
-  ): Promise<HTMLCanvasElement> {
+  ): Promise<{ canvas: HTMLCanvasElement; layout: ButtonContentLayout }> {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get canvas context')
@@ -872,7 +870,7 @@ export class AssetExporter {
     }
 
     ctx.translate(-x, -y)
-    drawSoftwareButton({
+    const layout = drawSoftwareButton({
       ctx,
       obj: buttonObject,
       fonts: project.fonts || [],
@@ -881,10 +879,16 @@ export class AssetExporter {
       background: screen.backgroundColor || '#ffffff',
       pressed: isActive,
       icon,
+      radiusPx: this.buttonRadiusPx(project),
     })
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-    return canvas
+    return { canvas, layout }
+  }
+
+  /** The project's button radius in px (Settings › Cards), undefined for a pill. */
+  private buttonRadiusPx(project: any): number | undefined {
+    return buttonRadiusPxOf(project?.settings)
   }
 
   /**

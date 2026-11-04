@@ -356,9 +356,11 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   for (const iconUsage of assetResult.iconUsages) {
     assetsFolder.file(iconUsage.filename, iconUsage.data)
   }
+  // A button is drawn by the device (docs/2026-11-04-native-buttons.md);
+  // only its icon, where it has one, is a picture.
   for (const button of assetResult.softwareButtons) {
-    assetsFolder.file(button.normalFilename, button.normalData)
-    assetsFolder.file(button.activeFilename, button.activeData)
+    if (button.iconFilename && button.iconData) assetsFolder.file(button.iconFilename, button.iconData)
+    if (button.iconPressedFilename && button.iconPressedData) assetsFolder.file(button.iconPressedFilename, button.iconPressedData)
   }
   for (const switchIcon of assetResult.switchStateIcons) {
     assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
@@ -381,7 +383,7 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   const lightNames = new Set(Object.keys(assetsFolder.files).map((name) => name.replace(/^assets\//, "")))
   const darkNames = [
     ...dark.iconUsages.map((b) => b.filename),
-    ...dark.softwareButtons.flatMap((b) => [b.normalFilename, b.activeFilename]),
+    ...dark.softwareButtons.flatMap((b) => [b.iconFilename ?? "", b.iconPressedFilename ?? ""]),
     ...dark.switchStateIcons.flatMap((b) => [b.normalFilename, b.activeFilename ?? ""]),
   ]
   for (const name of darkNames) {
@@ -396,8 +398,8 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     assetsFolder.file(bake.filename, bake.data)
   }
   for (const button of dark.softwareButtons) {
-    assetsFolder.file(button.normalFilename, button.normalData)
-    assetsFolder.file(button.activeFilename, button.activeData)
+    if (button.iconFilename && button.iconData) assetsFolder.file(button.iconFilename, button.iconData)
+    if (button.iconPressedFilename && button.iconPressedData) assetsFolder.file(button.iconPressedFilename, button.iconPressedData)
   }
   for (const switchIcon of dark.switchStateIcons) {
     assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
@@ -423,13 +425,15 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     iconPathMap.set(assetKey(iconUsage.screenId, iconUsage.objectId), `assets/${iconUsage.filename}`)
   }
 
-  const buttonPathMap = new Map<string, { pathNormal: string; pathActive: string }>()
-  for (const button of assetResult.softwareButtons) {
-    buttonPathMap.set(assetKey(button.screenId, button.objectId), {
-      pathNormal: `assets/${button.normalFilename}`,
-      pathActive: `assets/${button.activeFilename}`,
-    })
-  }
+  // What a device draws a button from: its look, and its icon's pictures.
+  const buttonMap = new Map(assetResult.softwareButtons.map((b) => [
+    assetKey(b.screenId, b.objectId),
+    {
+      look: b.look,
+      ...(b.iconFilename ? { iconPath: `assets/${b.iconFilename}` } : {}),
+      ...(b.iconPressedFilename ? { iconPathPressed: `assets/${b.iconPressedFilename}` } : {}),
+    },
+  ]))
 
   // pathActive is omitted rather than pointed at a duplicate of path. The
   // firmware already falls back to path when it is missing (that fallback
@@ -447,9 +451,14 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // beside its light field as `…Dark` - the one rule of the export
   // (docs/2026-09-25-themes-export.md).
   const iconDarkPathMap = new Map(dark.iconUsages.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
-  const buttonDarkPathMap = new Map(dark.softwareButtons.map((b) => [
+  // The dark faces: colours only, the radius and the layout are the light's.
+  const buttonDarkMap = new Map(dark.softwareButtons.map((b) => [
     assetKey(b.screenId, b.objectId),
-    { pathNormalDark: `assets/${b.normalFilename}`, pathActiveDark: `assets/${b.activeFilename}` },
+    {
+      lookDark: { normal: b.look.normal, pressed: b.look.pressed },
+      ...(b.iconFilename ? { iconPathDark: `assets/${b.iconFilename}` } : {}),
+      ...(b.iconPressedFilename ? { iconPathPressedDark: `assets/${b.iconPressedFilename}` } : {}),
+    },
   ]))
   const switchIconDarkPathMap = new Map(dark.switchStateIcons.map((i) => [
     assetKey(i.screenId, i.objectId),
@@ -519,13 +528,8 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
       }
     }
     if (obj.type === "button") {
-      const buttonPaths = buttonPathMap.get(assetKey(keyId, obj.id))
-      return {
-        ...obj,
-        pathNormal: buttonPaths?.pathNormal || undefined,
-        pathActive: buttonPaths?.pathActive || undefined,
-        ...(buttonPaths ? buttonDarkPathMap.get(assetKey(keyId, obj.id)) : {}),
-      }
+      const drawn = buttonMap.get(assetKey(keyId, obj.id))
+      return { ...obj, ...(drawn ?? {}), ...(drawn ? buttonDarkMap.get(assetKey(keyId, obj.id)) : {}) }
     }
     if (isSwitchType(obj.type) && obj.properties.states) {
       return {

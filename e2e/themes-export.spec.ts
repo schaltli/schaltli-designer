@@ -225,7 +225,7 @@ function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
                 { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true, iconAssetId: "sq" },
               ] } },
           { id: "btn", type: "button", zIndex: 5, x: 10, y: 240, width: 200, height: 60,
-            properties: { text: "", buttonStyle: "filled", buttonColor: "accent", action: { type: "next-screen" } } },
+            properties: { text: "", buttonStyle: "filled", buttonColor: "accent", iconAssetId: "sq", action: { type: "next-screen" } } },
         ],
       },
       { id: "a", name: "A", masterScreenId: "m", objects: [] },
@@ -256,7 +256,7 @@ async function pixel(page: Page, zip: JSZip, path: string, where: "corner" | "ce
   }, [bytes, where] as const)
 }
 
-const LIGHT_PATH_KEYS = ["path", "pathNormal", "pathActive"]
+const LIGHT_PATH_KEYS = ["path", "pathNormal", "pathActive", "iconPath", "iconPathPressed"]
 
 // Every light path anywhere under a node, with the dark one beside it.
 function pathPairs(node: any, where = ""): { where: string; key: string; light: string; dark: unknown }[] {
@@ -277,13 +277,15 @@ test.describe("the dark bitmaps for the firmware", () => {
     const { zip, json } = await exported(page, "__buildDeviceZipForTest", bakesProject())
     const pairs = pathPairs(json.screens)
     // Every bake kind is in there: icon, live icon rule, switch state icon
-    // normal and active, button normal and active. (A level icon was one until
-    // Bar and Slider lost theirs, 2026-09-29.)
+    // normal and active. (A level icon was one until Bar and Slider lost
+    // theirs, 2026-09-29; a button was two pictures until 2026-11-04 and is
+    // now drawn by the device from its look; only its icon is a picture -
+    // one here, since the square icon covers its square in either face.)
     expect(json.screens.map((s: any) => s.path ?? s.pathDark), "no flattened background, light or dark").toEqual(
       json.screens.map(() => undefined),
     )
     const kind = (p: { key: string; light: string }) => p.key + (p.light.includes("-button-") ? ":button" : "")
-    expect([...new Set(pairs.map(kind))].sort()).toEqual(["path", "pathActive", "pathActive:button", "pathNormal:button"])
+    expect([...new Set(pairs.map(kind))].sort()).toEqual(["iconPath:button", "path", "pathActive"])
     expect(pairs.length).toBeGreaterThan(10)
     for (const p of pairs) {
       expect(typeof p.dark, `${p.where}.${p.key}Dark`).toBe("string")
@@ -313,17 +315,16 @@ test.describe("the dark bitmaps for the firmware", () => {
         const ink = switchKnobLook(darkSwitch, surface, "24bit", on).onKnob
         expect(await pixel(page, zip, path, "center"), `${id}: switch icon ink, ${on ? "on" : "off"}`).toBe(lc(ink))
       }
-      // A filled button is its colour.
-      expect(await pixel(page, zip, obj(id, "btn").pathNormalDark, [30, 30]), `${id}: button fill`).toBe(lc(accent))
-      // Outside the pill's rounded corner: the screen behind it, dark.
-      expect(await pixel(page, zip, obj(id, "btn").pathNormalDark, [0, 0]), `${id}: button backdrop`).toBe(lc(surface))
+      // A filled button is its colour, light and dark (drawn by the device
+      // from its look since 2026-11-04).
+      expect(lc(obj(id, "btn").lookDark.normal.fill), `${id}: button fill`).toBe(lc(accent))
+      expect(lc(obj(id, "btn").look.normal.fill), `${id}: light button fill`).toBe(lc(theme.light.accent))
       // And the light files still stand on the light surface of the theme.
       expect(await pixel(page, zip, obj(id, "icon").path, "corner"), `${id}: light icon background`).toBe(lc(theme.light.surface))
-      expect(await pixel(page, zip, obj(id, "btn").pathNormal, [0, 0]), `${id}: light button backdrop`).toBe(lc(theme.light.surface))
     }
     // A master's object on two screens in two themes: two dark files.
     expect(obj("a", "icon").pathDark).not.toBe(obj("b", "icon").pathDark)
-    expect(obj("a", "btn").pathNormalDark).not.toBe(obj("b", "btn").pathNormalDark)
+    expect(obj("a", "btn").lookDark.normal.fill).not.toBe(obj("b", "btn").lookDark.normal.fill)
   })
 
   test("a bake that does not change in dark is written once and both fields name it", async ({ page }) => {
@@ -344,10 +345,11 @@ test.describe("the dark bitmaps for the firmware", () => {
 })
 
 // Task 3: the same for the app. Its fields are named differently - a
-// switch state's path/activePath, a button's path/pressedPath - and each gets
+// switch state's path/activePath; a button's iconPath/iconPathPressed are the
+// firmware's since 2026-11-04 - and each gets
 // its XDark beside it by the same rule. A screen's baked backgroundImage went
 // on 2026-10-13: the app draws box, line and icon itself.
-const ANDROID_PATH_KEYS = ["path", "activePath", "pressedPath"]
+const ANDROID_PATH_KEYS = ["path", "activePath", "iconPath", "iconPathPressed"]
 
 function androidPathPairs(node: any, where = ""): { where: string; key: string; light: string; dark: unknown }[] {
   if (Array.isArray(node)) return node.flatMap((n, i) => androidPathPairs(n, `${where}[${i}]`))
@@ -365,9 +367,9 @@ test.describe("the dark bitmaps for the app", () => {
   test("every light path has its dark path beside it, and the file is in the bundle", async ({ page }) => {
     const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
     const pairs = androidPathPairs(json.screens)
-    // Icon, live icon rule, switch state (normal and active), button
-    // (normal and pressed) - and no screen picture any more.
-    expect([...new Set(pairs.map((p) => p.key))].sort()).toEqual(["activePath", "path", "pressedPath"])
+    // Icon, live icon rule, switch state (normal and active), a button's
+    // icon (normal and pressed) - and no screen picture any more.
+    expect([...new Set(pairs.map((p) => p.key))].sort()).toEqual(["activePath", "iconPath", "path"])
     expect(json.screens.map((s: any) => s.backgroundImage ?? s.backgroundImageDark).filter(Boolean)).toEqual([])
     for (const p of pairs) {
       expect(typeof p.dark, `${p.where}.${p.key}Dark`).toBe("string")
@@ -395,10 +397,11 @@ test.describe("the dark bitmaps for the app", () => {
         const ink = switchKnobLook(darkSwitch, surface, "24bit", on).onKnob
         expect(await pixel(page, zip, path, "center"), `${id}: switch icon ink, ${on ? "on" : "off"}`).toBe(lc(ink))
       }
-      expect(await pixel(page, zip, obj(id, "btn").pathDark, [30, 30]), `${id}: button fill`).toBe(lc(accent))
+      expect(lc(obj(id, "btn").lookDark.normal.fill), `${id}: button fill`).toBe(lc(accent))
     }
-    // A master's object on two screens in two themes: two dark files.
-    expect(obj("a", "btn").pathDark).not.toBe(obj("b", "btn").pathDark)
+    // A master's object on two screens in two themes: two dark looks and icons.
+    expect(obj("a", "btn").lookDark.normal.fill).not.toBe(obj("b", "btn").lookDark.normal.fill)
+    expect(obj("a", "btn").iconPathDark).not.toBe(obj("b", "btn").iconPathDark)
     expect(obj("a", "icon").pathDark).not.toBe(obj("b", "icon").pathDark)
   })
 
@@ -575,16 +578,19 @@ test.describe("the reference render in dark", () => {
     expect(darkVariantOf({ color: "#000000", colorDark: "" })).toEqual({ color: "#000000" })
   })
 
-  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
+  // The app's pictures named after an object were its buttons, and since
+  // 2026-11-04 those are `<object>-icon.png`, whose dark twin no other
+  // object's name can reach; the firmware's icons still can.
+  for (const hook of ["__buildDeviceZipForTest"] as const) {
     test(`${hook}: an object id ending in -dark cannot take another picture's dark name`, async ({ page }) => {
       await page.goto("/test-render")
       await page.waitForFunction(() => (window as any).__testRenderReady === true)
       const p = bakesProject()
       const objects = p.screens[0].objects as any[]
       // The firmware names an icon's bake after the object (a_icon.bmp, dark
-      // a_icon-dark.bmp); the app does that for a button (buttons/a_btn.png).
-      // A second object named "<that>-dark" would own the dark twin's name.
-      const twin = hook === "__buildDeviceZipForTest" ? "icon" : "btn"
+      // a_icon-dark.bmp). A second object named "<that>-dark" would own the
+      // dark twin's name.
+      const twin = "icon"
       const original = objects.find((o) => o.id === twin)
       objects.push({ ...structuredClone(original), id: `${twin}-dark`, zIndex: 9, y: 310, height: 40 })
       const error = await page.evaluate(

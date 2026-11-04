@@ -15,9 +15,8 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // design discussion). What IS testable without real hardware: does the
 // real export pipeline (lib/asset-export.ts's exportSoftwareButton, driven
 // through the same "Deploy to Device" flow master-screen.spec.ts uses)
-// actually bake a real pathNormal bitmap for a SoftwareButton - a known gap
-// a hand-built HIL fixture can't reproduce, since the bitmap needs real
-// canvas rendering, not just JSON. Drives the real
+// actually give a SoftwareButton what a device draws it from - since
+// 2026-11-04 its look (docs/2026-11-04-native-buttons.md), no picture. Drives the real
 // "Deploy to Device" flow (not a mocked export call in isolation) for the
 // same reason master-screen.spec.ts does - it's the actual code path a
 // user/device relies on.
@@ -27,7 +26,7 @@ test.describe("SoftwareButton base-state rendering", () => {
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
-  test("deploying a project with a SoftwareButton bakes a real pathNormal bitmap", async ({ page }, testInfo) => {
+  test("deploying a project with a SoftwareButton sends its look, and no picture of it", async ({ page }, testInfo) => {
     const deviceId = `e2e-softwarebutton-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
       const client = mqtt.connect(BROKER_URL, { clientId: `e2e-softwarebutton-fake-device-${testInfo.testId}` })
@@ -99,21 +98,15 @@ test.describe("SoftwareButton base-state rendering", () => {
       const allObjects = projectJson.screens.flatMap((s: any) => s.objects)
       const button = allObjects.find((o: any) => o.type === "button")
       expect(button, "SoftwareButton object missing from exported project.json").toBeTruthy()
-      expect(button.pathNormal, "pathNormal not set on the exported SoftwareButton").toBeTruthy()
-
-      // pathNormal is zip-root-relative (e.g. "assets/<id>-button-normal.bmp") -
-      // see ProjectLoader.cpp's resolveAssetPath comment for the convention
-      // this mirrors on the firmware side.
-      const bitmapEntry = zip.file(button.pathNormal)
-      expect(bitmapEntry, `${button.pathNormal} missing from the deployed zip`).toBeTruthy()
-      const bitmapBytes = await bitmapEntry!.async("nodebuffer")
-
-      // "BM" magic bytes = a real BMP file header, not an empty/placeholder
-      // stub - proves exportSoftwareButton() actually rendered something,
-      // not just wrote an empty file. colorDepth 24bit -> .bmp (see
-      // AssetExporter.getFileExtension()).
-      expect(bitmapBytes.length).toBeGreaterThan(100)
-      expect(bitmapBytes.subarray(0, 2).toString("ascii")).toBe("BM")
+      // Both faces, whole pixels, and where its label goes.
+      expect(button.look, "look not set on the exported SoftwareButton").toBeTruthy()
+      for (const face of [button.look.normal, button.look.pressed]) {
+        expect(Number.isInteger(face.r)).toBe(true)
+        expect(face.ink).toMatch(/^#[0-9a-f]{6}$/i)
+      }
+      expect(Number.isInteger(button.look.textX) && Number.isInteger(button.look.baseline)).toBe(true)
+      expect(button.pathNormal).toBeUndefined()
+      expect(Object.keys(zip.files).filter((f) => f.includes("-button-"))).toEqual([])
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
