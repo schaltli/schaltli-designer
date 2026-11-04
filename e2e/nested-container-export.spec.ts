@@ -89,7 +89,7 @@ const box = (id: string, x: number, y: number, w: number, h: number, fill: strin
   y,
   width: w,
   height: h,
-  properties: { backgroundColor: fill, borderColor: fill, borderWidth: 0 },
+  properties: { fillColor: fill, backgroundColor: fill, borderColor: fill, borderWidth: 0 },
 })
 
 // Alle vier Ablagen zielen auf dieselbe absolute Stelle (50, 80) - ausser

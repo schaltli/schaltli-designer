@@ -231,9 +231,9 @@ test.describe("the Time field in the exports", () => {
         topic: "van/heater/start",
         writeTopic: "van/heater/start/set",
         minuteStep: 15,
-        fieldColor: "#e5e5e5",
-        lineColor: "#6750A4",
-        textColor: "#000000",
+        fieldColor: "#ffffff",
+        lineColor: "#6750a4",
+        textColor: "#1c1b1f",
       })
       expect(field.properties.fieldColorDark).toMatch(/^#[0-9a-f]{6}$/i)
     })

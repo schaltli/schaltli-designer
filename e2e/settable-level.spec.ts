@@ -484,10 +484,10 @@ test.describe("what the canvas actually paints", () => {
   // (lib/themes.ts): Lavender's #6750A4 in light. A hex written into the
   // probe would be moved to the nearest role on loading anyway.
   const FILL: Rgb = [0x67, 0x50, 0xa4]
-  // Halfway from the fill to white, toward white (level-track.spec.ts pins the
-  // rule down): 255 + trunc((103 - 255) / 2), and the same for green and blue.
-  const TRACK: Rgb = [0xb3, 0xa8, 0xd2]
-  const WHITE: Rgb = [0xff, 0xff, 0xff]
+  // Lavender's own track and background since the colour model
+  // (2026-11-04): #dcd8e8 on #f6f5fa. WHITE is the screen's background.
+  const TRACK: Rgb = [0xdc, 0xd8, 0xe8]
+  const WHITE: Rgb = [0xf6, 0xf5, 0xfa]
 
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
