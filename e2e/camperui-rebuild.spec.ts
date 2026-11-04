@@ -103,6 +103,17 @@ test("the rebuild for the 4\": no pictures of buttons, under 600 KB unpacked", a
   for (const b of buttons) expect(b.look?.normal, b.id).toBeTruthy()
 })
 
+// In CamperUI's own face (the user, 2026-11-04): the 4"'s fourth typography,
+// Geometric, is Montserrat, and every text, button and value is set in it.
+test("every text in Montserrat, the Geometric typography", async () => {
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
+  expect(project.screens.find((s: any) => s.isMaster).typography).toBe("Geometric")
+  const families = new Map(project.fonts.map((f: any) => [f.id, f.family]))
+  const used = project.screens.flatMap((s: any) => deep(s.objects)).flatMap((o: any) => [o.properties?.fontId, o.properties?.dateFontId]).filter(Boolean)
+  expect(used.length).toBeGreaterThan(50)
+  expect([...new Set(used.map((id: string) => families.get(id)))]).toEqual(["Montserrat"])
+})
+
 // Every page laid out by tables (the user, 2026-11-04): a page is one table,
 // laid out nothing in it is left out for want of room - a docked table even
 // 2 px too tall for its card drops out whole and leaves the card empty - and

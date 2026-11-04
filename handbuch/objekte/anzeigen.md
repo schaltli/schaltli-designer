@@ -19,17 +19,18 @@ Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du e
 
 Du wählst für einen Text keine Schrift, sondern eine von sieben Grössen, von <span class="ui">Micro</span> bis <span class="ui">Huge</span>. Welche es gibt und wofür sie gedacht sind, steht unter [Schriftgrössen](/designer/schriftgroessen).
 
-Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften. Knob, 4" und 4.3B haben drei. Ihre Schriften haben 16 Graustufen: Die Ränder der Buchstaben gehen weich in den Hintergrund über statt in Treppenstufen.
+Ein Gerät kann mehrere Typografien mitbringen, jede mit eigenen Schriften. Knob, 4" und 4.3B haben vier. Ihre Schriften haben 16 Graustufen: Die Ränder der Buchstaben gehen weich in den Hintergrund über statt in Treppenstufen.
 
 | Typografie | Schriften auf Knob, 4" und 4.3B |
 |---|---|
 | «Standard» | Roboto |
 | «Humanist» | Inter |
 | «Technic» | Roboto Condensed, Huge in Sieben-Segment-Ziffern |
+| «Geometric» | Montserrat, breit und rund, die Schrift von CamperUI |
 
 Diese Schriften haben die Buchstaben für Deutsch, Französisch und Englisch und für die meisten Sprachen Mitteleuropas, etwa Tschechisch und Polnisch, dazu Zeichen wie € — … und °. Zeichen anderer Schriften, etwa kyrillische, fehlen. Steht eines im Text, fällt es weg, im Designer wie auf dem Gerät.
 
-Die PaperS3 hat dieselben drei Typografien, aber mit scharfkantigen Schriften, weil ihr E-Paper Graustufen beim schnellen Auffrischen schlecht zeigt.
+Die PaperS3 hat die ersten drei dieser Typografien, aber mit scharfkantigen Schriften, weil ihr E-Paper Graustufen beim schnellen Auffrischen schlecht zeigt.
 
 | Typografie | Schriften auf der PaperS3 |
 |---|---|

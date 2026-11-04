@@ -388,10 +388,12 @@ test.describe("the scale", () => {
       add(dir, "")
       const bytes = await zip.generateAsync({ type: "nodebuffer" })
       const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
-      // Standard, Humanist and Technic (the typography appendix, Task T3):
-      // every style, regular and bold, lands on a font of the family it
-      // names - bold on regular only where the family has no bold.
-      expect(fields.typographies?.map((t) => t.name)).toEqual(["Standard", "Humanist", "Technic"])
+      // Standard, Humanist and Technic (the typography appendix, Task T3),
+      // and on the colour boards Geometric, CamperUI's Montserrat (the user,
+      // 2026-11-04): every style, regular and bold, lands on a font of the
+      // family it names - bold on regular only where the family has no bold.
+      const names = ["Standard", "Humanist", "Technic", ...(source === "ddf-source-papers3" ? [] : ["Geometric"])]
+      expect(fields.typographies?.map((t) => t.name)).toEqual(names)
       for (const typography of fields.typographies!) {
         for (const style of TEXT_STYLES) {
           for (const bold of [false, true]) {
@@ -1151,7 +1153,8 @@ test.describe("4-bit typographies", () => {
     test(`${board}: each style a 4-bit face at its capital height, bold at the same`, async () => {
       const fields = await boardFields(board)
       const ppmm = fields.pixelsPerMm!
-      expect(fields.typographies!.map((t) => t.name)).toEqual(["Standard", "Humanist", "Technic"])
+      // Geometric, Montserrat, since 2026-11-04 (CamperUI's face, the user).
+      expect(fields.typographies!.map((t) => t.name)).toEqual(["Standard", "Humanist", "Technic", "Geometric"])
       for (const typography of fields.typographies!) {
         for (const style of STYLES) {
           const regular = fontFor(style, false, typography, fields.fonts, ppmm)

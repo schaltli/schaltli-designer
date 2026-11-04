@@ -37,8 +37,9 @@ export const GAPS = [
 
 // In the seven text sizes since 2026-11-04 (docs/2026-11-04-text-sizes-and-
 // colours.md), set by the designer's own rule (lib/size-scale.ts) in the
-// 4"'s Humanist typography, Inter like CamperUI's Montserrat: until then
-// Inter by hand at 15, 24, 36 and 55 px.
+// 4"'s Geometric typography, CamperUI's own Montserrat (since 2026-11-04;
+// Humanist's Inter before, and Inter by hand at 15, 24, 36 and 55 px before
+// the sizes).
 const F = { mini: "mini", small: "standard", large16: "large", medium: "xl", large: "xxl", huge: "huge" } as const
 type Size = (typeof F)[keyof typeof F]
 let SIZED: Record<string, { textStyle: string; textBold: false; fontId: string; fontSize: number }> = {}
@@ -357,10 +358,12 @@ let CARD_PADDING_MM = 1.5
  */
 function relayTile(width: number, height: number, n: number, onColor = GREEN, words: [string, string] = ["", ""]) {
   const name = RELAYS[n - 1]
+  // Large, not XL: «Wasserpumpe EIN» and «Abwasserventil» in Montserrat are
+  // wider than a tile at XL, and a tile wider than its column widens the table.
   return stateTile(width, height, `${S}relay/${n}/power`, `${C}relay/${n}`, [
     { state: "off", label: `${name}${words[0]}`, color: CARD, send: "on" },
     { state: "on", label: `${name}${words[1]}`, color: onColor, send: "off" },
-  ])
+  ], F.large16)
 }
 
 /**
@@ -368,7 +371,7 @@ function relayTile(width: number, height: number, n: number, onColor = GREEN, wo
  * sending what switches it. As wide as its column: a switcher stretched in
  * a cell does not take its panels along.
  */
-function stateTile(width: number, height: number, read: string, write: string, states: { state: string; label: string; color: string; send: string }[]) {
+function stateTile(width: number, height: number, read: string, write: string, states: { state: string; label: string; color: string; send: string }[], font: Size = F.medium) {
   return {
     id: id("tiles"),
     type: "switcher",
@@ -402,7 +405,7 @@ function stateTile(width: number, height: number, read: string, write: string, s
             buttonColor: st.color,
             // On the card's colour the label is the text's, on a colour the one for on it.
             textColor: st.color === CARD ? TEXT : "onAccent",
-            ...sized(F.medium),
+            ...sized(font),
             action: { type: "send-mqtt", mqttTopic: write, mqttMessage: st.send },
           },
         },
@@ -420,8 +423,8 @@ function master(width: number, height: number) {
     isMaster: true,
     // CamperUI's model: a neutral ground, four colours of distinct hues.
     themeId: "slate",
-    // Inter, as CamperUI's Montserrat: the sizes' fonts are this typography's.
-    typography: "Humanist",
+    // Montserrat, as CamperUI: the sizes' fonts are this typography's.
+    typography: "Geometric",
     backgroundColor: BG,
     objects: [
       box(0, 0, width, 40, CARD),
@@ -538,13 +541,14 @@ function dimmerCard(n: number) {
     78,
     table(
       [
-        at(text(120, 30, `{live:dn${n}}`, F.medium, TEXT, "left", [plain(`dn${n}`, `${S}dimmer/${n}/name`)]), { row: 0, column: 0, anchor: { y: "center" } }),
+        at(text(150, 30, `{live:dn${n}}`, F.medium, TEXT, "left", [plain(`dn${n}`, `${S}dimmer/${n}/name`)]), { row: 0, column: 0, anchor: { y: "center" } }),
         at(
           {
-            ...bar(200, 34, `${S}dimmer/${n}/level`, "left-to-right", color),
+            // Narrow of its own: stretched to what the column leaves.
+            ...bar(100, 34, `${S}dimmer/${n}/level`, "left-to-right", color),
             id: id("slider"),
             type: "slider",
-            properties: { ...bar(200, 34, `${S}dimmer/${n}/level`, "left-to-right", color).properties, writeTopic: `${C}dimmer/${n}`, step: 5 },
+            properties: { ...bar(100, 34, `${S}dimmer/${n}/level`, "left-to-right", color).properties, writeTopic: `${C}dimmer/${n}`, step: 5 },
           },
           { row: 0, column: 1, anchor: { x: "stretch", y: "center" } },
         ),
@@ -562,8 +566,9 @@ function dimmerCard(n: number) {
           { row: 0, column: 2, anchor: { y: "center" } },
         ),
       ],
-      // The name and the value as wide as CamperUI has them, the slider the rest.
-      { columns: 3, equal: false, gapPx: 8, columnPx: [120, 212, 56], rowPx: [78 - 2 * CARD_PADDING_PX] },
+      // The name as wide as Montserrat needs for «Deckenlampe», the value
+      // as CamperUI has it, the slider the rest.
+      { columns: 3, equal: false, gapPx: 8, columnPx: [150, 198, 56], rowPx: [78 - 2 * CARD_PADDING_PX] },
     ),
   )
 }
@@ -579,10 +584,11 @@ function source(name: string, color: string, watts: string, sub: any[], subText:
     74,
     table(
       [
-        at(text(80, 16, name, F.small, color), { row: 0, column: 0 }),
+        // Mini: «Lichtmasch.» in Montserrat beside its ring fills the card.
+        at(text(80, 16, name, F.mini, color), { row: 0, column: 0 }),
         at(text(80, 22, "{live:w}", F.medium, color, "left", [num("w", watts, 0, " W")]), { row: 1, column: 0 }),
         at(text(80, 14, subText, F.mini, MUTED, "left", sub), { row: 2, column: 0 }),
-        at(ring(48, watts, max, color, 6, F.mini), { row: 0, column: 1, rowSpan: 3, anchor: { x: "right", y: "center" } }),
+        at(ring(44, watts, max, color, 6, F.mini), { row: 0, column: 1, rowSpan: 3, anchor: { x: "right", y: "center" } }),
       ],
       { columns: 2, equal: false },
     ),
@@ -905,9 +911,9 @@ export async function buildCamperUiProject(ddfZip: Uint8Array) {
   const fields = deviceDescriptionToProjectFields(parsed, Buffer.from(ddfZip).toString("base64"))
   PX_PER_MM = fields.pixelsPerMm ?? 6.73
   CARD_PADDING_MM = mm(CARD_PADDING_PX)
-  // Each size's font on this device, in Humanist (Inter) as CamperUI's
-  // Montserrat; resolved once, before any page is built.
-  const scale = textScaleOf({ pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies }, "Humanist")!
+  // Each size's font on this device, in Geometric (Montserrat) as CamperUI;
+  // resolved once, before any page is built.
+  const scale = textScaleOf({ pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies }, "Geometric")!
   SIZED = Object.fromEntries(
     Object.values(F).map((size) => {
       const f = styledFont(size as TextStyle, false, scale, fields.fonts)!
