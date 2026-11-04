@@ -52,7 +52,7 @@ why or how far it is.
 - **T2 handbook** (done 2026-11-04) `betrieb/updates.md` and `installieren/pekaway.md`: during
   an update, port 3000 shows the progress, and the log is in
   `~/.schaltli/install.log`.
-- **T3 for real**: the next install in the van, the page watched from the PC.
+- **T3 for real** (done 2026-11-04): the next install in the van, the page watched from the PC. fw-2026.11.04.2-pre.large_project: the page showed the version, «npm ci» as the step and the log, answered 503 with Retry-After 30, and its unit was gone once the designer was back.
 
 ## Open
 
