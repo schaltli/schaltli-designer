@@ -64,10 +64,9 @@ pictures and the firmware and the app compute the same.
   font, the icon image tinted - instead of loading
   `…-button-normal/active.bmp`. PaperS3 in its greys.
 - **Android app:** `SoftwareButtonView` draws the same with Canvas.
-- **An old firmware never gets a project it cannot draw.** How the designer
-  knows the installed firmware draws buttons (a version on the board's
-  reply, a capability in the DDF) is decided in the plan; until it knows,
-  it bakes as today.
+- **No transition** (the user, 2026-11-04): the designer always exports
+  the new format; the firmware runs only on the user's own boards, so an
+  older firmware is updated rather than served. The bake of buttons goes.
 
 ### What does not change
 
@@ -113,7 +112,7 @@ pictures and the firmware and the app compute the same.
   shape module mirrored; `test:quick` per change; handbook in the same work.
 - **Ask first:** changing the partition table; packing pictures; any
   release of firmware or app (only on the user's word).
-- **Never:** a project sent to a firmware that cannot draw it.
+- **Never:** keep the button bake alongside as a fallback.
 
 ## Success criteria
 
@@ -122,13 +121,12 @@ pictures and the firmware and the app compute the same.
 - [ ] Buttons on every board and in the app match the designer
       (conformance specimens)
 - [ ] Button corner radius in mm, default a pill, drawn everywhere
-- [ ] Old firmware still gets baked buttons
 - [ ] `test:quick` green apart from known load failures
 
 ## Open questions
 
-1. How the designer learns that a board's firmware draws buttons (answered
-   in the plan).
+1. Decided 2026-11-04: no transition, the designer always exports the new
+   format.
 2. Switches are drawn by `lib/switch-shape.ts`, its header says «once it
    is ported» to the firmware - whether switches are baked too, and if so,
    whether they belong in this module.
