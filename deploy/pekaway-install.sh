@@ -58,6 +58,29 @@ SERVICE_USER="pi"
 log() { echo "[pekaway-install] $*"; }
 fail() { echo "[pekaway-install] ERROR: $*" >&2; exit 1; }
 
+# Everything this run prints, also in a file of its own, whatever the caller
+# does with stdout (a terminal, nohup into /tmp, an SSH session that ends):
+# the progress page below reads it, and it is where to look afterwards.
+# Begun anew for each install.
+INSTALL_LOG="/home/${SERVICE_USER}/.schaltli/install.log"
+mkdir -p "$(dirname "$INSTALL_LOG")"
+: > "$INSTALL_LOG"
+exec > >(tee -a "$INSTALL_LOG") 2>&1
+
+# set -e ends the script at the first command that fails, without a word of
+# its own; the progress page shows the failure by this line. Whatever the
+# build leaves behind is taken away here too (end_build, section 3a), also
+# when it is broken off with Ctrl+C.
+BUILDING=""
+on_exit() {
+  local rc=$?
+  [ -z "$BUILDING" ] || end_build
+  if [ "$rc" -ne 0 ]; then
+    echo "[pekaway-install] FAILED (exit $rc) - the designer is not running. The log: $INSTALL_LOG"
+  fi
+}
+trap on_exit EXIT
+
 # --- 1. Preflight: fail loudly if this doesn't look like a Pekaway system ---
 command -v node >/dev/null 2>&1 || fail "node not found - this script assumes a Pekaway system with Node.js already installed."
 # Next.js 16 runs on Node.js 20.9 or newer (#61). Checked here, before
@@ -126,6 +149,60 @@ fi
 # On a first install there is nothing to stop.
 sudo systemctl stop "${SERVICE_NAME}.socket" "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true
 
+# Until section 5 starts the designer again, a page on APP_PORT shows how far
+# the install is (tasks/install-status-plan.md): the version, the step, the
+# log's end, reloading itself; a failure stays on it. Everything else - the
+# API a device asks - gets 503 with Retry-After, so it tries again later. Its
+# own transient unit, so it outlives the SSH session the install was started
+# from, as the install must; section 5 stops it before the socket takes the
+# port, and after a failure the next install or a restart ends it. Plain
+# Node, no packages: npm ci has not run yet.
+# STATUS-PAGE-BEGIN
+STATUS_UNIT="${SERVICE_NAME}-install-status"
+STATUS_JS="/home/${SERVICE_USER}/.schaltli/install-status.js"
+start_status_page() {
+  cat > "$STATUS_JS" <<'STATUSJS'
+const http = require("http")
+const fs = require("fs")
+const [port, logFile, version] = process.argv.slice(2)
+const PREFIX = "[pekaway-install] "
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
+function state() {
+  let text = ""
+  try { text = fs.readFileSync(logFile, "utf8") } catch {}
+  // npm's colours out, and of a line it redrew with \r only what it ended as.
+  const lines = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").split("\n").map((l) => l.split("\r").filter(Boolean).pop() || "").filter((l) => l.trim())
+  const steps = lines.filter((l) => l.startsWith(PREFIX))
+  const failed = steps.some((l) => l.startsWith(PREFIX + "FAILED") || l.startsWith(PREFIX + "ERROR"))
+  const step = steps.length ? steps[steps.length - 1].slice(PREFIX.length) : "Starting..."
+  return { failed, step, tail: lines.slice(-40) }
+}
+http.createServer((req, res) => {
+  const s = state()
+  const page = req.url === "/" || req.url.startsWith("/?")
+  res.writeHead(503, { "Content-Type": page ? "text/html; charset=utf-8" : "text/plain; charset=utf-8", "Retry-After": "30", "Cache-Control": "no-store" })
+  if (!page) return res.end("Schaltli is being updated - try again shortly.\n")
+  const title = s.failed ? "The update of Schaltli failed" : "Schaltli is being updated"
+  res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="3"><title>${title}</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:24px 16px;background:#f1f5f9;color:#0f172a}main{max-width:900px;margin:0 auto}h1{font-size:1.4rem;margin:0 0 4px}p{margin:0 0 16px;color:#64748b}.step{color:${s.failed ? "#dc2626" : "#0284c7"};font-weight:600}pre{background:#101318;color:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-all}</style></head>
+<body><main><h1>${title}</h1><p>Version ${esc(version || "?")}. ${s.failed ? "The designer is not running." : "The designer is back when this is done; this page reloads by itself."}</p>
+<p class="step">${esc(s.step)}</p><pre>${esc(s.tail.join("\n"))}</pre><p>The whole log: ${esc(logFile)}</p></main></body></html>`)
+}).listen(Number(port))
+STATUSJS
+  sudo systemctl stop "$STATUS_UNIT" 2>/dev/null || true
+  sudo systemctl reset-failed "$STATUS_UNIT" 2>/dev/null || true
+  if sudo systemd-run --quiet --collect --unit "$STATUS_UNIT" --uid "$SERVICE_USER" "$(command -v node)" "$STATUS_JS" "$APP_PORT" "$INSTALL_LOG" "$TARGET" >/dev/null 2>&1; then
+    log "Progress on port ${APP_PORT} until the designer is back."
+  else
+    log "WARNING: no progress page - port ${APP_PORT} stays closed until the designer is back."
+  fi
+}
+stop_status_page() {
+  sudo systemctl stop "$STATUS_UNIT" 2>/dev/null || true
+}
+# STATUS-PAGE-END
+start_status_page
+
 # A compressed swap in RAM for npm ci and the build, gone again after them
 # (zram; nothing is written to the SD card). Pekaway's image has no swap, and
 # a 2 GB Pi with Node-RED had some 770 MB free for the build (tester Arno,
@@ -158,12 +235,13 @@ stop_build_swap() {
 }
 # BUILD-SWAP-END
 # Whatever the build leaves behind is taken away also when it fails and set -e
-# ends the script, or when it is broken off with Ctrl+C.
+# ends the script, or when it is broken off with Ctrl+C: on_exit calls
+# end_build while BUILDING is set.
 end_build() {
   rm -f "$INSTALL_DIR/next.config.js"
   stop_build_swap
 }
-trap end_build EXIT
+BUILDING=1
 start_build_swap
 
 log "Installing dependencies (npm ci)..."
@@ -187,7 +265,7 @@ module.exports = async (...args) => {
 NEXTCONFIG
 npm run build
 end_build
-trap - EXIT
+BUILDING=""
 
 # --- 3b. Firmware for the devices (docs/2026-09-15-firmware-ota.md) ---
 # The images firmware/manifest.json names, downloaded from this repo's GitHub
@@ -281,6 +359,9 @@ sudo systemctl daemon-reload
 # A running proxy and designer from before this run still serve the old build:
 # stopped, so the next visit starts the new one.
 sudo systemctl stop "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true
+# The progress page gives the port back; the page in a browser reloads into
+# the designer.
+stop_status_page
 sudo systemctl enable "${SERVICE_NAME}.socket"
 sudo systemctl restart "${SERVICE_NAME}.socket"
 

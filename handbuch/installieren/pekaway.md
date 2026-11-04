@@ -19,7 +19,7 @@ Melde dich per SSH als Benutzer `pi` an und führe diesen Befehl aus:
 curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/deploy/pekaway-install.sh | bash
 ```
 
-Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build.
+Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build. Wie weit sie ist, siehst du schon währenddessen im Browser unter der Adresse des Designers. Das Protokoll jedes Laufs liegt in `/home/pi/.schaltli/install.log`.
 
 Installiert wird die neueste offizielle Version, Designer und Firmware passend zueinander.
 

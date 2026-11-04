@@ -123,12 +123,15 @@ test("the Pi builds without the type check, and leaves nothing behind", () => {
   expect(script.slice(wrapper, build)).toContain("ignoreBuildErrors: true")
   expect(script.slice(wrapper, build)).toContain('import("./next.config.mjs")')
   // Taken away right after the build by end_build, and by the same function
-  // on exit when the build fails and set -e ends the script.
-  expect(script.slice(build)).toMatch(/^npm run build\nend_build\ntrap - EXIT\n/)
+  // on exit (on_exit, while BUILDING is set) when the build fails and set -e
+  // ends the script.
+  expect(script.slice(build)).toMatch(/^npm run build\nend_build\nBUILDING=""\n/)
   const endBuild = /end_build\(\) \{\n([\s\S]*?)\n\}/.exec(script)?.[1] ?? ""
   expect(endBuild).toContain('rm -f "$INSTALL_DIR/next.config.js"')
-  expect(script.indexOf("\ntrap end_build EXIT\n")).toBeGreaterThan(0)
-  expect(script.indexOf("\ntrap end_build EXIT\n")).toBeLessThan(script.indexOf("\nnpm ci\n"))
+  const onExit = /on_exit\(\) \{\n([\s\S]*?)\n\}/.exec(script)?.[1] ?? ""
+  expect(onExit).toContain('[ -z "$BUILDING" ] || end_build')
+  expect(script.indexOf("\ntrap on_exit EXIT\n")).toBeGreaterThan(0)
+  expect(script.indexOf("\nBUILDING=1\n")).toBeLessThan(script.indexOf("\nnpm ci\n"))
 })
 
 test("npm ci and the build get a compressed swap in RAM, on its own zram device, gone after them", () => {
@@ -277,4 +280,106 @@ test("the chart recorder is always on, restarted when it ends, and started after
   expect(body).toContain("WantedBy=multi-user.target")
   expect(script).toContain('sudo systemctl enable "${SERVICE_NAME}-recorder.service"')
   expect(script.indexOf('sudo systemctl restart "${SERVICE_NAME}-recorder.service"')).toBeGreaterThan(script.indexOf("npm run build"))
+})
+
+// While the designer is stopped for npm ci and the build - ten minutes and
+// more over a van's link - port 3000 refused every connection, and nothing
+// said why (the user, 2026-11-04). Now the install writes its own log and a
+// page on the port shows it (tasks/install-status-plan.md).
+test.describe("the progress page while the designer installs", () => {
+  const NL = String.fromCharCode(10)
+  const at = (line: string) => script.indexOf(NL + line + NL)
+
+  test("the install writes its own log, begun anew, and says when it failed", () => {
+    expect(script).toContain('INSTALL_LOG="/home/${SERVICE_USER}/.schaltli/install.log"')
+    expect(at('exec > >(tee -a "$INSTALL_LOG") 2>&1')).toBeGreaterThan(0)
+    expect(at(': > "$INSTALL_LOG"')).toBeLessThan(at('exec > >(tee -a "$INSTALL_LOG") 2>&1'))
+    // Before anything that can fail or stop the designer.
+    expect(at('exec > >(tee -a "$INSTALL_LOG") 2>&1')).toBeLessThan(script.indexOf("command -v node >/dev/null"))
+    // A failure set -e ends with leaves a line the page knows - run as the
+    // script runs it.
+    const onExit = /BUILDING=""\non_exit\(\) \{\n[\s\S]*?\n\}\ntrap on_exit EXIT\n/.exec(script)?.[0]
+    expect(onExit, "no on_exit trap").toBeTruthy()
+    const run = (body: string) =>
+      execFileSync(bash, ["-c", `INSTALL_LOG=/x\nend_build() { echo CLEANED; }\n${onExit}\n${body}`], { encoding: "utf8" }).toString()
+    const fails = (() => {
+      try {
+        run("BUILDING=1\nfalse_cmd() { return 3; }\nset -e\nfalse_cmd")
+        return ""
+      } catch (e: any) {
+        return String(e.stdout)
+      }
+    })()
+    expect(fails).toContain("CLEANED")
+    expect(fails).toContain("[pekaway-install] FAILED (exit 3)")
+    expect(run("true")).not.toContain("FAILED")
+  })
+
+  test("the page starts after the designer is stopped and gives the port back before the socket takes it", () => {
+    const stopDesigner = at('sudo systemctl stop "${SERVICE_NAME}.socket" "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true')
+    expect(at("start_status_page")).toBeGreaterThan(stopDesigner)
+    expect(at("start_status_page")).toBeLessThan(at("npm ci"))
+    expect(at("stop_status_page")).toBeGreaterThan(at("npm run build"))
+    expect(at("stop_status_page")).toBeLessThan(at('sudo systemctl restart "${SERVICE_NAME}.socket"'))
+    // Its own transient unit, so it outlives the SSH session; on the port the designer answers on.
+    const block = /# STATUS-PAGE-BEGIN\n([\s\S]*?)# STATUS-PAGE-END/.exec(script)?.[1] ?? ""
+    expect(block).toContain('sudo systemd-run --quiet --collect --unit "$STATUS_UNIT" --uid "$SERVICE_USER"')
+    expect(block).toContain('"$STATUS_JS" "$APP_PORT" "$INSTALL_LOG" "$TARGET"')
+  })
+
+  test("the page shows the version, the step and the log's end; a device gets 503; a failure stays on it", async () => {
+    const js = /cat > "\$STATUS_JS" <<'STATUSJS'\n([\s\S]*?)\nSTATUSJS\n/.exec(script)?.[1]
+    expect(js, "no status server in the script").toBeTruthy()
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pekaway-install-status-"))
+    const server = path.join(dir, "status.js")
+    const log = path.join(dir, "install.log")
+    fs.writeFileSync(server, js!)
+    const port = await new Promise<number>((resolve) => {
+      const probe = require("net").createServer().listen(0, () => {
+        const p = probe.address().port
+        probe.close(() => resolve(p))
+      })
+    })
+    const { spawn } = require("child_process") as typeof import("child_process")
+    fs.writeFileSync(log, ["[pekaway-install] Installing fw-2026.11.04.1 (fw-2026.11.04.1)", "[pekaway-install] Installing dependencies (npm ci)...", "\x1b[32madded 812 packages\x1b[0m", "[pekaway-install] Building...", "  Generating static pages (3/7)\r  Generating static pages (7/7) <done>", ""].join(NL))
+    const child = spawn(process.execPath, [server, String(port), log, "fw-2026.11.04.1"], { stdio: "ignore" })
+    try {
+      const get = async (p: string) => {
+        for (let i = 0; ; i++) {
+          try {
+            return await fetch(`http://127.0.0.1:${port}${p}`)
+          } catch (e) {
+            if (i > 50) throw e
+            await new Promise((r) => setTimeout(r, 100))
+          }
+        }
+      }
+      const page = await get("/")
+      expect(page.status).toBe(503)
+      expect(page.headers.get("content-type")).toContain("text/html")
+      const html = await page.text()
+      expect(html).toContain("Schaltli is being updated")
+      expect(html).toContain("fw-2026.11.04.1")
+      expect(html).toContain('<p class="step">Building...</p>')
+      expect(html).toContain('http-equiv="refresh"')
+      expect(html).toContain("added 812 packages")
+      expect(html).not.toContain("\x1b")
+      // Of a line redrawn with \r only how it ended, escaped.
+      expect(html).toContain("Generating static pages (7/7) &lt;done&gt;")
+      expect(html).not.toContain("(3/7)")
+
+      const api = await get("/api/projects")
+      expect(api.status).toBe(503)
+      expect(api.headers.get("retry-after")).toBe("30")
+      expect(await api.text()).toContain("being updated")
+
+      fs.appendFileSync(log, "[pekaway-install] FAILED (exit 1) - the designer is not running. The log: /x" + NL)
+      const failed = await (await get("/")).text()
+      expect(failed).toContain("The update of Schaltli failed")
+      expect(failed).toContain("The designer is not running.")
+    } finally {
+      child.kill()
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

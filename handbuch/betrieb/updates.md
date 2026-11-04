@@ -10,6 +10,8 @@ curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/dep
 
 Es holt die neueste offizielle Version, baut sie, lädt die dazu passende Firmware für die Geräte, bringt die VanPi-Brücke auf den neuen Stand und startet den Designer neu. Deine Projekte und Einstellungen bleiben erhalten. Designer und Firmware gehören dabei immer zur selben Version.
 
+Während das Skript baut, läuft der Designer nicht. Unter seiner Adresse zeigt dann eine Seite, wie weit die Aktualisierung ist: die Version, den aktuellen Schritt und die letzten Zeilen des Protokolls. Sie lädt sich alle paar Sekunden neu. Ist der Designer wieder da, erscheint er an ihrer Stelle. Geht etwas schief, bleibt die Seite stehen und zeigt den Fehler. Das ganze Protokoll liegt in `~/.schaltli/install.log`.
+
 Ohne Pekaway siehe [Ohne Pekaway](/installieren/ohne-pekaway#aktualisieren).
 
 ## Die Geräte aktualisieren
