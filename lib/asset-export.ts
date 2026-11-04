@@ -795,7 +795,7 @@ export class AssetExporter {
       const normal = await this.renderSoftwareButtonOnBackground(buttonObject, project, screen, flattenedBackground, false)
       const pressed = await this.renderSoftwareButtonOnBackground(buttonObject, project, screen, flattenedBackground, true)
       const faces = buttonFaces(buttonObject, screen.backgroundColor || '#ffffff', this.options.colorDepth, this.buttonRadiusPx(project))
-      const layout = normal.layout
+      const layout = normal.placed
       const look: DeviceButtonLook = {
         normal: faces.normal,
         pressed: faces.pressed,
@@ -841,7 +841,7 @@ export class AssetExporter {
     screen: any,
     flattenedBackground: HTMLCanvasElement,
     isActive: boolean
-  ): Promise<{ canvas: HTMLCanvasElement; layout: ButtonContentLayout }> {
+  ): Promise<{ canvas: HTMLCanvasElement; placed: ButtonContentLayout }> {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get canvas context')
@@ -883,7 +883,7 @@ export class AssetExporter {
     })
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
-    return { canvas, layout }
+    return { canvas, placed: layout }
   }
 
   /** The project's button radius in px (Settings › Cards), undefined for a pill. */

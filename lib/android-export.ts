@@ -341,7 +341,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       ctx.translate(-x, -y)
       const layout = drawSoftwareButton({ ctx, obj, fonts: project.fonts || [], bdfFontCache, colorDepth: "24bit", background, pressed, icon, radiusPx })
       ctx.setTransform(1, 0, 0, 1, 0, 0)
-      return { canvas, layout }
+      return { canvas, placed: layout }
     }
     const iconPng = async (canvas: HTMLCanvasElement, box: { x: number; y: number; size: number }, pressed: boolean) => {
       const square = document.createElement("canvas")
@@ -357,7 +357,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     const normal = drawState(false)
     const pressed = drawState(true)
     const faces = buttonFaces(obj, background, "24bit", radiusPx)
-    const layout = normal.layout
+    const layout = normal.placed
     const entry: any = {
       look: {
         normal: faces.normal,

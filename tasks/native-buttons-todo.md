@@ -7,4 +7,4 @@ Plan: tasks/native-buttons-plan.md. Spec: docs/2026-11-04-native-buttons.md.
 - [x] T3 firmware: renderSoftwareButton draws natively (4", 4.3B, Knob, PaperS3)
 - [x] T4 android: SoftwareButtonView draws natively
 - [x] T5 button-radius: Settings › Cards, button-shape
-- [ ] T6 handbook, CamperUI rebuild on the 4", test:quick
+- [x] T6 handbook, CamperUI rebuild on the 4", test:quick
