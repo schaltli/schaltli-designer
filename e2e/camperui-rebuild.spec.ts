@@ -70,6 +70,41 @@ test("each page drawn as the boards are compared against", async ({ page }) => {
   }
 })
 
+// Home a second time with tables instead of coordinates (2026-11-04): one
+// table of the cards, two equal columns 8 px apart, and a table of texts in
+// each card. Laid out, its cards stand where home() puts them by hand, to
+// the pixel or two; the page is drawn beside the other as 00-Home-tabellen.
+test("Home with tables: its cards where the hand-placed Home has them", async ({ page }) => {
+  test.setTimeout(120_000)
+  const ddf = new Uint8Array(fs.readFileSync(DDF))
+  const hand: any = await buildCamperUiProject(ddf)
+  const tables: any = await buildCamperUiProject(ddf, { homeWithTables: true })
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const laid: any = await page.evaluate((p) => (window as any).__layoutProjectForTest(p), tables)
+  const homeOf = (p: any) => p.screens.find((s: any) => s.id === "screen-home")
+  const grid = homeOf(laid).objects[0]
+  expect(grid.type).toBe("table")
+  // Nothing left out for want of room: a docked table 2 px too tall for its
+  // card drops out whole and leaves the card empty.
+  for (const o of deep(grid.children)) expect(o.properties?.dockedOut, `${o.id} left out`).toBeFalsy()
+  const cards = grid.children.map((c: any) => ({ x: grid.x + c.x, y: grid.y + c.y, width: c.width, height: c.height }))
+  const wanted = homeOf(hand).objects.map((c: any) => ({ x: c.x, y: c.y, width: c.width, height: c.height }))
+  expect(cards.length).toBe(wanted.length)
+  for (let i = 0; i < cards.length; i++)
+    for (const k of ["x", "y", "width", "height"] as const) expect(Math.abs(cards[i][k] - wanted[i][k]), `card ${i} ${k}: ${cards[i][k]} vs ${wanted[i][k]}`).toBeLessThanOrEqual(2)
+
+  const out = process.env.CAMPERUI_SHOTS ? path.resolve(ROOT, process.env.CAMPERUI_SHOTS) : test.info().outputPath("pages")
+  fs.mkdirSync(out, { recursive: true })
+  const i = laid.screens.indexOf(homeOf(laid))
+  const master = laid.screens.find((s: any) => s.isMaster)
+  const merged = { ...laid, screens: laid.screens.map((s: any, j: number) => (j === i ? { ...s, objects: mergeMasterAndScreenObjects(master.objects, s.objects, s) } : s)) }
+  const png: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: merged, screenIndex: i, topicOverrides: {} })
+  expect(png).toBeTruthy()
+  fs.writeFileSync(path.join(out, "00-Home-tabellen.png"), Buffer.from(String(png).replace(/^data:image\/png;base64,/, ""), "base64"))
+  if (process.env.CAMPERUI_JSON_TABLES) fs.writeFileSync(path.resolve(ROOT, process.env.CAMPERUI_JSON_TABLES), JSON.stringify({ name: `${tables.name} (Tabellen)`, project: { ...tables, name: `${tables.name} (Tabellen)` } }))
+})
+
 // On the 4" itself, with CAMPERUI_DEVICE=<its address>: the project installed
 // as a deploy to its own device builds it, the topics' first examples (the
 // values CamperUI's demo shows) published to the broker the board listens to
@@ -90,7 +125,8 @@ test("on the 4\": installed, the demo's values published, each page photographed
   const out = process.env.CAMPERUI_SHOTS ? path.resolve(ROOT, process.env.CAMPERUI_SHOTS) : test.info().outputPath("device")
   fs.mkdirSync(out, { recursive: true })
 
-  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)))
+  // CAMPERUI_HOME_TABLES=1 installs the Home laid out by tables.
+  const project: any = await buildCamperUiProject(new Uint8Array(fs.readFileSync(DDF)), { homeWithTables: !!process.env.CAMPERUI_HOME_TABLES })
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   const zip = Buffer.from(await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), project), "base64")

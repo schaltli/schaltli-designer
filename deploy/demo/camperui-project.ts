@@ -384,6 +384,149 @@ function home() {
   ])
 }
 
+// ---- Home again, with tables: no coordinate but the table's own ----
+
+/*
+ * The same Home as home(), asked for by the user on 2026-11-04 to see how
+ * near Schaltli's tables come: CamperUI places its cards by a computed grid
+ * (column × (width + 8), 8 px margins) and the texts inside them by hand.
+ * Here one table holds the cards - two equal columns across 464 px, an
+ * 8 px gap - and each card a one-column table of its texts, docked to fill
+ * its padding. What this needs that tables do not give is listed in
+ * TABLE_GAPS.
+ */
+
+/** Where the table version of Home is not like the hand-placed one, and why. */
+export const TABLE_GAPS = [
+  "Kartenhöhe: eine Karte wächst nicht mit ihrem Inhalt, ihre Höhe ist von Hand gesetzt; die Zeile nimmt die höchste.",
+  "Innenabstand: ein Wert für alle vier Seiten; CamperUI hat 12 px links und 8 bis 10 px oben.",
+  "Abstand zwischen angedockten Objekten: fest 1,5 mm; darum steht in der Karte eine Tabelle mit eigenem Abstand statt gedockter Texte.",
+  "Zu wenig Platz: ist die Tabelle in einer Karte auch nur 2 px höher als ihr Inneres, fällt sie ganz weg (dockedOut) und die Karte ist leer.",
+]
+
+/** An object in a table's cell, standing there by `anchor`. */
+const inCell = (obj: any, row: number, column: number, extra: Record<string, unknown> = {}) => ({
+  ...obj,
+  properties: { ...obj.properties, cell: { row, column, ...extra } },
+})
+
+/** A text for a cell: no position, its height the line's, its width what it may take. */
+const cellText = (row: number, column: number, height: number, content: string, font: string, color: string, live: any[] = [], align = "left", anchor?: Record<string, string>) =>
+  inCell(text(0, 0, 200, height, content, font, color, align, live), row, column, anchor ? { anchor } : {})
+
+/** A card with its contents in a table of rows: padding `padMm`, the rows `gapMm` apart. */
+function tableCard(height: number, rows: any[], padMm: number, gapMm: number, columns = 1) {
+  const c = card(0, 0, 200, height, [
+    {
+      id: id("rows"),
+      type: "table",
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+      zIndex: next,
+      properties: { grid: 1, columns: Array.from({ length: columns }, () => ({})), rows: [], gapMm, dock: "fill" },
+      children: rows,
+    },
+  ])
+  return { ...c, properties: { ...c.properties, padding: padMm } }
+}
+
+function homeWithTables(pixelsPerMm: number) {
+  const mm = (px: number) => px / pixelsPerMm
+  const PAD = mm(10)
+  const ROW_GAP = 0
+  const stretch = { anchor: { x: "stretch", y: "stretch" } }
+  const tank = {
+    id: id("bar"),
+    type: "bar",
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 10,
+    zIndex: next,
+    properties: { topic: `${S}tank/1/level`, barDirection: "left-to-right", calibrationPoints: LINEAR(100), displayValue: "none", thickness: 10, fillColor: CYAN, trackColor: TRACK },
+  }
+  const grid = {
+    id: id("home-grid"),
+    type: "table",
+    x: 8,
+    y: 48,
+    width: 464,
+    height: 1,
+    zIndex: next,
+    properties: { grid: 1, gapMm: mm(8), widthMm: mm(464), equalColumns: true, columns: [{}, {}], rows: [] },
+    children: [
+      inCell(relayTile(0, 0, 228, 56, 1, BLUE, [" AUS", " EIN"]), 0, 0, { anchor: { x: "stretch" } }),
+      inCell(relayTile(0, 0, 228, 56, 3, BLUE, [" AUS", " EIN"]), 0, 1, { anchor: { x: "stretch" } }),
+      ...[1, 2].map((n, i) =>
+        inCell(
+          tableCard(
+            70,
+            [
+              cellText(0, 0, 18, `{live:hn${n}}`, F.small, TEXT, [plain(`hn${n}`, `${S}temp/${n}/name`)]),
+              cellText(1, 0, 30, `{live:ht${n}}`, F.medium, TEXT, [num(`ht${n}`, `${S}temp/${n}/value`, 1, " C")]),
+            ],
+            PAD,
+            ROW_GAP,
+          ),
+          1,
+          i,
+          stretch,
+        ),
+      ),
+      inCell(
+        tableCard(
+          122,
+          [
+            cellText(0, 0, 20, "Batterie {live:hbsoc}", F.small, BLUE, [num("hbsoc", `${S}battery/soc`, 0, "%")]),
+            cellText(1, 0, 40, "{live:hbw}", F.large, ORANGE, [num("hbw", `${S}battery/power`, 1, " W")]),
+            cellText(2, 0, 26, "{live:hbv}  {live:hba}", F.medium, TEXT, [num("hbv", `${S}battery/voltage`, 1, " V"), num("hba", `${S}battery/current`, 1, " A")]),
+          ],
+          PAD,
+          ROW_GAP,
+        ),
+        2,
+        0,
+        stretch,
+      ),
+      inCell(
+        tableCard(
+          122,
+          [
+            cellText(0, 0, 20, "Solar", F.small, TEXT),
+            cellText(1, 0, 38, "{live:hsw}", F.large, ORANGE, [num("hsw", `${S}mppt/pv_watts`, 0, " W")]),
+            cellText(2, 0, 26, "{live:hsv}  {live:hsa}", F.medium, TEXT, [num("hsv", `${S}mppt/pv_volts`, 1, " V"), num("hsa", `${S}mppt/pv_amps`, 1, " A")]),
+            cellText(3, 0, 18, "PV-Leistung", F.small, TEXT),
+          ],
+          PAD,
+          ROW_GAP,
+        ),
+        2,
+        1,
+        stretch,
+      ),
+      inCell(
+        tableCard(
+          60,
+          [
+            cellText(0, 0, 26, "{live:hfn}", F.medium, TEXT, [plain("hfn", `${S}tank/1/name`)]),
+            cellText(0, 1, 26, "{live:hfl}", F.medium, TEXT, [num("hfl", `${S}tank/1/level`, 0, "%")], "right", { x: "right" }),
+            inCell(tank, 1, 0, { columnSpan: 2, anchor: { x: "stretch" } }),
+          ],
+          PAD,
+          mm(4),
+          2,
+        ),
+        3,
+        0,
+        { columnSpan: 2, ...stretch },
+      ),
+    ],
+  }
+  return page("screen-home", "Home", "icon-home", [grid])
+}
+
 // ---- Dimmer ----
 
 function dimmerRow(y: number, n: number) {
@@ -655,16 +798,17 @@ function switches() {
   return page("screen-schalter", "Schalter", "icon-toggle", tiles)
 }
 
-/** The project, from the 4"'s description (a DDF zip). */
-export async function buildCamperUiProject(ddfZip: Uint8Array) {
+/** The project, from the 4"'s description (a DDF zip); `homeWithTables` puts in the Home laid out by tables. */
+export async function buildCamperUiProject(ddfZip: Uint8Array, options: { homeWithTables?: boolean } = {}) {
   next = 1
   const parsed = await parseDeviceDescriptionFile(Buffer.from(ddfZip))
   const fields = deviceDescriptionToProjectFields(parsed, Buffer.from(ddfZip).toString("base64"))
+  const homePage = options.homeWithTables ? homeWithTables(fields.pixelsPerMm ?? 6.73) : home()
   const project = {
     name: "CamperUI nachgebaut",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master(fields.screenWidth, fields.screenHeight), home(), dimmer(), power(), water(), climate(), temps(), maxxfan(), switches()],
+    screens: [master(fields.screenWidth, fields.screenHeight), homePage, dimmer(), power(), water(), climate(), temps(), maxxfan(), switches()],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,
