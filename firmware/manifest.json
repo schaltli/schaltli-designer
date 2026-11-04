@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.04.1",
-  "commit": "081a3fd04303eb9ccfab58614f1149dd00898f02",
+  "release": "fw-2026.11.04.3-pre.montserrat",
+  "commit": "28bbd023ebab9be8be3e2a5a82b873841ed04f0b",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.04.1.bin",
-      "size": 2600768,
-      "sha256": "3668dc1a423abe25ae28062860fc47cc05d5b515d51ad296de8f962ff4487a83",
+      "build": "fw-2026.11.04.3-pre.montserrat",
+      "file": "waveshare-knob-1v8-fw-2026.11.04.3-pre.montserrat.bin",
+      "size": 2834368,
+      "sha256": "3367d449af034e88a6bf1b884ea06eee4bfb3794d7ed321f54adf57eb9001673",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-knob-1v8-fw-2026.11.04.3-pre.montserrat.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.04.1.bin",
-        "size": 2666304,
-        "sha256": "dc7ad983d6bef3ab951b81a4e5222fca1ec4cd0c4cccade1cba44c8568c5f42c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.04.3-pre.montserrat.bin",
+        "size": 2899904,
+        "sha256": "10f014e52800e65f4c15fd0c96bd6f5922ed6f41969cd6f791cadf64b116e85b",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-knob-1v8-factory-fw-2026.11.04.3-pre.montserrat.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
-      "size": 2518288,
-      "sha256": "520b605e7bce06cd01f7708c05ff5daefc3ad959e5b2a5c103026861df970d00",
+      "build": "fw-2026.11.04.3-pre.montserrat",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.04.3-pre.montserrat.bin",
+      "size": 2777664,
+      "sha256": "218be41377f3f488f36c6b9694893bb1bc17db262a4fccfcb921a95b591c0de2",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-touch-lcd-4v3b-fw-2026.11.04.3-pre.montserrat.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin",
-        "size": 2583824,
-        "sha256": "c095bff750c2b1e521ffdbec4a19ac4bc1b6a217cd8a44820061980137725025",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.3-pre.montserrat.bin",
+        "size": 2843200,
+        "sha256": "5b659844d7fe4a4b7a53c68b7131d23f0685f4fec02558588c429dbdc692f308",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.3-pre.montserrat.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
-      "size": 2370944,
-      "sha256": "cf3b8f71d757ab6147545d3ad6a9573df89fb247bae70fe8d7fa5d3b3861c152",
+      "build": "fw-2026.11.04.3-pre.montserrat",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.04.3-pre.montserrat.bin",
+      "size": 2568832,
+      "sha256": "74ced3874516a6a27fee373b5f46c80e878a9593693b728128c5679871209690",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-touch-lcd-4-fw-2026.11.04.3-pre.montserrat.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin",
-        "size": 2436480,
-        "sha256": "783eade3928a8a3e835a430264888cd9eb8c928ecc0286c1eb9a461a559e098c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.04.3-pre.montserrat.bin",
+        "size": 2634368,
+        "sha256": "949e91cf0f70c5081011258dc2d7193b6275c8945a7025c67b4fe30f9aca7e67",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/waveshare-touch-lcd-4-factory-fw-2026.11.04.3-pre.montserrat.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.04.1",
-      "file": "m5stack-papers3-fw-2026.11.04.1.bin",
-      "size": 2282304,
-      "sha256": "af187b60c8f6a24940bd4f0713abd8a6a8efcd49a9e9e5dcf30a10df902edfe5",
+      "build": "fw-2026.11.04.3-pre.montserrat",
+      "file": "m5stack-papers3-fw-2026.11.04.3-pre.montserrat.bin",
+      "size": 2282896,
+      "sha256": "da79414a328ffbfacdc075f36e3607ecc01f05d2e5d2ff8b1c770751c81edfcf",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/m5stack-papers3-fw-2026.11.04.3-pre.montserrat.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.04.1.bin",
-        "size": 2347840,
-        "sha256": "d306ed6ffa62bb6f0bb5d7df02263becdf241631b51e862d6ab7ac6b2225cc89",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-factory-fw-2026.11.04.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.04.3-pre.montserrat.bin",
+        "size": 2348432,
+        "sha256": "b7ea25e0f9ef741ba71c4b93d7b4b7d3b9e06c87ee869e269f7a4e67fb77c1ae",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.3-pre.montserrat/m5stack-papers3-factory-fw-2026.11.04.3-pre.montserrat.bin"
       }
     }
   }
