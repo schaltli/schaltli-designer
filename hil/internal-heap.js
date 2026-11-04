@@ -42,9 +42,12 @@ const fs = require("fs")
 const path = require("path")
 const JSZip = require("jszip")
 
-// A project of this many copies of the smoke test's screens, for another
-// device: some 200 KB of project.json, as 30 pages of seven controls.
-const REFUSED_COPIES = 40
+// The large project: the smoke test's screens copied until its project.json
+// is some 200 KB. Until 2026-11-04 it was a fixed 40 copies, meant as 200 KB
+// but grown with the smoke test to 240 screens and 626 KB - more than the
+// 4.3B can load at all («project.json laesst sich nicht parsen: NoMemory»),
+// so «a large project of its own» was installed, never run, and passed.
+const LARGE_JSON_BYTES = 200 * 1024
 
 const SNAPSHOTS_PER_ROUND = 15
 const DEBUG_PER_ROUND = 100
@@ -106,10 +109,14 @@ async function round(base) {
   return debug(base)
 }
 
-// The smoke test's project, its screens repeated, for another device or for this one.
-async function largeProject(deviceId = "not-this-device", copies = REFUSED_COPIES) {
+// The smoke test's project, its screens repeated, for another device or for
+// this one; copies 0 means as many as make LARGE_JSON_BYTES. Returns the zip
+// and how many screens it has.
+async function largeProject(deviceId = "not-this-device", copies = 0) {
   const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "waveshare", "fixtures", "smoke-test.zip")))
-  const project = JSON.parse(await zip.file("project.json").async("string"))
+  const text = await zip.file("project.json").async("string")
+  const project = JSON.parse(text)
+  if (!copies) copies = Math.max(1, Math.round(LARGE_JSON_BYTES / text.length))
   const screens = []
   for (let i = 0; i < copies; i++) {
     for (const s of project.screens) screens.push({ ...JSON.parse(JSON.stringify(s)), id: `${s.id}-c${i}` })
@@ -117,24 +124,31 @@ async function largeProject(deviceId = "not-this-device", copies = REFUSED_COPIE
   project.screens = screens
   project.deviceId = deviceId
   zip.file("project.json", JSON.stringify(project))
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
+  return { zip: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }), screens: screens.length }
 }
 
 async function refusedInstall(base) {
   const form = new FormData()
-  form.append("file", new Blob([await largeProject()]), "foreign.zip")
+  form.append("file", new Blob([(await largeProject()).zip]), "foreign.zip")
   const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) })
   const answer = await res.text()
   if (res.ok) throw new Error(`a project for another device was installed: ${answer.slice(0, 120)}`)
+  // Refused for the right reason: its deviceId read, and another device's.
+  // Until 2026-11-04 the 4.3B inflated all of project.json into one block to
+  // read it, and after the conformance suite no block was that large - every
+  // large project was refused as «could not read the project's deviceId»,
+  // its own too.
+  if (!answer.includes("deviceId mismatch")) throw new Error(`a project for another device was refused, but not for its deviceId: ${answer.slice(0, 160)}`)
   return answer
 }
 
 // The large project installed for the board itself; it restarts onto it.
 // With copies = 1 it is the smoke test's own six screens, which is what
 // putBack() leaves behind.
-async function ownInstall(base, deviceId, copies = REFUSED_COPIES, settleMs = 20000) {
+async function ownInstall(base, deviceId, copies = 0, settleMs = 20000) {
+  const { zip, screens } = await largeProject(deviceId, copies)
   const form = new FormData()
-  form.append("file", new Blob([await largeProject(deviceId, copies)]), "large.zip")
+  form.append("file", new Blob([zip]), "large.zip")
   const res = await fetch(`${base}/api/project`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) })
   const answer = await res.text()
   if (!res.ok) throw new Error(`the large project of its own was refused: ${res.status} ${answer.slice(0, 120)}`)
@@ -150,6 +164,14 @@ async function ownInstall(base, deviceId, copies = REFUSED_COPIES, settleMs = 20
   }
   // Running on it a while: its topics subscribed, its first screens drawn.
   await new Promise((r) => setTimeout(r, settleMs))
+  // Really running it: a board that could not load the project starts on
+  // its built-in fixture, which has no screen this far in.
+  if (screens > 1) {
+    const shown = await fetch(`${base}/api/screen?index=${screens - 1}`, { method: "POST", signal: AbortSignal.timeout(20000) })
+    const answer = await shown.text()
+    if (!shown.ok || !answer.includes('"success":true'))
+      throw new Error(`the large project of its own (${screens} screens) was installed but is not running - its last screen: ${shown.status} ${answer.slice(0, 120)}`)
+  }
 }
 
 // The large project must not stay on the board. Left there (until
