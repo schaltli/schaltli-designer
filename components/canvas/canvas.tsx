@@ -125,6 +125,12 @@ import { dimensions, isSnapTable, liftOut, planRow, resizeSpan, rowAsTable, rowT
 const SNAP_ZONE_MM = 5
 // The id a new object has while it is being drawn, before the editor gives it one.
 const NEW_OBJECT = "__new-object__"
+// The tools whose object is carried from the ribbon (docs/2026-11-05-quick-blocks.md,
+// decision 7): every one but the drawn lines, an icon (it asks for its
+// picture first) and the selection.
+export function carriesFromRibbon(tool: string): boolean {
+  return tool !== "select" && tool !== "background" && tool !== "line" && tool !== "live-line" && tool !== "icon"
+}
 // How near a span handle a press takes it, in screen pixels.
 const SPAN_HANDLE_HIT = 9
 // How near a table's column or row line a press takes it, in screen pixels.
@@ -334,6 +340,14 @@ export interface CanvasProps {
   onInsertRow?: (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => void
   /** The Block tool's block, made now: a row (one part) or a table of its own (several); null with none armed. */
   onBlockCarry?: () => { row: Omit<ScreenObject, "id" | "zIndex">[] } | { table: Omit<ScreenObject, "id" | "zIndex"> } | null
+  /**
+   * A tool's tile in the ribbon is pressed and not let go yet
+   * (docs/2026-11-05-quick-blocks.md, decision 7): moved onto the screen
+   * with the button held, its object is carried from there as if it had been
+   * pressed on the screen. `onRibbonCarry` says the carry has begun.
+   */
+  ribbonPress?: boolean
+  onRibbonCarry?: () => void
   /** A block of several parts let go: a table of its own, its top left corner at `at` (in the space `parentId` names). */
   onPlaceBlockTable?: (table: Omit<ScreenObject, "id" | "zIndex">, at: { x: number; y: number }, parentId?: string, snap?: SnapDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
@@ -807,6 +821,8 @@ export function Canvas({
   rowTemplate,
   onInsertRow,
   onBlockCarry,
+  ribbonPress,
+  onRibbonCarry,
   onPlaceBlockTable,
   onToolChange,
   selectedIconAssetId,
@@ -3540,6 +3556,17 @@ export function Canvas({
       const y = (e.clientY - rect.top) / zoom
       lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
 
+      // A tile pressed in the ribbon and carried onto the screen: the carry
+      // begins here, by the press the tool's own path takes
+      // (docs/2026-11-05-quick-blocks.md, decision 7). A line is drawn and
+      // an icon asks for its picture first: those stay with a press on the
+      // screen.
+      if (ribbonPress && !previewMode && !dragState && (e.buttons & 1) === 1 && carriesFromRibbon(activeTool)) {
+        onRibbonCarry?.()
+        canvas.dispatchEvent(new MouseEvent("mousedown", { clientX: e.clientX, clientY: e.clientY, button: 0, buttons: 1, bubbles: true }))
+        return
+      }
+
       const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
       const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
 
@@ -4321,6 +4348,8 @@ export function Canvas({
       deviceAnimates,
       swipeNeighbourCanvas,
       hardwareButtons,
+      ribbonPress,
+      onRibbonCarry,
     ],
   )
 
@@ -4643,6 +4672,28 @@ export function Canvas({
     const objectType = type as keyof typeof defaultObjects
     return objectType in defaultObjects ? defaultObjects[objectType] : null
   }
+
+  // A new object carried and let go off the canvas - over the ribbon, a
+  // panel: nothing is placed, the tool goes back to Select
+  // (docs/2026-11-05-quick-blocks.md, decision 7). Let go over the canvas,
+  // its own mouseup places it.
+  const placingCarry = dragState?.mode === "create" && !!dragState.placing
+  useEffect(() => {
+    if (!placingCarry) return
+    const onUp = (e: MouseEvent) => {
+      if (e.target === canvasRef.current) return
+      setDragState(null)
+      setSnapDrop(null)
+      setRowDrop(null)
+      setPlaceHint(null)
+      rowPartsRef.current = null
+      blockTableRef.current = null
+      onToolChange("select")
+    }
+    window.addEventListener("mouseup", onUp)
+    return () => window.removeEventListener("mouseup", onUp)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placingCarry])
 
   // Alt while carrying (docs/2026-11-03-placing.md): kept from the browser
   // - Chrome on Windows moves the focus to its menu on a lone Alt - and
@@ -5256,6 +5307,8 @@ export function Canvas({
         data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}
         data-place-hint-text={placeHint ? [placeHint.first, placeHint.second ? `${placeHint.second.key} [Alt] ${placeHint.second.text}` : ""].filter(Boolean).join(" / ") : undefined}
         data-place-area={placeArea ?? undefined}
+        // What a new object being carried is, for tests (docs/2026-11-05-quick-blocks.md, decision 7).
+        data-carrying={dragState?.mode === "create" && dragState.placing ? dragState.creatingType : undefined}
         style={{
           imageRendering: "pixelated",
           WebkitFontSmoothing: "none",

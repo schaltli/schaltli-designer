@@ -67,6 +67,9 @@ interface ToolbarProps {
   onCatalogEntrySelect?: (entry: CatalogEntry) => void
   // A row template picked in the Row menu, which arms the Row tool.
   onRowTemplateSelect?: (template: RowTemplate) => void
+  // A tool's tile pressed: carried onto the screen with the button held, its
+  // object comes along (docs/2026-11-05-quick-blocks.md, decision 7).
+  onToolPress?: (tool: ToolType) => void
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
   // Description File). Tools outside this list are shown but disabled, since
@@ -87,6 +90,7 @@ export function Toolbar({
   onToolChange,
   onCatalogEntrySelect,
   onRowTemplateSelect,
+  onToolPress,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
   navigatorPlaceable = false,
@@ -316,6 +320,13 @@ export function Toolbar({
               isDisabled && "opacity-40 cursor-not-allowed",
             )}
             onClick={() => handleToolClick(tool.type, isDisabled)}
+            onMouseDown={(e) => {
+              if (e.button !== 0 || isDisabled || tool.type === "select") return
+              // No text selection or native drag while the tile is carried away.
+              e.preventDefault()
+              onToolPress?.(tool.type)
+            }}
+            data-tool={tool.type}
             aria-disabled={isDisabled}
           >
             <Icon className={isHorizontal ? "size-6 shrink-0" : "size-9"} />

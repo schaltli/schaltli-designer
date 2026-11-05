@@ -171,3 +171,43 @@ test("a new object from a tool: over a card it goes into the card", async ({ pag
   expect(card2.children.length).toBe(1)
   expect(card2.children[0].type).toBe("text")
 })
+
+// From the ribbon (docs/2026-11-05-quick-blocks.md, decision 7): a tile
+// carried onto the screen lands by the same rule as one pressed there.
+test("a tool's tile dragged from the ribbon onto a card goes into the card", async ({ page }) => {
+  await loadProject(page, await project([card, text("still", 20, 200)]))
+  const { box } = await getMainCanvas(page)
+  const tile = (await page.getByTestId("tools-ribbon").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
+  const on = devicePoint(box, 290, 210)
+  await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(on.x, on.y, { steps: 12 })
+  await page.mouse.move(on.x + 2, on.y + 2)
+  expect((await hint(page))?.now).toBe("Into Card")
+  await page.mouse.up()
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("Escape")
+  const card2 = find(await saved(page), "card")!
+  expect(card2.children.map((c: Obj) => c.type)).toEqual(["text"])
+})
+
+test("a tool's tile dragged from the ribbon into an empty cell goes into the cell", async ({ page }) => {
+  await loadProject(page, await project([table]))
+  // The empty cell, row 1 column 1: below «b» and beside «c», as laid out.
+  const laid = await saved(page)
+  const grid0 = find(laid, "grid")!
+  const { box } = await getMainCanvas(page)
+  const tile = (await page.getByTestId("tools-ribbon").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
+  const on = devicePoint(box, grid0.x + find(laid, "b")!.x + 5, grid0.y + find(laid, "c")!.y + 5)
+  await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(on.x, on.y, { steps: 12 })
+  await page.mouse.move(on.x + 1, on.y + 1)
+  expect((await hint(page))?.now).toBe("Into cell")
+  await page.mouse.up()
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("Escape")
+  const grid = find(await saved(page), "grid")!
+  const added = grid.children.find((c: Obj) => !["a", "b", "c"].includes(c.id))
+  expect(added?.properties?.cell).toMatchObject({ row: 1, column: 1 })
+})

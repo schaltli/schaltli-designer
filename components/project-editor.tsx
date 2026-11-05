@@ -1052,6 +1052,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [isResizingRightPanel])
   const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row" | "card">("select")
+  // A tool's tile pressed in the ribbon and not let go (docs/2026-11-05-quick-blocks.md,
+  // decision 7): the canvas begins its carry when the pointer comes onto it
+  // with the button held. Over once the button is let go anywhere.
+  const [ribbonPress, setRibbonPress] = useState(false)
+  useEffect(() => {
+    if (!ribbonPress) return
+    const up = () => setRibbonPress(false)
+    window.addEventListener("mouseup", up)
+    return () => window.removeEventListener("mouseup", up)
+  }, [ribbonPress])
+  const pressTool = useCallback((tool: typeof activeTool) => {
+    setActiveTool(tool)
+    setRibbonPress(true)
+  }, [])
+  const ribbonCarryBegun = useCallback(() => setRibbonPress(false), [])
   // The row the Row tool carries (docs/2026-10-09-snap-tables.md, module
   // snap-table-rows).
   const [rowTemplate, setRowTemplate] = useState<RowTemplate>("icon-label-switch")
@@ -4582,6 +4597,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               onToolChange={setActiveTool}
               onCatalogEntrySelect={selectCatalogEntry}
               onRowTemplateSelect={selectRowTemplate}
+              onToolPress={pressTool}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
               navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
@@ -4675,6 +4691,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             rowTemplate={rowTemplate}
             onInsertRow={insertRow}
             onBlockCarry={armedBlockCarry}
+            ribbonPress={ribbonPress}
+            onRibbonCarry={ribbonCarryBegun}
             onPlaceBlockTable={placeBlockTable}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}

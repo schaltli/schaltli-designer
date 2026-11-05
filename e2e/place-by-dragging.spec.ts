@@ -179,3 +179,61 @@ test.describe("placing by dragging", () => {
     expect(line.properties!.points.map((p: { x: number }) => p.x)).toEqual([163, 260])
   })
 })
+
+// Placing from the ribbon (docs/2026-11-05-quick-blocks.md, decision 7): a
+// tool's tile pressed and carried onto the screen brings its object along,
+// as one pressed on the screen does; let go off the screen, nothing.
+async function dragFromRibbon(page: Page, name: string, to: { x: number; y: number } | { client: { x: number; y: number } }) {
+  const tile = page.getByTestId("tools-ribbon").getByRole("button", { name, exact: true }).first()
+  const from = (await tile.boundingBox())!
+  const a = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
+  const b = "client" in to ? to.client : await at(page, to)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12)
+  await page.mouse.up()
+}
+
+test.describe("placing from the ribbon", () => {
+  test("a box dragged from its tile onto the screen lands with its middle where it is let go", async ({ page }) => {
+    await loadProject(page, await oneTextProject())
+    await dragFromRibbon(page, "Box", { x: 260, y: 220 })
+    const placed = (await savedObjects(page)).find((o) => o.type === "box")!
+    const size = await sizeOf(page, "box")
+    expect([placed.width, placed.height]).toEqual([size.width, size.height])
+    expect(Math.abs(placed.x + placed.width / 2 - 260)).toBeLessThanOrEqual(2)
+    expect(Math.abs(placed.y + placed.height / 2 - 220)).toBeLessThanOrEqual(2)
+  })
+
+  test("a bar dragged from its tile comes at its default size, and the tool is Select again", async ({ page }) => {
+    await loadProject(page, await oneTextProject())
+    await dragFromRibbon(page, "Bar", { x: 240, y: 200 })
+    await expect(page.locator("[data-object-id]")).toHaveCount(2)
+    // Select again: a click on the screen places nothing more.
+    const p = await at(page, { x: 60, y: 200 })
+    await page.mouse.click(p.x, p.y)
+    const objects = await savedObjects(page)
+    expect(objects.filter((o) => o.type === "bar")).toHaveLength(1)
+    const size = await sizeOf(page, "bar")
+    const bar = objects.find((o) => o.type === "bar")!
+    expect([bar.width, bar.height]).toEqual([size.width, size.height])
+  })
+
+  test("let go over the ribbon again, nothing is placed and the tool is Select", async ({ page }) => {
+    await loadProject(page, await oneTextProject())
+    const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
+    // Onto the screen and back to the ribbon's right end before letting go.
+    const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Box", exact: true }).first()
+    const from = (await tile.boundingBox())!
+    const over = await at(page, { x: 240, y: 200 })
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + ((over.x - from.x) * i) / 8, from.y + ((over.y - from.y) * i) / 8)
+    await expect((await getMainCanvas(page)).canvas).toHaveAttribute("data-carrying", "box")
+    await page.mouse.move(ribbon.x + ribbon.width - 10, ribbon.y + ribbon.height / 2, { steps: 8 })
+    await page.mouse.up()
+    const p = await at(page, { x: 60, y: 200 })
+    await page.mouse.click(p.x, p.y)
+    expect((await savedObjects(page)).map((o) => o.id)).toEqual(["licht"])
+  })
+})

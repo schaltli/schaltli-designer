@@ -72,7 +72,9 @@ range and its place in the card.
    click on the screen sets it down. Not Canva's «click puts it in the
    middle»: a screen of tables and cards has no good middle, and the hint
    at the pointer says where it goes. Line and Live Line stay drawing
-   tools (clicked, then points set).
+   tools (clicked, then points set); Icon too keeps its click on the
+   screen, which opens the icon picker first (found building T1,
+   2026-11-05). The Row templates are a menu: clicked, not dragged.
 8. **Shift builds tables, not Alt - everywhere.** On Windows a lone Alt
    with no mouse button held can send Chrome's focus to its menu, and a
    clicked tile carries with no button held. So the key of

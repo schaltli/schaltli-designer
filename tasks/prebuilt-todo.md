@@ -6,7 +6,7 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
 - [x] Before: the uncommitted card-blocks work committed (f1fee4e, ade48db)
 - [x] Branch `prebuilt`
 - [x] T0 handbook: Bausteine → Baugruppen, links, sidebar, pointer page at the old address
-- [ ] T1 drag a tool from the ribbon onto the screen (highest risk)
+- [x] T1 drag a tool from the ribbon onto the screen (highest risk)
 - [ ] T2 click a tool: the object hangs at the pointer, a click sets it down
 - [ ] T3 Shift builds tables instead of Alt - or keep Alt: decided after T2 is tried
 - [ ] Checkpoint A: test:quick green; the user tries tools in the browser
