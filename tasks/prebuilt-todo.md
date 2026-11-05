@@ -54,4 +54,7 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
       A hover submenu below Group / Ungroup, for one selected object of a family.
       T8-T10 in one commit, e2e/convert.spec.ts covers all three.
 - [ ] Checkpoint C: test:quick green; the user converts parts of a prebuilt
+      **Halted here 2026-11-05 (build auto)**, after 35027125 (T8-T10),
+      test:quick Overall PASS (e2e 2219). A recording of Convert to sent.
+      Open for the user: convert parts of a placed prebuilt in the browser.
 - [ ] T11 screenshots, humanizer, spec «built», test:all
