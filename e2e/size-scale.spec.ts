@@ -592,19 +592,18 @@ test.describe("a text's style", () => {
       await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
       await createProject(page)
       await waitForEditorReady(page)
-      // The menu reads the broker each time it opens and gives up after a
+      // The tab reads the broker each time it opens and gives up after a
       // while; under a full parallel run that was now and then before the
       // retained announcement came through. Opened again until it is there.
-      const pumpe = page.getByRole("menuitem", { name: "Pumpe", exact: true })
+      const pumpe = page.getByTestId("tools-ribbon").getByRole("button", { name: "Pumpe", exact: true })
       await expect(async () => {
-        await page.keyboard.press("Escape")
-        await page.getByRole("button", { name: "Block", exact: true }).click()
+        await page.getByRole("tab", { name: "Parts" }).click()
+        await page.getByRole("tab", { name: "Prebuilt" }).click()
         await expect(pumpe).toBeVisible({ timeout: 8_000 })
       }).toPass({ timeout: 40_000 })
       await pumpe.click()
-      await page.getByTestId("baustein-insert").click()
-      // Insert waits for the icon still being looked for (baustein-dialog.tsx).
-      await expect(page.getByRole("dialog")).toHaveCount(0)
+      // In hand once its icon is there (docs/2026-11-05-quick-blocks.md).
+      await expect(pumpe).toHaveAttribute("data-armed", "true")
       // On the new screen, free: drawn as a rectangle.
       const { box } = await getMainCanvas(page)
       const from = devicePoint(box, 60, 120, ROUND_FIXTURE_SCREEN)

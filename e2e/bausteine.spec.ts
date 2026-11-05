@@ -148,6 +148,7 @@ test.describe("placing a catalog entry", () => {
     websocketUrl = BROKER_URL,
   ): Promise<() => Promise<void>> {
     const prefix = `e2e-place-${testId}`
+    heardFirst = Object.keys(values)
     const client = await connectBroker()
     const published: string[] = []
     for (const name of fixtures) {
@@ -171,10 +172,29 @@ test.describe("placing a catalog entry", () => {
     }
   }
 
+  // The values onBroker retained: heard by the designer's listener before a
+  // tile is pressed, so the block takes them as its examples.
+  let heardFirst: string[] = []
+  // A test that retains no value waits for none - not for the last one's.
+  test.beforeEach(() => {
+    heardFirst = []
+  })
+
+  // A tile pressed on the Prebuilt tab (docs/2026-11-05-quick-blocks.md): no
+  // options asked, the block in hand with its defaults - its tile shown
+  // pressed - hanging at the pointer once it is over the screen.
   async function pick(page: Page, entryName: string) {
-    await page.getByRole("button", { name: "Block", exact: true }).click()
-    await page.getByRole("menuitem", { name: entryName, exact: true }).click()
-    await expect(page.getByRole("dialog")).toContainText(`Insert ${entryName}`)
+    for (const topic of heardFirst) {
+      await page.waitForFunction(
+        (t) => !!(window as unknown as { __schaltliHeard?: { get(t: string): unknown } }).__schaltliHeard?.get(t),
+        topic,
+        { timeout: 10_000 },
+      )
+    }
+    await page.getByRole("tab", { name: "Prebuilt" }).click()
+    const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: entryName, exact: true })
+    await tile.click()
+    await expect(tile).toHaveAttribute("data-armed", "true")
   }
 
   async function drag(page: Page, start: [number, number] = [60, 140], end: [number, number] = [300, 200], alt = true) {
@@ -212,11 +232,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
-      // The broker's value, read while the options are chosen.
-      await expect(page.getByTestId("baustein-value")).toHaveText(": OFF")
-      await expect(page.getByTestId("baustein-chosen")).toContainText("zigbee2mqtt/Kitchen plug#state")
-      await expect(page.getByTestId("baustein-chosen")).toContainText("zigbee2mqtt/Kitchen plug/set")
-      await page.getByTestId("baustein-insert").click()
       await drag(page)
 
       // A block of one part is a row (docs/2026-10-09-snap-tables.md, module
@@ -236,90 +251,98 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  // A sensor without unit, state class or measuring device class is text, as
-  // in Home Assistant (docs/2026-10-14-topic-discovery.md, ha-sensor-type;
-  // #71). Rajiva's «Service ID» was placed as a number and showed «60».
-  test("Rajiva's «Service ID»: a text beside its name, its topic typed text with the broker's value", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"], { "CamperServiceID/state": "CamperVan_BiberTest" })
-    try {
-      await openOnRoundDevice(page)
-      await pick(page, "Service ID")
-      await expect(page.getByTestId("baustein-value")).toHaveText(": CamperVan_BiberTest")
-      await page.getByTestId("baustein-insert").click()
-      await drag(page)
+  // Rajiva's state topic is the fixture's own, the same for each of these:
+  // one at a time, or the listener of one hears another's value
+  // (docs/2026-11-05-quick-blocks.md - the tile takes what was heard since
+  // the page loaded, not only while a dialog was open).
+  test.describe("Rajiva's «Service ID»", () => {
+    test.describe.configure({ mode: "serial" })
 
-      const [table] = (await savedScreen(page)).objects.filter(isSnapTable)
-      expect(byCell(table)).toEqual({ "0/0": "text", "0/1": "text" })
-      // The value is the second text's live value (docs/2026-10-07-live-values.md).
-      expect(JSON.stringify(table)).toContain('"path":"CamperServiceID/state"')
+    // A sensor without unit, state class or measuring device class is text, as
+    // in Home Assistant (docs/2026-10-14-topic-discovery.md, ha-sensor-type;
+    // #71). Rajiva's «Service ID» was placed as a number and showed «60».
+    test("Rajiva's «Service ID»: a text beside its name, its topic typed text with the broker's value", async ({ page }, testInfo) => {
+      const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"], { "CamperServiceID/state": "CamperVan_BiberTest" })
+      try {
+        await openOnRoundDevice(page)
+        await pick(page, "Service ID")
+        await drag(page)
 
-      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
-      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
-    } finally {
-      await clear()
-    }
+        const [table] = (await savedScreen(page)).objects.filter(isSnapTable)
+        expect(byCell(table)).toEqual({ "0/0": "text", "0/1": "text" })
+        // The value is the second text's live value (docs/2026-10-07-live-values.md).
+        expect(JSON.stringify(table)).toContain('"path":"CamperServiceID/state"')
+
+        const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+        expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
+      } finally {
+        await clear()
+      }
+    })
+
+    // Nothing on the broker: no example stored, and the editor draws the block
+    // as the device does before the first message - not «60» (#71,
+    // docs/2026-10-14-topic-discovery.md, no-made-up-values).
+    test("Rajiva's «Service ID» with nothing heard: no example, no value drawn", async ({ page }, testInfo) => {
+      const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
+      try {
+        await openOnRoundDevice(page)
+        await pick(page, "Service ID")
+        await drag(page)
+        const { canvas } = await getMainCanvas(page)
+        await canvas.screenshot({ path: testInfo.outputPath("nothing-heard.png") })
+        const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+        expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "" })
+      } finally {
+        await clear()
+      }
+    })
+
+    // A value published while the designer listens counts as well as a
+    // retained one (docs/2026-10-14-topic-discovery.md, no-made-up-values):
+    // Rajiva's state may well not be retained. The tile takes what the
+    // listener has heard (docs/2026-11-05-quick-blocks.md).
+    test("a value published live, not retained, before the tile is pressed becomes the example", async ({ page }, testInfo) => {
+      const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
+      const live = await connectBroker()
+      try {
+        await openOnRoundDevice(page)
+        // Sent until heard: when the listener has subscribed is not visible here.
+        await expect(async () => {
+          await new Promise<void>((resolve, reject) =>
+            live.publish("CamperServiceID/state", "CamperVan_BiberTest", { qos: 1, retain: false }, (err) => (err ? reject(err) : resolve())),
+          )
+          await page.waitForFunction(
+            () => !!(window as unknown as { __schaltliHeard?: { get(t: string): unknown } }).__schaltliHeard?.get("CamperServiceID/state"),
+            undefined,
+            { timeout: 500 },
+          )
+        }).toPass({ timeout: 10_000 })
+        await pick(page, "Service ID")
+        await drag(page)
+        const topics = await topicsInSettings(page, ["CamperServiceID/state"])
+        expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
+      } finally {
+        live.end(true)
+        await clear()
+      }
+    })
   })
 
-  // Nothing on the broker: no example stored, and the editor draws the block
-  // as the device does before the first message - not «60» (#71,
-  // docs/2026-10-14-topic-discovery.md, no-made-up-values).
-  test("Rajiva's «Service ID» with nothing heard: no example, no value drawn", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
-    try {
-      await openOnRoundDevice(page)
-      await pick(page, "Service ID")
-      await expect(page.getByTestId("baustein-value")).toHaveCount(0)
-      await page.getByTestId("baustein-insert").click()
-      await drag(page)
-      const { canvas } = await getMainCanvas(page)
-      await canvas.screenshot({ path: testInfo.outputPath("nothing-heard.png") })
-      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
-      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "" })
-    } finally {
-      await clear()
-    }
-  })
-
-  // A value published while the dialog is open counts as well as a retained
-  // one (docs/2026-10-14-topic-discovery.md, no-made-up-values): Rajiva's
-  // state may well not be retained.
-  test("a value published live while the dialog is open is shown and becomes the example", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"])
-    const live = await connectBroker()
-    try {
-      await openOnRoundDevice(page)
-      await pick(page, "Service ID")
-      await expect(page.getByTestId("baustein-value")).toHaveCount(0)
-      // Sent until heard: when the dialog has subscribed is not visible here.
-      await expect(async () => {
-        await new Promise<void>((resolve, reject) =>
-          live.publish("CamperServiceID/state", "CamperVan_BiberTest", { qos: 1, retain: false }, (err) => (err ? reject(err) : resolve())),
-        )
-        await expect(page.getByTestId("baustein-value")).toHaveText(": CamperVan_BiberTest", { timeout: 500 })
-      }).toPass({ timeout: 10_000 })
-      await page.getByTestId("baustein-insert").click()
-      await drag(page)
-      const topics = await topicsInSettings(page, ["CamperServiceID/state"])
-      expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
-    } finally {
-      live.end(true)
-      await clear()
-    }
-  })
-
-  test("the look chosen in the dialog is the one placed; a switch has no choice, it is buttons", async ({ page }, testInfo) => {
+  // No dialog (docs/2026-11-05-quick-blocks.md, decision 3): each part's
+  // first look; another by «Convert to» once placed.
+  test("a tile places its first look: a level a slider; a switch, which has no other, buttons", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
-      await pick(page, "Kitchen plug")
-      await expect(page.getByRole("radiogroup", { name: "Look" })).toHaveCount(0)
-      await page.keyboard.press("Escape")
       await pick(page, "Local temperature calibration")
-      await expect(page.getByTestId("baustein-look-slider")).toHaveAttribute("aria-checked", "true")
-      await page.getByTestId("baustein-look-dial").click()
-      await page.getByTestId("baustein-insert").click()
       await drag(page, [60, 100], [300, 320])
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="dial "]')).toHaveCount(1)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
+      await expect(page.locator('[data-object-id][title^="dial "]')).toHaveCount(0)
+      await page.keyboard.press("Escape")
+      await pick(page, "Kitchen plug")
+      await drag(page, [60, 300], [300, 380])
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
     } finally {
       await clear()
     }
@@ -354,10 +377,13 @@ test.describe("placing a catalog entry", () => {
     await page.mouse.move(p.x + 1, p.y + 1)
     await page.mouse.click(p.x + 1, p.y + 1)
   }
-  async function savedScreen(page: Page) {
+  async function savedProject(page: Page) {
     await page.getByRole("button", { name: "File" }).click()
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
-    return JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string")).screens[0]
+    return JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+  }
+  async function savedScreen(page: Page) {
+    return (await savedProject(page)).screens[0]
   }
   // The one table put together by snapping on the screen.
   const snapTableOf = async (page: Page) => (await savedScreen(page)).objects.find(isBlock)
@@ -385,7 +411,6 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       for (let i = 0; i < 3; i++) {
         await pick(page, "Kitchen plug")
-        await page.getByTestId("baustein-insert").click()
         if (i === 0) await clickAt(page, 180, 100)
         else await carryUnder(page, await snapTableOf(page))
       }
@@ -408,11 +433,9 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 70)
       const table = await snapTableOf(page)
       await pick(page, "Bedroom Fan")
-      await page.getByTestId("baustein-insert").click()
       // Placed freely (no Alt): a large card let go near the table would go
       // into it with Alt - what this guards is the open table left whole.
       await drag(page, [60, 140], [300, 320], false)
@@ -433,11 +456,9 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 70)
       const table = await snapTableOf(page)
       await pick(page, "Bedroom Fan")
-      await page.getByTestId("baustein-insert").click()
       const { box, canvas } = await getMainCanvas(page)
       const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
       const to = devicePoint(box, table.x + table.width / 2, table.y + table.height / 2, ROUND_FIXTURE_SCREEN)
@@ -474,13 +495,11 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Office light")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 110)
       const first = (await savedScreen(page)).objects.find(isBlockCard)
       expect(first).toBeTruthy()
       expect(JSON.stringify(first)).not.toContain("dockedOut")
       await pick(page, "Office light")
-      await page.getByTestId("baustein-insert").click()
       // Carried at its middle; let go with its top edge 3 px below the first.
       await drag(page, [180, 300], [first.x + first.width / 2, first.y + first.height + 3 + first.height / 2])
       const objects = (await savedScreen(page)).objects
@@ -503,7 +522,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page, await withTable(testInfo))
       await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 150, 60)
       const objects = (await savedScreen(page)).objects
       // Old tables dissolve on load (docs/2026-10-09-snap-tables.md, module
@@ -515,16 +533,18 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("Esc or Cancel on the options places nothing, and the tool stays unarmed", async ({ page }, testInfo) => {
+  test("Esc or the same tile again gives a pressed prebuilt up: nothing placed, the tool unarmed", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"])
     try {
       await openOnRoundDevice(page)
       const before = await page.locator("[data-object-id]").count()
+      const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Kitchen plug", exact: true })
       await pick(page, "Kitchen plug")
       await page.keyboard.press("Escape")
-      await expect(page.getByRole("dialog")).toHaveCount(0)
+      await expect(tile).not.toHaveAttribute("data-armed", /.+/)
       await pick(page, "Kitchen plug")
-      await page.getByRole("button", { name: "Cancel" }).click()
+      await tile.click()
+      await expect(tile).not.toHaveAttribute("data-armed", /.+/)
       await drag(page)
       await expect(page.locator("[data-object-id]")).toHaveCount(before)
     } finally {
@@ -532,20 +552,13 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("an entry with several parts: all of them placed, a look asked only where a part has more than one", async ({ page }, testInfo) => {
+  test("an entry with several parts: all of them placed, each in its first look", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
     try {
       await openOnRoundDevice(page)
+      // No parts to tick (decided 2026-10-01): what is not wanted is deleted
+      // on the screen. The speed a slider; switches and presets buttons.
       await pick(page, "Bedroom Fan")
-      // No parts to tick (decided 2026-10-01): what is not wanted is deleted on the screen.
-      await expect(page.getByRole("checkbox")).toHaveCount(0)
-      // A look only for the speed, slider or dial; switches and presets are buttons.
-      await expect(page.locator('[data-testid^="baustein-part-"][data-testid$="-look-slider"]')).toHaveCount(1)
-      await expect(page.getByTestId("baustein-part-2-look-slider")).toHaveAttribute("aria-checked", "true")
-      // Every part's topics.
-      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/on/set")
-      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       // A card (docs/2026-11-03-card-blocks.md): the name docked at the top,
@@ -569,8 +582,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Markise")
-      await expect(page.getByTestId("baustein-chosen")).toContainText("van/markise/pos/set")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -595,7 +606,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Grauwasser ablassen")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -618,7 +628,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "BT: Interval between scans")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       await page.getByRole("button", { name: "File" }).click()
@@ -651,7 +660,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Boiler")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -677,7 +685,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Zentralverriegelung")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -696,7 +703,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Remote LCD screen")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -712,7 +718,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Scheduled task")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -728,7 +733,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Alarm Panel With Numeric Keypad")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       await page.getByRole("button", { name: "File" }).click()
@@ -756,7 +760,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Party Scene")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -774,7 +777,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Entfeuchter")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -799,7 +801,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Intrusion siren")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -824,7 +825,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Display-Firmware")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -846,7 +846,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Doorbell")
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -874,15 +873,13 @@ test.describe("placing a catalog entry", () => {
     }, blocksPrefix)
     try {
       await openOnRoundDevice(page)
-      await page.getByRole("button", { name: "Block", exact: true }).click()
+      await page.getByRole("tab", { name: "Prebuilt" }).click()
       const pump = page.locator('[data-testid="block-catalog-device"][data-device="Garden pump"]')
-      await expect(pump.getByRole("menuitem", { name: "Garden pump", exact: true })).toBeEnabled()
+      await expect(pump.getByRole("button", { name: "Garden pump", exact: true })).toBeEnabled()
       // The Home Assistant switch it covers is not listed.
-      await expect(pump.getByRole("menuitem")).toHaveCount(1)
-      await pump.getByRole("menuitem", { name: "Garden pump", exact: true }).click()
-      await expect(page.getByRole("dialog")).toContainText("Insert Garden pump")
-      await expect(page.getByTestId("baustein-chosen")).toContainText("garden/pump/runtime/set")
-      await page.getByTestId("baustein-insert").click()
+      await expect(pump.getByRole("button")).toHaveCount(1)
+      await pump.getByRole("button", { name: "Garden pump", exact: true }).click()
+      await expect(pump.getByRole("button", { name: "Garden pump", exact: true })).toHaveAttribute("data-armed", "true")
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
@@ -900,9 +897,10 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  // docs/2026-10-05-autoterm-block.md: a description's sections, one
-  // checkbox each, all ticked; a part without a section always comes.
-  test("a description's sections: a checkbox each, all ticked; one unticked leaves its parts out", async ({ page }, testInfo) => {
+  // docs/2026-10-05-autoterm-block.md: a description's sections. No dialog
+  // to untick one any more (docs/2026-11-05-quick-blocks.md, decision 3):
+  // every section comes, and what is not wanted is deleted on the screen.
+  test("a description's sections: every one placed, in the description's order", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, [])
     const blocksPrefix = `e2e-blocks-${testInfo.testId}`
     const topic = `${blocksPrefix}/stove/config`
@@ -931,24 +929,19 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Stove")
-      const state = page.getByTestId("baustein-section-State").getByRole("checkbox")
-      const supply = page.getByTestId("baustein-section-Supply").getByRole("checkbox")
-      await expect(state).toBeChecked()
-      await expect(supply).toBeChecked()
-      await supply.uncheck()
-      await expect(supply).not.toBeChecked()
-      await page.getByTestId("baustein-insert").click()
       await clickAt(page, 180, 180)
 
       const rows = partsOf((await savedScreen(page)).objects.find(isBlock))
       expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, asPlaceholders(c)])).toEqual([
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],
+        ["text", "Voltage {topic:stove/volt} V"],
+        ["text", "Current {topic:stove/amps} A"],
         ["button", "Reset"],
       ])
       // A button the description sizes XS comes in XS, not M.
-      expect(rows[2]).toMatchObject({ type: "button", properties: { text: "Reset", sizeStep: "xs" } })
-      expect(rows[2].properties.blockSizeStep).toBeUndefined()
+      expect(rows[4]).toMatchObject({ type: "button", properties: { text: "Reset", sizeStep: "xs" } })
+      expect(rows[4].properties.blockSizeStep).toBeUndefined()
       // Set small: in Standard (the old Caption), not XL.
       expect(rows[1].properties.textStyle).toBe("standard")
       expect(rows[1].properties.blockTextStyle).toBeUndefined()
@@ -992,7 +985,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Theme")
-      await page.getByTestId("baustein-insert").click()
       await drag(page)
       const screen = await savedScreen(page)
       const flat = (list: any[]): any[] => list.flatMap((o) => [o, ...flat(o.children ?? [])])
@@ -1021,8 +1013,6 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       const place = async () => {
         await pick(page, "Local temperature calibration")
-        await page.getByRole("button", { name: "None", exact: true }).click()
-        await page.getByTestId("baustein-insert").click()
       }
       await place()
       await drag(page)
@@ -1047,19 +1037,22 @@ test.describe("placing a catalog entry", () => {
   // and slider in the columns of their kind - and one without an icon
   // leaves the icon cell empty.
   test("blocks with an icon, one under the other: a row each, icon, name and slider in their columns; one without an icon leaves its cell empty", async ({ page }, testInfo) => {
+    // The calibration names its icon; a twin of it names none, and a search
+    // on its name finds none - it comes without one.
+    await mockIconServices(page, {})
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
+    const twin = fixtureOf("z2m-number-calibration")
+    const { icon: _icon, ...bare } = twin.payload as Record<string, unknown>
+    const twinTopic = `e2e-place-${testInfo.testId}/number/0x0c4314fffe617c7a/offset_twin/config`
+    const client = await connectBroker()
+    await publish(client, twinTopic, JSON.stringify({ ...bare, name: "Offset twin", object_id: "offset_twin", unique_id: "offset_twin_e2e" }))
     try {
       await openOnRoundDevice(page)
-      const place = async (icon: boolean) => {
-        await pick(page, "Local temperature calibration")
-        if (!icon) await page.getByRole("button", { name: "None", exact: true }).click()
-        await page.getByTestId("baustein-insert").click()
-      }
-      await place(true)
+      await pick(page, "Local temperature calibration")
       await drag(page)
-      await place(true)
+      await pick(page, "Local temperature calibration")
       await carryUnder(page, await snapTableOf(page))
-      await place(false)
+      await pick(page, "Offset twin")
       await carryUnder(page, await snapTableOf(page))
       expect(byCell(await snapTableOf(page))).toEqual({
         "0/0": "icon",
@@ -1072,14 +1065,17 @@ test.describe("placing a catalog entry", () => {
         "2/2": "slider",
       })
     } finally {
+      await publish(client, twinTopic, "")
+      client.end(true)
       await clear()
     }
   })
 
   // Reported 2026-10-03 on the 4.3B: of two Restart blocks the second had
   // no icon, so its button was narrower - Insert was clicked while the icon
-  // was still being looked for, and the block went without it.
-  test("Insert clicked while the icon is still being looked for waits for it", async ({ page }, testInfo) => {
+  // was still being looked for, and the block went without it. The tile
+  // waits for it the same way (docs/2026-11-05-quick-blocks.md).
+  test("a tile pressed while its icon is still being looked for waits for it", async ({ page }, testInfo) => {
     let release: () => void = () => {}
     const held = new Promise<void>((resolve) => (release = resolve))
     await page.route("https://api.iconify.design/search**", async (route) => {
@@ -1089,12 +1085,14 @@ test.describe("placing a catalog entry", () => {
     const clear = await onBroker(page, testInfo.testId, ["esphome-button-restart"])
     try {
       await openOnRoundDevice(page)
-      await pick(page, "Restart")
-      await page.getByTestId("baustein-insert").click()
-      // Still looking: the dialog waits, and says so.
-      await expect(page.getByTestId("baustein-insert")).toHaveText("Waiting for icon…")
+      await page.getByRole("tab", { name: "Prebuilt" }).click()
+      const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Restart", exact: true })
+      await tile.click()
+      // Still looking: not in hand yet.
+      await page.waitForTimeout(500)
+      await expect(tile).not.toHaveAttribute("data-armed", /.+/)
       release()
-      await expect(page.getByRole("dialog")).toHaveCount(0)
+      await expect(tile).toHaveAttribute("data-armed", "true")
       await drag(page)
       const button = (await savedScreen(page)).objects
         .flatMap((o: { type: string; children?: unknown[] }) => (o.type === "table" ? (o.children as { type: string; properties: { iconAssetId?: string | null } }[]) : [o]))
@@ -1105,32 +1103,26 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("the config's own icon is suggested; None places it without", async ({ page }, testInfo) => {
+  test("the config's own icon comes with the block, in the project once", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
       await pick(page, "Local temperature calibration")
-      await expect(page.getByTestId("baustein-icon")).toContainText("mdi:math-compass")
-      await page.getByRole("button", { name: "None", exact: true }).click()
-      await expect(page.getByTestId("baustein-icon-status")).toHaveText("No icon")
-      await page.getByTestId("baustein-insert").click()
       await drag(page)
-      const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(2)
-      await expect(page.locator('[data-object-id][title^="icon "]')).toHaveCount(0)
+      await expect(page.locator('[data-object-id][title^="icon "]')).toHaveCount(1)
+      const assets = (await savedProject(page)).assets.filter((a: { name: string }) => a.name === "mdi:math-compass")
+      expect(assets).toHaveLength(1)
     } finally {
       await clear()
     }
   })
 
-  test("without the icon service the dialog says so, and the block is placed without one", async ({ page }, testInfo) => {
+  test("without the icon service the block is placed without one", async ({ page }, testInfo) => {
     await mockIconServices(page, {}, { failing: true })
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"])
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
-      await expect(page.getByTestId("baustein-icon-status")).toHaveText("No icon: the icon service did not answer.")
-      await page.getByTestId("baustein-insert").click()
       await drag(page)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"]')).toHaveCount(2)
     } finally {
@@ -1152,7 +1144,6 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page, own)
       await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
       await drag(page)
       const topics = await topicsInSettings(page, ["zigbee2mqtt/Kitchen plug", "zigbee2mqtt/Kitchen plug/set"])
       expect(topics["zigbee2mqtt/Kitchen plug/set"]).toEqual({ type: "text", examples: "mine" })
@@ -1634,12 +1625,15 @@ test.describe("the Block menu's catalog", () => {
       for (const [topic, payload] of configs) await publish(client, topic, JSON.stringify(payload))
       await useBroker(page, BROKER_URL, prefix)
       await loadProject(page, COMBINED_TEST_PROJECT)
-      await page.getByRole("button", { name: "Block", exact: true }).click()
+      await page.getByRole("tab", { name: "Prebuilt" }).click()
 
       const plug = page.locator('[data-testid="block-catalog-device"][data-device="Kitchen plug"]')
-      await expect(plug.getByRole("menuitem", { name: "Kitchen plug" })).toBeEnabled()
+      // Listed, but greyed: this project's e-paper draws no switch and no
+      // buttons (docs/2026-11-05-quick-blocks.md, the Prebuilt tab).
+      await expect(plug.locator('[data-entry-id="switch 0xa4c138d2c1e0e5f1 switch"]')).toHaveAttribute("aria-disabled", "true")
+      await expect(plug).toContainText("Not rendered by the loaded device's firmware")
       const sensors = page.locator('[data-testid="block-catalog-device"][data-device="van-sensors"]')
-      await expect(sensors.getByRole("menuitem", { name: "Cabin temperature" })).toBeEnabled()
+      await expect(sensors.getByRole("button", { name: "Cabin temperature" })).toBeEnabled()
       const interval = sensors.locator('[data-entry-id="sensor van-sensors interval"]')
       await expect(interval).toHaveAttribute("aria-disabled", "true")
       await expect(interval).toContainText("Not supported: the value template: arithmetic (/ 1000)")
@@ -1652,15 +1646,15 @@ test.describe("the Block menu's catalog", () => {
   test("says so when nothing announces itself under the prefix", async ({ page }, testInfo) => {
     await useBroker(page, BROKER_URL, `e2e-catalog-empty-${testInfo.testId}`)
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await page.getByRole("tab", { name: "Prebuilt" }).click()
     // An empty prefix is given up on after the 5 s a broker gets to answer.
     await expect(page.getByTestId("block-catalog-status")).toContainText("Nothing announces itself under e2e-catalog-empty-", { timeout: 10_000 })
   })
 
-  test("without a broker the menu says so and offers nothing from it", async ({ page }) => {
+  test("without a broker the Prebuilt tab says so and offers nothing from it", async ({ page }) => {
     await useBroker(page, "ws://localhost:1", "homeassistant")
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await page.getByRole("tab", { name: "Prebuilt" }).click()
     await expect(page.getByTestId("block-catalog-status")).toContainText("No broker at ws://localhost:1", { timeout: 10_000 })
     await expect(page.locator('[data-testid="block-catalog-device"]')).toHaveCount(0)
   })

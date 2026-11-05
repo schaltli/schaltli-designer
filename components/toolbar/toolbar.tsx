@@ -14,9 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
+import { BlockTiles } from "@/components/toolbar/block-tiles"
 import type { CatalogEntry } from "@/lib/ha-discovery"
-import { MousePointer2, Blocks, Rows3, SquareStack } from "lucide-react"
+import { MousePointer2, Rows3, SquareStack } from "lucide-react"
 import { ROW_TEMPLATES, type RowTemplate } from "@/lib/snap-table"
 import { objectTypeLabel } from "@/lib/object-types"
 import { isLayoutOnlyType } from "@/lib/layout"
@@ -35,6 +35,9 @@ type ToolType =
   | "row"
   // Not a type either: a free area with the look Card (docs/2026-11-03-card.md).
   | "card"
+
+type RibbonTab = "parts" | "prebuilt"
+const RIBBON_TAB_KEY = "schaltli.ribbonTab"
 
 // The row templates, as the menu names them.
 const ROW_TEMPLATE_LABELS: Record<RowTemplate, string> = {
@@ -61,10 +64,12 @@ interface ToolbarProps {
   // looks active, so a state it does not own simply matches nothing.
   activeTool: ToolType | "background"
   onToolChange: (tool: ToolType) => void
-  // A catalog entry picked in the Block menu: its options come next, then
-  // the Block tool places it. Separate from onToolChange because the tool
+  // A catalog entry's tile pressed on the Prebuilt tab: the Block tool takes
+  // it with its defaults and carries it (docs/2026-11-05-quick-blocks.md). Separate from onToolChange because the tool
   // needs to know which entry.
   onCatalogEntrySelect?: (entry: CatalogEntry) => void
+  // The entry the Block tool holds, its tile shown pressed as a tool's is.
+  armedEntryId?: string
   // A row template picked in the Row menu, which arms the Row tool.
   onRowTemplateSelect?: (template: RowTemplate) => void
   // A tool's tile pressed: carried onto the screen with the button held, its
@@ -89,6 +94,7 @@ export function Toolbar({
   activeTool,
   onToolChange,
   onCatalogEntrySelect,
+  armedEntryId,
   onRowTemplateSelect,
   onToolPress,
   supportsSoftwareButtons = false,
@@ -96,12 +102,30 @@ export function Toolbar({
   navigatorPlaceable = false,
   orientation = "vertical",
 }: ToolbarProps) {
-  // The catalog is read while the Block menu is open, afresh each time.
-  const [blockMenuOpen, setBlockMenuOpen] = useState(false)
+  // The ribbon's two tabs (docs/2026-11-05-quick-blocks.md, decision 1):
+  // the parts one by one, and the prebuilt assemblies the broker's devices
+  // announce. The one last open is remembered per browser, read after the
+  // first render so the server's and the browser's agree.
+  const [tab, setTab] = useState<RibbonTab>("parts")
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(RIBBON_TAB_KEY) === "prebuilt") setTab("prebuilt")
+    } catch {
+      // No storage: Parts, as the first time.
+    }
+  }, [])
+  const showTab = (next: RibbonTab) => {
+    setTab(next)
+    try {
+      window.localStorage.setItem(RIBBON_TAB_KEY, next)
+    } catch {
+      // Not remembered, still shown.
+    }
+  }
   // «Listen to Broker» points here when devices announce themselves
   // (docs/2026-10-14-topic-discovery.md, decision 8).
   useEffect(() => {
-    const open = () => setBlockMenuOpen(true)
+    const open = () => showTab("prebuilt")
     window.addEventListener(OPEN_BLOCK_MENU_EVENT, open)
     return () => window.removeEventListener(OPEN_BLOCK_MENU_EVENT, open)
   }, [])
@@ -201,43 +225,6 @@ export function Toolbar({
   const toolGroups = groups
     .map((group) => ({ ...group, tools: group.tools.filter(offered) }))
     .filter((group) => group.tools.length > 0)
-
-  // One button, one menu: the blocks are data (lib/bausteine.ts), and a block
-  // whose object types this device does not render is shown disabled for the
-  // same reason a tool is - placing it would draw nothing on the panel.
-  const renderBausteinButton = () => {
-    const isActive = activeTool === "baustein"
-    return (
-      <DropdownMenu key="baustein" open={blockMenuOpen} onOpenChange={setBlockMenuOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant={isActive ? "default" : "ghost"}
-                size="sm"
-                className={cn(isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0")}
-              >
-                <Blocks className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
-                {isHorizontal && <span className="text-[10px] leading-tight text-center whitespace-nowrap">Block</span>}
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side={tooltipSide}>
-            <div className="text-sm">
-              <div className="font-medium">Insert a building block</div>
-              <div className="text-muted-foreground text-xs">
-                A ready-made control, bound to a real value of this installation
-              </div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto">
-          {/* What the broker's devices announce (Home Assistant discovery). */}
-          <BlockCatalogMenu open={blockMenuOpen} onSelect={onCatalogEntrySelect} />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  }
 
   // Whether the tile pressed last held its tool already: a second click on
   // a tool in hand gives it up (docs/2026-11-05-quick-blocks.md, decision 7)
@@ -356,32 +343,50 @@ export function Toolbar({
   return (
     <TooltipProvider>
       {isHorizontal ? (
-        <div className="flex flex-row items-stretch gap-1 p-2">
-          {toolGroups.map((group, index) => (
-            <div
-              key={group.label}
-              className={cn(
-                "flex flex-col items-center justify-between px-2",
-                index > 0 && "border-l border-border ml-1 pl-3",
-              )}
-            >
-              <div className="flex items-stretch gap-1">
-                {group.tools.map(renderToolButton)}
-                {group.label === "Tables" && onRowTemplateSelect && renderRowButton()}
+        <div className="flex flex-col">
+          <div role="tablist" aria-label="Ribbon" className="flex gap-1 px-2 pt-1">
+            {(["parts", "prebuilt"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                data-testid={`ribbon-tab-${t}`}
+                onClick={() => showTab(t)}
+                className={cn(
+                  "rounded-md px-2.5 py-0.5 text-xs",
+                  tab === t ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t === "parts" ? "Parts" : "Prebuilt"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-row items-stretch gap-1 px-2 pb-1 pt-1 min-h-[5.25rem]">
+            {tab === "prebuilt" ? (
+              <BlockTiles active onSelect={onCatalogEntrySelect} armedEntryId={armedEntryId} supportedObjectTypes={supportedObjectTypes} />
+            ) : (
+            toolGroups.map((group, index) => (
+              <div
+                key={group.label}
+                className={cn(
+                  "flex flex-col items-center justify-between px-2",
+                  index > 0 && "border-l border-border ml-1 pl-3",
+                )}
+              >
+                <div className="flex items-stretch gap-1">
+                  {group.tools.map(renderToolButton)}
+                  {group.label === "Tables" && onRowTemplateSelect && renderRowButton()}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{group.label}</div>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{group.label}</div>
-            </div>
-          ))}
-          <div className="flex flex-col items-center justify-between px-2 border-l border-border ml-1 pl-3">
-            <div className="flex items-stretch gap-1">{renderBausteinButton()}</div>
-            <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">Blocks</div>
+            ))
+            )}
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-1 p-2">
           {toolGroups.flatMap((group) => group.tools).map(renderToolButton)}
           {onRowTemplateSelect && renderRowButton()}
-          {renderBausteinButton()}
         </div>
       )}
     </TooltipProvider>

@@ -1,20 +1,21 @@
 "use client"
 
-// The Block menu's catalog (block plan Task 6b, docs/2026-09-30-block-
-// discovery.md): what the broker's retained Home Assistant discovery configs
-// announce, read each time the menu opens; and, once an entry is picked, the
-// values it reads, so the placed block shows them as they are. Neither
-// publishes anything - no birth message, no homeassistant/status.
+// The Prebuilt tab's catalog (block plan Task 6b, docs/2026-09-30-block-
+// discovery.md, docs/2026-11-05-quick-blocks.md): what the broker's Home
+// Assistant discovery configs and block descriptions announce - from what
+// the background listener hears, or read once where it does not listen.
+// Publishes nothing - no birth message, no homeassistant/status.
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type mqtt from "mqtt"
-import { storedBlocksPrefix, storedDiscoveryPrefix, useMqttConnection } from "@/hooks/use-mqtt-connection"
+import { currentBrokerUrl, storedBlocksPrefix, storedDiscoveryPrefix, useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { readCatalog, type Catalog } from "@/lib/ha-discovery"
+import { useHeardTopics, useListening, type HeardSnapshot } from "@/lib/broker-store"
+import type { HeardTopic } from "@/lib/heard-topic"
 
 // Retained messages arrive in one burst, when depends on the broker: the
-// burst is over once it has gone quiet this long - the block dialog's own
-// rule (components/baustein-dialog.tsx) - and a broker that holds nothing is
-// given up on after the second.
+// burst is over once it has gone quiet this long, and a broker that holds
+// nothing is given up on after the second.
 const SETTLE_QUIET_MS = 300
 const SETTLE_MAX_MS = 5000
 
@@ -23,6 +24,58 @@ export type BlockCatalog =
   | { status: "offline"; broker: string; prefix: string }
   | { status: "empty"; broker: string; prefix: string }
   | { status: "found"; broker: string; prefix: string; catalog: Catalog }
+
+/**
+ * The catalog for the Prebuilt tab (docs/2026-11-05-quick-blocks.md,
+ * decision 4): while the designer listens, from what its listener has heard
+ * - no connection of its own, at once, and a device announcing itself or
+ * taking its announcement back (an empty retained config) shows in the open
+ * tab; while it does not, read once when the tab opens, as before, and again
+ * on `refresh`. `live` says which.
+ */
+export function usePrebuiltCatalog(active: boolean): BlockCatalog & { live: boolean; refresh: () => void } {
+  const [listening] = useListening()
+  const heard = useHeardTopics()
+  const [round, setRound] = useState(0)
+  const live = useConfigsCatalog(listening && active ? heard : null)
+  const once = useBlockCatalog(active && !listening, round)
+  const refresh = () => setRound((r) => r + 1)
+  return { ...(listening && live ? live : once), live: listening, refresh }
+}
+
+/**
+ * The catalog of the config messages in `heard`, worked out again only when
+ * one of them changed - the snapshot is new every quarter second the broker
+ * is busy, the configs seldom.
+ */
+function useConfigsCatalog(heard: HeardSnapshot | null): BlockCatalog | null {
+  const configsRef = useRef<HeardTopic[]>([])
+  const configs = useMemo(() => {
+    if (!heard) return configsRef.current
+    const prefix = storedDiscoveryPrefix()
+    const blocksPrefix = storedBlocksPrefix()
+    const now = [...heard.topics.values()].filter(
+      (t) => t.topic.endsWith("/config") && (t.topic.startsWith(`${prefix}/`) || t.topic.startsWith(`${blocksPrefix}/`)),
+    )
+    const prev = configsRef.current
+    if (now.length === prev.length && now.every((t, i) => t === prev[i])) return prev
+    configsRef.current = now
+    return now
+  }, [heard])
+  const catalog = useMemo(() => {
+    const messages: Record<string, string> = {}
+    // The latest message counts: an empty one is an announcement taken back.
+    for (const t of configs) messages[t.topic] = t.messages[0]?.payload ?? ""
+    return readCatalog(messages, storedDiscoveryPrefix(), storedBlocksPrefix())
+  }, [configs])
+  if (!heard) return null
+  // The broker as stored now: the listener asks that one on each try.
+  const broker = currentBrokerUrl()
+  const prefix = storedDiscoveryPrefix()
+  if (heard.state === "connecting" || heard.state === "off") return { status: "looking", broker, prefix }
+  if (heard.state === "no broker") return { status: "offline", broker, prefix }
+  return catalog.entries.length + catalog.unsupported.length > 0 ? { status: "found", broker, prefix, catalog } : { status: "empty", broker, prefix }
+}
 
 /** The retained messages on `filters`, once their burst has settled. */
 function collectRetained(client: mqtt.MqttClient, filters: string[], cancelled: () => boolean): Promise<Record<string, string>> {
@@ -56,7 +109,7 @@ function collectRetained(client: mqtt.MqttClient, filters: string[], cancelled: 
  * configs have settled, then what it found - or that there is no broker, or
  * nothing under the prefix.
  */
-export function useBlockCatalog(open: boolean): BlockCatalog {
+export function useBlockCatalog(open: boolean, round = 0): BlockCatalog {
   const { config, connect, disconnect } = useMqttConnection("schaltli-catalog")
   const [state, setState] = useState<BlockCatalog>(() => ({ status: "looking", broker: config.websocketUrl, prefix: storedDiscoveryPrefix() }))
   const generationRef = useRef(0)
@@ -103,53 +156,7 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
       disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, round])
 
   return state
-}
-
-/**
- * What the broker reports on `topics`, as raw payloads by topic: heard while
- * the options of a picked entry are being chosen, for the placed block's
- * examples and for the dialog to show the entry is live. A retained message
- * and one published while the dialog is open count alike, the latest wins
- * (docs/2026-10-14-topic-discovery.md, no-made-up-values: until 2026-10-14
- * only retained ones, and a state nobody retained was placed with a made-up
- * example). Empty where nothing was heard. Not read by the menu, which
- * closes - and so would stop listening - the moment an entry is picked.
- */
-export function useHeardValues(topics: string[] | null): Record<string, string> {
-  const { connect, disconnect } = useMqttConnection("schaltli-values")
-  const [values, setValues] = useState<Record<string, string>>({})
-  const key = topics ? topics.join("\n") : null
-
-  useEffect(() => {
-    setValues({})
-    if (!topics || topics.length === 0) return
-    let current = true
-    let client: mqtt.MqttClient | null = null
-    connect({ clientId: `schaltli-values-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
-      .then((c) => {
-        if (!current) {
-          c.end(true)
-          return
-        }
-        client = c
-        c.on("message", (topic, payload) => {
-          if (current && topics.includes(topic)) setValues((prev) => ({ ...prev, [topic]: payload.toString() }))
-        })
-        c.subscribe(topics)
-      })
-      .catch(() => {
-        // No broker: no values, and the block is placed without examples.
-      })
-    return () => {
-      current = false
-      client?.end(true)
-      disconnect()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-
-  return values
 }

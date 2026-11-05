@@ -37,7 +37,7 @@ Der Designer läuft danach auf Port 3000. Einen anderen Port wählst du mit der 
 
 ## Was anders ist als auf Pekaway
 
-Die [Baugruppen](/designer/baugruppen) im Designer listen, was Geräte auf dem Broker im Discovery-Format von Home Assistant ankündigen, etwa Zigbee2MQTT oder ESPHome. Ohne solche Geräte bleibt das Block-Menü leer, und du setzt die Objekte von Hand.
+Die [Baugruppen](/designer/baugruppen) im Designer listen, was Geräte auf dem Broker im Discovery-Format von Home Assistant ankündigen, etwa Zigbee2MQTT oder ESPHome. Ohne solche Geräte bleibt der Reiter <span class="ui">Prebuilt</span> leer, und du setzt die Objekte von Hand.
 
 Die Geräte laden Projekte und Firmware direkt vom Designer herunter, über seine Adresse im lokalen Netz. Der Designer sucht sich dafür selbst eine private IPv4-Adresse aus und lässt VPN-Schnittstellen wie Tailscale oder WireGuard weg. Hat der Rechner mehrere Netzwerkanschlüsse, achte darauf, dass die Geräte ihn im WLAN erreichen.
 

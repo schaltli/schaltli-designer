@@ -17,7 +17,9 @@ Unter dem Gerät steht ein roter Schalter mit <span class="ui">Preview</span> un
 
 ## Werkzeugleiste
 
-Die Werkzeuge sind in Gruppen geordnet:
+Über der Werkzeugleiste stehen zwei Reiter: <span class="ui">Parts</span> mit den einzelnen Werkzeugen und <span class="ui">Prebuilt</span> mit den fertigen [Baugruppen](/designer/baugruppen), die die Geräte auf deinem Broker ankündigen. Der Designer merkt sich, welcher zuletzt offen war.
+
+Unter <span class="ui">Parts</span> sind die Werkzeuge in Gruppen geordnet:
 
 | Gruppe | Werkzeuge | wofür |
 |---|---|---|
@@ -27,9 +29,8 @@ Die Werkzeuge sind in Gruppen geordnet:
 | <span class="ui">Draw</span> | <span class="ui">Line</span>, <span class="ui">Live Line</span>, <span class="ui">Box</span> | Linien und Flächen |
 | <span class="ui">Arrange</span> | <span class="ui">Switcher</span> | Bereiche umschalten |
 | <span class="ui">Tables</span> | <span class="ui">Free</span>, <span class="ui">Row</span> | eine freie Fläche; mehrere Objekte als eine [Zeile](/objekte/anordnen#zusammenstecken) |
-| <span class="ui">Blocks</span> | <span class="ui">Block</span> | fertige [Baugruppen](/designer/baugruppen) |
 
-Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Hast du ein Werkzeug gewählt, sagt ein Hinweis oben auf der Zeichenfläche, wie du das Objekt setzt; <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. <span class="ui">Free</span> gibt es immer, weil das Gerät keine freie Fläche sieht, nur was darin steht.
+Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Wie du ein Objekt aus der Werkzeugleiste auf den Screen bringst, steht unter [Ein Objekt setzen](/designer/objekte#ein-objekt-setzen); <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. <span class="ui">Free</span> gibt es immer, weil das Gerät keine freie Fläche sieht, nur was darin steht.
 
 Ein Werkzeug für Tabellen gibt es nicht: Eine Tabelle entsteht, sobald du zwei Objekte zusammensteckst, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken).
 

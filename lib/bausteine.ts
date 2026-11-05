@@ -650,6 +650,38 @@ function catalogLabelPosition(look: string): LabelPosition {
   return look === "bar" || look === "gauge" || look === "slider" || look === "dial" ? "above" : "left"
 }
 
+/**
+ * Whether the device draws every part of `entry` in at least one of its
+ * looks: a prebuilt it cannot is a greyed tile on the Prebuilt tab, as a tool
+ * is (docs/2026-11-05-quick-blocks.md). `types` undefined, no device loaded.
+ */
+export function entryRendered(entry: CatalogEntry, types?: string[]): boolean {
+  return entry.controls.every((control) => catalogLooks(control).some((look) => lookSupported(look, types)))
+}
+
+/**
+ * The options a prebuilt is placed with, asked of nobody
+ * (docs/2026-11-05-quick-blocks.md, decision 3): its name as the label, each
+ * part's first look the device draws - the first of all where it draws none -
+ * every part and so every section, and the icons given. Changed afterwards
+ * by «Convert to», not before.
+ */
+export function defaultOptions(
+  entry: CatalogEntry,
+  types?: string[],
+  icons: { icon: BlockIcon | null; stateIcons?: Record<string, BlockIcon> } = { icon: null },
+): BausteinOptions {
+  const lookOf = (control: CatalogControl) => (catalogLooks(control).find((l) => lookSupported(l, types)) ?? catalogLooks(control)[0]).id
+  const stateIcons = icons.stateIcons && Object.keys(icons.stateIcons).length > 0 ? icons.stateIcons : undefined
+  return {
+    label: entry.label,
+    look: lookOf(entry.controls[0]),
+    icon: icons.icon,
+    ...(entry.controls.length > 1 ? { parts: entry.controls.map((control, i) => ({ control: i, look: lookOf(control) })) } : {}),
+    ...(stateIcons ? { stateIcons } : {}),
+  }
+}
+
 export interface CatalogBuildInput {
   entry: CatalogEntry
   control: CatalogControl

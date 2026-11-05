@@ -19,9 +19,9 @@ import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeh
 import { pressedMessage, usesButtonValues } from "@/lib/button-values"
 import type { PlaceholderScope } from "@/lib/placeholders"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
-import { BausteinDialog } from "./baustein-dialog"
-import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
-import type { CatalogEntry } from "@/lib/ha-discovery"
+import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, defaultOptions, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
+import { readTopicsOf, type CatalogEntry } from "@/lib/ha-discovery"
+import { entryIcons, entryIconsNow } from "@/lib/prebuilt-icons"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -127,7 +127,7 @@ import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import { BrokerListener } from "@/components/broker-listener"
 import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-context"
-import { useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
+import { brokerStore, useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 import { fittedBlockCard } from "@/lib/block-card"
@@ -653,6 +653,11 @@ export interface ColorRecoloration {
   newColor: string
 }
 
+// How long a pressed prebuilt waits for icons still on their way before it
+// comes without them (docs/2026-11-05-quick-blocks.md): they were asked for
+// when the Prebuilt tab showed the tile, so this is the rare case.
+const PREBUILT_ICON_WAIT_MS = 4000
+
 // How late a value only screens out of view read reaches liveValues - the
 // list of topic values beside the preview, and those screens once shown,
 // which take in everything at once anyway (#58).
@@ -1074,11 +1079,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setRowTemplate(template)
     setActiveTool("row")
   }, [])
-  // The building-block tool (lib/bausteine.ts): the catalog entry picked in
-  // the Block menu while its options are being chosen; then, once Insert is
-  // pressed, armed with them and the values its topics hold - the rectangle
-  // dragged next places it. Both null: no block in flight.
-  const [blockChoice, setBlockChoice] = useState<CatalogEntry | null>(null)
+  // The building-block tool (lib/bausteine.ts): armed with the catalog entry
+  // whose tile on the Prebuilt tab was pressed, its default options and the
+  // values its topics hold; carried and let go, it places it. Null: no
+  // block in flight.
   const [armedBlock, setArmedBlock] = useState<{
     entry: CatalogEntry
     values: Record<string, string>
@@ -2289,20 +2293,40 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId],
   )
 
-  // A catalog entry picked in the Block menu: its options come first.
-  const selectCatalogEntry = useCallback((entry: CatalogEntry) => {
-    setBlockChoice(entry)
-  }, [])
-
-  // Insert: the Block tool is armed with the entry and its options.
-  const armBlock = useCallback(
-    (options: BausteinOptions, values: Record<string, string>) => {
-      if (!blockChoice) return
-      setArmedBlock({ entry: blockChoice, values, options })
-      setBlockChoice(null)
-      setActiveTool("baustein")
+  // A tile pressed on the Prebuilt tab (docs/2026-11-05-quick-blocks.md,
+  // decisions 3 and 7): no options asked - the Block tool armed with the
+  // entry's defaults and what the listener has heard on its topics, carried
+  // onto the screen with the button held or hanging at the pointer after a
+  // click, like a tool's object. The same tile again while it is in hand
+  // gives it up. Its icons were fetched when the tab showed it; still on
+  // their way, it waits for them a moment, as Insert did.
+  const pressGenerationRef = useRef(0)
+  const pressPrebuilt = useCallback(
+    (entry: CatalogEntry) => {
+      const press = ++pressGenerationRef.current
+      if (activeTool === "baustein" && armedBlock?.entry.id === entry.id) {
+        setArmedBlock(null)
+        setActiveTool("select")
+        return
+      }
+      const values: Record<string, string> = {}
+      for (const topic of readTopicsOf([entry])) {
+        const heard = brokerStore.get(topic)?.messages[0]
+        if (heard) values[topic] = heard.payload
+      }
+      const types = project.settings.supportedObjectTypes
+      const arm = (icons: { icon: BausteinOptions["icon"]; stateIcons?: Record<string, NonNullable<BausteinOptions["icon"]>> }) => {
+        if (press !== pressGenerationRef.current) return
+        setArmedBlock({ entry, values, options: defaultOptions(entry, types, icons) })
+        setActiveTool("baustein")
+        setRibbonPress(true)
+      }
+      const now = entryIconsNow(entry)
+      if (now) return arm(now)
+      const late = new Promise<null>((resolve) => setTimeout(() => resolve(null), PREBUILT_ICON_WAIT_MS))
+      Promise.race([entryIcons(entry), late]).then((icons) => arm(icons ?? { icon: null }))
     },
-    [blockChoice],
+    [activeTool, armedBlock, project.settings.supportedObjectTypes],
   )
 
   // The rectangle is dragged: build the block's objects, and register the
@@ -4586,7 +4610,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             data-testid="tools-ribbon"
             aria-disabled={manageScreensOpen || undefined}
             className={cn(
-              "h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto",
+              // A fixed height, and an even one: the tabs above the tools
+              // (docs/2026-11-05-quick-blocks.md) made it 109 px, which put the
+              // screen centred below on a half pixel (e2e/text-field.spec.ts).
+              "h-28 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto",
               // Nothing to draw on in «Manage Screens».
               manageScreensOpen && "pointer-events-none opacity-40",
             )}
@@ -4595,7 +4622,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               orientation="horizontal"
               activeTool={activeTool}
               onToolChange={setActiveTool}
-              onCatalogEntrySelect={selectCatalogEntry}
+              onCatalogEntrySelect={pressPrebuilt}
+              armedEntryId={activeTool === "baustein" ? armedBlock?.entry.id : undefined}
               onRowTemplateSelect={selectRowTemplate}
               onToolPress={pressTool}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
@@ -4948,13 +4976,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </div>
         </div>
       </div>
-
-      <BausteinDialog
-        entry={blockChoice}
-        supportedObjectTypes={project.settings.supportedObjectTypes}
-        onCancel={() => setBlockChoice(null)}
-        onConfirm={armBlock}
-      />
 
       <IconSelectorModal
         isOpen={showIconSelector}

@@ -36,7 +36,7 @@ Ein Projekt ist fest an seinen Gerätetyp gebunden. Wähle deshalb gleich das Ge
 
 ## Einen Screen bauen
 
-Am schnellsten geht es mit den Baugruppen. In der Werkzeugleiste öffnet <span class="ui">Block</span> eine Auswahl dessen, was die Geräte auf deinem Broker anbieten. Wähle einen Eintrag, klick auf <span class="ui">Insert</span> und dann auf den Screen. Die Baugruppe bringt ihre Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Baugruppen](/designer/baugruppen).
+Am schnellsten geht es mit den Baugruppen. Der Reiter <span class="ui">Prebuilt</span> über der Werkzeugleiste zeigt, was die Geräte auf deinem Broker anbieten. Klick auf eine Kachel und dann auf den Screen. Die Baugruppe bringt ihre Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Baugruppen](/designer/baugruppen).
 
 ## Die Vorschau
 

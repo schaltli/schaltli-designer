@@ -111,31 +111,31 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
 // A block carried under the screen's table and let go: a new row at its end
 // (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
 async function appendBlock(page: Page, entry: string, screen: { width: number; height: number } = SCREEN) {
-  await page.getByRole("button", { name: "Block", exact: true }).click()
-  await page.getByRole("menuitem", { name: entry, exact: true }).click()
-  await expect(page.getByTestId("baustein-value").first()).toBeVisible()
-  await page.getByTestId("baustein-insert").click()
+  await pressPrebuilt(page, entry)
   await carryUnderSnapTable(page, { x: screen.width / 2, y: screen.height - 40 }, null, screen)
 }
 
-// A block from the Block menu: the entry picked, its options as they come
-// (unless a look is named), Insert, and a click in the middle of `from` and
-// `to` - the block lands there, its middle at the click: a block of one part
-// as a table of one row, one of several parts as a table of its own.
+// A tile pressed on the Prebuilt tab (docs/2026-11-05-quick-blocks.md): the
+// block in hand with its defaults, its tile shown pressed.
+async function pressPrebuilt(page: Page, entry: string) {
+  await page.getByRole("tab", { name: "Prebuilt" }).click()
+  const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: entry, exact: true })
+  await tile.click()
+  await expect(tile).toHaveAttribute("data-armed", "true")
+}
+
+// A block from the Prebuilt tab, in its first look, and a click in the
+// middle of `from` and `to` - the block lands there, its middle at the
+// click: a block of one part as a table of one row, one of several parts as
+// a table of its own.
 async function placeBlock(
   page: Page,
   entry: string,
   from: [number, number],
   to: [number, number],
   screen: { width: number; height: number } = SCREEN,
-  look?: string,
 ) {
-  await page.getByRole("button", { name: "Block", exact: true }).click()
-  await page.getByRole("menuitem", { name: entry, exact: true }).click()
-  // The van's value, so the block's first example is what the van reports.
-  await expect(page.getByTestId("baustein-value").first()).toBeVisible()
-  if (look) await page.getByTestId(`baustein-look-${look}`).click()
-  await page.getByTestId("baustein-insert").click()
+  await pressPrebuilt(page, entry)
   const { box } = await getMainCanvas(page)
   const middle = devicePoint(box, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2, screen)
   await page.mouse.click(middle.x, middle.y)
@@ -223,26 +223,21 @@ test.describe("handbook: Erste Schritte", () => {
     await shot("editor")
 
     // 3. Building blocks: the menu lists what the van announces, then a tank.
-    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await page.getByRole("tab", { name: "Prebuilt" }).click()
     for (const entry of ["Frischwasser", "Abwasser", "Batterie", "Licht", "Leselicht"]) {
-      await expect(page.getByRole("menuitem", { name: entry, exact: true })).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("tools-ribbon").getByRole("button", { name: entry, exact: true })).toBeVisible({ timeout: 15000 })
     }
-    // Only the corner that matters: the ribbon's end and the open menu.
-    const menu = (await page.getByRole("menu").boundingBox())!
-    const x = Math.max(0, menu.x - 360)
+    // The ribbon with the Prebuilt tab, what the van announces (retaken in
+    // prebuilt T11).
+    const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
     await page.screenshot({
       path: path.join(dir, "baustein-menue.png"),
-      clip: { x, y: 0, width: Math.min(VIEWPORT_WIDTH - x, menu.x + menu.width + 40 - x), height: menu.y + menu.height + 24 },
+      clip: { x: 0, y: 0, width: Math.min(VIEWPORT_WIDTH, 1100), height: ribbon.y + ribbon.height + 8 },
     })
-    await page.keyboard.press("Escape")
 
-    // The options of the first: its look, its icon, and the van's value.
-    await page.getByRole("button", { name: "Block", exact: true }).click()
-    await page.getByRole("menuitem", { name: "Frischwasser", exact: true }).click()
-    await expect(page.getByTestId("baustein-value")).toHaveText(": 62")
-    await dialogShot("baustein-tank")
-    await page.getByTestId("baustein-insert").click()
-    await expect(page.getByRole("dialog")).toHaveCount(0)
+    // The first, pressed: no options any more (the picture baustein-tank of
+    // the dialog went with it, docs/2026-11-05-quick-blocks.md).
+    await pressPrebuilt(page, "Frischwasser")
     // A new screen is free (docs/2026-10-03-free-screens.md): the first
     // block, clicked, is a table of one row, its name on the left, its
     // control on the right; a block carried under it is its next row
@@ -257,10 +252,7 @@ test.describe("handbook: Erste Schritte", () => {
     // For the arranging page: the next block carried under the table before
     // it is let go - the table's bottom line thick where it goes.
     {
-      await page.getByRole("button", { name: "Block", exact: true }).click()
-      await page.getByRole("menuitem", { name: "Licht", exact: true }).click()
-      await expect(page.getByTestId("baustein-value").first()).toBeVisible()
-      await page.getByTestId("baustein-insert").click()
+      await pressPrebuilt(page, "Licht")
       const { canvas, box } = await getMainCanvas(page)
       const table = await snapTableRect(page)
       const from = devicePoint(box, SCREEN.width / 2, SCREEN.height - 40, SCREEN)
@@ -413,7 +405,7 @@ test.describe("handbook: the boards side by side", () => {
       await waitForEditorReady(page)
       await expect(page.getByText(`${board.screen.width} × ${board.screen.height}`)).toBeVisible()
 
-      await placeBlock(page, "Frischwasser", board.tank[0], board.tank[1], board.screen, "bar")
+      await placeBlock(page, "Frischwasser", board.tank[0], board.tank[1], board.screen)
       await placeBlock(page, "Licht", board.light[0], board.light[1], board.screen)
 
       const { box } = await getMainCanvas(page)

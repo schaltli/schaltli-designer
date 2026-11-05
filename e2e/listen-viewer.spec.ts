@@ -141,7 +141,7 @@ test.describe("Listen to Broker", () => {
     await expect(row(page, name).getByTestId("in-project")).toHaveCount(0)
   })
 
-  test("devices announced via discovery are counted, and the pointer opens the Block menu", async ({ page }) => {
+  test("devices announced via discovery are counted, and the pointer opens the Prebuilt tab", async ({ page }) => {
     await own.publish("homeassistant/sensor/CamperServiceID_BiberTest/config", JSON.stringify({ name: "Service ID", state_topic: "CamperServiceID/state", device: { identifiers: ["BiberTest"], name: "BiberTest" } }), true)
     await own.publish("homeassistant/light/CamperLightKitchen_BiberTest/config", JSON.stringify({ name: "Kitchen", command_topic: "k/set", device: { identifiers: ["BiberTest"] } }), true)
     await own.publish("homeassistant/switch/pump/config", JSON.stringify({ name: "Pump", command_topic: "p/set" }), true)
@@ -149,9 +149,9 @@ test.describe("Listen to Broker", () => {
     await openViewer(page)
     const pointer = viewer(page).getByTestId("announced-pointer")
     await expect(pointer).toContainText("2 devices are announced via Home Assistant discovery.")
-    await pointer.getByRole("button", { name: "Open the Block menu ›" }).click()
+    await pointer.getByRole("button", { name: "Open Prebuilt ›" }).click()
     await expect(viewer(page)).toHaveCount(0)
-    await expect(page.getByRole("menu")).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Prebuilt" })).toHaveAttribute("aria-selected", "true")
   })
 
   test("Connect in the connection settings listens on that broker instead", async ({ page }) => {

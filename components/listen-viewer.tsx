@@ -29,7 +29,7 @@ import type { Topic } from "./project-editor"
 /** How long a row stays lit after a message below it. */
 export const LIT_MS = 1500
 
-/** The window event that opens the toolbar's Block menu (the pointer below). */
+/** The window event that opens the ribbon's Prebuilt tab (the pointer below). */
 export const OPEN_BLOCK_MENU_EVENT = "schaltli:open-block-menu"
 
 interface ListenViewerProps {
@@ -364,7 +364,7 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
                     window.dispatchEvent(new Event(OPEN_BLOCK_MENU_EVENT))
                   }}
                 >
-                  Open the Block menu ›
+                  Open Prebuilt ›
                 </button>
               </div>
             )}

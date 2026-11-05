@@ -135,7 +135,7 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 
 Damit der Designer die Werte als [Baugruppen](/designer/baugruppen) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
 
-Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Im Block-Menü stehen dann «MaxxFan», die Heizung und «Theme» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
+Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Unter <span class="ui">Prebuilt</span> stehen dann «MaxxFan», die Heizung und «Theme» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
 
 | Baugruppe | Teile |
 |---|---|
@@ -143,7 +143,7 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
 | die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/baugruppen#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben |
 
-Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kannst du im Dialog die Abschnitte «Laufzeit» und «Verbrauch» abwählen, siehe [Abschnitte](/designer/baugruppen#abschnitte). Zustand und Betriebsart kommen immer. Raumtemperatur, Spannung und Diagnose stehen nicht in der Baugruppe, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Baugruppen nichts, er bekommt weiter die einzelnen Dinge.
+Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kommen die Abschnitte «Laufzeit» und «Verbrauch» mit, und du löschst auf dem Screen, was du nicht brauchst, siehe [Abschnitte](/designer/baugruppen#abschnitte). Raumtemperatur, Spannung und Diagnose stehen nicht in der Baugruppe, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Baugruppen nichts, er bekommt weiter die einzelnen Dinge.
 
 | Ding | angekündigt als | Name |
 |---|---|---|
@@ -160,7 +160,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 
-Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
+Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
 Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
