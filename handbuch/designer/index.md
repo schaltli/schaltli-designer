@@ -17,7 +17,7 @@ Unter dem Gerät steht ein roter Schalter mit <span class="ui">Preview</span> un
 
 ## Werkzeugleiste
 
-Über der Werkzeugleiste stehen zwei Reiter: <span class="ui">Parts</span> mit den einzelnen Werkzeugen und <span class="ui">Prebuilt</span> mit den fertigen [Baugruppen](/designer/baugruppen), die die Geräte auf deinem Broker ankündigen. Der Designer merkt sich, welcher zuletzt offen war.
+Über der Werkzeugleiste stehen zwei Reiter: <span class="ui">Parts</span> mit einem Klemmbaustein für die einzelnen Werkzeuge und <span class="ui">Prebuilt</span> mit zwei aufeinander für die fertigen [Baugruppen](/designer/baugruppen), die die Geräte auf deinem Broker ankündigen. Der Designer merkt sich, welcher zuletzt offen war.
 
 Unter <span class="ui">Parts</span> sind die Werkzeuge in Gruppen geordnet:
 

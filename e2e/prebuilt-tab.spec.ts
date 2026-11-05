@@ -44,6 +44,11 @@ test("Parts first; Prebuilt in its place, and the tab last open is the one shown
   await useBroker(page, "e2e-prebuilt-none")
   await loadProject(page, COMBINED_TEST_PROJECT)
   await expect(tab(page, "Parts")).toHaveAttribute("aria-selected", "true")
+  // Each tab with its icon (the user, 2026-11-05): one toy brick for Parts,
+  // two on each other for Prebuilt; the name stays the tab's name.
+  await expect(tab(page, "Parts").locator("svg.lucide-toy-brick")).toHaveCount(1)
+  await expect(tab(page, "Prebuilt").locator("svg")).toHaveCount(1)
+  await expect(tab(page, "Prebuilt").locator("svg rect")).toHaveCount(2)
   await expect(ribbon(page).getByRole("button", { name: "Text", exact: true })).toBeVisible()
   // No Block button any more: the prebuilts are a tab.
   await expect(ribbon(page).getByRole("button", { name: "Block", exact: true })).toHaveCount(0)

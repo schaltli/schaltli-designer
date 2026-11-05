@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 import { BlockTiles } from "@/components/toolbar/block-tiles"
 import type { CatalogEntry } from "@/lib/ha-discovery"
-import { MousePointer2, Rows3, SquareStack } from "lucide-react"
+import { MousePointer2, Rows3, SquareStack, ToyBrick } from "lucide-react"
 import { ROW_TEMPLATES, type RowTemplate } from "@/lib/snap-table"
 import { objectTypeLabel } from "@/lib/object-types"
 import { isLayoutOnlyType } from "@/lib/layout"
@@ -353,10 +353,11 @@ export function Toolbar({
                 data-testid={`ribbon-tab-${t}`}
                 onClick={() => showTab(t)}
                 className={cn(
-                  "rounded-md px-2.5 py-0.5 text-xs",
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-xs",
                   tab === t ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
+                {t === "parts" ? <ToyBrick className="h-3.5 w-3.5" aria-hidden /> : <ToyBricks className="h-3.5 w-3.5" aria-hidden />}
                 {t === "parts" ? "Parts" : "Prebuilt"}
               </button>
             ))}
@@ -390,5 +391,32 @@ export function Toolbar({
         </div>
       )}
     </TooltipProvider>
+  )
+}
+
+/**
+ * The Prebuilt tab's icon: two toy bricks, one on the other - an assembly of
+ * the single brick the Parts tab shows (the user, 2026-11-05). Lucide has
+ * the one brick only; drawn on its grid, in its stroke.
+ */
+function ToyBricks({ className, ...rest }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...rest}
+    >
+      <rect x="2" y="14" width="13" height="7" rx="1" />
+      <path d="M4 14v-2h3v2" />
+      <rect x="9" y="5" width="13" height="7" rx="1" />
+      <path d="M11 5V3h3v2" />
+      <path d="M17 5V3h3v2" />
+    </svg>
   )
 }
