@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ComponentType } from "react"
+import { useEffect, useRef, useState, type ComponentType } from "react"
 import { OPEN_BLOCK_MENU_EVENT } from "@/components/listen-viewer"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -239,9 +239,14 @@ export function Toolbar({
     )
   }
 
+  // Whether the tile pressed last held its tool already: a second click on
+  // a tool in hand gives it up (docs/2026-11-05-quick-blocks.md, decision 7)
+  // - read at the press, since the press itself puts the tool in hand.
+  const pressedWasActive = useRef(false)
   const handleToolClick = (toolType: ToolType, disabled: boolean) => {
     if (disabled) return
-    onToolChange(toolType)
+    onToolChange(pressedWasActive.current && toolType !== "select" ? "select" : toolType)
+    pressedWasActive.current = false
   }
 
   const isHorizontal = orientation === "horizontal"
@@ -322,6 +327,7 @@ export function Toolbar({
             onClick={() => handleToolClick(tool.type, isDisabled)}
             onMouseDown={(e) => {
               if (e.button !== 0 || isDisabled || tool.type === "select") return
+              pressedWasActive.current = activeTool === tool.type
               // No text selection or native drag while the tile is carried away.
               e.preventDefault()
               onToolPress?.(tool.type)

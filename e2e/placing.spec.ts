@@ -211,3 +211,64 @@ test("a tool's tile dragged from the ribbon into an empty cell goes into the cel
   const added = grid.children.find((c: Obj) => !["a", "b", "c"].includes(c.id))
   expect(added?.properties?.cell).toMatchObject({ row: 1, column: 1 })
 })
+
+// A tile clicked (docs/2026-11-05-quick-blocks.md, decision 7): its object
+// hangs at the pointer at once, no button held, and a click sets it down;
+// Esc, the same tile again or a click off the screen give it up.
+const ribbonTile = (page: Page, name: string) => page.getByTestId("tools-ribbon").getByRole("button", { name, exact: true }).first()
+
+test("a clicked tile: the object hangs at the pointer without a button, the hint says Click, a click sets it down", async ({ page }) => {
+  await loadProject(page, await project([card, text("still", 20, 200)]))
+  const { box, canvas } = await getMainCanvas(page)
+  await ribbonTile(page, "Text").click()
+  const on = devicePoint(box, 290, 210)
+  await page.mouse.move(on.x, on.y, { steps: 10 })
+  await expect(canvas).toHaveAttribute("data-carrying", "text")
+  expect((await hint(page))?.now).toBe("Into Card")
+  expect(await canvas.getAttribute("data-place-hint-text")).toBe("Click to drop into Card")
+  await page.mouse.click(on.x, on.y)
+  await expect(canvas).not.toHaveAttribute("data-carrying", /.+/)
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("Escape")
+  const card2 = find(await saved(page), "card")!
+  expect(card2.children.map((c: Obj) => c.type)).toEqual(["text"])
+})
+
+for (const way of ["Esc", "the same tile again", "a click off the screen"] as const) {
+  test(`a hanging object is given up by ${way}, and the tool is Select`, async ({ page }) => {
+    await loadProject(page, await project([text("still", 20, 200)]))
+    const { box, canvas } = await getMainCanvas(page)
+    await ribbonTile(page, "Box").click()
+    const on = devicePoint(box, 250, 150)
+    await page.mouse.move(on.x, on.y, { steps: 10 })
+    await expect(canvas).toHaveAttribute("data-carrying", "box")
+    if (way === "Esc") await page.keyboard.press("Escape")
+    else if (way === "the same tile again") await ribbonTile(page, "Box").click()
+    else {
+      const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
+      await page.mouse.click(ribbon.x + ribbon.width - 10, ribbon.y + ribbon.height / 2)
+    }
+    await expect(canvas).not.toHaveAttribute("data-carrying", /.+/)
+    // Select: moving over the screen and clicking makes nothing.
+    await page.mouse.move(on.x, on.y, { steps: 5 })
+    await expect(canvas).not.toHaveAttribute("data-carrying", /.+/)
+    await page.mouse.click(on.x, on.y)
+    expect((await saved(page)).map((o: Obj) => o.id)).toEqual(["still"])
+  })
+}
+
+test("a hanging object, another tile clicked: that one hangs instead", async ({ page }) => {
+  await loadProject(page, await project([text("still", 20, 200)]))
+  const { box, canvas } = await getMainCanvas(page)
+  await ribbonTile(page, "Box").click()
+  const on = devicePoint(box, 250, 150)
+  await page.mouse.move(on.x, on.y, { steps: 10 })
+  await expect(canvas).toHaveAttribute("data-carrying", "box")
+  await ribbonTile(page, "Text").click()
+  await page.mouse.move(on.x, on.y, { steps: 10 })
+  await expect(canvas).toHaveAttribute("data-carrying", "text")
+  await page.mouse.click(on.x, on.y)
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("Escape")
+  expect((await saved(page)).map((o: Obj) => o.type).sort()).toEqual(["text", "text"])
+})

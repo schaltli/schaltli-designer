@@ -1255,6 +1255,10 @@ export function Canvas({
   const [placeArea, setPlaceArea] = useState<string | null>(null)
   const [snapSpace, setSnapSpace] = useState<ScreenObject[] | null>(null)
   const [placeHint, setPlaceHint] = useState<PlaceHint | null>(null)
+  // Whether a carry runs with the mouse button held - dragged - or hangs at
+  // the pointer after a click on a tile: the hint says «Release mouse
+  // button …» or «Click …» (docs/2026-11-05-quick-blocks.md).
+  const carryPressedRef = useRef(true)
   const placeSpaceRef = useRef<{ id: string | null; origin: { x: number; y: number } } | null>(null)
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   // The same for an object being drawn, handed to addInteractionObject on release.
@@ -1369,7 +1373,7 @@ export function Canvas({
         : altPhrase && altPhrase !== nowPhrase
           ? { key: "Press", text: altPhrase }
           : null
-      return { at, now, alt, held, first: `Release mouse button ${nowPhrase}`, second }
+      return { at, now, alt, held, first: `${carryPressedRef.current ? "Release mouse button" : "Click"} ${nowPhrase}`, second }
     },
     [screen.objects, screen.name, drawSpace.id],
   )
@@ -3566,6 +3570,15 @@ export function Canvas({
         canvas.dispatchEvent(new MouseEvent("mousedown", { clientX: e.clientX, clientY: e.clientY, button: 0, buttons: 1, bubbles: true }))
         return
       }
+      // A tool in hand and no button held - its tile clicked: the object
+      // hangs at the pointer at once, and a click sets it down
+      // (docs/2026-11-05-quick-blocks.md, decision 7). The press of that
+      // click begins the carry anew where it is, its release places it.
+      carryPressedRef.current = (e.buttons & 1) === 1
+      if (!previewMode && !dragState && (e.buttons & 1) === 0 && carriesFromRibbon(activeTool)) {
+        canvas.dispatchEvent(new MouseEvent("mousedown", { clientX: e.clientX, clientY: e.clientY, button: 0, buttons: 0, bubbles: true }))
+        return
+      }
 
       const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
       const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
@@ -4677,11 +4690,12 @@ export function Canvas({
   // panel: nothing is placed, the tool goes back to Select
   // (docs/2026-11-05-quick-blocks.md, decision 7). Let go over the canvas,
   // its own mouseup places it.
+  // Esc gives it up too, wherever the focus is - after a click on a tile it
+  // is on the ribbon, not the canvas.
   const placingCarry = dragState?.mode === "create" && !!dragState.placing
   useEffect(() => {
     if (!placingCarry) return
-    const onUp = (e: MouseEvent) => {
-      if (e.target === canvasRef.current) return
+    const giveUp = () => {
       setDragState(null)
       setSnapDrop(null)
       setRowDrop(null)
@@ -4690,8 +4704,18 @@ export function Canvas({
       blockTableRef.current = null
       onToolChange("select")
     }
+    const onUp = (e: MouseEvent) => {
+      if (e.target !== canvasRef.current) giveUp()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") giveUp()
+    }
     window.addEventListener("mouseup", onUp)
-    return () => window.removeEventListener("mouseup", onUp)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("mouseup", onUp)
+      window.removeEventListener("keydown", onKey)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placingCarry])
 
@@ -5086,16 +5110,19 @@ export function Canvas({
         setRowDrop(null)
         return
       }
-      // Esc while a new object is carried: it is taken away, nothing made;
-      // the tool stays in hand for another try.
+      // Esc while a new object is carried: it is taken away, nothing made,
+      // and the tool goes back to Select - in hand it would hang at the
+      // pointer again at once (docs/2026-11-05-quick-blocks.md).
       if (e.key === "Escape" && dragState?.mode === "create" && dragState.placing) {
         e.preventDefault()
         e.stopPropagation()
         setDragState(null)
         setSnapDrop(null)
         setRowDrop(null)
+        setPlaceHint(null)
         rowPartsRef.current = null
         blockTableRef.current = null
+        onToolChange("select")
         return
       }
       if (e.key === "Escape" && dragState?.mode === "drag" && dragState.objectId) {
@@ -5253,19 +5280,14 @@ export function Canvas({
     handleCloseContextMenu()
   }, [onGroup, handleCloseContextMenu])
 
-  // What to do with the tool waiting to be used: a table placed by a click
-  // or a rectangle, a block by a rectangle or into a table, a line point by
-  // point, anything else by a rectangle (asked 2026-10-04).
+  // What to do with the tool waiting to be used - only a line's, drawn
+  // point by point (asked 2026-10-04). Everything else hangs at the pointer
+  // with its own hint there (docs/2026-11-05-quick-blocks.md); the texts of
+  // before spoke of rectangles nothing is dragged as any more.
   const toolHint =
-    previewMode || dragState || activeTool === "select" || activeTool === "background"
+    previewMode || dragState || !isLineType(activeTool)
       ? null
-      : activeTool === "table"
-        ? "Click or drag a rectangle to place the table. Esc cancels."
-        : activeTool === "baustein"
-          ? "Drag a rectangle to place the block, or click a cell, a line or a + of a table. Esc cancels."
-          : isLineType(activeTool)
-            ? "Click point by point, double-click to finish the line. Esc cancels."
-            : "Drag a rectangle to place it, or click a cell, a line or a + of a table. Esc cancels."
+      : "Click point by point, double-click to finish the line. Esc cancels."
 
   const handleUngroupFromMenu = useCallback(() => {
     onUngroup?.()
