@@ -75,14 +75,16 @@ range and its place in the card.
    tools (clicked, then points set); Icon too keeps its click on the
    screen, which opens the icon picker first (found building T1,
    2026-11-05). The Row templates are a menu: clicked, not dragged.
-8. **Shift builds tables, not Alt - everywhere.** On Windows a lone Alt
-   with no mouse button held can send Chrome's focus to its menu, and a
-   clicked tile carries with no button held. So the key of
-   docs/2026-11-03-placing.md changes for every carry - a tile dragged or
-   clicked, an object moved, a row, a prebuilt - and the chip shows a
-   «Shift ⇧» keycap. Shift held at the press still adds to the selection
-   (Ctrl or Shift, as today); it counts for tables once the carry is
-   running. This revises the placing spec's decision.
+8. **Alt stays the key that builds tables** (revised 2026-11-05, after
+   T2 was tried; first decided as «Shift instead of Alt»). The worry was
+   that a lone Alt with no mouse button held sends Chrome's focus to its
+   menu on Windows, and a clicked tile carries with no button held. But the
+   canvas already swallows Alt while anything is carried (`canvas.tsx`,
+   «Chrome on Windows moves the focus to its menu on a lone Alt»), and a
+   hanging carry is a carry; the recording of T2 showed the chip turn to
+   «Click to make a table» with Alt held. The user, 2026-11-05: «passt,
+   weiter». Should Alt get in the way on a real Windows Chrome after all,
+   the switch to Shift is plan task T3, kept.
 9. **Switch stays the default** for on or off: compact, known from phones,
    fits a card and a list. Buttons by «Convert to».
 10. **The dialog goes, with no way back to it** (no Shift-click): one way,
@@ -135,7 +137,7 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
   screen the object hangs there by its middle, at its default size, with
   the hint chip (docs/2026-11-03-placing.md). Let go over the screen, it
   lands by the placing rule - into a card or an empty cell under the
-  pointer, free elsewhere, tables with Shift. Let go outside the screen (on
+  pointer, free elsewhere, tables with Alt. Let go outside the screen (on
   the ribbon, a panel), nothing is placed.
 - **Clicked:** a click on a tile without moving. The tile shows pressed,
   and the object hangs at the pointer as soon as it is over the screen, no
@@ -146,13 +148,13 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 - **The hint chip** names what sets it down: «Release mouse button to …»
   while dragged, «Click to …» while it hangs without a button
   («Click to drop into Card», «Click to place»). The key line as today,
-  with Shift in place of Alt.
+  with Alt, as today.
 - **The tool hint at the top of the canvas** («Drag a rectangle to place
   it, or click a cell, a line or a + of a table» - from before
   docs/2026-11-03-placing.md) goes for everything carried; the chip at the
   pointer says it. Line and Live Line keep theirs («Click point by point
   …»).
-- **Shift** (decision 8) works in both, pressed or let go while carried.
+- **Alt** (decision 8) works in both, pressed or let go while carried.
 - **After placing** the object is selected and the tool back on Select, as
   today; nothing stays armed.
 - **The tile's tooltip** says both ways: «Drag onto the screen, or click
@@ -245,9 +247,7 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
   the block builders in `lib/bausteine.ts` (`arcObject`, the slider's).
 - The Properties panel: the «Convert to» control; the canvas's context
   menu (`canvas.tsx`, beside Group / Ungroup): its submenu.
-- Shift for Alt (decision 8): wherever `canvas.tsx` reads `altKey` for
-  placing (a dozen places), the chip's keycap, the e2e helpers that hold
-  Alt.
+- Alt stays (decision 8, revised): nothing to change for the key.
 - Placing from the ribbon (decision 7): the tiles start a drag with
   pointer events (not HTML drag and drop, which draws no object and no
   chip); `components/canvas/canvas.tsx` takes a carry that comes in from
@@ -270,12 +270,11 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
   «Listening» off the one-off read; the remembered tab.
 - `e2e/place-by-dragging.spec.ts` and `e2e/placing.spec.ts`: placing a
   tool's object rewritten for the two ways; new cases for both tabs - a
-  tile dragged onto the screen, into a card, into an empty cell, with Shift
+  tile dragged onto the screen, into a card, into an empty cell, with Alt
   into a table, let go outside the screen (nothing placed); a tile clicked,
   the object hanging without a button, set down by a click, given up with
   Esc and with a second click on the tile; the chip's «Click to …» text;
-  Line still drawn. Every case that holds Alt to build tables holds Shift
-  instead; Shift at the press still adds to the selection.
+  Line still drawn; Alt with a hanging object builds a table.
 - `e2e/convert.spec.ts` (new, model and UI): each family both ways keeps
   id, topics, range, step, from the Properties panel and from the
   right-click menu; in a block card the row and the card follow;
@@ -296,9 +295,6 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 - The old address `/designer/bausteine` (linked from the forum post and
   from outside) keeps working: a page there pointing to `baugruppen`, or a
   redirect if the Pages setup allows one.
-- Every page that names <kbd>Alt</kbd> for tables (`objekte/anordnen.md`
-  «Zusammenstecken», `designer/objekte.md`, the Baugruppen page «In einer
-  Tabelle», `designer/screens.md`): <kbd>Shift</kbd>.
 - The object pages and the right-click menu where the handbook lists it:
   «Convert to».
 - `handbuch/designer/objekte.md` («Wähle ein Werkzeug … und drück auf dem
@@ -315,7 +311,7 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 - **Always:** the placed result the same as the dialog's defaults today;
   no made-up example values; designer-only; `test:quick` per change;
   handbook in the same work.
-- **Ask first:** changing a default look; a key other than Shift.
+- **Ask first:** changing a default look; a key other than Alt.
 - **Never:** a device change; the Listening switch turned on by the tab on
   its own.
 
@@ -328,7 +324,7 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 - [ ] A tile dragged onto the screen lands where let go, on both tabs
 - [ ] A tile clicked hangs at the pointer without a button; a click sets
       it down
-- [ ] Shift builds tables for every carry; Alt no longer does
+- [x] Alt builds tables for a dragged and a hanging carry alike (decision 8, revised)
 - [ ] «Convert to» for the three families, keeping id and bindings, in the
       Properties panel and the right-click menu
 - [ ] In a card the converted part fits and the card follows

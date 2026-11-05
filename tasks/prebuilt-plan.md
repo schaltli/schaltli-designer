@@ -240,3 +240,5 @@ Retake `baustein-menue` as the Prebuilt tab, drop `baustein-tank`
   for decision 8 is weaker than stated. **The user, 2026-11-05: decided
   after trying** - once T2 is built, Alt is tried with a hanging carry on
   Windows Chrome; only if it gets in the way does T3 switch to Shift.
+  **Decided 2026-11-05:** Alt stays, T3 dropped (the user, after a
+  recording of T2: «passt, weiter»).
