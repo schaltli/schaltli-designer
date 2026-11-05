@@ -6,7 +6,7 @@ Allen gemeinsam ist: Was du antippst, geht als Befehl an ein Topic, und angezeig
 
 ## Slider {#slider}
 
-Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Ein [Baustein](/designer/bausteine) aus einer angekündigten Zahl setzt einen Slider und darüber einen Text mit ihrem Namen. Er hat dieselben Eigenschaften wie der [Bar](/objekte/anzeigen#bar), dazu unter <span class="ui">Data</span>:
+Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Eine [Baugruppe](/designer/baugruppen) aus einer angekündigten Zahl setzt einen Slider und darüber einen Text mit ihrem Namen. Der Slider hat dieselben Eigenschaften wie der [Bar](/objekte/anzeigen#bar), dazu unter <span class="ui">Data</span>:
 
 - <span class="ui">Write topic</span>: wohin der eingestellte Wert geht. Immer das ganze Topic, nie ein JSON-Feld.
 - <span class="ui">Step</span>: in welchen Schritten der Wert springt, etwa 5 für einen Dimmer oder 0.5 für eine Temperatur. Der Designer zeigt darunter, wie viele Stufen das ergibt und ob der Schritt zum Bereich passt.
@@ -31,7 +31,7 @@ Wie Slider, aber als Ring, etwa für eine Heizung. Er hat dieselben Eigenschafte
 
 ## Switch {#switch}
 
-Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Ein [Baustein](/designer/bausteine) aus einem angekündigten Schalter setzt einen.
+Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Eine [Baugruppe](/designer/baugruppen) aus einem angekündigten Schalter setzt einen.
 
 - <span class="ui">Read topic</span>: der gemeldete Zustand.
 - <span class="ui">Write topic</span>: wohin der Befehl geht.

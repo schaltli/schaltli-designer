@@ -96,7 +96,7 @@ export default defineConfig({
           { text: "Themes und Farben", link: "/designer/themes" },
           { text: "Objekte platzieren", link: "/designer/objekte" },
           { text: "Hardware-Tasten und Gesten", link: "/designer/tasten" },
-          { text: "Bausteine", link: "/designer/bausteine" },
+          { text: "Baugruppen", link: "/designer/baugruppen" },
           { text: "MQTT-Topics", link: "/designer/topics" },
           { text: "MQTT an drei Beispielen", link: "/designer/mqtt-beispiele" },
           { text: "Vorschau", link: "/designer/vorschau" },

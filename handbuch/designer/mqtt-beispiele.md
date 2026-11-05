@@ -120,7 +120,7 @@ Die Displays schicken ihre Befehle nie retained. Schreibst du selbst Befehle, et
 
 ### Im Designer
 
-Ein [Baustein](/designer/bausteine) aus einer angekündigten Zahl verdrahtet beides selbst. Bei einem Slider von Hand trägst du den Zustand unter <span class="ui">Topic</span> ein und den Befehl unter <span class="ui">Write topic</span>, siehe [Slider](/objekte/bedienen#slider). Für einen Schalter gilt dasselbe mit <span class="ui">Read topic</span> und <span class="ui">Write topic</span>, siehe [Switch](/objekte/bedienen#switch).
+Eine [Baugruppe](/designer/baugruppen) aus einer angekündigten Zahl verdrahtet beides selbst. Bei einem Slider von Hand trägst du den Zustand unter <span class="ui">Topic</span> ein und den Befehl unter <span class="ui">Write topic</span>, siehe [Slider](/objekte/bedienen#slider). Für einen Schalter gilt dasselbe mit <span class="ui">Read topic</span> und <span class="ui">Write topic</span>, siehe [Switch](/objekte/bedienen#switch).
 
 ## 3. Die Heizung: Soll und Ist {#heizung}
 
@@ -184,7 +184,7 @@ Ein- und ausschalten ist davon getrennt: `schaltli/cmnd/heater` mit `on` oder `o
 
 ### Im Designer
 
-Am besten zeigt ein [Dial](/objekte/bedienen#dial) beides: Der Ring ist bis zum Ist gefüllt, eine Marke steht beim Soll, und der Finger verschiebt die Marke. Einen Baustein für die Heizung gibt es nicht, du verdrahtest den Dial selbst:
+Am besten zeigt ein [Dial](/objekte/bedienen#dial) beides: Der Ring ist bis zum Ist gefüllt, eine Marke steht beim Soll, und der Finger verschiebt die Marke. Eine Baugruppe für die Heizung gibt es nicht, du verdrahtest den Dial selbst:
 
 | Eigenschaft | Topic |
 |---|---|

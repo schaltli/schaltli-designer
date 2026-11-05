@@ -1,6 +1,6 @@
 # Erste Schritte
 
-Diese Seite führt dich einmal durch alles: vom installierten Designer bis zu einem Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer, der auf einem Display im Van läuft. MQTT-Kenntnisse brauchst du dafür nicht, die Bausteine erledigen das.
+Diese Seite führt dich einmal durch alles: vom installierten Designer bis zu einem Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer, der auf einem Display im Van läuft. MQTT-Kenntnisse brauchst du dafür nicht, die Baugruppen erledigen das.
 
 Als Beispiel dient der Waveshare 4.3B. Mit einem anderen Board oder einem [Android-Handy](/geraete/android) geht es genauso, nur das Einrichten des Geräts sieht etwas anders aus.
 
@@ -32,17 +32,17 @@ Klicke doppelt auf die Karte des Waveshare 4.3B, gib dem Projekt einen Namen, et
 
 <Screenshot name="editor" alt="Der leere Editor mit Werkzeugleiste, Screen-Liste, Canvas und Eigenschaften" caption="Oben die Werkzeuge, links die Screens, in der Mitte der Screen im Rahmen des Geräts, rechts Objekte und Eigenschaften." />
 
-## 4. Bausteine auf den Screen setzen
+## 4. Baugruppen auf den Screen setzen
 
-Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz rechts in der Werkzeugleiste öffnet <span class="ui">Block</span> die Auswahl: alles, was auf dem Broker angekündigt ist, mit seinem Namen.
+Baugruppen sind fertig zusammengesetzte Elemente, die schon wissen, woher ihre Werte kommen. Ganz rechts in der Werkzeugleiste öffnet <span class="ui">Block</span> die Auswahl: alles, was auf dem Broker angekündigt ist, mit seinem Namen.
 
 <Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
-Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und dann oben auf den Screen. Der Baustein wird eine Tabelle mit einer Zeile: das Icon, der Name und die Anzeige nebeneinander. Mehr dazu unter [Zusammenstecken](/objekte/anordnen#zusammenstecken).
+Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und dann oben auf den Screen. Die Baugruppe wird eine Tabelle mit einer Zeile: das Icon, der Name und die Anzeige nebeneinander. Mehr dazu unter [Zusammenstecken](/objekte/anordnen#zusammenstecken).
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz die Batterie und das Licht darunter: Nach <span class="ui">Insert</span> hängt der Baustein am Mauszeiger, und trägst du ihn knapp unter die Tabelle, wird ihre untere Linie dick. Lässt du los, kommt er dort als neue Zeile hin, Name unter Name und Anzeige unter Anzeige. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Mit zwei Teilen ist er eine eigene Tabelle, die du mit einem Klick unter die erste setzt. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz die Batterie und das Licht darunter: Nach <span class="ui">Insert</span> hängt die Baugruppe am Mauszeiger, und trägst du sie knapp unter die Tabelle, wird deren untere Linie dick. Lässt du los, kommt sie dort als neue Zeile hin, Name unter Name und Anzeige unter Anzeige. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Mit zwei Teilen ist er eine eigene Tabelle, die du mit einem Klick unter die erste setzt. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

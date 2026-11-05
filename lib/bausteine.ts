@@ -10,6 +10,12 @@
 // and a pump are a value and a switch like any other. The five built-in
 // blocks it held until 2026-10-01, one per kind of thing in the van, went
 // with that.
+//
+// «Baustein» here, and «block» in the code around it, is what the designer
+// calls «Prebuilt» and the handbook a Baugruppe: an assembly of several
+// parts, not the brick it was named after (docs/2026-11-05-quick-blocks.md,
+// decision 2). The names in the code and the wire format `schaltli/blocks`
+// stay as they are.
 
 import type { ProjectAsset, ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"

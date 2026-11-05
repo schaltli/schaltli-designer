@@ -116,7 +116,7 @@ Ein Icon mit <span class="ui">Live</span> wechselt auf Geräten ab Systemgenerat
 
 ## Bar {#bar}
 
-Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Ein [Baustein](/designer/bausteine) aus einem Messwert in Prozent setzt einen Bar und darüber einen [Text](#text) mit seinem Namen.
+Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Eine [Baugruppe](/designer/baugruppen) aus einem Messwert in Prozent setzt einen Bar und darüber einen [Text](#text) mit seinem Namen.
 
 Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Werte](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 

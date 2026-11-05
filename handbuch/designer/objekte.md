@@ -16,7 +16,7 @@ Einige Werkzeuge verhalten sich anders:
 - <span class="ui">Row</span> setzt mehrere Objekte auf einmal als eine Zeile, etwa Icon, Text und Schalter, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken).
 - <span class="ui">Switcher</span> legt einen Bereich mit einem ersten Panel an. Darüber erscheinen Reiter, einer pro Panel, und <span class="ui">+</span> fügt ein Panel hinzu. Ein Klick auf einen Reiter öffnet dieses Panel zum Bearbeiten, neue Objekte landen dann darin.
 
-Schneller geht es oft mit den [Bausteinen](/designer/bausteine): Sie setzen fertige Objekte, die schon an die richtigen Werte gebunden sind.
+Schneller geht es oft mit den [Baugruppen](/designer/baugruppen): Sie setzen fertige Objekte, die schon an die richtigen Werte gebunden sind.
 
 ## Auswählen
 

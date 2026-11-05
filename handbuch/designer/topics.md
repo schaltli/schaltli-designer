@@ -1,6 +1,6 @@
 # MQTT-Topics
 
-Alles, was ein Screen anzeigt oder schaltet, läuft über Topics auf dem MQTT-Broker. Ein Topic ist ein Name wie `schaltli/state/tank/1/level`, unter dem ein Wert liegt, etwa `62`. Die [Bausteine](/designer/bausteine) erledigen das von selbst für alles, was Geräte auf dem Broker ankündigen. Diese Seite ist für alles andere.
+Alles, was ein Screen anzeigt oder schaltet, läuft über Topics auf dem MQTT-Broker. Ein Topic ist ein Name wie `schaltli/state/tank/1/level`, unter dem ein Wert liegt, etwa `62`. Die [Baugruppen](/designer/baugruppen) erledigen das von selbst für alles, was Geräte auf dem Broker ankündigen. Diese Seite ist für alles andere.
 
 ## Lesen und schalten
 
@@ -17,7 +17,7 @@ Wie das im Einzelnen abläuft, zeigt [MQTT an drei Beispielen](/designer/mqtt-be
 
 Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <span class="ui">Topics</span>.
 
-<Screenshot narrow name="einstellungen-topics" alt="Die Projekteinstellungen mit der Liste der Topics" caption="Die Topics, die die Bausteine eingetragen haben." />
+<Screenshot narrow name="einstellungen-topics" alt="Die Projekteinstellungen mit der Liste der Topics" caption="Die Topics, die die Baugruppen eingetragen haben." />
 
 <span class="ui">Add Topic</span> trägt eines von Hand ein:
 
@@ -41,7 +41,7 @@ Klickst du ein Topic an, steht rechts der ganze Name, der letzte Wert, bei JSON 
 
 Das Feld <span class="ui">Filter topic or payload</span> sucht im Namen und im letzten Wert und klappt den Baum bis zu den Treffern auf. <span class="ui">Collapse all</span> klappt alles wieder zu.
 
-Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open the Block menu ›</span> führt zu den [Bausteinen](/designer/bausteine), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du im Block-Menü.
+Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open the Block menu ›</span> führt zu den [Baugruppen](/designer/baugruppen), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du im Block-Menü.
 
 Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. <span class="ui">Connect</span> verbindet, merkt sich beides im Browser und hört von da an diesen Broker ab.
 
@@ -81,7 +81,7 @@ Ein Combined topic darf nicht über andere wieder auf sich selbst verweisen. Die
 
 Ein Combined topic, das noch gelesen wird, lässt sich nicht löschen. Der Designer sagt dann, wer es liest. Benennst du es um, ziehen alle Verweise mit.
 
-Ein Combined topic kann auch eine Zahl sein, die das Gerät aus einem anderen Wert umrechnet. Wähle dafür statt <span class="ui">all</span> oder <span class="ui">any</span> <span class="ui">a scaled number</span>. Es liest dann genau einen Wert (ein Topic, ein JSON-Feld oder ein anderes Combined topic), multipliziert ihn mit ×, teilt durch ÷, zählt + dazu und rundet auf <span class="ui">Decimals</span> Stellen. So werden aus Metern pro Sekunde Kilometer pro Stunde (× 18 ÷ 5) und aus Kelvin Grad Celsius (+ -273.15, mindestens zwei Stellen). Unter den Feldern steht, was aus dem Beispiel der Quelle wird. Ist der Wert keine Zahl, hat das Combined topic keinen Wert. Lesen können es ein Wert im Text und die Bedingung eines anderen Combined topic, etwa «windig, wenn km/h > 50». Auch Bar, Slider, Gauge und Dial können es zeigen: Ein Baustein setzt sie darauf, oder du wählst es in ihrem <span class="ui">Topic</span> unter <span class="ui">Combined topics</span>.
+Ein Combined topic kann auch eine Zahl sein, die das Gerät aus einem anderen Wert umrechnet. Wähle dafür statt <span class="ui">all</span> oder <span class="ui">any</span> <span class="ui">a scaled number</span>. Es liest dann genau einen Wert (ein Topic, ein JSON-Feld oder ein anderes Combined topic), multipliziert ihn mit ×, teilt durch ÷, zählt + dazu und rundet auf <span class="ui">Decimals</span> Stellen. So werden aus Metern pro Sekunde Kilometer pro Stunde (× 18 ÷ 5) und aus Kelvin Grad Celsius (+ -273.15, mindestens zwei Stellen). Unter den Feldern steht, was aus dem Beispiel der Quelle wird. Ist der Wert keine Zahl, hat das Combined topic keinen Wert. Lesen können es ein Wert im Text und die Bedingung eines anderen Combined topic, etwa «windig, wenn km/h > 50». Auch Bar, Slider, Gauge und Dial können es zeigen: Eine Baugruppe setzt sie darauf, oder du wählst es in ihrem <span class="ui">Topic</span> unter <span class="ui">Combined topics</span>.
 
 ::: warning Ältere Firmware
 Combined topics rechnen Knob, 4.3B, PaperS3 und die Android-App ab Systemgeneration 1.4 selbst. Mit älterer Firmware oder einer älteren App bleibt ein Wert im Text, der eines liest, leer. Ein Icon zeigt dort auf den Boards sein <span class="ui">Otherwise</span> und in der App gar keines. Beim Übertragen nennt der Dialog die betroffenen Objekte.

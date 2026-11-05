@@ -28,16 +28,16 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error`, `…/name` | Heizung |
 | `schaltli/state/heater/mode` | `heat` oder `off`, dasselbe wie `…/power` in den Wörtern von Home Assistant; bei einer Autoterm auch `fan_only`, wenn sie nur lüftet |
 | `schaltli/state/heater/preset` | nur bei einer Autoterm: `temperature`, wenn sie auf die Solltemperatur regelt, `power`, wenn sie mit fester Leistungsstufe heizt |
-| `schaltli/state/heater/view` | welcher Regler der Heizung gerade zählt: `target` (heizt auf die Solltemperatur), `power` (heizt mit fester Leistung), `fan` (lüftet nur) oder `off`. Aus Betriebsart und Preset abgeleitet, für den Baustein «Heizung» |
+| `schaltli/state/heater/view` | welcher Regler der Heizung gerade zählt: `target` (heizt auf die Solltemperatur), `power` (heizt mit fester Leistung), `fan` (lüftet nur) oder `off`. Aus Betriebsart und Preset abgeleitet, für die Baugruppe «Heizung» |
 | `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
 | `schaltli/state/heater/state_text` | nur bei einer Autoterm: was sie tut, in Worten: «Bereit», «Startet», «Heizt», «Wartet», «Lüftet», «Kühlt ab» oder «Störung» |
 | `schaltli/state/heater/fault` | nur bei einer Autoterm: eine Störung in Worten, etwa «Störung: Keine Zündung»; leer, solange keine da ist, siehe [Störungen](#storungen) |
-| `schaltli/state/heater/status_line` | nur bei einer Autoterm: die Störung, solange es eine gibt, sonst der Zustand. Die Zeile oben im Baustein |
+| `schaltli/state/heater/status_line` | nur bei einer Autoterm: die Störung, solange es eine gibt, sonst der Zustand. Die Zeile oben in der Baugruppe |
 | `schaltli/state/heater/voltage`, `…/fan_rpm`, `…/pump_hz` | nur bei einer Autoterm: Spannung, wie sie sie misst, Drehzahl des Gebläses und Frequenz der Brennstoffpumpe |
 | `schaltli/state/heater/diag_text` | nur bei einer Autoterm: Heizungstemperatur, Drehzahl und Pumpe in einer Zeile, etwa «40 °C · 3600 rpm · 1.6 Hz» |
 | `schaltli/state/heater/runtime`, `…/runtime_left`, `…/timer_on` | nur bei einer Autoterm: eingestellte und verbleibende Laufzeit in Minuten, und `on`, solange ein Timer läuft |
-| `schaltli/state/heater/runtime_left_s` | nur bei einer Autoterm: die verbleibende Laufzeit in Sekunden, für das Dial im Baustein |
+| `schaltli/state/heater/runtime_left_s` | nur bei einer Autoterm: die verbleibende Laufzeit in Sekunden, für das Dial in der Baugruppe |
 | `schaltli/state/heater/fuel`, `…/fuel_since`, `…/fuel_text` | nur bei einer Autoterm: verbrauchter Diesel in Litern, seit wann, und beides als Zeile wie «2.100 l seit 05.12.2024 18:00h», siehe [Verbrauch](#verbrauch) |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
@@ -68,7 +68,7 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater/view` | `off`, `target`, `power`, `fan` | eine Autoterm aus, auf die Solltemperatur, mit fester Leistung oder nur lüften lassen, in einem Wort |
 | `schaltli/cmnd/heater/timer_on` | `on`, `off` | den Timer einer Autoterm ein (eine Stunde) oder aus (ohne Ende weiterlaufen) |
 | `schaltli/cmnd/heater/runtime` | `0` bis `600` | die Laufzeit einer Autoterm in Minuten neu setzen, ohne die Betriebsart zu ändern, auf 15 Minuten gerundet, mindestens 15; `0` läuft ohne Ende weiter |
-| `schaltli/cmnd/heater/runtime_s` | `0` bis `36000` | dasselbe in Sekunden, wie es das Dial im Baustein schickt |
+| `schaltli/cmnd/heater/runtime_s` | `0` bis `36000` | dasselbe in Sekunden, wie es das Dial in der Baugruppe schickt |
 | `schaltli/cmnd/heater/fuel` | `reset` | den Verbrauch einer Autoterm auf null setzen, ab jetzt |
 | `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
 | `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
@@ -89,7 +89,7 @@ Eine Autoterm kennt drei Betriebsarten, wie an ihrem eigenen Bedienteil: Sie reg
 
 Ihre Befehle schickt die Brücke nicht über MQTT, sondern über Pekaways HTTP-Schnittstelle im selben Node-RED, an `/autoterm/…`. Pekaways MQTT-Befehl für die Heizung erreicht eine Autoterm nicht, er schaltet nur eine andere Heizung wie Webasto oder China-Diesel. Im Temperaturmodus startet die Brücke sie mit der Solltemperatur, im Leistungsmodus mit der Leistungsstufe, beim Lüften mit der Lüftungsstufe. Dafür nimmt sie die letzte Stufe, die Pekaway gemeldet hat, sonst 5. Setzt du eine Stufe, schaltet die Heizung in diese Betriebsart, auch wenn sie gerade etwas anderes tat. Wählst du das Preset, während die Heizung aus ist, merkt sich die Brücke es für das nächste Einschalten.
 
-Zwischen Lüften und Heizen wechselt eine Autoterm nicht direkt. Einen Start nimmt sie nur an, wenn sie steht. Wählst du eine Heizart, während sie lüftet, lüftet sie einfach weiter, und umgekehrt heizt sie weiter. Die Brücke stoppt sie deshalb zuerst und schickt den Start erst, wenn sie «Bereit» meldet. Aus dem Lüften dauert das etwa zehn Sekunden. Nach dem Heizen kühlt sie erst ab, im Van waren das gut drei Minuten. Der Baustein zeigt die gewählte Betriebsart in dieser Zeit schon an, und die Zeile darüber sagt, was kommt, etwa «Stoppt, dann Temperatur» oder «Kühlt ab, dann Lüften». Wählst du vorher «Aus», bleibt sie aus. Meldet sie nach zehn Minuten noch nicht «Bereit», lässt die Brücke den Start fallen.
+Zwischen Lüften und Heizen wechselt eine Autoterm nicht direkt. Einen Start nimmt sie nur an, wenn sie steht. Wählst du eine Heizart, während sie lüftet, lüftet sie einfach weiter, und umgekehrt heizt sie weiter. Die Brücke stoppt sie deshalb zuerst und schickt den Start erst, wenn sie «Bereit» meldet. Aus dem Lüften dauert das etwa zehn Sekunden. Nach dem Heizen kühlt sie erst ab, im Van waren das gut drei Minuten. Die Baugruppe zeigt die gewählte Betriebsart in dieser Zeit schon an, und die Zeile darüber sagt, was kommt, etwa «Stoppt, dann Temperatur» oder «Kühlt ab, dann Lüften». Wählst du vorher «Aus», bleibt sie aus. Meldet sie nach zehn Minuten noch nicht «Bereit», lässt die Brücke den Start fallen.
 
 Im Temperaturbetrieb heizt eine Autoterm nicht beliebig schwach. Ist die Solltemperatur erreicht, schaltet sie ab und zündet von selbst wieder, sobald es kühler wird. Für diesen Zustand hat Pekaway kein Wort und meldet «unknown status». Die Brücke zeigt dann «Wartet». Kommt «unknown status» in einer anderen Betriebsart, steht «Zustand unbekannt» da. Eine Störung ist beides nicht.
 
@@ -124,7 +124,7 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Der Baustein «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Deckel. Dann kommt, was nur bei laufendem Lüfter zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luftrichtung. Ist der Lüfter aus, bleibt dieser Teil leer. Was dort steht, wählt ein Switcher im Baustein, siehe [Teile je nach Betrieb](/designer/bausteine#je-nach-betrieb).
+Die Baugruppe «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Deckel. Dann kommt, was nur bei laufendem Lüfter zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luftrichtung. Ist der Lüfter aus, bleibt dieser Teil leer. Was dort steht, wählt ein Switcher in der Baugruppe, siehe [Teile je nach Betrieb](/designer/baugruppen#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #47: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
@@ -133,17 +133,17 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 
 ## Was sie ankündigt {#ankuendigung}
 
-Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
+Damit der Designer die Werte als [Baugruppen](/designer/baugruppen) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
 
-Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Bausteine, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Im Block-Menü stehen dann «MaxxFan», die Heizung und «Theme» als je ein Baustein. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
+Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Im Block-Menü stehen dann «MaxxFan», die Heizung und «Theme» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
 
-| Baustein | Teile |
+| Baugruppe | Teile |
 |---|---|
 | «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
-| die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/bausteine#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben |
+| die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/baugruppen#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben |
 
-Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kannst du im Dialog die Abschnitte «Laufzeit» und «Verbrauch» abwählen, siehe [Abschnitte](/designer/bausteine#abschnitte). Zustand und Betriebsart kommen immer. Raumtemperatur, Spannung und Diagnose stehen nicht im Baustein, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
+Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kannst du im Dialog die Abschnitte «Laufzeit» und «Verbrauch» abwählen, siehe [Abschnitte](/designer/baugruppen#abschnitte). Zustand und Betriebsart kommen immer. Raumtemperatur, Spannung und Diagnose stehen nicht in der Baugruppe, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Baugruppen nichts, er bekommt weiter die einzelnen Dinge.
 
 | Ding | angekündigt als | Name |
 |---|---|---|
