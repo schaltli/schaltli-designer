@@ -21,6 +21,7 @@ import type { PlaceholderScope } from "@/lib/placeholders"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, defaultOptions, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
 import { readTopicsOf, type CatalogEntry } from "@/lib/ha-discovery"
+import { convertInTree, type ConvertibleType } from "@/lib/convert-object"
 import { entryIcons, entryIconsNow } from "@/lib/prebuilt-icons"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -2048,6 +2049,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             : screen,
         ),
       }))
+    },
+    [currentScreenId],
+  )
+
+  // «Convert to» (lib/convert-object.ts): the object replaced by its family's
+  // other type, the same id, in one change - one undo step.
+  const convertObjectTo = useCallback(
+    (objectId: string, type: ConvertibleType) => {
+      setProject((prev) => {
+        const screen = prev.screens.find((s) => s.id === currentScreenId)
+        const objects = screen && convertInTree(screen.objects, objectId, type, layoutScaleOf(prev))
+        if (!objects) return prev
+        return {
+          ...prev,
+          screens: prev.screens.map((s) => (s.id === currentScreenId ? { ...s, objects: honest(objects, prev.settings.pixelsPerMm) } : s)),
+        }
+      })
     },
     [currentScreenId],
   )
@@ -4763,6 +4781,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onUngroup={ungroupSelection}
             canGroup={canGroupSelection}
             canUngroup={canUngroupSelection}
+            convertible={selectedObjects.length === 1 ? selectedObjects[0] : null}
+            onConvertObject={convertObjectTo}
             previewMode={isPreviewMode}
             onPreviewButtonAction={handlePreviewButtonAction}
             chartView={isPreviewMode ? (rangeViews[displayedScreen.id] ?? openView(displayedScreen.timeRange)) : undefined}
@@ -4909,6 +4929,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onAddPanel={addPanelToTabControl}
                     onGroup={groupSelection}
                     canGroup={canGroupSelection}
+                    onConvertObject={convertObjectTo}
+                    supportedObjectTypes={project.settings.supportedObjectTypes}
                     onUngroup={ungroupSelection}
                   />
                 </ThemeViewContext.Provider>

@@ -92,8 +92,8 @@ range and its place in the card.
    (`look: "switch"`), or by «Convert to». The user, 2026-11-05: «Ja. Aus
    jedem Button group kann man einen Switch machen».
    A Switch always becomes a Button Group; a Button Group becomes a Switch
-   only with two states - with three («manual», «auto», «off») a toggle
-   has no place for the third, and the entry is greyed with that reason.
+   only with two states - three («manual», «auto», «off») are a choice,
+   not on or off - and the entry is greyed with that reason.
 10. **The dialog goes, with no way back to it** (no Shift-click): one way,
     placed first, changed after.
 11. **«Convert to» in two places:** the Properties panel, and the canvas's

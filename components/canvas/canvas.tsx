@@ -16,6 +16,7 @@ function energyNodeAt(diagram: ScreenObject, at: { x: number; y: number }): Ener
 import { navigatorEntries, themeSwitchAt } from "@/lib/navigator-entries"
 import { THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, variantFromTopic } from "@/lib/themes"
 import { renderNavigator } from "@/lib/render-screen"
+import { convertTargets, type ConvertibleType } from "@/lib/convert-object"
 import { PULSE_MS } from "@/lib/chart-shapes"
 import { chartDateFontSize, chartFontSize, layoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
 import { SPAN, dragged, settled, type RangeView } from "@/lib/chart-range"
@@ -113,7 +114,7 @@ import {
   type KeyboardHandlerContext,
   type SnapResult,
 } from "./interactions"
-import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
+import { isLevelType, isArcType, isSwitchType, objectTypeLabel, type ObjectType } from "@/lib/object-types"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
 import { TABLE_TYPE } from "@/lib/table"
 import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
@@ -444,6 +445,10 @@ export interface CanvasProps {
   onUngroup?: () => void
   canGroup?: boolean
   canUngroup?: boolean
+  // «Convert to» in the menu (docs/2026-11-05-quick-blocks.md): the one
+  // object selected and what converts it; greyed by supportedObjectTypes.
+  convertible?: ScreenObject | null
+  onConvertObject?: (id: string, type: ConvertibleType) => void
   // When true, the canvas behaves as it would at runtime: selection, drag,
   // resize, creation tools and all editing-only overlays (hover outlines,
   // selection handles, tab-strip editing UI) are disabled, and clicking a
@@ -865,6 +870,8 @@ export function Canvas({
   onUngroup,
   canGroup = false,
   canUngroup = false,
+  convertible = null,
+  onConvertObject,
   previewMode = false,
   projectScreens,
   onPreviewButtonAction,
@@ -5294,6 +5301,10 @@ export function Canvas({
     handleCloseContextMenu()
   }, [onUngroup, handleCloseContextMenu])
 
+  // The other type of the selected object's family; none for several
+  // objects or a type without a family (lib/convert-object.ts).
+  const convertMenuTargets = convertible && onConvertObject ? convertTargets(convertible, supportedObjectTypes) : []
+
   return (
     <div
       ref={containerRef}
@@ -5441,6 +5452,35 @@ export function Canvas({
                 Ungroup
                 <span className="text-xs text-muted-foreground">Ctrl+U</span>
               </button>
+            ) : null}
+            {convertMenuTargets.length > 0 && convertible ? (
+              <>
+                <div className="my-1 h-px bg-border" />
+                {/* A submenu, opened by hovering its row as a menu's would. */}
+                <div className="group relative" data-testid="context-convert-to">
+                  <div className="w-full px-3 py-1.5 text-sm text-left group-hover:bg-accent group-hover:text-accent-foreground flex items-center justify-between gap-4 cursor-default">
+                    Convert to
+                    <span className="text-xs text-muted-foreground">›</span>
+                  </div>
+                  <div className="absolute left-full top-0 hidden group-hover:block bg-popover border border-border rounded-md shadow-md py-1 min-w-[160px]">
+                    {convertMenuTargets.map((t) => (
+                      <button
+                        key={t.type}
+                        data-testid={`context-convert-to-${t.type}`}
+                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-start"
+                        disabled={!!t.disabled}
+                        onClick={() => {
+                          onConvertObject?.(convertible.id, t.type)
+                          handleCloseContextMenu()
+                        }}
+                      >
+                        {objectTypeLabel(t.type)}
+                        {t.disabled ? <span className="text-xs text-muted-foreground">{t.disabled}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : null}
           </div>
         </>

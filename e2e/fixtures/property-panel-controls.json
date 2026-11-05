@@ -157,6 +157,7 @@
       "header": "Bar v-level-read",
       "controls": [
         "heading: Bar v-level-read",
+        "button: Convert to",
         "button: Content",
         "select: Show value",
         "button: Data",
@@ -194,6 +195,7 @@
       "header": "Slider v-level-write",
       "controls": [
         "heading: Slider v-level-write",
+        "button: Convert to",
         "button: Content",
         "select: Show value",
         "button: Data",
@@ -238,6 +240,7 @@
       "header": "Gauge v-arc-read",
       "controls": [
         "heading: Gauge v-arc-read",
+        "button: Convert to",
         "button: Content",
         "select: Show value",
         "button: Data",
@@ -276,6 +279,7 @@
       "header": "Dial v-arc-write",
       "controls": [
         "heading: Dial v-arc-write",
+        "button: Convert to",
         "button: Content",
         "select: Show value",
         "button: Data",
@@ -431,6 +435,7 @@
       "header": "Button Group v-switch-group",
       "controls": [
         "heading: Button Group v-switch-group",
+        "button: Convert to",
         "button: Data",
         "combobox: Read topic",
         "combobox: Write topic",
@@ -476,6 +481,7 @@
       "header": "Switch v-switch-knob",
       "controls": [
         "heading: Switch v-switch-knob",
+        "button: Convert to",
         "button: Data",
         "combobox: Read topic",
         "combobox: Write topic",

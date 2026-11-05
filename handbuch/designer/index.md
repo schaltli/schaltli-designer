@@ -46,7 +46,7 @@ Daneben stehen alle Screens des Projekts als kleine Vorschaubilder, oben die Mas
 
 In der Mitte steht der Screen in seiner echten Pixelgrösse, im Rahmen des Geräts. Die Tasten im Rahmen, etwa der Drehring des Knob, lassen sich anklicken und belegen, siehe [Hardware-Tasten und Gesten](/designer/tasten).
 
-Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span>.
+Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span>. Ist ein Slider, Dial, Bar, Gauge, Switch oder eine Button Group ausgewählt, steht dort auch <span class="ui">Convert to</span>, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 Ein Klick auf ein Objekt einer [Gruppe](/objekte/anordnen#gruppe) wählt die ganze Gruppe, ein Doppelklick führt hinein zum einzelnen Objekt.
 

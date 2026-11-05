@@ -25,13 +25,15 @@ Meldet die Anlage einen neuen Wert, gilt dieser, auch wenn er vom gewünschten a
 
 Ein Wischen, das auf einem Slider beginnt, gehört dem Slider und blättert nicht den Screen um. Auf dem [PaperS3](/geraete/papers3) wirkt ein Slider erst beim Loslassen und schickt genau einen Wert.
 
+Mit <span class="ui">Convert to</span> machst du aus einem Slider einen Dial, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
+
 ## Dial {#dial}
 
-Wie Slider, aber als Ring, etwa für eine Heizung. Er hat dieselben Eigenschaften wie der [Gauge](/objekte/anzeigen#gauge), dazu <span class="ui">Write topic</span>, <span class="ui">Step</span> und <span class="ui">Send as</span>. Am Gerät verhält er sich wie ein Slider auf einem Kreisbogen.
+Wie Slider, aber als Ring, etwa für eine Heizung. Er hat dieselben Eigenschaften wie der [Gauge](/objekte/anzeigen#gauge), dazu <span class="ui">Write topic</span>, <span class="ui">Step</span> und <span class="ui">Send as</span>. Am Gerät verhält er sich wie ein Slider auf einem Kreisbogen. Mit <span class="ui">Convert to</span> wird er zum Slider, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 ## Switch {#switch}
 
-Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Eine [Baugruppe](/designer/baugruppen) aus einem angekündigten Schalter setzt einen.
+Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Eine [Baugruppe](/designer/baugruppen) aus einem angekündigten Schalter setzt allerdings eine [Button Group](#button-group) mit «Aus» und «An», weil dort jeder Knopf sagt, was er tut. Mit <span class="ui">Convert to</span> wird daraus ein Switch, und jeder Switch wird so auch wieder zur Button Group, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 - <span class="ui">Read topic</span>: der gemeldete Zustand.
 - <span class="ui">Write topic</span>: wohin der Befehl geht.
@@ -56,6 +58,8 @@ Mehrere Schaltflächen nebeneinander, von denen immer eine gewählt ist, etwa He
 **Am Gerät:** Ein Tippen auf eine Schaltfläche schickt ihren Wert. Die gemeldete hat eine gefüllte Fläche, die gewünschte bekommt einen Ring, bis die Anlage antwortet. Ohne Wert ist keine Schaltfläche markiert.
 
 Hat die Button Group genau zwei Schaltflächen, etwa «Aus» und «An», schaltet ein Tippen irgendwo darauf zum jeweils anderen Zustand um, sobald einer gemeldet ist. Du musst also nicht die richtige Hälfte treffen, und die Gruppe darf klein sein, auch wenn die Beschriftung dann nicht mehr ganz hineinpasst. Solange noch kein Zustand gemeldet ist, zählt die Schaltfläche unter dem Finger. Bei drei und mehr Schaltflächen zählt immer die getroffene.
+
+Mit <span class="ui">Convert to</span> machst du aus einer Button Group mit zwei Schaltflächen einen [Switch](#switch), siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 ## Button {#button}
 

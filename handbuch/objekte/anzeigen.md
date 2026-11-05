@@ -134,7 +134,7 @@ Ein neuer Bar ist 30 mm lang. Hat er eine Stufe, änderst du an seinen Anfassern
 - <span class="ui">Calibration</span>: welcher Wert welchem Füllstand entspricht, siehe [Kalibrierung](/objekte/gemeinsames#kalibrierung). Ohne eigene Punkte ist 0 leer und 100 voll.
 - <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils, <span class="ui">Track</span> die des leeren, <span class="ui">Track edge</span> ein Rand darum. Track und Rand kommen aus dem [Theme](/designer/themes#rollen), bis du sie änderst. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
 
-Ohne Wert zeigt der Bar nur den leeren Balken.
+Ohne Wert zeigt der Bar nur den leeren Balken. Mit <span class="ui">Convert to</span> machst du aus ihm einen Gauge, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 ## Gauge {#gauge}
 
@@ -147,7 +147,7 @@ Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mit
 - <span class="ui">Size</span>: wie dick der Ring ist, dieselben Stufen wie beim Bar. Den Durchmesser ziehst du auf dem Screen, in Pixeln steht er unter <span class="ui">Frame</span> als <span class="ui">Diameter</span>. Hat der Ring eine Stufe, springt der Durchmesser beim Ziehen um zwei Ringdicken. Zwei Ringe mit derselben Stufe lassen sich so genau ineinander setzen. In einer Tabelle bestimmst du den Durchmesser ebenfalls selbst unter <span class="ui">Diameter</span>, und seine Spalte richtet sich danach.
 - <span class="ui">Thickness</span>: wie breit der Ring ist, höchstens die Hälfte des Objekts.
 
-Ohne Wert zeigt der Gauge nur den leeren Ring.
+Ohne Wert zeigt der Gauge nur den leeren Ring. Mit <span class="ui">Convert to</span> machst du aus ihm einen Bar, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 ## Energy diagram {#energiediagramm}
 

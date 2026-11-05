@@ -43,8 +43,15 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
       2. T7: a tile pressed while its icons are still on their way waits up
          to 4 s. Enough, or build «carried without, put in when it comes»?
       3. Try VanPi's prebuilts on the real broker.
-- [ ] T8 «Convert to» for free objects, Properties panel, one undo
-- [ ] T9 «Convert to» in a cell and a card, the row and card follow
-- [ ] T10 «Convert to» in the right-click menu
+- [x] T8 «Convert to» for free objects, Properties panel, one undo
+      lib/convert-object.ts; the menu beside the heading, not in it (a
+      heading «Slider id Convert to» broke getSelectedHeader); the reason
+      under a greyed entry, a disabled item takes no hover.
+- [x] T9 «Convert to» in a cell and a card, the row and card follow
+      convertInTree: a ring in a cell six lines of its font; a card that
+      ended with its content ends there again, one with its own height keeps it.
+- [x] T10 «Convert to» in the right-click menu
+      A hover submenu below Group / Ungroup, for one selected object of a family.
+      T8-T10 in one commit, e2e/convert.spec.ts covers all three.
 - [ ] Checkpoint C: test:quick green; the user converts parts of a prebuilt
 - [ ] T11 screenshots, humanizer, spec «built», test:all

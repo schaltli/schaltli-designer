@@ -26,6 +26,8 @@ import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
 import { FreePositionProperties, FreeProperties } from "./free-properties"
 import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties"
+import { ConvertToMenu } from "./convert-to-menu"
+import type { ConvertibleType } from "@/lib/convert-object"
 import { cellAnchorOf } from "@/lib/anchor"
 import { dockSets } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
@@ -138,6 +140,12 @@ interface PropertyPanelProps {
   // Ctrl+G and Ctrl+U as buttons (lib/object-groups.ts).
   onGroup?: () => void
   canGroup?: boolean
+  /**
+   * «Convert to» the other type of the object's family (lib/convert-
+   * object.ts), with what the device draws to grey the rest.
+   */
+  onConvertObject?: (id: string, type: ConvertibleType) => void
+  supportedObjectTypes?: readonly string[]
   onUngroup?: () => void
 }
 
@@ -245,6 +253,8 @@ export function PropertyPanel({
   onAddPanel,
   onGroup,
   canGroup,
+  onConvertObject,
+  supportedObjectTypes,
   onUngroup,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
@@ -291,8 +301,8 @@ export function PropertyPanel({
     // components/property-panel/fields/field-shell.tsx.
     <div ref={panelRef} className="@container/panel p-4 space-y-6 min-h-[560px] overflow-y-auto">
       {hasSelection && (
-        <div>
-          <h3 className="text-sm font-medium mb-3">
+        <div className="flex items-start gap-2 mb-3">
+          <h3 className="text-sm font-medium">
             {isMultiSelection ? (
               <>
                 Multiple Objects Selected{" "}
@@ -300,11 +310,21 @@ export function PropertyPanel({
               </>
             ) : selectedObject ? (
               <>
-                {objectTypeLabel(selectedObject.type)}{" "}
+                <span data-testid="object-type">{objectTypeLabel(selectedObject.type)}</span>{" "}
                 <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
               </>
             ) : null}
           </h3>
+          {/* Beside the heading, not in it: the heading says the type and id alone. */}
+          {!isMultiSelection && selectedObject && onConvertObject && (
+            <span className="ml-auto">
+              <ConvertToMenu
+                object={selectedObject}
+                supportedObjectTypes={supportedObjectTypes}
+                onConvert={(type) => onConvertObject(selectedObject.id, type)}
+              />
+            </span>
+          )}
         </div>
       )}
 

@@ -310,6 +310,18 @@ export function snapDiameter(diameter: number, thickness: number): number {
 }
 
 /**
+ * How deep a bar or slider is across its length, for its own thickness:
+ * the handle where it can have one, else the track and its glow - and,
+ * beside a horizontal one, the number's line.
+ */
+export function levelAcross(object: ScreenObject, fonts: readonly ProjectFont[]): number {
+  const thickness = levelThickness(object)
+  let across = levelHasHandle(object) ? levelHandleLength(thickness) : thickness + 2 * levelGlowPx(object.properties)
+  if (!levelIsVertical(object) && levelShowsNumber(object)) across = Math.max(across, levelLineHeight(levelFontMetrics(object, fonts)))
+  return across
+}
+
+/**
  * What choosing a step writes on an object: `sizeStep`, and the size it
  * sets. Every track gets the step as its thickness. A bar or slider then
  * gets a box just deep enough across for the track - the handle where it
@@ -333,12 +345,9 @@ export function stepUpdates(
       const diameter = snapDiameter(Math.min(object.width, object.height), thickness)
       return { properties, width: diameter, height: diameter }
     }
-    const handle = levelHasHandle(object)
     const shaped = { ...object, properties }
-    let across = handle ? levelHandleLength(thickness) : thickness + 2 * levelGlowPx(properties)
-    const vertical = levelIsVertical(shaped)
-    if (!vertical && levelShowsNumber(shaped)) across = Math.max(across, levelLineHeight(levelFontMetrics(shaped, fonts)))
-    return { properties, ...(vertical ? { width: across } : { height: across }) }
+    const across = levelAcross(shaped, fonts)
+    return { properties, ...(levelIsVertical(shaped) ? { width: across } : { height: across }) }
   }
   if (kind === "icon") {
     const px = stepPx(kind, step, pixelsPerMm)

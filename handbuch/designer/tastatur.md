@@ -19,7 +19,7 @@ Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> sta
 | <kbd>Strg</kbd>- oder <kbd>Shift</kbd>-Klick | ein Objekt zur Auswahl hinzufügen oder wegnehmen |
 | Doppelklick auf eine Gruppe | in die Gruppe hinein, um ein einzelnes Objekt darin zu bearbeiten |
 | Mausrad über dem Screen | zoomen, in ganzen Stufen |
-| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span> |
+| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span>, <span class="ui">Ungroup</span> und, bei einem ausgewählten Objekt, das sich umwandeln lässt, <span class="ui">Convert to</span> |
 | Doppelklick auf eine Gerätekarte | im Dialog <span class="ui">New Project</span>: Gerät wählen und gleich weiter zum Namen |
 | <kbd>F2</kbd> auf einem Eintrag der Projektliste | Projekt umbenennen |
 
