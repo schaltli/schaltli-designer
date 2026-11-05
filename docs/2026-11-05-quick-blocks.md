@@ -177,10 +177,12 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 - A prebuilt is built with the defaults (decision 3) when its tile is
   dragged or clicked, and lands as today - a row for one part, a card for
   several (docs/2026-11-03-card-blocks.md).
-- An icon not yet fetched when the tile is dragged or clicked: the block is carried
-  without it and gets it the moment it arrives, while still carried. Placed
-  before it came, or the icon service unreachable, the block stays without;
-  an icon is added afterwards like any other.
+- An icon not yet fetched when the tile is dragged or clicked: the block
+  waits for it up to 4 s before it hangs at the pointer, as Insert did (the
+  icons are fetched as soon as the tab shows the tile, so this is rare).
+  Revised 2026-11-05, the user: «4s reicht» - no late insertion while
+  carried. The icon service unreachable, the block comes without; an icon
+  is added afterwards like any other.
 - Example values for the topics the block adds: what the broker store has
   heard on them (retained or live), as the dialog collected while it was
   open. Nothing heard, no example (no-made-up-values, unchanged).

@@ -22,12 +22,16 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
 - [x] T5 catalog from the broker store, live; refresh with Listening off
 - [x] T6 no dialog: a tile carries the prebuilt with the defaults
       (T4-T6 in one commit: the tiles, the hook and their spec grew together)
-- [ ] T7 icons fetched with the tab, a late icon put in while carried
+- [x] ~~T7 icons fetched with the tab, a late icon put in while carried~~
+      Dropped 2026-11-05: the user, «4s reicht» - the fetch with the tab
+      (T6) and the wait of up to 4 s stay.
       Fetched with the tab: built in T6 (lib/prebuilt-icons.ts). A tile
       pressed while its icons are still on their way waits up to 4 s, as
       Insert did, instead of carrying it without and putting it in late.
       Asked at Checkpoint B whether that is enough.
-- [ ] Checkpoint B: test:quick green; the user places VanPi's prebuilts
+- [x] Checkpoint B: test:quick green; the user places VanPi's prebuilts
+      Resumed 2026-11-05: buttons stay, 4 s is enough; trying VanPi's
+      prebuilts on the real broker is left to the user.
       **Halted here 2026-11-05 (build auto)**, after 4192ee7 (T4-T6). A
       recording of the Prebuilt tab sent. Open for the user:
       1. Switch or buttons for on/off: decision 9 says «Switch stays the
