@@ -34,6 +34,8 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
          default», but a Home Assistant switch has been placed as buttons
          «Aus»/«An» since 2026-10-01 (catalogLooks), a Switch only where a
          block description asks. T6 kept the buttons; change it?
+         **Decided 2026-11-05: buttons stay** (decision 9 revised); a
+         Button Group converts to a Switch only with two states (T8).
       2. T7: a tile pressed while its icons are still on their way waits up
          to 4 s. Enough, or build «carried without, put in when it comes»?
       3. Try VanPi's prebuilts on the real broker.

@@ -85,8 +85,15 @@ range and its place in the card.
    «Click to make a table» with Alt held. The user, 2026-11-05: «passt,
    weiter». Should Alt get in the way on a real Windows Chrome after all,
    the switch to Shift is plan task T3, kept.
-9. **Switch stays the default** for on or off: compact, known from phones,
-   fits a card and a list. Buttons by «Convert to».
+9. **Buttons stay the default** for on or off (revised 2026-11-05): a
+   Button Group «Aus»/«An», as placed since 2026-10-01 (`lib/bausteine.ts`,
+   `catalogLooks`) - each button says what it does, a tap is meant whatever
+   state was reported last. A Switch only where a description asks for one
+   (`look: "switch"`), or by «Convert to». The user, 2026-11-05: «Ja. Aus
+   jedem Button group kann man einen Switch machen».
+   A Switch always becomes a Button Group; a Button Group becomes a Switch
+   only with two states - with three («manual», «auto», «off») a toggle
+   has no place for the third, and the entry is greyed with that reason.
 10. **The dialog goes, with no way back to it** (no Shift-click): one way,
     placed first, changed after.
 11. **«Convert to» in two places:** the Properties panel, and the canvas's
