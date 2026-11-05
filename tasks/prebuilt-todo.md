@@ -3,11 +3,12 @@
 Plan: tasks/prebuilt-plan.md. Spec: docs/2026-11-05-quick-blocks.md.
 Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook part.
 
-- [ ] Before: the uncommitted card-blocks work committed or set aside; branch `prebuilt`
+- [x] Before: the uncommitted card-blocks work committed (f1fee4e, ade48db)
+- [ ] Branch `prebuilt`
 - [ ] T0 handbook: Bausteine → Baugruppen, links, sidebar, pointer page at the old address
 - [ ] T1 drag a tool from the ribbon onto the screen (highest risk)
 - [ ] T2 click a tool: the object hangs at the pointer, a click sets it down
-- [ ] T3 Shift builds tables instead of Alt (open question in the plan)
+- [ ] T3 Shift builds tables instead of Alt - or keep Alt: decided after T2 is tried
 - [ ] Checkpoint A: test:quick green; the user tries tools in the browser
 - [ ] T4 tabs «Parts» / «Prebuilt», tiles by device, Block button gone
 - [ ] T5 catalog from the broker store, live; refresh with Listening off

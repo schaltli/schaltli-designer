@@ -237,6 +237,6 @@ Retake `baustein-menue` as the Prebuilt tab, drop `baustein-tank`
   swallows Alt while carrying (`canvas.tsx` ~4650, «Chrome on Windows moves
   the focus to its menu on a lone Alt»), and a hanging carry is a carry
   too - so Alt would likely work for the clicked way as well. The reason
-  for decision 8 is weaker than stated. T3 is built as decided unless the
-  user says otherwise; it is independent and can wait until after T2,
-  where it can be tried.
+  for decision 8 is weaker than stated. **The user, 2026-11-05: decided
+  after trying** - once T2 is built, Alt is tried with a hanging carry on
+  Windows Chrome; only if it gets in the way does T3 switch to Shift.
