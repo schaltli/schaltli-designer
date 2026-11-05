@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "name": "Heizung",
+  "icon": "mdi:radiator",
+  "device": {
+    "identifiers": [
+      "schaltli-vanpi"
+    ],
+    "name": "VanPi"
+  },
+  "covers": [
+    "schaltli-vanpi-heater",
+    "schaltli-vanpi-heater_power_level",
+    "schaltli-vanpi-heater_fan_level"
+  ],
+  "parts": [
+    {
+      "kind": "text",
+      "state_topic": "schaltli/state/heater/status_line",
+      "small": true
+    },
+    {
+      "name": "Betrieb",
+      "kind": "choice",
+      "state_topic": "schaltli/state/heater/view",
+      "command_topic": "schaltli/cmnd/heater/view",
+      "options": [
+        {
+          "value": "off",
+          "label": "Aus"
+        },
+        {
+          "value": "target",
+          "label": "Temperatur"
+        },
+        {
+          "value": "power",
+          "label": "Leistung"
+        },
+        {
+          "value": "fan",
+          "label": "Lüften"
+        }
+      ]
+    },
+    {
+      "name": "Zieltemperatur",
+      "kind": "level",
+      "state_topic": "schaltli/state/heater/target",
+      "command_topic": "schaltli/cmnd/heater/target",
+      "min": 12,
+      "max": 30,
+      "step": 1,
+      "shown_when": {
+        "topic": "schaltli/state/heater/view",
+        "values": [
+          "target"
+        ]
+      },
+      "column": 1,
+      "row": "controls",
+      "look": "dial",
+      "size": "l",
+      "unit_of_measurement": "°C",
+      "current_topic": "schaltli/state/temp/1/value"
+    },
+    {
+      "name": "Leistung",
+      "kind": "level",
+      "state_topic": "schaltli/state/heater/power_level",
+      "command_topic": "schaltli/cmnd/heater/power_level",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "shown_when": {
+        "topic": "schaltli/state/heater/view",
+        "values": [
+          "power"
+        ]
+      },
+      "column": 1,
+      "row": "controls",
+      "look": "dial",
+      "size": "l"
+    },
+    {
+      "name": "Lüftung",
+      "kind": "level",
+      "state_topic": "schaltli/state/heater/fan_level",
+      "command_topic": "schaltli/cmnd/heater/fan_level",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "shown_when": {
+        "topic": "schaltli/state/heater/view",
+        "values": [
+          "fan"
+        ]
+      },
+      "column": 1,
+      "row": "controls",
+      "look": "dial",
+      "size": "l"
+    },
+    {
+      "name": "Timer",
+      "kind": "switch",
+      "state_topic": "schaltli/state/heater/timer_on",
+      "command_topic": "schaltli/cmnd/heater/timer_on",
+      "payload_on": {
+        "value": "on",
+        "label": "",
+        "icon": "mdi:timer-sand"
+      },
+      "payload_off": {
+        "value": "off",
+        "label": "",
+        "icon": "mdi:timer-off-outline"
+      },
+      "look": "switch",
+      "section": "Laufzeit",
+      "column": 2,
+      "row": "controls"
+    },
+    {
+      "name": "Laufzeit",
+      "kind": "level",
+      "state_topic": "schaltli/state/heater/runtime_left_s",
+      "command_topic": "schaltli/cmnd/heater/runtime_s",
+      "min": 0,
+      "max": 36000,
+      "step": 900,
+      "unit_of_measurement": "s",
+      "display_value": "duration",
+      "shown_when": {
+        "topic": "schaltli/state/heater/timer_on",
+        "values": [
+          "on"
+        ]
+      },
+      "section": "Laufzeit",
+      "column": 2,
+      "row": "controls",
+      "look": "dial",
+      "size": "l"
+    },
+    {
+      "kind": "text",
+      "state_topic": "schaltli/state/heater/fuel_text",
+      "section": "Verbrauch",
+      "column": 1,
+      "row": "fuel"
+    },
+    {
+      "name": "Nullen",
+      "kind": "button",
+      "command_topic": "schaltli/cmnd/heater/fuel",
+      "payload_press": "reset",
+      "size": "xs",
+      "section": "Verbrauch",
+      "column": 2,
+      "row": "fuel"
+    }
+  ]
+}

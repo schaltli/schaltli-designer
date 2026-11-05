@@ -13,6 +13,8 @@
  * does not fit whole is left out (`properties.dockedOut`): not exported, not
  * in the preview, an outline in the editor. Devices clip nothing to an area,
  * so the designer clips by what it exports (tasks/anchor-dock-plan.md).
+ * Except a table docked Fill too wide for an area that clips (a card, Clip
+ * on - docs/2026-11-03-card-clip.md): that area cuts it, so it stays.
  *
  * Docking overwrites an object's size; its own is kept in
  * `properties.ownSize` while it differs, and given back once it is undocked.
@@ -23,6 +25,7 @@ import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES
 import { arrangeSnapTable, isSnapTable, SNAP_GAP_MM } from "@/lib/snap-table"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { translateObject } from "@/lib/object-groups"
+import { clipsContents } from "@/lib/clip"
 
 export type Dock = "top" | "bottom" | "left" | "right" | "fill"
 const DOCKS: ReadonlySet<string> = new Set(["top", "bottom", "left", "right", "fill"])
@@ -166,7 +169,12 @@ export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
     const a = across(room.w)
     const w = a.width
     const h = canH ? room.h : a.height
-    if (room.w <= 0 || room.h <= 0 || w > room.w || h > room.h) {
+    // A table wider than the room, in an area that clips what it holds: it
+    // stands there, cut at the area's edge on every device (lib/clip.ts) -
+    // rather than left out, which showed an empty card and no reason why
+    // (the user, 2026-11-04).
+    const cutByClip = table && w > room.w && clipsContents(area)
+    if (room.w <= 0 || room.h <= 0 || (w > room.w && !cutByClip) || h > room.h) {
       done.set(child.id, leftOut(child))
       continue
     }

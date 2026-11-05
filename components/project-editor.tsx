@@ -130,7 +130,7 @@ import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-conte
 import { useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
-import { blockCard } from "@/lib/block-card"
+import { fittedBlockCard } from "@/lib/block-card"
 
 /**
  * A project as it opens, on the fonts its device sets text in now: when the
@@ -2389,9 +2389,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width, height: 40 })
     blockRegisterRef.current = register
     const row = blockRow({ ...built, objects: stepped })
-    // Of several parts: a card, its name at the top (docs/2026-11-03-card-blocks.md).
-    return row ? { row } : { table: blockCard({ ...built, objects: stepped }, width, layoutScaleOf(project)) }
-  }, [armedBlock, buildArmed, project])
+    if (row) return { row }
+    // Of several parts: a card, its name at the top (docs/2026-11-03-card-blocks.md),
+    // as wide as its parts need, up to the screen less a margin each side.
+    const textScale = screenTextScale(project, currentScreen)
+    const smaller = textScale ? (style: "large" | "standard") => styledFont(style, false, textScale, project.fonts) : undefined
+    return { table: fittedBlockCard({ ...built, objects: stepped }, width, layoutScaleOf(project), project.screenWidth, smaller) }
+  }, [armedBlock, buildArmed, project, currentScreen])
 
   // A block of several parts let go: a table of its own at `at`, in the
   // space `parentId` names; the topics and icons it brings registered, the

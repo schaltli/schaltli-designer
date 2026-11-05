@@ -42,7 +42,11 @@ light block of one part still arrives as a row and snaps into a list.
     with Dock Fill: across the card's width, its parts stretched as today,
     a switcher's panels with it.
   - **Size:** its parts as wide as the block is built today (60 % of the
-    screen), the card its padding wider on each side; as tall as its
+    screen) - or, since 2026-11-04, as wide as they need, up to the screen
+    less 8 px each side; still too wide, its rows of buttons a text size
+    smaller, and another (the heater's four modes, which at 60 % left the
+    parts out and the card empty, on the 4" and the 4.3B alike) - the card
+    its padding wider on each side; as tall as its
     heading, the gap and its parts need inside the card's padding.
 - **Carried and let go** it snaps as a card from the Card tool does: into a
   cell (green), at a table's edge (a line), beside a free object (a pair);

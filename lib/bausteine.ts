@@ -449,7 +449,10 @@ function arcObject(
       thickness: LEVEL_DEFAULT_THICKNESS,
       displayValue: "percentage",
       fillColor: palette.fill,
-      textColor: palette.textOnFill,
+      // The number stands in the middle of the ring, on what the ring stands
+      // on - not on its fill as a bar's does: Text. In Text on accent it was
+      // white on a light card, not to be seen (the user, 2026-11-04).
+      textColor: palette.text,
       fontId: font?.id,
       fontSize: font?.size,
     },

@@ -467,15 +467,19 @@ test.describe("placing a catalog entry", () => {
   // docs/2026-11-03-card-blocks.md: two blocks of several parts, the second
   // let go below the first, make a table of two cards, each filling its cell.
   test("a block of several parts let go below another makes a table of two cards, each filling its cell", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
+    // A light of two parts: two of its cards fit one under the other on the
+    // round screen. The Bedroom Fan's did only while its parts were left out
+    // of its card - with them, one card is taller than the screen (2026-11-04).
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-light-office"])
     try {
       await openOnRoundDevice(page)
-      await pick(page, "Bedroom Fan")
+      await pick(page, "Office light")
       await page.getByTestId("baustein-insert").click()
-      await clickAt(page, 180, 60)
+      await clickAt(page, 180, 110)
       const first = (await savedScreen(page)).objects.find(isBlockCard)
       expect(first).toBeTruthy()
-      await pick(page, "Bedroom Fan")
+      expect(JSON.stringify(first)).not.toContain("dockedOut")
+      await pick(page, "Office light")
       await page.getByTestId("baustein-insert").click()
       // Carried at its middle; let go with its top edge 3 px below the first.
       await drag(page, [180, 300], [first.x + first.width / 2, first.y + first.height + 3 + first.height / 2])
