@@ -13,4 +13,4 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
 - [x] T6 android: ToggleButtonView, DDF, golden and specimens
 - [x] Checkpoint B: conformance on every board and the app, nothing excused
 - [ ] T7 CamperUI rebuild on Toggle Buttons, on the 4", compared
-- [ ] T8 handbook objekte/bedienen.md, handbook-labels, test:quick
+- [x] T8 handbook objekte/bedienen.md, handbook-labels, test:quick

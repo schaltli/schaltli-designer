@@ -61,6 +61,18 @@ Hat die Button Group genau zwei Schaltflächen, etwa «Aus» und «An», schalte
 
 Mit <span class="ui">Convert to</span> machst du aus einer Button Group mit zwei Schaltflächen einen [Switch](#switch), siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
+## Toggle Button {#toggle-button}
+
+Eine Kachel, die ihren Zustand zeigt: «Wasserpumpe», blau solange sie läuft, weiss mit Rand solange nicht. Ein Tippen schaltet um. So sehen die Relais-Kacheln von CamperUI aus. Die Eigenschaften sind dieselben wie beim [Switch](#switch), dazu unter <span class="ui">Text</span>:
+
+- <span class="ui">Name</span>: was gross auf der Kachel steht. Mit Name steht darunter das <span class="ui">Label</span> des Zustands eine Grösse kleiner, das Icon des Zustands in einem Kreis links daneben. Ohne Name steht nur das Label in der Mitte, mit dem Icon daneben.
+
+Ein Zustand mit <span class="ui">Shows as on</span> füllt die Kachel mit der <span class="ui">Colour</span>. Bei jedem anderen sieht sie aus wie eine Karte des Themes, mit deren Farbe und Rand. Ihre Ecken richten sich nach dem <span class="ui">Button radius</span>. Die Kachel wird nie schmaler als ihre Beschriftung und nie niedriger als ihre Zeilen.
+
+**Am Gerät:** Ein Tippen irgendwo auf die Kachel schickt den nächsten Zustand, nach dem letzten wieder den ersten. Bei zwei Zuständen schaltet sie also um, bei drei geht sie der Reihe nach weiter. Die Kachel zeigt weiter den gemeldeten Zustand und bekommt einen Ring in ihrer Farbe, bis die Anlage antwortet. Ohne Wert steht «?» auf der Kachel, und ein Tippen schickt den ersten Zustand, der als «an» gilt.
+
+Mit <span class="ui">Convert to</span> wird ein Toggle Button zur Button Group oder, mit genau zwei Zuständen, zum Switch. Der Name geht dabei verloren, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
+
 ## Button {#button}
 
 Eine Schaltfläche, die beim Antippen etwas tut.
