@@ -126,6 +126,16 @@ export const ButtonGroupIcon = (p: IconProps) => (
   </Glyph>
 )
 
+// One tile that is its state: the whole of it in the accent, as the state is
+// what fills it, with the disc of a named tile and its name.
+export const ToggleButtonIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect x="2" y="6" width="20" height="12" rx="3" fill={ACCENT} />
+    <circle cx="7.5" cy="12" r="2" fill="var(--background)" stroke="none" />
+    <path d="M12 12h6" stroke="var(--background)" />
+  </Glyph>
+)
+
 // One button with a label line, the same footprint as the group: one
 // segment against three.
 export const ButtonIcon = (p: IconProps) => (
@@ -270,6 +280,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   dial: DialIcon,
   switch: SwitchIcon,
   "button-group": ButtonGroupIcon,
+  "toggle-button": ToggleButtonIcon,
   button: ButtonIcon,
   "text-field": TextFieldIcon,
   "time-field": TimeFieldIcon,

@@ -38,6 +38,9 @@ export const OBJECT_TYPES = [
   "dial",
   "switch",
   "button-group",
+  // A switch that is one tile, its state's look (docs/2026-11-06-toggle-
+  // button.md): CamperUI's state tile as one object.
+  "toggle-button",
   "button",
   // A topic's text, typed anew and sent (tasks/ha-text-plan.md).
   "text-field",
@@ -69,7 +72,7 @@ export const OBJECT_TYPES = [
 export type ObjectType = (typeof OBJECT_TYPES)[number]
 
 /** What a person can put a finger on. Also the line an e-paper DDF stops at. */
-export const OPERATE_TYPES: readonly ObjectType[] = ["slider", "dial", "switch", "button-group", "button", "text-field", "time-field"]
+export const OPERATE_TYPES: readonly ObjectType[] = ["slider", "dial", "switch", "button-group", "toggle-button", "button", "text-field", "time-field"]
 
 export function isObjectType(type: string): type is ObjectType {
   return (OBJECT_TYPES as readonly string[]).includes(type)
@@ -88,6 +91,16 @@ export function isArcType(type: string | undefined): type is "gauge" | "dial" {
 /** A switch with a knob or a connected button group. */
 export function isSwitchType(type: string | undefined): type is "switch" | "button-group" {
   return type === "switch" || type === "button-group"
+}
+
+/**
+ * The three types with states, topics and a switch's colour: the knob, the
+ * group and the Toggle Button. What they share - the states and their
+ * panel, the asked and the reported value, the state icons - asks this;
+ * what is a knob's or a group's own geometry asks isSwitchType.
+ */
+export function hasSwitchStates(type: string | undefined): type is "switch" | "button-group" | "toggle-button" {
+  return isSwitchType(type) || type === "toggle-button"
 }
 
 /** The level types a finger can set: they carry a write topic and a step. */
@@ -129,6 +142,8 @@ export function objectTypeLabel(type: string): string {
       return "Switch"
     case "button-group":
       return "Button Group"
+    case "toggle-button":
+      return "Toggle Button"
     case "button":
       return "Button"
     case "text-field":

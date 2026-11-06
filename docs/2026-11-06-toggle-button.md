@@ -102,7 +102,8 @@ tool only where the device declares it, as for every type.
 
 ## Designer
 
-- Ribbon tool «Toggle Button» beside «Switch» and «Button Group», with an
+- A part «Toggle Button» in the palette (components/palette/part-rows.tsx)
+  beside «Switch» and «Button Group», with an
   icon of its own in `components/icons/object-icons.tsx`.
 - Property panel: the switch's states, topics, colour and style, plus
   «Name» (`text`) and the text size; no form-specific extras.
@@ -163,7 +164,7 @@ in a renderer.
 - `e2e/toggle-button-shape.spec.ts`: `toggleLooks` pinned - on, off, none,
   pressed; plain and named; filled and tonal; 24 bit, grey, 1 bit; the
   second line one size smaller; Micro stays Micro.
-- `e2e/toggle-button.spec.ts`: placing from the ribbon, the property
+- `e2e/toggle-button.spec.ts`: placing from the palette, the property
   panel, the preview's tap = next (wrapping, from none), the ring while
   waiting.
 - `e2e/convert.spec.ts` extended: the family of three, the refusal.

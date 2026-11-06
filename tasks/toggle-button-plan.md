@@ -37,6 +37,25 @@ What a device gets on a `toggle-button` (light; colours also `…Dark`):
 "text": "Wasserpumpe"                          // the name, may be empty
 ```
 
+### The call sites, decided in T1
+
+`isSwitchType` stays "a knob or a group"; `hasSwitchStates` (new) adds
+the Toggle Button for what is about states.
+
+| Call site | Asks | Task |
+|---|---|---|
+| property-panel.tsx `SwitchProperties` | hasSwitchStates, plus «Name» | T2 |
+| canvas.tsx preview tap | hasSwitchStates; the index from `toggleNextIndex` | T2 |
+| canvas.tsx creation defaults | hasSwitchStates; its own defaults | T2 |
+| canvas.tsx resize minimum | stays isSwitchType; a Toggle Button takes the button's rule | T2 |
+| asset-export.ts state icons | hasSwitchStates; baked per face in the ink | T4 |
+| android-export.ts, project-zip.ts | the looks instead of a switch's bake | T4 |
+
+Places that name `"button-group"` as a literal (layout, size-scale,
+free-min-size, anchor, placing, render-screen, mock-engine, bausteine,
+block-card, chart-from-controls) are read in T2 and T4: sizing and
+drawing join, the Block menu and Prebuilt do not (not doing).
+
 ## Tasks
 
 - **T1 designer: the type and its look** - `toggle-button` in
@@ -47,7 +66,7 @@ What a device gets on a `toggle-button` (light; colours also `…Dark`):
   `e2e/toggle-button-shape.spec.ts` pinned; existing switch and button
   specs green.
 - **T2 designer: drawn, placed, operated** - `render-toggle-button.ts`
-  from the looks; ribbon tool and icon; property panel with «Name»; size
+  from the looks; palette part and icon; property panel with «Name»; size
   rules (`layout`, `size-scale`, `free-min-size`); preview: tap = next
   (wrapping, from none the first `showAsOn`), the ring while waiting, the
   state layer, «?». Verify: new `e2e/toggle-button.spec.ts`.

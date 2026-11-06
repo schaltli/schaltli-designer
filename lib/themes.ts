@@ -720,6 +720,9 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   "time-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
   switch: { switchColor: "accent" },
   "button-group": { switchColor: "accent" },
+  // Off is a card: its colour, its edge, its text (docs/2026-11-06-toggle-
+  // button.md, decision 2).
+  "toggle-button": { switchColor: "accent", backgroundColor: "panel", borderColor: "outline", textColor: "text" },
   "energy-diagram": {
     textColor: "text",
     mutedColor: "textMuted",
