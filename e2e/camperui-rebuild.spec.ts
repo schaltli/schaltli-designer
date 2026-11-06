@@ -6,6 +6,9 @@ import { buildCamperUiProject } from "../deploy/demo/camperui-project"
 import { mergeMasterAndScreenObjects } from "../lib/object-order"
 import { applyTheme, isRole, migrateColorsToRoles, resolveColor, themeById } from "../lib/themes"
 
+// Where CAMPERUI_PUSH and CAMPERUI_JSON put the rebuild in the designer's store.
+const PUSH_NAME = "CamperUI nachgebaut"
+
 // CamperUI rebuilt in Schaltli (deploy/demo/camperui-project.ts): every page
 // drawn by the reference renderer the boards are compared against, its
 // objects of types the 4" draws, every live value bound to a topic of the
@@ -73,13 +76,16 @@ test("each page drawn as the boards are compared against", async ({ page }) => {
   // The project as a file, to put into the designer outside a test run:
   // global-teardown deletes every project a run created, so CAMPERUI_PUSH
   // alone does not keep it.
-  if (process.env.CAMPERUI_JSON) fs.writeFileSync(path.resolve(ROOT, process.env.CAMPERUI_JSON), JSON.stringify({ name: project.name, project }))
+  if (process.env.CAMPERUI_JSON) fs.writeFileSync(path.resolve(ROOT, process.env.CAMPERUI_JSON), JSON.stringify({ name: PUSH_NAME, project: { ...project, name: PUSH_NAME } }))
   if (process.env.CAMPERUI_PUSH) {
-    // Created the first time, a new version after that.
-    const exists = (await page.request.get(`/api/projects/${encodeURIComponent(project.name)}`)).ok()
+    // Created the first time, a new version after that - always under
+    // PUSH_NAME, never the build's own name: «CamperUI» in the store is the
+    // user's project, edited by hand (2026-11-06 a push landed on it).
+    const pushed = { ...project, name: PUSH_NAME }
+    const exists = (await page.request.get(`/api/projects/${encodeURIComponent(PUSH_NAME)}`)).ok()
     const res = exists
-      ? await page.request.post(`/api/projects/${encodeURIComponent(project.name)}/versions`, { data: project })
-      : await page.request.post("/api/projects", { data: { name: project.name, project } })
+      ? await page.request.post(`/api/projects/${encodeURIComponent(PUSH_NAME)}/versions`, { data: pushed })
+      : await page.request.post("/api/projects", { data: { name: PUSH_NAME, project: pushed } })
     expect(res.ok(), await res.text()).toBe(true)
   }
 })
