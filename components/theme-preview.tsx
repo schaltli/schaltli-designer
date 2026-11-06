@@ -117,7 +117,7 @@ export function ThemePreview({
 
     const render = () => {
       if (cancelled) return
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) return
       ctx.fillStyle = surface
       ctx.fillRect(0, 0, WIDTH, HEIGHT)

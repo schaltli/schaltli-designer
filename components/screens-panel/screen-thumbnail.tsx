@@ -99,7 +99,7 @@ export function ScreenThumbnail({
       if (cancelled) return
       canvas.width = screenWidth
       canvas.height = screenHeight
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) return
 
       setupBDFCanvas(ctx)

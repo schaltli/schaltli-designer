@@ -478,7 +478,7 @@ export class AssetExporter {
           const ground = document.createElement('canvas')
           ground.width = width
           ground.height = height
-          const ctx = ground.getContext('2d')
+          const ctx = ground.getContext('2d', { willReadFrequently: true })
           if (!ctx) continue
           // Unrounded, as a screen's ground is in createFlattenedBackground: the
           // icon's soft edges mix into it before the bake is reduced to the
@@ -599,7 +599,7 @@ export class AssetExporter {
           const ground = document.createElement('canvas')
           ground.width = bake.size
           ground.height = bake.size
-          const groundCtx = ground.getContext('2d')
+          const groundCtx = ground.getContext('2d', { willReadFrequently: true })
           if (!groundCtx) continue
           groundCtx.fillStyle = screen.backgroundColor && screen.backgroundColor !== 'transparent' ? screen.backgroundColor : '#ffffff'
           groundCtx.fillRect(0, 0, bake.size, bake.size)
@@ -684,7 +684,7 @@ export class AssetExporter {
    */
   private async createFlattenedBackground(screen: any, project: any, objects?: any[]): Promise<HTMLCanvasElement> {
     const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) throw new Error('Could not get canvas context')
 
     canvas.width = this.options.screenWidth
@@ -859,7 +859,7 @@ export class AssetExporter {
         // the screen - exactly the square the preview drew.
         const crop = (canvas: HTMLCanvasElement) => {
           const { x, y, size } = layout.icon!
-          const data = canvas.getContext('2d')!.getImageData(x, y, size, size)
+          const data = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(x, y, size, size)
           return this.bitmapToFile(convertImageToColorDepth({ width: size, height: size, data: data.data }, this.bitmapDepth))
         }
         result.iconData = crop(normal.canvas)
@@ -891,7 +891,7 @@ export class AssetExporter {
     isActive: boolean
   ): Promise<{ canvas: HTMLCanvasElement; placed: ButtonContentLayout }> {
     const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) throw new Error('Could not get canvas context')
 
     const x = Math.round(buttonObject.x)
@@ -969,7 +969,7 @@ export class AssetExporter {
         const canvas = document.createElement('canvas')
         canvas.width = w
         canvas.height = h
-        const ctx = canvas.getContext('2d')!
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!
         ctx.drawImage(flattenedBackground, x, y, w, h, 0, 0, w, h)
         ctx.translate(-x, -y)
         const looks = renderToggleButton({
@@ -990,7 +990,7 @@ export class AssetExporter {
         return { canvas, looks }
       }
       const crop = (canvas: HTMLCanvasElement, box: { x: number; y: number; size: number }) => {
-        const data = canvas.getContext('2d')!.getImageData(box.x, box.y, box.size, box.size)
+        const data = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(box.x, box.y, box.size, box.size)
         return this.bitmapToFile(convertImageToColorDepth({ width: box.size, height: box.size, data: data.data }, this.bitmapDepth))
       }
       const { looks } = draw(-1, false)
@@ -1062,7 +1062,7 @@ export class AssetExporter {
       
       // Create a canvas to render the icon on its background
       const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
       if (!ctx) throw new Error('Could not get canvas context')
 
       canvas.width = iconObject.width
@@ -1224,7 +1224,7 @@ export class AssetExporter {
       // and the picture the designer showed are the same pixels.
       const bakeVariant = async (pair: { backdrop: string; ink: string }, asset: any): Promise<Uint8Array> => {
         const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
         if (!ctx) throw new Error('Could not get canvas context')
         canvas.width = iconSize
         canvas.height = iconSize

@@ -211,7 +211,7 @@ function ttfWidth(text: string, font: ProjectFont, weight: string): number | und
     ensureTtfFontRegistered(font, () => window.dispatchEvent(new Event(TTF_FONT_LOADED_EVENT)))
     return undefined
   }
-  if (measureContext === undefined) measureContext = document.createElement("canvas").getContext("2d")
+  if (measureContext === undefined) measureContext = document.createElement("canvas").getContext("2d", { willReadFrequently: true })
   if (!measureContext) return undefined
   measureContext.font = `${weight} ${font.size ?? 14}px "${font.internalName ?? font.name}"`
   return Math.ceil(measureContext.measureText(text).width)

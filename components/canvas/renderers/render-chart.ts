@@ -87,7 +87,7 @@ class ChartPixels {
     const off = document.createElement("canvas")
     off.width = this.width
     off.height = this.height
-    const octx = off.getContext("2d")
+    const octx = off.getContext("2d", { willReadFrequently: true })
     if (!octx) return
     const img = octx.createImageData(this.width, this.height)
     for (let i = 0; i < this.data.length; i++) {

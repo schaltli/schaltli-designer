@@ -475,7 +475,7 @@ export function loadImageFromDataURL(dataURL: string): Promise<ImageData> {
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
       
       if (!ctx) {
         reject(new Error('Could not get canvas context'))
@@ -535,7 +535,7 @@ export function rasterizeSVG(svgData: string, width: number, height: number): Pr
     }
     
     const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     
     if (!ctx) {
       reject(new Error('Could not get canvas context'))

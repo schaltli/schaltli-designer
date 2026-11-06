@@ -296,7 +296,7 @@ export function rasterisedIcon(
   const canvas = document.createElement("canvas")
   canvas.width = width
   canvas.height = height
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
   if (!ctx) return null
   ctx.drawImage(img, 0, 0, width, height)
 
@@ -340,7 +340,7 @@ export function iconInk(img: HTMLImageElement, key: string): IconInk | null {
   const canvas = document.createElement("canvas")
   canvas.width = w
   canvas.height = h
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
   if (!ctx) return null
   ctx.drawImage(img, 0, 0, w, h)
   const data = ctx.getImageData(0, 0, w, h).data
@@ -406,7 +406,7 @@ export function rasterisedIconOnBaseline(
   const canvas = document.createElement("canvas")
   canvas.width = width
   canvas.height = height
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
   if (!ctx) return null
   ctx.drawImage(img, dx, dy, dw, dh)
 

@@ -418,7 +418,7 @@ function drawCoverageImage(
   const colour = opaqueBytesOf(style)
   if (!colour) return false
   const canvas = scratchOf(width, height)
-  const sctx = canvas?.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined
+  const sctx = canvas?.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined
   if (!canvas || !sctx) return false
   const image = sctx.createImageData(width, height)
   const px = image.data
@@ -503,7 +503,7 @@ function enlargedOf(
   const h = height * factor
   if (enlarged.width < w) enlarged.width = w
   if (enlarged.height < h) enlarged.height = h
-  const ectx = enlarged.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
+  const ectx = enlarged.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
   if (!ectx) return null
   ectx.clearRect(0, 0, w, h)
   ectx.imageSmoothingEnabled = false

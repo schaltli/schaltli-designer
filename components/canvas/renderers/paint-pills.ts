@@ -91,7 +91,7 @@ export function paintPills(
   const buffer = document.createElement("canvas")
   buffer.width = bounds.w
   buffer.height = bounds.h
-  const bctx = buffer.getContext("2d")
+  const bctx = buffer.getContext("2d", { willReadFrequently: true })
   if (!bctx) return
 
   if ((colorDepth ?? "24bit") !== "24bit") hardPills(bctx, runs, bounds)

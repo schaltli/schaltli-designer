@@ -275,7 +275,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     const canvas = document.createElement("canvas")
     canvas.width = size
     canvas.height = size
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })
     if (!ctx) return undefined
     const img = new Image()
     await new Promise<void>((resolve) => {
@@ -338,7 +338,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       const canvas = document.createElement("canvas")
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.translate(-x, -y)
       const layout = drawSoftwareButton({ ctx, obj, fonts: project.fonts || [], bdfFontCache, colorDepth: "24bit", background, pressed, icon, radiusPx })
       ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -348,7 +348,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       const square = document.createElement("canvas")
       square.width = box.size
       square.height = box.size
-      square.getContext("2d")!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
+      square.getContext("2d", { willReadFrequently: true })!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
       const blob = await new Promise<Blob | null>((resolve) => square.toBlob((b) => resolve(b), "image/png"))
       if (!blob) return undefined
       const filename = `buttons/${screenId}_${obj.id}-icon${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
@@ -414,7 +414,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       const canvas = document.createElement("canvas")
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.fillStyle = background
       ctx.fillRect(0, 0, w, h)
       ctx.translate(-x, -y)
@@ -439,7 +439,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
       const square = document.createElement("canvas")
       square.width = box.size
       square.height = box.size
-      square.getContext("2d")!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
+      square.getContext("2d", { willReadFrequently: true })!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
       const blob = await new Promise<Blob | null>((resolve) => square.toBlob((b) => resolve(b), "image/png"))
       return blob ? { bytes: new Uint8Array(await blob.arrayBuffer()), filename: `buttons/${name}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-") } : undefined
     }

@@ -126,7 +126,7 @@ export function fillRoundRectRing(
   const ring = document.createElement("canvas")
   ring.width = w
   ring.height = h
-  const rctx = ring.getContext("2d")
+  const rctx = ring.getContext("2d", { willReadFrequently: true })
   if (!rctx) return
   fillRoundRectSides(rctx, 0, 0, w, h, r, rRight, color)
   if (w > 2 * t && h > 2 * t) {

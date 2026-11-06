@@ -362,7 +362,7 @@ export default function TestRenderPage() {
       canvas.width = project.screenWidth * scale
       canvas.height = project.screenHeight * scale
 
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) throw new Error("No 2d context")
 
       setupBDFCanvas(ctx)
@@ -672,7 +672,7 @@ export default function TestRenderPage() {
       const canvas = document.createElement("canvas")
       canvas.width = req.width
       canvas.height = req.height
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.fillStyle = "#ffffff"
       ctx.fillRect(0, 0, req.width, req.height)
       if (req.obj.type === "box") renderBox({ ctx, obj: req.obj, zoom: 1, colorDepth: "24bit" })
@@ -700,7 +700,7 @@ export default function TestRenderPage() {
       const canvas = document.createElement("canvas")
       canvas.width = req.width
       canvas.height = req.height
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.fillStyle = "#ffffff"
       ctx.fillRect(0, 0, req.width, req.height)
       ctx.setTransform(...req.transform)
@@ -740,7 +740,7 @@ export default function TestRenderPage() {
       const canvas = document.createElement("canvas")
       canvas.width = req.obj.x + req.obj.width
       canvas.height = req.obj.y + req.obj.height
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.fillStyle = "#ffffff"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       const data = Object.fromEntries(
@@ -773,7 +773,7 @@ export default function TestRenderPage() {
       const canvas = document.createElement("canvas")
       canvas.width = req.width
       canvas.height = req.height
-      const ctx = canvas.getContext("2d")!
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!
       ctx.fillStyle = req.background
       ctx.fillRect(0, 0, req.width, req.height)
 

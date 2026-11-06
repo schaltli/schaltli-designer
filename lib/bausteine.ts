@@ -175,7 +175,7 @@ export function measureBlockText(text: string, font?: BausteinFont): number {
   const size = font?.size ?? 14
   if (typeof document === "undefined") return Math.ceil(text.length * size * 0.7)
   const canvas = document.createElement("canvas")
-  const ctx = canvas.getContext("2d")
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
   if (!ctx) return Math.ceil(text.length * size * 0.7)
   const family = font?.format === "ttf" ? `"${font.internalName ?? font.name}"` : "sans-serif"
   ctx.font = `normal ${size}px ${family}`

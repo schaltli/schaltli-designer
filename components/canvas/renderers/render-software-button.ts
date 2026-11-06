@@ -54,7 +54,7 @@ export function colouredIcon(raster: HTMLCanvasElement, key: string, colour: str
   const canvas = document.createElement("canvas")
   canvas.width = raster.width
   canvas.height = raster.height
-  const ctx = canvas.getContext("2d")!
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!
   ctx.drawImage(raster, 0, 0)
   ctx.globalCompositeOperation = "source-in"
   ctx.fillStyle = colour
@@ -237,7 +237,7 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
     buttonScratch.width = w
     buttonScratch.height = h
   }
-  const scratch = buttonScratch.getContext("2d")
+  const scratch = buttonScratch.getContext("2d", { willReadFrequently: true })
   if (!scratch) {
     draw(outer)
     return

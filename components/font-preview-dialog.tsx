@@ -42,7 +42,7 @@ export function FontPreviewDialog({ isOpen, onClose, font }: FontPreviewDialogPr
         return
       }
 
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) {
         console.log("[v0] Could not get 2d context")
         return

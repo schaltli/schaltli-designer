@@ -50,7 +50,7 @@ export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initial
     const renderPreview = async () => {
       const canvas = canvasRef.current
       if (!canvas) return
-      const ctx = canvas.getContext("2d")
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })
       if (!ctx) return
 
       const rootStyles = getComputedStyle(document.documentElement)
@@ -163,7 +163,7 @@ export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initial
         ctx.font = `${correctedFontPx}px ${familyName}`
         // Ensure exact painted height via pixel-scan top alignment
         const temp = document.createElement("canvas")
-        const tctx = temp.getContext("2d")!
+        const tctx = temp.getContext("2d", { willReadFrequently: true })!
         temp.width = Math.ceil((mt.width + padding * 2) * dpr)
         temp.height = Math.ceil((size + padding * 2) * dpr)
         tctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -217,7 +217,7 @@ export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initial
     
     // Calculate baseline offset (ascent) for this font at this size
     const tempCanvas = document.createElement("canvas")
-    const tempCtx = tempCanvas.getContext("2d")!
+    const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true })!
     tempCtx.font = `${size}px ${familyName}`
     const metrics = tempCtx.measureText("Hg")
     const baselineOffset = (metrics as any).actualBoundingBoxAscent || size * 0.8

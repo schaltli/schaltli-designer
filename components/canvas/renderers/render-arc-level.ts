@@ -808,7 +808,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   const buffer = document.createElement("canvas")
   buffer.width = size
   buffer.height = size
-  const bufferCtx = buffer.getContext("2d")
+  const bufferCtx = buffer.getContext("2d", { willReadFrequently: true })
   if (!bufferCtx) return
   const image = bufferCtx.createImageData(size, size)
   const data = image.data

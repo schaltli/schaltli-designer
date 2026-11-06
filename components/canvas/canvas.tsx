@@ -1535,7 +1535,7 @@ export function Canvas({
       // before this fix, if a future DDF ever uses one - not needed by any
       // shipped device today.
       const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
-      const ctx = canvasRef.current?.getContext("2d")
+      const ctx = canvasRef.current?.getContext("2d", { willReadFrequently: true })
 
       for (const element of buttonElements) {
         const id = element.getAttribute("id")
@@ -1616,7 +1616,7 @@ export function Canvas({
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })
     if (!ctx) return
 
     ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset transformation matrix
@@ -1862,7 +1862,7 @@ export function Canvas({
           snapshot.width = w
           snapshot.height = h
         }
-        const sctx = snapshot.getContext("2d")!
+        const sctx = snapshot.getContext("2d", { willReadFrequently: true })!
         sctx.clearRect(0, 0, w, h)
         sctx.drawImage(canvas, Math.round(screenX * zoom), Math.round(screenY * zoom), w, h, 0, 0, w, h)
         const along = slide.side === "left" || slide.side === "right"
