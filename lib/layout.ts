@@ -216,7 +216,7 @@ function layoutOne(given: ScreenObject, scale: LayoutScale): ScreenObject {
   const obj =
     given.type === "free"
       ? withCardLook(given, scale.cards ?? CARD_DEFAULTS, scale.pixelsPerMm)
-      : given.type === "button"
+      : given.type === "button" || given.type === "toggle-button"
         ? withButtonRadius(given, scale.cards ?? CARD_DEFAULTS, scale.pixelsPerMm)
         : given
   // A table put together by snapping: what it holds laid out first (a

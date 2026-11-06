@@ -99,8 +99,14 @@ test("the rebuild for the 4\": no pictures of buttons, under 600 KB unpacked", a
   expect(unpacked, `${Math.round(unpacked / 1024)} KB unpacked`).toBeLessThan(600 * 1024)
   const json = JSON.parse(await zip.file("project.json")!.async("string"))
   const buttons = json.screens.flatMap((s: any) => deep(s.objects)).filter((o: any) => o.type === "button")
-  expect(buttons.length).toBeGreaterThan(20)
   for (const b of buttons) expect(b.look?.normal, b.id).toBeTruthy()
+  // The relay tiles and the roof hatch are Toggle Buttons since 2026-11-06
+  // (docs/2026-11-06-toggle-button.md), each with a look per state; no
+  // switcher composes a tile any more.
+  const tiles = json.screens.flatMap((s: any) => deep(s.objects)).filter((o: any) => o.type === "toggle-button")
+  expect(tiles.length).toBe(11)
+  for (const t of tiles) expect(t.looks?.length, t.id).toBe(2)
+  expect(json.screens.flatMap((s: any) => deep(s.objects)).filter((o: any) => o.type === "switcher")).toEqual([])
 })
 
 // In CamperUI's own face (the user, 2026-11-04): the 4"'s fourth typography,

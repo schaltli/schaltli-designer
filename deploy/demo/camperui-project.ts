@@ -351,10 +351,10 @@ let CARD_PADDING_MM = 1.5
 
 /**
  * A relay as CamperUI's big tile: its name on it, coloured while on, a tap
- * switching it. A switch draws a knob and a button group its segments, so
- * the tile is composed: a switcher on the relay's state, and in each panel a
- * button in that state's colour sending the other state. Its corners are
- * the project's button radius (1.5 mm, CamperUI's 10 px).
+ * switching it - a Toggle Button (docs/2026-11-06-toggle-button.md). Until
+ * 2026-11-06 it was composed: a switcher on the relay's state and in each
+ * panel a button in that state's colour. Its corners are the project's
+ * button radius (1.5 mm, CamperUI's 10 px).
  */
 function relayTile(width: number, height: number, n: number, onColor = GREEN, words: [string, string] = ["", ""]) {
   const name = RELAYS[n - 1]
@@ -367,50 +367,37 @@ function relayTile(width: number, height: number, n: number, onColor = GREEN, wo
 }
 
 /**
- * A tile per state of `read`: a button in that state's colour and label,
- * sending what switches it. As wide as its column: a switcher stretched in
- * a cell does not take its panels along.
+ * A Toggle Button on `read`: each state its label, the one not in the
+ * card's colour drawn in its colour; a tap sends what switches it on - the
+ * other state's `send`, as the composed tile's buttons did. As wide as its
+ * column.
  */
 function stateTile(width: number, height: number, read: string, write: string, states: { state: string; label: string; color: string; send: string }[], font: Size = F.medium) {
+  const on = states.find((st) => st.color !== CARD)
   return {
-    id: id("tiles"),
-    type: "switcher",
+    id: id("tile"),
+    type: "toggle-button",
     x: 0,
     y: 0,
     width,
     height,
     zIndex: next,
-    properties: { topic: read },
-    children: states.map((st) => ({
-      id: id(`panel-${st.state}`),
-      type: "panel",
-      x: 0,
-      y: 0,
-      width,
-      height,
-      zIndex: 0,
-      properties: { comparisonOperator: "==", comparisonValue: st.state },
-      children: [
-        {
-          id: id("tile"),
-          type: "button",
-          x: 0,
-          y: 0,
-          width,
-          height,
-          zIndex: 1,
-          properties: {
-            text: st.label,
-            buttonStyle: "filled",
-            buttonColor: st.color,
-            // On the card's colour the label is the text's, on a colour the one for on it.
-            textColor: st.color === CARD ? TEXT : "onAccent",
-            ...sized(font),
-            action: { type: "send-mqtt", mqttTopic: write, mqttMessage: st.send },
-          },
-        },
-      ],
-    })),
+    properties: {
+      topic: read,
+      writeTopic: write,
+      text: "",
+      states: states.map((st, i) => ({
+        id: st.state,
+        label: st.label,
+        readValue: st.state,
+        // What the other state's button sent to get here.
+        writeValue: states[(i + states.length - 1) % states.length].send,
+        ...(st.color !== CARD ? { showAsOn: true } : {}),
+      })),
+      switchStyle: "filled",
+      switchColor: on?.color ?? BLUE,
+      ...sized(font),
+    },
   }
 }
 

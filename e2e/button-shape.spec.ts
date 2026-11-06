@@ -96,6 +96,12 @@ test.describe("the project's button radius", () => {
     expect(buttonFaces(top, "#ffffff", "24bit").normal.r).toBe(10)
   })
 
+  test("a Toggle Button takes it too: CamperUI's tiles have its 10 px corners, not a pill's", () => {
+    const tile = { ...button({}, 216, 84), id: "t", type: "toggle-button" }
+    const laid = layoutProject(projectWith(settings(1.5), [tile]))
+    expect((laid.screens[0].objects as any[])[0].properties.buttonRadius).toBe(10)
+  })
+
   test("cleared, it is taken out again: a pill", () => {
     const laid = layoutProject(projectWith(settings(), [button({ buttonRadius: 10 }, 212, 84)]))
     const b = (laid.screens[0].objects as any[])[0]
