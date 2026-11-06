@@ -33,7 +33,7 @@ test("a broker chosen after the page loaded is the one a block asks, and stays c
   await page.evaluate(([key, url]) => window.localStorage.setItem(key, JSON.stringify({ websocketUrl: url })), [KEY, CHOSEN_LATER])
 
   // The Prebuilt tab reads its catalog in the background (lib/ha-discovery.ts).
-  await page.getByRole("tab", { name: "Prebuilt" }).click()
+  await page.getByTestId("palette-tab-prebuilt").click()
   await expect(page.getByTestId("block-catalog-status")).toContainText(`No broker at ${CHOSEN_LATER}`, { timeout: 20000 })
   // A connection made in the background remembers nothing.
   expect(await page.evaluate((key) => window.localStorage.getItem(key), KEY)).toBe(JSON.stringify({ websocketUrl: CHOSEN_LATER }))

@@ -68,7 +68,7 @@ test.describe("Manage Screens", () => {
 
     await expect(page.getByRole("complementary", { name: "Projects panel" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Manage Screens", exact: true })).toHaveCount(0)
-    await expect(page.getByTestId("tools-ribbon")).toHaveAttribute("aria-disabled", "true")
+    await expect(page.getByTestId("palette")).toHaveAttribute("aria-disabled", "true")
 
     // Select all and Delete would empty the screen being edited, out of sight.
     const count = view(page).getByText(/^\d+ objects?$/)
@@ -81,7 +81,7 @@ test.describe("Manage Screens", () => {
 
     await closeManageScreens(page)
     await expect(page.getByRole("button", { name: "Manage Screens", exact: true })).toHaveCount(1)
-    await expect(page.getByTestId("tools-ribbon")).not.toHaveAttribute("aria-disabled")
+    await expect(page.getByTestId("palette")).not.toHaveAttribute("aria-disabled")
   })
 
   test("another project opened from the projects list shows its screens in the view", async ({ page }, testInfo) => {

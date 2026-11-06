@@ -244,7 +244,7 @@ test.describe("on a device that declares it", () => {
     // the handle drew a *second* ring instead of resizing the first - whose
     // smaller size then read as "the square constraint failed" rather than
     // as "the tool was still armed".
-    await page.getByRole("button", { name: "Select", exact: true }).first().click()
+    await expect(page.getByTestId("palette").locator("[data-armed]")).toHaveCount(0)
     await expect(size).toBeVisible()
 
     // Read where the object actually ended up rather than assuming the drag

@@ -151,7 +151,7 @@ test.describe("Listen to Broker", () => {
     await expect(pointer).toContainText("2 devices are announced via Home Assistant discovery.")
     await pointer.getByRole("button", { name: "Open Prebuilt ›" }).click()
     await expect(viewer(page)).toHaveCount(0)
-    await expect(page.getByRole("tab", { name: "Prebuilt" })).toHaveAttribute("aria-selected", "true")
+    await expect(page.getByTestId("palette-tab-prebuilt")).toHaveAttribute("aria-pressed", "true")
   })
 
   test("Connect in the connection settings listens on that broker instead", async ({ page }) => {

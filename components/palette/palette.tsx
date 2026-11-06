@@ -30,8 +30,9 @@ export interface PaletteState {
   width: number
   height: number
   // The groups open on each tab; undefined until the tab was first shown,
-  // which opens its first group (decision 8).
-  open: Partial<Record<PaletteTab, string[]>>
+  // which opens its first group (decision 8). "all": every group - nothing
+  // in the palette sets it; the e2e suite starts with it.
+  open: Partial<Record<PaletteTab, string[] | "all">>
 }
 
 export const PALETTE_KEY = "schaltli.palette"
@@ -69,8 +70,9 @@ function keptInside(s: PaletteState, view: { width: number; height: number }): P
 export interface PaletteListProps {
   query: string
   isOpen: (group: string, index: number) => boolean
-  // `first`: the list's first group, open until anything was toggled.
-  toggle: (group: string, open: boolean, first: string | undefined) => void
+  // `groups`: the list's groups in order - the first open until anything
+  // was toggled, all of them where every group is open.
+  toggle: (group: string, open: boolean, groups: string[]) => void
 }
 
 export interface PaletteProps {
@@ -204,13 +206,13 @@ export function Palette({ parts, prebuilt, request, disabled }: PaletteProps) {
     query,
     isOpen: (group, index) => {
       const open = state.open[state.tab]
-      return open === undefined ? index === 0 : open.includes(group)
+      return open === undefined ? index === 0 : open === "all" || open.includes(group)
     },
-    toggle: (group, open, first) =>
+    toggle: (group, open, groups) =>
       setState((s) => {
         const was = s.open[s.tab]
         // The first time, what the list shows open is its first group.
-        const now = new Set(was ?? (first ? [first] : []))
+        const now = new Set(was === "all" ? groups : (was ?? groups.slice(0, 1)))
         if (open) now.add(group)
         else now.delete(group)
         return { ...s, open: { ...s.open, [s.tab]: [...now] } }
@@ -226,6 +228,7 @@ export function Palette({ parts, prebuilt, request, disabled }: PaletteProps) {
           aria-label="Palette"
           data-testid="palette-rail"
           data-palette-mode={mode}
+          aria-disabled={disabled || undefined}
           className="flex h-full w-11 flex-col items-center gap-1.5 border-r border-border bg-card pt-2.5"
         >
           {(["parts", "prebuilt"] as const).map((tab) => {
@@ -255,6 +258,7 @@ export function Palette({ parts, prebuilt, request, disabled }: PaletteProps) {
       aria-label="Palette"
       data-testid="palette"
       data-palette-mode={mode}
+      aria-disabled={disabled || undefined}
       className={cn(
         "flex flex-col overflow-hidden bg-card text-sm",
         floating ? "fixed z-40 rounded-lg border border-border shadow-xl" : "h-full border-r border-border",
@@ -377,7 +381,10 @@ export function PaletteGroup({
   onToggle,
   children,
   testId,
+  device,
 }: {
+  // A device's group: its name as the catalog has it ("" for none), for tests.
+  device?: string
   name: string
   count: number
   open: boolean
@@ -386,7 +393,7 @@ export function PaletteGroup({
   testId?: string
 }) {
   return (
-    <div data-testid={testId} data-group={name}>
+    <div data-testid={testId} data-group={name} data-device={device}>
       <button
         type="button"
         aria-expanded={open}

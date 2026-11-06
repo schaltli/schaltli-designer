@@ -198,8 +198,8 @@ test.describe("placing a catalog entry", () => {
         { timeout: 10_000 },
       )
     }
-    await page.getByRole("tab", { name: "Prebuilt" }).click()
-    const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: entryName, exact: true })
+    await page.getByTestId("palette-tab-prebuilt").click()
+    const tile = page.getByTestId("palette").getByRole("button", { name: entryName, exact: true })
     await tile.click()
     await expect(tile).toHaveAttribute("data-armed", "true")
   }
@@ -555,7 +555,7 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       const before = await page.locator("[data-object-id]").count()
-      const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Kitchen plug", exact: true })
+      const tile = page.getByTestId("palette").getByRole("button", { name: "Kitchen plug", exact: true })
       await pick(page, "Kitchen plug")
       await page.keyboard.press("Escape")
       await expect(tile).not.toHaveAttribute("data-armed", /.+/)
@@ -890,11 +890,11 @@ test.describe("placing a catalog entry", () => {
     }, blocksPrefix)
     try {
       await openOnRoundDevice(page)
-      await page.getByRole("tab", { name: "Prebuilt" }).click()
+      await page.getByTestId("palette-tab-prebuilt").click()
       const pump = page.locator('[data-testid="block-catalog-device"][data-device="Garden pump"]')
       await expect(pump.getByRole("button", { name: "Garden pump", exact: true })).toBeEnabled()
       // The Home Assistant switch it covers is not listed.
-      await expect(pump.getByRole("button")).toHaveCount(1)
+      await expect(pump.locator("[data-entry-id]")).toHaveCount(1)
       await pump.getByRole("button", { name: "Garden pump", exact: true }).click()
       await expect(pump.getByRole("button", { name: "Garden pump", exact: true })).toHaveAttribute("data-armed", "true")
       await clickAt(page, 180, 180)
@@ -1096,8 +1096,8 @@ test.describe("placing a catalog entry", () => {
     const clear = await onBroker(page, testInfo.testId, ["esphome-button-restart"])
     try {
       await openOnRoundDevice(page)
-      await page.getByRole("tab", { name: "Prebuilt" }).click()
-      const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Restart", exact: true })
+      await page.getByTestId("palette-tab-prebuilt").click()
+      const tile = page.getByTestId("palette").getByRole("button", { name: "Restart", exact: true })
       await tile.click()
       // Still looking: not in hand yet.
       await page.waitForTimeout(500)
@@ -1642,7 +1642,7 @@ test.describe("the Block menu's catalog", () => {
       for (const [topic, payload] of configs) await publish(client, topic, JSON.stringify(payload))
       await useBroker(page, BROKER_URL, prefix)
       await loadProject(page, COMBINED_TEST_PROJECT)
-      await page.getByRole("tab", { name: "Prebuilt" }).click()
+      await page.getByTestId("palette-tab-prebuilt").click()
 
       const plug = page.locator('[data-testid="block-catalog-device"][data-device="Kitchen plug"]')
       // Listed, but greyed: this project's e-paper draws no switch and no
@@ -1663,7 +1663,7 @@ test.describe("the Block menu's catalog", () => {
   test("says so when nothing announces itself under the prefix", async ({ page }, testInfo) => {
     await useBroker(page, BROKER_URL, `e2e-catalog-empty-${testInfo.testId}`)
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("tab", { name: "Prebuilt" }).click()
+    await page.getByTestId("palette-tab-prebuilt").click()
     // An empty prefix is given up on after the 5 s a broker gets to answer.
     await expect(page.getByTestId("block-catalog-status")).toContainText("Nothing announces itself under e2e-catalog-empty-", { timeout: 10_000 })
   })
@@ -1671,7 +1671,7 @@ test.describe("the Block menu's catalog", () => {
   test("without a broker the Prebuilt tab says so and offers nothing from it", async ({ page }) => {
     await useBroker(page, "ws://localhost:1", "homeassistant")
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("tab", { name: "Prebuilt" }).click()
+    await page.getByTestId("palette-tab-prebuilt").click()
     await expect(page.getByTestId("block-catalog-status")).toContainText("No broker at ws://localhost:1", { timeout: 10_000 })
     await expect(page.locator('[data-testid="block-catalog-device"]')).toHaveCount(0)
   })

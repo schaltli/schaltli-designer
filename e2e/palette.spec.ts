@@ -295,6 +295,39 @@ test.describe("the palette's Prebuilt tab", () => {
     }
   })
 
+  // Found by the user 2026-11-06: a row clicked first and then dragged
+  // carried nothing - the second press gave the prebuilt up at once.
+  test("a row clicked first and then dragged from: the card placed; clicked twice: given up", async ({ page }, testInfo) => {
+    const clear = await announced(page, `e2e-palette-${testInfo.testId}`, VAN)
+    try {
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await aside(page)
+      await page.getByTestId("palette-tab-prebuilt").click()
+      await page.getByTestId("palette-search").fill("cabin")
+      const row = page.getByTestId("palette-list-prebuilt").getByRole("button", { name: "Cabin temperature" })
+      await expect(row).toBeVisible({ timeout: 10_000 })
+      const cards = async () => JSON.stringify(await savedObjects(page)).split('"look":"card"').length - 1
+      const before = await cards()
+      await row.click()
+      await expect(row).toHaveAttribute("data-armed", "true")
+      const { box } = await getMainCanvas(page)
+      const r = (await row.boundingBox())!
+      await page.mouse.move(r.x + 20, r.y + r.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width / 2, box.y + 30, { steps: 10 })
+      await page.mouse.up()
+      await expect.poll(cards).toBe(before + 1)
+      await expect(row).not.toHaveAttribute("data-armed", /.+/)
+      // Clicked, clicked again: given up.
+      await row.click()
+      await expect(row).toHaveAttribute("data-armed", "true")
+      await row.click()
+      await expect(row).not.toHaveAttribute("data-armed", /.+/)
+    } finally {
+      await clear()
+    }
+  })
+
   test("«Listen to Broker» pointing to the devices opens the palette on Prebuilt", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByTestId("palette-minimize").click()

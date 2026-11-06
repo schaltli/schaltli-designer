@@ -6,10 +6,11 @@ import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { entryRendered } from "../lib/bausteine"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 
-// The ribbon's two tabs (docs/2026-11-05-quick-blocks.md, decision 1, plan
-// task T4): «Parts» the tools, «Prebuilt» what the broker's devices
-// announce, as tiles grouped by device; the tab last open remembered. Needs
-// `npm run hil:broker` for the catalog cases, as e2e/bausteine.spec.ts.
+// The Prebuilt tab's catalog (docs/2026-11-05-quick-blocks.md, plan task
+// T5): what the broker's devices announce, followed while listening, read
+// once and with Refresh when not; now in the palette
+// (docs/2026-11-06-palette.md). Needs `npm run hil:broker`, as
+// e2e/bausteine.spec.ts.
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
@@ -37,115 +38,10 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string): Promi
   return new Promise((resolve, reject) => client.publish(topic, payload, { retain: true, qos: 1 }, (err) => (err ? reject(err) : resolve())))
 }
 
-const ribbon = (page: Page) => page.getByTestId("tools-ribbon")
-const tab = (page: Page, name: "Parts" | "Prebuilt") => page.getByRole("tab", { name, exact: true })
-
-test("Parts first; Prebuilt in its place, and the tab last open is the one shown after a reload", async ({ page }) => {
-  await useBroker(page, "e2e-prebuilt-none")
-  await loadProject(page, COMBINED_TEST_PROJECT)
-  await expect(tab(page, "Parts")).toHaveAttribute("aria-selected", "true")
-  // Each tab with its icon (the user, 2026-11-05): one toy brick for Parts,
-  // two on each other for Prebuilt; the name stays the tab's name.
-  await expect(tab(page, "Parts").locator("svg.lucide-toy-brick")).toHaveCount(1)
-  await expect(tab(page, "Prebuilt").locator("svg")).toHaveCount(1)
-  await expect(tab(page, "Prebuilt").locator("svg rect")).toHaveCount(2)
-  // Tabs as in an Office ribbon (the user, 2026-11-06), not to be
-  // overlooked: in the size of the panel's text, on a grey strip; the open
-  // one in the ribbon's own colour, its name in the designer's accent,
-  // standing on the strip's line and open towards the tools below.
-  const look = (name: "Parts" | "Prebuilt") =>
-    tab(page, name).evaluate((el) => {
-      const s = getComputedStyle(el)
-      const probe = document.createElement("div")
-      probe.style.color = getComputedStyle(document.documentElement).getPropertyValue("--sb-accent").trim()
-      document.body.append(probe)
-      const accent = getComputedStyle(probe).color
-      probe.remove()
-      const strip = el.parentElement!
-      const ribbon = el.closest("[data-testid=tools-ribbon]")!
-      return {
-        fontSize: parseFloat(s.fontSize),
-        color: s.color,
-        accent,
-        background: s.backgroundColor,
-        ribbon: getComputedStyle(ribbon).backgroundColor,
-        strip: getComputedStyle(strip).backgroundColor,
-        bottom: el.getBoundingClientRect().bottom,
-        line: strip.getBoundingClientRect().bottom - parseFloat(getComputedStyle(strip).borderBottomWidth),
-        bottomBorder: s.borderBottomColor,
-      }
-    })
-  const open = await look("Parts")
-  const closed = await look("Prebuilt")
-  expect(open.fontSize).toBeGreaterThanOrEqual(14)
-  expect(open.color).toBe(open.accent)
-  expect(closed.color).not.toBe(closed.accent)
-  expect(open.background).toBe(open.ribbon)
-  expect(open.strip).not.toBe(open.ribbon)
-  expect(closed.background).not.toBe(closed.ribbon)
-  // Over the line, without one of its own: the tab runs into the tools.
-  expect(open.bottom).toBeGreaterThan(open.line)
-  expect(open.bottomBorder).toBe("rgba(0, 0, 0, 0)")
-  await expect(ribbon(page).getByRole("button", { name: "Text", exact: true })).toBeVisible()
-  // No Block button any more: the prebuilts are a tab.
-  await expect(ribbon(page).getByRole("button", { name: "Block", exact: true })).toHaveCount(0)
-
-  await tab(page, "Prebuilt").click()
-  await expect(tab(page, "Prebuilt")).toHaveAttribute("aria-selected", "true")
-  await expect(ribbon(page).getByRole("button", { name: "Text", exact: true })).toHaveCount(0)
-  await expect(page.getByTestId("block-catalog-status")).toBeVisible()
-
-  await loadProject(page, COMBINED_TEST_PROJECT)
-  await expect(tab(page, "Prebuilt")).toHaveAttribute("aria-selected", "true")
-  await tab(page, "Parts").click()
-  await loadProject(page, COMBINED_TEST_PROJECT)
-  await expect(tab(page, "Parts")).toHaveAttribute("aria-selected", "true")
-})
-
-test("the Prebuilt tab: a group per device captioned with its name, a thing of its own name uncaptioned, a tile takes its prebuilt in hand", async ({ page }, testInfo) => {
-  const prefix = `e2e-prebuilt-${testInfo.testId}`
-  const client = await connectBroker()
-  const configs: [string, unknown][] = [
-    [`${prefix}/switch/0xa4c138d2c1e0e5f1/switch/config`, fixturePayload("z2m-switch-plug")],
-    [`${prefix}/sensor/van-sensors/cabin_temperature/config`, fixturePayload("esphome-sensor-temperature")],
-    [
-      `${prefix}/sensor/van-sensors/interval/config`,
-      { name: "Interval", stat_t: "van-sensors/interval", val_tpl: "{{ value_json.ms / 1000 }}", dev: { ids: "a8032ab4c5d6", name: "van-sensors" } },
-    ],
-  ]
-  try {
-    for (const [topic, payload] of configs) await publish(client, topic, JSON.stringify(payload))
-    await useBroker(page, prefix)
-    await loadProject(page, COMBINED_TEST_PROJECT)
-    await tab(page, "Prebuilt").click()
-
-    const sensors = page.locator('[data-testid="block-catalog-device"][data-device="van-sensors"]')
-    await expect(sensors.getByRole("button", { name: "Cabin temperature" })).toBeEnabled({ timeout: 10_000 })
-    await expect(sensors).toContainText("van-sensors")
-    // What cannot be placed: a greyed tile, the reason for the tooltip.
-    await expect(sensors.locator('[data-entry-id="sensor van-sensors interval"]')).toHaveAttribute("aria-disabled", "true")
-    // The plug announces one thing of its own name: no caption repeating it.
-    // Greyed, since this project's e-paper draws neither a switch nor buttons.
-    const plug = page.locator('[data-testid="block-catalog-device"][data-device="Kitchen plug"]')
-    const plugTile = plug.locator('[data-entry-id="switch 0xa4c138d2c1e0e5f1 switch"]')
-    await expect(plugTile).toHaveAttribute("aria-disabled", "true")
-    await expect(plugTile).toContainText("Not rendered by the loaded device's firmware")
-    expect(await plug.getByText("Kitchen plug", { exact: true }).count()).toBe(1)
-    // A greyed tile opens nothing.
-    await plugTile.click({ force: true })
-    await expect(page.getByRole("dialog")).toHaveCount(0)
-
-    // A tile pressed: no options asked, the prebuilt in hand, its tile
-    // shown pressed (plan task T6).
-    const cabin = sensors.getByRole("button", { name: "Cabin temperature" })
-    await cabin.click()
-    await expect(cabin).toHaveAttribute("data-armed", "true")
-    await expect(page.getByRole("dialog")).toHaveCount(0)
-  } finally {
-    for (const [topic] of configs) await publish(client, topic, "")
-    client.end()
-  }
-})
+// The palette's (docs/2026-11-06-palette.md); the tab and the groups were
+// tested here while they were the ribbon's - e2e/palette.spec.ts has them now.
+const ribbon = (page: Page) => page.getByTestId("palette")
+const tab = (page: Page, name: "Parts" | "Prebuilt") => page.getByTestId(`palette-tab-${name.toLowerCase()}`)
 
 test("a prebuilt whose parts the loaded device does not render is not placeable", () => {
   const topic = "homeassistant/switch/0xa4c138d2c1e0e5f1/switch/config"

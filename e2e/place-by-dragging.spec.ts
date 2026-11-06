@@ -184,7 +184,7 @@ test.describe("placing by dragging", () => {
 // tool's tile pressed and carried onto the screen brings its object along,
 // as one pressed on the screen does; let go off the screen, nothing.
 async function dragFromRibbon(page: Page, name: string, to: { x: number; y: number } | { client: { x: number; y: number } }) {
-  const tile = page.getByTestId("tools-ribbon").getByRole("button", { name, exact: true }).first()
+  const tile = page.getByTestId("palette").getByRole("button", { name, exact: true }).first()
   const from = (await tile.boundingBox())!
   const a = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
   const b = "client" in to ? to.client : await at(page, to)
@@ -219,18 +219,18 @@ test.describe("placing from the ribbon", () => {
     expect([bar.width, bar.height]).toEqual([size.width, size.height])
   })
 
-  test("let go over the ribbon again, nothing is placed and the tool is Select", async ({ page }) => {
+  test("let go over the palette again, nothing is placed and the tool is Select", async ({ page }) => {
     await loadProject(page, await oneTextProject())
-    const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
-    // Onto the screen and back to the ribbon's right end before letting go.
-    const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: "Box", exact: true }).first()
+    const ribbon = (await page.getByTestId("palette-titlebar").boundingBox())!
+    // Onto the screen and back to the palette's title bar before letting go.
+    const tile = page.getByTestId("palette").getByRole("button", { name: "Box", exact: true }).first()
     const from = (await tile.boundingBox())!
     const over = await at(page, { x: 240, y: 200 })
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
     await page.mouse.down()
     for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + ((over.x - from.x) * i) / 8, from.y + ((over.y - from.y) * i) / 8)
     await expect((await getMainCanvas(page)).canvas).toHaveAttribute("data-carrying", "box")
-    await page.mouse.move(ribbon.x + ribbon.width - 10, ribbon.y + ribbon.height / 2, { steps: 8 })
+    await page.mouse.move(ribbon.x + ribbon.width / 3, ribbon.y + ribbon.height / 2, { steps: 8 })
     await page.mouse.up()
     const p = await at(page, { x: 60, y: 200 })
     await page.mouse.click(p.x, p.y)

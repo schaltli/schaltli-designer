@@ -9,7 +9,7 @@
  * from the ribbon's tiles (components/toolbar/block-tiles.tsx).
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Blocks, RefreshCw } from "lucide-react"
 import { usePrebuiltCatalog } from "@/hooks/use-block-catalog"
 import { catalogGroups, type CatalogEntry } from "@/lib/ha-discovery"
@@ -22,13 +22,19 @@ import { matches, PaletteFooter, PaletteGroup, PaletteRow, PaletteScroll, type P
 export interface PrebuiltRowsProps {
   list: PaletteListProps
   onSelect?: (entry: CatalogEntry) => void
+  // The row of the entry in hand clicked: given up.
+  onGiveUp?: () => void
   // The entry in hand: its row shown pressed.
   armedEntryId?: string
   // What the loaded device renders; undefined, no device.
   supportedObjectTypes?: string[]
 }
 
-export function PrebuiltRows({ list, onSelect, armedEntryId, supportedObjectTypes }: PrebuiltRowsProps) {
+export function PrebuiltRows({ list, onSelect, onGiveUp, armedEntryId, supportedObjectTypes }: PrebuiltRowsProps) {
+  // Whether the row pressed last held its entry already: then a click on it
+  // gives it up, a drag carries it - read at the press, which itself puts
+  // the entry in hand.
+  const pressedWasArmed = useRef(false)
   // Shown, so read: the tab is mounted only while it is open.
   const state = usePrebuiltCatalog(true)
   const [icons, setIcons] = useState<Map<string, string>>(new Map())
@@ -100,10 +106,9 @@ export function PrebuiltRows({ list, onSelect, armedEntryId, supportedObjectType
       const name = group.device || "Other"
       const whole = !!query && matches(name, query)
       const keep = <T extends { label: string }>(items: T[]) => (!query || whole ? items : items.filter((e) => matches(e.label, query)))
-      return { name, entries: keep(group.entries), unsupported: keep(group.unsupported) }
+      return { name, device: group.device, entries: keep(group.entries), unsupported: keep(group.unsupported) }
     })
     .filter((g) => g.entries.length + g.unsupported.length > 0)
-  const first = shown[0]?.name
 
   return (
     <>
@@ -113,11 +118,12 @@ export function PrebuiltRows({ list, onSelect, armedEntryId, supportedObjectType
           <PaletteGroup
             key={group.name}
             testId="block-catalog-device"
+            device={group.device}
             name={group.name}
             count={group.entries.length + group.unsupported.length}
             // Searching, every group that holds a match is open.
             open={!!query || list.isOpen(group.name, index)}
-            onToggle={(open) => list.toggle(group.name, open, first)}
+            onToggle={(open) => list.toggle(group.name, open, shown.map((g) => g.name))}
           >
             {group.entries.map((entry) => {
               const icon = entry.icon ? icons.get(entry.icon) : undefined
@@ -131,7 +137,14 @@ export function PrebuiltRows({ list, onSelect, armedEntryId, supportedObjectType
                   tip={`${entry.label}: drag onto the screen, or click and place`}
                   disabled={entryRendered(entry, supportedObjectTypes) ? undefined : "Not rendered by the loaded device's firmware"}
                   icon={icon ? <img src={icon} alt="" className={cn("size-[18px]", armed ? "invert dark:invert-0" : "dark:invert")} /> : <Blocks className="size-[18px] text-muted-foreground" aria-hidden />}
-                  onPress={() => onSelect?.(entry)}
+                  onPress={() => {
+                    pressedWasArmed.current = armed
+                    onSelect?.(entry)
+                  }}
+                  onClick={() => {
+                    if (pressedWasArmed.current) onGiveUp?.()
+                    pressedWasArmed.current = false
+                  }}
                 />
               )
             })}

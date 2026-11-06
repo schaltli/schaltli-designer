@@ -26,7 +26,6 @@ import { convertInTree, type ConvertibleType } from "@/lib/convert-object"
 import { entryIcons, entryIconsNow } from "@/lib/prebuilt-icons"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
-import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
 import { Slider } from "./ui/slider"
 import { Button } from "./ui/button"
@@ -85,7 +84,7 @@ import { layoutProject, layoutScaleOf } from "@/lib/layout"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
-import { applyRowDrop, applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type RowTemplate, type SnapDrop } from "@/lib/snap-table"
+import { applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
@@ -1107,7 +1106,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       window.removeEventListener("mouseup", handleMouseUp)
     }
   }, [isResizingRightPanel])
-  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "row" | "card">("select")
+  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein" | "card">("select")
   // A tool's tile pressed in the ribbon and not let go (docs/2026-11-05-quick-blocks.md,
   // decision 7): the canvas begins its carry when the pointer comes onto it
   // with the button held. Over once the button is let go anywhere.
@@ -1123,13 +1122,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setRibbonPress(true)
   }, [])
   const ribbonCarryBegun = useCallback(() => setRibbonPress(false), [])
-  // The row the Row tool carries (docs/2026-10-09-snap-tables.md, module
-  // snap-table-rows).
-  const [rowTemplate, setRowTemplate] = useState<RowTemplate>("icon-label-switch")
-  const selectRowTemplate = useCallback((template: RowTemplate) => {
-    setRowTemplate(template)
-    setActiveTool("row")
-  }, [])
   // The building-block tool (lib/bausteine.ts): armed with the catalog entry
   // whose tile on the Prebuilt tab was pressed, its default options and the
   // values its topics hold; carried and let go, it places it. Null: no
@@ -1145,7 +1137,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
-  const [showToolsRibbon, setShowToolsRibbon] = useState(true)
   // «Listen to Broker» pointing to the devices that announced themselves
   // opens the palette on Prebuilt (docs/2026-11-06-palette.md).
   const [paletteRequest, setPaletteRequest] = useState<{ tab: PaletteTab; at: number } | null>(null)
@@ -2380,9 +2371,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const pressPrebuilt = useCallback(
     (entry: CatalogEntry) => {
       const press = ++pressGenerationRef.current
+      // In hand already: pressed again it is carried as it is - given up only
+      // by a click on its row (giveUpPrebuilt), so it can be dragged onto the
+      // screen after it was clicked (the user, 2026-11-06).
       if (activeTool === "baustein" && armedBlock?.entry.id === entry.id) {
-        setArmedBlock(null)
-        setActiveTool("select")
+        setRibbonPress(true)
         return
       }
       const values: Record<string, string> = {}
@@ -2404,6 +2397,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     },
     [activeTool, armedBlock, project.settings.supportedObjectTypes],
   )
+
+  // The row of the prebuilt in hand clicked again: given up.
+  const giveUpPrebuilt = useCallback(() => {
+    pressGenerationRef.current++
+    setArmedBlock(null)
+    setActiveTool("select")
+  }, [])
 
   // The rectangle is dragged: build the block's objects, and register the
   // topics they bind to where the project does not have them yet - an object
@@ -2495,7 +2495,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // length.
   const blockRegisterRef = useRef<(() => void) | null>(null)
   const armedBlockCarry = useCallback(():
-    | { row: Omit<ScreenObject, "id" | "zIndex">[] }
     | { table: Omit<ScreenObject, "id" | "zIndex"> }
     | null => {
     blockRegisterRef.current = null
@@ -2641,49 +2640,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setSelectedObjectIds(ids)
     },
     [currentScreenId, project.nextId, setProject],
-  )
-
-  // A row the Row tool carried, let go (docs/2026-10-09-snap-tables.md,
-  // module snap-table-rows): into the table at the row line `target` names,
-  // each part into the column of its role, or a table of one row with its
-  // top left corner at `at` - in the space `parentId` names, the screen
-  // when none. That table is open afterwards, the row's first part chosen.
-  const insertRow = useCallback(
-    (parts: Omit<ScreenObject, "id" | "zIndex">[], target: { tableId: string; at: number } | null, at: { x: number; y: number }, parentId?: string) => {
-      // A block's row (armedBlockRow): the topics and icons it brings, and
-      // the Block tool put down.
-      const register = activeTool === "baustein" ? blockRegisterRef.current : null
-      blockRegisterRef.current = null
-      if (register) {
-        register()
-        setArmedBlock(null)
-      }
-      const ids = parts.map((_, i) => `obj-${project.nextId + i}`)
-      const newTableId = `obj-${project.nextId + parts.length}`
-      setProject((prev) => {
-        const scale = layoutScaleOf(prev)
-        const add = (list: ScreenObject[]) => {
-          const inside = target ? (list.find((o) => o.id === target.tableId)?.children ?? []) : []
-          const base = Math.max(0, ...inside.map((o) => o.zIndex))
-          const made = parts.map((part, i) => ({ ...part, id: ids[i], zIndex: base + i + 1 }) as ScreenObject)
-          const zIndex = Math.max(0, ...list.map((o) => o.zIndex)) + 1
-          return applyRowDrop(list, made, target, at, scale, newTableId).map((o) => (o.id === newTableId ? { ...o, zIndex } : o))
-        }
-        return {
-          ...prev,
-          nextId: prev.nextId + parts.length + 1,
-          screens: prev.screens.map((screen) => {
-            if (screen.id !== currentScreenId) return screen
-            if (!parentId) return { ...screen, objects: add(screen.objects) }
-            const space = findObjectById(screen.objects, parentId)
-            return space ? { ...screen, objects: updateObjectById(screen.objects, parentId, { children: add(space.children ?? []) }) } : screen
-          }),
-        }
-      })
-      setEditingContainerId(target ? target.tableId : newTableId)
-      setSelectedObjectIds(ids.slice(0, 1))
-    },
-    [currentScreenId, project.nextId, setProject, activeTool],
   )
 
   // An object dragged out of a table put together by snapping and let go
@@ -4561,19 +4517,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             }}
           />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 px-3 font-normal",
-              showToolsRibbon && "bg-accent text-accent-foreground",
-            )}
-            onClick={() => setShowToolsRibbon((prev) => !prev)}
-            aria-pressed={showToolsRibbon}
-          >
-            Tools
-          </Button>
-
           <ProjectSettingsDialog
             project={project}
             currentScreenId={currentScreenId}
@@ -4680,33 +4623,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           </div>
         )}
 
-        {showToolsRibbon && !isPreviewMode && (
-          <div
-            data-testid="tools-ribbon"
-            aria-disabled={manageScreensOpen || undefined}
-            className={cn(
-              // A fixed height, and an even one: the tabs above the tools
-              // (docs/2026-11-05-quick-blocks.md) made it 109 px, which put the
-              // screen centred below on a half pixel (e2e/text-field.spec.ts).
-              "h-28 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto",
-              // Nothing to draw on in «Manage Screens».
-              manageScreensOpen && "pointer-events-none opacity-40",
-            )}
-          >
-            <Toolbar
-              orientation="horizontal"
-              activeTool={activeTool}
-              onToolChange={setActiveTool}
-              onCatalogEntrySelect={pressPrebuilt}
-              armedEntryId={activeTool === "baustein" ? armedBlock?.entry.id : undefined}
-              onRowTemplateSelect={selectRowTemplate}
-              onToolPress={pressTool}
-              supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
-              supportedObjectTypes={project.settings.supportedObjectTypes}
-              navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
-            />
-          </div>
-        )}
 
       <div className="flex-1 flex min-h-0">
         {/* The demo has one project and saves none: no list - «Your van» in
@@ -4749,9 +4665,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
         {/* The palette (docs/2026-11-06-palette.md): docked, its column here;
             minimized, its rail; floating, over the canvas from here. */}
-        {!isPreviewMode && !manageScreensOpen && (
+        {!isPreviewMode && (
           <Palette
             request={paletteRequest}
+            disabled={manageScreensOpen}
             parts={(list) => (
               <PartRows
                 list={list}
@@ -4766,6 +4683,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               <PrebuiltRows
                 list={list}
                 onSelect={pressPrebuilt}
+                onGiveUp={giveUpPrebuilt}
                 armedEntryId={activeTool === "baustein" ? armedBlock?.entry.id : undefined}
                 supportedObjectTypes={project.settings.supportedObjectTypes}
               />
@@ -4816,8 +4734,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onSnapDrop={snapDrop}
             onSnapMoveOut={snapMoveOut}
             onMoveIntoArea={moveIntoAreaOf}
-            rowTemplate={rowTemplate}
-            onInsertRow={insertRow}
             onBlockCarry={armedBlockCarry}
             ribbonPress={ribbonPress}
             onRibbonCarry={ribbonCarryBegun}

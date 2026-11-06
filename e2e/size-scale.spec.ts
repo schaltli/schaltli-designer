@@ -595,10 +595,10 @@ test.describe("a text's style", () => {
       // The tab reads the broker each time it opens and gives up after a
       // while; under a full parallel run that was now and then before the
       // retained announcement came through. Opened again until it is there.
-      const pumpe = page.getByTestId("tools-ribbon").getByRole("button", { name: "Pumpe", exact: true })
+      const pumpe = page.getByTestId("palette").getByRole("button", { name: "Pumpe", exact: true })
       await expect(async () => {
-        await page.getByRole("tab", { name: "Parts" }).click()
-        await page.getByRole("tab", { name: "Prebuilt" }).click()
+        await page.getByTestId("palette-tab-parts").click()
+        await page.getByTestId("palette-tab-prebuilt").click()
         await expect(pumpe).toBeVisible({ timeout: 8_000 })
       }).toPass({ timeout: 40_000 })
       await pumpe.click()

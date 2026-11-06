@@ -473,8 +473,9 @@ test.describe("what the canvas actually paints", () => {
   // of one-pixel-wide rectangles (Adafruit's fillCircleHelper), and at a
   // half-pixel offset each is painted across two device pixels at partial alpha
   // and they do not add up to an opaque cap. At whole-pixel offsets the very
-  // same code is flawless.
-  test.use({ viewport: { width: 1281, height: 901 } })
+  // same code is flawless. 1281, and the docked palette's 264 beside the
+  // canvas (docs/2026-11-06-palette.md).
+  test.use({ viewport: { width: 1545, height: 901 } })
 
   // The round fixture, because it is 24-bit. The combined project is the 1-bit
   // e-paper, where every colour is quantised to black or white before anything

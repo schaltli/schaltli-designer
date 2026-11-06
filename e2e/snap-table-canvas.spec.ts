@@ -655,18 +655,18 @@ test.describe("snap table: panel and tree", () => {
     expect(k.width).toBe(pumpe.width)
   })
 
-  // The spec's success criterion: a table forms by snapping, so the toolbar
-  // has no Table tool and no table template (module old-table-removal).
-  test("the toolbar has no Table tool and no table template; Tables offers Free and Row", async ({ page }) => {
+  // The spec's success criterion: a table forms by snapping, so the palette
+  // has no Table tool (module old-table-removal) - and no Row since
+  // 2026-11-06 (docs/2026-11-06-palette.md, decision 11).
+  test("the palette has no Table and no Row; Tables offers Free and Card", async ({ page }) => {
     const { zip } = await snapProject([])
     await loadProject(page, zip)
-    await expect(page.getByRole("button", { name: "Free", exact: true })).toBeVisible()
-    await expect(page.getByTestId("row-tool")).toBeVisible()
-    await expect(page.getByRole("button", { name: "Table", exact: true })).toHaveCount(0)
-    await expect(page.getByTestId("table-tool")).toHaveCount(0)
-    await page.getByTestId("row-tool").click()
-    await expect(page.getByText("Table template")).toHaveCount(0)
-    await expect(page.getByText("Row template")).toBeVisible()
+    const tables = page.getByTestId("palette").locator('[data-group="Tables"]')
+    await expect(tables.locator("[data-tool]")).toHaveCount(2)
+    await expect(tables.getByRole("button", { name: "Free", exact: true })).toBeVisible()
+    await expect(tables.getByRole("button", { name: "Card", exact: true })).toBeVisible()
+    await expect(page.getByTestId("palette").getByRole("button", { name: "Table", exact: true })).toHaveCount(0)
+    await expect(page.getByTestId("palette").getByRole("button", { name: "Row", exact: true })).toHaveCount(0)
   })
 
   // Found in the handbook pass (Task 17): the Frame hid the width of every

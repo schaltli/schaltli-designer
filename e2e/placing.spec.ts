@@ -174,10 +174,10 @@ test("a new object from a tool: over a card it goes into the card", async ({ pag
 
 // From the ribbon (docs/2026-11-05-quick-blocks.md, decision 7): a tile
 // carried onto the screen lands by the same rule as one pressed there.
-test("a tool's tile dragged from the ribbon onto a card goes into the card", async ({ page }) => {
+test("a part's row dragged from the palette onto a card goes into the card", async ({ page }) => {
   await loadProject(page, await project([card, text("still", 20, 200)]))
   const { box } = await getMainCanvas(page)
-  const tile = (await page.getByTestId("tools-ribbon").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
+  const tile = (await page.getByTestId("palette").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
   const on = devicePoint(box, 290, 210)
   await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2)
   await page.mouse.down()
@@ -191,13 +191,13 @@ test("a tool's tile dragged from the ribbon onto a card goes into the card", asy
   expect(card2.children.map((c: Obj) => c.type)).toEqual(["text"])
 })
 
-test("a tool's tile dragged from the ribbon into an empty cell goes into the cell", async ({ page }) => {
+test("a part's row dragged from the palette into an empty cell goes into the cell", async ({ page }) => {
   await loadProject(page, await project([table]))
   // The empty cell, row 1 column 1: below «b» and beside «c», as laid out.
   const laid = await saved(page)
   const grid0 = find(laid, "grid")!
   const { box } = await getMainCanvas(page)
-  const tile = (await page.getByTestId("tools-ribbon").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
+  const tile = (await page.getByTestId("palette").getByRole("button", { name: "Text", exact: true }).first().boundingBox())!
   const on = devicePoint(box, grid0.x + find(laid, "b")!.x + 5, grid0.y + find(laid, "c")!.y + 5)
   await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2)
   await page.mouse.down()
@@ -215,7 +215,7 @@ test("a tool's tile dragged from the ribbon into an empty cell goes into the cel
 // A tile clicked (docs/2026-11-05-quick-blocks.md, decision 7): its object
 // hangs at the pointer at once, no button held, and a click sets it down;
 // Esc, the same tile again or a click off the screen give it up.
-const ribbonTile = (page: Page, name: string) => page.getByTestId("tools-ribbon").getByRole("button", { name, exact: true }).first()
+const ribbonTile = (page: Page, name: string) => page.getByTestId("palette").getByRole("button", { name, exact: true }).first()
 
 test("a clicked tile: the object hangs at the pointer without a button, the hint says Click, a click sets it down", async ({ page }) => {
   await loadProject(page, await project([card, text("still", 20, 200)]))
@@ -245,8 +245,9 @@ for (const way of ["Esc", "the same tile again", "a click off the screen"] as co
     if (way === "Esc") await page.keyboard.press("Escape")
     else if (way === "the same tile again") await ribbonTile(page, "Box").click()
     else {
-      const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
-      await page.mouse.click(ribbon.x + ribbon.width - 10, ribbon.y + ribbon.height / 2)
+      // Off the screen: on the palette's title bar.
+      const bar = (await page.getByTestId("palette-titlebar").boundingBox())!
+      await page.mouse.click(bar.x + bar.width / 3, bar.y + bar.height / 2)
     }
     await expect(canvas).not.toHaveAttribute("data-carrying", /.+/)
     // Select: moving over the screen and clicking makes nothing.

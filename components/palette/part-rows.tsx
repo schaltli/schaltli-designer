@@ -105,7 +105,6 @@ export function PartRows({ list, activeTool, onPress, onChange, supportedObjectT
     const whole = !!query && matches(g.label, query)
     return { label: g.label, parts: g.parts.filter(offered).filter((p) => !query || whole || matches(p.label, query)) }
   }).filter((g) => g.parts.length > 0)
-  const first = groups[0]?.label
 
   return (
     <PaletteScroll>
@@ -117,7 +116,7 @@ export function PartRows({ list, activeTool, onPress, onChange, supportedObjectT
           name={group.label}
           count={group.parts.length}
           open={!!query || list.isOpen(group.label, index)}
-          onToggle={(open) => list.toggle(group.label, open, first)}
+          onToggle={(open) => list.toggle(group.label, open, groups.map((g) => g.label))}
         >
           {group.parts.map((p) => {
             const Icon = p.icon
