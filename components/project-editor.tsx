@@ -133,6 +133,10 @@ import { brokerStore, useHeardTopics, useListenGeneration, useListening } from "
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 import { blockPartsRoom, fittedBlockCard } from "@/lib/block-card"
+import { Palette, type PaletteTab } from "@/components/palette/palette"
+import { PrebuiltRows } from "@/components/palette/prebuilt-rows"
+import { PartRows } from "@/components/palette/part-rows"
+import { OPEN_BLOCK_MENU_EVENT } from "@/components/listen-viewer"
 
 /**
  * A project as it opens, on the fonts its device sets text in now: when the
@@ -1142,6 +1146,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
   const [showToolsRibbon, setShowToolsRibbon] = useState(true)
+  // «Listen to Broker» pointing to the devices that announced themselves
+  // opens the palette on Prebuilt (docs/2026-11-06-palette.md).
+  const [paletteRequest, setPaletteRequest] = useState<{ tab: PaletteTab; at: number } | null>(null)
+  useEffect(() => {
+    const open = () => setPaletteRequest({ tab: "prebuilt", at: Date.now() })
+    window.addEventListener(OPEN_BLOCK_MENU_EVENT, open)
+    return () => window.removeEventListener(OPEN_BLOCK_MENU_EVENT, open)
+  }, [])
   const [deviceGateError, setDeviceGateError] = useState<string | null>(null)
   // Set when a project's referenced device isn't available on this instance
   // but was opened anyway using the data embedded in the project file.
@@ -4734,6 +4746,31 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
         />
+        )}
+        {/* The palette (docs/2026-11-06-palette.md): docked, its column here;
+            minimized, its rail; floating, over the canvas from here. */}
+        {!isPreviewMode && !manageScreensOpen && (
+          <Palette
+            request={paletteRequest}
+            parts={(list) => (
+              <PartRows
+                list={list}
+                activeTool={activeTool}
+                onPress={pressTool}
+                onChange={setActiveTool}
+                supportedObjectTypes={project.settings.supportedObjectTypes}
+                navigatorPlaceable={!!currentScreen?.isMaster && !currentScreen.objects.some((o) => o.type === "navigator")}
+              />
+            )}
+            prebuilt={(list) => (
+              <PrebuiltRows
+                list={list}
+                onSelect={pressPrebuilt}
+                armedEntryId={activeTool === "baustein" ? armedBlock?.entry.id : undefined}
+                supportedObjectTypes={project.settings.supportedObjectTypes}
+              />
+            )}
+          />
         )}
 
         {manageScreensOpen && !isPreviewMode ? (

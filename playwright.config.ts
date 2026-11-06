@@ -54,13 +54,22 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
   use: {
     baseURL: E2E_BASE,
+    // The palette minimized to its rail (docs/2026-11-06-palette.md): a
+    // floating palette lies over the canvas where specs click on the screen.
+    // e2e/palette.spec.ts starts without it, as a new user does.
+    storageState: {
+      cookies: [],
+      origins: [{ origin: E2E_BASE, localStorage: [{ name: "schaltli.palette", value: JSON.stringify({ minimized: true }) }] }],
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1600, height: 1000 } },
+      // 1600 wide, and the palette's rail beside it (docs/2026-11-06-palette.md):
+      // the 4.3B's 800 pixels fit the canvas at 100 % as before.
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1644, height: 1000 } },
     },
   ],
   // Reuses a dev server you already have running (the common case while
