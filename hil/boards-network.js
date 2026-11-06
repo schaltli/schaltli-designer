@@ -60,6 +60,9 @@ const BOARDS = [
   { name: "knob", prefix: "waveshare-knob-1v8-" },
   { name: "4v3b", prefix: "waveshare-touch-lcd-4v3b-" },
   { name: "papers3", prefix: "m5stack-papers3-" },
+  // The 4" (Rev 4.0), on the bench since 2026-10-30. Its prefix ends in a
+  // dash, so it does not take the 4.3B's "waveshare-touch-lcd-4v3b-".
+  { name: "ws4", prefix: "waveshare-touch-lcd-4-" },
 ]
 
 function loadEnvLocal() {
@@ -194,7 +197,7 @@ async function main() {
   const args = process.argv.slice(2)
   const target = args[0]
   if (target !== "camper" && target !== "home") {
-    console.error("Usage: node hil/boards-network.js camper|home [--only knob,4v3b,papers3] [--dry-run]")
+    console.error("Usage: node hil/boards-network.js camper|home [--only knob,4v3b,papers3,ws4] [--dry-run]")
     process.exit(2)
   }
   const onlyArg = args.find((a) => a.startsWith("--only"))
