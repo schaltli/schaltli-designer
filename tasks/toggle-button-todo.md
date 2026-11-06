@@ -5,8 +5,8 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
 
 - [x] Before: the other session's work on `prebuilt` committed; branch `toggle-button` (designer from prebuilt, firmware and android from master)
 - [x] T1 designer: type `toggle-button`, isSwitchType call sites decided, lib/toggle-button-shape.ts
-- [ ] T2 designer: render, palette part, property panel «Name», size rules, preview (next, ring, state layer, «?»)
-- [ ] Checkpoint A: test:quick green; the user decides the disc's colours / 1 bit and a minimum height
+- [x] T2 designer: render, palette part, property panel «Name», size rules, preview (next, ring, state layer, «?»)
+- [x] Checkpoint A: the user decided (2026-11-06): disc as tall as both lines, icon doubled, a ring in 1 bit, a minimum height
 - [ ] T3 designer: Convert to as a family of three
 - [ ] T4 designer: export looks, noneLook, ring, state icons, the second font
 - [ ] T5 firmware: loader, renderer, tap, DDFs, conformance specimens on every board

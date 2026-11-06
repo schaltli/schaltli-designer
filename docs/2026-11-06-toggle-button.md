@@ -198,9 +198,12 @@ in a renderer.
 - Convert to moves between all three types with the stated refusal.
 - The handbook describes the Toggle Button with its labels checked.
 
-## Open questions
+## Decided at Checkpoint A (the user, 2026-11-06)
 
-- The disc behind the icon: the card's surface colour off, white at 22 %
-  on the colour on (the variant page) - or no disc in 1 bit?
-- Does a Toggle Button need its own minimum height for the named layout,
-  or is "never smaller than its content" enough?
+- **The disc** is as tall as the two lines beside it; the icon two capitals
+  tall, at most two thirds of the disc. Its colour is the face with 12 % of
+  the ink; where that cannot be told from the face (all of 1 bit) it gets a
+  1-px ring in the ink.
+- **A minimum height**: never lower than its lines and 8 px above and
+  below - two lines with a name, one without (`toggleMinHeight`), on the
+  canvas and in a free area.

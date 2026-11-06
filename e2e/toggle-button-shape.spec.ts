@@ -9,6 +9,7 @@ import {
   TOGGLE_PAD,
   TOGGLE_RING,
   toggleFaces,
+  toggleMinHeight,
   toggleLooks,
   toggleNextIndex,
 } from "../lib/toggle-button-shape"
@@ -149,6 +150,26 @@ test.describe("a named tile", () => {
     expect(on.icon!.x + Math.trunc(on.icon!.size / 2)).toBe(on.disc!.cx)
   })
 
+  test("the disc as tall as the two lines, the icon two capitals tall with a third of the disc round it", () => {
+    const on = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    const block = big.ascent + big.descent + small.ascent + small.descent
+    expect(on.disc!.r).toBe(Math.trunc(block / 2))
+    expect(on.icon!.size).toBe(Math.min(2 * big.capHeight, Math.trunc((2 * block) / 3)))
+    // A tile too low for the lines: the disc keeps the padding.
+    const low = toggleLooks(tile({ text: "Wasserpumpe" }, 216, 30), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    expect(2 * low.disc!.r).toBeLessThanOrEqual(30 - 2 * TOGGLE_PAD)
+  })
+
+  test("24 bit: the disc a tint, no ring; 1 bit, where the tint is lost: a ring in the ink", () => {
+    const deep = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    expect(deep.disc!.edge).toBeUndefined()
+    const flat = toggleLooks(tile({ text: "Wasserpumpe" }), "#ffffff", "1bit", FONTS, measure)
+    for (const look of flat.states) {
+      expect(look.disc!.edge, look.label).toBeDefined()
+      expect(look.disc!.edge!.normal).toBe(look.normal.ink)
+    }
+  })
+
   test("the disc stands where it stands in every state, so nothing moves when the state changes - even in one without an icon", () => {
     const looks = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
     expect(looks.states[0].disc).toBeDefined()
@@ -170,6 +191,15 @@ test.describe("a named tile", () => {
     expect(secondLineStyle("huge")).toBe("xxl")
     expect(secondLineStyle("micro")).toBe("micro")
     expect(secondLineStyle(undefined)).toBe("mini")
+  })
+})
+
+test.describe("how low it may be", () => {
+  const big = fontMetricsOf(FONTS[0], 14)
+  const small = fontMetricsOf(FONTS[1], 14)
+  test("one line and the padding without a name; two lines with one", () => {
+    expect(toggleMinHeight(tile(), FONTS)).toBe(big.ascent + big.descent + 2 * TOGGLE_PAD)
+    expect(toggleMinHeight(tile({ text: "Wasserpumpe" }), FONTS)).toBe(big.ascent + big.descent + small.ascent + small.descent + 2 * TOGGLE_PAD)
   })
 })
 

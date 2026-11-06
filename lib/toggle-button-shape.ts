@@ -46,8 +46,20 @@ export interface ToggleLook {
   icon?: { x: number; y: number; size: number }
   /** The state's label under the name, one size smaller; only with a name. */
   second?: { textX: number; baseline: number; fontId: string }
-  /** The disc behind the icon, per face; only with a name and an icon somewhere. */
-  disc?: { cx: number; cy: number; r: number; normal: string; pressed: string }
+  /**
+   * The disc behind the icon, per face; only with a name and an icon
+   * somewhere. As tall as the two lines beside it (the user, 2026-11-06).
+   * `edge` is a 1-px ring in the ink where the disc's tint cannot be told
+   * from the face - all of 1 bit - so the disc is still there.
+   */
+  disc?: {
+    cx: number
+    cy: number
+    r: number
+    normal: string
+    pressed: string
+    edge?: { normal: string | null; pressed: string | null }
+  }
 }
 
 export interface ToggleLooks {
@@ -185,15 +197,21 @@ export function toggleLooks(
         ...(content.icon ? { icon: { x: content.icon.x, y: content.icon.y, size: content.icon.w } } : {}),
       }
     }
-    const iconSize = Math.max(1, first.capHeight)
-    const discD = anyIcon ? Math.max(0, Math.min(h - 2 * TOGGLE_PAD, 2 * iconSize)) : 0
+    const block = first.ascent + first.descent + second.ascent + second.descent
+    const discD = anyIcon ? Math.max(0, Math.min(h - 2 * TOGGLE_PAD, block)) : 0
     const discR = Math.trunc(discD / 2)
+    // Two capitals tall, and a third of the disc left round it.
+    const iconSize = Math.max(1, Math.min(2 * first.capHeight, Math.trunc((2 * discD) / 3)))
     const cx = TOGGLE_PAD + discR
     const cy = Math.trunc(h / 2)
     const textX = anyIcon ? cx + discR + TOGGLE_PAD : TOGGLE_PAD
-    const block = first.ascent + first.descent + second.ascent + second.descent
     const top = Math.trunc((h - block) / 2)
-    const tint = (face: ButtonFace) => applyColorDepth(blendColors(face.fill ?? ground, face.ink, DISC_TINT), colorDepth)
+    const under = (face: ButtonFace) => face.fill ?? ground
+    const tint = (face: ButtonFace) => applyColorDepth(blendColors(under(face), face.ink, DISC_TINT), colorDepth)
+    const lost = (face: ButtonFace) => tint(face).toLowerCase() === applyColorDepth(under(face), colorDepth).toLowerCase()
+    const edge = lost(faces.normal) || lost(faces.pressed)
+      ? { normal: lost(faces.normal) ? faces.normal.ink : null, pressed: lost(faces.pressed) ? faces.pressed.ink : null }
+      : undefined
     return {
       ...faces,
       label,
@@ -203,7 +221,7 @@ export function toggleLooks(
       clipW: Math.max(0, w - TOGGLE_PAD - textX),
       ...(hasIcon ? { icon: { x: cx - Math.trunc(iconSize / 2), y: cy - Math.trunc(iconSize / 2), size: iconSize } } : {}),
       second: { textX, baseline: top + first.ascent + first.descent + second.ascent, fontId: secondFontId },
-      ...(anyIcon ? { disc: { cx, cy, r: discR, normal: tint(faces.normal), pressed: tint(faces.pressed) } } : {}),
+      ...(anyIcon ? { disc: { cx, cy, r: discR, normal: tint(faces.normal), pressed: tint(faces.pressed), ...(edge ? { edge } : {}) } } : {}),
     }
   }
 
@@ -214,6 +232,18 @@ export function toggleLooks(
     none: lookOf("?", undefined, quiet),
     ring: applyColorDepth(switchColorOf(obj, colorDepth), colorDepth),
   }
+}
+
+/**
+ * How low a Toggle Button may be (the user, 2026-11-06): its text and the
+ * padding above and below - two lines with a name, one without.
+ */
+export function toggleMinHeight(obj: ScreenObject, fonts: readonly ProjectFont[] | null | undefined): number {
+  const first = metricsOf(fonts, obj.properties?.fontId)
+  const line = first.ascent + first.descent
+  if (toggleName(obj) === undefined) return line + 2 * TOGGLE_PAD
+  const second = metricsOf(fonts, obj.properties?.secondFontId ?? obj.properties?.fontId)
+  return line + second.ascent + second.descent + 2 * TOGGLE_PAD
 }
 
 /**

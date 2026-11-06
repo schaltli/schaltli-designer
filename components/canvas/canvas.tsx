@@ -117,7 +117,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel, type ObjectType } from "@/lib/object-types"
-import { toggleNextIndex } from "@/lib/toggle-button-shape"
+import { toggleMinHeight, toggleNextIndex } from "@/lib/toggle-button-shape"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
 import { TABLE_TYPE } from "@/lib/table"
 import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
@@ -4234,6 +4234,10 @@ export function Canvas({
           const stateCount = (resizingObject.properties?.states ?? []).length
           newWidth = Math.max(newWidth, minSwitchWidth(stateCount))
           newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
+        }
+        // A Toggle Button is never lower than its lines (the user, 2026-11-06).
+        if (resizingObject?.type === "toggle-button") {
+          newHeight = Math.max(newHeight, toggleMinHeight(resizingObject, fonts))
         }
 
         // A card - any free area holding something - only so small that all

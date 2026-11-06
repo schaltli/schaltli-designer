@@ -18,6 +18,7 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { toggleMinHeight } from "@/lib/toggle-button-shape"
 import { areaAnchorOf, resizeFree } from "@/lib/anchor"
 import { dockFree, dockOf, paddingOf } from "@/lib/dock"
 import { naturalWidth, type LayoutScale } from "@/lib/layout"
@@ -38,6 +39,7 @@ function minWidthOf(obj: ScreenObject, scale: LayoutScale): number {
 }
 
 function minHeightOf(obj: ScreenObject, scale: LayoutScale): number {
+  if (obj.type === "toggle-button") return toggleMinHeight(obj, scale.fonts)
   if (obj.type !== "text") return 1
   const font = (scale.fonts ?? []).find((f) => f.id === obj.properties?.fontId)
   return font ? lineHeight(font) : 1

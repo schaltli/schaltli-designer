@@ -51,7 +51,11 @@ export function toggleRuns(x: number, y: number, w: number, h: number, look: Tog
   const runs: Run[] = []
   if (look.disc && look.disc.r > 0) {
     const d = look.disc
-    runs.push({ band: box(x + d.cx - d.r, y + d.cy - d.r, 2 * d.r, 2 * d.r, d.r), colour: pressed ? d.pressed : d.normal })
+    const fill = pressed ? d.pressed : d.normal
+    const edge = d.edge ? (pressed ? d.edge.pressed : d.edge.normal) : null
+    // A ring where the tint cannot be seen (1 bit): the inside first, 1 px in.
+    if (edge && d.r > 1) runs.push({ band: box(x + d.cx - d.r + 1, y + d.cy - d.r + 1, 2 * d.r - 2, 2 * d.r - 2, d.r - 1), colour: fill })
+    runs.push({ band: box(x + d.cx - d.r, y + d.cy - d.r, 2 * d.r, 2 * d.r, d.r), colour: edge ?? fill })
   }
   const edge = ring ?? face.outline
   const t = ring ? TOGGLE_RING : 1
