@@ -14,7 +14,7 @@ import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registr
 import type { BDFFont } from "@/lib/bdffont"
 import type { PillBand } from "@/lib/pill-raster"
 import type { ButtonFace } from "@/lib/button-shape"
-import { toggleLooks, toggleName, TOGGLE_RING, type ToggleLook } from "@/lib/toggle-button-shape"
+import { toggleLooks, toggleName, TOGGLE_RING, type ToggleLook, type ToggleLooks } from "@/lib/toggle-button-shape"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
 import { getActiveSwitchStateIndex, getAskedSwitchStateIndex } from "./render-switch"
 import { loadBdfFont } from "./render-text-box"
@@ -35,6 +35,11 @@ export interface RenderToggleButtonOptions {
   screenBackgroundColor?: string
   /** Held down in the preview: the pressed face. */
   pressed?: boolean
+  /**
+   * The state to draw instead of the one the topic reports, -1 for none -
+   * what the export draws each state with to cut out its icon.
+   */
+  forceState?: number
 }
 
 type Run = { band: PillBand; colour: string | null }
@@ -122,7 +127,8 @@ function textIn(options: RenderToggleButtonOptions, fontId: string) {
   }
 }
 
-export function renderToggleButton(options: RenderToggleButtonOptions): void {
+/** Draws the tile; returns its looks, which the export writes for a device. */
+export function renderToggleButton(options: RenderToggleButtonOptions): ToggleLooks {
   const { ctx, obj } = options
   const x = Math.round(obj.x)
   const y = Math.round(obj.y)
@@ -138,10 +144,11 @@ export function renderToggleButton(options: RenderToggleButtonOptions): void {
   const looks = toggleLooks(obj, background, options.colorDepth, options.fonts, (text, fontId) => font(fontId).measure(text))
 
   const states = obj.properties.states ?? []
-  const active = getActiveSwitchStateIndex(obj, options.getPreviewValueFromTopic)
-  const asked = getAskedSwitchStateIndex(obj, options.getAskedValueFromTopic)
+  const forced = options.forceState !== undefined
+  const active = forced ? options.forceState! : getActiveSwitchStateIndex(obj, options.getPreviewValueFromTopic)
+  const asked = forced ? -1 : getAskedSwitchStateIndex(obj, options.getAskedValueFromTopic)
   const look = active >= 0 ? looks.states[active] : looks.none
-  if (!look) return
+  if (!look) return looks
   const pressed = options.pressed === true
   const face = pressed ? look.pressed : look.normal
   const ring = asked >= 0 && asked !== active ? looks.ring : null
@@ -177,4 +184,5 @@ export function renderToggleButton(options: RenderToggleButtonOptions): void {
     font(fontId).draw(look.label, x + look.textX, y + look.baseline)
   }
   ctx.restore()
+  return looks
 }

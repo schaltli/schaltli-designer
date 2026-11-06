@@ -22,6 +22,8 @@ import { buttonFaces, buttonRadiusPxOf, type ButtonContentLayout, type ButtonFac
 import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
 import { BDFFont } from '@/lib/bdffont'
 import { isSwitchType } from "@/lib/object-types"
+import { renderToggleButton } from "@/components/canvas/renderers/render-toggle-button"
+import type { ToggleLook } from "@/lib/toggle-button-shape"
 import { dissolveGroups, dissolveGroupsInProject } from "@/lib/object-groups"
 import { isContainerType } from "@/lib/layout"
 import { iconBakes } from "@/lib/energy-diagram-object"
@@ -198,10 +200,28 @@ function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): an
  * the light file's own name when the two bakes came out byte for byte the
  * same, so the device gets one file and both fields name it.
  */
+/**
+ * A Toggle Button as a device draws it (docs/2026-11-06-toggle-button.md):
+ * a look per state and one for «nothing reported», the ring's colour, and
+ * each state's icon as it stands on its face, normal and pressed - the only
+ * pictures. A device picks the reported state's look and draws it with its
+ * button code.
+ */
+export interface ToggleButtonExport {
+  objectId: string
+  screenId: string
+  looks: ToggleLook[]
+  noneLook: ToggleLook
+  ring: string
+  /** Per state, in order: its icon's files; null where it has no icon. */
+  icons: ({ filename: string; data: Uint8Array; pressedFilename?: string; pressedData?: Uint8Array } | null)[]
+}
+
 export interface DarkBakes {
   iconUsages: IconUsageExport[]
   softwareButtons: SoftwareButtonExport[]
   switchStateIcons: SwitchStateIconExport[]
+  toggleButtons: ToggleButtonExport[]
 }
 
 interface ScreenBakes extends DarkBakes {
@@ -283,6 +303,7 @@ export class AssetExporter {
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
     switchStateIcons: SwitchStateIconExport[]
+    toggleButtons: ToggleButtonExport[]
     pageIcons: PageIconExport[]
     dark: DarkBakes
   }> {
@@ -296,8 +317,9 @@ export class AssetExporter {
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
     const switchStateIcons: SwitchStateIconExport[] = []
+    const toggleButtons: ToggleButtonExport[] = []
     const pageIcons: PageIconExport[] = []
-    const dark: DarkBakes = { iconUsages: [], softwareButtons: [], switchStateIcons: [] }
+    const dark: DarkBakes = { iconUsages: [], softwareButtons: [], switchStateIcons: [], toggleButtons: [] }
 
     // Process flattened backgrounds and icon usages
     console.log('[AssetExport] Processing icon usages...')
@@ -343,6 +365,7 @@ export class AssetExporter {
       light.iconUsages.forEach((b) => iconUsages.push(b))
       light.softwareButtons.forEach((b) => softwareButtons.push(b))
       light.switchStateIcons.forEach((b) => switchStateIcons.push(b))
+      light.toggleButtons.forEach((b) => toggleButtons.push(b))
       iconUsageCount += light.iconUsageCount
       // What the light pass wrote for this screen, by filename - a dark bake
       // with the same bytes points at it instead of shipping a copy.
@@ -373,6 +396,18 @@ export class AssetExporter {
           normalFilename: darkName(b.normalFilename, b.normalData, lightFiles),
           ...(b.activeFilename && b.activeData ? { activeFilename: darkName(b.activeFilename, b.activeData, lightFiles) } : {}),
         })))
+        dark.toggleButtons.push(...baked.toggleButtons.map((b) => ({
+          ...b,
+          icons: b.icons.map((icon) =>
+            icon
+              ? {
+                  ...icon,
+                  filename: darkName(icon.filename, icon.data, lightFiles),
+                  ...(icon.pressedFilename && icon.pressedData ? { pressedFilename: darkName(icon.pressedFilename, icon.pressedData, lightFiles) } : {}),
+                }
+              : null,
+          ),
+        })))
       }
     }
 
@@ -401,6 +436,7 @@ export class AssetExporter {
       iconUsages,
       softwareButtons,
       switchStateIcons,
+      toggleButtons,
       pageIcons,
       dark,
     }
@@ -491,7 +527,7 @@ export class AssetExporter {
    */
   private async bakeScreen(screen: any, project: any, screenObjects: any[]): Promise<ScreenBakes> {
     const out: ScreenBakes = {
-      iconUsages: [], softwareButtons: [], switchStateIcons: [],
+      iconUsages: [], softwareButtons: [], switchStateIcons: [], toggleButtons: [],
       iconUsageCount: 0, files: new Map(),
     }
     // The screen flattened: background colour and image with the static
@@ -587,6 +623,18 @@ export class AssetExporter {
           out.softwareButtons.push(buttonExport)
           if (buttonExport.iconFilename && buttonExport.iconData) out.files.set(buttonExport.iconFilename, buttonExport.iconData)
           if (buttonExport.iconPressedFilename && buttonExport.iconPressedData) out.files.set(buttonExport.iconPressedFilename, buttonExport.iconPressedData)
+        }
+      }
+      // A Toggle Button: its looks, and each state's icon cut out of it.
+      else if (obj.type === 'toggle-button') {
+        const toggle = await this.exportToggleButton(obj, screen, project, flattenedBackground)
+        if (toggle) {
+          out.toggleButtons.push(toggle)
+          for (const icon of toggle.icons) {
+            if (!icon) continue
+            out.files.set(icon.filename, icon.data)
+            if (icon.pressedFilename && icon.pressedData) out.files.set(icon.pressedFilename, icon.pressedData)
+          }
         }
       }
       // Handle Switch objects with per-state icons
@@ -884,6 +932,90 @@ export class AssetExporter {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     return { canvas, placed: layout }
+  }
+
+  /**
+   * A Toggle Button's looks, and each state's icon as the preview draws it:
+   * the tile drawn in that state, normal and pressed, on its piece of the
+   * screen, and the icon's square cut out - with what is under it, the face
+   * or the disc. A pressed icon the same as the normal one is not written.
+   */
+  private async exportToggleButton(original: any, screen: any, project: any, flattenedBackground: HTMLCanvasElement): Promise<ToggleButtonExport | null> {
+    // The project's button radius, as a button's export reads it.
+    const radius = this.buttonRadiusPx(project)
+    const obj =
+      typeof original.properties?.buttonRadius === 'number' || radius === undefined
+        ? original
+        : { ...original, properties: { ...original.properties, buttonRadius: radius } }
+    try {
+      const w = Math.max(1, Math.round(obj.width))
+      const h = Math.max(1, Math.round(obj.height))
+      const x = Math.round(obj.x)
+      const y = Math.round(obj.y)
+      const states: any[] = obj.properties.states || []
+      const iconImageCache = new Map<string, HTMLImageElement>()
+      for (const state of states) {
+        const asset = state.iconAssetId ? project.assets.find((a: any) => a.id === state.iconAssetId) : null
+        if (!asset || asset.type !== 'icon' || !asset.data || iconImageCache.has(buttonIconKey(asset.id))) continue
+        const img = new Image()
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = buttonIconUrl(asset)
+        })
+        if (img.naturalWidth > 0) iconImageCache.set(buttonIconKey(asset.id), img)
+      }
+      const draw = (forceState: number, pressed: boolean) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(flattenedBackground, x, y, w, h, 0, 0, w, h)
+        ctx.translate(-x, -y)
+        const looks = renderToggleButton({
+          ctx,
+          obj,
+          fonts: project.fonts || [],
+          projectAssets: project.assets || [],
+          iconImageCache,
+          bdfFontCache: this.bdfFontCache,
+          getPreviewValueFromTopic: () => '',
+          requestRedraw: () => {},
+          colorDepth: this.options.colorDepth,
+          screenBackgroundColor: screen.backgroundColor || '#ffffff',
+          pressed,
+          forceState,
+        })
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        return { canvas, looks }
+      }
+      const crop = (canvas: HTMLCanvasElement, box: { x: number; y: number; size: number }) => {
+        const data = canvas.getContext('2d')!.getImageData(box.x, box.y, box.size, box.size)
+        return this.bitmapToFile(convertImageToColorDepth({ width: box.size, height: box.size, data: data.data }, this.bitmapDepth))
+      }
+      const { looks } = draw(-1, false)
+      const ext = this.getFileExtension()
+      const icons: ToggleButtonExport['icons'] = []
+      for (let i = 0; i < states.length; i++) {
+        const box = looks.states[i]?.icon
+        if (!box || !states[i].iconAssetId) {
+          icons.push(null)
+          continue
+        }
+        const data = crop(draw(i, false).canvas, box)
+        const pressedData = crop(draw(i, true).canvas, box)
+        const base = `${screen.id}_${obj.id}-toggle-${i}`
+        icons.push({
+          filename: `${base}.${ext}`,
+          data,
+          ...(sameBytes(data, pressedData) ? {} : { pressedFilename: `${base}-pressed.${ext}`, pressedData }),
+        })
+      }
+      return { objectId: obj.id, screenId: screen.id, looks: looks.states, noneLook: looks.none, ring: looks.ring, icons }
+    } catch (error) {
+      console.error(`[AssetExport] Failed to export toggle button ${obj.id}:`, error)
+      return null
+    }
   }
 
   /** The project's button radius in px (Settings › Cards), undefined for a pill. */

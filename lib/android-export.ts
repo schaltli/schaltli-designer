@@ -38,6 +38,7 @@ import {
   switchLook,
 } from "@/lib/switch-shape"
 import { buttonFaces, buttonRadiusPxOf } from "@/lib/button-shape"
+import { renderToggleButton } from "@/components/canvas/renderers/render-toggle-button"
 
 // Exports a project targeting an "android" platform DDF (see
 // lib/device-description.ts's DeviceDescriptionFile.device.platform) as a
@@ -379,6 +380,88 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     drawnButtons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, entry)
   }
 
+  /**
+   * A Toggle Button as the app draws it (docs/2026-11-06-toggle-button.md):
+   * the firmware's fields - a look per state, «none», the ring - and each
+   * state's icon square as the designer draws it, normal and pressed.
+   */
+  const drawnToggles = new Map<string, any>() // `${screenId}:${objectId}[:dark]`
+  const bakeToggle = async (original: any, background: string, screenId: string, dark: boolean): Promise<void> => {
+    const radius = buttonRadiusPxOf(project.settings)
+    const obj =
+      typeof original.properties?.buttonRadius === "number" || radius === undefined
+        ? original
+        : { ...original, properties: { ...original.properties, buttonRadius: radius } }
+    const w = Math.max(1, Math.round(obj.width))
+    const h = Math.max(1, Math.round(obj.height))
+    const x = Math.round(obj.x)
+    const y = Math.round(obj.y)
+    const states: any[] = obj.properties?.states || []
+    const iconImageCache = new Map<string, HTMLImageElement>()
+    for (const state of states) {
+      const asset = state.iconAssetId ? project.assets.find((a: any) => a.id === state.iconAssetId && a.type === "icon") : null
+      if (!asset?.data || iconImageCache.has(buttonIconKey(asset.id))) continue
+      const img = new Image()
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+        img.src = buttonIconUrl(asset)
+      })
+      if (img.naturalWidth > 0) iconImageCache.set(buttonIconKey(asset.id), img)
+    }
+    const bdfFontCache = new Map<string, any>()
+    const draw = (forceState: number, pressed: boolean) => {
+      const canvas = document.createElement("canvas")
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = background
+      ctx.fillRect(0, 0, w, h)
+      ctx.translate(-x, -y)
+      const looks = renderToggleButton({
+        ctx,
+        obj,
+        fonts: project.fonts || [],
+        projectAssets: project.assets || [],
+        iconImageCache,
+        bdfFontCache,
+        getPreviewValueFromTopic: () => "",
+        requestRedraw: () => {},
+        colorDepth: "24bit",
+        screenBackgroundColor: background,
+        pressed,
+        forceState,
+      })
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      return { canvas, looks }
+    }
+    const png = async (canvas: HTMLCanvasElement, box: { x: number; y: number; size: number }, name: string) => {
+      const square = document.createElement("canvas")
+      square.width = box.size
+      square.height = box.size
+      square.getContext("2d")!.drawImage(canvas, box.x, box.y, box.size, box.size, 0, 0, box.size, box.size)
+      const blob = await new Promise<Blob | null>((resolve) => square.toBlob((b) => resolve(b), "image/png"))
+      return blob ? { bytes: new Uint8Array(await blob.arrayBuffer()), filename: `buttons/${name}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-") } : undefined
+    }
+    const { looks } = draw(-1, false)
+    const icons: ({ iconPath?: string; iconPathPressed?: string } | null)[] = []
+    for (let i = 0; i < states.length; i++) {
+      const box = looks.states[i]?.icon
+      if (!box || !states[i].iconAssetId) {
+        icons.push(null)
+        continue
+      }
+      const a = await png(draw(i, false).canvas, box, `${screenId}_${obj.id}-toggle-${i}`)
+      const b = await png(draw(i, true).canvas, box, `${screenId}_${obj.id}-toggle-${i}-pressed`)
+      const entry: { iconPath?: string; iconPathPressed?: string } = {}
+      if (a) entry.iconPath = await writeBake(a.filename, a.bytes, dark)
+      const same = !!a && !!b && a.bytes.length === b.bytes.length && a.bytes.every((v, k) => v === b.bytes[k])
+      if (a && b && !same) entry.iconPathPressed = await writeBake(b.filename, b.bytes, dark)
+      icons.push(entry)
+    }
+    drawnToggles.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, { looks: looks.states, noneLook: looks.none, ring: looks.ring, icons })
+  }
+
   // Each screen's bakes twice, light and dark, through the same code - the
   // dark pass from the dark objects and background, its results keyed with
   // ":dark". Icons are content-keyed (asset, size, ink), so a dark icon that
@@ -392,6 +475,10 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     for (const obj of everyObject(objects)) {
       if (obj.type === "button") {
         await bakeButton(obj, backgroundColor, screen.id, dark)
+        continue
+      }
+      if (obj.type === "toggle-button") {
+        await bakeToggle(obj, backgroundColor, screen.id, dark)
         continue
       }
       if (!isSwitchType(obj.type)) continue
@@ -465,6 +552,33 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
             pathDark: bakedIcons.get(`${keyId}:${obj.id}:${index}:normal:dark`),
             activePathDark: bakedIcons.get(`${keyId}:${obj.id}:${index}:active:dark`),
           })),
+        },
+      }
+    }
+    if (obj.type === "toggle-button") {
+      // The firmware's fields, dark beside light as on a button.
+      const light = drawnToggles.get(`${keyId}:${obj.id}`)
+      const darkEntry = drawnToggles.get(`${keyId}:${obj.id}:dark`)
+      if (!light) return obj
+      return {
+        ...obj,
+        looks: light.looks,
+        noneLook: light.noneLook,
+        ring: light.ring,
+        ...(darkEntry ? { looksDark: darkEntry.looks, noneLookDark: darkEntry.noneLook, ringDark: darkEntry.ring } : {}),
+        properties: {
+          ...obj.properties,
+          states: (obj.properties.states ?? []).map((state: any, i: number) => {
+            const icon = light.icons[i]
+            const iconDark = darkEntry?.icons[i]
+            return {
+              ...state,
+              ...(icon?.iconPath ? { iconPath: icon.iconPath } : {}),
+              ...(icon?.iconPathPressed ? { iconPathPressed: icon.iconPathPressed } : {}),
+              ...(iconDark?.iconPath ? { iconPathDark: iconDark.iconPath } : {}),
+              ...(iconDark?.iconPathPressed ? { iconPathPressedDark: iconDark.iconPathPressed } : {}),
+            }
+          }),
         },
       }
     }

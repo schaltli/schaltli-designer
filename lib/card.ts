@@ -51,7 +51,8 @@ export function cardSettingsOf(settings: { cards?: Partial<CardSettings> } | und
  * object. Taken out again when the setting is cleared - a pill.
  */
 export function withButtonRadius(button: ScreenObject, cards: CardSettings, pixelsPerMm: number): ScreenObject {
-  if (button.type !== "button") return button
+  // A Toggle Button is a button with a look per state (docs/2026-11-06-toggle-button.md).
+  if (button.type !== "button" && button.type !== "toggle-button") return button
   const p = button.properties ?? {}
   const wanted = typeof cards.buttonRadiusMm === "number" ? Math.round(cards.buttonRadiusMm * pixelsPerMm) : undefined
   if (p.buttonRadius === wanted) return button

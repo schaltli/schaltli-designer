@@ -362,6 +362,14 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     if (button.iconFilename && button.iconData) assetsFolder.file(button.iconFilename, button.iconData)
     if (button.iconPressedFilename && button.iconPressedData) assetsFolder.file(button.iconPressedFilename, button.iconPressedData)
   }
+  // A Toggle Button too: only its states' icons are pictures.
+  for (const toggle of assetResult.toggleButtons) {
+    for (const icon of toggle.icons) {
+      if (!icon) continue
+      assetsFolder.file(icon.filename, icon.data)
+      if (icon.pressedFilename && icon.pressedData) assetsFolder.file(icon.pressedFilename, icon.pressedData)
+    }
+  }
   for (const switchIcon of assetResult.switchStateIcons) {
     assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
     // Only when the state declares a genuinely different active picture -
@@ -385,6 +393,7 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     ...dark.iconUsages.map((b) => b.filename),
     ...dark.softwareButtons.flatMap((b) => [b.iconFilename ?? "", b.iconPressedFilename ?? ""]),
     ...dark.switchStateIcons.flatMap((b) => [b.normalFilename, b.activeFilename ?? ""]),
+    ...dark.toggleButtons.flatMap((b) => b.icons.flatMap((i) => (i ? [i.filename, i.pressedFilename ?? ""] : []))),
   ]
   for (const name of darkNames) {
     if (name && /-dark\.[^./]+$/.test(name) && lightNames.has(name)) {
@@ -400,6 +409,13 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   for (const button of dark.softwareButtons) {
     if (button.iconFilename && button.iconData) assetsFolder.file(button.iconFilename, button.iconData)
     if (button.iconPressedFilename && button.iconPressedData) assetsFolder.file(button.iconPressedFilename, button.iconPressedData)
+  }
+  for (const toggle of dark.toggleButtons) {
+    for (const icon of toggle.icons) {
+      if (!icon) continue
+      assetsFolder.file(icon.filename, icon.data)
+      if (icon.pressedFilename && icon.pressedData) assetsFolder.file(icon.pressedFilename, icon.pressedData)
+    }
   }
   for (const switchIcon of dark.switchStateIcons) {
     assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
@@ -461,6 +477,11 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
       ...(b.iconPressedFilename ? { iconPathPressedDark: `assets/${b.iconPressedFilename}` } : {}),
     },
   ]))
+  // A Toggle Button: its looks beside the object, as a button's look is, and
+  // each state's icon paths in its state (docs/2026-11-06-toggle-button.md).
+  // Dark beside light as `…Dark`, the looks whole, as a button's.
+  const toggleMap = new Map(assetResult.toggleButtons.map((t) => [assetKey(t.screenId, t.objectId), t]))
+  const toggleDarkMap = new Map(dark.toggleButtons.map((t) => [assetKey(t.screenId, t.objectId), t]))
   const switchIconDarkPathMap = new Map(dark.switchStateIcons.map((i) => [
     assetKey(i.screenId, i.objectId),
     { pathDark: `assets/${i.normalFilename}`, ...(i.activeFilename ? { pathActiveDark: `assets/${i.activeFilename}` } : {}) },
@@ -531,6 +552,32 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     if (obj.type === "button") {
       const drawn = buttonMap.get(assetKey(keyId, obj.id))
       return { ...obj, ...(drawn ?? {}), ...(drawn ? buttonDarkMap.get(assetKey(keyId, obj.id)) : {}) }
+    }
+    if (obj.type === "toggle-button") {
+      const light = toggleMap.get(assetKey(keyId, obj.id))
+      if (!light) return obj
+      const darkOne = toggleDarkMap.get(assetKey(keyId, obj.id))
+      return {
+        ...obj,
+        looks: light.looks,
+        noneLook: light.noneLook,
+        ring: light.ring,
+        ...(darkOne ? { looksDark: darkOne.looks, noneLookDark: darkOne.noneLook, ringDark: darkOne.ring } : {}),
+        properties: {
+          ...obj.properties,
+          states: (obj.properties.states ?? []).map((state: any, i: number) => {
+            const icon = light.icons[i]
+            const iconDark = darkOne?.icons[i]
+            return {
+              ...state,
+              ...(icon ? { iconPath: `assets/${icon.filename}` } : {}),
+              ...(icon?.pressedFilename ? { iconPathPressed: `assets/${icon.pressedFilename}` } : {}),
+              ...(iconDark ? { iconPathDark: `assets/${iconDark.filename}` } : {}),
+              ...(iconDark?.pressedFilename ? { iconPathPressedDark: `assets/${iconDark.pressedFilename}` } : {}),
+            }
+          }),
+        },
+      }
     }
     if (isSwitchType(obj.type) && obj.properties.states) {
       return {

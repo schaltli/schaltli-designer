@@ -599,6 +599,48 @@ repo's type definitions for the full field list):
   `writeValue`, `iconAssetId`, and for a `switch` `showAsOn`), `topic`,
   `writeTopic`, `switchStyle`, `switchColor`. The form is the type: there is
   no `mode` any more.
+- **toggle-button** (2026-11-06, `docs/2026-11-06-toggle-button.md`): a
+  switch that is one tile, CamperUI's relay tile. `states[]`, `topic`,
+  `writeTopic` as on a switch, `text` its name (may be empty), and what it
+  is drawn from - a button's look per state, the designer's every
+  judgement (`lib/toggle-button-shape.ts`):
+
+  ```jsonc
+  "looks": [                       // one per state, in the states' order
+    { "normal": {…}, "pressed": {…},           // a button's faces
+      "label": "Ein",                          // what this look writes
+      "textX": 54, "baseline": 37, "clipX": 54, "clipW": 154,
+      "icon": { "x": 15, "y": 31, "size": 22 },   // only with an icon
+      "second": { "textX": 54, "baseline": 58, "fontId": "…" }, // only with a name
+      "disc": { "cx": 25, "cy": 42, "r": 17, "normal": "#…", "pressed": "#…",
+                "edge": { "normal": "#…", "pressed": null } } } // edge only where needed
+  ],
+  "noneLook": { … },              // nothing reported: the quiet face, label "?"
+  "ring": "#0284c7",
+  "looksDark": [ … ], "noneLookDark": { … }, "ringDark": "#…",  // 24 bit
+  "properties": { "states": [ { …, "iconPath": "assets/…", "iconPathPressed": "assets/…" } ] }
+  ```
+
+  1. Pick the look: the state whose `readValue` the topic reports, else
+     `noneLook`. Its pressed face while a finger is on it.
+  2. With a `disc`: a circle at `cx`, `cy` of radius `r` in `normal` (or
+     `pressed`) through the pill rasteriser; where `edge` names a colour,
+     the circle in that colour and its inside, 1 px in, in the fill - the
+     button's ring.
+  3. The face exactly as a button's (steps 1 and 2 above), the disc taking
+     priority over it. While a request is not confirmed, the outline is
+     `ring` and 2 px wide instead of the face's own 1 px.
+  4. The state's icon picture at `icon.x`, `icon.y` (`iconPathPressed`
+     while pressed, where present) - cut out of the tile, disc included.
+  5. Without `second`: `label` as a button's label. With it: the object's
+     `text` at `textX`/`baseline` in `fontId`, and `label` at
+     `second.textX`/`second.baseline` in `second.fontId`, both in `ink`,
+     clipped to `clipX … clipX + clipW`.
+
+  A tap publishes the next state's `writeValue`, after the last the first;
+  with nothing reported the first state with `showAsOn`, else the first
+  (`switchshape::stateIndexForTap`'s cycling, without a position). The look
+  stays the reported state's; the ring says what was asked.
 - **panel**: matched against its parent `switcher`'s own `topic` value
   via `comparisonOperator`/`comparisonValue` (string compare for `==`/`!=`,
   numeric for the rest) — shown only when its condition matches the
@@ -687,6 +729,7 @@ Where `XDark` appears:
 | Icon, live-icon rule, level header icon (firmware) | `path` | `pathDark` |
 | Button (firmware and Android) | `look`, `iconPath`, `iconPathPressed` | `lookDark` (whole; only its colours differ), `iconPathDark`, `iconPathPressedDark` |
 | Switch state (firmware) | `path`, `pathActive` | `pathDark`, `pathActiveDark` |
+| Toggle Button (firmware and Android) | `looks`, `noneLook`, `ring`; per state `iconPath`, `iconPathPressed` | `looksDark`, `noneLookDark` (whole), `ringDark`; `iconPathDark`, `iconPathPressedDark` |
 | Screen (Android) | `backgroundImage` | `backgroundImageDark` |
 | Icon, live-icon rule, level icon, switch state (Android) | `path`, `activePath` | `pathDark`, `activePathDark` |
 
