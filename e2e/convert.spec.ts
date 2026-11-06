@@ -6,6 +6,10 @@ import JSZip from "jszip"
 import { getMainCanvas, loadProject, objectTreeRow } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { convertInTree, convertObject, convertTargets } from "../lib/convert-object"
+import { toggleMinHeight } from "../lib/toggle-button-shape"
+
+// A font for the sizes a conversion works out.
+const FONTS = [{ id: "f1", name: "f1", size: 14, ascent: 12, descent: 3, capHeight: 10 }] as any
 import { adjustTargetOf } from "../lib/adjust-level"
 import { blockTable, buildEntry } from "../lib/bausteine"
 import { blockCard } from "../lib/block-card"
@@ -72,8 +76,9 @@ test.describe("convert: the model", () => {
     expect(convertTargets({ ...slider, type: "dial" })).toEqual([{ type: "slider" }])
     expect(convertTargets({ ...slider, type: "bar" })).toEqual([{ type: "gauge" }])
     expect(convertTargets({ ...slider, type: "gauge" })).toEqual([{ type: "bar" }])
-    expect(convertTargets(group(2))).toEqual([{ type: "switch" }])
-    expect(convertTargets({ ...group(2), type: "switch" })).toEqual([{ type: "button-group" }])
+    expect(convertTargets(group(2))).toEqual([{ type: "switch" }, { type: "toggle-button" }])
+    expect(convertTargets({ ...group(2), type: "switch" })).toEqual([{ type: "button-group" }, { type: "toggle-button" }])
+    expect(convertTargets({ ...group(2), type: "toggle-button" })).toEqual([{ type: "switch" }, { type: "button-group" }])
     expect(convertTargets({ ...slider, type: "text" })).toEqual([])
     expect(convertTargets({ ...slider, type: "button" })).toEqual([])
   })
@@ -83,7 +88,7 @@ test.describe("convert: the model", () => {
   })
 
   test("a button group of three states does not become a switch; a switch always becomes a group", () => {
-    expect(convertTargets(group(3))).toEqual([{ type: "switch", disabled: "Only a group of two becomes a switch; this has 3" }])
+    expect(convertTargets(group(3))).toEqual([{ type: "switch", disabled: "Only two states become a switch; this has 3" }, { type: "toggle-button" }])
     expect(convertObject(group(3), "switch")).toBeUndefined()
     const sw = convertObject(group(2), "switch")!
     expect(convertObject(sw, "button-group")!.type).toBe("button-group")
@@ -134,6 +139,28 @@ test.describe("convert: the model", () => {
     expect(back.properties.states.map((s: Obj) => s.readValue)).toEqual(["OFF", "ON"])
     // Back again, the on state is the one it was.
     expect(convertObject(back, "switch")!.properties.states.map((s: Obj) => s.showAsOn)).toEqual([false, true])
+  })
+
+  test("Button Group → Toggle Button → Switch: the states kept, the on one marked; no name until one is given; never lower than its line", () => {
+    const tile = convertObject(group(3), "toggle-button", FONTS)!
+    expect(tile).toMatchObject({ id: "knoepfe", type: "toggle-button", x: 10, y: 100 })
+    expect(tile.properties).toMatchObject({ topic: "pump/state", writeTopic: "pump/set", switchStyle: "filled", switchColor: "accent", text: "" })
+    expect(tile.properties.states.map((s: Obj) => [s.readValue, s.showAsOn])).toEqual([
+      ["OFF", false],
+      ["ON", true],
+      ["AUTO", false],
+    ])
+    expect(tile.height).toBeGreaterThanOrEqual(toggleMinHeight(tile, FONTS))
+    // Three states do not become a switch from a tile either.
+    expect(convertObject(tile, "switch")).toBeUndefined()
+    const two = convertObject(group(2), "toggle-button", FONTS)!
+    const named = { ...two, properties: { ...two.properties, text: "Pumpe", secondFontId: "f1" } }
+    const sw = convertObject(named, "switch", FONTS)!
+    expect(sw.type).toBe("switch")
+    // The name is the tile's alone.
+    expect(sw.properties).not.toHaveProperty("text")
+    expect(sw.properties).not.toHaveProperty("secondFontId")
+    expect(convertObject(named, "button-group", FONTS)!.properties).not.toHaveProperty("text")
   })
 
   test("a Knob's binding on the dial still finds it after Dial → Slider", () => {
@@ -200,7 +227,7 @@ test.describe("convert: the Properties panel", () => {
     await page.getByTestId("convert-to").click()
     const item = page.getByTestId("convert-to-switch")
     await expect(item).toHaveAttribute("data-disabled", "")
-    await expect(item).toContainText("Only a group of two becomes a switch; this has 3")
+    await expect(item).toContainText("Only two states become a switch; this has 3")
     await page.keyboard.press("Escape")
     await convert(page, "zwei", "switch")
     await expect(page.getByTestId("object-type")).toHaveText("Switch")
@@ -346,6 +373,6 @@ test.describe("convert: the right-click menu", () => {
     await page.getByTestId("context-convert-to").hover()
     const item = page.getByTestId("context-convert-to-switch")
     await expect(item).toBeDisabled()
-    await expect(item).toContainText("Only a group of two becomes a switch; this has 3")
+    await expect(item).toContainText("Only two states become a switch; this has 3")
   })
 })

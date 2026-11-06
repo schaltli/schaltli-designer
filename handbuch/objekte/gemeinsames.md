@@ -32,17 +32,17 @@ Bei Slider und Dial bestimmen der kleinste und der grösste Punkt auch, welche W
 
 ## Umwandeln {#umwandeln}
 
-Slider und Dial, Bar und Gauge, Switch und Button Group sind je dasselbe Objekt in zwei Formen. Ist eines davon ausgewählt, steht in den Eigenschaften oben neben dem Typ <span class="ui">Convert to</span>, und beim Rechtsklick auf den Screen im Menü. Darunter steht die andere Form. Ein Klick darauf wandelt das Objekt um.
+Slider und Dial, Bar und Gauge sind je dasselbe Objekt in zwei Formen. Switch, Button Group und Toggle Button sind dasselbe in drei Formen. Ist eines davon ausgewählt, steht in den Eigenschaften oben neben dem Typ <span class="ui">Convert to</span>, und beim Rechtsklick auf den Screen im Menü. Darunter stehen die anderen Formen. Ein Klick auf eine wandelt das Objekt um.
 
 Was das Objekt mit der Anlage verbindet, bleibt: die Topics, der Bereich, <span class="ui">Step</span>, <span class="ui">Calibration</span>, <span class="ui">Send as</span>, was es als Wert zeigt, seine Farben und seine Schrift. Ein Knopf, der es verstellt, etwa der Ring des [Knob](/geraete/knob), findet es danach noch. Was nur die neue Form kennt, etwa die Winkel eines Rings, bekommt die Werte, die auch das Werkzeug setzt.
 
-Frei auf dem Screen bleibt die linke obere Ecke, wo sie war. Aus einem Slider wird ein Ring, so breit wie der Slider, aus einem Ring ein Slider derselben Breite. Ein Switch wird nie schmaler, als seine Beschriftungen brauchen.
+Frei auf dem Screen bleibt die linke obere Ecke, wo sie war. Aus einem Slider wird ein Ring, so breit wie der Slider, aus einem Ring ein Slider derselben Breite. Ein Switch wird nie schmaler, als seine Beschriftungen brauchen. Ein Toggle Button auch nicht, und nie niedriger als seine Zeilen. Sein Name geht verloren, wenn er zum Switch oder zur Button Group wird, denn die beiden haben keinen.
 
 In einer Tabelle oder Karte, etwa in einer [Baugruppe](/designer/baugruppen), bekommt die neue Form die Grösse, die auch eine Baugruppe ihr dort gibt: ein Ring sechs Zeilen seiner Schrift, ein Slider die Breite der Zelle. Die Zeile wird entsprechend höher oder niedriger. Eine Karte, die mit ihrem Inhalt endete, tut das danach wieder. Hast du ihr eine eigene Höhe gegeben, behält sie diese.
 
 <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt die Umwandlung in einem Schritt zurück.
 
-Eine Button Group wird nur zum Switch, wenn sie genau zwei Zustände hat, etwa «Aus» und «An». Drei wie «manual», «auto» und «off» sind eine Auswahl und kein Ein und Aus. Dann ist <span class="ui">Switch</span> grau, und darunter steht der Grund. Grau ist auch eine Form, die dein Gerät nicht darstellt.
+Zum Switch wird eine Button Group oder ein Toggle Button nur mit genau zwei Zuständen, etwa «Aus» und «An». Drei wie «manual», «auto» und «off» sind eine Auswahl und kein Ein und Aus. Dann ist <span class="ui">Switch</span> grau, und darunter steht der Grund. Grau ist auch eine Form, die dein Gerät nicht darstellt.
 
 ## Farben {#farben}
 

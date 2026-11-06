@@ -3,11 +3,13 @@
  * other type of its family, after it was placed - a block comes in its first
  * look, and this is how it gets another.
  *
- * Three families, two types each:
+ * Three families:
  * - a level a finger sets: Slider ↔ Dial
  * - a level to read: Bar ↔ Gauge
- * - on or off: Switch ↔ Button Group - a Button Group only with two states
- *   becomes a Switch (decided 2026-11-05: what is on or off is two).
+ * - states: Switch, Button Group and Toggle Button, each to either other -
+ *   only two states become a Switch (decided 2026-11-05: what is on or off
+ *   is two); the Toggle Button's name goes where the other two have none
+ *   (docs/2026-11-06-toggle-button.md, decision 8).
  *
  * What the object is bound to stays: its id (a Knob binding, a reference to
  * it), its topics, range, step, calibration, send-as, the value shown, its
@@ -24,16 +26,19 @@ import { isSnapTable } from "@/lib/snap-table"
 import { layoutObjects, type LayoutScale } from "@/lib/layout"
 import { paddingOf } from "@/lib/dock"
 import { cardLookOf } from "@/lib/card"
+import { toggleMinHeight } from "@/lib/toggle-button-shape"
 
-export type ConvertibleType = "slider" | "dial" | "bar" | "gauge" | "switch" | "button-group"
+export type ConvertibleType = "slider" | "dial" | "bar" | "gauge" | "switch" | "button-group" | "toggle-button"
 
-const PARTNER: Record<ConvertibleType, ConvertibleType> = {
-  slider: "dial",
-  dial: "slider",
-  bar: "gauge",
-  gauge: "bar",
-  switch: "button-group",
-  "button-group": "switch",
+/** Each type's family, without itself, in the order the menu lists them. */
+const FAMILY: Record<ConvertibleType, ConvertibleType[]> = {
+  slider: ["dial"],
+  dial: ["slider"],
+  bar: ["gauge"],
+  gauge: ["bar"],
+  switch: ["button-group", "toggle-button"],
+  "button-group": ["switch", "toggle-button"],
+  "toggle-button": ["switch", "button-group"],
 }
 
 export interface ConvertTarget {
@@ -44,26 +49,26 @@ export interface ConvertTarget {
 
 /** Why `object` cannot become `type` on its own terms; undefined when it can. */
 function refusal(object: ScreenObject, type: ConvertibleType): string | undefined {
-  if (object.type === "button-group" && type === "switch") {
+  if ((object.type === "button-group" || object.type === "toggle-button") && type === "switch") {
     const n = (object.properties.states ?? []).length
-    if (n !== 2) return `Only a group of two becomes a switch; this has ${n}`
+    if (n !== 2) return `Only two states become a switch; this has ${n}`
   }
   return undefined
 }
 
 /**
- * The types `object` can be converted to - its family's other one - each
+ * The types `object` can be converted to - its family's others - each
  * greyed with the reason where it cannot: the loaded device does not draw
- * it, or a button group has more than two states. Empty for a type with no
- * family.
+ * it, or there are more than two states for a switch. Empty for a type
+ * with no family.
  */
 export function convertTargets(object: ScreenObject, supportedObjectTypes?: readonly string[]): ConvertTarget[] {
-  const type = PARTNER[object.type as ConvertibleType]
-  if (!type) return []
-  const own = refusal(object, type)
-  if (own) return [{ type, disabled: own }]
-  if (supportedObjectTypes && !supportedObjectTypes.includes(type)) return [{ type, disabled: "Not rendered by the loaded device's firmware" }]
-  return [{ type }]
+  return (FAMILY[object.type as ConvertibleType] ?? []).map((type) => {
+    const own = refusal(object, type)
+    if (own) return { type, disabled: own }
+    if (supportedObjectTypes && !supportedObjectTypes.includes(type)) return { type, disabled: "Not rendered by the loaded device's firmware" }
+    return { type }
+  })
 }
 
 // The shape a ring is given by its tool (project-editor.tsx, the gauge
@@ -94,8 +99,9 @@ function withOnState(states: any[]): any[] {
  * undefined when `type` is not among its targets or is refused.
  */
 export function convertObject(object: ScreenObject, type: ConvertibleType, fonts: readonly ProjectFont[] = []): ScreenObject | undefined {
-  if (PARTNER[object.type as ConvertibleType] !== type || refusal(object, type)) return undefined
-  const p = object.properties ?? {}
+  if (!(FAMILY[object.type as ConvertibleType] ?? []).includes(type) || refusal(object, type)) return undefined
+  // A name and its second line are the Toggle Button's alone.
+  const p = type === "toggle-button" ? (object.properties ?? {}) : withoutKeys(object.properties ?? {}, object.type === "toggle-button" ? ["text", "secondFontId"] : [])
   switch (type) {
     case "dial":
     case "gauge": {
@@ -114,8 +120,17 @@ export function convertObject(object: ScreenObject, type: ConvertibleType, fonts
       return { ...next, width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))) }
     }
     case "button-group": {
-      const next: ScreenObject = { ...object, type }
+      const next: ScreenObject = { ...object, type, properties: p }
       return { ...next, width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))) }
+    }
+    case "toggle-button": {
+      // No name yet: the state's label alone, as its tool places it.
+      const next: ScreenObject = { ...object, type, properties: { ...p, text: "", states: withOnState(p.states ?? []) } }
+      return {
+        ...next,
+        width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))),
+        height: Math.max(object.height, toggleMinHeight(next, fonts)),
+      }
     }
   }
 }
