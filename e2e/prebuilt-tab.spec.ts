@@ -49,6 +49,43 @@ test("Parts first; Prebuilt in its place, and the tab last open is the one shown
   await expect(tab(page, "Parts").locator("svg.lucide-toy-brick")).toHaveCount(1)
   await expect(tab(page, "Prebuilt").locator("svg")).toHaveCount(1)
   await expect(tab(page, "Prebuilt").locator("svg rect")).toHaveCount(2)
+  // Tabs as in an Office ribbon (the user, 2026-11-06), not to be
+  // overlooked: in the size of the panel's text, on a grey strip; the open
+  // one in the ribbon's own colour, its name in the designer's accent,
+  // standing on the strip's line and open towards the tools below.
+  const look = (name: "Parts" | "Prebuilt") =>
+    tab(page, name).evaluate((el) => {
+      const s = getComputedStyle(el)
+      const probe = document.createElement("div")
+      probe.style.color = getComputedStyle(document.documentElement).getPropertyValue("--sb-accent").trim()
+      document.body.append(probe)
+      const accent = getComputedStyle(probe).color
+      probe.remove()
+      const strip = el.parentElement!
+      const ribbon = el.closest("[data-testid=tools-ribbon]")!
+      return {
+        fontSize: parseFloat(s.fontSize),
+        color: s.color,
+        accent,
+        background: s.backgroundColor,
+        ribbon: getComputedStyle(ribbon).backgroundColor,
+        strip: getComputedStyle(strip).backgroundColor,
+        bottom: el.getBoundingClientRect().bottom,
+        line: strip.getBoundingClientRect().bottom - parseFloat(getComputedStyle(strip).borderBottomWidth),
+        bottomBorder: s.borderBottomColor,
+      }
+    })
+  const open = await look("Parts")
+  const closed = await look("Prebuilt")
+  expect(open.fontSize).toBeGreaterThanOrEqual(14)
+  expect(open.color).toBe(open.accent)
+  expect(closed.color).not.toBe(closed.accent)
+  expect(open.background).toBe(open.ribbon)
+  expect(open.strip).not.toBe(open.ribbon)
+  expect(closed.background).not.toBe(closed.ribbon)
+  // Over the line, without one of its own: the tab runs into the tools.
+  expect(open.bottom).toBeGreaterThan(open.line)
+  expect(open.bottomBorder).toBe("rgba(0, 0, 0, 0)")
   await expect(ribbon(page).getByRole("button", { name: "Text", exact: true })).toBeVisible()
   // No Block button any more: the prebuilts are a tab.
   await expect(ribbon(page).getByRole("button", { name: "Block", exact: true })).toHaveCount(0)

@@ -343,8 +343,14 @@ export function Toolbar({
   return (
     <TooltipProvider>
       {isHorizontal ? (
-        <div className="flex flex-col">
-          <div role="tablist" aria-label="Ribbon" className="flex gap-1 px-2 pt-1">
+        // The ribbon's whole width and height, past its padding: the tabs'
+        // strip runs from edge to edge.
+        <div className="-mx-2 flex min-w-[calc(100%+1rem)] flex-col self-stretch">
+          {/* Tabs as in an Office ribbon (the user, 2026-11-06): a strip on
+              grey with a line under it; the open tab has the ribbon's own
+              colour, stands on the line and opens into the tools below, with
+              the designer's accent in a bar along its top and in its name. */}
+          <div role="tablist" aria-label="Ribbon" className="flex items-end gap-0.5 border-b border-border bg-muted-foreground/15 px-3 pt-1">
             {(["parts", "prebuilt"] as const).map((t) => (
               <button
                 key={t}
@@ -353,16 +359,18 @@ export function Toolbar({
                 data-testid={`ribbon-tab-${t}`}
                 onClick={() => showTab(t)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-xs",
-                  tab === t ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "relative -mb-px inline-flex items-center gap-2 rounded-t-md border border-transparent px-4 py-0.5 text-sm font-medium transition-colors",
+                  tab === t
+                    ? "border-border border-b-transparent bg-card text-[var(--sb-accent)] before:absolute before:-inset-x-px before:-top-px before:h-[3px] before:rounded-t-md before:bg-[var(--sb-accent)]"
+                    : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
                 )}
               >
-                {t === "parts" ? <ToyBrick className="h-3.5 w-3.5" aria-hidden /> : <ToyBricks className="h-3.5 w-3.5" aria-hidden />}
+                {t === "parts" ? <ToyBrick className="h-4 w-4" aria-hidden /> : <ToyBricks className="h-4 w-4" aria-hidden />}
                 {t === "parts" ? "Parts" : "Prebuilt"}
               </button>
             ))}
           </div>
-          <div className="flex flex-row items-stretch gap-1 px-2 pb-1 pt-1 min-h-[5.25rem]">
+          <div className="flex flex-row items-stretch gap-1 px-4 pb-0.5 pt-1 min-h-[5rem]">
             {tab === "prebuilt" ? (
               <BlockTiles active onSelect={onCatalogEntrySelect} armedEntryId={armedEntryId} supportedObjectTypes={supportedObjectTypes} />
             ) : (
