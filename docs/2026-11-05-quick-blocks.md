@@ -1,7 +1,10 @@
 # Prebuilt: a tab of assemblies, no dialog, convert afterwards
 
-Spec drafted 2026-11-05 from the user's idea. **Status: every decision taken by the user on 2026-11-05; ready for
-approval.**
+Spec drafted 2026-11-05 from the user's idea. **Status: every decision taken by the user on 2026-11-05; built 2026-11-05/06**
+(35027125 Convert to, then the prebuilt cards e619f4fe). The ribbon's two tabs went
+into the palette on 2026-11-06 (docs/2026-11-06-palette.md): what this spec says of the
+ribbon and its tiles holds for the palette's tabs and rows. `npm run test:all` still to
+run (the user, later).
 
 ## Objective
 
