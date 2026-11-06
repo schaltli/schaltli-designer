@@ -1,6 +1,7 @@
 "use client"
 
 import { barLayout, clampScroll, entryAt, MARKER_SETTLE_MS, markerGlides, markerOffset, markerSettle, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
+import { freeMinSize } from "@/lib/free-min-size"
 import { FLOW_BUS_R, FLOW_NODE_R, defaultDiagram, type EnergyNode } from "@/lib/energy-diagram"
 
 // The node or bus of a Flow diagram under a point, if any: its circle, and a
@@ -1315,6 +1316,8 @@ export function Canvas({
     return [...ids]
   }, [previewMode, selectedObjectIds, editingContainerId, screen.objects])
 
+  // A card's smallest size, worked out once per resize (lib/free-min-size.ts).
+  const freeMinRef = useRef<{ drag: unknown; min: { width: number; height: number } | undefined } | null>(null)
   const layoutScale = useMemo(
     () => ({ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts, topics, separators: numberSeparators }),
     [textScale, fonts, topics, numberSeparators],
@@ -4269,6 +4272,26 @@ export function Canvas({
           const stateCount = (resizingObject.properties?.states ?? []).length
           newWidth = Math.max(newWidth, minSwitchWidth(stateCount))
           newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
+        }
+
+        // A card - any free area holding something - only so small that all
+        // it holds keeps its room (the user, 2026-11-06; lib/free-min-size.ts):
+        // the edge dragged stops there, the opposite one stays.
+        if (resizingObject?.type === "free") {
+          const cached = freeMinRef.current
+          const min =
+            cached && cached.drag === dragState
+              ? cached.min
+              : freeMinSize({ ...resizingObject, ...dragState.startObjectPos }, layoutScale)
+          if (!cached || cached.drag !== dragState) freeMinRef.current = { drag: dragState, min }
+          if (min && newWidth < min.width) {
+            if (handle === "nw" || handle === "sw" || handle === "baseline-left") newX = x + width - min.width
+            newWidth = min.width
+          }
+          if (min && newHeight < min.height) {
+            if (handle === "nw" || handle === "ne") newY = y + height - min.height
+            newHeight = min.height
+          }
         }
 
         // An object on a size step keeps to it (docs/2026-09-30-size-scale.md,

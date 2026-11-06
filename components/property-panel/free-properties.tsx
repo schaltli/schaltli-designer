@@ -6,11 +6,12 @@
  */
 
 import type { ScreenObject } from "../project-editor"
-import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, ToggleRow, frameSummary } from "./fields"
+import { ColorField, FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
 import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type AnchorX, type AnchorY } from "@/lib/anchor"
 import { dockOf, type Dock } from "@/lib/dock"
 import { cardLookOf } from "@/lib/card"
-import { clipsContents } from "@/lib/clip"
+import { freeMinSize } from "@/lib/free-min-size"
+import type { LayoutScale } from "@/lib/layout"
 
 const LOOK = [
   { value: "none", label: "None" },
@@ -23,10 +24,13 @@ export function FreeProperties({
   selectedObject,
   onUpdateObject,
   colorDepth,
+  scale,
 }: {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
+  // For how small it can be made: its fonts and the panel's pixels per mm.
+  scale?: LayoutScale
 }) {
   const set = (key: string, value: unknown) =>
     onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, [key]: value } })
@@ -49,14 +53,6 @@ export function FreeProperties({
           Box, if you give it a fill or an edge.
         </FieldNote>
         <SelectField id="freeLook" label="Look" value={look ?? "none"} options={LOOK} onChange={setLook} />
-        {/* What it holds cut to its shape inside its edge (docs/2026-11-03-card-clip.md):
-            on for a card unless set. */}
-        <ToggleRow
-          label="Clip"
-          text="Cut what it holds to its shape"
-          checked={clipsContents(selectedObject)}
-          onChange={(on) => set("clipContents", on)}
-        />
         {look ? (
           <FieldNote>
             {look === "card-accent" ? "Panel with an Accent edge" : "Panel with an Outline edge"}, from the theme; corner radius, edge and padding from
@@ -118,7 +114,12 @@ export function FreeProperties({
           y={selectedObject.y}
           width={selectedObject.width}
           height={selectedObject.height}
-          onChange={(key, value) => onUpdateObject(selectedObject.id, { [key]: value })}
+          onChange={(key, value) => {
+            // Typed as dragged: no smaller than all it holds needs
+            // (the user, 2026-11-06; lib/free-min-size.ts).
+            const min = (key === "width" || key === "height") && scale ? freeMinSize(selectedObject, scale) : undefined
+            onUpdateObject(selectedObject.id, { [key]: min ? Math.max(value, min[key as "width" | "height"]) : value })
+          }}
         />
       </PropertySection>
     </PropertySections>

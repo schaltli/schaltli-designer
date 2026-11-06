@@ -147,7 +147,7 @@ const SPECIMENS = {
             type: "free",
             zIndex: 1,
             ...c.wide,
-            properties: { fillColor: c.colors.bg, strokeColor: c.colors.fg, strokeWidth: 2, cornerRadius: 14, clipContents: true },
+            properties: { fillColor: c.colors.bg, strokeColor: c.colors.fg, strokeWidth: 2, cornerRadius: 14 },
             children: [
               {
                 id: c.id("heading"),
@@ -167,7 +167,7 @@ const SPECIMENS = {
                 y: h - Math.round(h / 2) - 4,
                 width: Math.round(w / 3),
                 height: Math.round(h / 2),
-                properties: { fillColor: c.colors.track, strokeColor: c.colors.fg, strokeWidth: 1, cornerRadius: 9, clipContents: true },
+                properties: { fillColor: c.colors.track, strokeColor: c.colors.fg, strokeWidth: 1, cornerRadius: 9 },
                 children: [
                   {
                     id: c.id("past"),

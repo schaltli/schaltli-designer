@@ -103,7 +103,11 @@ const leftOut = (child: ScreenObject): ScreenObject => ({ ...child, properties: 
 export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
   if (area.type !== "free") return area
   const children = area.children ?? []
-  const docked = [...sortChildrenByZIndex(children)].reverse().filter((c) => dockOf(c) !== undefined)
+  // Fill last, whatever its place in the list: it takes what the others
+  // leave - docked first, it left none, and a heading docked Top after it
+  // was left out at any size (the user, 2026-11-06).
+  const inOrder = [...sortChildrenByZIndex(children)].reverse().filter((c) => dockOf(c) !== undefined)
+  const docked = [...inOrder.filter((c) => dockOf(c) !== "fill"), ...inOrder.filter((c) => dockOf(c) === "fill")]
   const stale = children.some((c) => dockOf(c) === undefined && c.properties && ("ownSize" in c.properties || "dockedOut" in c.properties))
   if (docked.length === 0 && !stale) return area
 

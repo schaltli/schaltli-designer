@@ -33,7 +33,7 @@ import { dockSets } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
-import { isContainerType } from "@/lib/layout"
+import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
@@ -340,7 +340,7 @@ export function PropertyPanel({
           ) : selectedObject ? (
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
-              {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
+              {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
               {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {inFreeArea(currentScreen, selectedObject.id) && <FreePositionProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 

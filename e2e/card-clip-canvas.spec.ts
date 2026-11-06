@@ -9,18 +9,20 @@ import type { ScreenObject } from "../components/project-editor"
 // of its own across the card's top.
 
 const CARD = { x: 40, y: 30, width: 200, height: 120 }
-const card = (clipContents: boolean) => ({
+// Seen: a fill and an edge of its own, a card drawn by hand - it clips. Not
+// seen: no fill, no edge - nothing to cut to, it does not (lib/clip.ts).
+const card = (seen: boolean) => ({
   id: "karte",
   type: "free",
   zIndex: 1,
   ...CARD,
-  properties: { fillColor: "#e0e0e0", strokeColor: "#808080", strokeWidth: 2, cornerRadius: 14, clipContents },
+  properties: seen ? { fillColor: "#e0e0e0", strokeColor: "#808080", strokeWidth: 2, cornerRadius: 14 } : { cornerRadius: 14 },
   children: [{ id: "kopf", type: "box", zIndex: 2, x: 0, y: 0, width: 200, height: 30, properties: { fillColor: "#ff0000", strokeWidth: 0, cornerRadius: 0 } }],
 })
 
-async function render(page: import("@playwright/test").Page, clipContents: boolean, exported = false): Promise<number[][]> {
+async function render(page: import("@playwright/test").Page, seen: boolean, exported = false): Promise<number[][]> {
   // As the designer holds it, or as exported - the area dissolved, each object carrying `clip` (the Android HIL's reference renders this).
-  const objects = exported ? dissolveGroups([card(clipContents) as unknown as ScreenObject]) : [card(clipContents)]
+  const objects = exported ? dissolveGroups([card(seen) as unknown as ScreenObject]) : [card(seen)]
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
@@ -70,7 +72,7 @@ test("a heading with a fill in a round card: red exactly where the card's shape 
   expect(red[2][2]).toBe(0)
 })
 
-test("with Clip off the heading covers the corners, as before", async ({ page }) => {
+test("an area not seen - no fill, no edge - cuts nothing: the heading covers the corners", async ({ page }) => {
   const red = await render(page, false)
   expect(red[0][0]).toBe(1)
   expect(red[0][100]).toBe(1)

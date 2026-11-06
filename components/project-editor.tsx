@@ -1,6 +1,7 @@
 "use client"
 
 import type { CombinedTopic } from "@/lib/combined-topics"
+import { withCardsFollowing, withCardsGrown } from "@/lib/free-min-size"
 import { RANGE_LABELS, type TimeRange } from "@/lib/chart"
 import type { LiveValue } from "@/lib/live-value"
 import { ROLE_PALETTE } from "@/lib/control-palette"
@@ -892,6 +893,14 @@ function migrateOpened<P extends Project>(project: P): { project: P; menuGone: b
   return { project: migrateProject(project), menuGone }
 }
 
+// `next` with its cards fitted to their content (lib/free-min-size.ts): one
+// that ended with its content in `prev` follows it, smaller too; one too
+// small for what it holds grows to it.
+function cardsFitted(prev: Project, next: Project): Project {
+  const scale = layoutScaleOf(next)
+  return withCardsGrown(withCardsFollowing(prev, next, scale, layoutProject), scale, layoutProject)
+}
+
 export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
   // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
@@ -912,13 +921,25 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // it costs no render and no undo step.
   // The screens a change cut off from the screen graph, for the toast below.
   const cutOffScreensRef = useRef<string[]>([])
+  // While a button is held - a drag on the canvas, a handle, a slider in the
+  // panel - cards are not grown or shrunk to their content: the canvas
+  // commits on every move, and a card growing under a text dragged out of it
+  // kept the pointer inside it. Once let go they are, compared with the
+  // project as it was when the button went down (lib/free-min-size.ts).
+  const gestureRef = useRef<{ held: boolean; before: Project | null }>({ held: false, before: null })
   const setProject = useCallback<Dispatch<SetStateAction<Project>>>((action) => {
     // Then the layout (lib/layout.ts): every container's children placed
     // again, with the same promise - nothing moved, same reference. And the
     // screen graph mended (lib/screen-graph.ts): a screen docked on one that
     // left it - deleted, hidden, made a popup or a master - becomes hidden.
     setProjectState((prev) => {
-      const next = layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+      const laid = layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+      // And a card too small for what it holds grows to it - after an edit,
+      // and a project just opened as well (lib/free-min-size.ts).
+      // One that ended with its content follows it, smaller too.
+      const gesture = gestureRef.current
+      if (gesture.held && !gesture.before) gesture.before = prev
+      const next = gesture.held ? laid : cardsFitted(prev, laid)
       const mended = withGraphMended(next.screens)
       if (mended.hidden.length === 0) return next
       cutOffScreensRef.current = mended.hidden.map((s) => s.name)
@@ -926,10 +947,35 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     })
   }, [])
 
+  // The button held and let go (gestureRef above): on letting go, after the
+  // canvas has committed what the release does, the cards are fitted - in
+  // the gesture's undo step, which stays open a moment after it
+  // (hooks/use-project-history.ts).
+  useEffect(() => {
+    const down = () => {
+      gestureRef.current = { held: true, before: null }
+    }
+    const up = () => {
+      const { held, before } = gestureRef.current
+      gestureRef.current = { held: false, before: null }
+      if (!held || !before) return
+      // After the canvas's own mouseup has committed what the release does.
+      setTimeout(() => setProjectState((prev) => cardsFitted(before, prev)), 0)
+    }
+    window.addEventListener("pointerdown", down, true)
+    window.addEventListener("pointerup", up, true)
+    window.addEventListener("pointercancel", up, true)
+    return () => {
+      window.removeEventListener("pointerdown", down, true)
+      window.removeEventListener("pointerup", up, true)
+      window.removeEventListener("pointercancel", up, true)
+    }
+  }, [setProject])
+
   // A TTF font the layout measured wide until it had loaded is there now:
   // laid out again with its real widths (lib/size-scale.ts).
   useEffect(() => {
-    const relayout = () => setProjectState((prev) => layoutProject(prev))
+    const relayout = () => setProjectState((prev) => { const laid = layoutProject(prev); return withCardsGrown(laid, layoutScaleOf(laid), layoutProject) })
     window.addEventListener(TTF_FONT_LOADED_EVENT, relayout)
     // A device's font loaded from its description, not by the registry.
     document.fonts.addEventListener("loadingdone", relayout)

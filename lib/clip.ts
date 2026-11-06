@@ -95,12 +95,22 @@ export function insideShape(shape: ClipShape, px: number, py: number, spans = ro
   return col >= spans[row][0] && col < spans[row][1]
 }
 
-/** Whether a free area clips what it holds: Clip as set, else on for a card (a Look). */
+/**
+ * Whether a free area clips what it holds: always where it looks like a card
+ * - a card's Look, or a fill or an edge of its own (the box a device draws
+ * for it, lib/object-groups.ts freeBackground) - and never where it is
+ * invisible, with no shape to cut to. No switch any more (the user,
+ * 2026-11-06): a card holds everything inside its padding, so clipping
+ * cuts only what a device shows longer than the designer measured, and the
+ * round corners of what reaches its edge. An old project's `clipContents`
+ * is not read.
+ */
 export function clipsContents(area: ScreenObject): boolean {
   if (area.type !== "free") return false
-  const set = area.properties?.clipContents
-  if (typeof set === "boolean") return set
-  return area.properties?.look === "card" || area.properties?.look === "card-accent"
+  const p = area.properties ?? {}
+  if (p.look === "card" || p.look === "card-accent") return true
+  const fill = typeof p.fillColor === "string" && p.fillColor !== "" ? p.fillColor : "transparent"
+  return fill !== "transparent" || (Number(p.strokeWidth) || 0) > 0
 }
 
 /**

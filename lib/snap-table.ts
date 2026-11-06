@@ -237,6 +237,12 @@ function shareWidth(table: ScreenObject, widths: number[], gap: number, scale: L
 
 export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): SnapGeometry {
   const { gap, lefts, widths, tops, heights, naturalWidths, naturalHeights } = measure(table, scale)
+  // Stretched wider than its columns - docked Fill or Top in a card, in a
+  // switcher's panel - its last column took the rest when it was laid out
+  // (arrangeSnapTable): so here too, or its cells were drawn, and dropped
+  // into, short of what stands in them (the user, 2026-11-06).
+  const natural = widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
+  if (widths.length > 0 && table.width > natural) widths[widths.length - 1] += table.width - natural
   return { gap, lefts, widths, tops, heights, naturalWidths, naturalHeights }
 }
 

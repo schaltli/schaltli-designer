@@ -330,8 +330,8 @@ function card(height: number, inside: any, edge?: string, width = 40) {
     // An edge of its own colour (the battery's green) is a card drawn by hand:
     // a look's edge is Outline or Accent.
     properties: edge
-      ? { fillColor: CARD, strokeColor: edge, strokeWidth: 2, cornerRadius: CARD_RADIUS_PX, padding: CARD_PADDING_MM, clipContents: true }
-      : { look: "card", clipContents: true },
+      ? { fillColor: CARD, strokeColor: edge, strokeWidth: 2, cornerRadius: CARD_RADIUS_PX, padding: CARD_PADDING_MM }
+      : { look: "card" },
     children: [{ ...inside, properties: { ...inside.properties, dock: "fill" } }],
   }
 }

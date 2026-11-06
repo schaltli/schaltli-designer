@@ -1443,7 +1443,7 @@ function buildProject(fonts) {
             y: 100,
             width: 312,
             height: 170,
-            properties: { fillColor: "#e5e5e5", strokeColor: BLACK, strokeWidth: 2, cornerRadius: 16, clipContents: true },
+            properties: { fillColor: "#e5e5e5", strokeColor: BLACK, strokeWidth: 2, cornerRadius: 16 },
             children: [
               { id: "clip-heading", type: "box", zIndex: 2, x: 0, y: 0, width: 312, height: 44, properties: { fillColor: ACCENT, strokeWidth: 0, cornerRadius: 0 } },
               {
@@ -1454,7 +1454,7 @@ function buildProject(fonts) {
                 y: 80,
                 width: 120,
                 height: 80,
-                properties: { fillColor: "#3a3a3a", strokeColor: BLACK, strokeWidth: 1, cornerRadius: 10, clipContents: true },
+                properties: { fillColor: "#3a3a3a", strokeColor: BLACK, strokeWidth: 1, cornerRadius: 10 },
                 children: [{ id: "clip-past", type: "box", zIndex: 1, x: 60, y: 40, width: 100, height: 60, properties: { fillColor: ACCENT, strokeWidth: 0, cornerRadius: 0 } }],
               },
             ],

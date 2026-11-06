@@ -69,11 +69,16 @@ const label = { id: "kopf", type: "text", x: 0, y: 0, width: 200, height: 20, zI
 const card = { look: "card", fillColor: "panel", strokeColor: "outline", strokeWidth: 1, cornerRadius: 10, padding: 0 }
 
 test.describe("clip: what clips, and the export", () => {
-  test("Clip: on for a card unless set, off for a plain free area", () => {
+  test("what clips: every card - a Look, or a fill or an edge of its own - always; an area not seen never; no switch (the user, 2026-11-06)", () => {
     expect(clipsContents(area(card, []))).toBe(true)
-    expect(clipsContents(area({ ...card, clipContents: false }, []))).toBe(false)
+    expect(clipsContents(area({ look: "card-accent" }, []))).toBe(true)
+    expect(clipsContents(area({ fillColor: "#e0e0e0" }, []))).toBe(true)
+    expect(clipsContents(area({ strokeColor: "#808080", strokeWidth: 1 }, []))).toBe(true)
     expect(clipsContents(area({}, []))).toBe(false)
-    expect(clipsContents(area({ clipContents: true }, []))).toBe(true)
+    expect(clipsContents(area({ fillColor: "transparent", cornerRadius: 10 }, []))).toBe(false)
+    // An old project's switch is not read, either way.
+    expect(clipsContents(area({ ...card, clipContents: false }, []))).toBe(true)
+    expect(clipsContents(area({ clipContents: true }, []))).toBe(false)
     expect(clipsContents(label)).toBe(false)
   })
 
@@ -82,15 +87,18 @@ test.describe("clip: what clips, and the export", () => {
     expect(areaShape(area({ strokeWidth: 0, cornerRadius: 6 }, []))).toEqual({ x: 20, y: 30, width: 200, height: 120, radius: 6 })
   })
 
-  test("export: what a clipping area holds carries its shape in its own space; its box does not; a plain area adds nothing", () => {
+  test("export: what a clipping area holds carries its shape in its own space; its box does not; an area not seen adds nothing", () => {
     const out = dissolveGroups([area(card, [label])])
     const box = out.find((o) => o.type === "box")!
     expect(box.properties!.clip).toBeUndefined()
     const kopf = out.find((o) => o.id === "kopf")!
     expect(kopf).toMatchObject({ x: 20, y: 30 })
     expect(kopf.properties!.clip).toEqual([{ x: 21, y: 31, width: 198, height: 118, radius: 9 }])
-    const plain = dissolveGroups([area({ fillColor: "panel" }, [label])])
-    expect(plain.find((o) => o.id === "kopf")!.properties!.clip).toBeUndefined()
+    // No fill, no edge: nothing to cut to. A fill of its own: a card drawn by hand, it clips.
+    const unseen = dissolveGroups([area({}, [label])])
+    expect(unseen.find((o) => o.id === "kopf")!.properties!.clip).toBeUndefined()
+    const filled = dissolveGroups([area({ fillColor: "panel" }, [label])])
+    expect(filled.find((o) => o.id === "kopf")!.properties!.clip).toEqual([{ x: 20, y: 30, width: 200, height: 120, radius: 0 }])
   })
 
   test("export: nested areas clip by both, outermost first; a table inside passes it on", () => {
