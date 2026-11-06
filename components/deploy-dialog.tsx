@@ -824,7 +824,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                 )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {!project.settings.deviceId && (
                 <p className="text-sm text-destructive flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
@@ -835,7 +835,11 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
               {/* A plain scrolling box: since every device on the broker is
                   listed (#62) the list can be long, and the ScrollArea grew
                   past its max height over the controls below it. */}
-              <div className="max-h-64 overflow-y-auto" data-testid="deploy-devices">
+              {/* min-w-0 down to the name: the dialog is a grid, and a grid
+                  item grows to its content, so a long device name pushed the
+                  list, its badges and the Deploy button out of the dialog
+                  (2026-11-06). */}
+              <div className="max-h-64 overflow-y-auto min-w-0" data-testid="deploy-devices">
                 {listedDevices.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">
                     No devices on the broker yet. Listening...
@@ -860,7 +864,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                         ) : (
                           <WifiOff className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className={cn("flex-1 truncate", (!isProjectDevice(device) || !device.online) && "text-muted-foreground")}>
+                        <span className={cn("flex-1 min-w-0 truncate", (!isProjectDevice(device) || !device.online) && "text-muted-foreground")}>
                           {device.name || device.instanceId}
                         </span>
                         {!isProjectDevice(device) && (

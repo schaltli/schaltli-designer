@@ -134,6 +134,31 @@ test.describe("Deploy to Device dialog", () => {
     return page.getByRole("button").filter({ hasText: name })
   }
 
+  test("a device with a very long name: the name cut, its row, its badge and Deploy inside the dialog", async ({ page }) => {
+    // As an e2e page-icon test left one on the broker (2026-11-06): the
+    // dialog is a grid, and the name pushed everything past its edge.
+    const longName = `A long name ${androidId}-${"2a8e08f8bf5eb0a04ebe".repeat(4)}`
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${androidId}/hello`,
+      JSON.stringify({ systemGeneration: "1.5", deviceId: "android-a1b2c3d4", name: longName }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${androidId}/status`, "online", { retain: true })
+    await openDeployDialog(page)
+    const dialog = page.getByRole("dialog")
+    const row = dialog.getByTestId("deploy-device").filter({ hasText: `A long name ${androidId}` })
+    await expect(row).toBeVisible()
+    const box = (await dialog.boundingBox())!
+    const inside = async (what: string, el: import("@playwright/test").Locator) => {
+      const b = (await el.boundingBox())!
+      expect(b.x + b.width, `${what} ends inside the dialog`).toBeLessThanOrEqual(box.x + box.width + 0.5)
+    }
+    await inside("the row", row)
+    await inside("its badge", row.getByText("Other device"))
+    await inside("the list", dialog.getByTestId("deploy-devices"))
+    await inside("Deploy", dialog.getByRole("button", { name: "Deploy", exact: true }))
+  })
+
   test("lists the project's devices first, greys an offline one, and reacts to live deploy-status", async ({ page }) => {
     // A compatible device (this test's own kind, which its project is bound
     // to) and an incompatible one (Android): both listed since 2026-10-10
