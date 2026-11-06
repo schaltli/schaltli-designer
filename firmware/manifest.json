@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.04.1",
-  "commit": "081a3fd04303eb9ccfab58614f1149dd00898f02",
+  "release": "fw-2026.11.06.2-pre.canvas_speed",
+  "commit": "e60a86d34446d827c8f25516fa3ecb2377534581",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.04.1.bin",
-      "size": 2600768,
-      "sha256": "3668dc1a423abe25ae28062860fc47cc05d5b515d51ad296de8f962ff4487a83",
+      "build": "fw-2026.11.06.2-pre.canvas_speed",
+      "file": "waveshare-knob-1v8-fw-2026.11.06.2-pre.canvas_speed.bin",
+      "size": 2842976,
+      "sha256": "e0e364660c5076c20d22310e706992142405d4605073d156fc5f4a1fda9fc306",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-knob-1v8-fw-2026.11.06.2-pre.canvas_speed.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.04.1.bin",
-        "size": 2666304,
-        "sha256": "dc7ad983d6bef3ab951b81a4e5222fca1ec4cd0c4cccade1cba44c8568c5f42c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.06.2-pre.canvas_speed.bin",
+        "size": 2908512,
+        "sha256": "7484f36481359db3421531613edae46c1952408cede2f1fe5f8b7a965f2f1288",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-knob-1v8-factory-fw-2026.11.06.2-pre.canvas_speed.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
-      "size": 2518288,
-      "sha256": "520b605e7bce06cd01f7708c05ff5daefc3ad959e5b2a5c103026861df970d00",
+      "build": "fw-2026.11.06.2-pre.canvas_speed",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.06.2-pre.canvas_speed.bin",
+      "size": 2786272,
+      "sha256": "d1e831297663f13d41bfe713a443268641906980f669a25ebe43347bb9f2e1a1",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-touch-lcd-4v3b-fw-2026.11.06.2-pre.canvas_speed.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin",
-        "size": 2583824,
-        "sha256": "c095bff750c2b1e521ffdbec4a19ac4bc1b6a217cd8a44820061980137725025",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.06.2-pre.canvas_speed.bin",
+        "size": 2851808,
+        "sha256": "05698c3a3a01ab8af5156d5e5e9cd8e1da567ea14366a4ab73f2c5c666f5f725",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-touch-lcd-4v3b-factory-fw-2026.11.06.2-pre.canvas_speed.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
-      "size": 2370944,
-      "sha256": "cf3b8f71d757ab6147545d3ad6a9573df89fb247bae70fe8d7fa5d3b3861c152",
+      "build": "fw-2026.11.06.2-pre.canvas_speed",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.06.2-pre.canvas_speed.bin",
+      "size": 2577408,
+      "sha256": "302edfdb01d3baa6376e5f99c125a920a7f5cc4f52fe9002652917d6dcb0ae22",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-touch-lcd-4-fw-2026.11.06.2-pre.canvas_speed.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin",
-        "size": 2436480,
-        "sha256": "783eade3928a8a3e835a430264888cd9eb8c928ecc0286c1eb9a461a559e098c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.06.2-pre.canvas_speed.bin",
+        "size": 2642944,
+        "sha256": "8b2782fb1a244d2d18912c54b750346bf12ea40685a319da20e97a3cf140db67",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/waveshare-touch-lcd-4-factory-fw-2026.11.06.2-pre.canvas_speed.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.04.1",
-      "file": "m5stack-papers3-fw-2026.11.04.1.bin",
-      "size": 2282304,
-      "sha256": "af187b60c8f6a24940bd4f0713abd8a6a8efcd49a9e9e5dcf30a10df902edfe5",
+      "build": "fw-2026.11.06.2-pre.canvas_speed",
+      "file": "m5stack-papers3-fw-2026.11.06.2-pre.canvas_speed.bin",
+      "size": 2291104,
+      "sha256": "31cb430cd3a7e3967575a3b69de778b04d86cb4cc8e0048a45635015ba7da0b1",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/m5stack-papers3-fw-2026.11.06.2-pre.canvas_speed.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.04.1.bin",
-        "size": 2347840,
-        "sha256": "d306ed6ffa62bb6f0bb5d7df02263becdf241631b51e862d6ab7ac6b2225cc89",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-factory-fw-2026.11.04.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.06.2-pre.canvas_speed.bin",
+        "size": 2356640,
+        "sha256": "52fc6c4a78bb33306d40f15d65bf1cd1885eb5a0451e026fe5112412cd76a202",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.2-pre.canvas_speed/m5stack-papers3-factory-fw-2026.11.06.2-pre.canvas_speed.bin"
       }
     }
   }
