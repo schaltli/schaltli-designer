@@ -10,7 +10,7 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
 - [x] T3 designer: Convert to as a family of three
 - [x] T4 designer: export looks, noneLook, ring, state icons, the second font
 - [x] T5 firmware: loader, renderer, tap, DDFs, conformance specimens on every board
-- [ ] T6 android: ToggleButtonView, DDF, golden and specimens
-- [ ] Checkpoint B: conformance on every board and the app, nothing excused
+- [x] T6 android: ToggleButtonView, DDF, golden and specimens
+- [x] Checkpoint B: conformance on every board and the app, nothing excused
 - [ ] T7 CamperUI rebuild on Toggle Buttons, on the 4", compared
 - [ ] T8 handbook objekte/bedienen.md, handbook-labels, test:quick

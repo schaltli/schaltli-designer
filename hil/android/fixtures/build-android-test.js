@@ -646,6 +646,35 @@ function buildProject(fonts) {
               ],
             },
           },
+          // A Toggle Button (docs/2026-11-06-toggle-button.md) on the same
+          // topic, beside the switch: named, the state's icon in a disc, so
+          // the second line and the disc are photographed too; off a card
+          // with its edge, on the colour.
+          {
+            id: "s3-toggle",
+            type: "toggle-button",
+            zIndex: 3,
+            x: 188,
+            y: 190,
+            width: 160,
+            height: 90,
+            properties: {
+              topic: "hil/power",
+              writeTopic: "hil/power/set",
+              text: "Pumpe",
+              switchStyle: "filled",
+              switchColor: ACCENT,
+              backgroundColor: "#202020",
+              borderColor: "#404040",
+              textColor: WHITE,
+              fontId: "font-roboto-16",
+              secondFontId: "font-roboto-12",
+              states: [
+                { id: "st-off3", label: "Aus", readValue: "OFF", writeValue: "OFF", iconAssetId: "icon-circle" },
+                { id: "st-on3", label: "An", readValue: "ON", writeValue: "ON", showAsOn: true, iconAssetId: "icon-circle" },
+              ],
+            },
+          },
           // A label sharing a zIndex with the Switch above and overlapping
           // it. The firmware's own draw order broke exactly here on
           // 2026-08-25: two objects with equal zIndex, each side drawing the
@@ -1596,7 +1625,19 @@ async function main() {
       if (!zip.file(st[key])) fail(`Switch ${obj}/${st.id}: ${key} points at a missing ${st[key]}`);
     }
   }
-  console.log(`  ${states.length} Switch state(s), ${withIcon} icon file(s) resolved`);
+  console.log(`  ${states.length} Switch state(s), ${withIcon} icon file(s) resolved`)
+
+  // A Toggle Button: its looks, and each state's icon in the zip.
+  const toggles = objects.filter((o) => o.type === "toggle-button")
+  for (const t of toggles) {
+    if (!Array.isArray(t.looks) || t.looks.length !== (t.properties.states || []).length || !t.noneLook || !t.ring) fail(`Toggle Button ${t.id} carries no looks`)
+    for (const st of t.properties.states || []) {
+      for (const key of ["iconPath", "iconPathPressed", "iconPathDark", "iconPathPressedDark"]) {
+        if (st[key] && !zip.file(st[key])) fail(`Toggle Button ${t.id}/${st.id}: ${key} points at a missing ${st[key]}`)
+      }
+    }
+  }
+  console.log(`  ${toggles.length} Toggle Button(s) with their looks`);
 
   const rules = objects
     .filter((o) => o.type === "icon")
