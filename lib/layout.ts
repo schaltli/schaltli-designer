@@ -82,7 +82,7 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
     return Math.max(1, textWidthIn(shownText(obj, scale, font), font, obj.properties?.fontWeight || "normal"))
   }
-  if (obj.type === "switch" || obj.type === "button-group" || obj.type === "button") {
+  if (obj.type === "switch" || obj.type === "button-group" || obj.type === "toggle-button" || obj.type === "button") {
     return Math.max(1, controlMinWidth(obj, obj.height, fonts))
   }
   return obj.width

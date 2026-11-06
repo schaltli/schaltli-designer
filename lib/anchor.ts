@@ -21,8 +21,8 @@ export interface Anchor {
 }
 
 /** What can take its room's width, or height: a text, an icon, a switch or a ring keeps its own size. */
-export const STRETCHES_WIDTH = new Set(["button", "button-group", "bar", "slider", "box", "free", "text-field", "switcher"])
-export const STRETCHES_HEIGHT = new Set(["button", "box", "free"])
+export const STRETCHES_WIDTH = new Set(["button", "button-group", "toggle-button", "bar", "slider", "box", "free", "text-field", "switcher"])
+export const STRETCHES_HEIGHT = new Set(["button", "toggle-button", "box", "free"])
 
 const X: ReadonlySet<string> = new Set(["left", "center", "right", "stretch"])
 const Y: ReadonlySet<string> = new Set(["top", "middle", "bottom", "stretch"])

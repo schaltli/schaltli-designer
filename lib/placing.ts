@@ -51,6 +51,9 @@ export function placedSize(tool: string, pixelsPerMm: number): { width: number; 
       return { width: mm(LEVEL_LENGTH_MM), height: control }
     case "time-field":
       return { width: mm(CONTROL_WIDTH_MM), height: control }
+    // A tile: tall enough for a name over its state (docs/2026-11-06-toggle-button.md).
+    case "toggle-button":
+      return { width: mm(CONTROL_WIDTH_MM), height: stepPx("control", "l", pixelsPerMm) }
     case "box":
       return { width: mm(BOX_MM.width), height: mm(BOX_MM.height) }
     case "free":

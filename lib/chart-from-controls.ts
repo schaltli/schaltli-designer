@@ -49,7 +49,8 @@ export function seriesFromControl(obj: Control): Proposed[] {
       return [{ source: { kind: "topic", topic: read }, name: "Target", valueKind: "level", draw: "steps", annotations: [], color: colourOf(p.fillColor), ...(range ? { axisRange: { min: range.min, max: range.max } } : {}) }]
     }
     case "switch":
-    case "button-group": {
+    case "button-group":
+    case "toggle-button": {
       if (!topic) return []
       const on = ((p.states ?? []) as { readValue?: string; showAsOn?: boolean; showMarker?: boolean }[])
         .filter((s) => (s.showAsOn ?? s.showMarker) && s.readValue !== undefined && s.readValue !== "")

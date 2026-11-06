@@ -19,7 +19,7 @@ import { blendColors, onColorFor } from "@/lib/material-colors"
 import { fontMetricsOf, levelTrackLook, type LevelFontMetrics } from "@/lib/level-shape"
 import { buttonCornerRadius, type ButtonFace } from "@/lib/button-shape"
 import { switchColorOf, switchContent, switchStateIsOn, switchStyleOf, SWITCH_GAP } from "@/lib/switch-shape"
-import { TEXT_STYLES, type TextStyle } from "@/lib/size-scale"
+import { smallerStyle } from "@/lib/size-scale"
 
 /** The tile's inner padding, and the gap between the disc and the text. Material's 8. */
 export const TOGGLE_PAD = SWITCH_GAP
@@ -79,14 +79,8 @@ export function toggleName(obj: ScreenObject): string | undefined {
   return hasText(obj.properties?.text) ? obj.properties.text : undefined
 }
 
-/**
- * The size of the second line: the next smaller of the seven (decision 4).
- * Micro has none smaller and stays. Unset is Standard, so Mini.
- */
-export function secondLineStyle(style: string | undefined): TextStyle {
-  const i = TEXT_STYLES.indexOf((style ?? "standard") as TextStyle)
-  return TEXT_STYLES[Math.max(0, (i < 0 ? TEXT_STYLES.indexOf("standard") : i) - 1)]
-}
+/** The size of the second line: the next smaller of the seven (decision 4). */
+export const secondLineStyle = smallerStyle
 
 /**
  * Both faces of one state on `background`.

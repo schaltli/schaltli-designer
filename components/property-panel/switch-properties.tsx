@@ -22,7 +22,7 @@
  */
 
 import { switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
-import type { TextScale } from "@/lib/size-scale"
+import { smallerStyle, styledFont, type TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
 import {
   AddListItem,
@@ -109,6 +109,9 @@ export function SwitchProperties({
 
   const states: any[] = selectedObject.properties.states || []
   const knob = selectedObject.type === "switch"
+  // A Toggle Button (docs/2026-11-06-toggle-button.md): one tile, a name,
+  // the state's look; it asks which states mean on, as a knob does.
+  const tile = selectedObject.type === "toggle-button"
 
   const updateState = (index: number, updates: Record<string, any>) => {
     const newStates = [...states]
@@ -177,7 +180,7 @@ export function SwitchProperties({
         />
         {/* The size in millimetres where the device gives a scale: S, M or
             L (docs/2026-09-30-size-scale.md). */}
-        {textScale ? (
+        {textScale && !tile ? (
           <SizeStepField
             object={selectedObject}
             pixelsPerMm={textScale.pixelsPerMm}
@@ -189,7 +192,9 @@ export function SwitchProperties({
 
       <PropertySection title="States" summary={listSummary(states.length, "state")}>
         <FieldNote>
-          {knob
+          {tile
+            ? "One tile in the look of whichever state's read value matches the read topic: in the colour while that state shows as on, a card otherwise. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
+            : knob
             ? "One area showing whichever state's read value matches the read topic. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
             : "Segments side by side, in this order. Tapping one publishes its write value, and the active segment is whichever state's read value matches the read topic."}
         </FieldNote>
@@ -234,10 +239,10 @@ export function SwitchProperties({
                 reordering UI, so a positional convention would be
                 uncorrectable. In a group every state is one of several and
                 this is not asked. */}
-            {knob ? (
+            {knob || tile ? (
               <ToggleRow
                 label="Shows as on"
-                text="Track takes the colour"
+                text={tile ? "Tile takes the colour" : "Track takes the colour"}
                 checked={switchStateIsOn(state)}
                 onChange={(checked) => updateState(index, { showAsOn: checked, showMarker: undefined })}
               />
@@ -259,11 +264,20 @@ export function SwitchProperties({
 
         <AddListItem label="Add state" onClick={addState} />
         {states.length === 0 ? (
-          <FieldNote>{knob ? "A switch with no states shows nothing." : "Each state is one segment."}</FieldNote>
+          <FieldNote>{knob || tile ? "With no states it shows nothing." : "Each state is one segment."}</FieldNote>
         ) : null}
       </PropertySection>
 
       <PropertySection title="Text">
+        {tile ? (
+          <TextField
+            label="Name"
+            value={selectedObject.properties.text ?? ""}
+            onChange={(value) => updateProperty("text", value)}
+            placeholder="None: the state's label alone"
+            hint="With a name, the tile shows it on top and the state's label one size smaller below it, the state's icon in a disc beside them."
+          />
+        ) : null}
         {textScale ? (
           // On a device with a scale the value is set in a style, like text
           // (docs/2026-09-30-size-scale.md).
@@ -274,9 +288,13 @@ export function SwitchProperties({
             fontSize={selectedObject.properties.fontSize}
             fonts={fonts}
             scale={textScale}
-            onChange={(styled) =>
-              onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
-            }
+            onChange={(styled) => {
+              // A tile's second line follows its size, one smaller.
+              const second = tile && styled.textStyle ? styledFont(smallerStyle(styled.textStyle), styled.textBold === true, textScale, fonts) : undefined
+              onUpdateObject(selectedObject.id, {
+                properties: { ...selectedObject.properties, ...styled, ...(second ? { secondFontId: second.fontId } : {}) },
+              })
+            }}
           />
         ) : (
           <FontField
@@ -290,7 +308,7 @@ export function SwitchProperties({
 
       <PropertySection title="Colour">
         <ColorField
-          label={knob ? "Switch" : "Buttons"}
+          label={tile ? "Tile" : knob ? "Switch" : "Buttons"}
           value={selectedObject.properties.switchColor || "accent"}
           onChange={(value) => updateProperty("switchColor", value)}
           colorDepth={colorDepth}

@@ -66,6 +66,7 @@ import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
+import { renderToggleButton } from "./renderers/render-toggle-button"
 import { renderTextField, textFieldValue } from "./renderers/render-text-field"
 import { TextFieldEntry } from "./text-field-entry"
 import { renderTimeField } from "./renderers/render-time-field"
@@ -115,7 +116,8 @@ import {
   type KeyboardHandlerContext,
   type SnapResult,
 } from "./interactions"
-import { isLevelType, isArcType, isSwitchType, objectTypeLabel, type ObjectType } from "@/lib/object-types"
+import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel, type ObjectType } from "@/lib/object-types"
+import { toggleNextIndex } from "@/lib/toggle-button-shape"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
 import { TABLE_TYPE } from "@/lib/table"
 import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
@@ -2587,6 +2589,23 @@ export function Canvas({
         })
         break
 
+      case "toggle-button":
+        renderToggleButton({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          iconImageCache: iconImageCacheRef.current,
+          bdfFontCache: bdfFontCacheRef.current,
+          getPreviewValueFromTopic,
+          getAskedValueFromTopic,
+          requestRedraw: draw,
+          colorDepth,
+          screenBackgroundColor: resolvedBackgroundColor,
+          pressed: previewMode && pressedSwitch?.id === obj.id,
+        })
+        break
+
       case "switch":
 
       case "button-group":
@@ -3184,13 +3203,17 @@ export function Canvas({
           const action = energyNodeAtTap(clickedObject, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
           else swipeRef.current = { start: coords, axis: null, d: 0 }
-        } else if (isSwitchType(clickedObject?.type)) {
+        } else if (hasSwitchStates(clickedObject?.type)) {
           // Same two steps the firmware takes: work out which state the
           // finger picked, then publish that state's writeValue to the write
           // topic. Nothing is set directly - whether anything comes back is
           // the engine's answer, exactly as a real round trip.
           const activeIndex = getActiveSwitchStateIndex(clickedObject, getPreviewValueFromTopic)
-          const index = switchStateIndexForTap(clickedObject, coords.x, activeIndex)
+          // A Toggle Button has no position to tap: it sends the next state.
+          const index =
+            clickedObject.type === "toggle-button"
+              ? toggleNextIndex(clickedObject.properties.states || [], activeIndex)
+              : switchStateIndexForTap(clickedObject, coords.x, activeIndex)
           const state = (clickedObject.properties.states || [])[index]
           const writeTopic = clickedObject.properties.writeTopic
           setPressedSwitch({ id: clickedObject.id, index })
@@ -4448,6 +4471,30 @@ export function Canvas({
           writeTopic: undefined,
           ...(type === "text-field" ? { minLength: 0, maxLength: 255 } : { minuteStep: 5 }),
           ...(startStyled("xl") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
+        },
+      }
+    }
+    if (type === "toggle-button") {
+      // Off and On, On drawn in the colour; off is a card (the theme's Card,
+      // Card border and Text). No name: it shows the state's label alone
+      // until one is given (docs/2026-11-06-toggle-button.md).
+      return {
+        type,
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(Math.abs(width)),
+        height: Math.round(Math.abs(height)),
+        properties: {
+          topic: undefined,
+          writeTopic: "",
+          text: "",
+          states: [
+            { id: "off", label: "Off", readValue: "off", writeValue: "off" },
+            { id: "on", label: "On", readValue: "on", writeValue: "on", showAsOn: true },
+          ],
+          switchStyle: "filled",
+          switchColor: ROLE_PALETTE.fill,
+          ...(startStyled("large") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
         },
       }
     }

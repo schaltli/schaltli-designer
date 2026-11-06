@@ -48,6 +48,7 @@ const GROUPS: { label: string; parts: PartDef[] }[] = [
       part("dial", "A level a finger sets, as an arc"),
       part("switch", "On or off: a knob in a track, bound to a read and a write topic"),
       part("button-group", "One of several states, side by side, bound to a read and a write topic"),
+      part("toggle-button", "A tile that shows its state and switches to the next one when tapped, bound to a read and a write topic"),
       part("button", "Does something when pressed"),
       part("text-field", "A text a finger types on a keyboard, bound to a read and a write topic"),
       part("time-field", "A time of day a finger sets on a picker, bound to a read and a write topic"),

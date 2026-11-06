@@ -33,7 +33,7 @@ const ENDLESS = 100000
 // bar or anything else stretched not below its own height - a track still
 // longer than it is thick.
 function minWidthOf(obj: ScreenObject, scale: LayoutScale): number {
-  if (isSnapTable(obj) || ["text", "switch", "button-group", "button"].includes(obj.type)) return naturalWidth(obj, scale)
+  if (isSnapTable(obj) || ["text", "switch", "button-group", "toggle-button", "button"].includes(obj.type)) return naturalWidth(obj, scale)
   return Math.max(1, Math.abs(obj.height))
 }
 

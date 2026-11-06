@@ -76,6 +76,16 @@ export const SIZE_OF_OLD_STYLE: Record<TypographyKey, TextStyle> = {
 }
 
 /** A stored text size, an old style moved to its size; undefined for anything else. */
+/**
+ * The next smaller of the seven sizes - a Toggle Button's second line
+ * (docs/2026-11-06-toggle-button.md, decision 4). Micro has none smaller
+ * and stays; unset is Standard, so Mini.
+ */
+export function smallerStyle(style: string | undefined): TextStyle {
+  const i = TEXT_STYLES.indexOf((style ?? "standard") as TextStyle)
+  return TEXT_STYLES[Math.max(0, (i < 0 ? TEXT_STYLES.indexOf("standard") : i) - 1)]
+}
+
 export function textSizeOf(value: unknown): TextStyle | undefined {
   if (typeof value !== "string") return undefined
   if ((TEXT_STYLES as readonly string[]).includes(value)) return value as TextStyle
@@ -247,6 +257,19 @@ export function controlMinWidth(object: ScreenObject, height: number, fonts: rea
   }
   const states: { label?: string; iconAssetId?: string }[] = object.properties.states ?? []
   const n = Math.max(1, states.length)
+  if (object.type === "toggle-button") {
+    const pad = SWITCH_GAP
+    const named = typeof object.properties.text === "string" && object.properties.text.trim() !== ""
+    const anyIcon = states.some((st) => !!st.iconAssetId)
+    if (!named) {
+      const widest = Math.max(textWidthIn("?", font), ...states.map((st) => (st.iconAssetId ? iconW : 0) + textWidthIn(st.label ?? "", font)))
+      return 2 * pad + widest
+    }
+    const second = fonts.find((f) => f.id === object.properties.secondFontId) ?? font
+    const disc = anyIcon ? 2 * Math.max(1, fontMetricsOf(font, 14).capHeight) + pad : 0
+    const widest = Math.max(textWidthIn(object.properties.text, font), textWidthIn("?", second), ...states.map((st) => textWidthIn(st.label ?? "", second)))
+    return 2 * pad + disc + widest
+  }
   if (object.type === "switch") {
     const widest = Math.max(0, ...states.map((st) => textWidthIn(st.label ?? "", font)))
     const track = switchTrack({ ...object, x: 0, width: Number.MAX_SAFE_INTEGER, height }, n)
@@ -558,6 +581,14 @@ export function resolveScale(project: Project): Project {
           ...(TEXT_BOX_TYPES.has(object.type) ? { height: calculateTextObjectHeight(styled.fontSize) } : {}),
           properties: { ...object.properties, ...styled },
         }
+        changed = true
+      }
+    }
+    // A Toggle Button's second line, one size smaller, in the same family.
+    if (style && next.type === "toggle-button") {
+      const second = styledFont(smallerStyle(style), next.properties.textBold === true, scale, project.fonts)
+      if (second && second.fontId !== next.properties.secondFontId) {
+        next = { ...next, properties: { ...next.properties, secondFontId: second.fontId } }
         changed = true
       }
     }

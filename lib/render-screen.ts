@@ -33,6 +33,7 @@ import { renderMqttDataLine } from "@/components/canvas/renderers/render-mqtt-da
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
+import { renderToggleButton } from "@/components/canvas/renderers/render-toggle-button"
 import { renderTextField } from "@/components/canvas/renderers/render-text-field"
 import { renderTimeField } from "@/components/canvas/renderers/render-time-field"
 import { sortChildrenByZIndex } from "@/lib/object-order"
@@ -672,6 +673,22 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "time-field":
         renderTimeField({ ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, getAskedValueFromTopic, colorDepth, requestRedraw })
+        break
+
+      case "toggle-button":
+        renderToggleButton({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          iconImageCache,
+          bdfFontCache,
+          getPreviewValueFromTopic,
+          getAskedValueFromTopic,
+          requestRedraw,
+          colorDepth,
+          screenBackgroundColor,
+        })
         break
 
       case "switch":

@@ -36,7 +36,7 @@ import { FrameLockContext } from "./fields"
 import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
-import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
+import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel } from "@/lib/object-types"
 
 // A "panel" object has no reference to its own parent - it only ever shows
 // up as a tab-control's child - so PanelProperties (which needs the parent's
@@ -191,7 +191,7 @@ function layoutFrameLock(
     if (obj?.type === "gauge" || obj?.type === "dial") {
       return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours." }
     }
-    const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "button"
+    const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "toggle-button" || obj?.type === "button"
     if (byContent || (obj && cellAnchorOf(obj).x === "stretch")) {
       return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows, or from Stretch: see Cell." }
     }
@@ -530,7 +530,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {isSwitchType(selectedObject.type) && (
+              {hasSwitchStates(selectedObject.type) && (
                 <SwitchProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
