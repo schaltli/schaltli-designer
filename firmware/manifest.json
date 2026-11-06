@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.04.1",
-  "commit": "081a3fd04303eb9ccfab58614f1149dd00898f02",
+  "release": "fw-2026.11.06.1-pre.toggle_button",
+  "commit": "e60a86d34446d827c8f25516fa3ecb2377534581",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.04.1.bin",
-      "size": 2600768,
-      "sha256": "3668dc1a423abe25ae28062860fc47cc05d5b515d51ad296de8f962ff4487a83",
+      "build": "fw-2026.11.06.1-pre.toggle_button",
+      "file": "waveshare-knob-1v8-fw-2026.11.06.1-pre.toggle_button.bin",
+      "size": 2842976,
+      "sha256": "c9883c6233699741012f6996ffe7d7db78704066815a2561c34010a4a23b8851",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-knob-1v8-fw-2026.11.06.1-pre.toggle_button.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.04.1.bin",
-        "size": 2666304,
-        "sha256": "dc7ad983d6bef3ab951b81a4e5222fca1ec4cd0c4cccade1cba44c8568c5f42c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-knob-1v8-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.06.1-pre.toggle_button.bin",
+        "size": 2908512,
+        "sha256": "edb3d0b47972be70db53360b19e502167e4efd07dda3af43a91bccc0d5932612",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-knob-1v8-factory-fw-2026.11.06.1-pre.toggle_button.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
-      "size": 2518288,
-      "sha256": "520b605e7bce06cd01f7708c05ff5daefc3ad959e5b2a5c103026861df970d00",
+      "build": "fw-2026.11.06.1-pre.toggle_button",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.06.1-pre.toggle_button.bin",
+      "size": 2786272,
+      "sha256": "36cbb801cc9ddae6f97dec27aee16aecc32353310ecfa1927e99550bd0deef7a",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-touch-lcd-4v3b-fw-2026.11.06.1-pre.toggle_button.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin",
-        "size": 2583824,
-        "sha256": "c095bff750c2b1e521ffdbec4a19ac4bc1b6a217cd8a44820061980137725025",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.06.1-pre.toggle_button.bin",
+        "size": 2851808,
+        "sha256": "00e5d6a8c6ea3c92004415298b2d7420fb30f4fca09f57b5d871dd1e2eba1066",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-touch-lcd-4v3b-factory-fw-2026.11.06.1-pre.toggle_button.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.04.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
-      "size": 2370944,
-      "sha256": "cf3b8f71d757ab6147545d3ad6a9573df89fb247bae70fe8d7fa5d3b3861c152",
+      "build": "fw-2026.11.06.1-pre.toggle_button",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.06.1-pre.toggle_button.bin",
+      "size": 2577408,
+      "sha256": "4ce4459e929334ec6c4ac639961319a27b6582f8cf2e837fd7a3c235a0a80e75",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-touch-lcd-4-fw-2026.11.06.1-pre.toggle_button.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin",
-        "size": 2436480,
-        "sha256": "783eade3928a8a3e835a430264888cd9eb8c928ecc0286c1eb9a461a559e098c",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/waveshare-touch-lcd-4-factory-fw-2026.11.04.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.06.1-pre.toggle_button.bin",
+        "size": 2642944,
+        "sha256": "662c3942b7e65efca491b7fb07ae887316a0993c5b1ad4d003af2cf4b090c3c9",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/waveshare-touch-lcd-4-factory-fw-2026.11.06.1-pre.toggle_button.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.04.1",
-      "file": "m5stack-papers3-fw-2026.11.04.1.bin",
-      "size": 2282304,
-      "sha256": "af187b60c8f6a24940bd4f0713abd8a6a8efcd49a9e9e5dcf30a10df902edfe5",
+      "build": "fw-2026.11.06.1-pre.toggle_button",
+      "file": "m5stack-papers3-fw-2026.11.06.1-pre.toggle_button.bin",
+      "size": 2291104,
+      "sha256": "4a89e2452d9fe0791e9f5da1a424fd5c128f2c2a0a54dff638cb1b5e40753bd5",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-fw-2026.11.04.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/m5stack-papers3-fw-2026.11.06.1-pre.toggle_button.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.04.1.bin",
-        "size": 2347840,
-        "sha256": "d306ed6ffa62bb6f0bb5d7df02263becdf241631b51e862d6ab7ac6b2225cc89",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.04.1/m5stack-papers3-factory-fw-2026.11.04.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.06.1-pre.toggle_button.bin",
+        "size": 2356640,
+        "sha256": "ecd4360c60ce210f8c51cce47501abb683f186a25647eada2194c3452b7ab032",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.06.1-pre.toggle_button/m5stack-papers3-factory-fw-2026.11.06.1-pre.toggle_button.bin"
       }
     }
   }
