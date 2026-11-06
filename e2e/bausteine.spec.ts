@@ -7,6 +7,7 @@ import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, device
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { adoptCombinedTopics, blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockRow, blockTable } from "../lib/bausteine"
 import { isSnapTable, snapCellOf } from "../lib/snap-table"
+import { fittedBlockCard } from "../lib/block-card"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
 import { layoutObjects } from "../lib/layout"
@@ -88,9 +89,15 @@ const partsOf = (block: any): any[] => {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isBlockCard = (o: any) => o?.type === "free" && o.properties?.look === "card"
-// A block of several parts as placed: a card.
+// A block as placed: a card (of one part too since 2026-11-06).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isBlock = (o: any) => isBlockCard(o) || isSnapTable(o)
+// An object and everything inside it, front to back as listed.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const within = (o: any): any[] => [o, ...(o.children ?? []).flatMap(within)]
+// A block card's heading: the text docked at its top (docs/2026-11-03-card-blocks.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const headingOf = (card: any): any => card.children.find((c: any) => c.properties?.dock === "top")
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -227,21 +234,20 @@ test.describe("placing a catalog entry", () => {
     return found
   }
 
-  test("a switch entry: its name and its buttons as a table of one row, its topics declared with the broker's value first", async ({ page }, testInfo) => {
+  test("a switch entry: a card, its name at the top and its buttons below, its topics declared with the broker's value first", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
       await drag(page)
 
-      // A block of one part is a row (docs/2026-10-09-snap-tables.md, module
-      // snap-table-blocks): let go away from any table, a table of its own,
-      // open, its name chosen. A switch is always buttons, «An» and «Aus»
-      // (decided 2026-10-01).
-      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
-      expect(tables).toHaveLength(1)
-      expect(byCell(tables[0])).toEqual({ "0/0": "text", "0/1": "button-group" })
-      await expect(page.locator("h3").first()).toContainText("Text")
+      // A block of one part is a card too (the user, 2026-11-06): its name
+      // at the top, its part below. A switch is always buttons, «An» and
+      // «Aus» (decided 2026-10-01).
+      const cards = (await savedScreen(page)).objects.filter(isBlockCard)
+      expect(cards).toHaveLength(1)
+      expect(headingOf(cards[0]).properties.text).toBe("Kitchen plug")
+      expect(partsOf(cards[0]).map((c: { type: string }) => c.type)).toEqual(["button-group"])
 
       const topics = await topicsInSettings(page, ["zigbee2mqtt/Kitchen plug", "zigbee2mqtt/Kitchen plug/set"])
       expect(topics["zigbee2mqtt/Kitchen plug"]).toEqual({ type: "json", examples: '{"state":"OFF"}' })
@@ -261,17 +267,18 @@ test.describe("placing a catalog entry", () => {
     // A sensor without unit, state class or measuring device class is text, as
     // in Home Assistant (docs/2026-10-14-topic-discovery.md, ha-sensor-type;
     // #71). Rajiva's «Service ID» was placed as a number and showed «60».
-    test("Rajiva's «Service ID»: a text beside its name, its topic typed text with the broker's value", async ({ page }, testInfo) => {
+    test("Rajiva's «Service ID»: a text under its name, its topic typed text with the broker's value", async ({ page }, testInfo) => {
       const clear = await onBroker(page, testInfo.testId, ["rajiva-service-id"], { "CamperServiceID/state": "CamperVan_BiberTest" })
       try {
         await openOnRoundDevice(page)
         await pick(page, "Service ID")
         await drag(page)
 
-        const [table] = (await savedScreen(page)).objects.filter(isSnapTable)
-        expect(byCell(table)).toEqual({ "0/0": "text", "0/1": "text" })
-        // The value is the second text's live value (docs/2026-10-07-live-values.md).
-        expect(JSON.stringify(table)).toContain('"path":"CamperServiceID/state"')
+        const [card] = (await savedScreen(page)).objects.filter(isBlockCard)
+        expect(headingOf(card).properties.text).toBe("Service ID")
+        expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["text"])
+        // The value is the part's live value (docs/2026-10-07-live-values.md).
+        expect(JSON.stringify(partsOf(card))).toContain('"path":"CamperServiceID/state"')
 
         const topics = await topicsInSettings(page, ["CamperServiceID/state"])
         expect(topics["CamperServiceID/state"]).toEqual({ type: "text", examples: "CamperVan_BiberTest" })
@@ -336,13 +343,17 @@ test.describe("placing a catalog entry", () => {
     try {
       await openOnRoundDevice(page)
       await pick(page, "Local temperature calibration")
-      await drag(page, [60, 100], [300, 320])
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
-      await expect(page.locator('[data-object-id][title^="dial "]')).toHaveCount(0)
+      await drag(page, [60, 100], [180, 280], false)
+      const types = async () => (await savedScreen(page)).objects.flatMap(within).map((o: { type: string }) => o.type)
+      expect((await types()).filter((t: string) => t === "slider")).toHaveLength(1)
+      expect(await types()).not.toContain("dial")
       await page.keyboard.press("Escape")
       await pick(page, "Kitchen plug")
-      await drag(page, [60, 300], [300, 380])
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
+      // Let go clear of the first card: on it, it would go into it.
+      await drag(page, [60, 300], [180, 80], false)
+      const cards = (await savedScreen(page)).objects.filter(isBlockCard)
+      const plug = cards.find((c: any) => headingOf(c).properties.text === "Kitchen plug")
+      expect(partsOf(plug).map((c: { type: string }) => c.type)).toEqual(["button-group"])
     } finally {
       await clear()
     }
@@ -387,12 +398,18 @@ test.describe("placing a catalog entry", () => {
   }
   // The one table put together by snapping on the screen.
   const snapTableOf = async (page: Page) => (await savedScreen(page)).objects.find(isBlock)
-  // The armed block carried from low on the screen to just under `table`,
-  // and let go there: in as a row.
-  async function carryUnder(page: Page, table: { x: number; y: number; width: number; height: number }) {
+  // The armed block carried from low on the screen to just under `table` -
+  // a block's card, or a table of them - and let go there with its top edge
+  // 3 px below: in as a row. A block is carried by its middle, and is a card
+  // (2026-11-06): `height` is the carried card's, by default that of the
+  // card standing lowest in `table`, the same block placed before.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function carryUnder(page: Page, table: any, height?: number) {
+    const lowest = isBlockCard(table) ? table : [...table.children].sort((a: any, b: any) => b.y + b.height - (a.y + a.height))[0]
+    const h = height ?? lowest.height
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 3 + h / 2, ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     // Alt held: into the table as a row (docs/2026-11-03-placing.md).
@@ -402,10 +419,10 @@ test.describe("placing a catalog entry", () => {
     await page.keyboard.up("Alt")
   }
 
-  // The checkpoint of the old tables (docs/2026-10-02-layout-tables.md), on
-  // the new: three blocks one under the other stand as one table, names on
-  // one edge and switches on another.
-  test("three switch blocks dropped one under the other: one table, names and switches flush", async ({ page }, testInfo) => {
+  // Three blocks one under the other stand as one table - of three cards
+  // since a block of one part is a card too (the user, 2026-11-06), each
+  // filling its cell, as wide as the others.
+  test("three switch blocks dropped one under the other: one table of three cards, each filling its cell", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -414,21 +431,25 @@ test.describe("placing a catalog entry", () => {
         if (i === 0) await clickAt(page, 180, 100)
         else await carryUnder(page, await snapTableOf(page))
       }
-      const objects = (await savedScreen(page)).objects
-      const tables = objects.filter(isSnapTable)
+      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)
-      expect(byCell(tables[0])).toEqual({ "0/0": "text", "0/1": "button-group", "1/0": "text", "1/1": "button-group", "2/0": "text", "2/1": "button-group" })
-      const edges = (type: string) => new Set(tables[0].children.filter((c: { type: string }) => c.type === type).map((c: { x: number }) => c.x))
-      expect(edges("text").size).toBe(1)
-      expect(edges("button-group").size).toBe(1)
+      const cards = tables[0].children.filter(isBlockCard)
+      expect(cards).toHaveLength(3)
+      expect(cards.map((c: any) => snapCellOf(c).row).sort()).toEqual([0, 1, 2])
+      for (const card of cards) {
+        expect(snapCellOf(card).anchor).toEqual({ x: "stretch", y: "stretch" })
+        expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+      }
+      expect(new Set(cards.map((c: { x: number; width: number }) => c.x + "/" + c.width)).size).toBe(1)
     } finally {
       await clear()
     }
   })
 
   // Seen 2026-10-10: with the first block's table still open, a block of
-  // several parts went into it as a child without a cell and broke it.
-  test("a block of several parts drawn while a table is open lies beside it, the table untouched", async ({ page }, testInfo) => {
+  // several parts went into it as a child without a cell and broke it. A
+  // card now (2026-11-06): the second lies beside it, the first untouched.
+  test("a block of several parts drawn while another block is open lies beside it, the other untouched", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "ha-docs-fan-bedroom"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -440,46 +461,42 @@ test.describe("placing a catalog entry", () => {
       // into it with Alt - what this guards is the open table left whole.
       await drag(page, [60, 140], [300, 320], false)
       const objects = (await savedScreen(page)).objects
-      expect(byCell(objects.find((o: { id: string }) => o.id === table.id))).toEqual({ "0/0": "text", "0/1": "button-group" })
+      expect(partsOf(objects.find((o: { id: string }) => o.id === table.id)).map((c: { type: string }) => c.type)).toEqual(["button-group"])
       // The fan a card of its own on the screen, beside it (docs/2026-11-03-card-blocks.md).
-      expect(objects.filter(isBlockCard)).toHaveLength(1)
+      expect(objects.filter(isBlockCard)).toHaveLength(2)
     } finally {
       await clear()
     }
   })
 
   // docs/2026-11-03-card-blocks.md: a block of several parts is a card and
-  // snaps as one - carried onto a table and let go, it goes into it and
-  // fills its cell. (Before, a table of its own that went into none.)
-  test("a block of several parts carried onto a table snaps into it as a card, filling its cell", async ({ page }, testInfo) => {
+  // snaps as one - carried under a table and let go, it goes into it as
+  // another row and fills its cell. The table one of two plugs' cards, a
+  // block of one part being a card too (2026-11-06).
+  test("a block of several parts carried under a table of cards goes into it, filling its cell", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "ha-docs-fan-bedroom"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
-      await pick(page, "Kitchen plug")
-      await clickAt(page, 180, 70)
-      const table = await snapTableOf(page)
+      // The fan's card as tall as it comes: placed once alone, then undone.
       await pick(page, "Bedroom Fan")
-      const { box, canvas } = await getMainCanvas(page)
-      const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
-      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height / 2, ROUND_FIXTURE_SCREEN)
-      await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
-      // Alt held: onto an occupied cell it snaps (docs/2026-11-03-placing.md).
-      await page.keyboard.down("Alt")
-      await page.mouse.move(to.x, to.y, { steps: 10 })
-      // Nothing shows where it would go as a row: it is a card.
-      expect(await canvas.getAttribute("data-row-drop")).toBeNull()
-      await page.mouse.up()
-      await page.keyboard.up("Alt")
-      const objects = (await savedScreen(page)).objects
-      const tables = objects.filter(isSnapTable)
+      await clickAt(page, 180, 180)
+      const fanHeight = (await savedScreen(page)).objects.find(isBlockCard).height
+      await page.keyboard.press("Control+z")
+      await expect.poll(async () => (await savedScreen(page)).objects.filter(isBlockCard).length).toBe(0)
+      await pick(page, "Kitchen plug")
+      await clickAt(page, 180, 40)
+      await pick(page, "Kitchen plug")
+      await carryUnder(page, await snapTableOf(page))
+      await pick(page, "Bedroom Fan")
+      await carryUnder(page, await snapTableOf(page), fanHeight)
+      const tables = (await savedScreen(page)).objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)
-      const fan = tables[0].children.find(isBlockCard)
+      const cards = tables[0].children.filter(isBlockCard)
+      expect(cards).toHaveLength(3)
+      const fan = cards.find((c: any) => headingOf(c).properties.text === "Bedroom Fan")
       expect(fan).toBeTruthy()
       expect(partsOf(fan).map((c: { type: string }) => c.type)).toContain("slider")
       expect(snapCellOf(fan).anchor).toEqual({ x: "stretch", y: "stretch" })
-      // The plug's row still there.
-      expect(tables[0].children.filter((c: { type: string }) => c.type === "button-group").length).toBeGreaterThan(0)
     } finally {
       await clear()
     }
@@ -517,7 +534,7 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("a project with an old table opens without it; a block clicked where it stood lies as a table of its own", async ({ page }, testInfo) => {
+  test("a project with an old table opens without it; a block clicked where it stood lies as a card of its own", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page, await withTable(testInfo))
@@ -527,7 +544,7 @@ test.describe("placing a catalog entry", () => {
       // Old tables dissolve on load (docs/2026-10-09-snap-tables.md, module
       // old-table-removal); this one held nothing.
       expect(objects.find((o: { id: string }) => o.id === "the-table")).toBeUndefined()
-      expect(byCell(objects.find(isSnapTable))).toEqual({ "0/0": "text", "0/1": "button-group" })
+      expect(partsOf(objects.find(isBlockCard)).map((c: { type: string }) => c.type)).toEqual(["button-group"])
     } finally {
       await clear()
     }
@@ -763,7 +780,7 @@ test.describe("placing a catalog entry", () => {
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
-      const buttons = block.children.filter((c: { type: string }) => c.type === "button")
+      const buttons = within(block).filter((c: { type: string }) => c.type === "button")
       expect(buttons.map((b: any) => [b.properties.text, b.properties.action])).toEqual([
         ["Party Scene", { type: "send-mqtt", mqttTopic: "home/living_room/party_scene/set", mqttMessage: "ON" }],
       ])
@@ -841,7 +858,7 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("an event: the type of the last one beside its name", async ({ page }, testInfo) => {
+  test("an event: the type of the last one under its name", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-event-doorbell"])
     try {
       await openOnRoundDevice(page)
@@ -849,7 +866,7 @@ test.describe("placing a catalog entry", () => {
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
-      const texts = block.children.filter((c: { type: string }) => c.type === "text").map((c: any) => asPlaceholders(c))
+      const texts = within(block).filter((c: { type: string }) => c.type === "text").map((c: any) => asPlaceholders(c))
       expect(texts).toEqual(["Doorbell", "{topic:home/doorbell/state#event_type}"])
     } finally {
       await clear()
@@ -1006,37 +1023,35 @@ test.describe("placing a catalog entry", () => {
   })
 
   // Reported 2026-10-03: a block on a free screen, then the same block
-  // under it - the first came out smaller. Both at M, a row each.
-  test("a block let go free is as large as the same block put into its table: both at M", async ({ page }, testInfo) => {
+  // under it - the first came out smaller. Both at M, a card each.
+  test("a block let go free is as large as the same block put under it: both at M", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
-      const place = async () => {
-        await pick(page, "Local temperature calibration")
-      }
-      await place()
+      await pick(page, "Local temperature calibration")
       await drag(page)
-      await place()
+      await pick(page, "Local temperature calibration")
       await carryUnder(page, await snapTableOf(page))
       const table = await snapTableOf(page)
-      const rows = [0, 1].map((row) =>
-        table.children.filter((c: { properties: { cell: { row: number } } }) => c.properties.cell.row === row),
-      )
-      const looks = rows.map((row) =>
-        row.map((c: { type: string; height: number; properties: { fontId?: string; sizeStep?: string } }) => [c.type, c.height, c.properties.fontId, c.properties.sizeStep]),
+      const cards = table.children.filter(isBlockCard).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+      expect(cards).toHaveLength(2)
+      const looks = cards.map((card: any) =>
+        within(card)
+          .filter((c: { type: string }) => !["free", "table"].includes(c.type))
+          .map((c: { type: string; height: number; properties: { fontId?: string; sizeStep?: string } }) => [c.type, c.height, c.properties.fontId, c.properties.sizeStep]),
       )
       expect(looks[1]).toEqual(looks[0])
-      expect(rows[0].find((c: { type: string }) => c.type === "slider").properties.sizeStep).toBe("m")
+      expect(partsOf(cards[0]).find((c: { type: string }) => c.type === "slider").properties.sizeStep).toBe("m")
     } finally {
       await clear()
     }
   })
 
   // Reported 2026-10-03, same setup with the icon: the third block's label
-  // was missing. Now each block is a row of the one table, its icon, name
-  // and slider in the columns of their kind - and one without an icon
-  // leaves the icon cell empty.
-  test("blocks with an icon, one under the other: a row each, icon, name and slider in their columns; one without an icon leaves its cell empty", async ({ page }, testInfo) => {
+  // was missing. Now each block is a card in the one table (2026-11-06), its
+  // icon and name at the top, its slider below - and one without an icon
+  // has its name alone there.
+  test("blocks with an icon, one under the other: a card each, icon and name at the top, the slider below; one without an icon its name alone", async ({ page }, testInfo) => {
     // The calibration names its icon; a twin of it names none, and a search
     // on its name finds none - it comes without one.
     await mockIconServices(page, {})
@@ -1054,16 +1069,12 @@ test.describe("placing a catalog entry", () => {
       await carryUnder(page, await snapTableOf(page))
       await pick(page, "Offset twin")
       await carryUnder(page, await snapTableOf(page))
-      expect(byCell(await snapTableOf(page))).toEqual({
-        "0/0": "icon",
-        "0/1": "text",
-        "0/2": "slider",
-        "1/0": "icon",
-        "1/1": "text",
-        "1/2": "slider",
-        "2/1": "text",
-        "2/2": "slider",
-      })
+      const cards = (await snapTableOf(page)).children.filter(isBlockCard).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+      expect(cards).toHaveLength(3)
+      expect(byCell(headingOf(cards[0]))).toEqual({ "0/0": "icon", "0/1": "text" })
+      expect(byCell(headingOf(cards[1]))).toEqual({ "0/0": "icon", "0/1": "text" })
+      expect([headingOf(cards[2]).type, headingOf(cards[2]).properties.text]).toEqual(["text", "Offset twin"])
+      for (const card of cards) expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["slider"])
     } finally {
       await publish(client, twinTopic, "")
       client.end(true)
@@ -1094,9 +1105,7 @@ test.describe("placing a catalog entry", () => {
       release()
       await expect(tile).toHaveAttribute("data-armed", "true")
       await drag(page)
-      const button = (await savedScreen(page)).objects
-        .flatMap((o: { type: string; children?: unknown[] }) => (o.type === "table" ? (o.children as { type: string; properties: { iconAssetId?: string | null } }[]) : [o]))
-        .find((o: { type: string }) => o.type === "button")
+      const button = (await savedScreen(page)).objects.flatMap(within).find((o: { type: string }) => o.type === "button")
       expect(button.properties.iconAssetId).toBeTruthy()
     } finally {
       await clear()
@@ -1585,6 +1594,14 @@ test.describe("a block from a catalog entry", () => {
       for (const icon of [null, { name: "mdi:restart", data: "<svg/>", size: 24 }]) {
         expect(types(blockRow(build("Restart", { icon }, "esphome-button-restart")))).toEqual(["button"])
       }
+    })
+
+    // A card since 2026-11-06, as every block: the button its name, so no
+    // heading at the top, the button alone in it.
+    test("a block that is its button alone, as its card: no heading, the button alone in it", () => {
+      const card = fittedBlockCard(build("Restart", { icon: null }, "esphome-button-restart"), { pixelsPerMm: 5 }, 480)
+      expect(card.children!.some((c) => c.properties?.dock === "top")).toBe(false)
+      expect(within(card).filter((o: { type: string }) => !["free", "table"].includes(o.type)).map((o: { type: string }) => o.type)).toEqual(["button"])
     })
   })
 })

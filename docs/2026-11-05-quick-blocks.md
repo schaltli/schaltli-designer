@@ -175,8 +175,15 @@ template …) and an entry of «Prebuilt» - except Line and Live Line.
 ### Placing a prebuilt
 
 - A prebuilt is built with the defaults (decision 3) when its tile is
-  dragged or clicked, and lands as today - a row for one part, a card for
-  several (docs/2026-11-03-card-blocks.md).
+  dragged or clicked, and lands as a card (docs/2026-11-03-card-blocks.md) -
+  of one part too, no longer a row (decided 2026-11-06, the user: «Auch als
+  Card»).
+- Its card is half the screen wide - its margins of 8 px and the table's gap
+  taken off first, so two snapped side by side fit it - wider where its
+  parts need it, at most the screen less 8 px each side (decided 2026-11-06): on the 4" a light
+  half the screen and the heater nearly all of it, on a tablet both half.
+  Its parts are built at the width they have in a card half the screen
+  wide - what a slider or a bar takes as its length.
 - An icon not yet fetched when the tile is dragged or clicked: the block
   waits for it up to 4 s before it hangs at the pointer, as Insert did (the
   icons are fetched as soon as the tab shows the tile, so this is rare).

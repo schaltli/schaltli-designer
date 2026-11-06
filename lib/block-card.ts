@@ -1,5 +1,6 @@
 /**
- * A block of several parts as a card (docs/2026-11-03-card-blocks.md): a free
+ * A block as a card (docs/2026-11-03-card-blocks.md; of one part too since
+ * 2026-11-06, docs/2026-11-05-quick-blocks.md): a free
  * area with the look Card, its name docked at the top - with its icon, the
  * two as a small table of one row - and its parts below, the table
  * blockTable builds without its name column, docked Fill across the card.
@@ -10,6 +11,7 @@ import type { ScreenObject } from "@/components/project-editor"
 import { blockTable, type BausteinBuildResult } from "@/lib/bausteine"
 import { cardSettingsOf } from "@/lib/card"
 import { layoutObjects, naturalWidth, type LayoutScale } from "@/lib/layout"
+import { SNAP_GAP_MM } from "@/lib/snap-table"
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
 
@@ -35,7 +37,7 @@ export function blockPartsWidth(built: BausteinBuildResult, scale: LayoutScale):
 }
 
 /**
- * The card a block of several parts is placed as: its parts `width` wide, as
+ * The card a block is placed as: its parts `width` wide, as
  * the block was built - or as wide as they need, up to `maxWidth` (the room
  * the screen has for them) - the card its padding wider on each side.
  *
@@ -70,6 +72,26 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
   return { ...card, height: bottom + padding }
 }
 
+/**
+ * The width a block's parts are built at, so its card is half the screen
+ * (blockCardHalf): the half less the card's padding on each side - what a
+ * slider or a bar takes as its length.
+ */
+export function blockPartsRoom(screenWidth: number, scale: LayoutScale): number {
+  const padding = Math.round(cardSettingsOf({ cards: scale.cards }).paddingMm * scale.pixelsPerMm)
+  return Math.max(1, blockCardHalf(screenWidth, scale) - 2 * padding)
+}
+
+/**
+ * Half the screen for a block's card: two of them side by side, snapped into
+ * a table, fit it - the margin left at each side and the table's gap between
+ * them taken off first. Two plain halves stood a few pixels over its edge.
+ */
+export function blockCardHalf(screenWidth: number, scale: LayoutScale): number {
+  const gap = Math.round(SNAP_GAP_MM * scale.pixelsPerMm)
+  return Math.floor((screenWidth - 2 * BLOCK_SCREEN_MARGIN - gap) / 2)
+}
+
 /** A text size a row of buttons can be set in, smallest last. */
 export type SmallerStyle = (style: "large" | "standard") => Record<string, unknown> | undefined
 
@@ -77,15 +99,19 @@ export type SmallerStyle = (style: "large" | "standard") => Record<string, unkno
 export const BLOCK_SCREEN_MARGIN = 8
 
 /**
- * The card as `blockCard` makes it, at most as wide as a screen
- * `screenWidth` wide allows: where its parts need more - a block's four
- * modes in the label size on the 4" - its rows of buttons are set a text
- * size smaller, and another, until they fit (the user, 2026-11-04). What
- * still does not fit stands in the card, cut at its edge (lib/dock.ts).
+ * The card a prebuilt is placed as, of one part or several (the user,
+ * 2026-11-06): half as wide as the screen `screenWidth` wide, wider where its
+ * parts need it, at most the screen less a margin each side - on the 4" a
+ * light half the screen and a block of four modes nearly all of it, on a tablet both
+ * half. Where its parts need more than that - a block's four modes in the
+ * label size on the 4" - its rows of buttons are set a text size smaller,
+ * and another, until they fit (the user, 2026-11-04). What still does not
+ * fit stands in the card, cut at its edge (lib/dock.ts).
  */
-export function fittedBlockCard(built: BausteinBuildResult, width: number, scale: LayoutScale, screenWidth: number, smaller?: SmallerStyle): Piece {
+export function fittedBlockCard(built: BausteinBuildResult, scale: LayoutScale, screenWidth: number, smaller?: SmallerStyle): Piece {
   const padding = Math.round(cardSettingsOf({ cards: scale.cards }).paddingMm * scale.pixelsPerMm)
   const room = screenWidth - 2 * BLOCK_SCREEN_MARGIN - 2 * padding
+  const width = blockPartsRoom(screenWidth, scale)
   let objects = built.objects
   for (const style of ["large", "standard"] as const) {
     if (!smaller || blockPartsWidth({ ...built, objects }, scale) <= room) break

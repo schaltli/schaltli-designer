@@ -13,6 +13,7 @@ import { ASSETS as DEMO_ASSETS } from "../deploy/demo/camper-project"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, carryUnderSnapTable, snapTableRect, deleteProject, loadProject, openManageScreens } from "./helpers"
 import { buildCamperProject } from "../deploy/demo/camper-project"
 import { buildEditableProjectZip } from "../lib/project-zip"
+import JSZip from "jszip"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -108,11 +109,50 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
   return dir
 }
 
-// A block carried under the screen's table and let go: a new row at its end
-// (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
-async function appendBlock(page: Page, entry: string, screen: { width: number; height: number } = SCREEN) {
+// The edited screen's objects as they stand, from a download: a save would
+// add a version to the history photographed at the end.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function screenObjects(page: Page): Promise<any[]> {
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+  const project = JSON.parse(await (await JSZip.loadAsync(fs.readFileSync(await download.path()))).file("project.json")!.async("string"))
+  return project.screens.find((s: { isMaster?: boolean }) => !s.isMaster).objects
+}
+
+// A block's card on the screen, standing free or in a table (every block is
+// a card since 2026-11-06, docs/2026-11-05-quick-blocks.md).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const blockCards = (objects: any[]): any[] =>
+  objects.flatMap((o) => (o.type === "table" ? o.children : [o])).filter((o) => o.type === "free" && o.properties?.look === "card")
+
+// The block in hand carried from low on the screen to `to` - where its
+// middle hangs - with Alt held, so it snaps there (docs/2026-11-03-placing.md).
+async function carryWithAlt(page: Page, to: { x: number; y: number }, screen: { width: number; height: number } = SCREEN) {
+  const { box } = await getMainCanvas(page)
+  const a = devicePoint(box, screen.width / 2, screen.height - 20, screen)
+  const b = devicePoint(box, to.x, to.y, screen)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  await page.keyboard.down("Alt")
+  await page.mouse.move(b.x, b.y, { steps: 10 })
+  await page.mouse.up()
+  await page.keyboard.up("Alt")
+}
+
+// How tall `entry`'s card comes: placed once low on the screen, then undone.
+// A card is carried by its middle, and snaps under another by its top edge.
+async function cardHeight(page: Page, entry: string): Promise<number> {
+  const before = blockCards(await screenObjects(page)).length
   await pressPrebuilt(page, entry)
-  await carryUnderSnapTable(page, { x: screen.width / 2, y: screen.height - 40 }, null, screen)
+  const { box } = await getMainCanvas(page)
+  const at = devicePoint(box, SCREEN.width * 0.75, SCREEN.height - 60, SCREEN)
+  await page.mouse.click(at.x, at.y)
+  const cards = blockCards(await screenObjects(page))
+  expect(cards).toHaveLength(before + 1)
+  const height = cards.sort((a, b) => b.y - a.y)[0].height
+  await page.keyboard.press("Control+z")
+  await expect.poll(async () => blockCards(await screenObjects(page)).length).toBe(before)
+  return height
 }
 
 // A tile pressed on the Prebuilt tab (docs/2026-11-05-quick-blocks.md): the
@@ -125,9 +165,8 @@ async function pressPrebuilt(page: Page, entry: string) {
 }
 
 // A block from the Prebuilt tab, in its first look, and a click in the
-// middle of `from` and `to` - the block lands there, its middle at the
-// click: a block of one part as a table of one row, one of several parts as
-// a table of its own.
+// middle of `from` and `to` - the block lands there as its card, its middle
+// at the click.
 async function placeBlock(
   page: Page,
   entry: string,
@@ -236,47 +275,40 @@ test.describe("handbook: Erste Schritte", () => {
     })
 
     // The first, pressed: no options any more (the picture baustein-tank of
-    // the dialog went with it, docs/2026-11-05-quick-blocks.md).
+    // the dialog went with it, docs/2026-11-05-quick-blocks.md). A new screen
+    // is free (docs/2026-10-03-free-screens.md): the block, clicked, is a
+    // card half the screen wide, its middle at the click.
     await pressPrebuilt(page, "Frischwasser")
-    // A new screen is free (docs/2026-10-03-free-screens.md): the first
-    // block, clicked, is a table of one row, its name on the left, its
-    // control on the right; a block carried under it is its next row
-    // (docs/2026-10-09-snap-tables.md, module snap-table-blocks).
     {
       const { box } = await getMainCanvas(page)
-      const at = devicePoint(box, SCREEN.width / 2, 70, SCREEN)
+      const at = devicePoint(box, SCREEN.width / 4, 90, SCREEN)
       await page.mouse.click(at.x, at.y)
     }
+    const [tank] = blockCards(await screenObjects(page))
+    expect(tank.width).toBeLessThan(SCREEN.width / 2)
 
-    await appendBlock(page, "Batterie")
-    // For the arranging page: the next block carried under the table before
-    // it is let go - the table's bottom line thick where it goes.
+    // The battery beside it, with Alt: its left edge 3 px right of the
+    // tank's right one - the two a table of two cards, side by side.
+    await pressPrebuilt(page, "Batterie")
+    await carryWithAlt(page, { x: tank.x + tank.width + 3 + tank.width / 2, y: tank.y + tank.height / 2 })
+
+    // The light under the tank, its top edge 3 px under the table.
+    const lightHeight = await cardHeight(page, "Licht")
     {
+      const table = await snapTableRect(page)
       await pressPrebuilt(page, "Licht")
-      const { canvas, box } = await getMainCanvas(page)
-      const table = await snapTableRect(page)
-      const from = devicePoint(box, SCREEN.width / 2, SCREEN.height - 40, SCREEN)
-      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, SCREEN)
-      await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
-      // With Alt, as the handbook says (docs/2026-11-03-placing.md): the
-      // picture shows the hint with the key pressed.
-      await page.keyboard.down("Alt")
-      await page.mouse.move(to.x, to.y, { steps: 10 })
-      await expect(canvas).toHaveAttribute("data-row-drop", /"at":2/)
-      const corner = devicePoint(box, -20, -20, SCREEN)
-      await page.screenshot({
-        path: path.join(dir, "layout-linie.png"),
-        clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
-      })
-      await page.mouse.up()
-      await page.keyboard.up("Alt")
+      await carryWithAlt(page, { x: table.x + tank.width / 2, y: table.y + table.height + 3 + lightHeight / 2 })
     }
-    // The dimmer is a block of several parts, a switch and a slider: a
-    // table of its own, clicked under the first.
+    // The dimmer, a block of two parts, into the empty cell beside the light.
     {
       const table = await snapTableRect(page)
-      await placeBlock(page, "Leselicht", [table.x, table.y + table.height + 16], [table.x + table.width, table.y + table.height + 150])
+      await pressPrebuilt(page, "Leselicht")
+      await carryWithAlt(page, { x: table.x + table.width * 0.75, y: table.y + table.height - lightHeight / 2 })
+    }
+    {
+      const tables = (await screenObjects(page)).filter((o) => o.type === "table")
+      expect(tables).toHaveLength(1)
+      expect(blockCards(tables[0].children)).toHaveLength(4)
     }
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
@@ -363,6 +395,58 @@ test.describe("handbook: Erste Schritte", () => {
     await page.getByRole("menuitem", { name: "Version History" }).click()
     await expect(page.getByRole("dialog").getByRole("button", { name: "Restore" }).first()).toBeVisible({ timeout: 15000 })
     await dialogShot("versionen")
+  })
+})
+
+// For the arranging page (objekte/anordnen.md): rows of the Row tool, the
+// next one carried under their table - its bottom line thick where it goes.
+// A block was this picture's row until every block became a card
+// (2026-11-06); the Row tool's rows still go in as rows.
+test.describe("handbook: a row carried under a table", () => {
+  test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
+
+  test("the table's bottom line thick where the row goes", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, DEVICE_ID, "curated")).dblclick()
+    const name = await createProject(page)
+    try {
+      await waitForEditorReady(page)
+      const pickRow = async () => {
+        await page.getByTestId("row-tool").click()
+        await page.getByTestId("row-template-label-button").click()
+      }
+      await pickRow()
+      {
+        const { box } = await getMainCanvas(page)
+        const at = devicePoint(box, SCREEN.width / 2, 70, SCREEN)
+        await page.mouse.click(at.x, at.y)
+      }
+      await pickRow()
+      await carryUnderSnapTable(page, { x: SCREEN.width / 2, y: SCREEN.height - 40 }, null, SCREEN)
+      await pickRow()
+      const { canvas, box } = await getMainCanvas(page)
+      const table = await snapTableRect(page)
+      const from = devicePoint(box, SCREEN.width / 2, SCREEN.height - 40, SCREEN)
+      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, SCREEN)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      // With Alt, as the handbook says (docs/2026-11-03-placing.md): the
+      // picture shows the hint with the key pressed.
+      await page.keyboard.down("Alt")
+      await page.mouse.move(to.x, to.y, { steps: 10 })
+      await expect(canvas).toHaveAttribute("data-row-drop", /"at":2/)
+      const corner = devicePoint(box, -20, -20, SCREEN)
+      await page.screenshot({
+        path: path.join(dir, "layout-linie.png"),
+        clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
+      })
+      await page.mouse.up()
+      await page.keyboard.up("Alt")
+    } finally {
+      await deleteProject(page, name)
+    }
   })
 })
 

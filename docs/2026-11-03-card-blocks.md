@@ -24,7 +24,8 @@ light block of one part still arrives as a row and snaps into a list.
 **Decisions** (the user, 2026-11-03):
 
 - **Always a card** for a block of several parts: no option.
-- **A block of one part stays a row**, for lists of switches.
+- **A block of one part stays a row**, for lists of switches. *Superseded
+  2026-11-06: a card too, half the screen wide (docs/2026-11-05-quick-blocks.md).*
 - **Name at the top, parts below**: the name - with its icon, if one was
   chosen - docked Top; the parts in a table of one column (or the
   description's two) docked Fill, across the card's width.

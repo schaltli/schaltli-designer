@@ -38,9 +38,9 @@ Baugruppen sind fertig zusammengesetzte Elemente, die schon wissen, woher ihre W
 
 <Screenshot narrow name="baustein-menue" alt="Der Reiter Prebuilt mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
-Klick auf «Frischwasser» und dann oben auf den Screen. Gefragt wird nichts: Die Anzeige kommt als Balken, mit dem Wert, den dein Tank gerade meldet. Die Baugruppe wird eine Tabelle mit einer Zeile: das Icon, der Name und die Anzeige nebeneinander. Mehr dazu unter [Zusammenstecken](/objekte/anordnen#zusammenstecken).
+Klick auf «Frischwasser» und dann oben auf den Screen. Gefragt wird nichts: Die Anzeige kommt als Balken, mit dem Wert, den dein Tank gerade meldet. Die Baugruppe wird eine Karte, halb so breit wie der Screen: oben das Icon und der Name, darunter die Anzeige. Mehr dazu unter [Baugruppen](/designer/baugruppen).
 
-Setz die Batterie und das Licht darunter: Nach dem Klick auf ihre Kachel hängt die Baugruppe am Mauszeiger, und trägst du sie knapp unter die Tabelle, wird deren untere Linie dick. Lässt du los, kommt sie dort als neue Zeile hin, Name unter Name und Anzeige unter Anzeige. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Mit zwei Teilen ist er eine eigene Tabelle, die du mit einem Klick unter die erste setzt. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz die Batterie daneben: Nach dem Klick auf ihre Kachel hängt die Baugruppe am Mauszeiger. Halt <kbd>Alt</kbd> gedrückt und trag sie so neben die Karte, dass ihr linker Rand knapp rechts von deren rechtem liegt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen nebeneinander. Das Licht trägst du genauso unter die Karte des Frischwassers. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Ihn trägst du mit <kbd>Alt</kbd> in die leere Zelle neben dem Licht. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

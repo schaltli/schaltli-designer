@@ -20,7 +20,7 @@ import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, placeh
 import { pressedMessage, usesButtonValues } from "@/lib/button-values"
 import type { PlaceholderScope } from "@/lib/placeholders"
 import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
-import { adoptCombinedTopics, blockFont, blockRow, blockTable, buildEntry, defaultOptions, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
+import { adoptCombinedTopics, blockFont, blockTable, buildEntry, defaultOptions, type BausteinBuildResult, type BausteinOptions } from "@/lib/bausteine"
 import { readTopicsOf, type CatalogEntry } from "@/lib/ha-discovery"
 import { convertInTree, type ConvertibleType } from "@/lib/convert-object"
 import { entryIcons, entryIconsNow } from "@/lib/prebuilt-icons"
@@ -132,7 +132,7 @@ import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-conte
 import { brokerStore, useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
 import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
-import { fittedBlockCard } from "@/lib/block-card"
+import { blockPartsRoom, fittedBlockCard } from "@/lib/block-card"
 
 /**
  * A project as it opens, on the fonts its device sets text in now: when the
@@ -2478,9 +2478,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
   // The block the Block tool holds, made when the screen is pressed and
-  // carried (module snap-table-blocks): of one part a row, placed as a row
-  // template is; of several a table of its own. Built as if dragged across
-  // most of the screen's width - what a bar or slider takes as its length.
+  // carried: a card, of one part or several. Built at the width its parts
+  // have in a card half the screen wide - what a bar or slider takes as its
+  // length.
   const blockRegisterRef = useRef<(() => void) | null>(null)
   const armedBlockCarry = useCallback(():
     | { row: Omit<ScreenObject, "id" | "zIndex">[] }
@@ -2488,16 +2488,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     | null => {
     blockRegisterRef.current = null
     if (!armedBlock) return null
-    const width = Math.round(Math.min(project.screenWidth, project.screenHeight * 2) * 0.6)
+    const width = blockPartsRoom(project.screenWidth, layoutScaleOf(project))
     const { built, stepped, register } = buildArmed(armedBlock, { x: 0, y: 0, width, height: 40 })
     blockRegisterRef.current = register
-    const row = blockRow({ ...built, objects: stepped })
-    if (row) return { row }
-    // Of several parts: a card, its name at the top (docs/2026-11-03-card-blocks.md),
-    // as wide as its parts need, up to the screen less a margin each side.
+    // A card, of one part too (the user, 2026-11-06), its name at the top
+    // (docs/2026-11-03-card-blocks.md): half the screen wide, wider where its
+    // parts need it, up to the screen less a margin each side.
     const textScale = screenTextScale(project, currentScreen)
     const smaller = textScale ? (style: "large" | "standard") => styledFont(style, false, textScale, project.fonts) : undefined
-    return { table: fittedBlockCard({ ...built, objects: stepped }, width, layoutScaleOf(project), project.screenWidth, smaller) }
+    return { table: fittedBlockCard({ ...built, objects: stepped }, layoutScaleOf(project), project.screenWidth, smaller) }
   }, [armedBlock, buildArmed, project, currentScreen])
 
   // A block of several parts let go: a table of its own at `at`, in the
