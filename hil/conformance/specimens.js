@@ -942,6 +942,64 @@ const SPECIMENS = {
     },
   },
 
+  // The Toggle Button (designer docs/2026-11-06-toggle-button.md): one tile in
+  // the look of the reported state, drawn by the device from the looks the
+  // export writes. Two in the square: a plain one, its label alone, and one
+  // with a name, the state's label one size smaller under it and the state's
+  // icon in a disc - the parts a button does not have. The examples move
+  // both between off (a card with its edge) and on (the colour); the case
+  // before any value is the quiet look with «?».
+  "toggle-button": {
+    build: (c) => {
+      const topic = c.topic("kachel", "string", ["0", "1"]);
+      const gap = Math.round(c.square.height * 0.08);
+      const h = Math.round((c.square.height - gap) / 2);
+      const tile = (name, i, properties) => ({
+        id: c.id(name),
+        type: "toggle-button",
+        zIndex: 1,
+        x: c.square.x,
+        y: c.square.y + i * (h + gap),
+        width: c.square.width,
+        height: h,
+        properties: {
+          topic,
+          writeTopic: `${topic}/set`,
+          states: [
+            { id: "st-off", label: "AUS", readValue: "0", writeValue: "aus", iconAssetId: RING.id },
+            { id: "st-on", label: "EIN", readValue: "1", writeValue: "an", showAsOn: true, iconAssetId: RING.id },
+          ],
+          switchStyle: "filled",
+          switchColor: c.colors.accent,
+          // Off is a card: its colour, its edge and the text's.
+          backgroundColor: c.colors.bg,
+          borderColor: c.colors.border,
+          textColor: c.colors.fg,
+          fontId: c.font("medium"),
+          secondFontId: c.font("small"),
+          ...properties,
+        },
+      });
+      const plain = tile("toggle", 0, { text: "" });
+      // A tap anywhere sends the next state; the last combination leaves «1»
+      // (EIN) reported, so the next one is AUS.
+      const taps = [
+        {
+          what: "the plain tile",
+          x: plain.x + Math.round(plain.width / 2),
+          y: plain.y + Math.round(plain.height / 2),
+          topic: `${topic}/set`,
+          value: "aus",
+        },
+      ];
+      return {
+        assets: [RING],
+        taps,
+        objects: [plain, tile("toggle-named", 1, { text: "Pumpe" })],
+      };
+    },
+  },
+
   // A panel is only ever meaningful as a tab-control's child: both renderers
   // treat a stray top-level one as a deliberate no-op. So the panel specimen
   // still builds a tab-control - what it exercises is the panel's own
