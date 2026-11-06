@@ -9,7 +9,14 @@
 //
 // Run (with `npm run hil:broker` running):
 //   node hil/discovery-devices.js            publish, answer, clear on exit
+//   node hil/discovery-devices.js --all      every fixture and description
 //   node hil/discovery-devices.js --clear    clear what an earlier run left
+//                                            (with --all: all of them)
+//
+// --all announces every config in e2e/fixtures/ha-discovery/ and every
+// description in e2e/fixtures/block-descriptions/, for trying all the
+// prebuilts by hand (2026-11-06). The values and answers below are only the
+// selection's; the others come without a value, as a device not yet heard.
 //
 //   --broker <url>   default mqtt://localhost:1883, or $HIL_MQTT_URL
 
@@ -82,9 +89,21 @@ const ANSWERS = {
   "garden/pump/flow/set": (v) => ["garden/pump/flow", v],
 };
 
+const fs = require("fs");
+const ALL = args.includes("--all");
+const names = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));
+// A description without a topic of its own is the payload alone, under
+// schaltli/blocks/<its file's name, without «vanpi-»>/config - the heater's,
+// as the bridge publishes it.
+const description = (name) => {
+  const d = require(path.join(DESCRIPTIONS, `${name}.json`));
+  return d.topic ? d : { topic: `schaltli/blocks/${name.replace(/^vanpi-/, "")}/config`, payload: d };
+};
 const configs = [
-  ...DEVICES.map((name) => require(path.join(FIXTURES, `${name}.json`))),
-  ...BLOCK_DESCRIPTIONS.map((name) => require(path.join(DESCRIPTIONS, `${name}.json`))),
+  // Not the kitchen with its humidity removed: the same topic as the
+  // kitchen, which it would replace.
+  ...(ALL ? names(FIXTURES).filter((n) => !n.includes("-remove-")) : DEVICES).map((name) => require(path.join(FIXTURES, `${name}.json`))),
+  ...(ALL ? names(DESCRIPTIONS) : BLOCK_DESCRIPTIONS).map(description),
 ];
 const client = mqtt.connect(BROKER, { clientId: `discovery-devices-${process.pid}-${Math.random().toString(16).slice(2, 10)}` });
 
