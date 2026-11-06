@@ -30,17 +30,17 @@ Klick auf der Startseite des Designers auf <span class="ui">New Project...</span
 
 Klicke doppelt auf die Karte des Waveshare 4.3B, gib dem Projekt einen Namen, etwa «Van», und klick auf <span class="ui">Create Project</span>. Der Editor öffnet sich mit einem leeren Screen in der Grösse des Displays, 800 × 480 Pixel. Das Projekt ist damit schon gespeichert. Spätere Änderungen speicherst du mit <kbd>Strg</kbd>+<kbd>S</kbd>.
 
-<Screenshot name="editor" alt="Der leere Editor mit Werkzeugleiste, Screen-Liste, Canvas und Eigenschaften" caption="Oben die Werkzeuge, links die Screens, in der Mitte der Screen im Rahmen des Geräts, rechts Objekte und Eigenschaften." />
+<Screenshot name="editor" alt="Der leere Editor mit Screen-Liste, Palette, Canvas und Eigenschaften" caption="Links die Screens und daneben die Palette mit den Werkzeugen, in der Mitte der Screen im Rahmen des Geräts, rechts Objekte und Eigenschaften." />
 
 ## 4. Baugruppen auf den Screen setzen
 
-Baugruppen sind fertig zusammengesetzte Elemente, die schon wissen, woher ihre Werte kommen. Der Reiter <span class="ui">Prebuilt</span> über der Werkzeugleiste zeigt sie: alles, was auf dem Broker angekündigt ist, als Kachel mit seinem Namen.
+Baugruppen sind fertig zusammengesetzte Elemente, die schon wissen, woher ihre Werte kommen. Der Reiter <span class="ui">Prebuilt</span> der [Palette](/designer/#palette) zeigt sie: alles, was auf dem Broker angekündigt ist, als Zeile mit seinem Namen, in einer Gruppe pro Gerät.
 
-<Screenshot narrow name="baustein-menue" alt="Der Reiter Prebuilt mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
+<Screenshot narrow name="baustein-menue" alt="Die Palette auf dem Reiter Prebuilt, im Suchfeld «licht», darunter das Gerät VanPi mit Leselicht und Licht" />
 
 Klick auf «Frischwasser» und dann oben auf den Screen. Gefragt wird nichts: Die Anzeige kommt als Balken, mit dem Wert, den dein Tank gerade meldet. Die Baugruppe wird eine Karte, halb so breit wie der Screen: oben das Icon und der Name, darunter die Anzeige. Mehr dazu unter [Baugruppen](/designer/baugruppen).
 
-Setz die Batterie daneben: Nach dem Klick auf ihre Kachel hängt die Baugruppe am Mauszeiger. Halt <kbd>Alt</kbd> gedrückt und trag sie so neben die Karte, dass ihr linker Rand knapp rechts von deren rechtem liegt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen nebeneinander. Das Licht trägst du genauso unter die Karte des Frischwassers. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Ihn trägst du mit <kbd>Alt</kbd> in die leere Zelle neben dem Licht. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz die Batterie daneben: Nach dem Klick auf ihre Zeile in der Palette hängt die Baugruppe am Mauszeiger. Halt <kbd>Alt</kbd> gedrückt und trag sie so neben die Karte, dass ihr linker Rand knapp rechts von deren rechtem liegt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen nebeneinander. Das Licht trägst du genauso unter die Karte des Frischwassers. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Ihn trägst du mit <kbd>Alt</kbd> in die leere Zelle neben dem Licht. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

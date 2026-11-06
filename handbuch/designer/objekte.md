@@ -4,23 +4,22 @@ Alles, was ein Screen zeigt, ist ein Objekt: ein Text, eine Tankanzeige, ein Sch
 
 ## Ein Objekt setzen
 
-Es gibt zwei Wege, und beide beginnen in der Werkzeugleiste:
+Es gibt zwei Wege, und beide beginnen in der [Palette](/designer/#palette):
 
 - **Ziehen:** Drück auf ein Werkzeug, halt die Maustaste und fahr auf den Screen. Sobald der Mauszeiger dort ist, hängt das Objekt in seiner Grundgrösse mit seiner Mitte daran. Lass es los, wo es hin soll.
 - **Klicken:** Klick auf ein Werkzeug. Das Objekt hängt am Mauszeiger, sobald du auf den Screen fährst, ohne dass du eine Taste hältst. Ein Klick auf den Screen setzt es dort ab.
 
-Neben dem Mauszeiger steht, was beim Loslassen oder beim Klick passiert, etwa «Click to drop into Card». Über einer Card oder einer leeren Tabellenzelle kommt das Objekt dort hinein, mit <kbd>Alt</kbd> rastet es an Tabellen und anderen Objekten ein, genau wie beim Verschieben, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). Danach ist das Objekt ausgewählt, und das Werkzeug springt zurück auf <span class="ui">Select</span>.
+Neben dem Mauszeiger steht, was beim Loslassen oder beim Klick passiert, etwa «Click to drop into Card». Über einer Card oder einer leeren Tabellenzelle kommt das Objekt dort hinein, mit <kbd>Alt</kbd> rastet es an Tabellen und anderen Objekten ein, genau wie beim Verschieben, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). Danach ist das Objekt ausgewählt, und das Werkzeug ist wieder weggelegt.
 
-Willst du es doch nicht, drückst du <kbd>Esc</kbd>, klickst noch einmal auf dasselbe Werkzeug oder lässt es neben dem Screen los, etwa über der Werkzeugleiste. Dann entsteht nichts, und das Werkzeug springt zurück auf <span class="ui">Select</span>. Ein Klick auf ein anderes Werkzeug nimmt stattdessen dessen Objekt.
+Willst du es doch nicht, drückst du <kbd>Esc</kbd>, klickst noch einmal auf dasselbe Werkzeug oder lässt es neben dem Screen los, etwa über der Palette. Dann entsteht nichts, und das Werkzeug ist wieder weggelegt. Ein Klick auf ein anderes Werkzeug nimmt stattdessen dessen Objekt.
 
 Die Grundgrösse: Bedienelemente beginnen in der Grösse <span class="ui">M</span>, ein Bar oder Slider ist 30 mm lang, eine Box 20 × 10 mm, eine Free-Fläche 30 × 20 mm, ein Gauge oder Dial 20 mm gross. Eine Box, eine Free-Fläche, einen Bar oder Slider machst du danach an ihren Anfassern grösser oder kleiner. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
 
 Einige Werkzeuge verhalten sich anders:
 
 - <span class="ui">Icon</span>, <span class="ui">Gauge</span> und <span class="ui">Dial</span> sind immer quadratisch.
-- Mit <span class="ui">Icon</span> klickst du auf den Screen: Der Klick öffnet die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast. Aus der Werkzeugleiste ziehen kannst du es nicht.
+- Mit <span class="ui">Icon</span> klickst du auf den Screen: Der Klick öffnet die Icon-Auswahl, und das Icon erscheint dort, wo du geklickt hast. Aus der Palette ziehen kannst du es nicht.
 - <span class="ui">Line</span> und <span class="ui">Live Line</span> hängen nicht am Mauszeiger, du zeichnest sie weiterhin: Mit gedrückter Maustaste ziehst du eine gerade Linie. Eine gezeichnete Linie rastet nie ein, sie liegt danach frei, und du verschiebst sie wie jedes Objekt in eine Tabelle. Klickst du stattdessen, setzt jeder weitere Klick einen Punkt. <kbd>Enter</kbd> oder ein Doppelklick beenden die Linie, <kbd>Esc</kbd> bricht ab, <kbd>Backspace</kbd> nimmt den letzten Punkt zurück.
-- <span class="ui">Row</span> setzt mehrere Objekte auf einmal als eine Zeile, etwa Icon, Text und Schalter, siehe [Eine ganze Zeile](/objekte/anordnen#zusammenstecken).
 - <span class="ui">Switcher</span> legt einen Bereich mit einem ersten Panel an. Darüber erscheinen Reiter, einer pro Panel, und <span class="ui">+</span> fügt ein Panel hinzu. Ein Klick auf einen Reiter öffnet dieses Panel zum Bearbeiten, neue Objekte landen dann darin.
 
 Schneller geht es oft mit den [Baugruppen](/designer/baugruppen): Sie setzen fertige Objekte, die schon an die richtigen Werte gebunden sind.

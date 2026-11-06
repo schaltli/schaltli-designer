@@ -20,7 +20,7 @@ Schaltli läuft auf vier Boards und auf Android-Handys. Ein Projekt im Designer 
 | Einrichten | [Flasher](/geraete/flashen), dann [WLAN und MQTT](/geraete/einrichten) | wie Knob | wie Knob | wie Knob | [App installieren](/geraete/android) |
 | Firmware-Updates | [über den Designer](/geraete/firmware-updates) | über den Designer | über den Designer | über den Designer | neue APK |
 
-Alle fünf können die Objekttypen des Designers darstellen, nur das [Chart](/objekte/anzeigen#chart) zeigt die Android-App noch nicht. Der runde Knob hat keinen [Navigator](/objekte/anordnen#navigator), und das PaperS3 zeigt das [Energy diagram](/objekte/anzeigen#energiediagramm) ohne Bewegung. Was ein Gerät nicht kann, blendet der Designer in der Werkzeugleiste aus.
+Alle fünf können die Objekttypen des Designers darstellen, nur das [Chart](/objekte/anzeigen#chart) zeigt die Android-App noch nicht. Der runde Knob hat keinen [Navigator](/objekte/anordnen#navigator), und das PaperS3 zeigt das [Energy diagram](/objekte/anzeigen#energiediagramm) ohne Bewegung. Was ein Gerät nicht kann, blendet der Designer in der Palette aus.
 
 ## Das E-Paper-Display (nicht mehr unterstützt)
 

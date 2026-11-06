@@ -41,7 +41,7 @@ Klickst du ein Topic an, steht rechts der ganze Name, der letzte Wert, bei JSON 
 
 Das Feld <span class="ui">Filter topic or payload</span> sucht im Namen und im letzten Wert und klappt den Baum bis zu den Treffern auf. <span class="ui">Collapse all</span> klappt alles wieder zu.
 
-Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open Prebuilt ›</span> öffnet in der Werkzeugleiste den Reiter mit den [Baugruppen](/designer/baugruppen), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du unter <span class="ui">Prebuilt</span>.
+Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open Prebuilt ›</span> öffnet die Palette auf dem Reiter mit den [Baugruppen](/designer/baugruppen), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du unter <span class="ui">Prebuilt</span>.
 
 Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. <span class="ui">Connect</span> verbindet, merkt sich beides im Browser und hört von da an diesen Broker ab.
 

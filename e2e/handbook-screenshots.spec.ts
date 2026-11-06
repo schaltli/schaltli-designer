@@ -35,7 +35,8 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 const ROOT = path.join(__dirname, "..")
 const DEVICE_ID = "waveshare-touch-lcd-4v3b"
 const SCREEN = { width: 800, height: 480 }
-const VIEWPORT_WIDTH = 1920
+// 1920, and the docked palette's column (docs/2026-11-06-palette.md).
+const VIEWPORT_WIDTH = 2184
 // Shaped like a real board's id (device id and a MAC), and no real board's.
 const INSTANCE_ID = `${DEVICE_ID}-0a1b2c3d4e5f`
 
@@ -155,11 +156,12 @@ async function cardHeight(page: Page, entry: string): Promise<number> {
   return height
 }
 
-// A tile pressed on the Prebuilt tab (docs/2026-11-05-quick-blocks.md): the
-// block in hand with its defaults, its tile shown pressed.
+// A row pressed on the palette's Prebuilt tab (docs/2026-11-05-quick-blocks.md,
+// docs/2026-11-06-palette.md): the block in hand with its defaults, its row
+// shown pressed.
 async function pressPrebuilt(page: Page, entry: string) {
-  await page.getByRole("tab", { name: "Prebuilt" }).click()
-  const tile = page.getByTestId("tools-ribbon").getByRole("button", { name: entry, exact: true })
+  await page.getByTestId("palette-tab-prebuilt").click()
+  const tile = page.getByTestId("palette").getByRole("button", { name: entry, exact: true })
   await tile.click()
   await expect(tile).toHaveAttribute("data-armed", "true")
 }
@@ -262,17 +264,21 @@ test.describe("handbook: Erste Schritte", () => {
     await shot("editor")
 
     // 3. Building blocks: the menu lists what the van announces, then a tank.
-    await page.getByRole("tab", { name: "Prebuilt" }).click()
+    await page.getByTestId("palette-tab-prebuilt").click()
     for (const entry of ["Frischwasser", "Abwasser", "Batterie", "Licht", "Leselicht"]) {
-      await expect(page.getByTestId("tools-ribbon").getByRole("button", { name: entry, exact: true })).toBeVisible({ timeout: 15000 })
+      await expect(page.getByTestId("palette").getByRole("button", { name: entry, exact: true })).toBeVisible({ timeout: 15000 })
     }
-    // The ribbon with the Prebuilt tab, what the van announces (retaken in
-    // prebuilt T11).
-    const ribbon = (await page.getByTestId("tools-ribbon").boundingBox())!
-    await page.screenshot({
-      path: path.join(dir, "baustein-menue.png"),
-      clip: { x: 0, y: 0, width: Math.min(VIEWPORT_WIDTH, 1100), height: ribbon.y + ribbon.height + 8 },
-    })
+    // The palette's Prebuilt tab, what the van announces, a search typed
+    // (docs/2026-11-06-palette.md).
+    await page.getByTestId("palette-search").fill("licht")
+    await expect(page.getByTestId("palette-list-prebuilt").locator("[data-entry-id]")).toHaveCount(2)
+    // Down to the rows found, not the empty column under them.
+    {
+      const pal = (await page.getByTestId("palette").boundingBox())!
+      const last = (await page.getByTestId("palette-list-prebuilt").locator("[data-entry-id]").last().boundingBox())!
+      await page.screenshot({ path: path.join(dir, "baustein-menue.png"), clip: { x: pal.x, y: pal.y, width: pal.width, height: last.y + last.height + 16 - pal.y } })
+    }
+    await page.getByTestId("palette-search").fill("")
 
     // The first, pressed: no options any more (the picture baustein-tank of
     // the dialog went with it, docs/2026-11-05-quick-blocks.md). A new screen
@@ -398,14 +404,14 @@ test.describe("handbook: Erste Schritte", () => {
   })
 })
 
-// For the arranging page (objekte/anordnen.md): rows of the Row tool, the
-// next one carried under their table - its bottom line thick where it goes.
-// A block was this picture's row until every block became a card
-// (2026-11-06); the Row tool's rows still go in as rows.
-test.describe("handbook: a row carried under a table", () => {
+// For the arranging page (objekte/anordnen.md): texts snapped one under the
+// other with Alt, the next one carried under their table - its bottom line
+// thick where it goes. Made with the Row tool until it went (2026-11-06,
+// docs/2026-11-06-palette.md, decision 11).
+test.describe("handbook: a text carried under a table", () => {
   test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
 
-  test("the table's bottom line thick where the row goes", async ({ page }, testInfo) => {
+  test("the table's bottom line thick where the text goes", async ({ page }, testInfo) => {
     const dir = shotsDir(testInfo)
     await page.goto("/")
     await waitForDeviceGate(page)
@@ -413,37 +419,36 @@ test.describe("handbook: a row carried under a table", () => {
     const name = await createProject(page)
     try {
       await waitForEditorReady(page)
-      const pickRow = async () => {
-        await page.getByTestId("row-tool").click()
-        await page.getByTestId("row-template-label-button").click()
-      }
-      await pickRow()
+      const text = page.getByTestId("palette").locator('[data-tool="text"]')
+      await text.click()
       {
         const { box } = await getMainCanvas(page)
         const at = devicePoint(box, SCREEN.width / 2, 70, SCREEN)
         await page.mouse.click(at.x, at.y)
       }
-      await pickRow()
-      await carryUnderSnapTable(page, { x: SCREEN.width / 2, y: SCREEN.height - 40 }, null, SCREEN)
-      await pickRow()
-      const { canvas, box } = await getMainCanvas(page)
+      const [first] = await screenObjects(page)
+      // The next text carried by its middle, its top edge 3 px under the
+      // first's bottom: the two snap into a table.
+      await text.click()
+      await carryWithAlt(page, { x: first.x + first.width / 2, y: first.y + first.height + 3 + first.height / 2 })
       const table = await snapTableRect(page)
+      await text.click()
+      const { canvas, box } = await getMainCanvas(page)
       const from = devicePoint(box, SCREEN.width / 2, SCREEN.height - 40, SCREEN)
-      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 4, SCREEN)
+      const to = devicePoint(box, table.x + table.width / 2, table.y + table.height + 3 + first.height / 2, SCREEN)
       await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
       // With Alt, as the handbook says (docs/2026-11-03-placing.md): the
       // picture shows the hint with the key pressed.
       await page.keyboard.down("Alt")
       await page.mouse.move(to.x, to.y, { steps: 10 })
-      await expect(canvas).toHaveAttribute("data-row-drop", /"at":2/)
+      await expect(canvas).toHaveAttribute("data-place-hint", /"now":"New row"/)
       const corner = devicePoint(box, -20, -20, SCREEN)
       await page.screenshot({
         path: path.join(dir, "layout-linie.png"),
         clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
       })
-      await page.mouse.up()
       await page.keyboard.up("Alt")
+      await page.keyboard.press("Escape")
     } finally {
       await deleteProject(page, name)
     }

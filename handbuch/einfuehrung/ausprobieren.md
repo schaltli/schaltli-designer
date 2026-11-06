@@ -36,7 +36,7 @@ Ein Projekt ist fest an seinen Gerätetyp gebunden. Wähle deshalb gleich das Ge
 
 ## Einen Screen bauen
 
-Am schnellsten geht es mit den Baugruppen. Der Reiter <span class="ui">Prebuilt</span> über der Werkzeugleiste zeigt, was die Geräte auf deinem Broker anbieten. Klick auf eine Kachel und dann auf den Screen. Die Baugruppe bringt ihre Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Baugruppen](/designer/baugruppen).
+Am schnellsten geht es mit den Baugruppen. Der Reiter <span class="ui">Prebuilt</span> der Palette zeigt, was die Geräte auf deinem Broker anbieten. Klick auf eine Zeile und dann auf den Screen. Die Baugruppe bringt ihre Topics und Beispielwerte gleich mit. Kündigt auf deinem Broker nichts etwas an, setzt du die Objekte von Hand, siehe [Baugruppen](/designer/baugruppen).
 
 ## Die Vorschau
 
