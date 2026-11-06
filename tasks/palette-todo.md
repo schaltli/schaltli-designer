@@ -23,9 +23,10 @@ Each task: `npm run typecheck`, its spec, `npm run test:quick`, its handbook par
       twice on the page, so the specs moved over as the ribbon went. The
       suite starts docked, every group open, its window 1864 wide.)
 - [x] T7 handbook and pictures, humanizer
-- [ ] Checkpoint B: test:quick green; the user reviews
+- [x] Checkpoint B: test:quick green; the user reviews
       **Halted here 2026-11-06 (build auto).** test:quick: e2e 2245 of 2246
       (settable-level's own 1281 px window too narrow beside the docked
       palette - widened, 36/36); boards red on popups, screen-graph,
       local-topics, charts-actions - each green run alone.
 - [ ] T8 spec «built», test:all
+      Spec marked built 2026-11-06; test:all left to the user («mache ich später»).
