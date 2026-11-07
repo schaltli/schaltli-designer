@@ -100,7 +100,8 @@ import {
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
-import { areaDropAt, type AreaDrop } from "@/lib/drop-into-free"
+import { areaDropAt, middleOf, type AreaDrop } from "@/lib/drop-into-free"
+import { onGlass, type CarryTarget } from "@/lib/carry"
 
 // Interaction imports
 import {
@@ -336,6 +337,14 @@ export interface CanvasProps {
    * one object, `drop` says how.
    */
   onMoveIntoArea?: (ids: string[], into: string | null, drop: SnapDrop | null) => void
+  /**
+   * What a row of the object tree carries while it is dragged
+   * (docs/2026-11-07-tree-carry-and-merge.md): over the canvas it is drawn
+   * as an outline held at its middle, placed and snapped as anything
+   * carried; let go, `onCarryTo` takes it there.
+   */
+  treeCarry?: string[] | null
+  onCarryTo?: (ids: string[], target: CarryTarget) => void
   /** An object dragged out of a table put together by snapping, let go at `to` (the table's space) and snapped or free. */
   onSnapMoveOut?: (tableId: string, objectId: string, to: { x: number; y: number }, drop: SnapDrop | null) => void
   /** A carried row let go: into a table at a row line, or a table of its own at `at` (in the space `parentId` names). */
@@ -823,6 +832,8 @@ export function Canvas({
   onSnapDrop,
   onSnapMoveOut,
   onMoveIntoArea,
+  treeCarry,
+  onCarryTo,
   onBlockCarry,
   ribbonPress,
   onRibbonCarry,
@@ -1260,6 +1271,13 @@ export function Canvas({
   const [placeArea, setPlaceArea] = useState<string | null>(null)
   const [snapSpace, setSnapSpace] = useState<ScreenObject[] | null>(null)
   const [placeHint, setPlaceHint] = useState<PlaceHint | null>(null)
+  // What the object tree carries over the canvas now: its outline, held at
+  // its middle, how far that moves it on the glass, and where it goes.
+  // A docked object dragged (docs/2026-11-03-anchor-dock.md): its area keeps
+  // placing it, so its outline is what follows the pointer - to another
+  // area or a table it snaps to.
+  const [dockDrag, setDockDrag] = useState<SnapRect | null>(null)
+  const [treeDrag, setTreeDrag] = useState<{ ids: string[]; rect: SnapRect; shift: { x: number; y: number }; into: string | null; snap: SnapDrop | null } | null>(null)
   // Whether a carry runs with the mouse button held - dragged - or hangs at
   // the pointer after a click on a tile: the hint says «Release mouse
   // button …» or «Click …» (docs/2026-11-05-quick-blocks.md).
@@ -1334,11 +1352,12 @@ export function Canvas({
   )
 
   // How something carried snaps in a space: with Alt as tables are built,
-  // by its edges (docs/2026-10-09-snap-tables.md); without, only into the
-  // empty cell under the pointer.
+  // by its edges (docs/2026-10-09-snap-tables.md), but into the cell under
+  // the pointer when that is over a table; without, only into the empty
+  // cell under the pointer.
   const placingSnap = useCallback(
     (objects: ScreenObject[], movingId: string, rect: SnapRect, p: { x: number; y: number }, alt: boolean): SnapDrop | null => {
-      if (alt) return snapDropAt(objects, movingId, rect, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale)
+      if (alt) return snapDropAt(objects, movingId, rect, SNAP_ZONE_MM * layoutScale.pixelsPerMm, layoutScale, p)
       const under = snapDropAt(objects, movingId, { x: p.x - 0.5, y: p.y - 0.5, width: 1, height: 1 }, 0, layoutScale)
       return under?.kind === "table" && under.target.kind === "cell" ? under : null
     },
@@ -1354,9 +1373,9 @@ export function Canvas({
   const placeHintFor = useCallback(
     (at: { x: number; y: number }, into: string | null | undefined, snap: SnapDrop | null, altSnap: SnapDrop | null, held: boolean, rowInto = false, rowWithAlt = false): PlaceHint | null => {
       const word = (d: SnapDrop | null) =>
-        !d ? null : d.kind === "pair" ? "Table" : d.target.kind === "cell" ? "Into cell" : d.target.kind === "column" ? "New column" : "New row"
+        !d ? null : d.kind === "pair" ? "Table" : d.merge ? "Merge" : d.target.kind === "cell" ? "Into cell" : d.target.kind === "column" ? "New column" : "New row"
       const phrase = (d: SnapDrop | null) =>
-        !d ? null : d.kind === "pair" ? "to make a table" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
+        !d ? null : d.kind === "pair" ? "to make a table" : d.merge ? "to merge the tables" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
       const area = into ? findObjectById(screen.objects, into) : null
       const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Free") : null
       const where = rowInto ? "Into table" : (word(snap) ?? areaWord)
@@ -1994,11 +2013,14 @@ export function Canvas({
     if (lineLabel) drawSnapChip(ctx, { x: lineLabel.x + 10 / zoom, y: lineLabel.y - 4 / zoom }, lineLabel.text, LAYOUT_HINT_COLOR, zoom)
     // An object carried out of a table: its outline at the pointer.
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
-    if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create"))
+    if (dockDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, dockDrag.x, dockDrag.y, dockDrag.width, dockDrag.height, zoom)
+    // What the object tree carries: its outline at the pointer.
+    if (treeDrag) drawCreationPreviewRect(ctx, treeDrag.rect.x, treeDrag.rect.y, treeDrag.rect.width, treeDrag.rect.height, zoom)
+    if (snapDrop && (dragState?.mode === "drag" || dragState?.mode === "create" || treeDrag))
       drawSnapDrop(ctx, snapDrop, snapSpace ?? (outDrag && dragState?.mode === "drag" ? outDrag.space : drawSpace.objects), layoutScale, LAYOUT_HINT_COLOR, zoom)
     // The free area a dragged object goes into: its outline, and where a
     // table in it takes the object.
-    if (placeArea && (dragState?.mode === "drag" || dragState?.mode === "create")) {
+    if (placeArea && (dragState?.mode === "drag" || dragState?.mode === "create" || treeDrag)) {
       const area = findObjectById(screen.objects, placeArea)
       if (area?.type === "free") {
         const at = childOrigin(screen.objects, area.id)
@@ -2077,6 +2099,8 @@ export function Canvas({
     snapSpace,
     placeHint,
     outDrag,
+    dockDrag,
+    treeDrag,
     interactionObjects,
     drawSpace,
     layoutScale,
@@ -3120,6 +3144,60 @@ export function Canvas({
     [editingGroup, screen.objects, findObjectAtPoint, onSetEditingContainer, onSelectObject, onSelectObjects],
   )
 
+  // A row of the object tree dragged over the canvas
+  // (docs/2026-11-07-tree-carry-and-merge.md): what it carries is held at
+  // its middle, under the pointer, and goes where something carried goes -
+  // into the card or free area under the pointer, else the space open now;
+  // with Alt snapped to a table or an object by its edges, a table merged.
+  const handleTreeDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!treeCarry || treeCarry.length === 0 || previewMode || !onCarryTo) return
+      const glass = treeCarry.map((id) => onGlass(screen.objects, id)).filter((r): r is NonNullable<typeof r> => r !== null)
+      if (glass.length === 0) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+      const pointer = getCanvasCoordinates(e.clientX, e.clientY)
+      const middle = middleOf(glass)
+      const shift = { x: Math.round(pointer.x - middle.x), y: Math.round(pointer.y - middle.y) }
+      const first = glass[0]
+      const rect = { x: first.x + shift.x, y: first.y + shift.y, width: first.width, height: first.height }
+      const target = spaceAtPointer(pointer, treeCarry)
+      const single = treeCarry.length === 1
+      const carried = single ? findObjectById(screen.objects, treeCarry[0]) : null
+      const there = carried ? [...target.objects.filter((o) => o.id !== carried.id), { ...carried, ...rect }] : target.objects
+      const snap = carried ? placingSnap(there, carried.id, rect, pointer, e.altKey) : null
+      const altSnap = carried && !e.altKey ? placingSnap(there, carried.id, rect, pointer, true) : null
+      carryPressedRef.current = true
+      const next = { ids: treeCarry, rect, shift, into: target.id, snap }
+      setTreeDrag((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
+      setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snap) ? current : snap))
+      setSnapSpace(there)
+      setPlaceArea(!snap && target.id && findObjectById(screen.objects, target.id)?.type === "free" ? target.id : null)
+      setPlaceHint(placeHintFor(pointer, target.id, snap, altSnap, e.altKey))
+    },
+    [treeCarry, previewMode, onCarryTo, screen.objects, getCanvasCoordinates, spaceAtPointer, placingSnap, placeHintFor],
+  )
+  const endTreeDrag = useCallback(() => {
+    setTreeDrag(null)
+    setSnapDrop(null)
+    setSnapSpace(null)
+    setPlaceArea(null)
+    setPlaceHint(null)
+  }, [])
+  const handleTreeDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!treeDrag || !onCarryTo) return
+      e.preventDefault()
+      onCarryTo(treeDrag.ids, { into: treeDrag.into, shift: treeDrag.shift, snap: treeDrag.snap })
+      endTreeDrag()
+    },
+    [treeDrag, onCarryTo, endTreeDrag],
+  )
+  // The tree's drag over without a drop here: nothing left drawn.
+  useEffect(() => {
+    if (!treeCarry && treeDrag) endTreeDrag()
+  }, [treeCarry, treeDrag, endTreeDrag])
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Only the left button drives selection/tool/drag behavior here -
@@ -3913,6 +3991,8 @@ export function Canvas({
           setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(here) ? current : here))
           setPlaceArea(into && !snapping ? target.id : null)
           setPlaceHint(placeHintFor(pointer, into ? target.id : undefined, snapping, altSnap, alt))
+          const docked = !!draggedObject.properties?.dock
+          setDockDrag((current) => (!docked ? null : current && JSON.stringify(current) === JSON.stringify(rect) ? current : rect))
         }
 
         if (draggedObject) {
@@ -4895,6 +4975,7 @@ export function Canvas({
     if (dragState?.mode === "drag" || dragState?.mode === "create") {
       setSnapDrop(null)
       setOutDrag(null)
+      setDockDrag(null)
       setAreaDrop(null)
       setPlaceArea(null)
       setPlaceHint(null)
@@ -5133,6 +5214,7 @@ export function Canvas({
         setDragState(null)
         setSnapDrop(null)
         setOutDrag(null)
+        setDockDrag(null)
         setAreaDrop(null)
         setPlaceArea(null)
         setPlaceHint(null)
@@ -5332,6 +5414,9 @@ export function Canvas({
         data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}
         data-place-hint-text={placeHint ? [placeHint.first, placeHint.second ? `${placeHint.second.key} [Alt] ${placeHint.second.text}` : ""].filter(Boolean).join(" / ") : undefined}
         data-place-area={placeArea ?? undefined}
+        // Where what the object tree carries goes now (docs/2026-11-07-tree-carry-and-merge.md), for tests.
+        data-tree-carry={treeDrag ? (treeDrag.into ?? "screen") : undefined}
+        data-dock-drag={dockDrag ? JSON.stringify(dockDrag) : undefined}
         // What a new object being carried is, for tests (docs/2026-11-05-quick-blocks.md, decision 7).
         data-carrying={dragState?.mode === "create" && dragState.placing ? dragState.creatingType : undefined}
         style={{
@@ -5343,6 +5428,9 @@ export function Canvas({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
+        onDragOver={handleTreeDragOver}
+        onDragLeave={endTreeDrag}
+        onDrop={handleTreeDrop}
       />
 
       {previewMode && typingField?.obj.type === "time-field" ? (

@@ -149,9 +149,11 @@ x, y, width and height. The device contract does not change.
   an edge of the dragged object within 5 mm of the facing edge of the other
   (apart or overlapping), the two overlapping across it - side by side at
   the same height or one above the other in line; the nearest pair of
-  edges wins. With the object's middle over a table, the cell under the
-  middle decides; a new column or row at a table's side goes into the row
-  or column of the object's middle (`sideByEdges`, `snapDropAt`).
+  edges wins. With the pointer over a table, the cell under the pointer
+  decides (until 2026-11-07 the object's middle; changed by the user so that
+  one rule holds: what it goes into, the pointer says, what it lines up
+  with, its outline); a new column or row at a table's side goes into the
+  row or column of the object's middle (`sideByEdges`, `snapDropAt`).
   - over an empty cell: the cell lit green - it goes there;
   - near a cell's or the table's edge: a thick line between two columns or
     rows, strong along the row or column the object will be in, faint over

@@ -94,6 +94,7 @@ import { useToast, toast as showToast } from "@/hooks/use-toast"
 import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { moveIntoArea } from "@/lib/drop-into-free"
+import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
@@ -1122,6 +1123,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setRibbonPress(true)
   }, [])
   const ribbonCarryBegun = useCallback(() => setRibbonPress(false), [])
+  // What a row of the object tree carries while it is dragged
+  // (docs/2026-11-07-tree-carry-and-merge.md): the canvas shows where it
+  // goes when the pointer comes onto it. Null: nothing carried from there.
+  const [treeCarry, setTreeCarry] = useState<string[] | null>(null)
   // The building-block tool (lib/bausteine.ts): armed with the catalog entry
   // whose tile on the Prebuilt tab was pressed, its default options and the
   // values its topics hold; carried and let go, it places it. Null: no
@@ -2638,6 +2643,31 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       })
       setEditingContainerId(snaps ? (drop!.kind === "table" ? drop!.tableId : newTableId) : into)
       setSelectedObjectIds(ids)
+    },
+    [currentScreenId, project.nextId, setProject],
+  )
+
+  // Objects carried from the object tree (docs/2026-11-07-tree-carry-and-
+  // merge.md): from wherever they are to `target` - onto the canvas, into a
+  // card, a cell or a new row of a table, or merged with one. One undo step.
+  // What they went into is open afterwards, the objects still chosen.
+  const carryTo = useCallback(
+    (ids: string[], target: CarryTarget) => {
+      const newTableId = `obj-${project.nextId}`
+      const snap = ids.length === 1 ? (target.snap ?? null) : null
+      setProject((prev) => {
+        const scale = layoutScaleOf(prev)
+        return {
+          ...prev,
+          nextId: snap?.kind === "pair" ? prev.nextId + 1 : prev.nextId,
+          screens: prev.screens.map((screen) =>
+            screen.id !== currentScreenId ? screen : { ...screen, objects: carryObjects(screen.objects, ids, { ...target, snap }, scale, newTableId) },
+          ),
+        }
+      })
+      setEditingContainerId(snap ? (snap.kind === "table" ? snap.tableId : newTableId) : target.into)
+      // A merged table is gone; its objects stand in the other one.
+      setSelectedObjectIds(snap?.kind === "table" && snap.merge ? [] : ids)
     },
     [currentScreenId, project.nextId, setProject],
   )
@@ -4733,6 +4763,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMoveObject={moveObject}
             onSnapDrop={snapDrop}
             onSnapMoveOut={snapMoveOut}
+            treeCarry={treeCarry}
+            onCarryTo={carryTo}
             onMoveIntoArea={moveIntoAreaOf}
             onBlockCarry={armedBlockCarry}
             ribbonPress={ribbonPress}
@@ -4864,6 +4896,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   selectedObjectIds={selectedObjectIds}
                   onSelectObject={onSelectObject}
                   onMoveObject={moveObject}
+                  onCarry={setTreeCarry}
+                  onCarryTo={carryTo}
                   onSetEditingContainer={setEditingContainerId}
                   onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
                 />

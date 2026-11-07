@@ -231,6 +231,23 @@ test.describe("snap table: snapping", () => {
     }
   })
 
+  test("a wide box held at its left end goes into the empty cell under the pointer, not where its middle is (decided 2026-11-07)", async ({ page }) => {
+    const wide = { id: "breit", type: "box", x: 20, y: 240, width: 120, height: 20, zIndex: 9, properties: { backgroundColor: "#cccccc" } }
+    const { zip, table } = await snapProject([wide])
+    await loadProject(page, zip)
+    // The pointer onto the empty cell: row 1 (where «Bad» stands), column 1
+    // (where «Pumpe» stands). Held 10 px in from its left end, the box's
+    // middle lies 50 px further right, past the table's right edge.
+    const bad = table.children!.find((c) => c.id === "bad")!
+    const pumpe = table.children!.find((c) => c.id === "pumpe")!
+    const target = { x: table.x + pumpe.x + pumpe.width / 2, y: table.y + bad.y + bad.height / 2 }
+    expect(target.x + 50).toBeGreaterThan(table.x + table.width)
+    await click(page, { x: 30, y: 250 })
+    await drag(page, { x: 30, y: 250 }, target)
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(grid.children!.find((c) => c.id === "breit")?.properties?.cell).toMatchObject({ row: 1, column: 1 })
+  })
+
   test("with a table open, a box placed far from it lies freely on the screen, not in the table", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)

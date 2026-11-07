@@ -519,11 +519,16 @@ export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSi
   return anchored(arrangeSnapTable(table, scale), still.id, still.x, still.y)
 }
 
-/** Where a drop at a point would go in a table. */
+/**
+ * Where a drop at a point would go in a table. A new column goes into
+ * `row`, a new row into `column`; a table carried there (merged,
+ * docs/2026-11-07-tree-carry-and-merge.md) takes `span` rows or columns from
+ * there on.
+ */
 export type SnapTarget =
   | { kind: "cell"; row: number; column: number }
-  | { kind: "column"; at: number; row: number }
-  | { kind: "row"; at: number; column: number }
+  | { kind: "column"; at: number; row: number; span?: number }
+  | { kind: "row"; at: number; column: number; span?: number }
 
 // Which line a coordinate falls on, the gap split between its neighbours.
 function lineAt(starts: number[], gap: number, v: number): number {
@@ -569,7 +574,10 @@ export function snapTargetAt(table: ScreenObject, point: { x: number; y: number 
 }
 
 /** Where a dragged object snaps: beside a free object, or into a table. */
-export type SnapDrop = { kind: "pair"; stillId: string; side: SnapSide } | { kind: "table"; tableId: string; target: SnapTarget }
+export type SnapDrop =
+  | { kind: "pair"; stillId: string; side: SnapSide }
+  // `merge`: what is carried is a table, and its cells join this one.
+  | { kind: "table"; tableId: string; target: SnapTarget; merge?: true }
 
 /** What may stand in a cell: anything but a group, a table and the navigator. */
 export function canStandInCell(obj: ScreenObject): boolean {
@@ -610,17 +618,50 @@ export function sideByEdges(target: SnapRect, rect: SnapRect, zone: number): { s
 /**
  * Where the object `movingId`, standing at `rect`, snaps when let go, among
  * the objects of one space (a screen's, a panel's, a free area's - all in
- * the same coordinates): by its edges, not by where it was held (asked
- * 2026-10-10). With its middle over a table it goes into the cell there, or
- * at the nearest edge of the object standing there; beside a table or a
- * free object, at the side its edge lies against (sideByEdges), a new
+ * the same coordinates). What it goes into, the pointer says; what it lines
+ * up with, its outline (decided 2026-11-07): with the pointer over a table
+ * it goes into the cell there, or at the nearest edge of the object
+ * standing there; beside a table or a free object, by its edges (asked
+ * 2026-10-10), at the side its edge lies against (sideByEdges), a new
  * column or row in the row or column of its middle. The nearest wins. Null
  * when nothing is that near, or when the object may not stand in a cell.
+ * Without `pointer` (an object carried at its middle) its middle stands in.
  */
-export function snapDropAt(objects: ScreenObject[], movingId: string, rect: SnapRect, zone: number, scale: LayoutScale): SnapDrop | null {
+export function snapDropAt(
+  objects: ScreenObject[],
+  movingId: string,
+  rect: SnapRect,
+  zone: number,
+  scale: LayoutScale,
+  pointer?: { x: number; y: number },
+): SnapDrop | null {
   const moving = objects.find((o) => o.id === movingId)
-  if (!moving || !canStandInCell(moving)) return null
+  if (!moving) return null
+  const merging = isSnapTable(moving)
+  if (!merging && !canStandInCell(moving)) return null
   const middle = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+  const at = pointer ?? middle
+  // A table carried: where its first column (row) lands, by that column's
+  // middle - each of its columns goes where it is drawn - and how many it
+  // takes, kept inside the table where it fits.
+  const carried = merging ? snapTableGeometry(moving, scale) : null
+  const startOf = (starts: number[], sizes: number[], gap: number, firstMiddle: number, count: number) => {
+    const n = sizes.length
+    if (count >= n) return 0
+    return Math.min(lineAt(starts, gap, firstMiddle), n - count)
+  }
+  const merged = (obj: ScreenObject, target: SnapTarget): SnapTarget | null => {
+    if (!carried) return target
+    if (target.kind === "cell") return null
+    const g = snapTableGeometry(obj, scale)
+    if (target.kind === "row") {
+      const span = carried.widths.length
+      return { ...target, column: startOf(g.lefts, g.widths, g.gap, rect.x + carried.widths[0] / 2 - obj.x, span), span }
+    }
+    const span = carried.heights.length
+    return { ...target, row: startOf(g.tops, g.heights, g.gap, rect.y + carried.heights[0] / 2 - obj.y, span), span }
+  }
+  const tableDrop = (tableId: string, target: SnapTarget): SnapDrop => (merging ? { kind: "table", tableId, target, merge: true } : { kind: "table", tableId, target })
   let best: { drop: SnapDrop; gap: number } | null = null
   const consider = (drop: SnapDrop, gap: number) => {
     if (!best || gap < best.gap) best = { drop, gap }
@@ -628,10 +669,11 @@ export function snapDropAt(objects: ScreenObject[], movingId: string, rect: Snap
   for (const obj of [...objects].sort((a, b) => b.zIndex - a.zIndex)) {
     if (obj.id === movingId || obj.locked) continue
     if (isSnapTable(obj)) {
-      const inside = middle.x >= obj.x && middle.x < obj.x + obj.width && middle.y >= obj.y && middle.y < obj.y + obj.height
+      const inside = at.x >= obj.x && at.x < obj.x + obj.width && at.y >= obj.y && at.y < obj.y + obj.height
       if (inside) {
-        const target = snapTargetAt(obj, middle, 0, scale)
-        if (target) consider({ kind: "table", tableId: obj.id, target }, -1)
+        const found = snapTargetAt(obj, at, 0, scale)
+        const target = found && merged(obj, found)
+        if (target) consider(tableDrop(obj.id, target), -1)
         continue
       }
       const edge = sideByEdges(obj, rect, zone)
@@ -644,13 +686,49 @@ export function snapDropAt(objects: ScreenObject[], movingId: string, rect: Snap
         : edge.side === "right" ? { kind: "column", at: g.widths.length, row }
         : edge.side === "top" ? { kind: "row", at: 0, column }
         : { kind: "row", at: g.heights.length, column }
-      consider({ kind: "table", tableId: obj.id, target }, Math.abs(edge.gap))
-    } else if (canStandInCell(obj)) {
+      consider(tableDrop(obj.id, merged(obj, target)!), Math.abs(edge.gap))
+    } else if (!merging && canStandInCell(obj)) {
       const edge = sideByEdges(obj, rect, zone)
       if (edge) consider({ kind: "pair", stillId: obj.id, side: edge.side }, Math.abs(edge.gap))
     }
   }
   return (best as { drop: SnapDrop } | null)?.drop ?? null
+}
+
+/**
+ * The table `carried` merged into `table` (docs/2026-11-07-tree-carry-and-
+ * merge.md): its rows inserted at row `at` (kind "row"), its first column
+ * standing in column `start` - or its columns at column `at`, its first row
+ * in row `start`. Lined up by position, not by what the cells hold: where
+ * `carried` is narrower, the cells beside it stay empty; where it is wider,
+ * `table` gets the columns (rows) it lacks. Spans, how each object stands
+ * in its cell and sizes set by hand come along; `carried` itself is gone.
+ */
+export function mergeTables(table: ScreenObject, carried: ScreenObject, kind: "row" | "column", at: number, start: number): ScreenObject {
+  const other = kind === "row" ? "column" : "row"
+  const lineKey = kind === "row" ? "rows" : "columns"
+  const otherKey = kind === "row" ? "columns" : "rows"
+  const c = padded(carried)
+  const size = dimensions(c)
+  const count = kind === "row" ? size.rows : size.columns
+  const across = kind === "row" ? size.columns : size.rows
+  let t = padded(table)
+  for (let i = 0; i < count; i++) t = insertLine(t, at, kind)
+  const lines: SnapLine[] = [...t.properties![lineKey]]
+  c.properties![lineKey].forEach((line: SnapLine, i: number) => (lines[at + i] = { ...line }))
+  t = { ...t, properties: { ...t.properties, [lineKey]: lines } }
+  const have = kind === "row" ? dimensions(t).columns : dimensions(t).rows
+  for (let i = have; i < start + across; i++) {
+    t = insertLine(t, i, other)
+    const others: SnapLine[] = [...t.properties![otherKey]]
+    others[i] = { ...(c.properties![otherKey][i - start] ?? {}) }
+    t = { ...t, properties: { ...t.properties, [otherKey]: others } }
+  }
+  const joined = (c.children ?? []).map((child) => {
+    const cell = snapCellOf(child)
+    return withCell(child, kind === "row" ? { ...cell, row: cell.row + at, column: cell.column + start } : { ...cell, row: cell.row + start, column: cell.column + at })
+  })
+  return padded({ ...t, children: [...(t.children ?? []), ...joined] })
 }
 
 /**
@@ -674,7 +752,10 @@ export function applySnapDrop(objects: ScreenObject[], movingId: string, drop: S
   const laid = arrangeSnapTable(table, scale)
   const t = drop.target
   let next: ScreenObject
-  if (t.kind === "cell") {
+  if (isSnapTable(moving)) {
+    if (t.kind === "cell") return objects
+    next = mergeTables(laid, arrangeSnapTable(moving, scale), t.kind, t.at, t.kind === "row" ? t.column : t.row)
+  } else if (t.kind === "cell") {
     if (occupancy(laid)[t.row]?.[t.column] !== null) return objects
     next = placeInCell(laid, moving, t.row, t.column)
   } else if (t.kind === "column") next = placeInCell(insertSnapColumn(laid, t.at), moving, t.row, t.at)

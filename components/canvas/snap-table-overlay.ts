@@ -19,8 +19,8 @@ export const SNAP_CELL_COLOR = "#16a34a"
 /**
  * Where a dragged object will go when let go (docs/2026-10-09-snap-tables.md):
  * an empty cell lit green; a new column or row as a thick line between two,
- * strong along the row or column the object will stand in and faint over
- * the rest; beside a free object, a line along the edge it joins.
+ * strong along the row or column the object will stand in (a carried
+ * table's rows or columns) and faint over the rest; beside a free object, a line along the edge it joins.
  * `objects` are the space's objects in the canvas's coordinates.
  */
 export function drawSnapDrop(ctx: CanvasRenderingContext2D, drop: SnapDrop, objects: ScreenObject[], scale: LayoutScale, color: string, zoom: number): void {
@@ -80,13 +80,16 @@ export function drawSnapDrop(ctx: CanvasRenderingContext2D, drop: SnapDrop, obje
   if (t.kind === "column") {
     const x = t.at === 0 ? table.x - g.gap / 2 : t.at >= g.widths.length ? table.x + table.width + g.gap / 2 : table.x + g.lefts[t.at] - g.gap / 2
     line(x, table.y, x, table.y + table.height, 2, 0.35)
+    // Strong over the rows it takes: one, or a carried table's (merged).
     const row = Math.min(t.row, g.heights.length - 1)
-    line(x, table.y + g.tops[row], x, table.y + g.tops[row] + g.heights[row], 4, 1)
+    const last = Math.min(row + (t.span ?? 1) - 1, g.heights.length - 1)
+    line(x, table.y + g.tops[row], x, table.y + g.tops[last] + g.heights[last], 4, 1)
   } else {
     const y = t.at === 0 ? table.y - g.gap / 2 : t.at >= g.heights.length ? table.y + table.height + g.gap / 2 : table.y + g.tops[t.at] - g.gap / 2
     line(table.x, y, table.x + table.width, y, 2, 0.35)
     const column = Math.min(t.column, g.widths.length - 1)
-    line(table.x + g.lefts[column], y, table.x + g.lefts[column] + g.widths[column], y, 4, 1)
+    const last = Math.min(column + (t.span ?? 1) - 1, g.widths.length - 1)
+    line(table.x + g.lefts[column], y, table.x + g.lefts[last] + g.widths[last], y, 4, 1)
   }
   ctx.restore()
 }

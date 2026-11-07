@@ -27,7 +27,8 @@ import {
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
-import { isSnapTable, snapCellOf } from "@/lib/snap-table"
+import { canStandInCell, dimensions, isSnapTable, snapCellOf } from "@/lib/snap-table"
+import type { CarryTarget } from "@/lib/carry"
 import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
@@ -44,6 +45,11 @@ interface ObjectTreePanelProps {
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
+  // What a dragged row carries, for the canvas to take it (null: the drag
+  // is over) - docs/2026-11-07-tree-carry-and-merge.md.
+  onCarry?: (ids: string[] | null) => void
+  // A row dropped onto a table's row: carried there as its new last row.
+  onCarryTo?: (ids: string[], target: CarryTarget) => void
   // Opens a panel or a group for editing on the canvas (null: none) - see
   // project-editor.tsx's editingContainerId.
   onSetEditingContainer: (containerId: string | null) => void
@@ -72,6 +78,8 @@ interface DropTarget {
   parentId: string | null
   anchor: MoveAnchor
   valid: boolean
+  // Onto a table: added as its last row (merged, if a table is carried).
+  appendTo?: string
 }
 
 // How close to the list's edge a drag starts scrolling it, and how long a
@@ -96,6 +104,8 @@ export function ObjectTreePanel({
   selectedObjectIds,
   onSelectObject,
   onMoveObject,
+  onCarry,
+  onCarryTo,
   onSetEditingContainer,
   onToggleLocked,
 }: ObjectTreePanelProps) {
@@ -157,6 +167,23 @@ export function ObjectTreePanel({
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const relY = (e.clientY - rect.top) / rect.height
+
+      // Onto a table put together by snapping: one object as its new last
+      // row, a table merged into it - not the table itself or what it holds.
+      const carried = draggedIds.length === 1 ? findObjectById(objects, draggedIds[0]) : null
+      if (
+        isSnapTable(obj) &&
+        onCarryTo &&
+        carried &&
+        (canStandInCell(carried) || isSnapTable(carried)) &&
+        findParentOf(objects, carried.id)?.parent?.id !== obj.id &&
+        relY > 0.25 &&
+        relY < 0.75
+      ) {
+        setDropTarget({ hoveredId: obj.id, zone: "into", parentId: obj.id, anchor: { type: "end" }, valid: true, appendTo: obj.id })
+        e.dataTransfer.dropEffect = "move"
+        return
+      }
       const canGoInto = (obj.type === "panel" || obj.type === "group" || isContainerType(obj.type)) && canDropAll(obj.id)
 
       let zone: DropZone
@@ -190,7 +217,7 @@ export function ObjectTreePanel({
       setDropTarget({ hoveredId: obj.id, zone, parentId: targetParentId, anchor, valid })
       e.dataTransfer.dropEffect = valid ? "move" : "none"
     },
-    [dragging, draggedIds, canDropAll, laysOut, collapsedIds],
+    [dragging, draggedIds, canDropAll, laysOut, collapsedIds, objects, onCarryTo],
   )
 
   // Near the list's top or bottom edge while dragging: scroll, faster the
@@ -210,18 +237,28 @@ export function ObjectTreePanel({
   )
 
   const commitDrop = useCallback(() => {
-    if (dragging && dropTarget?.valid) {
+    const table = dropTarget?.appendTo ? findObjectById(objects, dropTarget.appendTo) : null
+    if (dragging && table && onCarryTo) {
+      const carried = findObjectById(objects, draggedIds[0])
+      const merge = !!carried && isSnapTable(carried)
+      const target = { kind: "row" as const, at: dimensions(table).rows, column: 0, span: merge && carried ? dimensions(carried).columns : 1 }
+      onCarryTo(draggedIds, {
+        into: findParentOf(objects, table.id)?.parent?.id ?? null,
+        snap: merge ? { kind: "table", tableId: table.id, target, merge: true } : { kind: "table", tableId: table.id, target },
+      })
+    } else if (dragging && dropTarget?.valid) {
       onMoveObject(draggedIds, dropTarget.parentId, dropTarget.anchor)
     }
     setDraggedIds([])
     setDropTarget(null)
-  }, [dragging, draggedIds, dropTarget, onMoveObject])
+  }, [dragging, draggedIds, dropTarget, onMoveObject, onCarryTo, objects])
 
   const handleDragEnd = useCallback(() => {
     setDraggedIds([])
     setDropTarget(null)
     hoverRef.current = null
-  }, [])
+    onCarry?.(null)
+  }, [onCarry])
 
   // Each container's type by id, for what a click on one of its rows opens.
   const parentTypes = new Map<string, string>()
@@ -263,7 +300,10 @@ export function ObjectTreePanel({
           draggable
           onDragStart={(e) => {
             e.stopPropagation()
-            setDraggedIds(selectedObjectIds.includes(obj.id) && selectedObjectIds.length > 1 ? selectedObjectIds : [obj.id])
+            const ids = selectedObjectIds.includes(obj.id) && selectedObjectIds.length > 1 ? selectedObjectIds : [obj.id]
+            setDraggedIds(ids)
+            // Panels stay in their switcher; anything else can go onto the canvas.
+            onCarry?.(obj.type === "panel" ? null : ids)
             e.dataTransfer.effectAllowed = "move"
             e.dataTransfer.setData("text/plain", obj.id)
           }}

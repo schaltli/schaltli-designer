@@ -52,6 +52,8 @@ Sind mehrere Objekte ausgewählt, bietet die rechte Spalte an:
 
 <span class="ui">Objects</span> zeigt alle Objekte des Screens, das vorderste oben. Ein Klick wählt ein Objekt. Durch Ziehen änderst du die Reihenfolge, also was vor was liegt. Ziehst du ein Objekt auf die Mitte eines Panels, landet es in diesem Panel.
 
+Aus der Liste kannst du ein Objekt auch auf den Screen ziehen. So kommst du an alles heran, auch an ein Objekt tief in einer Card oder Tabelle, das du auf dem Screen erst mit mehreren Doppelklicks erreichst. Über dem Screen hängt es mit seiner Mitte am Mauszeiger, als Umriss, und landet beim Loslassen wie beim Verschieben: frei auf dem Screen, in der Card oder Free-Fläche unter dem Mauszeiger oder mit <kbd>Alt</kbd> in einer Tabelle, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). Lässt du es in der Liste auf der Mitte einer Tabellenzeile los, kommt es als neue letzte Zeile in diese Tabelle. Ist es selbst eine Tabelle, werden die beiden eine, siehe [Zwei Tabellen zusammenführen](/objekte/anordnen#zusammenstecken).
+
 Mit dem Schloss am Ende einer Zeile sperrst du ein Objekt auf dem Screen. Ein Klick geht dann durch es hindurch, und verschieben oder in der Grösse ändern lässt es sich dort nicht mehr. In <span class="ui">Objects</span> wählst und bearbeitest du es weiterhin. Das Schloss erscheint, wenn du mit der Maus über die Zeile fährst; bei einem gesperrten Objekt steht es immer da.
 
 ## Kopieren und Löschen

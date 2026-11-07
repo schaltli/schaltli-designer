@@ -413,6 +413,28 @@ test.describe("snap table: drops", () => {
     expect(abs(left[0], "r0c0")).toEqual(abs(table, "r0c0"))
   })
 
+  test("over a table the pointer picks the cell, not the middle of what is carried (decided 2026-11-07)", () => {
+    const table = grid3()
+    const g = snapTableGeometry(table, SCALE)
+    const wide = free("wide", 0, 0, { width: 120 })
+    // Held near its left end: the pointer over the empty cell (1,1), the
+    // object's middle 50 px further right, over the occupied cell (1,2).
+    const pointer = { x: table.x + g.lefts[1] + g.widths[1] / 2, y: table.y + g.tops[1] + g.heights[1] / 2 }
+    const held = at(pointer.x - 10, pointer.y - 10, 120)
+    expect(held.x + held.width / 2).toBeGreaterThanOrEqual(table.x + g.lefts[2])
+    expect(snapDropAt([table, wide], "wide", held, 25, SCALE, pointer)).toEqual({ kind: "table", tableId: table.id, target: { kind: "cell", row: 1, column: 1 } })
+    // Without a pointer (carried at its middle) the middle stands in, as before.
+    expect(snapDropAt([table, wide], "wide", held, 25, SCALE)).not.toEqual({ kind: "table", tableId: table.id, target: { kind: "cell", row: 1, column: 1 } })
+    // Beside the table it is still the edges: the pointer far off, the right
+    // edge 4 px short of the table's left edge, level with row 0.
+    const beside = at(table.x - 124, table.y, 120)
+    expect(snapDropAt([table, wide], "wide", beside, 25, SCALE, { x: beside.x + 5, y: beside.y + 10 })).toEqual({
+      kind: "table",
+      tableId: table.id,
+      target: { kind: "column", at: 0, row: 0 },
+    })
+  })
+
   test("a group, a table and anything far away do not snap", () => {
     const a = free("a", 100, 100)
     const group = free("g", 0, 0, { type: "group", children: [] })
