@@ -67,7 +67,7 @@ import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-li
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { renderToggleButton } from "./renderers/render-toggle-button"
-import { renderCamera } from "./renderers/render-camera"
+import { renderCamera, type CameraPreviewEntry } from "./renderers/render-camera"
 import { clampCameraSize } from "@/lib/camera-size"
 import { renderTextField, textFieldValue } from "./renderers/render-text-field"
 import { TextFieldEntry } from "./text-field-entry"
@@ -1505,6 +1505,7 @@ export function Canvas({
   // so the adornment's off-screen covers vanish into that backdrop exactly.
   const offscreenColor = readOffscreenColor()
   const { image: adornmentImage, svgDoc: adornmentSvgDoc } = useAdornmentImage(adornment, offscreenColor)
+  const cameraPreviewRef = useRef(new Map<string, CameraPreviewEntry>())
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const bdfFontCacheRef = useRef<Map<string, any>>(new Map())
 
@@ -2616,7 +2617,7 @@ export function Canvas({
         break
 
       case "camera":
-        renderCamera(ctx, obj)
+        renderCamera(ctx, obj, previewMode ? { cache: cameraPreviewRef.current, requestRedraw: draw } : undefined)
         break
 
       case "toggle-button":

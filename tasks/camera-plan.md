@@ -98,8 +98,8 @@ Password. Offered only where the device declares the type.
 
 ### T5 Designer: preview (designer) - S
 
-The URL's image where the browser can load it, else the placeholder; a still
-image in the demo instance.
+The URL's image where the browser can load it, else the placeholder (also on
+the demo instance, an https page).
 
 - Accept: a mocked image is shown; a failing one, an https page and a URL with
   credentials give the placeholder.
@@ -108,8 +108,10 @@ image in the demo instance.
 ### T6 Export (designer) - M
 
 `lib/project-zip.ts`, `lib/android-export.ts`, `lib/asset-export.ts`, section in
-`docs/device-contract.md`; a conformance specimen; T2's hand-written fixture
-replaced by one built from the designer.
+`docs/device-contract.md`; T2's hand-written fixture replaced by one built from
+the designer. No conformance specimen: its picture comes from a camera, so
+designer and device cannot agree pixel for pixel; `camera.js` reads the frame
+number at the object's corner instead, which proves the place.
 
 - Accept: the export matches the spec's contract for boards and Android.
 - Accept: the 4" shows the designer's project; designer and device agree in

@@ -11,9 +11,6 @@
 //      /panel.bmp from its loop, so the glass stands still while it does, and
 //      the time just before the request is the moment that counts.
 //
-// Until the designer has the type (T4-T6), the Camera is put into the built zip
-// by hand, as the spec's contract has it.
-//
 // Run: node -r ./hil/device-auth.js hil/waveshare4v3b/camera.js --device <ip> [--long]
 // (--long: five minutes against a slow camera, success criterion 2)
 // Needs the dev server and the HIL broker. Exit 0 pass, 1 fail, 2 skipped.
@@ -23,7 +20,6 @@ const os = require("os")
 const path = require("path")
 const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
-const JSZip = require("jszip")
 const { chromium } = require("playwright")
 const { Jimp } = require("jimp")
 const { loadDdf } = require("../conformance/ddf")
@@ -68,7 +64,7 @@ function lanAddress(deviceIp) {
   return (all.find((a) => a.address.startsWith(`${net}.`)) ?? all.find((a) => a.address.startsWith("192.168.")))?.address
 }
 
-function project(ddf) {
+function project(ddf, url) {
   const { project: p } = buildProject(ddf, { topicPrefix: PREFIX })
   const sorted = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
   const font = sorted[Math.floor(sorted.length * 0.5)]
@@ -105,6 +101,9 @@ function project(ddf) {
             ],
           },
         },
+        ...(BASELINE
+          ? []
+          : [{ id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } }]),
         {
           id: "sw",
           type: "switch",
@@ -134,19 +133,6 @@ function project(ddf) {
   return p
 }
 
-async function withCamera(zipBase64, url) {
-  const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
-  const name = Object.keys(zip.files).find((f) => f.endsWith("project.json"))
-  if (!name) throw new Error("no project.json in the built zip")
-  const json = JSON.parse(await zip.file(name).async("string"))
-  const screen = json.screens.find((s) => s.id === SCREEN_ID)
-  if (!screen) throw new Error("the Camera's screen is not in the built project")
-  screen.objects.push({ id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } })
-  if (BASELINE) screen.objects.pop()
-  zip.file(name, JSON.stringify(json))
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
-}
-
 async function install(base, ddf, url) {
   const browser = await chromium.launch()
   let built
@@ -154,12 +140,12 @@ async function install(base, ddf, url) {
     const page = await browser.newPage()
     await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" })
     await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
-    built = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project(ddf))
+    built = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project(ddf, url))
   } finally {
     await browser.close()
   }
   const zipPath = path.join(os.tmpdir(), `hil-camera-${RUN}.zip`)
-  fs.writeFileSync(zipPath, await withCamera(built, url))
+  fs.writeFileSync(zipPath, Buffer.from(built, "base64"))
   try {
     execFileSync("curl", ["-s", "--show-error", "-m", "60", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
   } catch (err) {

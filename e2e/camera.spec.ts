@@ -1,19 +1,22 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
 import fs from "fs"
+import http from "http"
+import type { AddressInfo } from "net"
 import os from "os"
 import path from "path"
-import { chooseDevice, createProject, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, ROUND_FIXTURE_SCREEN, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { seedPapers3Ddf, seedRoundFixtureDdf, seedWaveshare4Ddf } from "./ddf-seed"
 import { CAMERA_MAX, CAMERA_MIN, clampCameraSize } from "../lib/camera-size"
 import { placedSize } from "../lib/placing"
+import { browserCanLoad } from "../components/canvas/renderers/render-camera"
 
 // The Camera in the designer (docs/2026-11-09-camera.md, T4): its size, its
 // fields, and only where the device declares it. Devices: hil/waveshare4v3b/camera.js.
 
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
-async function projectWithCamera(): Promise<string> {
+async function projectWithCamera(url = "http://192.168.1.50/capture"): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   project.screens[0].objects = [
@@ -25,7 +28,7 @@ async function projectWithCamera(): Promise<string> {
       y: 60,
       width: 200,
       height: 150,
-      properties: { url: "http://192.168.1.50/capture", username: "", password: "" },
+      properties: { url, username: "", password: "" },
     },
   ]
   zip.file("project.json", JSON.stringify(project))
@@ -101,4 +104,120 @@ test.describe("Camera in the palette", () => {
     test.skip(!(await seedPapers3Ddf(deviceId)), "schaltli-firmware not checked out")
     await expect(await paletteOn(page, deviceId)).toHaveCount(0)
   })
+})
+
+test.describe("Camera preview", () => {
+  test("what a browser can load", () => {
+    expect(browserCanLoad("http://10.0.0.7/shot.jpg", "", "http:")).toBe(true)
+    expect(browserCanLoad("http://10.0.0.7/shot.jpg", "van", "http:")).toBe(false)
+    expect(browserCanLoad("http://10.0.0.7/shot.jpg", "", "https:")).toBe(false)
+    expect(browserCanLoad("https://cam/shot.jpg", "", "https:")).toBe(true)
+    expect(browserCanLoad("", "", "http:")).toBe(false)
+  })
+})
+
+test.describe("Camera preview on the canvas", () => {
+  // A 64x64 red PNG, smaller than the object: centred and not enlarged.
+  const RED = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAd0lEQVR4AeXBAQEAAAiDMKR/5xuE7QYjTOIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIkTuIeUzUCfsRYvj4AAAAASUVORK5CYII=",
+    "base64",
+  )
+  const colourAt = async (page: Page, ox: number, oy: number) => {
+    const { canvas, box } = await getMainCanvas(page)
+    const point = devicePoint(box, ox, oy, ROUND_FIXTURE_SCREEN)
+    return canvas.evaluate((el, [px, py]) => {
+      const c = el as HTMLCanvasElement
+      const rect = c.getBoundingClientRect()
+      return Array.from(c.getContext("2d")!.getImageData(Math.round(((px - rect.left) / rect.width) * c.width), Math.round(((py - rect.top) / rect.height) * c.height), 1, 1).data.slice(0, 3))
+    }, [point.x, point.y])
+  }
+  const CENTRE = { x: 40 + 100, y: 60 + 75 }
+  const isRed = ([r, g, b]: number[]) => r > 200 && g < 60 && b < 60
+
+  async function preview(page: Page, url?: string) {
+    await seedRoundFixtureDdf()
+    await loadProject(page, await projectWithCamera(url))
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+  }
+
+  test("shows the camera's picture", async ({ page }) => {
+    await page.route("http://192.168.1.50/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "Access-Control-Allow-Origin": "*" }, body: RED }))
+    await preview(page)
+    await expect.poll(async () => isRed(await colourAt(page, CENTRE.x, CENTRE.y)), { timeout: 15000 }).toBe(true)
+    // Not enlarged: the corner of the object is still the stand-in.
+    expect(isRed(await colourAt(page, 44, 64))).toBe(false)
+  })
+
+  // Reading the canvas back, as a switch's pills and a gauge do while drawing.
+  test("a camera that does not allow it keeps the stand-in and the canvas readable", async ({ page }) => {
+    // A real server: Playwright's route.fulfill answers a CORS request by itself.
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "image/png" })
+      res.end(RED)
+    })
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+    try {
+      const { port } = server.address() as AddressInfo
+      await preview(page, `http://127.0.0.1:${port}/shot.jpg`)
+      await page.waitForTimeout(1500)
+      expect(isRed(await colourAt(page, CENTRE.x, CENTRE.y))).toBe(false)
+    } finally {
+      server.close()
+    }
+  })
+
+  test("keeps the stand-in when the camera does not answer", async ({ page }) => {
+    await page.route("http://192.168.1.50/**", (route) => route.abort())
+    await preview(page)
+    await page.waitForTimeout(1500)
+    expect(isRed(await colourAt(page, CENTRE.x, CENTRE.y))).toBe(false)
+  })
+})
+
+test.describe("Camera in both exports", () => {
+  const project = {
+    name: "camera-export",
+    screenWidth: 480,
+    screenHeight: 480,
+    fonts: [],
+    assets: [],
+    topics: [],
+    hardwareButtons: [],
+    settings: { colorDepth: "24bit", exportFormat: "esp32", gridSize: 10, snapTolerance: 5, snapGrid: "{}" },
+    nextId: 20,
+    screens: [
+      {
+        id: "s",
+        name: "S",
+        objects: [
+          {
+            id: "cam",
+            type: "camera",
+            zIndex: 1,
+            x: 40,
+            y: 60,
+            width: 200,
+            height: 150,
+            properties: { url: "http://10.0.0.7/capture", username: "van", password: "geheim" },
+          },
+        ],
+      },
+    ],
+  }
+
+  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
+    test(`${hook}: the contract's fields`, async ({ page }) => {
+      await page.goto("/test-render")
+      await page.waitForFunction(() => (window as any).__testRenderReady === true, undefined, { timeout: 90000 })
+      const built = await page.evaluate(([h, p]) => (window as any)[h as string](p), [hook, project] as const)
+      const zip = await JSZip.loadAsync(Buffer.from(built as string, "base64"))
+      const name = Object.keys(zip.files).find((f) => f.endsWith("project.json") || f.endsWith("bundle.json"))
+      expect(name, Object.keys(zip.files).join(" ")).toBeTruthy()
+      const json = JSON.parse(await zip.file(name!)!.async("string"))
+      const camera = JSON.stringify(json).match(/\{[^{}]*"type":"camera"[^{}]*\{[^{}]*\}[^{}]*\}/)?.[0] ?? ""
+      expect(camera).toContain('"url":"http://10.0.0.7/capture"')
+      expect(camera).toContain('"username":"van"')
+      expect(camera).toContain('"password":"geheim"')
+    })
+  }
 })

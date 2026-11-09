@@ -9,8 +9,8 @@ Each task: `npm run typecheck`, its spec or HIL case, `npm run test:quick`.
 - [x] Checkpoint A (2026-11-09): 10.2 images/s, delay 100 ms; the user: go on, with criterion 4 relative to the same screen without a Camera
 - [x] T3 firmware: «No live image», Basic, 256 KB, no credentials in logs; HIL for 2, 3, 6, 7, 9
 - [x] T4 designer: type, placeholder, sizes, properties, only where declared; e2e
-- [ ] T5 designer: preview and demo still image; e2e
-- [ ] T6 designer: export, device contract, conformance specimen, fixture from the designer
+- [x] T5 designer: preview and demo still image; e2e
+- [x] T6 designer: export, device contract, conformance specimen, fixture from the designer
 - [ ] Checkpoint B: the user places one and sees it on the 4"
 - [ ] T7 firmware: 4.3B declared, HIL, COM3 logged
 - [ ] T8 firmware: Knob measured
