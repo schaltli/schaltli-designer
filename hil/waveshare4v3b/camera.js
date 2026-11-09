@@ -233,6 +233,8 @@ async function measureDelay(base, cam) {
     const shown = readFrameNumber(luma, CAMERA.x, CAMERA.y, 1)
     if (shown === null) {
       unread++
+      fs.copyFileSync(file, path.join(OUT_DIR, `unread-${i}.bmp`))
+      console.log(`  sample ${i} unread: ${await cameraLine(base)}`)
       continue
     }
     // Across the loop's seam, and a frame ahead of `due` is a small negative.
@@ -332,10 +334,11 @@ async function checkFailures(base, cam, check, soakMs) {
       worst = Math.max(worst, ms)
       samples++
     }
-    await sleep(2000)
+    // /panel.bmp is served from the loop: the window for the pause starts after it.
     try {
-      const body = (await get(`${base}/api/debug`)).body
       await get(`${base}/api/debug?set=camerastats=reset`)
+      await sleep(2000)
+      const body = (await get(`${base}/api/debug`)).body
       const line = body.split("\n").find((l) => l.startsWith("camera:")) ?? ""
       const psram = /psram free (\d+) KB/.exec(body)?.[1]
       const gap = field(line, /loop gap max ms ([\d.]+)/)
