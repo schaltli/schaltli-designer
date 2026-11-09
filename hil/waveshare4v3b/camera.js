@@ -31,11 +31,26 @@ const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = Date.now().toString(36)
 const PREFIX = `hil-camera-${RUN}`
 const SCREEN_ID = `camera-${RUN}`
-const CAMERA = { x: 0, y: 0, width: 320, height: 240 }
-const ABOVE = { x: 220, y: 190, width: 60, height: 30 } // an object on the picture
-const SWITCH = { x: 340, y: 100, width: 120, height: 56 }
-const DIAGRAM = { x: 0, y: 250, width: 470, height: 225 }
-const IDLE_TAP = { x: 400, y: 30 }
+// Where things go on a 480-wide screen, and on the Knob's round 360: the
+// picture whole within the square (its corners off the glass), the switch below
+// it, no room for the diagram (T8, 2026-11-09).
+const LAYOUTS = {
+  wide: {
+    CAMERA: { x: 0, y: 0, width: 320, height: 240 },
+    ABOVE: { x: 220, y: 190, width: 60, height: 30 }, // an object on the picture
+    SWITCH: { x: 340, y: 100, width: 120, height: 56 },
+    DIAGRAM: { x: 0, y: 250, width: 470, height: 225 },
+    IDLE_TAP: { x: 400, y: 30 },
+  },
+  round360: {
+    CAMERA: { x: 20, y: 60, width: 320, height: 240 },
+    ABOVE: { x: 200, y: 230, width: 60, height: 30 },
+    SWITCH: { x: 130, y: 304, width: 100, height: 44 },
+    DIAGRAM: null,
+    IDLE_TAP: { x: 180, y: 30 },
+  },
+}
+let { CAMERA, ABOVE, SWITCH, DIAGRAM, IDLE_TAP } = LAYOUTS.wide
 const ABOVE_SAMPLES = 12
 const MAX_FONTS_PARSED = 8 // the project's own and the one for «No live image»; 4 seen
 const CREDENTIALS = { user: "hilcam", password: "s3cret-hil-camera" }
@@ -43,8 +58,8 @@ const CREDENTIALS = { user: "hilcam", password: "s3cret-hil-camera" }
 const MEASURE_MS = 20000
 const MIN_IMAGES_PER_SECOND = 5
 // The same screen without a Camera (--baseline), plus the spec's 150 ms:
-// 126 ms on the 4", 136 on the 4.3B (2026-11-09).
-const LOOP_GAP_BASELINE_MS = { "waveshare-touch-lcd-4": 126, "waveshare-touch-lcd-4v3b": 136 }
+// 126 ms on the 4", 136 on the 4.3B, 13 on the Knob (no diagram there) (2026-11-09).
+const LOOP_GAP_BASELINE_MS = { "waveshare-touch-lcd-4": 126, "waveshare-touch-lcd-4v3b": 136, "waveshare-knob-1v8": 13 }
 const LOOP_GAP_ALLOWANCE_MS = 150
 const MAX_MEDIAN_DELAY_MS = 500
 const DELAY_SAMPLES = 15
@@ -75,7 +90,7 @@ function project(ddf, url) {
   const font = sorted[Math.floor(sorted.length * 0.5)]
   const small = sorted[Math.floor(sorted.length * 0.3)]
   const topic = (name) => `${PREFIX}/${name}`
-  const at = (fx, fy) => ({ x: Math.round(DIAGRAM.width * fx), y: Math.round(DIAGRAM.height * fy) })
+  const at = (fx, fy) => ({ x: Math.round((DIAGRAM?.width ?? 0) * fx), y: Math.round((DIAGRAM?.height ?? 0) * fy) })
   const watts = [{ text: "{watts} W" }]
   p.name = "HIL camera"
   p.fonts = ddf.fonts
@@ -87,7 +102,7 @@ function project(ddf, url) {
       name: "Camera",
       backgroundColor: "#ffffff",
       objects: [
-        {
+        ...(DIAGRAM ? [{
           id: "diagram",
           type: "energy-diagram",
           zIndex: 1,
@@ -105,7 +120,7 @@ function project(ddf, url) {
               { id: "fridge", role: "sink", name: "Kühlschrank", colorRole: "energyGrid", topic: topic("fridge"), lines: watts, ...at(0.18, 0.8) },
             ],
           },
-        },
+        }] : []),
         ...(BASELINE
           ? []
           : [
@@ -180,7 +195,12 @@ async function tap(base, x, y) {
   await touch(base, x, y, false)
 }
 
-const cameraLine = async (base) => (await get(`${base}/api/debug`)).body.split("\n").find((l) => l.startsWith("camera:")) ?? ""
+// The RGB boards answer in lines, the Knob in JSON.
+const cameraLine = async (base) => {
+  const body = (await get(`${base}/api/debug`)).body
+  if (body.trimStart().startsWith("{")) return JSON.parse(body).camera ?? ""
+  return body.split("\n").find((l) => l.startsWith("camera:")) ?? ""
+}
 const field = (line, re) => Number(re.exec(line)?.[1] ?? NaN)
 
 // Values changing as a van's do: every couple of seconds unless told otherwise.
@@ -267,7 +287,11 @@ async function objectAboveStays(base) {
   return kept
 }
 
-const uptime = async (base) => Number(/uptime (\d+) s/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
+const uptime = async (base) => {
+  const body = (await get(`${base}/api/debug`)).body
+  const ms = /"uptimeMs":(\d+)/.exec(body)
+  return ms ? Math.floor(Number(ms[1]) / 1000) : Number(/uptime (\d+) s/.exec(body)?.[1] ?? -1)
+}
 
 // What only a board can say about failure (success criteria 2, 3, 6, 7, 9).
 async function checkFailures(base, cam, check, soakMs) {
@@ -346,7 +370,7 @@ async function checkFailures(base, cam, check, soakMs) {
       await get(`${base}/api/debug?set=camerastats=reset`)
       await sleep(2000)
       const body = (await get(`${base}/api/debug`)).body
-      const line = body.split("\n").find((l) => l.startsWith("camera:")) ?? ""
+      const line = body.trimStart().startsWith("{") ? (JSON.parse(body).camera ?? "") : (body.split("\n").find((l) => l.startsWith("camera:")) ?? "")
       const psram = /psram free (\d+) KB/.exec(body)?.[1]
       const gap = field(line, /loop gap max ms ([\d.]+)/)
       maxGap = Math.max(maxGap, gap)
@@ -376,7 +400,8 @@ async function measureTaps(base) {
   }
   const debug = (await get(`${base}/api/debug`)).body
   const m = /tap latency: (\d+) taps, median ([\d.]+) ms, p90 ([\d.]+) ms, worst ([\d.]+) ms/.exec(debug)
-  if (!m) throw new Error("no tap latency on /api/debug")
+  // The Knob does not measure it (T8 asks criteria 1, 3 and 4 of it).
+  if (!m) return null
   return { taps: Number(m[1]), median: Number(m[2]), worst: Number(m[4]) }
 }
 
@@ -406,6 +431,7 @@ async function main() {
   }
 
   const ddf = await loadDdf(device)
+  ;({ CAMERA, ABOVE, SWITCH, DIAGRAM, IDLE_TAP } = ddf.screen.width < 480 ? LAYOUTS.round360 : LAYOUTS.wide)
   if (!ddf.supportedObjectTypes.includes("camera")) {
     console.warn("SKIPPED - this board does not declare camera")
     process.exit(2)
@@ -433,7 +459,7 @@ async function main() {
   const gap = field(line, /loop gap max ms ([\d.]+)/)
   if (BASELINE) {
     const taps = await measureTaps(base)
-    console.log(`  baseline: loop gap max ${gap} ms; taps ${taps.taps}, median ${taps.median} ms, worst ${taps.worst} ms`)
+    console.log(`  baseline: loop gap max ${gap} ms; ${taps ? `taps ${taps.taps}, median ${taps.median} ms, worst ${taps.worst} ms` : "taps not measured on this board"}`)
     stopPublishing()
     client.end()
     await cam.stop()
@@ -445,8 +471,10 @@ async function main() {
   check(`the loop never pauses more than ${maxGap} ms`, baseline !== undefined && gap <= maxGap, baseline === undefined ? `no baseline for ${ddf.deviceId}: run --baseline` : `${gap} ms`)
 
   const taps = await measureTaps(base)
-  console.log(`  taps: ${taps.taps}, median ${taps.median} ms, worst ${taps.worst} ms`)
-  check("every tap was seen", taps.taps >= TAPS, `${taps.taps} of ${TAPS}`)
+  if (taps) {
+    console.log(`  taps: ${taps.taps}, median ${taps.median} ms, worst ${taps.worst} ms`)
+    check("every tap was seen", taps.taps >= TAPS, `${taps.taps} of ${TAPS}`)
+  } else console.log("  taps: not measured on this board")
 
   const { delays, unread } = await measureDelay(base, cam)
   const median = delays[Math.floor(delays.length / 2)]
@@ -459,7 +487,8 @@ async function main() {
   // «No live image» once parsed every font to choose one: 54 on the 4.3B, all
   // its PSRAM but 230 KB, 275 ms of the loop each (2026-11-09).
   const parsed = Number(/fonts: (\d+) parsed/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
-  check(`«No live image» parses no font it does not draw with`, parsed >= 0 && parsed <= MAX_FONTS_PARSED, `${parsed} parsed`)
+  if (parsed < 0) console.log("  (fonts parsed: not reported by this board)")
+  else check(`«No live image» parses no font it does not draw with`, parsed <= MAX_FONTS_PARSED, `${parsed} parsed`)
 
   // Last: a dozen screenshots in a row hold up the loop that shows the pictures.
   cam.mode({ basic: CREDENTIALS })
