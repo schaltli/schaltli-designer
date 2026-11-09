@@ -271,6 +271,14 @@ export const FreeIcon = (p: IconProps) => (
   </Glyph>
 )
 
+export const CameraIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect x="3" y="7" width="18" height="12" rx="2" />
+    <path d="M9 7l1.5-3h3L15 7" />
+    <circle cx="12" cy="13" r="3" fill={ACCENT} />
+  </Glyph>
+)
+
 export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   text: TextIcon,
   icon: IconIcon,
@@ -292,6 +300,7 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   navigator: NavigatorIcon,
   "energy-diagram": EnergyDiagramIcon,
   chart: ChartIcon,
+  camera: CameraIcon,
   group: GroupIcon,
   free: FreeIcon,
   table: TableIcon,

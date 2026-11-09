@@ -12,6 +12,7 @@
  * larger or smaller afterwards at their handles. Pure.
  */
 
+import { CAMERA_MAX } from "@/lib/camera-size"
 import { stepPx } from "@/lib/size-scale"
 
 // Proposed in the spec (2026-10-10), in millimetres.
@@ -54,6 +55,8 @@ export function placedSize(tool: string, pixelsPerMm: number): { width: number; 
     // A tile: tall enough for a name over its state (docs/2026-11-06-toggle-button.md).
     case "toggle-button":
       return { width: mm(CONTROL_WIDTH_MM), height: stepPx("control", "l", pixelsPerMm) }
+    case "camera":
+      return { ...CAMERA_MAX }
     case "box":
       return { width: mm(BOX_MM.width), height: mm(BOX_MM.height) }
     case "free":

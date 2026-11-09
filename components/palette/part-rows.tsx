@@ -39,6 +39,7 @@ const GROUPS: { label: string; parts: PartDef[] }[] = [
       part("gauge", "A level to read, as an arc"),
       part("energy-diagram", "Where the energy comes from and goes: a Sankey or a Flow of nodes"),
       part("chart", "Values over time: curves, a band of when something ran, or bars per day"),
+      part("camera", "The picture of a camera on the network, from its snapshot URL"),
     ],
   },
   {

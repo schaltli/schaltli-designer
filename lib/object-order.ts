@@ -53,6 +53,7 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     // A readout, as a bar or a gauge.
     "energy-diagram": 6,
     chart: 6,
+    camera: 6,
     // A group (lib/object-groups.ts) is drawn by zIndex like everything
     // else; this rank only says where a new one lands in the list, which
     // for something holding controls is where the controls go.
