@@ -425,6 +425,21 @@ phone is on it - the app reconnects only there. Installing a newer app over
 the one on the phone needs the debug key it was signed with,
 `~/.android/debug.keystore` from the PC that built it.
 
+## The fake camera (docs/2026-11-09-camera.md)
+
+`hil/camera-server.js` is a camera for the Camera object's tests: `GET /shot.jpg`
+gives the frame of a looping video that is due at this moment, with its number
+as blocks in the top left corner, so a test can read the delay off `/panel.bmp`.
+`node hil/camera-server.js [--port 8090]` runs it by hand; a test uses
+`startCameraServer()` and its `mode({ slowMs, contentLength, keepAlive, basic,
+garbage, oversize })`, `stop()`, `start()` and `requests()`.
+
+The video is footage that stays out of this public repo: `SCHALTLI_CAMERA_VIDEO`,
+or the file named in the script in Downloads. Frames are prepared once with
+ffmpeg into `hil/.camera-frames/`. Without the video it falls back to ffmpeg's
+`testsrc` and warns: those frames are smaller, so frame rates come out too good.
+`hil/camera-server-check.js` proves all of it, in `npm run test:quick`.
+
 ## The recorder (charts, 2026-10-29)
 
 `node hil/recorder.js` (host lane of test:quick) runs the chart recorder

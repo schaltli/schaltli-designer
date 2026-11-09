@@ -387,6 +387,8 @@ async function main() {
     // from (docs/2026-11-01-4bit-fonts.md); needs Python with Pillow, not a
     // compiler, and is SKIPPED without one the same way.
     { name: "fw-ttf-to-bdf", repo: FIRMWARE_REPO, script: "tools/ttf-to-bdf-check/run.js", detail: "1-bit fonts unchanged, 4-bit fonts reproducible and well formed" },
+    // The designer's own, needs ffmpeg once to prepare its frames.
+    { name: "camera-server", repo: path.join(__dirname, ".."), script: "hil/camera-server-check.js", detail: "the fake camera does what the device tests rely on", skipDetail: "no ffmpeg - see output above" },
   ]
   for (const check of hostChecks) step("host", async () => {
     console.log(`\n=== ${check.name} (host, no hardware) ===`)
@@ -402,7 +404,7 @@ async function main() {
       status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
       detail:
         exitCode === 2
-          ? "no desktop C++ compiler, or no golden file - see output above"
+          ? check.skipDetail || "no desktop C++ compiler, or no golden file - see output above"
           : exitCode === 0
             ? check.detail
             : `exit code ${exitCode} - see output above`,

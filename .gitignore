@@ -35,6 +35,9 @@ next-env.d.ts
 /playwright-report/
 /playwright/.cache/
 
+# The fake camera's frames, from footage that stays out of this public repo
+/hil/.camera-frames/
+
 # HIL test output (generated per-run, see hil/README.md)
 /hil/android/report/
 /hil/waveshare/report/
