@@ -37,12 +37,15 @@ const SWITCH = { x: 340, y: 100, width: 120, height: 56 }
 const DIAGRAM = { x: 0, y: 250, width: 470, height: 225 }
 const IDLE_TAP = { x: 400, y: 30 }
 const ABOVE_SAMPLES = 12
+const MAX_FONTS_PARSED = 8 // the project's own and the one for «No live image»; 4 seen
 const CREDENTIALS = { user: "hilcam", password: "s3cret-hil-camera" }
 
 const MEASURE_MS = 20000
 const MIN_IMAGES_PER_SECOND = 5
-// The same screen without a Camera gives 126 ms on the 4" (--baseline).
-const MAX_LOOP_GAP_MS = 276
+// The same screen without a Camera (--baseline), plus the spec's 150 ms:
+// 126 ms on the 4", 136 on the 4.3B (2026-11-09).
+const LOOP_GAP_BASELINE_MS = { "waveshare-touch-lcd-4": 126, "waveshare-touch-lcd-4v3b": 136 }
+const LOOP_GAP_ALLOWANCE_MS = 150
 const MAX_MEDIAN_DELAY_MS = 500
 const DELAY_SAMPLES = 15
 const TAPS = 15
@@ -437,7 +440,9 @@ async function main() {
     process.exit(0)
   }
   check(`at least ${MIN_IMAGES_PER_SECOND} images a second`, shown >= MIN_IMAGES_PER_SECOND, `${shown}/s`)
-  check(`the loop never pauses more than ${MAX_LOOP_GAP_MS} ms`, gap <= MAX_LOOP_GAP_MS, `${gap} ms`)
+  const baseline = LOOP_GAP_BASELINE_MS[ddf.deviceId]
+  const maxGap = baseline + LOOP_GAP_ALLOWANCE_MS
+  check(`the loop never pauses more than ${maxGap} ms`, baseline !== undefined && gap <= maxGap, baseline === undefined ? `no baseline for ${ddf.deviceId}: run --baseline` : `${gap} ms`)
 
   const taps = await measureTaps(base)
   console.log(`  taps: ${taps.taps}, median ${taps.median} ms, worst ${taps.worst} ms`)
@@ -450,6 +455,11 @@ async function main() {
   check(`median delay at most ${MAX_MEDIAN_DELAY_MS} ms`, median <= MAX_MEDIAN_DELAY_MS, `${Math.round(median)} ms`)
 
   await checkFailures(base, cam, check, process.argv.includes("--long") ? 300000 : 30000)
+
+  // «No live image» once parsed every font to choose one: 54 on the 4.3B, all
+  // its PSRAM but 230 KB, 275 ms of the loop each (2026-11-09).
+  const parsed = Number(/fonts: (\d+) parsed/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
+  check(`«No live image» parses no font it does not draw with`, parsed >= 0 && parsed <= MAX_FONTS_PARSED, `${parsed} parsed`)
 
   // Last: a dozen screenshots in a row hold up the loop that shows the pictures.
   cam.mode({ basic: CREDENTIALS })
