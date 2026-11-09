@@ -108,12 +108,16 @@ jobs:
           npx playwright install --with-deps chromium
           echo "NEXT_PUBLIC_DEPLOY_ENABLED=true" > .env.local
           npm run firmware:fetch
-          node hil/local-broker.js > broker.log 2>&1 &
-          for i in $(seq 1 30); do
-            node -e "require('net').connect(1883,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))" && break
-            sleep 1
-          done
-          npm run screenshots
+          # Against a production build with its own broker (hil/e2e-prod.js),
+          # not `npm run screenshots` with `next dev`: on this small runner
+          # four browsers queued at the dev server, and from 2026-11-04 every
+          # publish failed on timeouts and interrupted navigations, in other
+          # tests each time. Nothing was wrong with the designer, and the site
+          # stayed on its stand of 2026-10-18.
+          # CI is emptied because playwright.config.ts would otherwise refuse
+          # the server already running on the port; --retries stands in for
+          # the retry that CI gives.
+          CI= PW_WORKERS=2 HANDBOOK_SHOTS_DIR=handbuch/public/bilder             node hil/e2e-prod.js e2e/handbook-screenshots.spec.ts --reporter=line --retries=1
 
       - name: Build the handbook
         # VitePress is the handbook's own dependency (handbuch/package.json),
