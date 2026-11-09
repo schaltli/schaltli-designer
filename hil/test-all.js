@@ -642,6 +642,19 @@ async function main() {
   // glass and nowhere else, a tap no more than 20 % slower for them, and a
   // tap on a node opening its popup. Grew out of the spike, so the number
   // that decided the 4.3B moves stays a measured one. Installs its own screen.
+  // The Camera against the fake camera (docs/2026-11-09-camera.md): rate, delay,
+  // and every way a camera can fail. A board that does not declare it is skipped.
+  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+    console.log(`
+  === Waveshare ${label} camera (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/waveshare4v3b/camera.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `waveshare-${lane}-camera`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 2 ? `unreachable at ${device}, or the board does not declare camera` : exitCode === 0 ? "rate, delay and every failure mode of the fake camera" : `exit code ${exitCode} - see output above`,
+    })
+  })
+
   for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
     console.log(`
   === Waveshare ${label} energy diagram motion (device: ${device}) ===`)

@@ -14,7 +14,8 @@
 // Until the designer has the type (T4-T6), the Camera is put into the built zip
 // by hand, as the spec's contract has it.
 //
-// Run: node -r ./hil/device-auth.js hil/waveshare4v3b/camera.js --device <ip>
+// Run: node -r ./hil/device-auth.js hil/waveshare4v3b/camera.js --device <ip> [--long]
+// (--long: five minutes against a slow camera, success criterion 2)
 // Needs the dev server and the HIL broker. Exit 0 pass, 1 fail, 2 skipped.
 
 const fs = require("fs")
@@ -38,10 +39,12 @@ const CAMERA = { x: 0, y: 0, width: 320, height: 240 }
 const SWITCH = { x: 340, y: 100, width: 120, height: 56 }
 const DIAGRAM = { x: 0, y: 250, width: 470, height: 225 }
 const IDLE_TAP = { x: 400, y: 30 }
+const CREDENTIALS = { user: "hilcam", password: "s3cret-hil-camera" }
 
 const MEASURE_MS = 20000
 const MIN_IMAGES_PER_SECOND = 5
-const MAX_LOOP_GAP_MS = 100
+// The same screen without a Camera gives 126 ms on the 4" (--baseline).
+const MAX_LOOP_GAP_MS = 276
 const MAX_MEDIAN_DELAY_MS = 500
 const DELAY_SAMPLES = 15
 const TAPS = 15
@@ -121,6 +124,12 @@ function project(ddf) {
         },
       ],
     },
+    {
+      id: `other-${RUN}`,
+      name: "Other",
+      backgroundColor: "#ffffff",
+      objects: [{ id: "other-box", type: "box", zIndex: 1, x: 40, y: 40, width: 200, height: 120, properties: { fillColor: "#202020" } }],
+    },
   ]
   return p
 }
@@ -132,7 +141,7 @@ async function withCamera(zipBase64, url) {
   const json = JSON.parse(await zip.file(name).async("string"))
   const screen = json.screens.find((s) => s.id === SCREEN_ID)
   if (!screen) throw new Error("the Camera's screen is not in the built project")
-  screen.objects.push({ id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: "", password: "" } })
+  screen.objects.push({ id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } })
   if (BASELINE) screen.objects.pop()
   zip.file(name, JSON.stringify(json))
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" })
@@ -235,6 +244,116 @@ async function measureDelay(base, cam) {
   return { delays, unread }
 }
 
+async function glassNumber(base, name = "glass") {
+  await tap(base, IDLE_TAP.x, IDLE_TAP.y)
+  fs.mkdirSync(OUT_DIR, { recursive: true })
+  const file = path.join(OUT_DIR, `${name}.bmp`)
+  const due = Date.now()
+  fs.writeFileSync(file, Buffer.from(await (await fetch(`${base}/panel.bmp`, { signal: AbortSignal.timeout(15000) })).arrayBuffer()))
+  const { data, width } = (await Jimp.read(file)).bitmap
+  const luma = (x, y) => {
+    const at = (y * width + x) * 4
+    return (data[at] * 77 + data[at + 1] * 150 + data[at + 2] * 29) >> 8
+  }
+  return { shown: readFrameNumber(luma, CAMERA.x, CAMERA.y, 1), due }
+}
+
+const uptime = async (base) => Number(/uptime (\d+) s/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
+
+// What only a board can say about failure (success criteria 2, 3, 6, 7, 9).
+async function checkFailures(base, cam, check, soakMs) {
+  const mode = (patch = {}) => cam.mode({ basic: CREDENTIALS, ...patch })
+  const before = await uptime(base)
+  const live = async (name, wait = 2500) => {
+    await sleep(wait)
+    return (await glassNumber(base, name)).shown !== null
+  }
+
+  const debug = (await get(`${base}/api/debug`)).body
+  const settings = (await get(`${base}/api/device-settings`)).body
+  check("the password is in no debug output", !debug.includes(CREDENTIALS.password) && !settings.includes(CREDENTIALS.password))
+  check("Basic: a picture with the project's credentials", await live("basic", 500))
+  mode({ basic: { user: CREDENTIALS.user, password: "another" } })
+  check("wrong password: «No live image»", !(await live("wrong-password")))
+  mode()
+  check("right password again: the picture is back", await live("back"))
+
+  mode({ contentLength: false })
+  check("without Content-Length: a picture", await live("no-length"))
+  mode({ keepAlive: true })
+  check("with keep-alive: a picture", await live("keep-alive"))
+
+  for (const bad of ["garbage", "oversize"]) {
+    mode({ [bad]: true })
+    check(`${bad}: «No live image»`, !(await live(bad)))
+    mode()
+    check(`after ${bad}: the picture is back`, await live(`after-${bad}`))
+  }
+
+  // Criterion 3.
+  await cam.stop()
+  const gone = await live("stopped", 1500)
+  check("camera gone: «No live image» within 1.5 s", !gone)
+  await cam.start()
+  check("camera back: the picture within 3 s", await live("restarted", 3000))
+
+  // Criterion 6.
+  await fetch(`${base}/api/screen?index=1`, { method: "POST", signal: AbortSignal.timeout(5000) })
+  await sleep(1500)
+  cam.resetRequests()
+  await sleep(3000)
+  check("another screen: no request", cam.requests() === 0, `${cam.requests()} requests`)
+  await fetch(`${base}/api/screen?index=0`, { method: "POST", signal: AbortSignal.timeout(5000) })
+  await sleep(2000)
+  check("back on the screen: requests again", cam.requests() > 0, `${cam.requests()} requests`)
+
+  // Criterion 2: a slow camera, the picture never old while it claims to be live.
+  mode({ slowMs: 500 })
+  await sleep(2000)
+  const started = Date.now()
+  let worst = 0
+  let samples = 0
+  let unanswered = 0
+  let maxGap = 0
+  while (Date.now() - started < soakMs) {
+    const due = cam.frameNow()
+    let shown = null
+    try {
+      ;({ shown } = await glassNumber(base, "slow"))
+    } catch (error) {
+      // Named, not fatal: a run must say what it saw over all five minutes.
+      unanswered++
+      console.log(`  ${Math.round((Date.now() - started) / 1000)} s: no answer from the board (${error.message})`)
+    }
+    if (shown !== null) {
+      const n = cam.frameCount
+      const behind = (due - shown + n) % n
+      const ms = ((behind > n / 2 ? behind - n : behind) * 1000) / FPS
+      worst = Math.max(worst, ms)
+      samples++
+    }
+    await sleep(2000)
+    try {
+      const body = (await get(`${base}/api/debug`)).body
+      await get(`${base}/api/debug?set=camerastats=reset`)
+      const line = body.split("\n").find((l) => l.startsWith("camera:")) ?? ""
+      const psram = /psram free (\d+) KB/.exec(body)?.[1]
+      const gap = field(line, /loop gap max ms ([\d.]+)/)
+      maxGap = Math.max(maxGap, gap)
+      if (gap > 400 || samples % 10 === 0) console.log(`  ${Math.round((Date.now() - started) / 1000)} s: loop gap ${gap} ms, psram free ${psram} KB, ${line.match(/bad \d+/)?.[0]}, ${line.match(/connects \d+ failed \d+/)?.[0]}`)
+    } catch {
+      unanswered++
+    }
+  }
+  console.log(`  slow camera: longest loop pause ${maxGap} ms, ${unanswered} request(s) unanswered`)
+  check("a slow camera: the shown picture is never older than 1 s", samples > 5 && worst <= 1000, `worst ${Math.round(worst)} ms over ${samples} samples`)
+  check("a slow camera: the board answers throughout", unanswered === 0, `${unanswered} unanswered`)
+  mode()
+
+  const after = await uptime(base)
+  check("no restart through all of it", after > before, `uptime ${before} s -> ${after} s`)
+}
+
 async function measureTaps(base) {
   const x = SWITCH.x + SWITCH.width / 4
   const y = SWITCH.y + SWITCH.height / 2
@@ -278,11 +397,12 @@ async function main() {
 
   const ddf = await loadDdf(device)
   if (!ddf.supportedObjectTypes.includes("camera")) {
-    check("the board declares camera", false, "its DDF does not list it")
-    process.exit(1)
+    console.warn("SKIPPED - this board does not declare camera")
+    process.exit(2)
   }
 
   const cam = await startCameraServer({ port: 8090 })
+  cam.mode({ basic: CREDENTIALS })
   if (!cam.real) console.warn("WARNING - testsrc frames: smaller than a real picture, the rates are too good")
   const url = `http://${lanAddress(device)}:${cam.port}${cam.path}`
   console.log(`camera at ${url}, ${cam.frameCount} frames, mean ${cam.meanBytes} bytes`)
@@ -321,6 +441,8 @@ async function main() {
   console.log(`  delay ms: ${delays.map((d) => Math.round(d)).join(" ")} (${unread} unread)`)
   check("the frame number is read off the glass", delays.length >= DELAY_SAMPLES - 2, `${delays.length} of ${DELAY_SAMPLES}`)
   check(`median delay at most ${MAX_MEDIAN_DELAY_MS} ms`, median <= MAX_MEDIAN_DELAY_MS, `${Math.round(median)} ms`)
+
+  await checkFailures(base, cam, check, process.argv.includes("--long") ? 300000 : 30000)
 
   stopPublishing()
   client.end()
