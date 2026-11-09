@@ -67,7 +67,7 @@ import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-li
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { renderToggleButton } from "./renderers/render-toggle-button"
-import { renderCamera, type CameraPreviewEntry } from "./renderers/render-camera"
+import { CAMERA_DESIGN_HINT, renderCamera, type CameraPreviewEntry } from "./renderers/render-camera"
 import { clampCameraSize } from "@/lib/camera-size"
 import { renderTextField, textFieldValue } from "./renderers/render-text-field"
 import { TextFieldEntry } from "./text-field-entry"
@@ -2617,7 +2617,8 @@ export function Canvas({
         break
 
       case "camera":
-        renderCamera(ctx, obj, previewMode ? { cache: cameraPreviewRef.current, requestRedraw: draw } : undefined)
+        if (previewMode) renderCamera(ctx, obj, { cache: cameraPreviewRef.current, requestRedraw: draw })
+        else renderCamera(ctx, obj, undefined, CAMERA_DESIGN_HINT)
         break
 
       case "toggle-button":

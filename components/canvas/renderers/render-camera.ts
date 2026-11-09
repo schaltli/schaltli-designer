@@ -63,7 +63,10 @@ function pictureFor(obj: CameraObject, preview: CameraPreview): HTMLImageElement
   return current.shown && Date.now() - current.shownAt <= STALE_MS ? current.shown : null
 }
 
-export function renderCamera(ctx: CanvasRenderingContext2D, obj: CameraObject, preview?: CameraPreview): void {
+/** On the stand-in while designing: the picture runs in the Preview alone. */
+export const CAMERA_DESIGN_HINT = ["Video shows", "in Preview only"]
+
+export function renderCamera(ctx: CanvasRenderingContext2D, obj: CameraObject, preview?: CameraPreview, hint?: string[]): void {
   const { x, y, width, height } = obj
   ctx.save()
   ctx.fillStyle = "#2a2d33"
@@ -82,7 +85,10 @@ export function renderCamera(ctx: CanvasRenderingContext2D, obj: CameraObject, p
 
   // A camera, drawn from the rectangle it stands in.
   const cx = x + width / 2
-  const cy = y + height / 2
+  // Narrowest Camera (80 wide): the longest line still fits.
+  const fontSize = Math.min(14, width / 8)
+  const lineHeight = fontSize * 1.2
+  const cy = y + height / 2 - (hint ? lineHeight : 0)
   const body = Math.min(width, height) * 0.4
   ctx.fillStyle = "#8a9099"
   ctx.fillRect(cx - body / 2, cy - body / 3, body, (body * 2) / 3)
@@ -91,5 +97,12 @@ export function renderCamera(ctx: CanvasRenderingContext2D, obj: CameraObject, p
   ctx.beginPath()
   ctx.arc(cx, cy, body / 5, 0, Math.PI * 2)
   ctx.fill()
+  if (hint) {
+    ctx.fillStyle = "#c4c8ce"
+    ctx.font = `${fontSize}px sans-serif`
+    ctx.textAlign = "center"
+    ctx.textBaseline = "top"
+    hint.forEach((line, i) => ctx.fillText(line, cx, cy + body / 3 + 4 + i * lineHeight))
+  }
   ctx.restore()
 }

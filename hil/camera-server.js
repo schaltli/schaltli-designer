@@ -173,6 +173,7 @@ async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
     const body = bodyFor(frame)
     res.setHeader("Content-Type", "image/jpeg")
     res.setHeader("X-Frame", String(frame))
+    res.setHeader("Access-Control-Allow-Origin", "*") // or the designer's preview keeps its stand-in
     res.setHeader("Connection", mode.keepAlive && mode.contentLength ? "keep-alive" : "close")
     if (mode.contentLength) res.setHeader("Content-Length", String(body.length))
     else res.useChunkedEncodingByDefault = false // node would chunk it otherwise

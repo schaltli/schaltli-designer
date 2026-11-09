@@ -9,7 +9,7 @@ import { chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, R
 import { seedPapers3Ddf, seedRoundFixtureDdf, seedWaveshare4Ddf } from "./ddf-seed"
 import { CAMERA_MAX, CAMERA_MIN, clampCameraSize } from "../lib/camera-size"
 import { placedSize } from "../lib/placing"
-import { browserCanLoad } from "../components/canvas/renderers/render-camera"
+import { browserCanLoad, CAMERA_DESIGN_HINT, renderCamera } from "../components/canvas/renderers/render-camera"
 
 // The Camera in the designer (docs/2026-11-09-camera.md, T4): its size, its
 // fields, and only where the device declares it. Devices: hil/waveshare4v3b/camera.js.
@@ -139,6 +139,42 @@ test.describe("Camera preview on the canvas", () => {
     await loadProject(page, await projectWithCamera(url))
     await page.getByRole("button", { name: "Preview", exact: true }).click()
   }
+
+  test("while designing: no picture, nothing fetched, and a hint", async ({ page }) => {
+    let requests = 0
+    await page.route("http://192.168.1.50/**", (route) => {
+      requests++
+      return route.fulfill({ status: 200, contentType: "image/png", headers: { "Access-Control-Allow-Origin": "*" }, body: RED })
+    })
+    await seedRoundFixtureDdf()
+    await loadProject(page, await projectWithCamera())
+    await page.waitForTimeout(1500)
+    expect(requests).toBe(0)
+    expect(isRed(await colourAt(page, CENTRE.x, CENTRE.y))).toBe(false)
+  })
+
+  test("the hint fits the narrowest Camera, and only the designer asks for it", () => {
+    const drawn: { text: string; font: string }[] = []
+    const ctx: Record<string, unknown> & { font: string } = {
+      font: "",
+      save() {},
+      restore() {},
+      fillRect() {},
+      beginPath() {},
+      arc() {},
+      fill() {},
+      fillText(text: string) {
+        drawn.push({ text, font: ctx.font })
+      },
+    }
+    const canvas = ctx as unknown as CanvasRenderingContext2D
+    const obj = { id: "c", x: 0, y: 0, ...CAMERA_MIN, properties: {} }
+    renderCamera(canvas, obj)
+    expect(drawn).toEqual([])
+    renderCamera(canvas, obj, undefined, CAMERA_DESIGN_HINT)
+    expect(drawn.map((d) => d.text)).toEqual(CAMERA_DESIGN_HINT)
+    expect(drawn[0].font).toBe(`${CAMERA_MIN.width / 8}px sans-serif`)
+  })
 
   test("shows the camera's picture", async ({ page }) => {
     await page.route("http://192.168.1.50/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "Access-Control-Allow-Origin": "*" }, body: RED }))

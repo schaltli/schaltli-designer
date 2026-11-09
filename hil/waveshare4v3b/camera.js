@@ -32,9 +32,11 @@ const RUN = Date.now().toString(36)
 const PREFIX = `hil-camera-${RUN}`
 const SCREEN_ID = `camera-${RUN}`
 const CAMERA = { x: 0, y: 0, width: 320, height: 240 }
+const ABOVE = { x: 220, y: 190, width: 60, height: 30 } // an object on the picture
 const SWITCH = { x: 340, y: 100, width: 120, height: 56 }
 const DIAGRAM = { x: 0, y: 250, width: 470, height: 225 }
 const IDLE_TAP = { x: 400, y: 30 }
+const ABOVE_SAMPLES = 12
 const CREDENTIALS = { user: "hilcam", password: "s3cret-hil-camera" }
 
 const MEASURE_MS = 20000
@@ -103,7 +105,10 @@ function project(ddf, url) {
         },
         ...(BASELINE
           ? []
-          : [{ id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } }]),
+          : [
+              { id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } },
+              { id: "above", type: "box", zIndex: 4, ...ABOVE, properties: { fillColor: "#ff00ff" } },
+            ]),
         {
           id: "sw",
           type: "switch",
@@ -244,6 +249,19 @@ async function glassNumber(base, name = "glass") {
     return (data[at] * 77 + data[at + 1] * 150 + data[at + 2] * 29) >> 8
   }
   return { shown: readFrameNumber(luma, CAMERA.x, CAMERA.y, 1), due }
+}
+
+// Each sample is a moment between pictures being painted: one over the object shows.
+async function objectAboveStays(base) {
+  let kept = 0
+  for (let i = 0; i < ABOVE_SAMPLES; i++) {
+    const bytes = Buffer.from(await (await fetch(`${base}/panel.bmp`, { signal: AbortSignal.timeout(15000) })).arrayBuffer())
+    const { data, width } = (await Jimp.read(bytes)).bitmap
+    const at = ((ABOVE.y + ABOVE.height / 2) * width + ABOVE.x + ABOVE.width / 2) * 4
+    if (data[at] > 200 && data[at + 1] < 60 && data[at + 2] > 200) kept++
+    await sleep(170)
+  }
+  return kept
 }
 
 const uptime = async (base) => Number(/uptime (\d+) s/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
@@ -432,6 +450,12 @@ async function main() {
   check(`median delay at most ${MAX_MEDIAN_DELAY_MS} ms`, median <= MAX_MEDIAN_DELAY_MS, `${Math.round(median)} ms`)
 
   await checkFailures(base, cam, check, process.argv.includes("--long") ? 300000 : 30000)
+
+  // Last: a dozen screenshots in a row hold up the loop that shows the pictures.
+  cam.mode({ basic: CREDENTIALS })
+  await sleep(2500)
+  const kept = await objectAboveStays(base)
+  check("an object above the picture stays above it", kept === ABOVE_SAMPLES, `${kept} of ${ABOVE_SAMPLES}`)
 
   stopPublishing()
   client.end()
