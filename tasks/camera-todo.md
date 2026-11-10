@@ -14,8 +14,8 @@ between tasks dropped (the user, 2026-11-09); `npm run test:all` in T11.
 - [x] T6 designer: export, device contract, conformance specimen, fixture from the designer
 - [ ] Checkpoint B: the user places one and sees it on the 4" (found: a label over the picture was painted over - fixed; preview only in Preview mode)
 - [x] T7 firmware: 4.3B declared, HIL. Unlimited the loop paused 389 ms (baseline 136); the user chose a cap: 170 ms between requests, 5.1 images/s, pause 282-285 ms of 286 allowed - tight on both. Fixed on the way: PSRAM for the pictures taken before the fonts, «No live image» no longer parses every font. COM3 log not captured (the logger hung opening the port).
-- [ ] T8 firmware: Knob measured
-- [ ] Checkpoint C: the user decides whether the Knob declares the type
+- [x] T8 firmware: Knob measured - 12.9-13.3 images/s, delay median 133-200 ms, loop pause 67-69 ms (baseline 13); one run of three slow to recover after oversize and after a camera restart, cause unknown. No energy diagram on the round screen, taps not measured. Fixed on the way: Knob and PaperS3 built again (JPEGDEC).
+- [x] Checkpoint C (2026-11-10): the user: the Knob declares the Camera
 - [ ] T9 android: CameraView, DDF, tests, HIL
 - [ ] T10 handbook objekte/anzeigen.md, handbook-labels, humanizer
 - [ ] T11 30-minute soak, `npm run test:all`, idea and spec up to date
