@@ -19,3 +19,6 @@ between tasks dropped (the user, 2026-11-09); `npm run test:all` in T11.
 - [x] T9 android: CameraView, DDF, tests, HIL - on the P20 57.8 images/s, delay median 0-33 ms, every failure mode passing (hil/android/camera.js, 21 checks; CameraViewTest 14). Found on the way: the camera server counted every device's requests, and the Knob still showing T8's project made «another screen: no request» fail - now counted by address, the boards' run too.
 - [x] T10 handbook objekte/anzeigen.md («Camera», «Kamera einrichten»), objekte/index.md; handbook-labels green, VitePress builds. The XIAO and IP Webcam addresses are from their own documentation, not tried here.
 - [ ] T11 30-minute soak, `npm run test:all`, idea and spec up to date
+  - soak on the 4" (`camera.js --soak`, chart over MQTT): PASS, no restart, 12 images/s throughout, internal heap lowest 138 KB (156 without), nothing lost
+  - `test:all` (2026-11-10): the three boards' camera runs all took port 8090 side by side - each now its own port; the 4.3B's build was missing from the firmware checkout (every firmware upload/OTA failed on the foreign build) - built, the 4.3B on HEAD; Knob smoke read a recovery copy from before Checkpoint C. All rerun green.
+  - **open:** the 4.3B's loop pause 290-292 ms of 286 allowed (baseline 136-140), three runs - the user decides

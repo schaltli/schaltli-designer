@@ -13,6 +13,10 @@
 //
 // Run: node -r ./hil/device-auth.js hil/waveshare4v3b/camera.js --device <ip> [--long]
 // (--long: five minutes against a slow camera, success criterion 2)
+// --soak [minutes]: success criterion 5 alone (tasks/camera-plan.md, T11) - the
+// screen with a chart instead of the diagram, first without the Camera for its
+// internal RAM, then with it for 30 minutes: no restart, the RAM it leaves,
+// none of it lost over the run, and the pictures still coming at the end.
 // Needs the dev server and the HIL broker. Exit 0 pass, 1 fail, 2 skipped.
 
 const fs = require("fs")
@@ -30,7 +34,8 @@ const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = Date.now().toString(36)
 const PREFIX = `hil-camera-${RUN}`
-const SCREEN_ID = `camera-${RUN}`
+// Each install its own, so a second one waits for its own project.
+let SCREEN_ID = `camera-${RUN}`
 // Where things go on a 480-wide screen, and on the Knob's round 360: the
 // picture whole within the square (its corners off the glass), the switch below
 // it, no room for the diagram (T8, 2026-11-09).
@@ -71,6 +76,13 @@ const BASELINE = process.argv.includes("--baseline")
 // --value-period <ms>: how often the diagram's three values change; 0: never.
 const periodAt = process.argv.indexOf("--value-period")
 const VALUE_PERIOD_MS = periodAt > 0 ? Number(process.argv[periodAt + 1]) : 2000
+const soakAt = process.argv.indexOf("--soak")
+const SOAK_MINUTES = soakAt < 0 ? 0 : Number(/^\d+$/.test(process.argv[soakAt + 1] ?? "") ? process.argv[soakAt + 1] : 30)
+// Criterion 5: what the Camera leaves of the internal RAM, and what a run may
+// lose of it between its first and last ten minutes without being a leak.
+const SOAK_MIN_HEAP_MARGIN_KB = 20
+const SOAK_MAX_DRIFT_KB = 6
+const SOAK_SAMPLE_MS = 20000
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const get = async (url, ms = 10000) => {
@@ -84,7 +96,7 @@ function lanAddress(deviceIp) {
   return (all.find((a) => a.address.startsWith(`${net}.`)) ?? all.find((a) => a.address.startsWith("192.168.")))?.address
 }
 
-function project(ddf, url) {
+function project(ddf, url, { camera = !BASELINE, chart = false } = {}) {
   const { project: p } = buildProject(ddf, { topicPrefix: PREFIX })
   const sorted = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
   const font = sorted[Math.floor(sorted.length * 0.5)]
@@ -95,6 +107,7 @@ function project(ddf, url) {
   p.name = "HIL camera"
   p.fonts = ddf.fonts
   p.topics = ["sw", "solar", "battery", "fridge"].map((id) => ({ id, topic: topic(id), type: "text", examples: ["1"] }))
+  if (chart) p.topics.push({ id: "level", topic: topic("level"), type: "numeric", examples: ["50"] })
   p.combinedTopics = []
   p.screens = [
     {
@@ -102,7 +115,25 @@ function project(ddf, url) {
       name: "Camera",
       backgroundColor: "#ffffff",
       objects: [
-        ...(DIAGRAM ? [{
+        ...(DIAGRAM && chart ? [{
+          id: "chart",
+          type: "chart",
+          zIndex: 1,
+          ...DIAGRAM,
+          properties: {
+            mode: "time",
+            scroll: false,
+            legend: "top-right",
+            fontId: small.id,
+            textColor: "#1d1b20",
+            mutedColor: "#49454f",
+            lineColor: "#cac4d0",
+            nowColor: "#c62828",
+            left: { scale: "fixed", min: 0, max: 100, unit: "%" },
+            series: [{ id: "s1", source: { kind: "topic", topic: topic("level") }, name: "Level", valueKind: "level", unit: "%", draw: "line", color: "#2255aa", annotations: ["current"] }],
+          },
+        }] : []),
+        ...(DIAGRAM && !chart ? [{
           id: "diagram",
           type: "energy-diagram",
           zIndex: 1,
@@ -121,7 +152,7 @@ function project(ddf, url) {
             ],
           },
         }] : []),
-        ...(BASELINE
+        ...(!camera
           ? []
           : [
               { id: "camera", type: "camera", zIndex: 3, ...CAMERA, properties: { url, username: CREDENTIALS.user, password: CREDENTIALS.password } },
@@ -156,14 +187,14 @@ function project(ddf, url) {
   return p
 }
 
-async function install(base, ddf, url) {
+async function install(base, ddf, url, options) {
   const browser = await chromium.launch()
   let built
   try {
     const page = await browser.newPage()
     await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" })
     await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
-    built = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project(ddf, url))
+    built = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project(ddf, url, options))
   } finally {
     await browser.close()
   }
@@ -212,6 +243,7 @@ function publishWhile(client) {
     client.publish(`${PREFIX}/solar`, String(100 + (n % 80)))
     client.publish(`${PREFIX}/battery`, String(40 + (n % 60)))
     client.publish(`${PREFIX}/fridge`, String(20 + (n % 40)))
+    client.publish(`${PREFIX}/level`, String(30 + Math.round(30 * Math.sin(n / 10))))
   }, VALUE_PERIOD_MS)
   return () => clearInterval(timer)
 }
@@ -407,6 +439,97 @@ async function measureTaps(base) {
   return { taps: Number(m[1]), median: Number(m[2]), worst: Number(m[4]) }
 }
 
+// Internal heap now and its lowest since boot, from either kind of /api/debug.
+async function heap(base) {
+  const body = (await get(`${base}/api/debug`)).body
+  if (body.trimStart().startsWith("{")) {
+    const j = JSON.parse(body)
+    const kb = (v) => (v === undefined ? NaN : Number(v) > 4096 ? Math.round(Number(v) / 1024) : Number(v))
+    return { free: kb(j.freeInternalHeap), lowest: kb(j.minFreeInternalHeap), uptime: Math.floor(Number(j.uptimeMs ?? -1000) / 1000), body }
+  }
+  const m = /heap (\d+) KB \(lowest (\d+) KB/.exec(body)
+  return { free: Number(m?.[1] ?? NaN), lowest: Number(m?.[2] ?? NaN), uptime: Number(/uptime (\d+) s/.exec(body)?.[1] ?? -1), body }
+}
+
+// Success criterion 5: the same screen without the Camera, then with it for
+// SOAK_MINUTES. «What the board needs without a Camera» is read as that
+// screen's lowest internal heap; the Camera may take from it, but must leave
+// SOAK_MIN_HEAP_MARGIN_KB, and the run must not drain it.
+async function soak(base, ddf, url, cam, check) {
+  const client = mqtt.connect(BROKER_URL)
+  await new Promise((resolve, reject) => {
+    client.once("connect", resolve)
+    client.once("error", reject)
+  })
+  const stopPublishing = publishWhile(client)
+  try {
+    SCREEN_ID = `camera-${RUN}-without`
+    await install(base, ddf, url, { camera: false, chart: true })
+    await tap(base, IDLE_TAP.x, IDLE_TAP.y)
+    let without = Infinity
+    for (let i = 0; i < 6; i++) {
+      await sleep(10000)
+      const h = await heap(base)
+      without = Math.min(without, h.free, h.lowest)
+    }
+    console.log(`  without the Camera: internal heap lowest ${without} KB`)
+
+    SCREEN_ID = `camera-${RUN}`
+    await install(base, ddf, url, { camera: true, chart: true })
+    await tap(base, IDLE_TAP.x, IDLE_TAP.y)
+    await sleep(5000)
+    const start = await heap(base)
+    const started = Date.now()
+    const samples = []
+    let lastUptime = start.uptime
+    let restarts = 0
+    let unanswered = 0
+    let slow = 0
+    while (Date.now() - started < SOAK_MINUTES * 60000) {
+      try {
+        await get(`${base}/api/debug?set=camerastats=reset`)
+        // Blanking comes after 15 s, and a dark screen asks for nothing.
+        for (let t = 0; t < SOAK_SAMPLE_MS; t += 5000) {
+          await sleep(5000)
+          await tap(base, IDLE_TAP.x, IDLE_TAP.y).catch(() => {})
+        }
+        const h = await heap(base)
+        const line = h.body.trimStart().startsWith("{") ? (JSON.parse(h.body).camera ?? "") : (h.body.split("\n").find((l) => l.startsWith("camera:")) ?? "")
+        const shown = field(line, /shown\/s ([\d.]+)/)
+        if (h.uptime < lastUptime) {
+          restarts++
+          console.log(`  RESTART: uptime ${lastUptime} s -> ${h.uptime} s (${/last reset ([^,\n]+)/.exec(h.body)?.[1] ?? /"lastReset":"([^"]+)"/.exec(h.body)?.[1] ?? "?"})`)
+        }
+        lastUptime = h.uptime
+        if (shown < MIN_IMAGES_PER_SECOND) slow++
+        const minute = (Date.now() - started) / 60000
+        samples.push({ minute, free: h.free, lowest: h.lowest, shown })
+        if (samples.length % 6 === 1 || shown < MIN_IMAGES_PER_SECOND) console.log(`  ${minute.toFixed(1)} min: heap ${h.free} KB (lowest ${h.lowest}), shown ${shown}/s, uptime ${h.uptime} s`)
+      } catch (error) {
+        unanswered++
+        console.log(`  ${((Date.now() - started) / 60000).toFixed(1)} min: no answer from the board (${error.message})`)
+        await sleep(SOAK_SAMPLE_MS)
+      }
+    }
+    const end = await heap(base)
+    const lowest = Math.min(end.lowest, ...samples.map((s) => s.free))
+    const mean = (xs) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length)
+    const tenth = Math.min(10, SOAK_MINUTES / 3)
+    const first = mean(samples.filter((s) => s.minute <= tenth).map((s) => s.free))
+    const last = mean(samples.filter((s) => s.minute >= SOAK_MINUTES - tenth).map((s) => s.free))
+    console.log(`  with the Camera: lowest ${lowest} KB (the Camera takes ${without - lowest} KB), first ${Number(tenth.toFixed(1))} min ${first.toFixed(1)} KB, last ${last.toFixed(1)} KB; ${slow} of ${samples.length} windows under ${MIN_IMAGES_PER_SECOND}/s`)
+    check(`no restart in ${SOAK_MINUTES} minutes`, restarts === 0 && end.uptime > start.uptime, `uptime ${start.uptime} s -> ${end.uptime} s`)
+    check("the board answers throughout", unanswered === 0, `${unanswered} unanswered`)
+    check(`the Camera leaves at least ${SOAK_MIN_HEAP_MARGIN_KB} KB of internal heap`, lowest >= SOAK_MIN_HEAP_MARGIN_KB, `lowest ${lowest} KB`)
+    check(`no internal heap lost over the run (at most ${SOAK_MAX_DRIFT_KB} KB)`, first - last <= SOAK_MAX_DRIFT_KB, `${(first - last).toFixed(1)} KB`)
+    check(`pictures in at least 90% of the windows at ${MIN_IMAGES_PER_SECOND}/s`, samples.length > 0 && slow <= samples.length * 0.1, `${samples.length - slow} of ${samples.length}`)
+    check("the picture still live at the end", (await glassNumber(base, "soak-end")).shown !== null)
+  } finally {
+    stopPublishing()
+    client.end()
+  }
+}
+
 async function main() {
   const at = process.argv.indexOf("--device")
   const device = at > 0 ? process.argv[at + 1] : null
@@ -439,11 +562,21 @@ async function main() {
     process.exit(2)
   }
 
-  const cam = await startCameraServer({ port: 8090 })
+  // A port of its own: the lanes run side by side, each with its camera.
+  const cam = await startCameraServer()
   cam.mode({ basic: CREDENTIALS })
   if (!cam.real) console.warn("WARNING - testsrc frames: smaller than a real picture, the rates are too good")
   const url = `http://${lanAddress(device)}:${cam.port}${cam.path}`
   console.log(`camera at ${url}, ${cam.frameCount} frames, mean ${cam.meanBytes} bytes`)
+  if (SOAK_MINUTES > 0) {
+    await soak(base, ddf, url, cam, check)
+    await cam.stop()
+    const failed = results.filter((ok) => !ok).length
+    console.log(failed ? `
+FAIL - ${failed} check(s)` : `
+PASS - the Camera for ${SOAK_MINUTES} minutes`)
+    process.exit(failed ? 1 : 0)
+  }
   await install(base, ddf, url)
 
   const client = mqtt.connect(BROKER_URL)

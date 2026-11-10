@@ -198,7 +198,8 @@ async function main() {
     console.log(`  ${ok ? "PASS" : "FAIL"} ${name}${detail ? ` - ${detail}` : ""}`)
   }
 
-  const cam = await startCameraServer({ port: 8090 })
+  // A port of its own: the lanes run side by side, each with its camera.
+  const cam = await startCameraServer()
   camera = cam
   cam.mode({ basic: CREDENTIALS })
   if (!cam.real) console.warn("WARNING - testsrc frames: smaller than a real picture, the rates are too good")

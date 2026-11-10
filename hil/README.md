@@ -441,6 +441,13 @@ The runs against it, in `npm run test:all`: `hil/waveshare4v3b/camera.js
 same screen without the Camera, `--long` soaks five minutes against a slow
 camera), and `hil/android/camera.js` for the app, through its test interface.
 
+`--soak [minutes]` (30 if none given) is not part of `test:all`: it runs by hand
+before a release that touches the Camera. It installs the screen with a chart fed
+over MQTT, first without the Camera for the internal heap that screen needs,
+then with it for the whole run: no restart, at least 20 KB internal heap left, no
+more than 6 KB lost between the first and last ten minutes, pictures at 5/s in
+nine windows of ten, the picture live at the end.
+
 The video is footage that stays out of this public repo: `SCHALTLI_CAMERA_VIDEO`,
 or the file named in the script in Downloads. Frames are prepared once with
 ffmpeg into `hil/.camera-frames/`. Without the video it falls back to ffmpeg's
