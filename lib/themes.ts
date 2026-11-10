@@ -205,9 +205,13 @@ const STATES_LIGHT = { good: "#059669", warning: "#ca8a04", alarm: "#dc2626" }
 const STATES_DARK = { good: "#10b981", warning: "#eab308", alarm: "#ef4444" }
 // The colour themes after the colour model (the user's choice of
 // 2026-11-04, tasks/colour-model-plan.md T3): a calm ground tinted towards
-// the theme's colour, cards lighter than the ground in light and darker
-// tracks in dark, the theme's own colour as accent and three of clearly
-// different hues beside it.
+// the theme's colour, cards lighter than the ground in light, the theme's
+// own colour as accent and three of clearly different hues beside it. In
+// dark the tracks were darker than the card until 2026-11-10, and on the
+// ground itself that left them as good as invisible (the user, on the
+// demo's sliders): since then the card with 22 % of the muted text, lighter
+// than card and ground alike. Slate's gradient ends in cyan since the same
+// day, not in a lighter sky blue the eye hardly told from its start.
 
 export const THEMES: Theme[] = [
   {
@@ -241,7 +245,7 @@ export const THEMES: Theme[] = [
       surface: "#141318",
       panel: "#1d1b24",
       outline: "#2e2b38",
-      track: "#121117",
+      track: "#3c3945",
       text: "#f3f1f8",
       textMuted: "#a8a3b8",
       accent: "#d0bcff",
@@ -283,7 +287,7 @@ export const THEMES: Theme[] = [
       surface: "#121110",
       panel: "#1c1a19",
       outline: "#2c2927",
-      track: "#0f0e0d",
+      track: "#3b3836",
       text: "#f5f5f4",
       textMuted: "#a8a29e",
       accent: "#ff8a3d",
@@ -314,7 +318,7 @@ export const THEMES: Theme[] = [
       accent: "#0284c7",
       onAccent: "#ffffff",
       accentAlt: "#d97706",
-      accentEnd: "#0ea5e9",
+      accentEnd: "#06b6d4",
       accent3: "#0891b2",
       accent4: "#9333ea",
       track: "#dbe2ec",
@@ -331,10 +335,10 @@ export const THEMES: Theme[] = [
       accent: "#0ea5e9",
       onAccent: "#ffffff",
       accentAlt: "#f59e0b",
-      accentEnd: "#38bdf8",
+      accentEnd: "#22d3ee",
       accent3: "#06b6d4",
       accent4: "#a855f7",
-      track: "#12151c",
+      track: "#333a45",
       trackEdge: "transparent",
     },
   },
@@ -365,7 +369,7 @@ export const THEMES: Theme[] = [
       surface: "#101510",
       panel: "#182019",
       outline: "#263127",
-      track: "#0d120d",
+      track: "#354037",
       text: "#eef4ee",
       textMuted: "#9db0a1",
       accent: "#7cc48a",
@@ -404,7 +408,7 @@ export const THEMES: Theme[] = [
       surface: "#0d171c",
       panel: "#142228",
       outline: "#213239",
-      track: "#0a1216",
+      track: "#314148",
       text: "#eaf4f7",
       textMuted: "#98aeb8",
       accent: "#4fb3d4",
@@ -443,7 +447,7 @@ export const THEMES: Theme[] = [
       surface: "#16120c",
       panel: "#201a12",
       outline: "#322a1e",
-      track: "#110e09",
+      track: "#40392e",
       text: "#f7f1e7",
       textMuted: "#b3a690",
       accent: "#f2a93b",
@@ -482,7 +486,7 @@ export const THEMES: Theme[] = [
       surface: "#17120f",
       panel: "#211a16",
       outline: "#342923",
-      track: "#110d0b",
+      track: "#423833",
       text: "#f7efe9",
       textMuted: "#b6a398",
       accent: "#e8775a",
@@ -521,7 +525,7 @@ export const THEMES: Theme[] = [
       surface: "#121411",
       panel: "#1b1e19",
       outline: "#2b2f28",
-      track: "#0e100d",
+      track: "#3a3d36",
       text: "#f1f4ec",
       textMuted: "#a6ad9c",
       accent: "#a4dd3a",
