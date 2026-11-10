@@ -1,10 +1,10 @@
 # Objekt-Referenz
 
-Der Designer kennt 18 Objekttypen. Sie sind in der Palette in Gruppen geordnet, und so auch hier:
+Der Designer kennt 19 Objekttypen. Sie sind in der Palette in Gruppen geordnet, und so auch hier:
 
 | Gruppe | Objekttypen | wofür |
 |---|---|---|
-| [Anzeigen](/objekte/anzeigen) | [Text](/objekte/anzeigen#text), [Icon](/objekte/anzeigen#icon), [Bar](/objekte/anzeigen#bar), [Gauge](/objekte/anzeigen#gauge), [Energy diagram](/objekte/anzeigen#energiediagramm) | etwas zeigen |
+| [Anzeigen](/objekte/anzeigen) | [Text](/objekte/anzeigen#text), [Icon](/objekte/anzeigen#icon), [Bar](/objekte/anzeigen#bar), [Gauge](/objekte/anzeigen#gauge), [Energy diagram](/objekte/anzeigen#energiediagramm), [Camera](/objekte/anzeigen#camera) | etwas zeigen |
 | [Bedienen](/objekte/bedienen) | [Slider](/objekte/bedienen#slider), [Dial](/objekte/bedienen#dial), [Switch](/objekte/bedienen#switch), [Button Group](/objekte/bedienen#button-group), [Toggle Button](/objekte/bedienen#toggle-button), [Button](/objekte/bedienen#button), [Text field](/objekte/bedienen#text-field), [Time field](/objekte/bedienen#time-field) | etwas schalten, einstellen oder eintippen |
 | [Zeichnen](/objekte/zeichnen) | [Line](/objekte/zeichnen#line), [Live Line](/objekte/zeichnen#live-line), [Box](/objekte/zeichnen#box) | Linien und Flächen |
 | [Anordnen](/objekte/anordnen) | [Switcher](/objekte/anordnen#switcher) mit seinen Panels, [Navigator](/objekte/anordnen#navigator), [Gruppe](/objekte/anordnen#gruppe) | je nach Wert einen anderen Bereich zeigen; von Screen zu Screen; Objekte zusammenhalten |
@@ -27,4 +27,4 @@ Ein Feld in grauer Schrift mit Schloss rechnet der Designer selbst aus, etwa die
 
 ## Nicht jedes Gerät kann alles
 
-Knob, 4.3B, PaperS3 und die Android-App können alle Typen darstellen, ausser dass der runde Knob keinen [Navigator](/objekte/anordnen#navigator) hat. Das [Energy diagram](/objekte/anzeigen#energiediagramm) steht auf dem PaperS3 still. Der Designer blendet in der Palette aus, was das Gerät des Projekts nicht kann.
+Knob, 4.3B, PaperS3 und die Android-App können alle Typen darstellen, ausser dass der runde Knob keinen [Navigator](/objekte/anordnen#navigator) hat. Das [Energy diagram](/objekte/anzeigen#energiediagramm) steht auf dem PaperS3 still, und die [Camera](/objekte/anzeigen#camera) zeigt es gar nicht. Der Designer blendet in der Palette aus, was das Gerät des Projekts nicht kann.
