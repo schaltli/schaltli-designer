@@ -47,13 +47,13 @@ test.describe("the colour model", () => {
   test("Slate is CamperUI's ground and colours, light and dark", () => {
     const slate = themeById("slate")
     expect(slate.dark).toMatchObject({
-      surface: "#101318", panel: "#181c24", outline: "#272d3b", track: "#12151c", text: "#f1f5f9", textMuted: "#94a3b8",
-      accent: "#0ea5e9", accentEnd: "#38bdf8", accentAlt: "#f59e0b", accent3: "#06b6d4", accent4: "#a855f7",
+      surface: "#101318", panel: "#181c24", outline: "#272d3b", track: "#333a45", text: "#f1f5f9", textMuted: "#94a3b8",
+      accent: "#0ea5e9", accentEnd: "#22d3ee", accentAlt: "#f59e0b", accent3: "#06b6d4", accent4: "#a855f7",
       good: "#10b981", warning: "#eab308", alarm: "#ef4444",
     })
     expect(slate.light).toMatchObject({
       surface: "#f1f5f9", panel: "#ffffff", outline: "#e2e8f0", track: "#dbe2ec", text: "#0f172a", textMuted: "#64748b",
-      accent: "#0284c7", accentEnd: "#0ea5e9", accentAlt: "#d97706", accent3: "#0891b2", accent4: "#9333ea",
+      accent: "#0284c7", accentEnd: "#06b6d4", accentAlt: "#d97706", accent3: "#0891b2", accent4: "#9333ea",
       good: "#059669", warning: "#ca8a04", alarm: "#dc2626",
     })
   })

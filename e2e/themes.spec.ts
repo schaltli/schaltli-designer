@@ -1029,13 +1029,32 @@ test.describe("themes by colour depth", () => {
 test.describe("the track roles", () => {
   test("the colour themes have a track of their own apart from the card, and no edge", () => {
     // Since the colour model (2026-11-04) the track is no longer half the
-    // accent: a quiet grey of the ground, darker than the card in dark.
+    // accent: a quiet grey of the ground; in dark lighter than the card since
+    // 2026-11-10, darker before.
     for (const theme of themesFor("24bit")) {
       for (const variant of ["light", "dark"] as const) {
         const { panel, track, trackEdge } = theme[variant]
         expect(track, `${theme.id} ${variant}`).not.toBe(panel)
         expect(trackEdge, `${theme.id} ${variant}`).toBe("transparent")
       }
+    }
+  })
+
+  // The user on the demo, 2026-11-10: in dark a slider's track could not be
+  // told from the ground. It stands apart from the ground and the card alike.
+  test("in dark the colour themes' track stands apart from the ground and from the card", () => {
+    const lum = (h: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    }
+    const contrast = (a: string, b: string) => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p)
+      return (x + 0.05) / (y + 0.05)
+    }
+    for (const theme of themesFor("24bit")) {
+      const { surface, panel, track } = theme.dark
+      expect(contrast(track, surface), `${theme.id}: track on the ground`).toBeGreaterThanOrEqual(1.4)
+      expect(contrast(track, panel), `${theme.id}: track on a card`).toBeGreaterThanOrEqual(1.4)
     }
   })
 

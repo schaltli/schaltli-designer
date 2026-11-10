@@ -37,7 +37,7 @@ Unter <span class="ui">Colour</span> wählt jedes Objekt für jede seiner Farben
 | <span class="ui">Track</span> | der leere Teil von Bar, Slider, Gauge und Dial |
 | <span class="ui">Track edge</span> | ein Rand um diesen leeren Teil, 2 Pixel breit. Die farbigen Themes haben keinen, Paper einen schwarzen |
 
-Bis November 2026 hiessen einige Rollen anders: Surface, Panel, Outline, Muted text und Second accent. Die Objekte eines Projekts behalten ihre Rollen, nur die Namen sind neu. Dazugekommen sind Accent 3, Accent 4 und die drei Zustände. Zur selben Zeit haben alle farbigen Themes ausser Slate neue Farben bekommen. Ein Projekt in einem dieser Themes sieht seither anders aus.
+Bis November 2026 hiessen einige Rollen anders: Surface, Panel, Outline, Muted text und Second accent. Die Objekte eines Projekts behalten ihre Rollen, nur die Namen sind neu. Dazugekommen sind Accent 3, Accent 4 und die drei Zustände. Zur selben Zeit haben alle farbigen Themes ausser Slate neue Farben bekommen. Ein Projekt in einem dieser Themes sieht seither anders aus. Seit dem 10. November 2026 ist der Track in den dunklen farbigen Themes heller als die Karten, vorher war er dunkler und auf dem Grund kaum zu sehen. Bei Slate endet der Verlauf seither in Cyan statt in einem helleren Blau.
 
 Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sein darf, und beim Icon <span class="ui">Icon's own color</span> für die Farben, die das Icon selbst hat. Neue Objekte bekommen die Rolle, die zu ihnen passt: Text die Rolle Text, eine Bar den Akzent. Eine neue Beschriftung hat keinen Hintergrund und keinen Rahmen.
 
