@@ -26,7 +26,10 @@ function AdornmentThumbnail({ svg }: { svg: string | null }) {
     )
   }
 
-  const scaledSvg = svg.replace(
+  // Comments go first: an adornment's header comment may itself mention
+  // "<svg>" (the 4" and 4.3B ones do), and the style must land on the real
+  // root element, or the picture shows at native size, cut off by the card.
+  const scaledSvg = svg.replace(/<!--[\s\S]*?-->/g, "").replace(
     /<svg([^>]*)>/,
     '<svg$1 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">',
   )
