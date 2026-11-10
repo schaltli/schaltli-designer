@@ -21,4 +21,4 @@ between tasks dropped (the user, 2026-11-09); `npm run test:all` in T11.
 - [ ] T11 30-minute soak, `npm run test:all`, idea and spec up to date
   - soak on the 4" (`camera.js --soak`, chart over MQTT): PASS, no restart, 12 images/s throughout, internal heap lowest 138 KB (156 without), nothing lost
   - `test:all` (2026-11-10): the three boards' camera runs all took port 8090 side by side - each now its own port; the 4.3B's build was missing from the firmware checkout (every firmware upload/OTA failed on the foreign build) - built, the 4.3B on HEAD; Knob smoke read a recovery copy from before Checkpoint C. All rerun green.
-  - **open:** the 4.3B's loop pause 290-292 ms of 286 allowed (baseline 136-140), three runs - the user decides
+  - the 4.3B's loop pause 290-293 ms of 286 allowed (baseline 136-140); the user chose to change the firmware. The worst turn, now in /api/debug: values 162 ms + picture 98 ms. A picture waits out a turn that drew values: 217 ms, and with the cap down from 170 to 130 ms 6.1-6.3 images/s at 240-242 ms

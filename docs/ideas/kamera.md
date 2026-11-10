@@ -348,12 +348,14 @@ MQTT beside the Camera, the worst case.
 | Device | Images a second | Delay (median) | Longest loop pause |
 |---|---|---|---|
 | Waveshare 4" | 10.2 | about 100 ms | within 150 ms of the same screen without it |
-| Waveshare 4.3B | 5.1, capped at 170 ms between requests | | 282-285 ms of 286 allowed |
+| Waveshare 4.3B | 6.1-6.3, capped at 130 ms between requests | about 170 ms | 240-242 ms of 286 allowed |
 | Knob | 12.9-13.3 | 133-200 ms | 67-69 ms (13 without) |
 | Android (P20) | 57.8 | 0-33 ms | |
 
 The 4.3B was the tight one: unlimited, its loop paused 389 ms, so the user chose
-the cap. Fetching ahead was tried on the 4" and dropped: 19 images fetched a
+a cap of 170 ms - and still came out a few ms over. Measured turn by turn, the
+longest one drew values and a picture together; a picture now waits out a turn
+that drew values, which made room for 130 ms. Fetching ahead was tried on the 4" and dropped: 19 images fetched a
 second, 3.3 shown. Every failure mode (camera gone and back, wrong password, no
 `Content-Length`, garbage, over 256 KB, another screen) passes on all four.
 
