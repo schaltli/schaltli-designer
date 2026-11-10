@@ -2155,6 +2155,14 @@ export function Canvas({
   // half of what the live preview spent per value (#58).
   const drawRef = useRef(draw)
   drawRef.current = draw
+  // What a renderer calls back when something it waited for has arrived (a
+  // font, an icon, a camera's picture): the newest draw, never the one of the
+  // render that asked. A Camera asks again from each picture's callback, so
+  // with `draw` itself the preview went on drawing the screen and the values of
+  // the moment the Preview opened, in turn with the real ones: values came and
+  // went, a tapped switch flickered back, and the Designer showed the picture
+  // (the user on the demo, 2026-11-10).
+  const redraw = useCallback(() => drawRef.current(), [])
   useEffect(() => {
     const canvas = canvasRef.current
     const container = containerRef.current
@@ -2457,7 +2465,7 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           getPreviewValueFromTopic,
           placeholders,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           navigator: {
             screens: projectScreens ?? [screen],
             activeScreenId: screen.isMaster ? navigatorScreens(projectScreens ?? [])[0]?.id : screen.id,
@@ -2477,7 +2485,7 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           getPreviewValueFromTopic,
           placeholders,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           screenBackgroundColor: resolvedBackgroundColor,
         }, previewMode ? energyMotionRef.current : STILL)
         break
@@ -2505,7 +2513,7 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           getPreviewValueFromTopic,
           placeholders,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           screenBackgroundColor: resolvedBackgroundColor,
         })
         break
@@ -2513,7 +2521,7 @@ export function Canvas({
       case "text":
         // Its baseline handles are its own renderer's; a text in a table put
         // together by snapping has none - its cell decides its size.
-        renderLabel(ctx, obj, fonts, isSelected && !sizedBySnapTable.has(obj.id), zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
+        renderLabel(ctx, obj, fonts, isSelected && !sizedBySnapTable.has(obj.id), zoom, bdfFontCacheRef.current, placeholders, colorDepth, redraw)
         break
 
       case "line":
@@ -2531,7 +2539,7 @@ export function Canvas({
           obj: iconAsDrawn(obj, placeholders),
           projectAssets,
           iconImageCache: iconImageCacheRef.current,
-          requestRedraw: draw,
+          requestRedraw: redraw,
         })
         break
 
@@ -2549,7 +2557,7 @@ export function Canvas({
           getAskedValueFromTopic,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
-          requestRedraw: draw,
+          requestRedraw: redraw,
         })
         break
 
@@ -2567,7 +2575,7 @@ export function Canvas({
           getAskedValueFromTopic,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
-          requestRedraw: draw,
+          requestRedraw: redraw,
         })
         break
 
@@ -2581,7 +2589,7 @@ export function Canvas({
           zoom,
           iconImageCache: iconImageCacheRef.current,
           bdfFontCache: bdfFontCacheRef.current,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           colorDepth,
           // What it stands on: the tonal tint is mixed with it, as the
           // slider's track is.
@@ -2599,7 +2607,7 @@ export function Canvas({
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
           colorDepth,
-          requestRedraw: draw,
+          requestRedraw: redraw,
         })
         break
 
@@ -2612,12 +2620,12 @@ export function Canvas({
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
           colorDepth,
-          requestRedraw: draw,
+          requestRedraw: redraw,
         })
         break
 
       case "camera":
-        if (previewMode) renderCamera(ctx, obj, { cache: cameraPreviewRef.current, requestRedraw: draw })
+        if (previewMode) renderCamera(ctx, obj, { cache: cameraPreviewRef.current, requestRedraw: redraw })
         else renderCamera(ctx, obj, undefined, CAMERA_DESIGN_HINT)
         break
 
@@ -2631,7 +2639,7 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           pressed: previewMode && pressedSwitch?.id === obj.id,
@@ -2652,7 +2660,7 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
-          requestRedraw: draw,
+          requestRedraw: redraw,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           pressedStateIndex: previewMode && pressedSwitch?.id === obj.id ? pressedSwitch.index : -1,
