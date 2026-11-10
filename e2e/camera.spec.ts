@@ -184,6 +184,24 @@ test.describe("Camera preview on the canvas", () => {
     expect(isRed(await colourAt(page, 44, 64))).toBe(false)
   })
 
+  // Found on the demo (2026-11-10): each picture's callback drew with the draw
+  // of the render that first asked, so the Preview of that moment kept coming
+  // back - values went and came, a tapped switch flickered back, and after
+  // Designer the picture went on being drawn over the stand-in.
+  test("back in the Designer, the picture stops and the stand-in stays", async ({ page }) => {
+    await page.route("http://192.168.1.50/**", (route) => route.fulfill({ status: 200, contentType: "image/png", headers: { "Access-Control-Allow-Origin": "*" }, body: RED }))
+    await preview(page)
+    await expect.poll(async () => isRed(await colourAt(page, CENTRE.x, CENTRE.y)), { timeout: 15000 }).toBe(true)
+    await page.getByRole("button", { name: "Designer", exact: true }).click()
+    await page.waitForTimeout(500)
+    let red = 0
+    for (let i = 0; i < 15; i++) {
+      if (isRed(await colourAt(page, CENTRE.x, CENTRE.y))) red++
+      await page.waitForTimeout(100)
+    }
+    expect(red, "samples showing the picture after Designer").toBe(0)
+  })
+
   // Reading the canvas back, as a switch's pills and a gauge do while drawing.
   test("a camera that does not allow it keeps the stand-in and the canvas readable", async ({ page }) => {
     // A real server: Playwright's route.fulfill answers a CORS request by itself.
