@@ -59,6 +59,8 @@ export const OBJECT_TYPES = [
   // Values over time (docs/2026-10-16-charts.md): series of a topic's
   // history, laid on the broker by the recorder.
   "chart",
+  // A camera's picture, from a snapshot URL (docs/2026-11-09-camera.md).
+  "camera",
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
@@ -166,6 +168,8 @@ export function objectTypeLabel(type: string): string {
       return "Energy diagram"
     case "chart":
       return "Chart"
+    case "camera":
+      return "Camera"
     case "group":
       return "Group"
     case "free":

@@ -7,6 +7,7 @@ import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, Ic
 import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
+import { CameraProperties } from "./camera-properties"
 import { NavigatorProperties } from "./navigator-properties"
 import { EnergyDiagramProperties } from "./energy-diagram-properties"
 import { ChartProperties } from "./chart-properties"
@@ -406,6 +407,9 @@ export function PropertyPanel({
                 />
               )}
 
+              {selectedObject.type === "camera" && (
+                <CameraProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+              )}
               {selectedObject.type === "box" && (
                 <BoxProperties 
                   selectedObject={selectedObject} 

@@ -67,6 +67,8 @@ import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-li
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { renderToggleButton } from "./renderers/render-toggle-button"
+import { CAMERA_DESIGN_HINT, renderCamera, type CameraPreviewEntry } from "./renderers/render-camera"
+import { clampCameraSize } from "@/lib/camera-size"
 import { renderTextField, textFieldValue } from "./renderers/render-text-field"
 import { TextFieldEntry } from "./text-field-entry"
 import { renderTimeField } from "./renderers/render-time-field"
@@ -1503,6 +1505,7 @@ export function Canvas({
   // so the adornment's off-screen covers vanish into that backdrop exactly.
   const offscreenColor = readOffscreenColor()
   const { image: adornmentImage, svgDoc: adornmentSvgDoc } = useAdornmentImage(adornment, offscreenColor)
+  const cameraPreviewRef = useRef(new Map<string, CameraPreviewEntry>())
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const bdfFontCacheRef = useRef<Map<string, any>>(new Map())
 
@@ -2611,6 +2614,11 @@ export function Canvas({
           colorDepth,
           requestRedraw: draw,
         })
+        break
+
+      case "camera":
+        if (previewMode) renderCamera(ctx, obj, { cache: cameraPreviewRef.current, requestRedraw: draw })
+        else renderCamera(ctx, obj, undefined, CAMERA_DESIGN_HINT)
         break
 
       case "toggle-button":
@@ -4315,6 +4323,12 @@ export function Canvas({
           newWidth = Math.max(newWidth, minSwitchWidth(stateCount))
           newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
         }
+        // A Camera stays within what a device can draw (lib/camera-size.ts).
+        if (resizingObject?.type === "camera") {
+          const clamped = clampCameraSize(newWidth, newHeight)
+          newWidth = clamped.width
+          newHeight = clamped.height
+        }
         // A Toggle Button is never lower than its lines (the user, 2026-11-06).
         if (resizingObject?.type === "toggle-button") {
           newHeight = Math.max(newHeight, toggleMinHeight(resizingObject, fonts))
@@ -4556,6 +4570,15 @@ export function Canvas({
           ...(type === "text-field" ? { minLength: 0, maxLength: 255 } : { minuteStep: 5 }),
           ...(startStyled("xl") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
         },
+      }
+    }
+    if (type === "camera") {
+      return {
+        type,
+        x: Math.round(x),
+        y: Math.round(y),
+        ...clampCameraSize(width, height),
+        properties: { url: "", username: "", password: "" },
       }
     }
     if (type === "toggle-button") {

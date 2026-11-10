@@ -72,6 +72,19 @@ async function main() {
   check((await fetch(`${base}/api/projects/Camper`)).ok, "the start project is there")
   check((await fetch(`${base}/stats/not-the-key-not-the-key-not-the-key`)).status === 404, "the stats page wants its key")
 
+  // The camera of the page Ablassen: a JPEG the preview may draw
+  // (render-camera.ts asks with crossOrigin), and a later one by the clock.
+  const shot = async () => {
+    const res = await fetch(`${base}/camera/shot.jpg?_=${Date.now()}`)
+    return { frame: res.headers.get("x-frame"), cors: res.headers.get("access-control-allow-origin"), status: res.status, body: Buffer.from(await res.arrayBuffer()) }
+  }
+  const first = await shot().catch((e) => ({ frame: null, cors: null, status: String(e), body: Buffer.alloc(0) }))
+  check(first.status === 200 && first.body[0] === 0xff && first.body[1] === 0xd8, "the camera answers with a JPEG", `${first.status}, ${first.body.length} bytes`)
+  check(first.cors === "*", "the preview may draw it")
+  await new Promise((r) => setTimeout(r, 300))
+  const second = await shot().catch(() => ({ frame: null }))
+  check(first.frame !== null && second.frame !== null && first.frame !== second.frame, "the picture moves", `frame ${first.frame} then ${second.frame}`)
+
   // What the demo does not do.
   const refused = [
     ["POST", "/api/projects", { name: "x", project: {} }],

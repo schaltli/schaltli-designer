@@ -387,6 +387,8 @@ async function main() {
     // from (docs/2026-11-01-4bit-fonts.md); needs Python with Pillow, not a
     // compiler, and is SKIPPED without one the same way.
     { name: "fw-ttf-to-bdf", repo: FIRMWARE_REPO, script: "tools/ttf-to-bdf-check/run.js", detail: "1-bit fonts unchanged, 4-bit fonts reproducible and well formed" },
+    // The designer's own, needs ffmpeg once to prepare its frames.
+    { name: "camera-server", repo: path.join(__dirname, ".."), script: "hil/camera-server-check.js", detail: "the fake camera does what the device tests rely on", skipDetail: "no ffmpeg - see output above" },
   ]
   for (const check of hostChecks) step("host", async () => {
     console.log(`\n=== ${check.name} (host, no hardware) ===`)
@@ -402,7 +404,7 @@ async function main() {
       status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
       detail:
         exitCode === 2
-          ? "no desktop C++ compiler, or no golden file - see output above"
+          ? check.skipDetail || "no desktop C++ compiler, or no golden file - see output above"
           : exitCode === 0
             ? check.detail
             : `exit code ${exitCode} - see output above`,
@@ -640,6 +642,20 @@ async function main() {
   // glass and nowhere else, a tap no more than 20 % slower for them, and a
   // tap on a node opening its popup. Grew out of the spike, so the number
   // that decided the 4.3B moves stays a measured one. Installs its own screen.
+  // The Camera against the fake camera (docs/2026-11-09-camera.md): rate, delay,
+  // and every way a camera can fail. A board that does not declare it is skipped.
+  // The Knob declares it since Checkpoint C (2026-11-10) and runs the same.
+  for (const [lane, device, label] of [...RGB_BOARDS, ["knob", WAVESHARE_DEVICE, "knob"]]) step(lane, async () => {
+    console.log(`
+  === Waveshare ${label} camera (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/waveshare4v3b/camera.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `waveshare-${lane}-camera`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 2 ? `unreachable at ${device}, or the board does not declare camera` : exitCode === 0 ? "rate, delay and every failure mode of the fake camera" : `exit code ${exitCode} - see output above`,
+    })
+  })
+
   for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
     console.log(`
   === Waveshare ${label} energy diagram motion (device: ${device}) ===`)
@@ -1724,6 +1740,18 @@ async function main() {
       }
     }
   }, { quick: true })
+
+  // The Camera in the app, against the fake camera (hil/android/camera.js):
+  // rate, delay and every way a camera can fail, as on the boards.
+  step("android", async () => {
+    console.log("\n=== android camera ===")
+    const exitCode = await run("node", ["hil/android/camera.js"], { cwd: REPO_ROOT })
+    summary.push({
+      name: "android-camera",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 2 ? "no phone with its test interface on, no ffmpeg, or the app does not declare camera" : exitCode === 0 ? "rate, delay and every failure mode of the fake camera" : `exit code ${exitCode} - see output above`,
+    })
+  })
 
   // What the app refuses and how it goes dark (schaltli-android#3, #5):
   // a board's export sent to the phone, an Android bundle for another phone,

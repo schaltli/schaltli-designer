@@ -265,3 +265,46 @@ Welche Zeitspanne ein Diagramm zeigt, bestimmt sein Screen unter <span class="ui
 In der Vorschau mit <span class="ui">Live</span> zeigt das Diagramm, was der Recorder auf den Broker gelegt hat. Läuft keiner, steht «No recorder on this broker» darin, hat er noch nichts gesammelt, «No history yet». Mit <span class="ui">Simulation</span> und beim Bearbeiten zeichnet der Designer eine Kurve aus den Beispielwerten der Topics.
 
 Ist <span class="ui">Scrolling</span> eingeschaltet, schiebst du das Diagramm in der Vorschau mit der Maus durch die Zeit. Ziehst du nach rechts, kommt die Vergangenheit von links herein. Beim Loslassen rastet es ab 24 Stunden auf ganze Tage ein. Ein Wisch über ein solches Diagramm blättert den Screen nicht um. Was Tasten und Gesten an der Zeitspanne ändern, steht unter [Den Zeitbereich ändern](/designer/tasten#zeitbereich).
+
+## Camera {#camera}
+
+Zeigt das Bild einer Kamera im Netz, etwa einer kleinen Kamera unter dem Van, mit der du ihn über einen Gulli stellst. Das Gerät holt ein Einzelbild nach dem anderen und fragt erst nach dem nächsten, wenn das letzte angekommen und gezeichnet ist. So staut sich nichts: Was du siehst, ist meist 0.1 bis 0.2 Sekunden alt.
+
+::: danger Nicht zum Rückwärtsfahren
+Die Camera ist nicht zum Rückwärtsfahren gedacht und nicht für die Fahrt. Das Bild kommt über das WLAN, es kann hinterherhinken oder ausfallen. Die einzige Ausnahme: den Van im Schritttempo über einen Gulli stellen, nachdem du dich umgeschaut hast.
+:::
+
+Unter <span class="ui">Source</span> stehen die Felder:
+
+- <span class="ui">URL</span>: die Adresse, unter der die Kamera ein einzelnes JPEG liefert, etwa `http://192.168.1.50/capture`. Nur `http://`, für HTTPS und RTSP siehe [Kamera einrichten](#camera-einrichten).
+- <span class="ui">Username</span> und <span class="ui">Password</span>: für eine Kamera, die mit HTTP Basic nach einem Login fragt. Sonst bleiben sie leer.
+
+Unter <span class="ui">Frame</span> stellst du die Grösse ein, von 80×60 bis 320×240 Pixel. Eine neue Camera ist 320×240 gross. Das Bild steht ganz und mittig darin. Ein grösseres verkleinert das Gerät beim Dekodieren auf die Hälfte, ein Viertel oder ein Achtel, ein kleineres vergrössert es nicht. Am besten liefert die Kamera gleich 320×240. Ein Bild über 256 KB nimmt das Gerät nicht an.
+
+Kommt eine Sekunde lang kein neues Bild, steht <span class="ui fw">No live image</span> an seiner Stelle, ebenso vor dem ersten Bild. Das geschieht, wenn die Kamera aus ist oder nicht antwortet, wenn das Passwort nicht stimmt oder wenn sie etwas anderes als ein JPEG schickt. Kommen wieder Bilder, ist das Bild nach ein bis zwei Sekunden zurück.
+
+Das Gerät fragt die Kamera nur, solange die Camera zu sehen ist. Auf einem anderen Screen, in einem geschlossenen Popup und bei dunklem Display geht keine Anfrage hinaus.
+
+Im Designer zeigt die Camera beim Bearbeiten einen Platzhalter mit Kamerasymbol und dem Hinweis «Video shows in Preview only». Bilder holt der Designer erst in der [Vorschau](/designer/vorschau), und auch dort nur, wenn der Browser es zulässt: Die Kamera muss den Header `Access-Control-Allow-Origin` senden und darf kein Login verlangen, und der Designer selbst muss über `http://` laufen. Sonst bleibt auch in der Vorschau der Platzhalter. Auf dem Gerät erscheint das Bild trotzdem.
+
+::: warning Geräte
+Die Camera zeigen der 4", der 4.3B, der Knob und die Android-App, ab der nächsten Firmware-Release und App-Version. Auf dem PaperS3 bietet der Designer sie nicht an.
+:::
+
+Wie viele Bilder pro Sekunde ankommen, hängt vom Gerät ab. Mit Bildern von 10 KB im WLAN gemessen: etwa 10 auf dem 4", 5 auf dem 4.3B, 13 auf dem Knob und über 50 in der App auf einem Huawei P20. Der 4.3B fragt absichtlich höchstens alle 170 ms, damit ein Fingertipp neben einem bewegten Energiediagramm nicht warten muss. Auf dem runden Knob verschwinden die Ecken eines 320×240-Bilds hinter dem Rand.
+
+### Kamera einrichten {#camera-einrichten}
+
+Es geht jede Kamera, die unter einer Adresse im lokalen Netz ein einzelnes JPEG liefert.
+
+Ein XIAO ESP32S3 Sense mit dem Beispiel «CameraWebServer» aus der Arduino-IDE liefert sein Bild unter `http://<Adresse>/capture`. In seiner Weboberfläche stellst du die Auflösung auf QVGA, also 320×240.
+
+Ein altes Android-Handy mit der App «IP Webcam» liefert sein Bild unter `http://<Adresse>:8080/shot.jpg`. Stell in der App eine kleine Auflösung ein.
+
+Kann deine Kamera nur RTSP, HTTPS oder ein Digest-Login, setzt du [go2rtc](https://github.com/AlexxIT/go2rtc) auf einem Rechner im Van dazwischen, etwa einem Raspberry Pi. Es holt den Stream und gibt unter `http://<Adresse>:1984/api/frame.jpeg?src=<Name>` ein Einzelbild aus.
+
+Die Camera zeigt nur das Bild, ein- und ausschalten kann sie die Kamera nicht. Soll die Kamera nur Strom haben, wenn du sie brauchst, legst du einen [Switch](/objekte/bedienen#switch) oder einen [Toggle Button](/objekte/bedienen#toggle-button) für ihr Relais daneben. Bis sie nach dem Einschalten bereit ist, steht <span class="ui fw">No live image</span> da.
+
+::: warning Benutzername und Passwort im Klartext
+Benutzername und Passwort stehen unverschlüsselt im Projekt und gehen so auf das Gerät. Im Designer ist das Passwort verdeckt, und das Gerät schreibt beides in kein Log und keine Statusmeldung. Über `http://` gehen sie aber offen durchs Netz: Wer im selben WLAN mitliest, kann sie lesen. Gib der Kamera deshalb ein eigenes Passwort, das du sonst nirgends brauchst.
+:::

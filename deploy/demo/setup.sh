@@ -21,9 +21,14 @@
 #     visitors read schaltli/# and homeassistant/# and write schaltli/cmnd/#
 #     and nothing else; the demo van has an account that may do all;
 #   - Caddy for demo.schaltli.com: HTTPS by itself, /mqtt to Mosquitto's
-#     websockets, everything else to the designer, bodies above 64 KB refused;
-#   - two systemd units, the designer (at most 1 GB of memory) and the demo
-#     van, restarted on failure;
+#     websockets, /camera/ to the demo's camera, everything else to the
+#     designer, bodies above 64 KB refused;
+#   - three systemd units, the designer (at most 1 GB of memory), the demo
+#     van and the camera, restarted on failure;
+#   - the camera's frames in /var/lib/schaltli-demo-camera, from
+#     /tmp/schaltli-demo-camera.tar.gz if deploy.sh uploaded them (the
+#     user's drain video, prepared on the PC: hil/camera-server.js
+#     --prepare-demo), kept otherwise;
 #   - for counting visits (docs/2026-10-10-demo-tracking.md): DB-IP's free
 #     city database and GeoNames' places of 50 000 people or more, in
 #     /var/lib/schaltli-demo-geo, fetched again after a month.
@@ -45,6 +50,8 @@ USER_NAME=schaltli
 DOMAIN=demo.schaltli.com
 ENV_FILE=/etc/schaltli-demo.env
 SEED=/tmp/schaltli-demo-seed.tar.gz
+CAMERA_UPLOAD=/tmp/schaltli-demo-camera.tar.gz
+CAMERA_DIR=/var/lib/schaltli-demo-camera
 
 log() { echo "[demo-setup] $*"; }
 [ "$(id -u)" = 0 ] || { echo "[demo-setup] ERROR: run as root" >&2; exit 1; }
@@ -76,6 +83,18 @@ if [ -f "$SEED" ]; then
   tar -xzf "$SEED" -C "$DIR/.data"
   chown -R "$USER_NAME:$USER_NAME" "$DIR/.data"
   rm -f "$SEED"
+fi
+
+# --- the camera's frames (docs/2026-11-09-camera.md; the page Ablassen) ---
+if [ -f "$CAMERA_UPLOAD" ]; then
+  log "The camera's frames"
+  rm -rf -- "${CAMERA_DIR:?}.new"
+  mkdir -p "$CAMERA_DIR.new"
+  tar -xzf "$CAMERA_UPLOAD" -C "$CAMERA_DIR.new"
+  rm -rf -- "${CAMERA_DIR:?}"
+  mv "$CAMERA_DIR.new" "$CAMERA_DIR"
+  chmod -R a+rX "$CAMERA_DIR"
+  rm -f -- "$CAMERA_UPLOAD"
 fi
 
 # --- where visitors are, roughly: DB-IP Lite and GeoNames, monthly ---
@@ -175,6 +194,9 @@ $DOMAIN {
 	handle /mqtt* {
 		reverse_proxy 127.0.0.1:9001
 	}
+	handle_path /camera/* {
+		reverse_proxy 127.0.0.1:8090
+	}
 	handle {
 		reverse_proxy 127.0.0.1:3000
 	}
@@ -227,9 +249,34 @@ ProtectHome=true
 [Install]
 WantedBy=multi-user.target
 EOF
+cat > /etc/systemd/system/schaltli-demo-camera.service <<EOF
+[Unit]
+Description=Schaltli demo: the camera over the drain (the user's video, by the clock)
+After=network-online.target
+ConditionPathExists=$CAMERA_DIR/done.json
+
+[Service]
+User=$USER_NAME
+WorkingDirectory=$DIR
+ExecStart=/usr/bin/node $DIR/hil/camera-server.js --frames $CAMERA_DIR --host 127.0.0.1 --port 8090
+Restart=always
+RestartSec=3
+MemoryMax=256M
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
 systemctl daemon-reload
-systemctl enable --quiet schaltli-demo-designer schaltli-demo-van
+systemctl enable --quiet schaltli-demo-designer schaltli-demo-van schaltli-demo-camera
 systemctl restart schaltli-demo-designer schaltli-demo-van
+if [ -f "$CAMERA_DIR/done.json" ]; then
+  systemctl restart schaltli-demo-camera
+else
+  log "WARNING: no camera frames - the page Ablassen shows the camera's stand-in"
+fi
 
 for i in $(seq 1 30); do
   curl -fs -o /dev/null http://127.0.0.1:3000/api/version && break

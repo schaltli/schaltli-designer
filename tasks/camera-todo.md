@@ -1,0 +1,25 @@
+# camera - todo
+
+Plan: tasks/camera-plan.md. Spec: docs/2026-11-09-camera.md.
+Each task: `npm run typecheck`, its spec or HIL case. `npm run test:quick`
+between tasks dropped (the user, 2026-11-09); `npm run test:all` in T11.
+
+- [x] Before: branch `camera` in designer, firmware and android
+- [x] T1 designer: `hil/camera-server.js` looping the drain video by the clock (not in the repo), frame number in the picture, every mode reachable from a test
+- [x] T2 firmware: CameraFeed, loader, drawing on the 4", HIL for criteria 1 and 4
+- [x] Checkpoint A (2026-11-09): 10.2 images/s, delay 100 ms; the user: go on, with criterion 4 relative to the same screen without a Camera
+- [x] T3 firmware: «No live image», Basic, 256 KB, no credentials in logs; HIL for 2, 3, 6, 7, 9
+- [x] T4 designer: type, placeholder, sizes, properties, only where declared; e2e
+- [x] T5 designer: preview and demo still image; e2e
+- [x] T6 designer: export, device contract, conformance specimen, fixture from the designer
+- [x] Checkpoint B (2026-11-10): the user places one and sees it on the 4" (found: a label over the picture was painted over - fixed; preview only in Preview mode; after swiping away and back the picture jittered, a shifted «No live image» flashing - the slide's frames left in two of the panel's three buffers, fixed in firmware, `camera.js` swipes away and back and checks the glass beside the picture)
+- [x] T7 firmware: 4.3B declared, HIL. Unlimited the loop paused 389 ms (baseline 136); the user chose a cap: 170 ms between requests, 5.1 images/s, pause 282-285 ms of 286 allowed - tight on both. Fixed on the way: PSRAM for the pictures taken before the fonts, «No live image» no longer parses every font. COM3 log not captured (the logger hung opening the port).
+- [x] T8 firmware: Knob measured - 12.9-13.3 images/s, delay median 133-200 ms, loop pause 67-69 ms (baseline 13); one run of three slow to recover after oversize and after a camera restart, cause unknown. No energy diagram on the round screen, taps not measured. Fixed on the way: Knob and PaperS3 built again (JPEGDEC).
+- [x] Checkpoint C (2026-11-10): the user: the Knob declares the Camera
+- [x] T9 android: CameraView, DDF, tests, HIL - on the P20 57.8 images/s, delay median 0-33 ms, every failure mode passing (hil/android/camera.js, 21 checks; CameraViewTest 14). Found on the way: the camera server counted every device's requests, and the Knob still showing T8's project made «another screen: no request» fail - now counted by address, the boards' run too.
+- [x] T10 handbook objekte/anzeigen.md («Camera», «Kamera einrichten»), objekte/index.md; handbook-labels green, VitePress builds. The XIAO and IP Webcam addresses are from their own documentation, not tried here.
+- [x] T11 30-minute soak, `npm run test:all`, idea and spec up to date
+  - soak on the 4" (`camera.js --soak`, chart over MQTT): PASS, no restart, 12 images/s throughout, internal heap lowest 138 KB (156 without), nothing lost
+  - `test:all` (2026-11-10): the three boards' camera runs all took port 8090 side by side - each now its own port; the 4.3B's build was missing from the firmware checkout (every firmware upload/OTA failed on the foreign build) - built, the 4.3B on HEAD; Knob smoke read a recovery copy from before Checkpoint C. All rerun green.
+  - the 4.3B's loop pause 290-293 ms of 286 allowed (baseline 136-140); the user chose to change the firmware. The worst turn, now in /api/debug: values 162 ms + picture 98 ms. A picture waits out a turn that drew values: 217 ms, and with the cap down from 170 to 130 ms 6.1-6.3 images/s at 240-242 ms
+  - second `test:all` (2026-11-10, after the swipe fix and the 4.3B's change): every camera run green; red were the 4.3B's and 4"'s energy motion (a different check each time, a timeout installing with a popup open), 4.3B popups, Knob charts-draw, PaperS3 text-field (the PaperS3 on the far access point, -83 dBm) and e2e energy-diagram sankey popup - all green rerun alone, energy motion four times on both boards. Energy motion failed in the morning's run too, on the 4.3B's T7 build: older than today's firmware, unsteady under the lanes' load.

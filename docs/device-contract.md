@@ -599,6 +599,14 @@ repo's type definitions for the full field list):
   `writeValue`, `iconAssetId`, and for a `switch` `showAsOn`), `topic`,
   `writeTopic`, `switchStyle`, `switchColor`. The form is the type: there is
   no `mode` any more.
+- **camera** (2026-11-09, `docs/2026-11-09-camera.md`): the picture of a
+  camera. `properties.url` (`http://` only), `properties.username` and
+  `properties.password` (HTTP Basic, may be empty; never logged). 80x60 to
+  320x240. A device fetches one image after another while the object is
+  visible, the next once the last is decoded, reads to `Content-Length`,
+  accepts up to 256 KB, fits it whole and centred without enlarging it, and
+  shows «No live image» whenever no picture younger than a second is shown.
+  Nothing is baked: the Android app gets the same fields.
 - **toggle-button** (2026-11-06, `docs/2026-11-06-toggle-button.md`): a
   switch that is one tile, CamperUI's relay tile. `states[]`, `topic`,
   `writeTopic` as on a switch, `text` its name (may be empty), and what it

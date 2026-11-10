@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils"
 import { finishField, finishesField } from "./finish-field"
 
 export interface TextFieldProps {
+  /** "password" masks what is typed. */
+  type?: "text" | "password"
   label: string
   value: string | undefined
   onChange: (value: string) => void
@@ -23,14 +25,14 @@ export interface TextFieldProps {
   onBlur?: (value: string) => void
 }
 
-export function TextField({ label, value, onChange, placeholder, hint, id, onBlur }: TextFieldProps) {
+export function TextField({ label, value, onChange, placeholder, type = "text", hint, id, onBlur }: TextFieldProps) {
   const auto = useId()
   const fieldId = id ?? auto
   return (
     <PropertyRow label={label} hint={hint} htmlFor={fieldId}>
       <input
         id={fieldId}
-        type="text"
+        type={type}
         className={FIELD}
         value={value ?? ""}
         placeholder={placeholder}

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import { Jimp } from "jimp"
 import fs from "fs"
 import path from "path"
-import { buildCamperProject } from "../deploy/demo/camper-project"
+import { buildCamperProject, DEMO_CAMERA_URL } from "../deploy/demo/camper-project"
 import { fakePekaway } from "../integrations/vanpi/demo-van"
 import { createBridgeLogic } from "../integrations/vanpi/bridge-logic"
 import { createProjectStore } from "../lib/project-store"
@@ -90,10 +90,10 @@ test("every topic «Camper» reads, the demo van publishes; every one it writes,
   for (const t of [...read, ...written]) expect(declared.has(t.split("#")[0]), `${t} is not declared`).toBe(true)
 })
 
-test("Energie first, then Licht, Wasser, two pages to come, and the navigator; the page icons follow the van", async () => {
+test("Energie first, then Licht, Wasser, Ablassen, two pages to come, and the navigator; the page icons follow the van", async () => {
   const project = await built()
   expect(project.settings.deviceId).toBe("waveshare-touch-lcd-4v3b")
-  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Energie", "Licht", "Wasser", "MaxxFan", "Heizung"])
+  expect(project.screens.map((s) => s.name)).toEqual(["Master", "Energie", "Licht", "Wasser", "Ablassen", "MaxxFan", "Heizung"])
   expect(project.screens[0].objects.map((o) => o.type)).toEqual(["navigator", "switch"])
   // Top right on the master: light or dark.
   const theme = project.screens[0].objects[1] as any
@@ -134,6 +134,35 @@ test("Energie first, then Licht, Wasser, two pages to come, and the navigator; t
   expect(pump.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
   expect(drain.properties.topic).toBe("schaltli/state/relay/3/power")
   expect(drain.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
+})
+
+// Ablassen (2026-11-10): the grey water let out over a drain, watched through
+// the demo's own camera - an https address of the demo's, so the preview on
+// that https page may load it (components/canvas/renderers/render-camera.ts).
+test("Ablassen: the demo's camera over the drain, the grey water's tank and its valve", async () => {
+  const project = await built()
+  expect(project.settings.supportedObjectTypes).toContain("camera")
+  const screen = project.screens.find((s) => s.name === "Ablassen") as any
+  expect(screen.iconAssetId).toBe("icon-camera")
+  expect(project.assets.some((a: { id: string }) => a.id === "icon-camera")).toBe(true)
+  expect(screen.objects.map((o: any) => o.type).filter((t: string) => t !== "text")).toEqual(["camera", "bar", "switch"])
+  const camera = screen.objects.find((o: any) => o.type === "camera")
+  expect(camera.properties).toMatchObject({ url: DEMO_CAMERA_URL, username: "", password: "" })
+  expect(new URL(DEMO_CAMERA_URL)).toMatchObject({ protocol: "https:", host: "demo.schaltli.com", pathname: "/camera/shot.jpg" })
+  expect([camera.width, camera.height]).toEqual([320, 240])
+  const tank = screen.objects.find((o: any) => o.type === "bar")
+  expect(tank.properties.topic).toBe("schaltli/state/tank/2/level")
+  const valve = screen.objects.find((o: any) => o.type === "switch")
+  expect(valve.properties).toMatchObject({ topic: "schaltli/state/relay/3/power", writeTopic: "schaltli/cmnd/relay/3" })
+  expect(valve.properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
+  // Nothing on top of another, all of it on the glass right of the navigator.
+  const boxes = screen.objects.map((o: any) => ({ x: o.x, y: o.y, r: o.x + o.width, b: o.y + o.height }))
+  for (const b of boxes) expect(b.x >= 104 && b.r <= project.screenWidth && b.b <= project.screenHeight, JSON.stringify(b)).toBe(true)
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const [a, c] = [boxes[i], boxes[j]]
+      expect(a.r <= c.x || c.r <= a.x || a.b <= c.y || c.b <= a.y, `${JSON.stringify(a)} over ${JSON.stringify(c)}`).toBe(true)
+    }
 })
 
 // Energie (2026-10-11, a Flow since 2026-10-13): the sun, the mains and the
