@@ -40,6 +40,9 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/heater/runtime_left_s` | nur bei einer Autoterm: die verbleibende Laufzeit in Sekunden, für das Dial in der Baugruppe |
 | `schaltli/state/heater/fuel`, `…/fuel_since`, `…/fuel_text` | nur bei einer Autoterm: verbrauchter Diesel in Litern, seit wann, und beides als Zeile wie «2.100 l seit 05.12.2024 18:00h», siehe [Verbrauch](#verbrauch) |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
+| `schaltli/state/solar/power` | Solarleistung in ganzen Watt: der Wert der Variable `solar_power`, wenn ein eigener Flow sie setzt, sonst `…/mppt/pv_watts`, siehe [Landstrom, Booster und Solar](#eigene-quellen) |
+| `schaltli/state/shore/connected`, `…/power`, `…/voltage`, `…/current` | Landstrom, nur wenn ein eigener Flow ihn liefert, siehe [Landstrom, Booster und Solar](#eigene-quellen) |
+| `schaltli/state/booster/active`, `…/power`, `…/voltage`, `…/current` | Ladebooster oder Lichtmaschine, ebenso |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
 | `schaltli/state/maxxfan/hvac_mode` | dasselbe in den Wörtern eines Klimageräts bei Home Assistant: `off`, `fan_only` (von Hand) oder `auto` |
 | `schaltli/state/maxxfan/power` | `on` oder `off`, ob er läuft |
@@ -51,6 +54,26 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
 
 Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist.
+
+## Landstrom, Booster und Solar {#eigene-quellen}
+
+Landstrom und Ladebooster kennt Pekaway nicht. Wer sie im Van misst, etwa mit einem Shelly, über das D+-Signal oder mit einem Victron-Gerät, schreibt sie in einem eigenen Node-RED-Flow in globale Variablen. Die Brücke liest diese Variablen bei jeder Antwort der Batterie und legt sie unter `schaltli/state/…` ab:
+
+| Variable | Topic |
+|---|---|
+| `shore_connected`, `shore_power`, `shore_voltage`, `shore_current` | `schaltli/state/shore/connected`, `…/power`, `…/voltage`, `…/current` |
+| `booster_active`, `booster_power`, `booster_voltage`, `booster_current` | `schaltli/state/booster/active`, `…/power`, `…/voltage`, `…/current` |
+| `solar_power` | `schaltli/state/solar/power` |
+
+Die Namen für Landstrom und Booster sind dieselben, die CamperUI liest. Wer sie für CamperUI schon befüllt, bekommt die Werte ohne weitere Arbeit auch in Schaltli. Fehlt `…_connected` oder `…_active`, gilt eine Quelle als an, sobald mehr als 5 W fliessen.
+
+`solar_power` ist Schaltlis eigene Variable. Ist sie gesetzt, gilt ihr Wert als Solarleistung des Vans, sonst die Leistung von Pekaways Solarladeregler. Die Brücke zählt die beiden nie zusammen: Wer zwei Solarquellen hat, rechnet die Summe im eigenen Flow und setzt sie.
+
+Was nicht gesetzt ist, legt die Brücke nicht ab. Ein Van ohne Landstrom-Messung hat also kein Topic `…/shore/…`, und ein Diagramm zeigt dort keinen Wert statt eines falschen.
+
+Leistung von Landstrom, Booster und Solar kündigt die Brücke als Messwert in Watt an, mit den Namen «Landstrom», «Lichtmaschine» und «Solar», jeweils nur, wenn es den Wert gibt.
+
+Pekaways eigene Variablen liest die Brücke sonst nicht, nur Pekaways dokumentierte Schnittstelle. Ausnahmen sind die Restlaufzeit der Batterie und diese Variablen hier, die nicht von Pekaway stammen, sondern von den Flows im Van.
 
 ## Die Befehle
 
@@ -159,10 +182,11 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
+| Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Landstrom», «Lichtmaschine», «Solar» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
-Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
+Batteriemanagement und die einzelnen Werte des Solarladereglers kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
 Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
 

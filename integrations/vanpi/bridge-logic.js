@@ -67,6 +67,54 @@ function createBridgeLogic() {
     return [{ topic: PREFIX + "battery/time_to_go", value: minutes !== null && minutes > 0 ? String(minutes) : "none" }]
   }
 
+  // Shore power, the booster and solar, from Node-RED globals (2026-11-10,
+  // tasks/starter-project-plan.md, decision 3). Not Pekaway's: the bridge's
+  // second deliberate exception after "ttgo". The shore and booster globals
+  // are the ones CamperUI reads (its docs/flows/vanpi_energy_producers_flow.json)
+  // and its users fill from a Shelly, the D+ signal or a Victron, so whoever
+  // wired them for CamperUI gets them here too. "solar_power" is Schaltli's
+  // own: set, it is the van's solar; unset, Pekaway's MPPT is - never the sum,
+  // whoever has both adds them in their own flow. Nothing set, nothing out.
+  var PRODUCER_GLOBALS = [
+    "shore_connected", "shore_power", "shore_voltage", "shore_current",
+    "booster_active", "booster_power", "booster_voltage", "booster_current",
+    "solar_power",
+  ]
+
+  // A producer's watts, whole, or null for one not given.
+  function watts(value) {
+    if (!present(value)) return null
+    var n = Math.round(Number(value))
+    return isNaN(n) ? null : n
+  }
+
+  // `vars` holds the globals by name; `last` what was published so far, for
+  // Pekaway's MPPT watts.
+  function producers(vars, last) {
+    vars = vars || {}
+    var out = []
+    function put(path, value) {
+      if (present(value)) out.push({ topic: PREFIX + path, value: String(value) })
+    }
+    // Connected or active as CamperUI has it: what the flow says, or else on
+    // as soon as more than 5 W flow.
+    function source(prefix, onKey, topicName) {
+      var power = watts(vars[prefix + "_power"])
+      var on = vars[prefix + "_" + onKey]
+      if (present(on)) put(topicName + "/" + onKey, onOff(on))
+      else if (power !== null) put(topicName + "/" + onKey, power > 5 ? "on" : "off")
+      if (power !== null) put(topicName + "/power", power)
+      put(topicName + "/voltage", vars[prefix + "_voltage"])
+      put(topicName + "/current", vars[prefix + "_current"])
+    }
+    source("shore", "connected", "shore")
+    source("booster", "active", "booster")
+    var solar = watts(vars.solar_power)
+    if (solar === null && last) solar = watts(last[PREFIX + "mppt/pv_watts"])
+    if (solar !== null) put("solar/power", solar)
+    return out
+  }
+
   // The answers this bridge asks for, in the order it asks.
   var REQUESTS = ["batt", "level", "temp", "relay", "dimmer", "heater", "mppt", "bms", "maxxfan"]
 
@@ -559,6 +607,22 @@ function createBridgeLogic() {
           shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
       ])
+    } else if (kind === "producers") {
+      // The globals of `producers`, plus Pekaway's MPPT watts last published:
+      // a thing for each source that is there.
+      var power = function (object, name, topic, icon) {
+        thing("sensor", object, {
+          name: name,
+          state_topic: PREFIX + topic,
+          unit_of_measurement: "W",
+          device_class: "power",
+          state_class: "measurement",
+          icon: icon,
+        })
+      }
+      if (present(data.shore_power)) power("shore_power", "Landstrom", "shore/power", "mdi:power-plug")
+      if (present(data.booster_power)) power("booster_power", "Lichtmaschine", "booster/power", "mdi:engine")
+      if (present(data.solar_power) || present(data.mppt_pv_watts)) power("solar_power", "Solar", "solar/power", "mdi:solar-power")
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {
@@ -1459,6 +1523,8 @@ function createBridgeLogic() {
 
   return {
     timeToGo: timeToGo,
+    PRODUCER_GLOBALS: PRODUCER_GLOBALS,
+    producers: producers,
     PREFIX: PREFIX,
     REQUESTS: REQUESTS,
     HOLD_MS: HOLD_MS,

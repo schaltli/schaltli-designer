@@ -130,6 +130,11 @@ let start = null;
 let answer = logic.held(logic.flatten(kind, msg.payload, flow.get("schaltliState") || {}), flow.get("schaltliHolds") || {}, Date.now());
 // How long the battery lasts: Pekaway's global, the one it publishes nowhere.
 if (kind === "batt") answer = answer.concat(logic.timeToGo(global.get("ttgo")));
+// Shore power, booster and solar from the globals a van's own flows fill
+// (CamperUI's shore_* and booster_*, Schaltli's solar_power), with the battery.
+const producerVars = {};
+if (kind === "batt") for (const name of logic.PRODUCER_GLOBALS) producerVars[name] = global.get(name);
+if (kind === "batt") answer = answer.concat(logic.producers(producerVars, flow.get("schaltliState") || {}));
 if (kind === "heater") {
   // The minutes left of a timer, counted here where the van does not say.
   const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());
@@ -165,6 +170,13 @@ let announced = flow.get("schaltliAnnounced") || {};
 const configs = [];
 for (const k of [kind, "theme"]) {
   const a = logic.announce(k, msg.payload, announced);
+  announced = a.announced;
+  configs.push(...a.publish);
+}
+if (kind === "batt") {
+  // The producers that are there, Pekaway's MPPT counting for solar.
+  const pv = result.last[logic.PREFIX + "mppt/pv_watts"];
+  const a = logic.announce("producers", Object.assign({}, producerVars, { mppt_pv_watts: pv }), announced);
   announced = a.announced;
   configs.push(...a.publish);
 }

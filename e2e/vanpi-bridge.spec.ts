@@ -128,6 +128,45 @@ test.describe("VanPi bridge logic", () => {
     expect(logic.timeToGo(undefined)).toEqual([])
   })
 
+  // Shore power, booster and solar from Node-RED globals (tasks/starter-project-
+  // plan.md, decision 3): CamperUI's shore_* and booster_*, Schaltli's
+  // solar_power over Pekaway's MPPT, never the sum.
+  test("shore power, booster and solar from the van's globals; nothing set, nothing out", () => {
+    const vars = {
+      shore_connected: true, shore_power: 412.4, shore_voltage: 230.1, shore_current: 1.8,
+      booster_active: false, booster_power: 0, booster_voltage: 13.3, booster_current: 0,
+      solar_power: 87,
+    }
+    expect(asMap(logic.producers(vars, {}))).toEqual({
+      "schaltli/state/shore/connected": "on",
+      "schaltli/state/shore/power": "412",
+      "schaltli/state/shore/voltage": "230.1",
+      "schaltli/state/shore/current": "1.8",
+      "schaltli/state/booster/active": "off",
+      "schaltli/state/booster/power": "0",
+      "schaltli/state/booster/voltage": "13.3",
+      "schaltli/state/booster/current": "0",
+      "schaltli/state/solar/power": "87",
+    })
+    // Without its own flag, a source is on once more than 5 W flow, as CamperUI has it.
+    expect(asMap(logic.producers({ shore_power: 6 }, {}))["schaltli/state/shore/connected"]).toBe("on")
+    expect(asMap(logic.producers({ booster_power: 3 }, {}))["schaltli/state/booster/active"]).toBe("off")
+    // solar_power wins over Pekaway's MPPT; unset, the MPPT is the solar.
+    const mppt = { "schaltli/state/mppt/pv_watts": "250" }
+    expect(asMap(logic.producers({ solar_power: 87 }, mppt))["schaltli/state/solar/power"]).toBe("87")
+    expect(asMap(logic.producers({}, mppt))).toEqual({ "schaltli/state/solar/power": "250" })
+    // Nothing wired, nothing published: a van without them shows no such source.
+    expect(logic.producers({}, {})).toEqual([])
+    expect(logic.producers({ shore_power: "wait", solar_power: null }, {})).toEqual([])
+
+    // Announced as power sensors, each only when it is there.
+    const things = logic.things("producers", { shore_power: 412, mppt_pv_watts: "0" })
+    expect(things["homeassistant/sensor/schaltli-vanpi/shore_power/config"]).toMatchObject({ name: "Landstrom", state_topic: "schaltli/state/shore/power", unit_of_measurement: "W", device_class: "power" })
+    expect(things["homeassistant/sensor/schaltli-vanpi/solar_power/config"]).toMatchObject({ name: "Solar", state_topic: "schaltli/state/solar/power" })
+    expect(things["homeassistant/sensor/schaltli-vanpi/booster_power/config"]).toBeUndefined()
+    expect(logic.things("producers", {})).toEqual({})
+  })
+
   test("odd messages give nothing instead of stopping the bridge", () => {
     expect(logic.flatten("batt", "not json")).toEqual([])
     expect(logic.flatten("doorman", '{"locked":true}')).toEqual([])
@@ -1163,6 +1202,21 @@ test.describe("VanPi bridge flow", () => {
     const bare = nodeRedFunction(byId["sbb-values"], new Map())
     const bareOut = bare.run({ topic: "pkw/tele/batt", payload: RECORDED.batt })[0].map((m: { topic: string }) => m.topic)
     expect(bareOut).not.toContain("schaltli/state/battery/time_to_go")
+    expect(bareOut.filter((t: string) => /\/(shore|booster|solar)\//.test(t))).toEqual([])
+
+    // The van's own globals for shore power, booster and solar, with the
+    // battery's answer, announced; solar falls back to Pekaway's MPPT.
+    const ownGlobals: Record<string, unknown> = { booster_power: 140, booster_active: true }
+    const own = nodeRedFunction(byId["sbb-values"], new Map(), ownGlobals)
+    own.run({ topic: "pkw/tele/mppt", payload: '{"mppt_pv_amps":1,"mppt_pv_volts":18,"mppt_pv_watts":18,"mppt_pv_total":5}' })
+    const ownOut = own.run({ topic: "pkw/tele/batt", payload: RECORDED.batt })[0]
+    expect(ownOut).toContainEqual({ topic: "schaltli/state/booster/power", payload: "140", retain: true })
+    expect(ownOut).toContainEqual({ topic: "schaltli/state/booster/active", payload: "on", retain: true })
+    expect(ownOut).toContainEqual({ topic: "schaltli/state/solar/power", payload: "18", retain: true })
+    const ownTopics = ownOut.map((m: { topic: string }) => m.topic)
+    expect(ownTopics).toContain("homeassistant/sensor/schaltli-vanpi/booster_power/config")
+    expect(ownTopics).toContain("homeassistant/sensor/schaltli-vanpi/solar_power/config")
+    expect(ownTopics).not.toContain("homeassistant/sensor/schaltli-vanpi/shore_power/config")
 
     const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
     // A relay is shown off at once and held (2026-10-09); Pekaway is asked
