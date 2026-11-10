@@ -24,6 +24,10 @@
 //   Wasser  fresh and grey water as tanks, the water pump, and the switch
 //           that lets the grey water out. The page's icon is a drop with an exclamation mark
 //           while the grey water is above 80 % or the fresh below 20 %.
+//   Ablassen  the grey water let out over a drain: the camera under the van
+//           (the demo's own, deploy/demo/setup.sh: the user's drain video,
+//           2026-11-10), the grey water's tank and the valve - the one case
+//           the Camera is meant for while the van moves (docs/ideas/kamera.md).
 //   MaxxFan, Heizung  «Coming soon» - the conversion's next stages, there
 //           already so the navigator shows where the van is going.
 //
@@ -89,6 +93,14 @@ export const ASSETS = [
     type: "icon",
     data: svg(
       '<path fill="currentColor" d="M10 2.5S3.5 10 3.5 14.5a6.5 6.5 0 0 0 13 0C16.5 10 10 2.5 10 2.5z"/><path fill="currentColor" d="M19.2 3h2.6l-.4 11h-1.8zM19.3 16.5h2.4V19h-2.4z"/>',
+    ),
+  },
+  {
+    id: "icon-camera",
+    name: "Camera",
+    type: "icon",
+    data: svg(
+      '<path fill="currentColor" d="M8.5 4.5h7l1.5 2.5H20a1.5 1.5 0 0 1 1.5 1.5v10A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 4 7h3z"/><circle cx="12" cy="13.2" r="3.6" fill="none" stroke="#fff" stroke-width="1.8"/>',
     ),
   },
   {
@@ -238,13 +250,14 @@ function name(x: number, y: number, width: number, path: string) {
   }
 }
 
-function title(text: string) {
+// Up to the theme switch top right at most (x 604): 460 wide.
+function title(text: string, width = 300) {
   return {
     id: id("title"),
     type: "text",
     x: 124,
     y: 18,
-    width: 300,
+    width,
     height: 40,
     zIndex: next,
     properties: { text, textStyle: "xxl", textBold: true, color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
@@ -408,6 +421,54 @@ function waterScreen() {
   }
 }
 
+// The demo's camera, served beside the designer (deploy/demo/setup.sh): an
+// https address of the page's own, so the preview may load it.
+export const DEMO_CAMERA_URL = "https://demo.schaltli.com/camera/shot.jpg"
+
+function drainScreen() {
+  return {
+    id: "screen-ablassen",
+    name: "Ablassen",
+    masterScreenId: "master-1",
+    iconAssetId: "icon-camera",
+    objects: [
+      title("Grauwasser ablassen", 400),
+      {
+        id: id("camera"),
+        type: "camera",
+        x: 140,
+        y: 80,
+        width: 320,
+        height: 240,
+        zIndex: next,
+        properties: { url: DEMO_CAMERA_URL, username: "", password: "" },
+      },
+      {
+        id: id("tank"),
+        type: "bar",
+        x: 500,
+        y: 80,
+        width: 110,
+        height: 240,
+        zIndex: next,
+        properties: {
+          topic: `${S}tank/2/level`,
+          barDirection: "bottom-to-top",
+          calibrationPoints: LINEAR,
+          displayValue: "percentage",
+          fillColor: "accentAlt",
+          textColor: "text",
+          textStyle: "xxl",
+          textBold: true,
+        },
+      },
+      name(490, 330, 160, `${S}tank/2/name`),
+      name(140, 330, 330, `${S}relay/3/name`),
+      onOff(140, 374, `${S}relay/3/power`, `${C}relay/3`, ["Zu", "Offen"]),
+    ],
+  }
+}
+
 const NONE_YET = { kind: "text", parts: ["–"] }
 const VALUE = { value: true }
 const decimals = (n: number) => ({ kind: "number", decimals: n, grouped: false })
@@ -567,7 +628,7 @@ export async function buildCamperProject(ddfZip: Uint8Array) {
     name: "Camper",
     screenWidth: fields.screenWidth,
     screenHeight: fields.screenHeight,
-    screens: [master, energyScreen(), lightScreen(), waterScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
+    screens: [master, energyScreen(), lightScreen(), waterScreen(), drainScreen(), comingSoon("screen-maxxfan", "MaxxFan", "icon-fan"), comingSoon("screen-heizung", "Heizung", "icon-flame")],
     assets: ASSETS,
     fonts: fields.fonts,
     hardwareButtons: fields.hardwareButtons,

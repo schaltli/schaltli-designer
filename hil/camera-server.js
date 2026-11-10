@@ -12,6 +12,13 @@
 //
 //   node hil/camera-server.js [--port 8090]
 //
+// For demo.schaltli.com the same video as people look at it: no number, a
+// better picture, prepared on the PC and read from a folder on the server,
+// which has neither the video nor ffmpeg (deploy/demo/):
+//
+//   node hil/camera-server.js --prepare-demo <dir>
+//   node hil/camera-server.js --frames <dir> --host 127.0.0.1 --port 8090
+//
 // or from a test: const cam = await startCameraServer(); cam.mode({ slowMs: 500 })
 //
 // The video is the user's own footage and stays out of this public repository:
@@ -33,6 +40,8 @@ const HEIGHT = 240
 // About 8-12 KB a frame on the drain video, the size the spike called realistic
 // (a detailed picture: quality 50 gave 18 KB).
 const QUALITY = 20
+// For eyes rather than for a measurement: about 18 KB a frame (demo.schaltli.com).
+const DEMO_QUALITY = 50
 
 // The frame number. Blocks of 16 px sit on JPEG's own 8x8/16x16 grid, so they
 // survive compression; two sync blocks say a number is there at all, a parity
@@ -98,14 +107,17 @@ function findVideo(explicit) {
   return fs.existsSync(candidate) ? candidate : null
 }
 
-/** The frames as JPEG buffers, prepared once and then read from a git-ignored folder. */
-async function prepareFrames(videoPath) {
+/**
+ * The frames as JPEG buffers, prepared once and then read from a git-ignored
+ * folder. `stamp: false` leaves out the number, `quality` sets the JPEG's.
+ */
+async function prepareFrames(videoPath, { stamp = true, quality = QUALITY } = {}) {
   const source = findVideo(videoPath)
   const stat = source ? fs.statSync(source) : null
   const key = crypto
     .createHash("sha1")
     .update(source ? `${path.basename(source)}:${stat.size}:${stat.mtimeMs}` : "testsrc")
-    .update(`:${WIDTH}x${HEIGHT}:${FPS}:${QUALITY}:${BLOCK}`)
+    .update(`:${WIDTH}x${HEIGHT}:${FPS}:${quality}:${stamp ? BLOCK : "plain"}`)
     .digest("hex")
     .slice(0, 12)
   const dir = path.join(CACHE_ROOT, key)
@@ -131,13 +143,19 @@ async function prepareFrames(videoPath) {
     }
     for (let i = 0; i < names.length; i++) {
       const image = await Jimp.read(path.join(raw, names[i]))
-      stampNumber(image.bitmap, i)
-      fs.writeFileSync(path.join(dir, `${String(i).padStart(5, "0")}.jpg`), await image.getBuffer("image/jpeg", { quality: QUALITY }))
+      if (stamp) stampNumber(image.bitmap, i)
+      fs.writeFileSync(path.join(dir, `${String(i).padStart(5, "0")}.jpg`), await image.getBuffer("image/jpeg", { quality }))
     }
     fs.rmSync(raw, { recursive: true, force: true })
-    fs.writeFileSync(done, JSON.stringify({ frames: names.length, real: Boolean(source) }))
+    fs.writeFileSync(done, JSON.stringify({ frames: names.length, real: Boolean(source), stamp }))
   }
+  return { ...readFrames(dir), dir }
+}
 
+/** Frames prepared before, from their folder: no video and no ffmpeg needed. */
+function readFrames(dir) {
+  const done = path.join(dir, "done.json")
+  if (!fs.existsSync(done)) throw new Error(`${dir} holds no prepared frames (done.json missing)`)
   const meta = JSON.parse(fs.readFileSync(done, "utf8"))
   const frames = fs.readdirSync(dir).filter((f) => f.endsWith(".jpg")).sort().map((f) => fs.readFileSync(path.join(dir, f)))
   if (frames.length !== meta.frames) throw new Error(`${dir} is incomplete: delete it and start again`)
@@ -153,8 +171,8 @@ const DEFAULT_MODE = {
   oversize: false, // a JPEG beyond a device's 256 KB limit
 }
 
-async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
-  const { frames, real } = await prepareFrames(video)
+async function startCameraServer({ port = 0, video, host = "0.0.0.0", framesDir, stamp, quality } = {}) {
+  const { frames, real } = framesDir ? readFrames(framesDir) : await prepareFrames(video, { stamp, quality })
   const t0 = Date.now()
   let mode = { ...DEFAULT_MODE }
   let requests = 0
@@ -259,16 +277,38 @@ async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
   }
 }
 
-module.exports = { startCameraServer, readFrameNumber, ffmpegAvailable, findVideo, FPS, WIDTH, HEIGHT, BLOCK }
+module.exports = { startCameraServer, prepareFrames, readFrames, readFrameNumber, ffmpegAvailable, findVideo, FPS, WIDTH, HEIGHT, BLOCK, DEMO_QUALITY }
 
-if (require.main === module) {
-  const at = process.argv.indexOf("--port")
-  startCameraServer({ port: at > 0 ? Number(process.argv[at + 1]) : 8090 })
+const argAfter = (name) => {
+  const at = process.argv.indexOf(name)
+  return at > 0 ? process.argv[at + 1] : undefined
+}
+
+if (require.main === module && argAfter("--prepare-demo")) {
+  // The demo's frames into a folder of their own, to be packed and uploaded.
+  const out = path.resolve(argAfter("--prepare-demo"))
+  prepareFrames(undefined, { stamp: false, quality: DEMO_QUALITY })
+    .then(({ dir, frames, real }) => {
+      if (!real) throw new Error("no video found (SCHALTLI_CAMERA_VIDEO): the demo gets no testsrc")
+      fs.rmSync(out, { recursive: true, force: true })
+      fs.cpSync(dir, out, { recursive: true })
+      const kb = Math.round(frames.reduce((sum, f) => sum + f.length, 0) / frames.length / 1024)
+      console.log(`${frames.length} frames, about ${kb} KB each, in ${out}`)
+    })
+    .catch((error) => {
+      console.error(error.message)
+      process.exit(1)
+    })
+} else if (require.main === module) {
+  const port = argAfter("--port")
+  startCameraServer({ port: port ? Number(port) : 8090, host: argAfter("--host"), framesDir: argAfter("--frames") })
     .then((cam) => {
       const addresses = Object.values(os.networkInterfaces()).flat().filter((a) => a.family === "IPv4" && !a.internal)
       console.log(`${cam.frameCount} frames, about ${Math.round(cam.meanBytes / 1024)} KB each`)
       if (!cam.real) console.warn("WARNING - no video found: testsrc frames, smaller than a real picture")
-      for (const a of addresses) console.log(`http://${a.address}:${cam.port}${cam.path}`)
+      const host = argAfter("--host")
+      if (host && host !== "0.0.0.0") console.log(`http://${host}:${cam.port}${cam.path}`)
+      else for (const a of addresses) console.log(`http://${a.address}:${cam.port}${cam.path}`)
     })
     .catch((error) => {
       console.error(error.message)

@@ -4,9 +4,12 @@
 // scaling. Needs no device. Without ffmpeg (and with no prepared frames) it
 // leaves with exit code 2, reported SKIPPED by test-all.
 
+const fs = require("fs")
 const net = require("net")
+const os = require("os")
+const path = require("path")
 const { Jimp } = require("jimp")
-const { startCameraServer, readFrameNumber, ffmpegAvailable, FPS, WIDTH, HEIGHT } = require("./camera-server")
+const { startCameraServer, prepareFrames, readFrameNumber, ffmpegAvailable, FPS, WIDTH, HEIGHT, DEMO_QUALITY } = require("./camera-server")
 
 let failures = 0
 function check(name, ok, detail = "") {
@@ -153,6 +156,31 @@ async function main() {
   check("restarted on the same port", cam.port === port && (await shot(cam)).res.status === 200)
 
   await cam.stop()
+
+  // The demo's camera (demo.schaltli.com): no number, a better picture, and
+  // served from a folder of prepared frames, as on a server without ffmpeg.
+  const { dir } = await prepareFrames(undefined, { stamp: false, quality: DEMO_QUALITY })
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), "camera-frames-"))
+  fs.cpSync(dir, copy, { recursive: true })
+  const demo = await startCameraServer({ host: "127.0.0.1", framesDir: copy })
+  try {
+    check("from a folder of prepared frames", demo.frameCount === cam.frameCount, `${demo.frameCount} frames`)
+    // Its own number, that is: a picture's corner may read as some number by
+    // chance, never as the frame's.
+    let numbered = 0
+    for (let i = 0; i < 6; i++) {
+      const { res, body } = await shot(demo)
+      if ((await numberIn(body)) === Number(res.headers.get("x-frame"))) numbered++
+      await sleep(83)
+    }
+    check("the demo's frames carry no number", numbered === 0, `${numbered} of 6 carry theirs`)
+    check("and a better picture than the tests'", demo.meanBytes > cam.meanBytes, `${demo.meanBytes} against ${cam.meanBytes} bytes`)
+    check("a browser on another address may draw it", (await shot(demo)).res.headers.get("access-control-allow-origin") === "*")
+  } finally {
+    await demo.stop()
+    fs.rmSync(copy, { recursive: true, force: true })
+  }
+
   if (failures) {
     console.log(`\nFAIL - ${failures} check(s) failed`)
     process.exit(1)

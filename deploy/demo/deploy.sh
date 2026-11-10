@@ -5,8 +5,12 @@
 #   bash deploy/demo/deploy.sh [ref]        # default: this checkout's HEAD
 #
 # 1. builds the start project «Camper» into a project store
-#    (e2e/demo-camper.spec.ts with DEMO_SEED_DIR) and packs it;
-# 2. uploads it to the server;
+#    (e2e/demo-camper.spec.ts with DEMO_SEED_DIR) and packs it, and the demo
+#    camera's frames from the user's drain video (hil/camera-server.js
+#    --prepare-demo; SCHALTLI_CAMERA_VIDEO or the file it names in
+#    Downloads). The video stays on this PC: the repo is public. Without it
+#    the server keeps the frames it has;
+# 2. uploads both to the server;
 # 3. runs deploy/demo/setup.sh there as root, which seeds it;
 # 4. checks the result from outside (deploy/demo/check.js).
 #
@@ -39,8 +43,18 @@ echo "[demo-deploy] building the start project"
 DEMO_SEED_DIR="$SEED_DIR/store" npx playwright test e2e/demo-camper.spec.ts -g "written into a project store" --reporter=line >/dev/null
 tar -czf "$SEED_DIR/seed.tar.gz" -C "$SEED_DIR/store" projects blobs
 
+echo "[demo-deploy] preparing the camera's frames"
+if node hil/camera-server.js --prepare-demo "$SEED_DIR/camera"; then
+  tar -czf "$SEED_DIR/camera.tar.gz" -C "$SEED_DIR/camera" .
+else
+  echo "[demo-deploy] WARNING: no camera frames - the server keeps the ones it has" >&2
+fi
+
 echo "[demo-deploy] uploading"
 "$SCP" -q "$SEED_DIR/seed.tar.gz" "$HOST:/tmp/schaltli-demo-seed.tar.gz"
+if [ -f "$SEED_DIR/camera.tar.gz" ]; then
+  "$SCP" -q "$SEED_DIR/camera.tar.gz" "$HOST:/tmp/schaltli-demo-camera.tar.gz"
+fi
 
 echo "[demo-deploy] setting up $REF"
 "$SSH" "$HOST" "sudo bash -s -- --ref $REF" < deploy/demo/setup.sh
