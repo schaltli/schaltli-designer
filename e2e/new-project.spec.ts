@@ -98,6 +98,30 @@ test.describe("New Project", () => {
     await page.request.delete(`/api/projects/${encodeURIComponent(long)}`)
   })
 
+  test("every device card shows its whole adornment, none cut off by the card", async ({ page }) => {
+    // The 4"'s and the 4.3B's adornments mention "<svg>" in their header
+    // comment; the thumbnail once put its scaling on that and showed the
+    // real picture at native size, half of it outside the card.
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await expect(page.locator("[data-ddf-path] svg").first()).toBeAttached()
+    const cut = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("[data-ddf-path]")].flatMap((card) => {
+        const svg = card.querySelector("svg")
+        const box = svg?.parentElement?.parentElement
+        if (!svg || !box) return []
+        const s = svg.getBoundingClientRect()
+        const b = box.getBoundingClientRect()
+        const inside = s.left >= b.left - 0.5 && s.right <= b.right + 0.5 && s.top >= b.top - 0.5 && s.bottom <= b.bottom + 0.5
+        return inside && s.width > 0 ? [] : [`${card.dataset.ddfPath}: svg ${s.width}x${s.height} in ${b.width}x${b.height}`]
+      }),
+    )
+    expect(cut).toEqual([])
+    // Both boards with such a comment are among the curated cards.
+    await expect(page.locator('[data-device-id="waveshare-touch-lcd-4"] svg').first()).toBeAttached()
+    await expect(page.locator('[data-device-id="waveshare-touch-lcd-4v3b"] svg').first()).toBeAttached()
+  })
+
   test("Cancel creates nothing", async ({ page }, testInfo) => {
     const name = uniqueName(testInfo, "cancelled")
     await page.goto("/")
