@@ -158,6 +158,9 @@ async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
   const t0 = Date.now()
   let mode = { ...DEFAULT_MODE }
   let requests = 0
+  // By who asked: another device on the bench still showing a camera project
+  // asks too, and a test asks about its own (2026-11-10: the Knob, 13 a second).
+  const byAddress = new Map()
   let listeningPort = port
   const sockets = new Set()
 
@@ -187,6 +190,8 @@ async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
       return
     }
     requests++
+    const from = String(req.socket.remoteAddress || "").replace(/^::ffff:/, "")
+    byAddress.set(from, (byAddress.get(from) || 0) + 1)
     if (mode.basic) {
       const expected = `Basic ${Buffer.from(`${mode.basic.user}:${mode.basic.password}`).toString("base64")}`
       if (req.headers.authorization !== expected) {
@@ -243,9 +248,11 @@ async function startCameraServer({ port = 0, video, host = "0.0.0.0" } = {}) {
     mode(patch) {
       mode = { ...DEFAULT_MODE, ...patch }
     },
-    requests: () => requests,
+    // All of them, or only those from one address.
+    requests: (from) => (from ? byAddress.get(from) || 0 : requests),
     resetRequests() {
       requests = 0
+      byAddress.clear()
     },
     start,
     stop,

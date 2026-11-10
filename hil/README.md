@@ -432,7 +432,14 @@ gives the frame of a looping video that is due at this moment, with its number
 as blocks in the top left corner, so a test can read the delay off `/panel.bmp`.
 `node hil/camera-server.js [--port 8090]` runs it by hand; a test uses
 `startCameraServer()` and its `mode({ slowMs, contentLength, keepAlive, basic,
-garbage, oversize })`, `stop()`, `start()` and `requests()`.
+garbage, oversize })`, `stop()`, `start()` and `requests(from?)`. Count by the
+device's address: a board still showing a camera project from an earlier run
+asks too.
+
+The runs against it, in `npm run test:all`: `hil/waveshare4v3b/camera.js
+--device <ip>` for the 4", the 4.3B and the Knob (`--baseline` measures the
+same screen without the Camera, `--long` soaks five minutes against a slow
+camera), and `hil/android/camera.js` for the app, through its test interface.
 
 The video is footage that stays out of this public repo: `SCHALTLI_CAMERA_VIDEO`,
 or the file named in the script in Downloads. Frames are prepared once with

@@ -1670,6 +1670,11 @@ async function main() {
   // A Live Icon likewise is an Icon set to Live since 2026-10-29.
   const RENAMED = { "live-text": "text", "live-icon": "icon" };
   const declared = [...new Set((await phoneDdf()).supportedObjectTypes.map((type) => RENAMED[type] || type))];
+  // Measured by a run of its own, not compared: a Camera's picture is whatever
+  // the camera sends, and the designer's reference draws its stand-in
+  // (hil/android/camera.js, docs/2026-11-09-camera.md).
+  const ELSEWHERE = { camera: "hil/android/camera.js" };
+  for (const type of declared) if (ELSEWHERE[type]) placed.add(type);
   const missing = declared.filter((type) => !placed.has(type));
   if (missing.length > 0) {
     fail(

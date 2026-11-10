@@ -335,10 +335,12 @@ async function checkFailures(base, cam, check, soakMs) {
   await sleep(1500)
   cam.resetRequests()
   await sleep(3000)
-  check("another screen: no request", cam.requests() === 0, `${cam.requests()} requests`)
+  // This board's own: another on the bench may still be showing a camera.
+  const ip = new URL(base).hostname
+  check("another screen: no request", cam.requests(ip) === 0, `${cam.requests(ip)} requests`)
   await fetch(`${base}/api/screen?index=0`, { method: "POST", signal: AbortSignal.timeout(5000) })
   await sleep(2000)
-  check("back on the screen: requests again", cam.requests() > 0, `${cam.requests()} requests`)
+  check("back on the screen: requests again", cam.requests(ip) > 0, `${cam.requests(ip)} requests`)
 
   // Criterion 2: a slow camera, the picture never old while it claims to be live.
   mode({ slowMs: 500 })

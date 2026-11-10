@@ -101,6 +101,7 @@ async function main() {
   await shot(cam)
   await shot(cam)
   check("requests are counted", cam.requests() === 2)
+  check("and by who asked", cam.requests("127.0.0.1") === 2 && cam.requests("192.0.2.1") === 0, `${cam.requests("127.0.0.1")} from here`)
 
   // slow: the frame is the one due when the answer leaves.
   cam.mode({ slowMs: 300 })

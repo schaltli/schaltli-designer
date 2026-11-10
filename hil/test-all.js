@@ -644,7 +644,8 @@ async function main() {
   // that decided the 4.3B moves stays a measured one. Installs its own screen.
   // The Camera against the fake camera (docs/2026-11-09-camera.md): rate, delay,
   // and every way a camera can fail. A board that does not declare it is skipped.
-  for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
+  // The Knob declares it since Checkpoint C (2026-11-10) and runs the same.
+  for (const [lane, device, label] of [...RGB_BOARDS, ["knob", WAVESHARE_DEVICE, "knob"]]) step(lane, async () => {
     console.log(`
   === Waveshare ${label} camera (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/waveshare4v3b/camera.js", "--device", device], { cwd: REPO_ROOT })
@@ -1739,6 +1740,18 @@ async function main() {
       }
     }
   }, { quick: true })
+
+  // The Camera in the app, against the fake camera (hil/android/camera.js):
+  // rate, delay and every way a camera can fail, as on the boards.
+  step("android", async () => {
+    console.log("\n=== android camera ===")
+    const exitCode = await run("node", ["hil/android/camera.js"], { cwd: REPO_ROOT })
+    summary.push({
+      name: "android-camera",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 2 ? "no phone with its test interface on, no ffmpeg, or the app does not declare camera" : exitCode === 0 ? "rate, delay and every failure mode of the fake camera" : `exit code ${exitCode} - see output above`,
+    })
+  })
 
   // What the app refuses and how it goes dark (schaltli-android#3, #5):
   // a board's export sent to the phone, an Android bundle for another phone,
