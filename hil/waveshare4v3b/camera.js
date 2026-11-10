@@ -96,6 +96,8 @@ function lanAddress(deviceIp) {
   return (all.find((a) => a.address.startsWith(`${net}.`)) ?? all.find((a) => a.address.startsWith("192.168.")))?.address
 }
 
+const PAGING = { "swipe-left": { type: "next-screen" }, "swipe-right": { type: "previous-screen" } }
+
 function project(ddf, url, { camera = !BASELINE, chart = false } = {}) {
   const { project: p } = buildProject(ddf, { topicPrefix: PREFIX })
   const sorted = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))
@@ -109,11 +111,19 @@ function project(ddf, url, { camera = !BASELINE, chart = false } = {}) {
   p.topics = ["sw", "solar", "battery", "fridge"].map((id) => ({ id, topic: topic(id), type: "text", examples: ["1"] }))
   if (chart) p.topics.push({ id: "level", topic: topic("level"), type: "numeric", examples: ["50"] })
   p.combinedTopics = []
+  // Without the swipes among the project's buttons the export writes no swipe
+  // action, and a swipe pages nothing (as in hil/navigator.js).
+  p.hardwareButtons = [
+    { id: "swipe-left", name: "Swipe left" },
+    { id: "swipe-right", name: "Swipe right" },
+  ]
   p.screens = [
     {
       id: SCREEN_ID,
       name: "Camera",
       backgroundColor: "#ffffff",
+      // Swiping between the two, as the user's own project does (gulli-test).
+      buttonActions: PAGING,
       objects: [
         ...(DIAGRAM && chart ? [{
           id: "chart",
@@ -181,6 +191,7 @@ function project(ddf, url, { camera = !BASELINE, chart = false } = {}) {
       id: `other-${RUN}`,
       name: "Other",
       backgroundColor: "#ffffff",
+      buttonActions: PAGING,
       objects: [{ id: "other-box", type: "box", zIndex: 1, x: 40, y: 40, width: 200, height: 120, properties: { fillColor: "#202020" } }],
     },
   ]
@@ -304,6 +315,67 @@ async function glassNumber(base, name = "glass") {
     return (data[at] * 77 + data[at + 1] * 150 + data[at + 2] * 29) >> 8
   }
   return { shown: readFrameNumber(luma, CAMERA.x, CAMERA.y, 1), due }
+}
+
+// Reported by the user on 2026-11-10 (Checkpoint B): after swiping to the next
+// screen and back the picture jittered, and a shifted «No live image» flashed
+// beside it - the slide's own frames, left in the panel's other buffers, coming
+// back with every picture. The strips beside the picture must stay as they were
+// before the swipe, shot after shot.
+const SWIPE_SAMPLES = 8
+async function besidePicture(base, name, screenWidth) {
+  fs.mkdirSync(OUT_DIR, { recursive: true })
+  const file = path.join(OUT_DIR, `${name}.bmp`)
+  fs.writeFileSync(file, Buffer.from(await (await fetch(`${base}/panel.bmp`, { signal: AbortSignal.timeout(15000) })).arrayBuffer()))
+  const { data, width } = (await Jimp.read(file)).bitmap
+  const strips = [
+    [Math.max(0, CAMERA.x - 16), CAMERA.x],
+    [CAMERA.x + CAMERA.width, Math.min(screenWidth, CAMERA.x + CAMERA.width + 16)],
+  ]
+  const out = []
+  for (let y = CAMERA.y; y < CAMERA.y + CAMERA.height; y++)
+    for (const [x0, x1] of strips)
+      for (let x = x0; x < x1; x++) {
+        const at = (y * width + x) * 4
+        out.push(data[at], data[at + 1], data[at + 2])
+      }
+  return out
+}
+
+async function swipeAwayAndBack(base, ddf, check) {
+  const { width: sw, height: sh } = ddf.screen
+  await tap(base, IDLE_TAP.x, IDLE_TAP.y)
+  await sleep(1500)
+  const before = await besidePicture(base, "swipe-before", sw)
+  const drag = async (x0, x1) => {
+    const y = Math.round(sh * 0.85)
+    await touch(base, Math.round(x0), y, true)
+    await sleep(80)
+    for (let i = 1; i <= 8; i++) {
+      await touch(base, Math.round(x0 + ((x1 - x0) * i) / 8), y, true)
+      await sleep(40)
+    }
+    await touch(base, Math.round(x1), y, false)
+    await sleep(1500)
+  }
+  const screenNow = async () => Number(/swipes lead: .*\(screen (\d+)\)/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? /"screenIndex":(\d+)/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? -1)
+  await drag(sw * 0.85, sw * 0.15)
+  const away = await screenNow()
+  await drag(sw * 0.15, sw * 0.85)
+  const back = await screenNow()
+  check("a swipe leads to the other screen and back", away === 1 && back === 0, `screen ${away}, then ${back}`)
+  await sleep(1500)
+  let worst = 0
+  let unchanged = 0
+  for (let i = 0; i < SWIPE_SAMPLES; i++) {
+    const now = await besidePicture(base, `swipe-after-${i}`, sw)
+    let differ = 0
+    for (let k = 0; k < now.length; k += 3) if (now[k] !== before[k] || now[k + 1] !== before[k + 1] || now[k + 2] !== before[k + 2]) differ++
+    worst = Math.max(worst, differ)
+    if (differ === 0) unchanged++
+    await sleep(150)
+  }
+  check("after a swipe away and back, the glass beside the picture stands still", unchanged === SWIPE_SAMPLES, `${unchanged} of ${SWIPE_SAMPLES} shots as before, worst ${worst} px differ`)
 }
 
 // Each sample is a moment between pictures being painted: one over the object shows.
@@ -628,6 +700,7 @@ PASS - the Camera for ${SOAK_MINUTES} minutes`)
   // Last: a dozen screenshots in a row hold up the loop that shows the pictures.
   cam.mode({ basic: CREDENTIALS })
   await sleep(2500)
+  await swipeAwayAndBack(base, ddf, check)
   const kept = await objectAboveStays(base)
   check("an object above the picture stays above it", kept === ABOVE_SAMPLES, `${kept} of ${ABOVE_SAMPLES}`)
 
