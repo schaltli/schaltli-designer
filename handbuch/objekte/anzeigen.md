@@ -285,13 +285,13 @@ Kommt eine Sekunde lang kein neues Bild, steht <span class="ui fw">No live image
 
 Das Gerät fragt die Kamera nur, solange die Camera zu sehen ist. Auf einem anderen Screen, in einem geschlossenen Popup und bei dunklem Display geht keine Anfrage hinaus.
 
-Im Designer zeigt die Camera beim Bearbeiten einen Platzhalter mit Kamerasymbol und dem Hinweis «Video shows in Preview only». Bilder holt der Designer erst in der [Vorschau](/designer/vorschau), und auch dort nur, wenn der Browser es zulässt: Die Kamera muss den Header `Access-Control-Allow-Origin` senden und darf kein Login verlangen, und der Designer selbst muss über `http://` laufen. Sonst bleibt auch in der Vorschau der Platzhalter. Auf dem Gerät erscheint das Bild trotzdem.
+Im Designer zeigt die Camera beim Bearbeiten einen Platzhalter mit Kamerasymbol und dem Hinweis «Video shows in Preview only». Bilder holt der Designer erst in der [Vorschau](/designer/vorschau), und auch dort nur, wenn der Browser es zulässt: Die Kamera muss den Header `Access-Control-Allow-Origin` senden und darf kein Login verlangen. Läuft der Designer über `https://`, wie die [Demo](/einfuehrung/ausprobieren#demo), muss auch die Adresse der Kamera mit `https://` beginnen. Sonst bleibt auch in der Vorschau der Platzhalter. Auf dem Gerät erscheint das Bild trotzdem.
 
 ::: warning Geräte
-Die Camera zeigen der 4", der 4.3B, der Knob und die Android-App, ab der nächsten Firmware-Release und App-Version. Auf dem PaperS3 bietet der Designer sie nicht an.
+Die Camera zeigen der 4", der 4.3B, der Knob und die Android-App, ab der Firmware fw-2026.11.10.1 und der App-Version 0.17.0. Auf dem PaperS3 bietet der Designer sie nicht an.
 :::
 
-Wie viele Bilder pro Sekunde ankommen, hängt vom Gerät ab. Mit Bildern von 10 KB im WLAN gemessen: etwa 10 auf dem 4", 5 auf dem 4.3B, 13 auf dem Knob und über 50 in der App auf einem Huawei P20. Der 4.3B fragt absichtlich höchstens alle 170 ms, damit ein Fingertipp neben einem bewegten Energiediagramm nicht warten muss. Auf dem runden Knob verschwinden die Ecken eines 320×240-Bilds hinter dem Rand.
+Wie viele Bilder pro Sekunde ankommen, hängt vom Gerät ab. Mit Bildern von 10 KB im WLAN gemessen: etwa 9 auf dem 4", 6 auf dem 4.3B, 13 auf dem Knob und über 50 in der App auf einem Huawei P20. Der 4.3B fragt absichtlich höchstens alle 130 ms, damit ein Fingertipp neben einem bewegten Energiediagramm nicht warten muss. Auf dem runden Knob verschwinden die Ecken eines 320×240-Bilds hinter dem Rand.
 
 ### Kamera einrichten {#camera-einrichten}
 
