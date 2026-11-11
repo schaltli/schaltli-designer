@@ -646,10 +646,10 @@ function buildProject(fonts) {
               ],
             },
           },
-          // A Toggle Button (docs/2026-11-06-toggle-button.md) on the same
-          // topic, beside the switch: named, the state's icon in a disc, so
-          // the second line and the disc are photographed too; off a card
-          // with its edge, on the colour.
+          // A Toggle Button (docs/2026-11-06-toggle-button.md, since
+          // 2026-11-11 docs/2026-11-11-led-look.md) on the same topic, beside
+          // the switch: named, in Korry - the state's icon before the name,
+          // the window under it, lit in the colour while on, the track off.
           {
             id: "s3-toggle",
             type: "toggle-button",
@@ -662,11 +662,12 @@ function buildProject(fonts) {
               topic: "hil/power",
               writeTopic: "hil/power/set",
               text: "Pumpe",
-              switchStyle: "filled",
+              switchStyle: "korry",
               switchColor: ACCENT,
               backgroundColor: "#202020",
               borderColor: "#404040",
               textColor: WHITE,
+              trackColor: "#101010",
               fontId: "font-roboto-16",
               secondFontId: "font-roboto-12",
               states: [
