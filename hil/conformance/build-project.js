@@ -152,6 +152,11 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
   if (fourBit.length && supportedObjectTypes.includes("text")) {
     runs.push({ type: "text-4bit", specimen: SPECIMENS.text, picker: fontPicker(fourBit) });
   }
+  // The Button Group's LED form (docs/2026-11-11-led-look.md, decision 7):
+  // the same type, drawn by a path of its own.
+  if (!typesOnly && supportedObjectTypes.includes("button-group")) {
+    runs.push({ type: "button-group-led", specimen: SPECIMENS["button-group-led"], picker });
+  }
   // A card clipping what it holds, where the board says it can
   // (docs/2026-11-03-card-clip.md).
   // Not for a caller that asked for its types' specimens only (deploy-check:

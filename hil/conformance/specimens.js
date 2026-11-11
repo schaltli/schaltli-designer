@@ -942,13 +942,53 @@ const SPECIMENS = {
     },
   },
 
-  // The Toggle Button (designer docs/2026-11-06-toggle-button.md): one tile in
-  // the look of the reported state, drawn by the device from the looks the
-  // export writes. Two in the square: a plain one, its label alone, and one
-  // with a name, the state's label one size smaller under it and the state's
-  // icon in a disc - the parts a button does not have. The examples move
-  // both between off (a card with its edge) and on (the colour); the case
-  // before any value is the quiet look with «?».
+  // Not a type: the Button Group's LED form (designer docs/2026-11-11-led-
+  // look.md, decision 7) - no container, lines between three segments, a
+  // strip under each label, lit under the chosen one. Its colours given, so
+  // the export's theme fills nothing the designer's picture lacks. Taps at a
+  // segment's middle send its value.
+  "button-group-led": {
+    build: (c) => {
+      const topic = c.topic("betrieb", "string", ["t", "p", "f"]);
+      const y = c.wide.y + Math.round(c.wide.height / 2);
+      const at = (i) => c.wide.x + Math.round((c.wide.width * (2 * i + 1)) / 6);
+      const tap = (what, i, value) => ({ what, x: at(i), y, topic: `${topic}/set`, value, state: { topic, value: "t" } });
+      return {
+        taps: [tap("segment 1", 1, "power"), tap("segment 2", 2, "fan")],
+        objects: [
+          {
+            id: c.id("led-group"),
+            type: "button-group",
+            zIndex: 1,
+            ...c.wide,
+            properties: {
+              topic,
+              writeTopic: `${topic}/set`,
+              states: [
+                { id: "st-t", label: "Temp", readValue: "t", writeValue: "target" },
+                { id: "st-p", label: "Power", readValue: "p", writeValue: "power" },
+                { id: "st-f", label: "Fan", readValue: "f", writeValue: "fan" },
+              ],
+              switchStyle: "led",
+              switchColor: c.colors.accent,
+              textColor: c.colors.fg,
+              borderColor: c.colors.border,
+              trackColor: c.colors.track,
+              fontId: c.font("medium"),
+            },
+          },
+        ],
+      };
+    },
+  },
+
+  // The Toggle Button (designer docs/2026-11-06-toggle-button.md, since
+  // 2026-11-11 docs/2026-11-11-led-look.md): a calm tile and a light, drawn
+  // by the device from the looks the export writes. Two in the square: a
+  // plain Korry, its window alone with the state's word, and a named LED
+  // Vertical, the strip at its left, the state's icon before the name and
+  // its label under it. The examples move both between off (the light in
+  // the track) and on (lit in the colour); before any value «?».
   "toggle-button": {
     build: (c) => {
       const topic = c.topic("kachel", "string", ["0", "1"]);
@@ -969,12 +1009,15 @@ const SPECIMENS = {
             { id: "st-off", label: "AUS", readValue: "0", writeValue: "aus", iconAssetId: RING.id },
             { id: "st-on", label: "EIN", readValue: "1", writeValue: "an", showAsOn: true, iconAssetId: RING.id },
           ],
-          switchStyle: "filled",
+          switchStyle: "korry",
           switchColor: c.colors.accent,
-          // Off is a card: its colour, its edge and the text's.
+          // The tile is a card: its colour, its edge and the text's; the
+          // light dark in the track. All given, so the export's theme fills
+          // nothing the designer's picture lacks.
           backgroundColor: c.colors.bg,
           borderColor: c.colors.border,
           textColor: c.colors.fg,
+          trackColor: c.colors.track,
           fontId: c.font("medium"),
           secondFontId: c.font("small"),
           ...properties,
@@ -995,7 +1038,7 @@ const SPECIMENS = {
       return {
         assets: [RING],
         taps,
-        objects: [plain, tile("toggle-named", 1, { text: "Pumpe" })],
+        objects: [plain, tile("toggle-named", 1, { text: "Pumpe", switchStyle: "led-v" })],
       };
     },
   },
