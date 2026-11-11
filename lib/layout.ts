@@ -51,7 +51,7 @@ export interface LayoutScale {
    * values by what they show - not by their `{live:...}` reference, which
    * clipped «Lichterkette» on the demo (2026-10-11).
    */
-  topics?: readonly { topic: string; type?: string; examples?: readonly string[] }[]
+  topics?: readonly { topic: string; type?: string; examples?: readonly string[]; subtopics?: readonly { path: string; type?: string }[] }[]
   separators?: Separators
   /** Settings › Cards (lib/card.ts): what a card's look comes to. */
   cards?: CardSettings
@@ -100,7 +100,9 @@ function candidateValues(lv: LiveValue, scale: LayoutScale): string[] {
   const { topic, path } = splitTopicPath(source.path)
   const known = scale.topics?.find((t) => t.topic === topic)
   const examples = (known?.examples ?? []).map((e) => (path ? extractJsonField(e, path) : e)).filter((e): e is string => typeof e === "string")
-  return known?.type === "numeric" ? [...examples, "99"] : examples
+  // A number, the topic's own or a JSON field's.
+  const numeric = known?.type === "numeric" || (!!path && known?.subtopics?.find((s) => s.path === path)?.type === "numeric")
+  return numeric ? [...examples, "99"] : examples
 }
 
 /**

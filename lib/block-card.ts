@@ -84,6 +84,11 @@ export function blockPartsWidth(built: BausteinBuildResult, scale: LayoutScale):
  * 2026-11-04).
  */
 export function blockCard(built: BausteinBuildResult, width: number, scale: LayoutScale, maxWidth = Infinity): Piece {
+  // Measured with the topics the block brings too: they reach the project
+  // only once it is let go, and a value read from one is as wide as it can
+  // read («99 °C»), not as its unit alone.
+  const brought = (built.topics ?? []).filter((t) => !(scale.topics ?? []).some((k) => k.topic === t.topic))
+  if (brought.length > 0) scale = { ...scale, topics: [...(scale.topics ?? []), ...brought] }
   const padding = Math.round(cardSettingsOf({ cards: scale.cards }).paddingMm * scale.pixelsPerMm)
   const count = built.labelCount ?? 0
   const name = built.objects.slice(0, count)
@@ -151,7 +156,18 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
   // The heading docks first: highest in the object list, highest zIndex.
   const heading =
     name.length > 1 ? docked(blockTable({ ...built, objects: name, labelCount: name.length }), "top", 2) : name.length === 1 ? docked(name[0], "top", 2) : null
-  const parts = docked(blockTable({ ...built, objects: controls, labelCount: 0 }), "fill", 1)
+  const table = blockTable({ ...built, objects: controls, labelCount: 0 })
+  // A value beside its sparkline: its column kept as wide as a sign, two
+  // digits and a decimal with the unit read, so the number is never cut
+  // and the line takes the rest (docs/2026-11-11-value-cards.md, decision 7).
+  const value = controls[0]
+  if (controls.length === 2 && controls[1].type === "chart" && value.type === "text") {
+    const unit = String(value.properties?.text ?? "").replace(/^.*\}/, "")
+    const sample = withIds({ ...value, properties: { ...value.properties, text: `-00.0${unit}`, liveValues: undefined } }, "v")
+    const columns = [{ mm: naturalWidth(sample, scale) / scale.pixelsPerMm }, {}]
+    table.properties = { ...table.properties, columns }
+  }
+  const parts = docked(table, "fill", 1)
   const card: Piece = {
     type: "free",
     x: 0,

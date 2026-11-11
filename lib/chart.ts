@@ -69,7 +69,16 @@ export interface ChartProperties {
   /** The days' names above the plot; the chart's font where none. */
   dateFontId?: string
   series: ChartSeries[]
+  /**
+   * The compact form (docs/2026-11-11-value-cards.md, decision 7): no axes,
+   * no legend, no date, the last three hours whatever the screen's range -
+   * a sparkline beside a value. Time mode only.
+   */
+  compact?: boolean
 }
+
+/** The window a compact chart shows: the last three hours. */
+export const COMPACT_SPAN_S = 3 * 3600
 
 /** What a series of a kind is drawn as and annotated with, unless told otherwise. */
 export function defaultSeries(kind: ValueKind): Pick<ChartSeries, "draw" | "annotations"> {
@@ -142,6 +151,7 @@ export function normalizeChart(properties: Record<string, any>): ChartProperties
     series,
   }
   if (mode !== "per-day") delete out.days
+  if (out.compact !== true || mode === "per-day") delete out.compact
   if (!series.some((s) => s.axis === "right")) {
     delete out.right
     if (out.zones) out.zones = out.zones.filter((z) => z.axis !== "right")

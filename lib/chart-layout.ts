@@ -426,6 +426,9 @@ function stackSlices(chart: ChartProperties, data: Record<string, SeriesData>): 
  */
 export function chartLayout(chart: ChartProperties, window: ChartWindow, data: Record<string, SeriesData>, o: LayoutOptions): ChartLayout {
   const decimal = o.decimal ?? "."
+  // The compact form: the plot the whole object, a pixel in, and nothing
+  // written - no axes, no times, no days, no legend, no marks.
+  const compact = chart.compact === true && chart.mode !== "per-day"
   const pad = Math.round(o.fontSize / 3)
   const labelW = Math.round(o.fontSize * 2.6)
   const usesRight = chart.series.some((s) => s.axis === "right")
@@ -437,7 +440,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   // (2026-10-30, the user: «ausserhalb des Rasters, wie im Artifact»).
   const dateSize = o.dateFontSize || o.fontSize
   const top = perDay ? pad + Math.round(o.fontSize / 2) : pad + dateSize + pad
-  const plot: Box = {
+  const plot: Box = compact ? { x: 1, y: 1, w: Math.max(1, o.width - 2), h: Math.max(1, o.height - 2) } : {
     x: labelW + pad,
     y: top,
     w: Math.max(1, o.width - labelW - pad * 2 - (usesRight ? labelW : 0)),
@@ -460,6 +463,10 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   const rightRange = usesRight ? axisRange(chart.right ?? { scale: "auto" }, valuesOn("right")) : undefined
   const left = axisLayout(leftRange, plot, decimal)
   const right = rightRange ? axisLayout(rightRange, plot, decimal) : undefined
+  if (compact) {
+    left.ticks = []
+    if (right) right.ticks = []
+  }
   const yOf = (v: number, axis: "left" | "right") => {
     const r = axis === "right" && rightRange ? rightRange : leftRange
     return round1(plot.y + plot.h - ((v - r.min) / (r.max - r.min)) * plot.h)
@@ -471,7 +478,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   const slot = perDay ? plot.w / Math.max(1, window.dates.length) : 0
   if (perDay) {
     window.dates.forEach((d, j) => times.push({ x: round1(plot.x + slot * (j + 0.5)), label: weekdayOf(d) }))
-  } else {
+  } else if (!compact) {
     const tick = TIME_TICK.find((x) => span <= x.span)
     for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) <= window.to; d = addDays(d, 1)) {
       const m = midnightOf(d, o.tz)
@@ -601,8 +608,9 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   })
 
   // The legend: one row per series, the figures of its annotations.
+  if (compact) for (const s of series) s.marks = []
   const legend: LegendRow[] =
-    chart.legend === "none"
+    compact || chart.legend === "none"
       ? []
       : chart.series.map((s, i) => {
           const at =
@@ -624,7 +632,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   // Each day in the window, its name above its part of the plot: the whole
   // row long («heute Freitag 30.10.»), else short («Fr 30.10.»), else the
   // weekday - the longest every day fits; a day too narrow for any, unnamed.
-  if (!perDay) {
+  if (!perDay && !compact) {
     const today = o.now > 0 ? dateOf(o.now, o.tz) : null
     const days: { x: number; w: number; names: string[]; fits: number }[] = []
     for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) < window.to; d = addDays(d, 1)) {
@@ -655,7 +663,7 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
     if (row.align === "right") box(line, plot.x, row.y, row.x - 14 - plot.x, "right", "text")
     else box(line, row.x + 14, row.y, plot.w - 14 - (row.x - plot.x), "left", "text")
   }
-  if (!perDay && o.now >= window.to) box("→", plot.x, plot.y + plot.h / 2 - half, plot.w - 2, "right", "muted")
+  if (!perDay && !compact && o.now >= window.to) box("→", plot.x, plot.y + plot.h / 2 - half, plot.w - 2, "right", "muted")
 
   return {
     plot,

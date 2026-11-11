@@ -82,7 +82,7 @@ function chartProject(ddf, stamp) {
           x: inner.x + Math.round(inner.w * 0.04),
           y: inner.y + Math.round(inner.h * 0.06),
           width: Math.round(inner.w * 0.92),
-          height: Math.round(inner.h * 0.88),
+          height: Math.round(inner.h * 0.7),
           properties: {
             mode: "time",
             scroll: false,
@@ -100,6 +100,28 @@ function chartProject(ddf, stamp) {
               { id: "s1", source: { kind: "topic", topic: LEVEL }, name: "Level", valueKind: "level", unit: "%", draw: "line", color: "#2255aa", annotations: ["current"] },
               { id: "s2", source: { kind: "topic", topic: HEATER }, name: "Heat", valueKind: "state", draw: "band", color: "#2f9a52", annotations: ["runtime"] },
             ],
+          },
+        },
+        // A compact chart (docs/2026-11-11-value-cards.md, decision 7): the
+        // level's last three hours from recent6, no axes, no legend, no day.
+        {
+          id: "spark",
+          type: "chart",
+          zIndex: 1,
+          x: inner.x + Math.round(inner.w * 0.04),
+          y: inner.y + Math.round(inner.h * 0.8),
+          width: Math.round(inner.w * 0.45),
+          height: Math.round(inner.h * 0.12),
+          properties: {
+            mode: "time",
+            compact: true,
+            scroll: false,
+            legend: "none",
+            fontId: font.id,
+            lineColor: "#cac4d0",
+            nowColor: "#c62828",
+            left: { scale: "auto" },
+            series: [{ id: "s1", source: { kind: "topic", topic: LEVEL }, name: "Level", valueKind: "level", draw: "area", color: "#2255aa" }],
           },
         },
       ],
@@ -157,6 +179,9 @@ async function main() {
   const levelTopic = `schaltli/history/${LEVEL}/day/${today}`
   const heaterTopic = `schaltli/history/${HEATER}/day/${today}`
   const level = { date: today, step: 900, mean, min: mean, max: mean }
+  // The last six hours for the compact chart, in five-minute steps.
+  const recentTopic = `schaltli/history/${LEVEL}/recent6`
+  const recent = { end: Math.floor(start / 300) * 300 + 300, step: 300, mean: Array.from({ length: 72 }, (_, i) => Math.round(50 + 20 * Math.sin(i / 7))), min: [], max: [] }
   const heater = { date: today, on: [[60, 150], [Math.max(200, Math.floor(steps * 15) - 120), Math.max(260, Math.floor(steps * 15) - 30)]] }
   const nowPayload = (t) => JSON.stringify({ time: Math.floor(t), tz: TZ, days: dates.map((date) => ({ date, start: midnightOf(date, TZ) })) })
   const lay = (t, payload) => broker.publishAsync(t, payload, { retain: true, qos: 1 })
@@ -165,6 +190,7 @@ async function main() {
   await lay("schaltli/history/now", nowPayload(start))
   await lay(levelTopic, JSON.stringify(level))
   await lay(heaterTopic, JSON.stringify(heater))
+  await lay(recentTopic, JSON.stringify(recent))
 
   let failures = 0
   const browser = await chromium.launch()
@@ -186,7 +212,7 @@ async function main() {
       try {
         held = JSON.parse((await get(`${base}/api/debug?set=charts`, 5000)).body).held ?? []
       } catch {}
-      if (held.includes(levelTopic) && held.includes(heaterTopic)) break
+      if (held.includes(levelTopic) && held.includes(heaterTopic) && held.includes(recentTopic)) break
       if (Date.now() > deadline) throw new Error("the board never held the chart's history")
       await sleep(2000)
     }
@@ -210,6 +236,7 @@ async function main() {
       "schaltli/history/now": nowPayload(at),
       [levelTopic]: JSON.stringify(level),
       [heaterTopic]: JSON.stringify(heater),
+      [recentTopic]: JSON.stringify(recent),
     }
     const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
       quantize: ddf.testInterface.snapshotQuantize || "rgb565",

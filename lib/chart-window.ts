@@ -3,7 +3,7 @@
 // decisions 1, 2). Pure: the time and the zone come from outside - in the
 // preview the recorder's (`schaltli/history/now`), else the browser's.
 
-import { historyName, type ChartProperties, type TimeRange } from "@/lib/chart"
+import { COMPACT_SPAN_S, historyName, type ChartProperties, type TimeRange } from "@/lib/chart"
 
 export const HISTORY_PREFIX = "schaltli/history"
 
@@ -117,7 +117,14 @@ export function addDays(date: string, n: number): string {
  * midnight; 7 days the last seven days, today the last; 1 h and 6 h end with
  * the step now is in; a per-day chart its last `days` days.
  */
-export function chartWindow(chart: Pick<ChartProperties, "mode" | "days">, range: TimeRange, now: number, tz: Zone, back = 0): ChartWindow {
+export function chartWindow(chart: Pick<ChartProperties, "mode" | "days" | "compact">, range: TimeRange, now: number, tz: Zone, back = 0): ChartWindow {
+  // A compact chart: the last three hours, ending with the step now is in,
+  // whatever the screen's range and wherever it was moved.
+  if (chart.compact && chart.mode !== "per-day") {
+    const step = 300
+    const to = Math.floor(now / step) * step + step
+    return { from: to - COMPACT_SPAN_S, to, source: "recent6", step, dates: [] }
+  }
   const base = baseWindow(chart, range, now, tz)
   if (back <= 0) return base
   // Moved back in time (lib/chart-range.ts): the same span, earlier. What

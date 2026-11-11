@@ -27,6 +27,7 @@ import { SNAP_GRID } from "@/lib/snap-table"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
+import { normalizeChart, type ChartProperties } from "@/lib/chart"
 import { placeholdersToLiveValues } from "@/lib/live-value"
 import type { CombinedTopic } from "@/lib/combined-topics"
 
@@ -731,6 +732,19 @@ function catalogLabelPosition(look: string): LabelPosition {
   return look === "bar" || look === "gauge" || look === "slider" || look === "dial" || look === "number" ? "above" : "left"
 }
 
+/** A compact chart of one topic's last three hours: a line with a faint area, in the value's colour. */
+function sparkline(topic: string, name: string, color: string, unit: string | undefined, rect: { x: number; y: number; width: number; height: number }): Omit<ScreenObject, "id" | "zIndex"> {
+  const chart: ChartProperties = normalizeChart({
+    mode: "time",
+    compact: true,
+    scroll: false,
+    legend: "none",
+    left: { scale: "auto" },
+    series: [{ id: "s1", source: { kind: "topic", topic }, name, valueKind: "level", draw: "area", color, ...(unit ? { unit } : {}) }],
+  })
+  return { type: "chart", ...rect, properties: chart as unknown as Record<string, any> }
+}
+
 /**
  * The colour of a value's meaning, as a theme role (docs/2026-11-11-value-
  * cards.md, decision 4), from what the device announces of it - never from
@@ -801,6 +815,12 @@ export interface CatalogBuildInput {
    * a choice's buttons and a slider's value say what it is.
    */
   bare?: boolean
+  /**
+   * The device draws charts (it lists the chart among its types): a value
+   * card gets its last three hours as a sparkline beside the number
+   * (docs/2026-11-11-value-cards.md, decision 7).
+   */
+  charts?: boolean
 }
 
 // Words that say on and off: shown as «An» and «Aus» (the spec's default);
@@ -833,7 +853,7 @@ function readTopicEntry(binding: string, type: "numeric" | "text", reported?: Re
  * The block for one control of a catalog entry (block plan Task 6a): the
  * objects, in the dragged rectangle, and the topics they read and write.
  */
-export function buildFromCatalog({ entry, control, rect, palette, font, options, reported, bare }: CatalogBuildInput): BausteinBuildResult {
+export function buildFromCatalog({ entry, control, rect, palette, font, options, reported, bare, charts }: CatalogBuildInput): BausteinBuildResult {
   const looks = catalogLooks(control)
   const look = (looks.find((l) => l.id === options?.look) ?? looks[0]).id
   const labelText = options?.label ?? entry.label
@@ -907,6 +927,17 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         const quiet = label().map((piece) => (piece.type === "text" ? { ...piece, properties: { ...piece.properties, color: "textMuted", blockTextStyle: "standard" } } : piece))
         if (look === "number") {
           const big = { ...object, properties: { ...object.properties, color: colour, blockTextStyle: "xxl" } }
+          // Its last three hours beside it, where the device draws charts -
+          // of the topic as the recorder hears it, so not of a scaled one.
+          if (charts && !scaled) {
+            const line = sparkline(read, labelText, colour, control.unit, { x: parts.control.x, y: parts.control.y, width: Math.round(parts.control.width / 2), height: Math.round((font?.size ?? 18) * 1.6) })
+            return {
+              objects: [...quiet, big, line],
+              partColumns: [1, 2],
+              topics: [readTopicEntry(read, "numeric", reported)],
+              assets,
+            }
+          }
           return { objects: [...quiet, big], topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
         }
         const unit = control.unit ? ` ${control.unit}` : ""
@@ -1412,7 +1443,7 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
 // What fills its cell's width in a block, so its parts end on one edge.
 // A Toggle Button and a part's tile too (docs/2026-11-11-led-look.md): two
 // side by side share the width, and every edge lines up.
-const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field", "toggle-button", "free"])
+const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field", "toggle-button", "free", "chart"])
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
 type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; y?: "top" | "bottom" }

@@ -2446,6 +2446,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         // elsewhere sized against the panel - see blockFont().
         font: labelFont ?? blockFont(project.fonts, project.screenWidth, project.screenHeight),
         reported: values,
+        // A value's last hours beside it, where the device draws charts
+        // (docs/2026-11-11-value-cards.md, decision 7).
+        charts: project.settings.supportedObjectTypes?.includes("chart") === true,
       }), project.combinedTopics)
 
       const register = () => setProject((prev) => {

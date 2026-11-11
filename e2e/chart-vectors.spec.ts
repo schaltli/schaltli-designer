@@ -59,6 +59,9 @@ function build() {
     { chart: { mode: "time" }, range: "24h", now: midnightOf("2026-03-29", TZ) + 7200, tz: "zurich", back: 0 },
     { chart: { mode: "per-day", days: 7 }, range: "24h", now: NOON, tz: "zurich", back: 0 },
     { chart: { mode: "time" }, range: "24h", now: NOON, tz: "newyork", back: 0 },
+    // Compact (docs/2026-11-11-value-cards.md, decision 7): the last 3 h,
+    // whatever the range, wherever it was moved.
+    { chart: { mode: "time", compact: true }, range: "7d", now: NOON, tz: "zurich", back: 86400 },
   ].map((w) => ({ in: w, out: chartWindow(w.chart as any, w.range as any, w.now, ZONES[w.tz], w.back) }))
 
   const steps: { in: { view: RangeView; step: string; arg?: unknown }; out: RangeView }[] = []
@@ -176,6 +179,15 @@ function build() {
       back: 2 * 86400,
       payloads: { s1: [] },
       options: { ...o, dateFontSize: 20 },
+    },
+    {
+      // A sparkline beside a value: no axes, no times, no days, no legend.
+      name: "compact: the last three hours, nothing written",
+      chart: chart([series({ draw: "area", unit: "°C", annotations: ["current", "min", "max"] })], { compact: true }),
+      range: "7d",
+      back: 86400,
+      payloads: { s1: [{ end: Math.floor(NOON / 300) * 300 + 300, step: 300, mean: Array.from({ length: 72 }, (_, i) => (i % 9 === 0 ? null : 18 + Math.sin(i / 6) * 3)), min: [], max: [] }] },
+      options: { ...o, width: 120, height: 40 },
     },
     {
       name: "seven days of bars, energy up and down",

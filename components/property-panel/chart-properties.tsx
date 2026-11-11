@@ -84,6 +84,9 @@ export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "
       <PropertySection title="Chart">
         <SelectField label="Mode" id="chart-mode" value={chart.mode} options={MODES} onChange={(mode) => update({ mode: mode as ChartProperties["mode"], ...(mode === "per-day" && !chart.days ? { days: 7 } : {}) })} />
         {chart.mode === "per-day" ? <NumberField label="Days" id="chart-days" value={chart.days ?? 7} min={1} max={30} onChange={(days) => update({ days })} /> : null}
+        {chart.mode === "time" ? (
+          <ToggleRow label="Compact" checked={chart.compact === true} onChange={(compact) => update({ compact: compact || undefined })} text="The last 3 hours, no axes, no legend" />
+        ) : null}
         <ToggleRow label="Scrolling" checked={chart.scroll} onChange={(scroll) => update({ scroll })} text="A swipe moves through time" />
         <SelectField label="Legend" id="chart-legend" value={chart.legend} options={LEGENDS} onChange={(legend) => update({ legend: legend as ChartProperties["legend"] })} />
         <FontField value={chart.fontId} fonts={fonts} onChange={(fontId) => update({ fontId })} onManageFonts={onManageFonts} />

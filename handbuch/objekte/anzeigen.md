@@ -233,7 +233,7 @@ Die 55 W sind alles, was niemand misst: Licht, Wasserpumpe, Router. Am Abend ohn
 Zeigt Werte über die Zeit: wie sich die Batterie über den Tag geladen hat, wie kalt es in der Nacht wurde, wann die Heizung lief. Den Verlauf sammelt der [Recorder](/betrieb/daten#verlauf) auf dem Pekaway-System. Das Diagramm zeigt, was er gesammelt hat.
 
 ::: warning Geräte
-Diagramme zeigen der 4.3B, der Knob und das PaperS3. Ist die Firmware eines Geräts älter, bringt «Deploy» sie vorher auf den neuen Stand. Die Android-App zeigt noch keine Diagramme.
+Diagramme zeigen der 4.3B, der 4-Zoll, der Knob und das PaperS3. Ist die Firmware eines Geräts älter, bringt «Deploy» sie vorher auf den neuen Stand. Die Android-App zeigt noch keine Diagramme.
 :::
 
 Ein neues Diagramm ist leer. Unter <span class="ui">Series</span> wählst du bei <span class="ui">Add a series from a topic…</span> ein Topic oder ein Feld aus einer JSON-Nachricht. Daraus wird eine Datenreihe, gezeichnet als Linie, Fläche oder Band. Ein Diagramm kann mehrere Datenreihen haben.
@@ -257,6 +257,8 @@ Die übrigen Felder einer Datenreihe:
 - <span class="ui">Shows</span>: was in der Legende steht. Zur Wahl stehen der Wert jetzt, der kleinste und der grösste Wert im Fenster mit ihrer Uhrzeit, die Energie, wie lange etwas lief und wie oft es anging.
 
 Für das ganze Diagramm wählst du unter <span class="ui">Mode</span> zwischen <span class="ui">Over time</span>, einer Kurve über die Zeit, und <span class="ui">Per day</span>, einem Balken pro Tag für die letzten <span class="ui">Days</span> Tage. <span class="ui">Legend</span> setzt die Legende oben rechts, oben links oder unten, oder blendet sie aus. Unter <span class="ui">Left axis</span> stellst du <span class="ui">Scale</span> auf <span class="ui">Automatic</span>, auf <span class="ui">Fixed</span> mit festem Bereich oder auf <span class="ui">At least</span>: ein Bereich, der wächst, wenn ein Wert herausfällt. <span class="ui">Automatic</span> richtet sich nach dem, was gerade zu sehen ist, und ändert sich beim Blättern mit. Willst du Tage miteinander vergleichen, nimm <span class="ui">Fixed</span>. <span class="ui">Zones</span> färbt Bereiche einer Achse ein, etwa einen Ladestand unter 20 %. <span class="ui">Font</span> ist die Schrift der Achsen und der Legende. Bei <span class="ui">Over time</span> kommt <span class="ui">Date font</span> dazu, die Schrift für den Tag über dem Diagramm. Neue Diagramme bekommen dafür eine grössere; ist keine gewählt, steht der Tag in der Schrift unter <span class="ui">Font</span>.
+
+<span class="ui">Compact</span> macht aus dem Diagramm eine kleine Verlaufslinie, etwa neben einem Wert in einer Karte: ohne Achsen, ohne Legende, ohne Tag darüber, immer die letzten drei Stunden, egal welche Zeitspanne der Screen zeigt. Die Linie füllt das ganze Objekt. Die Baugruppe eines Messwerts bringt so eine Linie gleich mit, wenn dein Gerät Diagramme zeigt.
 
 Welche Zeitspanne ein Diagramm zeigt, bestimmt sein Screen unter <span class="ui">Time range</span>: 1 Stunde, 6 Stunden, 24 Stunden oder 7 Tage. 24 Stunden sind der heutige Tag von Mitternacht bis Mitternacht. Ein Punkt markiert den Moment jetzt, durch ihn läuft eine feine Linie in der Akzentfarbe, rechts davon ist der Tag noch leer. Bei gestapelten Leistungen sitzt der Punkt auf der Null. In der Vorschau, auf dem Knob und auf dem 4.3B pulsiert er, auf dem PaperS3 steht er still.
 
