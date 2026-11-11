@@ -334,6 +334,9 @@ async function preloadIconImages(
   )
 }
 
+// Every object of a tree: a diagram may stand in a table or a panel.
+const allObjects = (list: ScreenObject[]): ScreenObject[] => list.flatMap((o) => [o, ...allObjects(o.children ?? [])])
+
 export default function TestRenderPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -438,7 +441,7 @@ export default function TestRenderPage() {
         .filter((o: ScreenObject) => o.type === "navigator")
         .flatMap((o: ScreenObject) => everyEntryObject(o, project.screens, fonts))
       // An energy diagram's node icons, in each colour a node may have.
-      const energyIcons = screen.objects.filter((o: ScreenObject) => o.type === "energy-diagram").flatMap(everyEnergyIcon)
+      const energyIcons = allObjects(screen.objects).filter((o: ScreenObject) => o.type === "energy-diagram").flatMap(everyEnergyIcon)
       await preloadIconImages([...screen.objects, ...entryIcons, ...energyIcons], [...(project.assets ?? []), ...THEME_SWITCH_ASSETS, ...BACK_ARROW_ASSETS], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {

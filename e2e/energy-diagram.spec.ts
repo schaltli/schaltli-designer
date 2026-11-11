@@ -425,6 +425,18 @@ test.describe("the energy diagram, drawn", () => {
     expect(night(n("consumers").x, n("consumers").y - 32)).toBe(shown("energyLoad"))
   })
 
+  test("a diagram inside a free area still gets its node icons drawn", async ({ page }) => {
+    // test-render preloaded the icons of top-level diagrams only, so a
+    // diagram in a card or a table drew its circles empty (found while
+    // building the starter, 2026-11-10).
+    const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
+    const screen = (project as any).screens[0]
+    screen.objects = [{ id: "box", type: "free", x: 0, y: 0, width: 800, height: 480, zIndex: 1, properties: {}, children: screen.objects }]
+    const at = await render(page, project)
+    const solar = nodes.find((x) => x.id === "solar")!
+    expect(at(solar.x, solar.y)).toBe(role("energySun"))
+  })
+
   test("a node whose topic has said nothing counts as 0 W", async ({ page }) => {
     const { project, nodes } = drawnProject("flow", { "van/solar": "600", "van/battery": "446", "van/soc": "50" })
     const at = await render(page, project, { "van/solar": "" })
