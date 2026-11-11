@@ -280,8 +280,8 @@ test.describe("VanPi bridge logic", () => {
       ["switch", "Abwasserpumpe"],
       ["switch", "Relay 7"],
       ["switch", "Relay 8"],
-      ["light", "Dimmer 1"],
-      ["light", "DimmyPro 1"],
+      ["number", "Dimmer 1"],
+      ["number", "DimmyPro 1"],
       ["climate", "Heizung"],
       ["number", "Heizung Timer"],
       ["climate", "MaxxFan"],
@@ -305,19 +305,12 @@ test.describe("VanPi bridge logic", () => {
       },
     ])
     expect(byLabel["WifiRelay 2"].controls[0]).toMatchObject({ read: "schaltli/state/wifirelay/2/power", write: "schaltli/cmnd/wifirelay/2" })
-    // A dimmer: on and off, read from the bridge's own state, and its level
-    // 0 to 100, both to its one command.
+    // A dimmer: one number from 0 to 100 %, read from the bridge's level and
+    // written to its one command - a slider, 0 is off (2026-11-11).
     expect(byLabel["DimmyPro 1"].controls).toEqual([
-      {
-        kind: "switch",
-        read: "schaltli/state/dimmer/8/power",
-        write: "schaltli/cmnd/dimmer/8",
-        on: { read: "on", write: "on" },
-        off: { read: "off", write: "off" },
-        part: "Power",
-      },
-      { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, percent: true, part: "Brightness" },
+      { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, unit: "%" },
     ])
+    expect(configs.some((c) => c.topic.startsWith("homeassistant/light/"))).toBe(false)
     expect(byLabel["Theme"].controls).toEqual([
       {
         kind: "switch",
@@ -778,6 +771,8 @@ test.describe("VanPi bridge logic", () => {
       [`${S}temperature`]: "22",
       [`${S}cover`]: "open",
       [`${S}airflow`]: "in",
+      // What «on» goes back to (the block's switch «Lüfter»).
+      [`${S}last_mode`]: "manual",
     }
     expect(fromA).toEqual({ ...fan, [`${S}source`]: "pekaway" })
     expect(fromB).toEqual({ ...fan, [`${S}source`]: "ble" })
@@ -818,6 +813,9 @@ test.describe("VanPi bridge logic", () => {
     expect(send("power", "on", fanIn("off")).publish).toEqual([pkw("power")])
     expect(send("power", "on", fanIn("auto")).publish).toEqual([])
     expect(send("power", "off", fanIn("auto")).publish).toEqual([pkw("auto"), pkw("power")])
+    // «on» goes back to the mode it last ran in: auto is power, then auto.
+    expect(send("power", "on", fanIn("off", { [`${S}last_mode`]: "auto" })).publish).toEqual([pkw("power"), pkw("auto")])
+    expect(send("power", "on", fanIn("off", { [`${S}last_mode`]: "manual" })).publish).toEqual([pkw("power")])
     // Speed in percent, as Pekaway's 1 to 10, which it steps to itself.
     expect(send("speed", "50", fanIn("manual")).publish).toEqual([pkw("speed", "5")])
     expect(send("speed", "4", fanIn("manual")).publish).toEqual([pkw("speed", "1")])
@@ -896,10 +894,14 @@ test.describe("VanPi bridge logic", () => {
     // mode across, then a row of the mode's dial beside the timer, and a row
     // of the fuel beside «Nullen».
     const S = "schaltli/state/heater/"
+    // Since 2026-11-11 (docs/2026-11-11-bridge-for-starter.md, decision 2):
+    // on top the switch «Heizung» beside the state, the mode a choice of three
+    // shown only while it runs, the target's dial also while off.
     expect(auto.entry.controls.map((c) => [c.part, c.kind, c.section, c.column, c.row, c.shownWhen?.values ?? []])).toEqual([
-      [undefined, "text", undefined, undefined, undefined, []],
-      ["Betrieb", "choice", undefined, undefined, undefined, []],
-      ["Zieltemperatur", "level", undefined, 1, "controls", ["target"]],
+      ["Heizung", "switch", undefined, 1, "head", []],
+      [undefined, "text", undefined, 2, "head", []],
+      ["Betrieb", "choice", undefined, undefined, undefined, ["on"]],
+      ["Zieltemperatur", "level", undefined, 1, "controls", ["target", "off"]],
       ["Leistung", "level", undefined, 1, "controls", ["power"]],
       ["Lüftung", "level", undefined, 1, "controls", ["fan"]],
       ["Timer", "switch", "Laufzeit", 2, "controls", []],
@@ -907,14 +909,17 @@ test.describe("VanPi bridge logic", () => {
       [undefined, "text", "Verbrauch", 1, "fuel", []],
       ["Nullen", "button", "Verbrauch", 2, "fuel", []],
     ])
-    const [status, mode, target, , , timer, runtime] = auto.entry.controls
+    const [power, status, mode, target, , , timer, runtime] = auto.entry.controls
+    // «on» to the view starts the mode it last ran in.
+    expect(power).toMatchObject({ read: `${S}power`, write: "schaltli/cmnd/heater/view", on: { read: "on", write: "on", icon: "mdi:fire" }, off: { read: "off", write: "off" } })
     expect(status).toMatchObject({ read: `${S}status_line`, small: true })
-    // Power as a mode of its own: four buttons on the view.
+    // Power as a mode of its own: three buttons on the view, while it runs.
     expect(mode).toMatchObject({
       read: `${S}view`,
       write: "schaltli/cmnd/heater/view",
-      options: ["off", "target", "power", "fan"],
-      labels: ["Aus", "Temperatur", "Leistung", "Lüften"],
+      options: ["target", "power", "fan"],
+      labels: ["Temperatur", "Leistung", "Lüften"],
+      shownWhen: { topic: `${S}power`, values: ["on"] },
     })
     // The handle is the target, the fill the room; up to 30 °C.
     expect(target).toMatchObject({ read: `${S}target`, current: "schaltli/state/temp/1/value", min: 12, max: 30, unit: "°C" })
@@ -991,15 +996,21 @@ test.describe("VanPi bridge logic", () => {
       const cellOf = (o: any) => snapCellOf(o)
       const first = Math.min(...kids.filter((c) => c.type !== "text" || cellOf(c).column > 0).map((c) => cellOf(c).column))
       const column = (c: number) => kids.filter((k) => cellOf(k).column === c).sort((x, y) => cellOf(x).row - cellOf(y).row)
-      const [statusRow, modeRow] = column(first)
-      expect([statusRow.type, modeRow.type]).toEqual(["text", "button-group"])
-      expect([cellOf(statusRow).columnSpan, cellOf(modeRow).columnSpan]).toEqual([2, 2])
-      // The mode's dial beside the timer.
-      const left = column(first).find((k) => k.type === "switcher")
-      expect(left.properties.topic).toBe("schaltli/state/heater/view")
-      expect(left.children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "power", "fan"])
+      // On top the switch «Heizung» beside the state (2026-11-11), then the
+      // mode across, in a switcher shown only while it runs.
+      const [powerRow, modeRow] = column(first)
+      expect(powerRow.properties.topic).toBe("schaltli/state/heater/power")
+      const statusRow = column(first + 1)[0]
+      expect(statusRow.type).toBe("text")
+      expect(cellOf(statusRow).row).toBe(cellOf(powerRow).row)
+      expect(modeRow).toMatchObject({ type: "switcher", properties: { topic: "schaltli/state/heater/power" } })
+      expect(cellOf(modeRow).columnSpan).toBe(2)
+      expect(modeRow.children.map((p: any) => p.properties.comparisonValue)).toEqual(["on"])
+      // The mode's dial beside the timer; the target's also while off.
+      const left = column(first).find((k) => k.type === "switcher" && k.properties.topic === "schaltli/state/heater/view")
+      expect(left.children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "off", "power", "fan"])
       // The timer is a switch, as the description asks (asked 2026-10-05).
-      const rightSide = column(first + 1)
+      const rightSide = column(first + 1).slice(1)
       expect(rightSide.map((r) => r.type).slice(0, 2)).toEqual(["switch", "switcher"])
       const right = rightSide[1]
       expect(right.properties.topic).toBe("schaltli/state/heater/timer_on")
@@ -1047,15 +1058,21 @@ test.describe("VanPi bridge logic", () => {
       expect(fan).toMatchObject({ name: "MaxxFan", icon: "mdi:fan", device: { id: "schaltli-vanpi", name: "VanPi" } })
       // Mode and cover, then what the mode shows: the slider, and the
       // airflow by hand and in auto (asked 2026-10-04).
-      expect(fan.controls.map((c) => [c.part, c.kind, c.shownWhen?.values ?? []])).toEqual([
-        ["Betrieb", "choice", []],
-        ["Deckel", "switch", []],
-        ["Temperatur", "level", ["auto"]],
-        ["Geschwindigkeit", "level", ["fan_only"]],
-        ["Luftrichtung", "switch", ["fan_only", "auto"]],
+      // Since 2026-11-11 (docs/2026-11-11-bridge-for-starter.md, decision 4):
+      // the switches «Lüfter» and «Deckel» side by side, then while it runs
+      // Hand | Auto, the slider of the mode and Rein | Raus.
+      expect(fan.controls.map((c) => [c.part, c.kind, c.column, c.row, c.shownWhen?.values ?? []])).toEqual([
+        ["Lüfter", "switch", 1, "switches", []],
+        ["Deckel", "switch", 2, "switches", []],
+        ["Betrieb", "choice", undefined, undefined, ["fan_only", "auto"]],
+        ["Temperatur", "level", undefined, undefined, ["auto"]],
+        ["Drehzahl", "level", undefined, undefined, ["fan_only"]],
+        ["Luft", "choice", undefined, undefined, ["fan_only", "auto"]],
       ])
-      expect(fan.controls[0]).toMatchObject({ options: ["off", "fan_only", "auto"], labels: ["Aus", "Hand", "Auto"] })
-      expect(fan.controls[3]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
+      expect(fan.controls[0]).toMatchObject({ read: "schaltli/state/maxxfan/power", write: "schaltli/cmnd/maxxfan/power" })
+      expect(fan.controls[2]).toMatchObject({ options: ["fan_only", "auto"], labels: ["Hand", "Auto"] })
+      expect(fan.controls[4]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
+      expect(fan.controls[5]).toMatchObject({ options: ["in", "out"], labels: ["Rein", "Raus"] })
 
       // In the Block menu it stands in place of exactly the three it covers.
       const messages = Object.fromEntries(Object.entries(out).map(([topic, config]) => [topic, JSON.stringify(config)]))
@@ -1173,6 +1190,29 @@ test.describe("VanPi bridge flow", () => {
     const body = new Function("msg", "context", "flow", "node", "global", node.func)
     return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi, globalApi), status, sent }
   }
+
+  test("the clock: time and date retained for a screen's header, each only when it changes", () => {
+    // docs/2026-11-11-bridge-for-starter.md, decision 3.
+    const logic = createBridgeLogic()
+    expect(logic.clock(new Date(2026, 10, 11, 18, 31, 5))).toEqual([
+      { topic: "schaltli/state/time", value: "18:31" },
+      { topic: "schaltli/state/date", value: "Mi 11.11." },
+    ])
+    expect(logic.clock(new Date(2026, 0, 4, 7, 5))).toEqual([
+      { topic: "schaltli/state/time", value: "07:05" },
+      { topic: "schaltli/state/date", value: "So 04.01." },
+    ])
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    expect(byId["sbb-clock"].wires).toEqual([["sbb-clock-fn"]])
+    expect(byId["sbb-clock-fn"].wires).toEqual([["sbb-state-out"]])
+    const fn = nodeRedFunction(byId["sbb-clock-fn"], new Map())
+    const first = fn.run({})
+    expect(first[0].map((m: { topic: string }) => m.topic)).toEqual(["schaltli/state/time", "schaltli/state/date"])
+    expect(first[0].every((m: { retain: boolean }) => m.retain)).toBe(true)
+    // Ten seconds later, mostly the same minute: nothing (or only the time).
+    const again = fn.run({})
+    expect(again === null || again[0].every((m: { topic: string }) => m.topic === "schaltli/state/time")).toBe(true)
+  })
 
   test("its function nodes do on Node-RED's terms what the logic promises", async () => {
     const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
@@ -1387,6 +1427,30 @@ test.describe("VanPi bridge flow", () => {
     const pending = { request: http("temp/26"), at: 0 }
     expect(logic.pendingStart([{ topic: `${S}state_text`, value: "Bereit" }], pending, 11 * 60 * 1000)).toMatchObject({ request: null, pending: null })
     expect(logic.pendingStart([{ topic: `${S}state_text`, value: "Bereit" }], pending, 60 * 1000)).toMatchObject({ request: http("temp/26"), pending: null })
+  })
+
+  test("an Autoterm's «on» starts the mode it last ran in, as the block's switch «Heizung» asks", () => {
+    // docs/2026-11-11-bridge-for-starter.md, decision 2.
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const values = (autoterm1: Record<string, unknown>) =>
+      asMap(logic.flatten("heater", JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: {
+        heatertoggle: true, heatstatus: "standby", heattemp: "16", heaterror: "no", targettemp_vanpi: 26,
+        mode: "off", fanspeed: 5, powerlevel: 5, runtime_m: 0, runtime_remaining_s: 0, ...autoterm1,
+      } })))
+    // What it ran in is remembered; off leaves it alone.
+    expect(values({ mode: "fan only", heatstatus: "only fan" })[`${S}last_view`]).toBe("fan")
+    expect(values({ mode: "power mode", heatstatus: "heating" })[`${S}last_view`]).toBe("power")
+    expect(values({ mode: "off" })[`${S}last_view`]).toBeUndefined()
+
+    const http = (path: string) => ({ method: "PUT", url: `http://127.0.0.1:1880/autoterm/${path}` })
+    const at = (extra: Record<string, string>) => ({ [`${S}preset`]: "temperature", [`${S}target`]: "26", [`${S}state_text`]: "Bereit", ...extra })
+    expect(logic.command("schaltli/cmnd/heater/view", "on", at({ [`${S}last_view`]: "fan" }))).toEqual({ request: [http("vent/5")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/view", "on", at({ [`${S}last_view`]: "power" }))).toEqual({ request: [http("power/5")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/view", "on", at({ [`${S}last_view`]: "target" }))).toEqual({ request: [http("temp/26")], refresh: "heater" })
+    // Nothing remembered yet: the preset's - temperature, or power.
+    expect(logic.command("schaltli/cmnd/heater/view", "on", at({}))).toEqual({ request: [http("temp/26")], refresh: "heater" })
+    expect(logic.command("schaltli/cmnd/heater/view", "on", at({ [`${S}preset`]: "power" }))).toEqual({ request: [http("power/5")], refresh: "heater" })
   })
 
   test("a refused command through the nodes: the HTTP answer becomes the heater's fault, the next taken one clears it", () => {

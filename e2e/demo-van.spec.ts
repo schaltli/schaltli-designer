@@ -271,14 +271,15 @@ test("through the real bridge: the lights are announced and published, switched 
     return (publish as any)(topic, ...rest)
   }
   try {
-    // Announced as blocks: three lights, the battery, two tanks, four
-    // switches, and the bridge's own theme switch - nothing of what the van
-    // has not got (the solar charger the bridge does not announce).
+    // Announced as blocks: three dimmers (numbers since 2026-11-11), the
+    // battery, the sun's watts from the charger, two tanks, four switches,
+    // and the bridge's own theme switch - nothing of what the van has not got.
     await expect.poll(() => [...seen.keys()].filter((t) => t.startsWith("homeassistant/")).sort(), { timeout: 15_000 }).toEqual([
-      "homeassistant/light/schaltli-vanpi/dimmer_1/config",
-      "homeassistant/light/schaltli-vanpi/dimmer_2/config",
-      "homeassistant/light/schaltli-vanpi/dimmer_3/config",
+      "homeassistant/number/schaltli-vanpi/dimmer_1/config",
+      "homeassistant/number/schaltli-vanpi/dimmer_2/config",
+      "homeassistant/number/schaltli-vanpi/dimmer_3/config",
       "homeassistant/sensor/schaltli-vanpi/battery/config",
+      "homeassistant/sensor/schaltli-vanpi/solar_power/config",
       "homeassistant/sensor/schaltli-vanpi/tank_1/config",
       "homeassistant/sensor/schaltli-vanpi/tank_2/config",
       "homeassistant/switch/schaltli-vanpi/relay_1/config",

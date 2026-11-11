@@ -212,6 +212,9 @@ function createBridgeLogic() {
         else if (!(last && present(last[PREFIX + "heater/preset"]))) put("heater/preset", "temperature")
         var preset = running.preset || (last && last[PREFIX + "heater/preset"]) || "temperature"
         put("heater/view", heaterView(running.mode, preset))
+        // The mode it last ran in, for «on» (heater/view on): what the heater
+        // did, not what was asked of it.
+        if (running.mode !== "off") put("heater/last_view", heaterView(running.mode, preset))
         // Levels while they are set; 0 is Pekaway's off, not a level.
         if (Number(autoterm.powerlevel) > 0) put("heater/power_level", autoterm.powerlevel)
         if (Number(autoterm.fanspeed) > 0) put("heater/fan_level", autoterm.fanspeed)
@@ -411,21 +414,22 @@ function createBridgeLogic() {
       for (var d = 1; d <= 8; d++) {
         var dimmer = data["dimmer" + d]
         if (!dimmer || typeof dimmer !== "object") continue
-        // A light with a brightness of 0 to 100: on and off and the level all
-        // go to the one command the bridge takes. Its state is the bridge's
-        // (a level above 0 is on), and "on" goes back to the level it had,
-        // as a light in Home Assistant does - so "on" comes first, then the
-        // level asked for, which wins.
-        thing("light", "dimmer_" + d, {
+        // A number from 0 to 100 %, as the Dimmy itself knows it: 0 is off
+        // (docs/2026-11-11-bridge-for-starter.md, decision 1). It was a light
+        // with Power and Brightness until 2026-11-11; the user chose the
+        // simple model - one slider, as in CamperUI - over Home Assistant's
+        // light card, «all lights off» and the way back to the last level.
+        // The bridge still keeps on_level for "on" sent by hand.
+        thing("number", "dimmer_" + d, {
           name: nameOr(dimmer.name, "Dimmer " + d),
-          state_topic: PREFIX + "dimmer/" + d + "/power",
+          state_topic: PREFIX + "dimmer/" + d + "/level",
           command_topic: COMMAND + "dimmer/" + d,
-          payload_on: "on",
-          payload_off: "off",
-          on_command_type: "first",
-          brightness_state_topic: PREFIX + "dimmer/" + d + "/level",
-          brightness_command_topic: COMMAND + "dimmer/" + d,
-          brightness_scale: 100,
+          min: 0,
+          max: 100,
+          step: 1,
+          unit_of_measurement: "%",
+          mode: "slider",
+          icon: "mdi:lightbulb-on-outline",
         })
       }
     } else if (kind === "heater") {
@@ -555,17 +559,19 @@ function createBridgeLogic() {
       // temperature it holds, by hand its speed in its ten steps, and in
       // either the airflow - off, none of these (asked 2026-10-04).
       var hvacMode = PREFIX + "maxxfan/hvac_mode"
+      // Two switches side by side, «Lüfter» and «Deckel»; while it runs, by
+      // hand or auto, then the speed or the temperature, then the airflow
+      // (docs/2026-11-11-bridge-for-starter.md, decision 4).
       block("maxxfan", "MaxxFan", "mdi:fan", ["maxxfan", "maxxfan_cover", "maxxfan_airflow"], [
         {
-          name: "Betrieb",
-          kind: "choice",
-          state_topic: hvacMode,
-          command_topic: COMMAND + "maxxfan/mode",
-          options: [
-            { value: "off", label: "Aus" },
-            { value: "fan_only", label: "Hand" },
-            { value: "auto", label: "Auto" },
-          ],
+          name: "Lüfter",
+          kind: "switch",
+          state_topic: PREFIX + "maxxfan/power",
+          command_topic: COMMAND + "maxxfan/power",
+          payload_on: { value: "on", label: "An", icon: "mdi:fan" },
+          payload_off: { value: "off", label: "Aus" },
+          column: 1,
+          row: "switches",
         },
         {
           name: "Deckel",
@@ -574,6 +580,19 @@ function createBridgeLogic() {
           command_topic: COMMAND + "maxxfan/cover",
           payload_on: { value: "open", label: "Offen" },
           payload_off: { value: "closed", label: "Zu" },
+          column: 2,
+          row: "switches",
+        },
+        {
+          name: "Betrieb",
+          kind: "choice",
+          state_topic: hvacMode,
+          command_topic: COMMAND + "maxxfan/mode",
+          options: [
+            { value: "fan_only", label: "Hand" },
+            { value: "auto", label: "Auto" },
+          ],
+          shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
         {
           name: "Temperatur",
@@ -587,7 +606,7 @@ function createBridgeLogic() {
           shown_when: { topic: hvacMode, values: ["auto"] },
         },
         {
-          name: "Geschwindigkeit",
+          name: "Drehzahl",
           kind: "level",
           state_topic: PREFIX + "maxxfan/speed",
           command_topic: COMMAND + "maxxfan/speed",
@@ -598,12 +617,14 @@ function createBridgeLogic() {
           shown_when: { topic: hvacMode, values: ["fan_only"] },
         },
         {
-          name: "Luftrichtung",
-          kind: "switch",
+          name: "Luft",
+          kind: "choice",
           state_topic: PREFIX + "maxxfan/airflow",
           command_topic: COMMAND + "maxxfan/airflow",
-          payload_on: { value: "out", label: "Raus" },
-          payload_off: { value: "in", label: "Rein" },
+          options: [
+            { value: "in", label: "Rein" },
+            { value: "out", label: "Raus" },
+          ],
           shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
       ])
@@ -684,21 +705,37 @@ function createBridgeLogic() {
       for (var k in extra || {}) part[k] = extra[k]
       return part
     }
+    // On and off a switch, how it runs a choice of three shown only while it
+    // runs (docs/2026-11-11-bridge-for-starter.md, decision 2; LED look 11):
+    // «on» starts the mode it last ran in.
+    var running = { topic: PREFIX + "heater/power", values: ["on"] }
     return [
-      { kind: "text", state_topic: PREFIX + "heater/status_line", small: true },
+      {
+        name: "Heizung",
+        kind: "switch",
+        state_topic: PREFIX + "heater/power",
+        command_topic: COMMAND + "heater/view",
+        payload_on: { value: "on", label: "An", icon: "mdi:fire" },
+        payload_off: { value: "off", label: "Aus" },
+        column: 1,
+        row: "head",
+      },
+      { kind: "text", state_topic: PREFIX + "heater/status_line", small: true, column: 2, row: "head" },
       {
         name: "Betrieb",
         kind: "choice",
         state_topic: view,
         command_topic: COMMAND + "heater/view",
         options: [
-          { value: "off", label: "Aus" },
           { value: "target", label: "Temperatur" },
           { value: "power", label: "Leistung" },
           { value: "fan", label: "Lüften" },
         ],
+        shown_when: running,
       },
-      level("Zieltemperatur", "heater/target", AUTOTERM_MAX_TARGET, ["target"], room ? { min: 12, unit_of_measurement: "°C", current_topic: room } : { min: 12, unit_of_measurement: "°C" }),
+      // The target's dial also while off: what «on» heats to, before any
+      // other mode ran.
+      level("Zieltemperatur", "heater/target", AUTOTERM_MAX_TARGET, ["target", "off"], room ? { min: 12, unit_of_measurement: "°C", current_topic: room } : { min: 12, unit_of_measurement: "°C" }),
       level("Leistung", "heater/power_level", 10, ["power"]),
       level("Lüftung", "heater/fan_level", 10, ["fan"]),
       {
@@ -737,7 +774,8 @@ function createBridgeLogic() {
       },
       // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
       { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", column: 1, row: "fuel" },
-      { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", size: "xs", section: "Verbrauch", column: 2, row: "fuel" },
+      // A quiet text button (LED look 10).
+      { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", size: "xs", look: "text", section: "Verbrauch", column: 2, row: "fuel" },
     ]
   }
 
@@ -757,6 +795,8 @@ function createBridgeLogic() {
     put("maxxfan/mode", mode)
     put("maxxfan/power", mode === "off" ? "off" : "on")
     put("maxxfan/hvac_mode", mode === "manual" ? "fan_only" : mode)
+    // The mode it last ran in, for «on» (the block's switch «Lüfter»).
+    if (mode !== "off") put("maxxfan/last_mode", mode)
   }
 
   // The MaxxFan's speeds: ten steps, as its own panel has them.
@@ -1043,6 +1083,10 @@ function createBridgeLogic() {
     // An Autoterm's mode and how it heats in one word, as heater/view says
     // it: what the block's four buttons write (docs/2026-10-05-autoterm-block.md).
     if (group === "heater" && parts.length === 4 && parts[3] === "view" && autoterm) {
+      // «on»: the mode it last ran in, as the block's switch «Heizung» asks
+      // (docs/2026-11-11-bridge-for-starter.md, decision 2); before any was
+      // seen, its preset's - temperature, or power.
+      if (p === "on") p = state[PREFIX + "heater/last_view"] || (state[PREFIX + "heater/preset"] === "power" ? "power" : "target")
       var viewed = { off: true, target: true, power: true, fan: true }[p] ? p : null
       if (!viewed) return null
       var asked =
@@ -1314,7 +1358,9 @@ function createBridgeLogic() {
     if (part === "mode" && (p === "off" || p === "manual" || p === "auto")) target = p
     // Home Assistant's climate word for by hand.
     if (part === "mode" && p === "fan_only") target = "manual"
-    if (part === "power" && (p === "on" || p === "off")) target = p === "off" ? "off" : current === "off" ? "manual" : current
+    // «on» goes back to the mode it last ran in - by hand before any was seen
+    // (docs/2026-11-11-bridge-for-starter.md, decision 4).
+    if (part === "power" && (p === "on" || p === "off")) target = p === "off" ? "off" : current === "off" ? state[PREFIX + "maxxfan/last_mode"] || "manual" : current
     if (target !== null) {
       // Pekaway knows power and auto, each toggled. Out of auto the auto flag
       // goes first, so the fan does not come back in auto next time.
@@ -1521,7 +1567,23 @@ function createBridgeLogic() {
     return out
   }
 
+  // The time and the day for a screen's header, as the Pi's clock has them
+  // (docs/2026-11-11-bridge-for-starter.md, decision 3): «18:31» and
+  // «Mi 11.11.». Displays have no clock of their own a screen can show;
+  // the bridge writes these retained, a live text shows them.
+  var DAY_NAMES = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
+  function clock(date) {
+    var two = function (n) {
+      return (n < 10 ? "0" : "") + n
+    }
+    return [
+      { topic: PREFIX + "time", value: two(date.getHours()) + ":" + two(date.getMinutes()) },
+      { topic: PREFIX + "date", value: DAY_NAMES[date.getDay()] + " " + two(date.getDate()) + "." + two(date.getMonth() + 1) + "." },
+    ]
+  }
+
   return {
+    clock: clock,
     timeToGo: timeToGo,
     PRODUCER_GLOBALS: PRODUCER_GLOBALS,
     producers: producers,

@@ -52,6 +52,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/maxxfan/airflow` | Luftrichtung `in` oder `out` |
 | `schaltli/state/maxxfan/source` | woher die Werte stammen: `pekaway` oder `ble`, siehe [Dachlüfter](#dachlufter) |
 | `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
+| `schaltli/state/time`, `…/date` | Uhrzeit und Tag nach der Uhr des Pi, etwa `18:31` und `Mi 11.11.`, für die Kopfzeile eines Screens. Setzt die Brücke selbst, sobald sie sich ändern. |
 
 Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist.
 
@@ -88,13 +89,13 @@ Pekaways eigene Variablen liest die Brücke sonst nicht, nur Pekaways dokumentie
 | `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen, eine Autoterm in ihrer Regelung; `0` schaltet sie aus |
 | `schaltli/cmnd/heater/power_level` | `1` bis `10` | eine Autoterm mit dieser Stufe heizen lassen |
 | `schaltli/cmnd/heater/fan_level` | `1` bis `10` | eine Autoterm mit dieser Stufe nur lüften lassen |
-| `schaltli/cmnd/heater/view` | `off`, `target`, `power`, `fan` | eine Autoterm aus, auf die Solltemperatur, mit fester Leistung oder nur lüften lassen, in einem Wort |
+| `schaltli/cmnd/heater/view` | `off`, `on`, `target`, `power`, `fan` | eine Autoterm aus, auf die Solltemperatur, mit fester Leistung oder nur lüften lassen, in einem Wort; `on` startet sie in der Betriebsart, in der sie zuletzt lief, und gab es noch keine, im Preset |
 | `schaltli/cmnd/heater/timer_on` | `on`, `off` | den Timer einer Autoterm ein (eine Stunde) oder aus (ohne Ende weiterlaufen) |
 | `schaltli/cmnd/heater/runtime` | `0` bis `600` | die Laufzeit einer Autoterm in Minuten neu setzen, ohne die Betriebsart zu ändern, auf 15 Minuten gerundet, mindestens 15; `0` läuft ohne Ende weiter |
 | `schaltli/cmnd/heater/runtime_s` | `0` bis `36000` | dasselbe in Sekunden, wie es das Dial in der Baugruppe schickt |
 | `schaltli/cmnd/heater/fuel` | `reset` | den Verbrauch einer Autoterm auf null setzen, ab jetzt |
 | `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
-| `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
+| `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein, im Betrieb, in dem er zuletzt lief (von Hand oder Automatik), oder aus |
 | `schaltli/cmnd/maxxfan/speed` | `1` bis `100` | Drehzahl in Prozent, auf Zehner gerundet |
 | `schaltli/cmnd/maxxfan/temperature` | `0` bis `37` | Zieltemperatur im Automatikbetrieb |
 | `schaltli/cmnd/maxxfan/cover` | `open`, `closed` | Deckel öffnen oder schliessen |
@@ -147,7 +148,7 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Die Baugruppe «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Deckel. Dann kommt, was nur bei laufendem Lüfter zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luftrichtung. Ist der Lüfter aus, bleibt dieser Teil leer. Was dort steht, wählt ein Switcher in der Baugruppe, siehe [Teile je nach Betrieb](/designer/baugruppen#je-nach-betrieb).
+Die Baugruppe «MaxxFan» bringt alles mit. Oben stehen nebeneinander die Schalter «Lüfter» und «Deckel». «Lüfter» schaltet ihn im Betrieb ein, in dem er zuletzt lief. Dann kommt, was nur bei laufendem Lüfter zählt: die Knöpfe «Hand» und «Auto», im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luft, «Rein» oder «Raus». Ist der Lüfter aus, fällt dieser Teil weg. Was dort steht, wählt ein Switcher in der Baugruppe, siehe [Teile je nach Betrieb](/designer/baugruppen#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #47: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
@@ -162,9 +163,9 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 
 | Baugruppe | Teile |
 |---|---|
-| «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
+| «MaxxFan» | nebeneinander die Schalter «Lüfter» und «Deckel» (Offen, Zu); solange er läuft die Betriebsart (Hand, Auto), im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luft (Rein, Raus) |
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
-| die Heizung, eine Autoterm | klein zuoberst der Zustand, bei einer Störung die Störung; die Betriebsart (Aus, Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/baugruppen#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben |
+| die Heizung, eine Autoterm | zuoberst der Schalter «Heizung», der sie in der Betriebsart startet, in der sie zuletzt lief, daneben klein der Zustand, bei einer Störung die Störung; solange sie läuft die Betriebsart (Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/baugruppen#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, bei ausgeschalteter Heizung die Solltemperatur, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst der Verbrauch mit «Nullen» daneben, einem Knopf ohne Rahmen |
 
 Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm kommen die Abschnitte «Laufzeit» und «Verbrauch» mit, und du löschst auf dem Screen, was du nicht brauchst, siehe [Abschnitte](/designer/baugruppen#abschnitte). Raumtemperatur, Spannung und Diagnose stehen nicht in der Baugruppe, ihre Werte liegen aber unter `schaltli/state/…`, und du bindest sie bei Bedarf von Hand. Home Assistant sieht von diesen Baugruppen nichts, er bekommt weiter die einzelnen Dinge.
 
@@ -174,7 +175,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | jeder Temperaturfühler | Messwert in °C | der Name aus Pekaway |
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
-| jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100; der Ein-Aus-Zustand kommt aus der Helligkeit | der Name aus Pekaway |
+| jeder Dimmer | Zahl von 0 bis 100 %, als Schieberegler; 0 ist aus | der Name aus Pekaway |
 | die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power`, Solltemperatur bis 30 °C | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungs- und Lüftungsstufe, nur bei Autoterm | je eine Zahl 1 bis 10 | ihr Name und «Leistung» bzw. «Lüftung» |
@@ -188,7 +189,7 @@ Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier
 
 Batteriemanagement und die einzelnen Werte des Solarladereglers kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
-Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
+Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Einen Dimmer zeigt er als Schieberegler, nicht als Licht. Die Lichtkarte, «alle Lichter aus» und das Zurück auf die letzte Helligkeit gibt es dort darum nicht. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
 
 ## Hell und dunkel
 

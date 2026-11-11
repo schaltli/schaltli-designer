@@ -67,6 +67,43 @@ function buildBridgeFlow({ intervalSeconds = 2, tabId = TAB_ID } = {}) {
       wires: [["sbb-requests"]],
     },
     {
+      id: "sbb-clock",
+      type: "inject",
+      z,
+      name: "the clock, every 10 s",
+      props: [],
+      repeat: "10",
+      crontab: "",
+      once: true,
+      onceDelay: "3",
+      topic: "",
+      x: 170,
+      y: 500,
+      wires: [["sbb-clock-fn"]],
+    },
+    {
+      id: "sbb-clock-fn",
+      type: "function",
+      z,
+      name: "time and date, when they change",
+      func: `const logic = context.get("logic");
+// schaltli/state/time and .../date for a screen's header, each when it changes.
+const said = context.get("said") || {};
+const out = logic.clock(new Date()).filter((u) => said[u.topic] !== u.value);
+for (const u of out) said[u.topic] = u.value;
+context.set("said", said);
+return out.length ? [out.map((u) => ({ topic: u.topic, payload: u.value, retain: true }))] : null;`,
+      outputs: 1,
+      timeout: 0,
+      noerr: 0,
+      initialize: LOGIC_INIT,
+      finalize: "",
+      libs: [],
+      x: 410,
+      y: 500,
+      wires: [["sbb-state-out"]],
+    },
+    {
       id: "sbb-requests",
       type: "function",
       z,
