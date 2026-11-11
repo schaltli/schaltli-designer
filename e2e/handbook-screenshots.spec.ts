@@ -121,10 +121,11 @@ async function screenObjects(page: Page): Promise<any[]> {
 }
 
 // A block's card on the screen, standing free or in a table (every block is
-// a card since 2026-11-06, docs/2026-11-05-quick-blocks.md).
+// a card since 2026-11-06, docs/2026-11-05-quick-blocks.md) - or a switch's
+// Toggle Button, its own tile since 2026-11-11 (docs/2026-11-11-led-look.md).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const blockCards = (objects: any[]): any[] =>
-  objects.flatMap((o) => (o.type === "table" ? o.children : [o])).filter((o) => o.type === "free" && o.properties?.look === "card")
+  objects.flatMap((o) => (o.type === "table" ? o.children : [o])).filter((o) => (o.type === "free" && o.properties?.look === "card") || o.type === "toggle-button")
 
 // The block in hand carried from low on the screen to `to` - where its
 // middle hangs - with Alt held, so it snaps there (docs/2026-11-03-placing.md).

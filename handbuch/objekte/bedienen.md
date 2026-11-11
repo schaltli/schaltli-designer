@@ -65,7 +65,7 @@ Mit <span class="ui">Convert to</span> machst du aus einer Button Group mit zwei
 
 ## Toggle Button {#toggle-button}
 
-Eine Kachel mit einem Licht, das ihren Zustand zeigt: «Wasserpumpe», darunter ein Fenster, das leuchtet, solange sie läuft. Ein Tippen schaltet um. Die Kachel selbst bleibt ruhig, wie eine Karte des Themes mit deren Farbe und Rand. Nur das Licht ändert sich. Die Eigenschaften sind dieselben wie beim [Switch](#switch), dazu unter <span class="ui">Text</span>:
+Eine Kachel mit einem Licht, das ihren Zustand zeigt: «Wasserpumpe», darunter ein Fenster, das leuchtet, solange sie läuft. Ein Tippen schaltet um. Die Kachel selbst bleibt ruhig und sieht aus wie eine Karte des Themes, mit deren Farbe und Rand. Nur das Licht ändert sich. Die Eigenschaften sind dieselben wie beim [Switch](#switch), dazu unter <span class="ui">Text</span>:
 
 - <span class="ui">Name</span>: was auf der Kachel steht, immer links. Hat der Zustand ein Icon, steht es klein davor.
 

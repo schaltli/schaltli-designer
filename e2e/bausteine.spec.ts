@@ -8,6 +8,7 @@ import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { adoptCombinedTopics, blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockRow, blockTable } from "../lib/bausteine"
 import { isSnapTable, snapCellOf } from "../lib/snap-table"
 import { fittedBlockCard } from "../lib/block-card"
+import { cardSettingsOf } from "../lib/card"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
 import { layoutObjects } from "../lib/layout"
@@ -81,23 +82,41 @@ const byCell = (table: any) =>
 // Control column, its last (docs/2026-10-09-snap-tables.md).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const partsOf = (block: any): any[] => {
+  // A switch alone is a Toggle Button, its own tile (docs/2026-11-11-led-look.md).
+  if (block?.type === "toggle-button") return [block]
   // A block placed as a card (docs/2026-11-03-card-blocks.md): its parts in
   // the table docked Fill, in its one column.
   const table = isBlockCard(block) ? block.children.find((c: any) => c.properties?.dock === "fill") : block
+  // Several parts since 2026-11-11: a table of tiles in an area without a
+  // look of its own; a part in a tile of its own is the tile's control.
+  if (block?.properties?.blockTiles) {
+    const tiles = block.children[0]
+    return [...tiles.children].sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row || snapCellOf(a).column - snapCellOf(b).column).map(controlOf)
+  }
+  if (!isBlockCard(block) && isSnapTable(block)) {
+    return [...table.children].sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row || snapCellOf(a).column - snapCellOf(b).column).map(controlOf)
+  }
   const last = Math.max(...table.children.map((c: any) => snapCellOf(c).column))
   return table.children.filter((c: any) => snapCellOf(c).column === last).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
 }
+// A part's tile (a card with its name on top), as its control; anything else as it is.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const controlOf = (o: any): any =>
+  isBlockCard(o) || o?.properties?.blockTile ? (o.children.find((c: any) => c.properties?.dock === "fill") ?? o.children[o.children.length - 1]) : o
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isBlockCard = (o: any) => o?.type === "free" && o.properties?.look === "card"
-// A block as placed: a card (of one part too since 2026-11-06).
+// A block as placed: a card (of one part too since 2026-11-06), a Toggle
+// Button, or a table of parts' tiles (both 2026-11-11).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const isBlock = (o: any) => isBlockCard(o) || isSnapTable(o)
+const isBlock = (o: any) => isBlockCard(o) || o?.type === "toggle-button" || (o?.type === "free" && o.properties?.blockTiles) || isSnapTable(o)
 // An object and everything inside it, front to back as listed.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const within = (o: any): any[] => [o, ...(o.children ?? []).flatMap(within)]
 // A block card's heading: the text docked at its top (docs/2026-11-03-card-blocks.md).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const headingOf = (card: any): any => card.children.find((c: any) => c.properties?.dock === "top")
+const headingOf = (card: any): any =>
+  // A Toggle Button names itself in its tile (docs/2026-11-11-led-look.md).
+  card?.type === "toggle-button" ? { properties: { text: card.properties.text } } : card.children?.find((c: any) => c.properties?.dock === "top")
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -234,7 +253,7 @@ test.describe("placing a catalog entry", () => {
     return found
   }
 
-  test("a switch entry: a card, its name at the top and its buttons below, its topics declared with the broker's value first", async ({ page }, testInfo) => {
+  test("a switch entry: a Toggle Button with its name in the tile, its topics declared with the broker's value first", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -244,10 +263,10 @@ test.describe("placing a catalog entry", () => {
       // A block of one part is a card too (the user, 2026-11-06): its name
       // at the top, its part below. A switch is always buttons, «An» and
       // «Aus» (decided 2026-10-01).
-      const cards = (await savedScreen(page)).objects.filter(isBlockCard)
+      const cards = (await savedScreen(page)).objects.filter(isBlock)
       expect(cards).toHaveLength(1)
       expect(headingOf(cards[0]).properties.text).toBe("Kitchen plug")
-      expect(partsOf(cards[0]).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+      expect(partsOf(cards[0]).map((c: { type: string }) => c.type)).toEqual(["toggle-button"])
 
       const topics = await topicsInSettings(page, ["zigbee2mqtt/Kitchen plug", "zigbee2mqtt/Kitchen plug/set"])
       expect(topics["zigbee2mqtt/Kitchen plug"]).toEqual({ type: "json", examples: '{"state":"OFF"}' })
@@ -274,7 +293,7 @@ test.describe("placing a catalog entry", () => {
         await pick(page, "Service ID")
         await drag(page)
 
-        const [card] = (await savedScreen(page)).objects.filter(isBlockCard)
+        const [card] = (await savedScreen(page)).objects.filter(isBlock)
         expect(headingOf(card).properties.text).toBe("Service ID")
         expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["text"])
         // The value is the part's live value (docs/2026-10-07-live-values.md).
@@ -351,9 +370,9 @@ test.describe("placing a catalog entry", () => {
       await pick(page, "Kitchen plug")
       // Let go clear of the first card: on it, it would go into it.
       await drag(page, [60, 300], [180, 80], false)
-      const cards = (await savedScreen(page)).objects.filter(isBlockCard)
+      const cards = (await savedScreen(page)).objects.filter(isBlock)
       const plug = cards.find((c: any) => headingOf(c).properties.text === "Kitchen plug")
-      expect(partsOf(plug).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+      expect(partsOf(plug).map((c: { type: string }) => c.type)).toEqual(["toggle-button"])
     } finally {
       await clear()
     }
@@ -405,7 +424,7 @@ test.describe("placing a catalog entry", () => {
   // card standing lowest in `table`, the same block placed before.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function carryUnder(page: Page, table: any, height?: number) {
-    const lowest = isBlockCard(table) ? table : [...table.children].sort((a: any, b: any) => b.y + b.height - (a.y + a.height))[0]
+    const lowest = isSnapTable(table) ? [...table.children].sort((a: any, b: any) => b.y + b.height - (a.y + a.height))[0] : table
     const h = height ?? lowest.height
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 180, 300, ROUND_FIXTURE_SCREEN)
@@ -433,12 +452,12 @@ test.describe("placing a catalog entry", () => {
       }
       const tables = (await savedScreen(page)).objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)
-      const cards = tables[0].children.filter(isBlockCard)
+      const cards = tables[0].children.filter(isBlock)
       expect(cards).toHaveLength(3)
       expect(cards.map((c: any) => snapCellOf(c).row).sort()).toEqual([0, 1, 2])
       for (const card of cards) {
         expect(snapCellOf(card).anchor).toEqual({ x: "stretch", y: "stretch" })
-        expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+        expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["toggle-button"])
       }
       expect(new Set(cards.map((c: { x: number; width: number }) => c.x + "/" + c.width)).size).toBe(1)
     } finally {
@@ -461,9 +480,9 @@ test.describe("placing a catalog entry", () => {
       // into it with Alt - what this guards is the open table left whole.
       await drag(page, [60, 140], [300, 320], false)
       const objects = (await savedScreen(page)).objects
-      expect(partsOf(objects.find((o: { id: string }) => o.id === table.id)).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+      expect(partsOf(objects.find((o: { id: string }) => o.id === table.id)).map((c: { type: string }) => c.type)).toEqual(["toggle-button"])
       // The fan a card of its own on the screen, beside it (docs/2026-11-03-card-blocks.md).
-      expect(objects.filter(isBlockCard)).toHaveLength(2)
+      expect(objects.filter(isBlock)).toHaveLength(2)
     } finally {
       await clear()
     }
@@ -480,9 +499,9 @@ test.describe("placing a catalog entry", () => {
       // The fan's card as tall as it comes: placed once alone, then undone.
       await pick(page, "Bedroom Fan")
       await clickAt(page, 180, 180)
-      const fanHeight = (await savedScreen(page)).objects.find(isBlockCard).height
+      const fanHeight = (await savedScreen(page)).objects.find(isBlock).height
       await page.keyboard.press("Control+z")
-      await expect.poll(async () => (await savedScreen(page)).objects.filter(isBlockCard).length).toBe(0)
+      await expect.poll(async () => (await savedScreen(page)).objects.filter(isBlock).length).toBe(0)
       await pick(page, "Kitchen plug")
       await clickAt(page, 180, 40)
       await pick(page, "Kitchen plug")
@@ -491,7 +510,7 @@ test.describe("placing a catalog entry", () => {
       await carryUnder(page, await snapTableOf(page), fanHeight)
       const tables = (await savedScreen(page)).objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)
-      const cards = tables[0].children.filter(isBlockCard)
+      const cards = tables[0].children.filter(isBlock)
       expect(cards).toHaveLength(3)
       const fan = cards.find((c: any) => headingOf(c).properties.text === "Bedroom Fan")
       expect(fan).toBeTruthy()
@@ -513,7 +532,7 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       await pick(page, "Office light")
       await clickAt(page, 180, 110)
-      const first = (await savedScreen(page)).objects.find(isBlockCard)
+      const first = (await savedScreen(page)).objects.find(isBlock)
       expect(first).toBeTruthy()
       expect(JSON.stringify(first)).not.toContain("dockedOut")
       await pick(page, "Office light")
@@ -522,7 +541,7 @@ test.describe("placing a catalog entry", () => {
       const objects = (await savedScreen(page)).objects
       const tables = objects.filter(isSnapTable)
       expect(tables).toHaveLength(1)
-      const cards = tables[0].children.filter(isBlockCard)
+      const cards = tables[0].children.filter(isBlock)
       expect(cards).toHaveLength(2)
       for (const card of cards) expect(snapCellOf(card).anchor).toEqual({ x: "stretch", y: "stretch" })
       expect(cards.map((c: { width: number }) => c.width)[0]).toBe(cards[1].width)
@@ -544,7 +563,7 @@ test.describe("placing a catalog entry", () => {
       // Old tables dissolve on load (docs/2026-10-09-snap-tables.md, module
       // old-table-removal); this one held nothing.
       expect(objects.find((o: { id: string }) => o.id === "the-table")).toBeUndefined()
-      expect(partsOf(objects.find(isBlockCard)).map((c: { type: string }) => c.type)).toEqual(["button-group"])
+      expect(partsOf(objects.find(isBlock)).map((c: { type: string }) => c.type)).toEqual(["toggle-button"])
     } finally {
       await clear()
     }
@@ -582,7 +601,8 @@ test.describe("placing a catalog entry", () => {
       // below it the five controls without a label each, one below the other.
       const block = (await savedScreen(page)).objects.find(isBlock)
       expect(isBlockCard(block)).toBe(true)
-      expect(partsOf(block).map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
+      // Its switches Toggle Buttons, its presets a choice (docs/2026-11-11-led-look.md).
+      expect(partsOf(block).map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "slider", "toggle-button", "toggle-button", "toggle-button"])
       const name = block.children.find((c: { type: string }) => c.type === "text")
       expect(name.properties.dock).toBe("top")
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
@@ -706,7 +726,7 @@ test.describe("placing a catalog entry", () => {
 
       const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
-      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "button-group"])
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["text", "toggle-button"])
       expect(asPlaceholders(parts[0])).toBe("State {topic:van/zv/state}")
       const group = JSON.stringify(parts[1].properties)
       for (const word of ['"Lock"', '"Unlock"', '"LOCK"', '"UNLOCK"', '"LOCKED"', '"UNLOCKED"', '"van/zv/set"']) expect(group).toContain(word)
@@ -798,7 +818,7 @@ test.describe("placing a catalog entry", () => {
 
       const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
-      expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "slider", "bar"])
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["toggle-button", "slider", "bar"])
       expect(parts[1].properties).toMatchObject({
         topic: "van/entf/ziel",
         writeTopic: "van/entf/ziel/set",
@@ -822,7 +842,7 @@ test.describe("placing a catalog entry", () => {
 
       const block = (await savedScreen(page)).objects.find(isBlock)
       const parts = partsOf(block)
-      expect(parts.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group"])
+      expect(parts.map((c: { type: string }) => c.type)).toEqual(["toggle-button", "button-group"])
       const [power, tones] = parts.map((p: any) => JSON.stringify(p.properties))
       expect(power).toContain(JSON.stringify('{"state":"ON"}'))
       expect(power).toContain(JSON.stringify('{"state":"OFF"}'))
@@ -900,9 +920,10 @@ test.describe("placing a catalog entry", () => {
       await clickAt(page, 180, 180)
 
       const block = (await savedScreen(page)).objects.find(isBlock)
-      // The Control column, after the icon and the name.
+      // The parts' tiles (docs/2026-11-11-led-look.md): the switch a Toggle
+      // Button, the mode a choice in its own tile, then the switcher.
       const rows = partsOf(block)
-      expect(rows.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group", "switcher"])
+      expect(rows.map((c: { type: string }) => c.type)).toEqual(["toggle-button", "button-group", "switcher"])
       expect(rows[0].properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "Ein"])
       const switcher = rows[2]
       expect(switcher.properties.topic).toBe("garden/pump/mode")
@@ -1005,7 +1026,8 @@ test.describe("placing a catalog entry", () => {
       await drag(page)
       const screen = await savedScreen(page)
       const flat = (list: any[]): any[] => list.flatMap((o) => [o, ...flat(o.children ?? [])])
-      const buttons = flat(screen.objects).find((o) => o.type === "button-group" && o.properties.topic === "e2e/theme")
+      // A switch is a Toggle Button (docs/2026-11-11-led-look.md): its states carry the icons.
+      const buttons = flat(screen.objects).find((o) => o.type === "toggle-button" && o.properties.topic === "e2e/theme")
       expect(buttons.properties.states.map((s: any) => [s.label, s.iconAssetId])).toEqual([
         ["Hell", "baustein-icon-mdi-weather-sunny"],
         ["Dunkel", "baustein-icon-mdi-weather-night"],
@@ -1033,7 +1055,7 @@ test.describe("placing a catalog entry", () => {
       await pick(page, "Local temperature calibration")
       await carryUnder(page, await snapTableOf(page))
       const table = await snapTableOf(page)
-      const cards = table.children.filter(isBlockCard).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+      const cards = table.children.filter(isBlock).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
       expect(cards).toHaveLength(2)
       const looks = cards.map((card: any) =>
         within(card)
@@ -1069,11 +1091,15 @@ test.describe("placing a catalog entry", () => {
       await carryUnder(page, await snapTableOf(page))
       await pick(page, "Offset twin")
       await carryUnder(page, await snapTableOf(page))
-      const cards = (await snapTableOf(page)).children.filter(isBlockCard).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
+      const cards = (await snapTableOf(page)).children.filter(isBlock).sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row)
       expect(cards).toHaveLength(3)
+      // A slider's value goes beside the name only where both fit the card
+      // (docs/2026-11-11-led-look.md, decision 9): not beside this long one.
       expect(byCell(headingOf(cards[0]))).toEqual({ "0/0": "icon", "0/1": "text" })
       expect(byCell(headingOf(cards[1]))).toEqual({ "0/0": "icon", "0/1": "text" })
-      expect([headingOf(cards[2]).type, headingOf(cards[2]).properties.text]).toEqual(["text", "Offset twin"])
+      const twinHeading = headingOf(cards[2])
+      const twinName = twinHeading.type === "text" ? twinHeading : twinHeading.children.find((c: any) => snapCellOf(c).column === 0)
+      expect(twinName.properties.text).toBe("Offset twin")
       for (const card of cards) expect(partsOf(card).map((c: { type: string }) => c.type)).toEqual(["slider"])
     } finally {
       await publish(client, twinTopic, "")
@@ -1133,7 +1159,10 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
       await drag(page)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"]')).toHaveCount(2)
+      // A Toggle Button, and no icon object anywhere (docs/2026-11-11-led-look.md).
+      const placed = (await savedScreen(page)).objects.flatMap(within)
+      expect(placed.filter((o: { type: string }) => o.type === "toggle-button")).toHaveLength(1)
+      expect(placed.filter((o: { type: string }) => o.type === "icon")).toHaveLength(0)
     } finally {
       await clear()
     }
@@ -1175,8 +1204,10 @@ test.describe("a catalog block's layout", () => {
   const sw = { kind: "switch", write: "p/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } } as const
   const level = { kind: "level", write: "l/set", min: 0, max: 100, step: 1 } as const
 
+  // In the buttons look; a switch's first look, a Toggle Button, carries its
+  // name in the tile (docs/2026-11-11-led-look.md; e2e/block-tiles.spec.ts).
   test("a switch's name sits beside it, a slider's above it", () => {
-    const [labelS, controlS] = buildFromCatalog({ entry: entry(sw), control: sw, rect: RECT, palette, font }).objects
+    const [labelS, controlS] = buildFromCatalog({ entry: entry(sw), control: sw, rect: RECT, palette, font, options: { look: "buttons" } }).objects
     expect(controlS.x).toBeGreaterThan(labelS.x + labelS.width - 1)
     const [labelL, controlL] = buildFromCatalog({ entry: entry(level), control: level, rect: RECT, palette, font }).objects
     expect(controlL.y).toBeGreaterThanOrEqual(labelL.y + labelL.height)
@@ -1196,7 +1227,7 @@ test.describe("a catalog block's layout", () => {
 
   test("an icon comes first, as tall as the name's line, and the name moves over for it", () => {
     const icon = { name: "mdi:water-pump", data: "<svg/>", size: 10 }
-    const [image, label, control] = buildFromCatalog({ entry: entry(sw), control: sw, rect: RECT, palette, font, options: { icon } }).objects
+    const [image, label, control] = buildFromCatalog({ entry: entry(sw), control: sw, rect: RECT, palette, font, options: { icon, look: "buttons" } }).objects
     expect(image.type).toBe("icon")
     expect(image.height).toBe(label.height)
     expect(label.x).toBeGreaterThan(image.x + image.width - 1)
@@ -1204,7 +1235,8 @@ test.describe("a catalog block's layout", () => {
   })
 
   test("a switch is as wide as its words need beside its track", () => {
-    const long = { ...sw, on: { read: "Automatikbetrieb", write: "AUTO" }, off: { read: "Handbetrieb", write: "MANUAL" } }
+    // A description that asks for the switch (the Autoterm's timer).
+    const long = { ...sw, look: "switch", on: { read: "Automatikbetrieb", write: "AUTO" }, off: { read: "Handbetrieb", write: "MANUAL" } }
     const control = buildFromCatalog({ entry: entry(long), control: long, rect: { ...RECT, width: 120 }, palette, font }).objects[1]
     expect(control.width).toBeGreaterThanOrEqual(minKnobSwitchWidth(control.height, 2, measureBlockText("Automatikbetrieb", font)))
   })
@@ -1260,10 +1292,10 @@ test.describe("a block from a catalog entry", () => {
     })
   })
 
-  test("Shelly's relay as a fan: buttons reading its output field, true and false, and sending the RPC call", () => {
+  test("Shelly's relay as a fan: a Toggle Button reading its output field, true and false, and sending the RPC call", () => {
     const built = build("shellies-gen2-relay-fan")
-    expect(built.objects[1]).toMatchObject({
-      type: "button-group",
+    expect(built.objects[0]).toMatchObject({
+      type: "toggle-button",
       properties: {
         topic: "shellyplus1pm-441793a1b2c3/status/switch:0#output",
         writeTopic: "shellyplus1pm-441793a1b2c3/rpc",
@@ -1275,16 +1307,18 @@ test.describe("a block from a catalog entry", () => {
     })
   })
 
-  test("a switch: the name as fixed text, buttons reading its JSON field, An and Aus", () => {
+  test("a switch: a Toggle Button in Korry with the name in the tile, reading its JSON field, An and Aus", () => {
     const entry = catalogEntry("z2m-switch-plug")
-    // Always buttons (decided 2026-10-01).
-    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["buttons"])
+    // A Toggle Button first, buttons the other look (docs/2026-11-11-led-look.md).
+    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["toggle", "buttons"])
     const built = build("z2m-switch-plug")
-    const [label, control] = built.objects
-    expect(label).toMatchObject({ type: "text", properties: { text: "Kitchen plug" } })
+    expect(built.objects).toHaveLength(1)
+    const [control] = built.objects
     expect(control).toMatchObject({
-      type: "button-group",
+      type: "toggle-button",
       properties: {
+        text: "Kitchen plug",
+        switchStyle: "korry",
         topic: "zigbee2mqtt/Kitchen plug#state",
         writeTopic: "zigbee2mqtt/Kitchen plug/set",
         states: [
@@ -1304,13 +1338,13 @@ test.describe("a block from a catalog entry", () => {
     const entry = catalogEntry("ha-docs-fan-bedroom")
     const direction = entry.controls.find((c) => c.part === "Direction")!
     const built = buildFromCatalog({ entry, control: direction, rect: RECT, palette })
-    expect(built.objects[1].properties.states).toMatchObject([
+    expect(built.objects[0].properties.states).toMatchObject([
       { label: "reverse", readValue: "reverse", writeValue: "reverse" },
       { label: "forward", readValue: "forward", writeValue: "forward" },
     ])
     const shelly = catalogEntry("shelly-rpc-switch-command-template")
     // Reads the field's true, which Home Assistant writes "True"; sends the RPC call.
-    const states = buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1].properties.states
+    const states = buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[0].properties.states
     expect(states).toMatchObject([
       { readValue: "false", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":false}}' },
       { readValue: "true", writeValue: '{"id":1,"src":"homeassistant","method":"Switch.Set","params":{"id":0,"on":true}}' },
@@ -1333,7 +1367,10 @@ test.describe("a block from a catalog entry", () => {
 
   test("a level: a slider or dial on the entity's range and step, its middle the write topic's example", () => {
     const built = build("z2m-number-calibration")
-    expect(built.objects[1]).toMatchObject({
+    // The slider's value beside its name in the heading (docs/2026-11-11-led-look.md, decision 9).
+    expect(built.headingPieces).toBe(2)
+    expect(built.objects[1]).toMatchObject({ type: "text", properties: { textAlign: "right", headingValue: true } })
+    expect(built.objects[2]).toMatchObject({
       type: "slider",
       properties: {
         topic: "zigbee2mqtt/Living room TRV#local_temperature_calibration",
@@ -1375,8 +1412,9 @@ test.describe("a block from a catalog entry", () => {
       options: { label: "Kaffee", icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } },
     })
     expect(built.topics[0].examples).toEqual(['{"state":"OFF","power":12}'])
-    expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "button-group"])
-    expect(built.objects[1].properties.text).toBe("Kaffee")
+    // A Toggle Button names itself: the typed label in the tile.
+    expect(built.objects.map((o) => o.type)).toEqual(["toggle-button"])
+    expect(built.objects[0].properties.text).toBe("Kaffee")
     expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:coffee"), type: "icon", name: "mdi:coffee", data: "<svg/>", size: 24 }])
   })
 
@@ -1450,7 +1488,9 @@ test.describe("a block from a catalog entry", () => {
       options: { label: "Stove", look: "", icon: null, parts: entry.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : c.kind === "value" ? "number" : "text" })) },
       reported: { "stove/fault": "" },
     })
-    const [, fault, dial, voltage, used] = built.objects
+    // A description's block has no heading of its own (docs/2026-11-11-led-look.md, decision 9).
+    expect(built.partTiles).toBe(true)
+    const [fault, dial, voltage, used] = built.objects
     // A text without a name is the text alone; one with a name says it first.
     expect(fault).toMatchObject({ type: "text", width: rect.width })
     expect(asPlaceholders(fault)).toBe("{topic:stove/fault}")
@@ -1503,14 +1543,15 @@ test.describe("a block from a catalog entry", () => {
     const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm: 6 })
     expect(isSnapTable(laid)).toBe(true)
     const cells = (t: any) => (t.children ?? []).map((c: any) => [c.type, snapCellOf(c).row, snapCellOf(c).column, snapCellOf(c).rowSpan, snapCellOf(c).columnSpan])
+    // A description's block (docs/2026-11-11-led-look.md, decision 9): no
+    // heading column; the choice in a tile of its own across both.
     expect(cells(laid)).toEqual([
-      ["text", 0, 0, 1, 1],
-      ["button-group", 0, 1, 1, 2],
-      ["dial", 1, 1, 2, 1],
-      ["text", 1, 2, 1, 1],
-      ["text", 2, 2, 1, 1],
+      ["free", 0, 0, 1, 2],
+      ["dial", 1, 0, 2, 1],
+      ["text", 1, 1, 1, 1],
+      ["text", 2, 1, 1, 1],
     ])
-    expect(laid.children!.slice(3).map((c: any) => asPlaceholders(c))).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
+    expect(laid.children!.slice(2).map((c: any) => asPlaceholders(c))).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
     // A dial as a part is six lines of the block's font (120), put on its
     // track's grid - not a row's height.
     const dial = laid.children!.find((c: any) => c.type === "dial")!
@@ -1528,9 +1569,9 @@ test.describe("a block from a catalog entry", () => {
     const rowedParts = rowed.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : catalogLooks(c)[0].id }))
     const two = buildEntry({ entry: rowed, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, font: { id: "f", size: 20 }, options: { label: "Wide", look: "", icon: null, parts: rowedParts } })
     const [laidTwo] = layoutObjects([withIds(blockTable(two))], { pixelsPerMm: 6 })
-    expect(cells(laidTwo).slice(5)).toEqual([
-      ["text", 3, 1, 1, 1],
-      ["button", 3, 2, 1, 1],
+    expect(cells(laidTwo).slice(4)).toEqual([
+      ["text", 3, 0, 1, 1],
+      ["button", 3, 1, 1, 1],
     ])
 
     // Without a column anywhere: one column, as before.
@@ -1570,9 +1611,10 @@ test.describe("a block from a catalog entry", () => {
       buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } })
     const types = (pieces: Array<{ type: string }> | null) => pieces?.map((p) => p.type)
 
-    test("one part: its name and control as a row; with an icon, the icon first", () => {
-      expect(types(blockRow(build("Licht")))).toEqual(["text", "button-group"])
-      expect(types(blockRow(build("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })))).toEqual(["icon", "text", "button-group"])
+    test("one part: its name and control as a row; with an icon, the icon first; a switch a Toggle Button alone", () => {
+      // A Toggle Button names itself (docs/2026-11-11-led-look.md).
+      expect(types(blockRow(build("Licht")))).toEqual(["toggle-button"])
+      expect(types(blockRow(build("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 }, look: "buttons" })))).toEqual(["icon", "text", "button-group"])
       for (const piece of blockRow(build("Licht"))!) expect(piece.properties?.cell).toBeUndefined()
     })
 
@@ -1690,37 +1732,41 @@ test.describe("a block whose parts come and go with a mode", () => {
     return result.entry
   }
   const everyPart = (entry: CatalogEntry) => entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
-  const block = () => {
-    const entry = maxxfan()
-    return blockTable(buildEntry({ entry, rect: RECT, palette, options: { label: entry.label, look: "", icon: null, parts: everyPart(entry) } }))
-  }
-  // The block a table of its own (docs/2026-10-09-snap-tables.md): its
-  // parts one below the other in its Control column.
   // Ids as the editor gives them, so the layout can tell the pieces apart.
   let next = 0
   const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+  // The block as placed (docs/2026-11-11-led-look.md, decision 9): a
+  // description's parts each in a tile, no heading, in an area without a look
+  // across the screen; laid out at `pixelsPerMm`.
+  const placed = (pixelsPerMm = 6) => {
+    const entry = maxxfan()
+    const built = buildEntry({ entry, rect: RECT, palette, options: { label: entry.label, look: "", icon: null, parts: everyPart(entry) } })
+    const scale = { pixelsPerMm, fonts: [], cards: cardSettingsOf(undefined) }
+    return layoutObjects([withIds(fittedBlockCard(built, scale, Math.round(86 * pixelsPerMm)))], scale)[0]
+  }
+  // The pieces of the tiles' table, top to bottom: a tile, a Toggle Button, the switcher.
+  const pieces = (laid: any) => [...laid.children[0].children].sort((a: any, b: any) => snapCellOf(a).row - snapCellOf(b).row || snapCellOf(a).column - snapCellOf(b).column)
 
-  test("Mode, then one switcher on the mode with an auto and a fan_only panel and none for off, then Cover and Airflow", () => {
-    const parts = partsOf(block())
-    expect(parts.map((c: any) => [c.type, c.properties.cell.row])).toEqual([
-      ["button-group", 0],
-      ["switcher", 1],
-      ["button-group", 2],
-      ["button-group", 3],
-    ])
+  test("Mode in a tile, then one switcher on the mode with an auto and a fan_only panel and none for off, then Cover and Airflow", () => {
+    const laid = placed()
+    expect(laid.properties.blockTiles).toBe(true)
+    const parts = partsOf(laid)
+    expect(parts.map((c: any) => c.type)).toEqual(["button-group", "switcher", "toggle-button", "toggle-button"])
+    expect(parts[0].properties.switchStyle).toBe("led")
     const switcher = parts[1]
     expect(switcher.properties.topic).toBe("schaltli/state/maxxfan/hvac_mode")
     expect(switcher.children.map((p: any) => [p.type, p.properties.comparisonOperator, p.properties.comparisonValue])).toEqual([
       ["panel", "==", "auto"],
       ["panel", "==", "fan_only"],
     ])
-    const slidersIn = (panel: any) => panel.children.flatMap((t: any) => t.children.map((c: any) => [t.type, c.type, c.properties.topic]))
-    expect(slidersIn(switcher.children[0])).toEqual([["table", "slider", "schaltli/state/maxxfan/temperature"]])
-    expect(slidersIn(switcher.children[1])).toEqual([["table", "slider", "schaltli/state/maxxfan/speed"]])
+    // Each panel's slider in a tile of its own.
+    const slidersIn = (panel: any) => panel.children.flatMap((t: any) => t.children.map((tile: any) => [tile.properties.look, controlOf(tile).type, controlOf(tile).properties.topic]))
+    expect(slidersIn(switcher.children[0])).toEqual([["card", "slider", "schaltli/state/maxxfan/temperature"]])
+    expect(slidersIn(switcher.children[1])).toEqual([["card", "slider", "schaltli/state/maxxfan/speed"]])
   })
 
   test("the description's words are on the buttons", () => {
-    const parts = partsOf(block())
+    const parts = partsOf(placed())
     const words = (o: any) => o.properties.states.map((s: any) => [s.label, s.readValue])
     expect(words(parts[0])).toEqual([
       ["Aus", "off"],
@@ -1749,35 +1795,29 @@ test.describe("a block whose parts come and go with a mode", () => {
   })
 
   // docs/2026-10-04-block-grid.md, asked on the 4.3B: one right edge for
-  // every part, the name level with the first.
+  // every part - since 2026-11-11 every tile.
   for (const pixelsPerMm of [4, 8.66]) {
-    test(`on one grid at ${pixelsPerMm} px/mm: every part ends at the same right edge, the name at the top`, () => {
-      const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
-      const parts = partsOf(laid)
-      const rights = new Set<number>(parts.map((c: any) => c.x + c.width))
+    test(`on one grid at ${pixelsPerMm} px/mm: every tile ends at the same right edge`, () => {
+      const laid = placed(pixelsPerMm)
+      const rights = new Set<number>(pieces(laid).map((c: any) => c.x + c.width))
       expect(rights.size).toBe(1)
       // Inside the switcher's panels too, at the switcher's right edge.
-      const switcher = parts.find((c: any) => c.type === "switcher")
+      const switcher = pieces(laid).find((c: any) => c.type === "switcher")
       for (const panel of switcher.children) for (const t of panel.children) {
         expect(new Set(t.children.map((c: any) => c.x + c.width))).toEqual(new Set([switcher.width]))
       }
-      const name = (laid.children ?? []).find((c: any) => c.properties.cell.column === 0)!
-      expect(name.y).toBe(0)
-      expect(Math.max(...rights)).toBe(laid.width)
     })
   }
 
   for (const pixelsPerMm of [4, 6, 8.66]) {
     test(`laid out at ${pixelsPerMm} px/mm: each panel's slider spans the switcher, and no row runs into the next`, () => {
-      const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
-      const rows = partsOf(laid)
+      const rows = pieces(placed(pixelsPerMm))
       for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height).toBeLessThanOrEqual(rows[i + 1].y)
-      const switcher = rows[1]
+      const switcher = rows.find((c: any) => c.type === "switcher")
       for (const panel of switcher.children) {
         const table = panel.children[0]
         expect(table.width).toBe(switcher.width)
-        const slider = table.children[0]
-        expect(slider.height).toBeGreaterThan(0)
+        expect(controlOf(table.children[0]).height).toBeGreaterThan(0)
         expect(table.y + table.height).toBeLessThanOrEqual(switcher.height)
       }
     })
@@ -1796,7 +1836,8 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     const built = buildEntry({ entry, rect: { x: 20, y: 20, width: 340, height: 240 }, palette: controlPalette("24bit"), options: { label: entry.label, look: "", icon: null, parts } })
     let next = 0
     const withIds = (o: any): any => ({ ...o, id: o.id || `mx-${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
-    const table = withIds({ ...blockTable(built), id: "mx-block" })
+    // As the editor places it: the parts' tiles, laid out (docs/2026-11-11-led-look.md).
+    const table = withIds({ ...fittedBlockCard(built, { pixelsPerMm: 4, fonts: [], cards: cardSettingsOf(undefined) }, 360), id: "mx-block" })
     const switcherId = (function find(o: any): string | undefined {
       if (o.type === "switcher") return o.id
       for (const c of o.children ?? []) {

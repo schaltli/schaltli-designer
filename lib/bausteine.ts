@@ -204,6 +204,18 @@ export interface BausteinBuildResult {
    */
   labelCount?: number
   /**
+   * How many of a single control's objects, from the first, go in its card's
+   * heading: its name and icon, and a slider's value beside them (LED look,
+   * decision 9). Set by buildFromCatalog() where it is more than the name.
+   */
+  headingPieces?: number
+  /**
+   * Several parts, each in a tile of its own and no heading of the block's
+   * own (LED look, decision 9): the block card lays them out as a table and
+   * draws no card round them. Set by buildEntry().
+   */
+  partTiles?: boolean
+  /**
    * Of the controls, in their order, the column each stands in, where some
    * stand in a second one (a description's `column`): blockTable() lays the
    * two side by side, and a 0 across both. Absent: one column. Set by
@@ -477,6 +489,7 @@ function buttonGroupObject(
   box: { x: number; y: number; width: number; height: number },
   palette: ControlPalette,
   font?: BausteinFont,
+  style: "filled" | "led" = "filled",
 ): Omit<ScreenObject, "id" | "zIndex"> {
   const widestLabel = states.reduce((widest, state) => Math.max(widest, measureBlockText(state.label, font)), 0)
   return {
@@ -495,7 +508,7 @@ function buttonGroupObject(
         writeValue: state.writeValue ?? state.value,
         ...(state.iconAssetId ? { iconAssetId: state.iconAssetId } : {}),
       })),
-      switchStyle: "filled",
+      switchStyle: style,
       switchColor: palette.fill,
       fontId: font?.id,
     },
@@ -515,6 +528,69 @@ function toggleObject(
   return look === "buttons"
     ? buttonGroupObject(topic, writeTopic, states, box, palette, font)
     : switchObject(topic, writeTopic, states, box, palette, font)
+}
+
+/**
+ * A Toggle Button in Korry with `name` in the tile (docs/2026-11-11-led-
+ * look.md): the light lit in the block's colour while the state means on,
+ * the state's icon before the name. As tall as two lines of the block's font
+ * and the window; the editor sets its sizes when it places the block.
+ */
+function toggleButtonObject(
+  name: string,
+  topic: string,
+  writeTopic: string,
+  states: SwitchStateSpec[],
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  const size = font?.size ?? 14
+  return {
+    type: "toggle-button",
+    x: box.x,
+    y: box.y,
+    width: Math.max(box.width, measureBlockText(name, font) + 4 * GAP),
+    height: Math.max(Math.round(size * 3), SWITCH_MIN_HEIGHT),
+    properties: {
+      topic,
+      writeTopic,
+      text: name,
+      states: states.map((state) => ({
+        id: state.id,
+        label: state.label,
+        readValue: state.value,
+        writeValue: state.writeValue ?? state.value,
+        ...(state.on ? { showAsOn: true } : {}),
+        ...(state.iconAssetId ? { iconAssetId: state.iconAssetId } : {}),
+      })),
+      switchStyle: "korry",
+      switchColor: palette.fill,
+      fontId: font?.id,
+    },
+  }
+}
+
+/**
+ * A level's value as a live text for its tile's heading, on the right
+ * (docs/2026-11-11-led-look.md, decision 9): its number and unit - «Aus»
+ * at 0 where the range starts at 0 in percent, as a light that dims.
+ */
+function levelValueText(
+  control: Extract<CatalogControl, { kind: "level" }>,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> | undefined {
+  const read = control.read
+  if (!read) return undefined
+  const unit = control.unit ? ` ${control.unit}` : control.percent ? " %" : ""
+  const text = labelObject(`{topic:${read}:F0}${unit}`, { ...box, width: Math.max(measureBlockText(`100${unit}`, font), 1) }, palette, font)
+  const off = control.min === 0 && (control.unit === "%" || control.percent)
+  const liveValues = (text.properties.liveValues ?? []).map((lv: any, i: number) =>
+    i === 0 && off ? { ...lv, rules: [{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }] } : lv,
+  )
+  return { ...text, properties: { ...text.properties, liveValues, textAlign: "right" } }
 }
 
 // A level that only shows: a bar or a gauge.
@@ -539,6 +615,9 @@ const TOGGLE_LOOKS: BausteinLook[] = [
   { id: "switch", label: "Switch", objectTypes: ["switch"] },
   { id: "buttons", label: "Buttons", objectTypes: ["button-group"] },
 ]
+// A Toggle Button in Korry, its name in the tile (docs/2026-11-11-led-look.md,
+// decisions 1 and 9; starter review decision 8): the first look of a switch.
+const TOGGLE_BUTTON_LOOK: BausteinLook = { id: "toggle", label: "Toggle Button", objectTypes: ["toggle-button"] }
 const SET_LEVEL_LOOKS: BausteinLook[] = [
   { id: "slider", label: "Slider", objectTypes: ["slider"] },
   { id: "dial", label: "Dial", objectTypes: ["dial"] },
@@ -617,11 +696,11 @@ function switchObject(
 export function catalogLooks(control: CatalogControl): BausteinLook[] {
   switch (control.kind) {
     case "switch":
-      // Always buttons, one per state: what a switch's words say is right
-      // there to tap, and a choice between a toggle and buttons was one more
-      // question nobody needed (decided 2026-10-01) - unless a description
-      // asks for the switch (the Autoterm's timer, 2026-10-05).
-      return control.look === "switch" ? [TOGGLE_LOOKS[0], TOGGLE_LOOKS[1]] : [TOGGLE_LOOKS[1]]
+      // A Toggle Button, its name in the tile and a light that says the
+      // state (docs/2026-11-11-led-look.md) - buttons, one per state, as the
+      // choice before 2026-11-11 - unless a description asks for the switch
+      // (the Autoterm's timer, 2026-10-05).
+      return control.look === "switch" ? [TOGGLE_LOOKS[0], TOGGLE_BUTTON_LOOK, TOGGLE_LOOKS[1]] : [TOGGLE_BUTTON_LOOK, TOGGLE_LOOKS[1]]
     case "level":
       // A slider first, unless a description asks for the dial (the
       // Autoterm's, 2026-10-28).
@@ -759,6 +838,19 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         { id: "off", label: words.off, value: control.off.read, writeValue: control.off.write, ...(offIcon ? { iconAssetId: offIcon.assetId } : {}) },
         { id: "on", label: words.on, value: control.on.read, writeValue: control.on.write, on: true, ...(onIcon ? { iconAssetId: onIcon.assetId } : {}) },
       ]
+      // A Toggle Button names itself: the part's name, or the entry's, in
+      // the tile, no label beside it.
+      if (look === "toggle") {
+        const name = bare ? (control.part ?? labelText) : labelText
+        return {
+          objects: [toggleButtonObject(name, control.read ?? "", control.write, states, whole, palette, font)],
+          topics: [
+            ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
+            { topic: control.write, type: "text", examples: [control.on.write, control.off.write] },
+          ],
+          assets: [...assets, ...[offIcon, onIcon].flatMap((i) => (i ? [i.asset] : []))],
+        }
+      }
       return {
         objects: [...label(), toggleObject(look, control.read ?? "", control.write, states, parts.control, palette, font)],
         topics: [
@@ -847,6 +939,24 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           ],
           displayValue: control.display === "duration" ? "duration" : control.percent ? "percentage" : "value",
         },
+      }
+      // A slider block: its name and its value in the heading, the slider
+      // below without a number of its own (LED look, decision 9).
+      const value = look === "slider" && !bare ? levelValueText(control, parts.label, palette, font) : undefined
+      if (value) {
+        return {
+          // The slider's own number kept aside: the card puts it back where
+          // the value does not fit beside the name (lib/block-card.ts).
+          objects: [...label(), { ...value, properties: { ...value.properties, headingValue: true } }, { ...object, properties: { ...object.properties, displayValue: "none", headingValueFallback: object.properties.displayValue } }],
+          headingPieces: label().length + 1,
+          topics: [
+            ...(control.current ? [readTopicEntry(control.current, "numeric", reported)] : []),
+            ...(control.read ? [readTopicEntry(control.read, "numeric", reported)] : []),
+            { topic: control.write, type: "numeric", examples: [String(middle)] },
+          ],
+          ...(scaled ? { combinedTopics: [scaled] } : {}),
+          assets,
+        }
       }
       return {
         objects: [...label(), object],
@@ -943,7 +1053,8 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         ...(icons[i] ? { iconAssetId: icons[i]!.assetId } : {}),
       }))
       return {
-        objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
+        // A choice in the LED form (docs/2026-11-11-led-look.md, decision 8).
+        objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font, "led")],
         topics: [
           ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
           { topic: control.write, type: "text", examples: (control.writes ?? control.options).slice(0, 3) },
@@ -967,7 +1078,8 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
               // places the block (as it applies M to the rest).
               ...(control.size ? { blockSizeStep: control.size } : {}),
               iconAssetId: options?.icon ? (options.icon.assetId ?? blockIconAssetId(options.icon.name)) : null,
-              buttonStyle: "tonal",
+              // A description's quiet one, «Nullen» (LED look, decision 10).
+              buttonStyle: control.look === "text" ? "text" : "tonal",
               buttonColor: palette.fill,
               fontId: font?.id,
               action: {
@@ -1006,11 +1118,18 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     const part = parts[0] ?? { control: 0, look: options?.look ?? "" }
     const built = buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
     // A control alone - a button, which names itself, its icon on it - has
-    // no name beside it: nothing for the name column (asked 2026-10-03).
-    return { ...built, labelCount: built.objects.length > 1 ? labelCount : 0 }
+    // no name beside it: nothing for the name column (asked 2026-10-03). A
+    // slider's value goes in the heading with the name (LED look, decision 9).
+    return { ...built, labelCount: built.objects.length > 1 ? (built.headingPieces ?? labelCount) : 0 }
   }
 
   const labelText = options?.label ?? entry.label
+  // A block description's parts (the VanPi bridge's blocks)
+  // name themselves: each in a tile of its own, no heading of the block's
+  // (docs/2026-11-11-led-look.md, decision 9; the starter's review: «kein
+  // Titel»). A Home Assistant entity's parts - «Power», «Speed» - do not say
+  // whose they are: its card keeps its name at the top.
+  const tiles = entry.id.startsWith("block ")
   const header = stacked(rect, labelText, font, options?.icon ? iconSize(font) + GAP : 0)
   const rows = header.control
   // A row per part - but the parts shown only while one topic holds a value
@@ -1026,7 +1145,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (slots.length - 1)) / slots.length))
   const buildPart = (part: (typeof parts)[number], box: { x: number; y: number; width: number; height: number }) => {
     const control = entry.controls[part.control]
-    return buildFromCatalog({
+    const built = buildFromCatalog({
       entry,
       control,
       rect: box,
@@ -1036,6 +1155,25 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       reported,
       bare: true,
     })
+    // A choice and a slider each in a tile of its own, its name on top - and
+    // a slider's value on the right - the control below
+    // (docs/2026-11-11-led-look.md, decision 9). The card's padding and
+    // height are the block card's to set (lib/block-card.ts partTile).
+    const slider = control.kind === "level" && part.look !== "dial"
+    if (!tiles || !(control.kind === "choice" || slider) || built.objects.length !== 1) return built
+    const name = labelObject(control.part ?? entry.label, box, palette, font)
+    const value = slider && control.kind === "level" ? levelValueText(control, box, palette, font) : undefined
+    const inner = value ? { ...built.objects[0], properties: { ...built.objects[0].properties, displayValue: "none" } } : built.objects[0]
+    const tile: Omit<ScreenObject, "id" | "zIndex"> = {
+      type: "free",
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      properties: { look: "card", blockTile: true },
+      children: [name, ...(value ? [value] : []), inner] as ScreenObject[],
+    }
+    return { ...built, objects: [tile] }
   }
   const built = slots.map((slot, i) => {
     const box = { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight }
@@ -1062,7 +1200,11 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   const partColumns = slots.map((slot) => firstOf(slot).column ?? 0)
   const partRows = slots.map((slot) => firstOf(slot).row ?? "")
   return {
-    objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
+    // No heading of the block's own: each part says its name in its tile
+    // (docs/2026-11-11-led-look.md, decision 9; the bridge's blocks in the
+    // starter's review: «kein Titel»).
+    objects: tiles ? built.flatMap((b) => b.objects) : [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
+    ...(tiles ? { partTiles: true } : {}),
     ...(partColumns.includes(2) ? { partColumns, partRows } : {}),
     topics,
     ...(combinedTopics.length > 0 ? { combinedTopics } : {}),
@@ -1070,7 +1212,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     assets: [...iconAssets(options), ...built.flatMap((b) => b.assets ?? [])].filter(
       (asset, i, all) => all.findIndex((other) => other.id === asset.id) === i,
     ),
-    labelCount,
+    labelCount: tiles ? 0 : labelCount,
   }
 }
 
@@ -1224,7 +1366,9 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
 }
 
 // What fills its cell's width in a block, so its parts end on one edge.
-const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field"])
+// A Toggle Button and a part's tile too (docs/2026-11-11-led-look.md): two
+// side by side share the width, and every edge lines up.
+const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field", "toggle-button", "free"])
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
 type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; y?: "top" | "bottom" }
@@ -1267,8 +1411,8 @@ export function blockTable(built: BausteinBuildResult): Piece {
   const cells: Piece[] = []
   let column = 0
   const top = controls.length > 1 ? ({ y: "top" } as const) : {}
-  if (name.length > 1) cells.push(inCell(name[0], { row: 0, column: column++, ...top }))
-  if (name.length > 0) cells.push(inCell(name[name.length - 1], { row: 0, column: column++, ...top }))
+  // The name's pieces side by side: its icon, its text, a slider's value.
+  for (const piece of name) cells.push(inCell(piece, { row: 0, column: column++, ...top }))
   const first = column
   const columns = built.partColumns && built.partColumns.length === controls.length && built.partColumns.includes(2) ? built.partColumns : undefined
   let row = 0

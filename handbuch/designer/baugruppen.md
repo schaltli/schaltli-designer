@@ -25,12 +25,12 @@ Die Beschriftung ist der Name des Dings als fester Text, in der Grösse <span cl
 
 | angekündigt als | auf dem Screen | <span class="ui">Look</span> |
 |---|---|---|
-| Schalter (`switch`) | der Name und daneben zwei Knöpfe «Aus» und «An», oder mit den Wörtern des Geräts, wenn es nicht ein und aus meldet | – |
+| Schalter (`switch`) | ein [Toggle Button](/objekte/bedienen#toggle-button) im Stil <span class="ui">Korry</span>, der Name in der Kachel, im Fenster «AN» und «AUS» oder die Wörter des Geräts, wenn es nicht ein und aus meldet | <span class="ui">Buttons</span>: der Name und daneben zwei Knöpfe |
 | Zustand (`binary_sensor`) | der Name und daneben der gemeldete Zustand als Text | – |
 | Messwert (`sensor`) | der Name und der Wert mit seiner Einheit; bei Prozent und Batterie auch als Balken oder Ring | <span class="ui">Number</span>, bei Prozent <span class="ui">Bar</span> und <span class="ui">Gauge</span> |
 | Text (`sensor` ohne Zahl) | der Name und daneben der gemeldete Text, etwa eine ID oder eine Version | – |
-| Zahl (`number`) | der Name und darunter ein Regler im Bereich und in den Schritten des Geräts | <span class="ui">Slider</span>, <span class="ui">Dial</span> |
-| Auswahl (`select`) | der Name und daneben ein Knopf je Möglichkeit | <span class="ui">Buttons</span> |
+| Zahl (`number`) | der Name und rechts daneben der Wert, darunter ein Regler im Bereich und in den Schritten des Geräts. Beginnt er bei 0 % wie ein Dimmer, steht bei 0 «Aus». Passt der Wert nicht neben einen langen Namen, zeigt ihn der Regler selbst | <span class="ui">Slider</span>, <span class="ui">Dial</span> |
+| Auswahl (`select`) | der Name und daneben eine [Button Group](/objekte/bedienen#button-group) im Stil <span class="ui">LED</span>, ein Feld je Möglichkeit | <span class="ui">Buttons</span> |
 | Taste (`button`) | ein Button mit dem Namen, der beim Antippen die Nachricht des Geräts schickt | – |
 | Szene (`scene`) | wie eine Taste: ein Button mit dem Namen, der beim Antippen die Szene einschaltet | – |
 | Text (`text`) | der Name und daneben ein [Text field](/objekte/bedienen#text-field), das den gemeldeten Text zeigt und einen neuen schickt; mit einem `pattern` oder einer eigenen Befehlsvorlage nur der gemeldete Text | – |
@@ -47,7 +47,7 @@ Was der Designer nicht setzen kann, ist eine graue Zeile. Fährst du mit der Mau
 
 Von den Formen in der Spalte <span class="ui">Look</span> nimmt der Designer die erste, die dein Gerät darstellen kann. Die Form <span class="ui">Number</span> zeigt den Wert als [Chip in einem Text](/objekte/anzeigen#platzhalter).
 
-Jede Baugruppe ist eine [Karte](/objekte/anordnen#card), auch eine aus einem einzigen Teil wie ein Licht: oben das Icon und der Name, darunter das Bedienelement. Wie die Karte aussieht und wie breit sie wird, steht unter [Mehrere Teile](#mehrere-teile). Willst du nur ein Objekt darin ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
+Jede Baugruppe ist eine [Karte](/objekte/anordnen#card), auch eine aus einem einzigen Teil wie ein Licht: oben das Icon und der Name, darunter das Bedienelement. Ein Schalter allein ist keine Karte, sondern ein Toggle Button, der seinen Namen in der Kachel trägt. Wie die Karte aussieht und wie breit sie wird, steht unter [Mehrere Teile](#mehrere-teile). Willst du nur ein Objekt darin ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 
@@ -81,6 +81,8 @@ Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem 
 
 Bei manchen Geräten zählt je nach Betriebsart ein anderer Regler. Ein Dachlüfter im Automatikbetrieb hält eine Temperatur, von Hand läuft er mit einer festen Stufe, und ausgeschaltet gibt es nichts einzustellen. Das Discovery-Format von Home Assistant kann das nicht ausdrücken. Ein Absender, der sein Gerät kennt, kann es aber in seiner eigenen Beschreibung sagen. Die [VanPi-Brücke](/betrieb/vanpi-bruecke#ankuendigung) tut das für den MaxxFan und die Heizung.
 
+Eine solche Baugruppe hat keinen Namen oben und keine Karte drumherum. Jeder Teil nennt sich selbst: Ein Schalter ist ein Toggle Button mit seinem Namen, eine Wahl und ein Regler stehen je in einer eigenen Karte, oben ihr Name, beim Regler rechts der Wert, darunter das Bedienelement. Die Teile reichen über die ganze Breite des Screens bis auf einen schmalen Rand. Zwei nebeneinander teilen sich diese Breite, und alle Kanten liegen bündig. Die Wahl steht eine Schriftgrösse kleiner als die Namen. So sind die Heizung und der MaxxFan der [VanPi-Brücke](/betrieb/vanpi-bruecke) gebaut.
+
 Aus so einer Beschreibung setzt der Designer die Teile, die nur in einer Betriebsart gelten, in einen [Switcher](/objekte/anordnen#switcher) mit einem Panel pro Betriebsart. Auf dem Screen steht dann immer nur der Regler, der gerade gilt, und in einer Betriebsart ohne Regler steht dort nichts. Der Switcher steht in einer Zelle und ist so hoch wie sein höchstes Panel, darum rückt beim Wechsel der Betriebsart nichts darunter nach. Die übrigen Teile, etwa die Wahl der Betriebsart, stehen wie gewohnt untereinander. Die Knöpfe tragen die Wörter, die der Absender dafür vorsieht, etwa «Aus», «Hand» und «Auto» statt `off`, `fan_only` und `auto`, und wo er eines nennt, ein Icon.
 
 Eine Baugruppe kann mehrere Switcher haben, je einen für jedes Topic, nach dem sich Teile richten. Bei der Heizung zeigt einer den Regler der Betriebsart, ein zweiter die Laufzeit, solange der Timer an ist.
@@ -97,7 +99,7 @@ Ein Teil kann auch ein Text sein, der so erscheint, wie er auf dem Broker liegt,
 
 ## Zwei Spalten {#zwei-spalten}
 
-Eine Baugruppe mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über beide Spalten, die übrigen stehen in zwei Spalten nebeneinander, jede von oben nach unten. Hat eine Seite weniger Teile, reicht ihr letzter Teil über die übrigen Zeilen der anderen. Mehrere solche Abschnitte mit zwei Spalten kann sie untereinander setzen. Eine Taste in der zweiten Spalte nimmt nur so viel Platz, wie sie braucht. Einen Text kann die Beschreibung klein setzen, in <span class="ui">Standard</span>, und für einen Schalter die Form <span class="ui">Switch</span> statt der Knöpfe wählen. Stehen in einer solchen Zeile auf beiden Seiten Dials, stehen sie unten auf derselben Linie.
+Eine Baugruppe mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über beide Spalten, die übrigen stehen in zwei Spalten nebeneinander, jede von oben nach unten. Hat eine Seite weniger Teile, reicht ihr letzter Teil über die übrigen Zeilen der anderen. Mehrere solche Abschnitte mit zwei Spalten kann sie untereinander setzen. Eine Taste in der zweiten Spalte nimmt nur so viel Platz, wie sie braucht. Einen Text kann die Beschreibung klein setzen, in <span class="ui">Standard</span>, für einen Schalter die Form <span class="ui">Switch</span> statt des Toggle Buttons wählen und für eine Taste die Form <span class="ui">Text</span> ohne Rahmen. Stehen in einer solchen Zeile auf beiden Seiten Dials, stehen sie unten auf derselben Linie.
 
 Die Heizung der VanPi-Brücke hat zuoberst klein ihren Zustand, darunter die Betriebsart über die ganze Breite. Dann stehen nebeneinander der Regler der Betriebsart und der Timer, zuunterst der Verbrauch mit «Nullen» daneben. So passt sie auf einen Screen von 800 × 480. Auf dem 4" mit 480 × 480 stehen die Wörter der Betriebsart kleiner, damit die vier nebeneinander Platz haben.
 

@@ -354,10 +354,14 @@ export function placeInCell(table: ScreenObject, obj: ScreenObject, row: number,
 /**
  * An object just put into a cell: a card (a free area with a Look,
  * docs/2026-11-03-card.md) fills it, Stretch both ways, unless how it stands
- * there is set already (docs/2026-11-03-card-grid.md). Anything else as it is.
+ * there is set already (docs/2026-11-03-card-grid.md). So does a block's
+ * tile since 2026-11-11 - a Toggle Button, or a block of several parts' tiles
+ * (docs/2026-11-11-led-look.md) - so a column of blocks lines up. Anything
+ * else as it is.
  */
 export function landed(obj: ScreenObject): ScreenObject {
-  if (obj.type !== "free" || !obj.properties?.look) return obj
+  const tile = obj.type === "toggle-button" || (obj.type === "free" && !!obj.properties?.blockTiles)
+  if (!tile && (obj.type !== "free" || !obj.properties?.look)) return obj
   const cell = obj.properties.cell ?? {}
   if (cell.anchor) return obj
   return { ...obj, properties: { ...obj.properties, cell: { ...cell, anchor: { x: "stretch", y: "stretch" } } } }

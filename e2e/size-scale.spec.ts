@@ -615,7 +615,8 @@ test.describe("a text's style", () => {
 
       const project = await downloadProject(page)
       const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
-      const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+      // A switch is a Toggle Button, its name in the tile (docs/2026-11-11-led-look.md): in the Label style.
+      const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "toggle-button")
       expect(label.properties).toMatchObject({ text: "Pumpe", textStyle: "xl", fontId: "font-roboto-c16" })
     } finally {
       await broker.publishAsync(topic, "", { retain: true })

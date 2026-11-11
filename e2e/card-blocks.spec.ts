@@ -40,7 +40,9 @@ const build = (icon = false) =>
       look: "",
       icon: icon ? { name: "mdi:lightbulb", data: "<svg/>", size: 24 } : null,
       parts: [
-        { control: 0, look: "switch" },
+        // The buttons look: a card's parts in its table (a Toggle Button is
+        // a tile of its own, docs/2026-11-11-led-look.md).
+        { control: 0, look: "buttons" },
         { control: 1, look: "slider" },
       ],
     },
@@ -106,9 +108,10 @@ test.describe("card blocks: the model", () => {
     expect(gauge.properties!.textColor).toBe(ROLE_PALETTE.text)
   })
 
-  // Of one part a card too, no longer a row (the user, 2026-11-06).
+  // Of one part a card too, no longer a row (the user, 2026-11-06) - a switch
+  // in the buttons look; its first, a Toggle Button, is its own tile.
   test("a block of one part: a card too, its name docked at the top, its part below", () => {
-    const one = buildEntry({ entry: hall, rect: { x: 0, y: 0, width: 300, height: 60 }, palette, options: { label: "Hall", look: "", icon: null } })
+    const one = buildEntry({ entry: hall, rect: { x: 0, y: 0, width: 300, height: 60 }, palette, options: { label: "Hall", look: "buttons", icon: null } })
     const card = layoutObjects([placed(fittedBlockCard(one, SCALE, 480))], SCALE)[0]
     expect([card.type, card.properties!.look]).toEqual(["free", "card"])
     const [heading, parts] = [...card.children!].sort((a, b) => b.zIndex - a.zIndex)
@@ -126,7 +129,7 @@ test.describe("card blocks: the model", () => {
     // Built as the editor builds it: its parts at the room the half leaves.
     const at = (screenWidth: number) => {
       const width = blockPartsRoom(screenWidth, SCALE)
-      return buildEntry({ entry: hall, rect: { x: 0, y: 0, width, height: 160 }, palette, options: { label: "Hall", look: "", icon: null, parts: [{ control: 0, look: "switch" }, { control: 1, look: "slider" }] } })
+      return buildEntry({ entry: hall, rect: { x: 0, y: 0, width, height: 160 }, palette, options: { label: "Hall", look: "", icon: null, parts: [{ control: 0, look: "buttons" }, { control: 1, look: "slider" }] } })
     }
     expect(fittedBlockCard(at(480), SCALE, 480).width).toBe(228)
     expect(fittedBlockCard(at(1280), SCALE, 1280).width).toBe(628)
@@ -164,34 +167,34 @@ async function heaterOn(ddf: string) {
   return { project, built, width, scale, smaller, label }
 }
 
+// Since 2026-11-11 (docs/2026-11-11-led-look.md, decision 9) a
+// description's block is its parts' tiles, no card round them, across the
+// screen less its margins; the modes one size under the label.
+const within = (o: ScreenObject): ScreenObject[] => [o, ...(o.children ?? []).flatMap(within)]
 test.describe("card blocks: the heater fits", () => {
-  test("on the 4\": its modes set smaller until they fit, the card wider than half the screen and within it, nothing left out", async () => {
-    const { project, built, scale, smaller, label } = await heaterOn(DDF_4)
-    const card = layoutObjects([placed(fittedBlockCard(built, scale, project.screenWidth, smaller))], scale)[0]
-    expect(leftOut(card)).toBe(false)
-    expect(card.width).toBeGreaterThan(blockCardHalf(project.screenWidth, scale))
-    expect(card.width).toBeLessThanOrEqual(project.screenWidth - 2 * BLOCK_SCREEN_MARGIN)
-    const parts = card.children!.find((c) => c.properties?.dock === "fill")!
-    expect(parts.x + parts.width).toBeLessThanOrEqual(card.width)
-    const modes = parts.children!.find((c) => c.type === "button-group")!
-    expect(modes.properties!.fontId).not.toBe(label.id)
-  })
+  for (const [name, ddf] of [["the 4\"", DDF_4], ["the 4.3B", DDF_43B]] as const) {
+    test(`on ${name}: its tiles across the screen less its margins, the modes one size smaller, nothing left out`, async () => {
+      const { project, built, scale, smaller, label } = await heaterOn(ddf)
+      const area = layoutObjects([placed(fittedBlockCard(built, scale, project.screenWidth, smaller))], scale)[0]
+      expect(area.properties!.blockTiles).toBe(true)
+      expect(leftOut(area)).toBe(false)
+      expect(area.width).toBe(project.screenWidth - 2 * BLOCK_SCREEN_MARGIN)
+      const modes = within(area).find((c) => c.type === "button-group" && c.properties!.switchStyle === "led")!
+      expect(modes.properties!.fontId).not.toBe(label.id)
+      // A tile holds it: its card is as wide as the area.
+      const tile = within(area).find((c) => c.type === "free" && c.properties?.look === "card" && within(c).includes(modes))!
+      expect(tile.width).toBe(area.width)
+    })
+  }
 
-  test("on the 4.3B: the card at least half the screen, the modes in the label size, nothing left out", async () => {
-    const { project, built, scale, smaller, label } = await heaterOn(DDF_43B)
-    const card = layoutObjects([placed(fittedBlockCard(built, scale, project.screenWidth, smaller))], scale)[0]
-    expect(leftOut(card)).toBe(false)
-    expect(card.width).toBeGreaterThanOrEqual(blockCardHalf(project.screenWidth, scale))
-    const modes = card.children!.find((c) => c.properties?.dock === "fill")!.children!.find((c) => c.type === "button-group")!
-    expect(modes.properties!.fontId).toBe(label.id)
-  })
-
-  test("too wide for its card all the same: the parts stand in it, cut by its clip, not left out", async () => {
-    const { built, width, scale } = await heaterOn(DDF_4)
-    // The card as it came before: its parts the width the block was built at.
-    const card = layoutObjects([placed(blockCard(built, width, scale, width))], scale)[0]
-    expect(leftOut(card)).toBe(false)
-    const parts = card.children!.find((c) => c.properties?.dock === "fill")!
-    expect(parts.width).toBeGreaterThan(card.width)
+  // The narrowest screen a heater lands on, the knob's 360 px: the tiles
+  // across it, none of them left out. Known limit, as with the card before
+  // 2026-11-11: its two dials side by side (7 lines each) do not fit the
+  // halves of 360 px and are left out there - the dials only.
+  test("on a narrow screen all the same: the tiles fit it, only the two columns' dials left out", async () => {
+    const { built, scale, smaller } = await heaterOn(DDF_4)
+    const area = layoutObjects([placed(fittedBlockCard(built, scale, 360, smaller))], scale)[0]
+    expect(area.width).toBe(360 - 2 * BLOCK_SCREEN_MARGIN)
+    expect([...new Set(within(area).filter((o) => o.properties?.dockedOut).map((o) => o.type))]).toEqual(["dial"])
   })
 })
