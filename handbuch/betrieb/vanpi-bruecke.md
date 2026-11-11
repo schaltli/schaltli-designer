@@ -171,7 +171,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 
 | Ding | angekündigt als | Name |
 |---|---|---|
-| jeder Tank | Messwert in Prozent | der Name aus Pekaway |
+| jeder Tank | Messwert in Prozent; ein Grau- oder Abwassertank mit dem Icon für trübes Wasser (`mdi:water-opacity`) | der Name aus Pekaway |
 | jeder Temperaturfühler | Messwert in °C | der Name aus Pekaway |
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |

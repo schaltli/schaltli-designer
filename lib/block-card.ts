@@ -130,6 +130,9 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
     return withIds({ ...area, height: Math.max(0, ...(laid.children ?? []).map((c) => c.y + c.height)) }, "block-tile")
   }
   width = Math.max(width, Math.min(blockPartsWidth(built, scale), maxWidth))
+  // A fill read along: across both columns, the room the
+  // screen has (docs/2026-11-11-value-cards.md, decision 5).
+  if (built.wide && Number.isFinite(maxWidth)) width = maxWidth
   // A slider's value beside its name only where the two fit the card
   // (docs/2026-11-11-led-look.md, decision 9); otherwise the slider shows it
   // itself again, as before.

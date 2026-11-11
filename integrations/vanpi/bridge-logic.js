@@ -376,11 +376,15 @@ function createBridgeLogic() {
       for (var t = 1; t <= 4; t++) {
         var tank = data["level" + t]
         if (!tank || typeof tank !== "object") continue
+        // A grey or waste water tank by its name gets murky water for its
+        // icon, so a screen can tell it from fresh water (the designer's
+        // value cards colour by icon, docs/2026-11-11-value-cards.md).
+        var tankName = nameOr(tank.name, "Tank " + t)
         thing("sensor", "tank_" + t, {
-          name: nameOr(tank.name, "Tank " + t),
+          name: tankName,
           state_topic: PREFIX + "tank/" + t + "/level",
           unit_of_measurement: "%",
-          icon: "mdi:water",
+          icon: /abwasser|grau|grey|gray|waste|schwarz|black/i.test(tankName) ? "mdi:water-opacity" : "mdi:water",
         })
       }
     } else if (kind === "temp") {

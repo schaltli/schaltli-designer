@@ -1361,8 +1361,9 @@ test.describe("a block from a catalog entry", () => {
     expect(built.topics).toEqual([{ topic: "van-sensors/sensor/cabin_temperature/state", type: "numeric", examples: [] }])
     const fill = { kind: "value", read: "tank/level", unit: "%", level: true } as const
     expect(catalogLooks(fill).map((l) => l.id)).toEqual(["bar", "gauge", "number"])
-    const bar = buildFromCatalog({ entry: { ...entry, controls: [fill] }, control: fill, rect: RECT, palette }).objects[1]
-    expect(bar).toMatchObject({ type: "bar", properties: { topic: "tank/level" } })
+    // A value card: the value beside the name, the bar below (docs/2026-11-11-value-cards.md).
+    const bar = buildFromCatalog({ entry: { ...entry, controls: [fill] }, control: fill, rect: RECT, palette }).objects[2]
+    expect(bar).toMatchObject({ type: "bar", properties: { topic: "tank/level", displayValue: "none" } })
   })
 
   test("a level: a slider or dial on the entity's range and step, its middle the write topic's example", () => {

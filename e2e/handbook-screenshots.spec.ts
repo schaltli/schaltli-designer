@@ -283,39 +283,47 @@ test.describe("handbook: Erste Schritte", () => {
 
     // The first, pressed: no options any more (the picture baustein-tank of
     // the dialog went with it, docs/2026-11-05-quick-blocks.md). A new screen
-    // is free (docs/2026-10-03-free-screens.md): the block, clicked, is a
-    // card half the screen wide, its middle at the click.
+    // is free (docs/2026-10-03-free-screens.md): a tank read along is a card
+    // across the screen (docs/2026-11-11-value-cards.md, decision 5).
     await pressPrebuilt(page, "Frischwasser")
     {
       const { box } = await getMainCanvas(page)
-      const at = devicePoint(box, SCREEN.width / 4, 90, SCREEN)
+      const at = devicePoint(box, SCREEN.width / 2, 70, SCREEN)
       await page.mouse.click(at.x, at.y)
     }
     const [tank] = blockCards(await screenObjects(page))
-    expect(tank.width).toBeLessThan(SCREEN.width / 2)
+    expect(tank.width).toBeGreaterThan(SCREEN.width * 0.9)
 
-    // The battery beside it, with Alt: its left edge 3 px right of the
-    // tank's right one - the two a table of two cards, side by side.
-    await pressPrebuilt(page, "Batterie")
-    await carryWithAlt(page, { x: tank.x + tank.width + 3 + tank.width / 2, y: tank.y + tank.height / 2 })
+    // The battery under it, just as wide: a click under the tank.
+    const batteryHeight = await cardHeight(page, "Batterie")
+    {
+      await pressPrebuilt(page, "Batterie")
+      const { box } = await getMainCanvas(page)
+      const at = devicePoint(box, SCREEN.width / 2, tank.y + tank.height + 8 + batteryHeight / 2, SCREEN)
+      await page.mouse.click(at.x, at.y)
+    }
+    const battery = blockCards(await screenObjects(page)).sort((a, b) => b.y - a.y)[0]
+    expect(battery.y).toBeGreaterThanOrEqual(tank.y + tank.height)
+    expect(battery.width).toBeGreaterThan(SCREEN.width * 0.9)
 
-    // The light under the tank, its top edge 3 px under the table.
+    // The light under the battery, on the left half.
     const lightHeight = await cardHeight(page, "Licht")
     {
-      const table = await snapTableRect(page)
       await pressPrebuilt(page, "Licht")
-      await carryWithAlt(page, { x: table.x + tank.width / 2, y: table.y + table.height + 3 + lightHeight / 2 })
+      const { box } = await getMainCanvas(page)
+      const at = devicePoint(box, SCREEN.width / 4, battery.y + battery.height + 8 + lightHeight / 2, SCREEN)
+      await page.mouse.click(at.x, at.y)
     }
-    // The dimmer, a block of two parts, into the empty cell beside the light.
-    {
-      const table = await snapTableRect(page)
-      await pressPrebuilt(page, "Leselicht")
-      await carryWithAlt(page, { x: table.x + table.width * 0.75, y: table.y + table.height - lightHeight / 2 })
-    }
+    const light = blockCards(await screenObjects(page)).sort((a, b) => b.y - a.y)[0]
+    // The dimmer beside it, with Alt: its left edge 3 px right of the light's
+    // right one - the two a table of two, side by side.
+    await pressPrebuilt(page, "Leselicht")
+    await carryWithAlt(page, { x: light.x + light.width + 3 + light.width / 2, y: light.y + light.height / 2 })
     {
       const tables = (await screenObjects(page)).filter((o) => o.type === "table")
       expect(tables).toHaveLength(1)
-      expect(blockCards(tables[0].children)).toHaveLength(4)
+      expect(blockCards(tables[0].children)).toHaveLength(2)
+      expect(blockCards(await screenObjects(page))).toHaveLength(4)
     }
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
@@ -329,7 +337,8 @@ test.describe("handbook: Erste Schritte", () => {
     // tank's bar, bound to the tank's level. The block arrived as a group
     // (lib/object-groups.ts) and the grid placed it; the object list reaches
     // the bar inside.
-    await page.locator('[data-object-id][title^="bar "]').first().click()
+    // The newest object stands on top of the list: the tank's bar is the last.
+    await page.locator('[data-object-id][title^="bar "]').last().click()
     await expect(page.locator("h3").first()).toContainText("Bar")
     await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
     await shot("eigenschaften")

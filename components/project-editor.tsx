@@ -96,7 +96,7 @@ import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-histor
 import { moveIntoArea } from "@/lib/drop-into-free"
 import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, withHonestSteps } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -2473,6 +2473,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         if (blockTextStyle === "caption") {
           const caption = scale ? styledFont("standard", false, scale, project.fonts) : undefined
           return { ...object, properties: { ...properties, ...(caption ?? {}) } }
+        }
+        // A value card's name and number in their own sizes (docs/2026-11-11-value-cards.md).
+        if (typeof blockTextStyle === "string" && (TEXT_STYLES as readonly string[]).includes(blockTextStyle)) {
+          const own = scale ? styledFont(blockTextStyle as TextStyle, false, scale, project.fonts) : undefined
+          return { ...object, properties: { ...properties, ...(own ?? {}) } }
         }
         return labelFont && properties.fontId === labelFont.id ? { ...object, properties: { ...properties, textStyle: "xl", textBold: false } } : object
       }

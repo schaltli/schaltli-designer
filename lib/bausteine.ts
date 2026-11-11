@@ -209,6 +209,8 @@ export interface BausteinBuildResult {
    * decision 9). Set by buildFromCatalog() where it is more than the name.
    */
   headingPieces?: number
+  /** A card across both columns of a grid: a fill read along (value cards, decision 5). */
+  wide?: boolean
   /**
    * Several parts, each in a tile of its own and no heading of the block's
    * own (LED look, decision 9): the block card lays them out as a table and
@@ -724,9 +726,27 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
 }
 
 // Where the name sits for each look: above what reads across, beside what
-// switches.
+// switches - and above a value card's number (docs/2026-11-11-value-cards.md).
 function catalogLabelPosition(look: string): LabelPosition {
-  return look === "bar" || look === "gauge" || look === "slider" || look === "dial" ? "above" : "left"
+  return look === "bar" || look === "gauge" || look === "slider" || look === "dial" || look === "number" ? "above" : "left"
+}
+
+/**
+ * The colour of a value's meaning, as a theme role (docs/2026-11-11-value-
+ * cards.md, decision 4), from what the device announces of it - never from
+ * its name: a device class of battery is Good; an icon of the sun the
+ * energy role Sun, of murky water Accent 3, of water Accent, of a fuel pump
+ * or gas Warning; anything else the text's. Changeable afterwards like any
+ * colour. (The VanPi bridge gives grey water the murky icon.)
+ */
+export function meaningRole(entry: CatalogEntry, control: CatalogControl): string {
+  if (entry.deviceClass === "battery" || /battery/.test(entry.icon ?? "")) return "good" // the device class battery
+  const icon = entry.icon ?? ""
+  if (/solar|sunny/.test(icon)) return "energySun"
+  if (/water-opacity/.test(icon)) return "accent3"
+  if (/water/.test(icon)) return "accent"
+  if (/gas|fuel/.test(icon)) return "warning"
+  return "text"
 }
 
 /**
@@ -878,6 +898,30 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         object = labelObject(`${named}{topic:${read}${format}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
         if (scaled) object = readingCombined(object, read, scaled.name)
       } else object = readLevelObject(look, scaled ? `${COMBINED}${scaled.name}` : read, parts.control, palette, font)
+      // A value card (docs/2026-11-11-value-cards.md): its name small and
+      // muted, the value big in the colour of its meaning; a fill's value
+      // on the right of the name's row, a thin bar below in the same
+      // colour, no percentage of its own - across both columns.
+      if (!bare && (look === "number" || look === "bar")) {
+        const colour = meaningRole(entry, control)
+        const quiet = label().map((piece) => (piece.type === "text" ? { ...piece, properties: { ...piece.properties, color: "textMuted", blockTextStyle: "standard" } } : piece))
+        if (look === "number") {
+          const big = { ...object, properties: { ...object.properties, color: colour, blockTextStyle: "xxl" } }
+          return { objects: [...quiet, big], topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
+        }
+        const unit = control.unit ? ` ${control.unit}` : ""
+        const value = labelObject(`{topic:${scaled ? `${COMBINED}${scaled.name}` : read}:F0}${unit}`, { ...parts.label, width: measureBlockText(`100${unit}`, font) }, palette, font)
+        const shown = { ...value, properties: { ...value.properties, color: colour, textAlign: "right", blockTextStyle: "xl", headingValue: true } }
+        const bar = { ...object, properties: { ...object.properties, fillColor: colour, displayValue: "none", blockSizeStep: "xs" } }
+        return {
+          objects: [...quiet, shown, bar],
+          headingPieces: quiet.length + 1,
+          wide: true,
+          topics: [readTopicEntry(read, "numeric", reported)],
+          ...(scaled ? { combinedTopics: [scaled] } : {}),
+          assets,
+        }
+      }
       return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
     }
     case "text": {

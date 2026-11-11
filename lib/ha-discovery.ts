@@ -371,6 +371,8 @@ export interface CatalogEntry {
   label: string
   /** The config's `mdi:…` icon, if it names one. */
   icon?: string
+  /** Its device class, if the config names one: what a value card is coloured by (docs/2026-11-11-value-cards.md). */
+  deviceClass?: string
   /** The device, for grouping: its first identifier, and its name. */
   device?: { id: string; name?: string }
   controls: CatalogControl[]
@@ -1541,6 +1543,7 @@ export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEnt
     ...entityName(component, config, device),
     ...(device ? { device } : {}),
     ...(typeof config.unique_id === "string" && config.unique_id !== "" ? { uniqueId: config.unique_id } : {}),
+    ...(typeof config.device_class === "string" && config.device_class !== "" ? { deviceClass: config.device_class } : {}),
   }
   const icon = typeof config.icon === "string" && config.icon.startsWith("mdi:") ? { icon: config.icon } : {}
   const unsupported = (reason: string) => ({ unsupported: { ...base, reason } })

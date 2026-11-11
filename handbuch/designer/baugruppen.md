@@ -27,7 +27,7 @@ Die Beschriftung ist der Name des Dings als fester Text, in der Grösse <span cl
 |---|---|---|
 | Schalter (`switch`) | ein [Toggle Button](/objekte/bedienen#toggle-button) im Stil <span class="ui">Korry</span>, der Name in der Kachel, im Fenster «AN» und «AUS» oder die Wörter des Geräts, wenn es nicht ein und aus meldet | <span class="ui">Buttons</span>: der Name und daneben zwei Knöpfe |
 | Zustand (`binary_sensor`) | der Name und daneben der gemeldete Zustand als Text | – |
-| Messwert (`sensor`) | der Name und der Wert mit seiner Einheit; bei Prozent und Batterie auch als Balken oder Ring | <span class="ui">Number</span>, bei Prozent <span class="ui">Bar</span> und <span class="ui">Gauge</span> |
+| Messwert (`sensor`) | der Name klein und gedämpft, darunter der Wert gross mit seiner Einheit, in der Farbe seiner Bedeutung; bei Prozent und Batterie ein Balken: Name und Wert in einer Zeile, darunter ein dünner Balken in derselben Farbe, die Karte über beide Spalten | <span class="ui">Number</span>, bei Prozent <span class="ui">Bar</span> und <span class="ui">Gauge</span> |
 | Text (`sensor` ohne Zahl) | der Name und daneben der gemeldete Text, etwa eine ID oder eine Version | – |
 | Zahl (`number`) | der Name und rechts daneben der Wert, darunter ein Regler im Bereich und in den Schritten des Geräts. Beginnt er bei 0 % wie ein Dimmer, steht bei 0 «Aus». Passt der Wert nicht neben einen langen Namen, zeigt ihn der Regler selbst | <span class="ui">Slider</span>, <span class="ui">Dial</span> |
 | Auswahl (`select`) | der Name und daneben eine [Button Group](/objekte/bedienen#button-group) im Stil <span class="ui">LED</span>, ein Feld je Möglichkeit | <span class="ui">Buttons</span> |
@@ -47,7 +47,9 @@ Was der Designer nicht setzen kann, ist eine graue Zeile. Fährst du mit der Mau
 
 Von den Formen in der Spalte <span class="ui">Look</span> nimmt der Designer die erste, die dein Gerät darstellen kann. Die Form <span class="ui">Number</span> zeigt den Wert als [Chip in einem Text](/objekte/anzeigen#platzhalter).
 
-Jede Baugruppe ist eine [Karte](/objekte/anordnen#card), auch eine aus einem einzigen Teil wie ein Licht: oben das Icon und der Name, darunter das Bedienelement. Ein Schalter allein ist keine Karte, sondern ein Toggle Button, der seinen Namen in der Kachel trägt. Wie die Karte aussieht und wie breit sie wird, steht unter [Mehrere Teile](#mehrere-teile). Willst du nur ein Objekt darin ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
+Jede Baugruppe ist eine [Karte](/objekte/anordnen#card), auch eine aus einem einzigen Teil wie ein Licht: oben das Icon und der Name, darunter das Bedienelement. Ein Schalter allein ist keine Karte, sondern ein Toggle Button, der seinen Namen in der Kachel trägt. Wie die Karte aussieht und wie breit sie wird, steht unter [Mehrere Teile](#mehrere-teile). Die Farbe eines Werts richtet sich nach dem, was das Gerät über ihn ankündigt: Eine Batterie (Geräteklasse `battery`) steht in «Good», ein Wert mit dem Icon einer Sonne in «Sun», einer mit dem Icon von Wasser in «Accent», trübes Wasser (`mdi:water-opacity`) in «Accent 3», Treibstoff und Gas in «Warning», alles andere in «Text». Nach dem Namen geht der Designer nicht. Die [VanPi-Brücke](/betrieb/vanpi-bruecke) gibt einem Grau- oder Abwassertank das Icon für trübes Wasser. Willst du eine andere Farbe, stellst du sie am Objekt um.
+
+Willst du nur ein Objekt darin ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 

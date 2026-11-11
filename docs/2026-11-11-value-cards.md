@@ -33,8 +33,12 @@ Users: whoever places blocks in the designer - the starter first.
    under the number, the bar's track the theme's track colour, its fill
    the number's colour. No percentage beside the bar - the number says
    it.
-4. **The colour of its meaning**, from what discovery says, fixed per
-   block and changeable afterwards like any colour:
+4. **The colour of its meaning**, from what discovery says - its device
+   class and its icon, never its name (the designer knows nothing of the
+   van's things, e2e/no-van-words.spec.ts) - fixed per block and changeable
+   afterwards like any colour. The VanPi bridge gives a grey water tank the
+   icon `mdi:water-opacity`, fresh water `mdi:water`, solar
+   `mdi:solar-power`:
    - battery (`device_class: battery`, or a % level named so by the
      bridge): Good;
    - power from the sun (`device_class: power` and a name or id with
@@ -104,6 +108,3 @@ Users: whoever places blocks in the designer - the starter first.
 
 ## Open questions
 
-- The colour rules of decision 4 for names the bridge does not send in
-  English (Frischwasser, Abwasser): matched by the bridge's ids, which
-  are English (`tank/fresh`, `tank/grey`).

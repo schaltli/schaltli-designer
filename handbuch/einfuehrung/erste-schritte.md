@@ -38,9 +38,9 @@ Baugruppen sind fertig zusammengesetzte Elemente, die schon wissen, woher ihre W
 
 <Screenshot narrow name="baustein-menue" alt="Die Palette auf dem Reiter Prebuilt, im Suchfeld «licht», darunter das Gerät VanPi mit Leselicht und Licht" />
 
-Klick auf «Frischwasser» und dann oben auf den Screen. Gefragt wird nichts: Die Anzeige kommt als Balken, mit dem Wert, den dein Tank gerade meldet. Die Baugruppe wird eine Karte, halb so breit wie der Screen: oben das Icon und der Name, darunter die Anzeige. Mehr dazu unter [Baugruppen](/designer/baugruppen).
+Klick auf «Frischwasser» und dann oben auf den Screen. Gefragt wird nichts: Die Anzeige kommt als Balken, mit dem Wert, den dein Tank gerade meldet. Die Baugruppe wird eine Karte über die ganze Breite des Screens: oben der Name und rechts der Wert in der Farbe von Wasser, darunter ein dünner Balken. Mehr dazu unter [Baugruppen](/designer/baugruppen).
 
-Setz die Batterie daneben: Nach dem Klick auf ihre Zeile in der Palette hängt die Baugruppe am Mauszeiger. Halt <kbd>Alt</kbd> gedrückt und trag sie so neben die Karte, dass ihr linker Rand knapp rechts von deren rechtem liegt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen nebeneinander. Das Licht trägst du genauso unter die Karte des Frischwassers. Der Leselicht-Dimmer kommt mit Ein-Aus und Regler. Ihn trägst du mit <kbd>Alt</kbd> in die leere Zelle neben dem Licht. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Die Batterie setzt du gleich darunter, mit einem Klick auf ihre Zeile in der Palette und einem unter die Karte des Frischwassers. Auch sie geht über die ganze Breite. Das Licht setzt du darunter auf die linke Hälfte. Es kommt als Toggle Button mit seinem Namen in der Kachel. Den Leselicht-Dimmer trägst du daneben: Nach dem Klick auf seine Zeile hängt die Baugruppe am Mauszeiger. Halt <kbd>Alt</kbd> gedrückt und trag sie so neben das Licht, dass ihr linker Rand knapp rechts von dessen rechtem liegt. Lässt du los, rasten die beiden zu einer Tabelle zusammen und stehen nebeneinander. Der Dimmer ist ein Regler, sein Wert steht rechts neben dem Namen, bei 0 «Aus». Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 
