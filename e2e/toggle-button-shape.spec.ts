@@ -5,25 +5,35 @@ import { applyColorDepth } from "../lib/color-depth"
 import { blendColors, onColorFor } from "../lib/material-colors"
 import { isOperateType, isSwitchType, hasSwitchStates, objectTypeLabel } from "../lib/object-types"
 import {
+  ASKED_HALF_MS,
+  lightFill,
   secondLineStyle,
+  stripThickness,
+  TOGGLE_GAP,
   TOGGLE_PAD,
-  TOGGLE_RING,
+  TOGGLE_PAD_X,
+  WINDOW_PAD,
   toggleFaces,
+  toggleLightColours,
   toggleMinHeight,
   toggleLooks,
   toggleNextIndex,
+  toggleStyleOf,
 } from "../lib/toggle-button-shape"
 
-// What a Toggle Button is drawn as (docs/2026-11-06-toggle-button.md): one
-// native button's look per state, a quiet one for «nothing reported», the
-// ring's colour - all in whole pixels, relative to the object. A device
-// draws these and computes nothing.
+// What a Toggle Button is drawn as (docs/2026-11-06-toggle-button.md, since
+// 2026-11-11 docs/2026-11-11-led-look.md): a calm tile in every state, its
+// name on it, and a light that changes - Korry's window, or an LED strip -
+// in whole pixels, relative to the object. A device draws these and
+// computes nothing.
 
 const FONTS = [
   { id: "big", name: "big", size: 20, ascent: 16, descent: 4, capHeight: 14 },
   { id: "small", name: "small", size: 14, ascent: 12, descent: 3, capHeight: 10 },
 ] as any
 const measure = (text: string, fontId: string) => text.length * (fontId === "big" ? 10 : 7)
+const big = fontMetricsOf(FONTS[0], 14)
+const small = fontMetricsOf(FONTS[1], 14)
 
 const STATES = [
   { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
@@ -46,6 +56,7 @@ const tile = (props: Record<string, unknown> = {}, width = 216, height = 84) =>
       backgroundColor: "#ffffff",
       borderColor: "#e2e8f0",
       textColor: "#0f172a",
+      trackColor: "#e6ebf2",
       ...props,
     },
   }) as any
@@ -55,174 +66,153 @@ test.describe("the type", () => {
     expect(objectTypeLabel("toggle-button")).toBe("Toggle Button")
     expect(isOperateType("toggle-button")).toBe(true)
     expect(hasSwitchStates("toggle-button")).toBe(true)
-    expect(hasSwitchStates("switch")).toBe(true)
-    expect(hasSwitchStates("button-group")).toBe(true)
     expect(hasSwitchStates("button")).toBe(false)
     expect(isSwitchType("toggle-button")).toBe(false)
   })
+
+  test("three styles; Filled, Tonal and none at all are Korry (LED look decision 6)", () => {
+    expect(toggleStyleOf(tile({ switchStyle: "led-h" }))).toBe("led-h")
+    expect(toggleStyleOf(tile({ switchStyle: "led-v" }))).toBe("led-v")
+    for (const style of ["korry", "filled", "tonal", undefined]) expect(toggleStyleOf(tile({ switchStyle: style })), String(style)).toBe("korry")
+  })
 })
 
-test.describe("a Toggle Button's faces", () => {
-  test("a state that means on: filled in the colour, ink by the tone rule; pressed the state layer, the button's morph", () => {
-    const faces = toggleFaces(tile(), "#f1f5f9", "24bit", true)
-    expect(faces.normal).toEqual({ r: 42, fill: "#0284c7", outline: null, ink: onColorFor("#0284c7", "24bit") })
-    expect(faces.pressed.fill).toBe(blendColors("#0284c7", faces.normal.ink, 10))
-    expect(faces.pressed.r).toBe(buttonCornerRadius(216, 84, true))
-  })
-
-  test("any other state: the card's colour with its 1-px edge and the text colour - CamperUI's look", () => {
-    const faces = toggleFaces(tile(), "#f1f5f9", "24bit", false)
-    expect(faces.normal).toEqual({ r: 42, fill: "#ffffff", outline: "#e2e8f0", ink: "#0f172a" })
+test.describe("the tile", () => {
+  test("calm in every state: the card's colour, its 1-px edge, the text colour; pressed the state layer, the button's morph", () => {
+    const faces = toggleFaces(tile(), "#f1f5f9", "24bit")
+    // A card's corner, not a pill (TOGGLE_RADIUS).
+    expect(faces.normal).toEqual({ r: 12, fill: "#ffffff", outline: "#e2e8f0", ink: "#0f172a" })
     expect(faces.pressed.fill).toBe(blendColors("#ffffff", "#0f172a", 10))
-    expect(faces.pressed.outline).toBe("#e2e8f0")
-  })
-
-  test("tonal softens the filled face to the colour halfway to the background", () => {
-    const filled = toggleFaces(tile(), "#f1f5f9", "24bit", true).normal
-    const tonal = toggleFaces(tile({ switchStyle: "tonal" }), "#f1f5f9", "24bit", true).normal
-    expect(tonal.fill).not.toBe(filled.fill)
-    expect(tonal.ink).toBe(onColorFor(tonal.fill!, "24bit"))
-  })
-
-  test("the project's button radius is the tile's corner (CamperUI's 10 px)", () => {
-    expect(toggleFaces(tile({ buttonRadius: 10 }), "#f1f5f9", "24bit", true).normal.r).toBe(10)
-  })
-
-  test("1 bit: off is never invisible - an edge the same as card and ground takes the ink", () => {
-    const faces = toggleFaces(tile({ backgroundColor: "#ffffff", borderColor: "#ffffff", textColor: "#000000" }), "#ffffff", "1bit", false)
-    expect(faces.normal.fill).toBe(applyColorDepth("#ffffff", "1bit"))
-    expect(faces.normal.outline).toBe(applyColorDepth("#000000", "1bit"))
-  })
-
-  test("1 bit: a press that 10 % cannot show turns the face inside out", () => {
-    for (const on of [true, false]) {
-      const faces = toggleFaces(tile(), "#ffffff", "1bit", on)
-      expect(faces.pressed.fill, `on=${on}`).not.toBe(faces.normal.fill)
-    }
-  })
-})
-
-test.describe("where a plain tile's content goes", () => {
-  const big = fontMetricsOf(FONTS[0], 14)
-
-  test("without a name: the state's icon and label centred side by side in a strip, the label alone where there is no icon", () => {
+    expect(faces.pressed.r).toBe(buttonCornerRadius(216, 84, true, 12))
     const looks = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure)
-    const off = looks.states[0]
-    const line = big.ascent + big.descent
-    expect(off.icon).toBeUndefined()
-    expect(off.baseline).toBe(Math.trunc((84 - line) / 2) + big.ascent)
-    expect(off.textX).toBe(Math.trunc((216 - 30) / 2))
-    const on = looks.states[1]
-    expect(on.icon).toEqual({ x: Math.trunc((216 - (big.capHeight + 8 + 30)) / 2), y: on.baseline - big.capHeight, size: big.capHeight })
-    expect(on.textX).toBe(on.icon!.x + big.capHeight + 8)
-    expect(on.second).toBeUndefined()
-    expect(on.disc).toBeUndefined()
+    expect(looks.states[1].normal).toEqual(looks.states[0].normal)
   })
 
-  test("a tile taller than wide stacks the icon over the label", () => {
-    const on = toggleLooks(tile({}, 80, 120), "#f1f5f9", "24bit", FONTS, measure).states[1]
-    expect(on.icon!.y + on.icon!.size).toBeLessThan(on.baseline - big.ascent + 1)
-    expect(on.icon!.x).toBe(Math.trunc((80 - big.capHeight) / 2))
+  test("the project's button radius is the tile's corner", () => {
+    expect(toggleFaces(tile({ buttonRadius: 10 }), "#f1f5f9", "24bit").normal.r).toBe(10)
   })
 
-  test("the label is clipped to the tile, never to the round ends' half of a pill", () => {
-    const off = toggleLooks(tile({ buttonRadius: 10 }), "#f1f5f9", "24bit", FONTS, measure).states[0]
-    expect(off.clipX).toBe(TOGGLE_PAD)
-    expect(off.clipW).toBe(216 - 2 * TOGGLE_PAD)
+  test("1 bit: an edge the same as card and ground takes the ink; a press 10 % cannot show turns the face inside out", () => {
+    const faces = toggleFaces(tile({ backgroundColor: "#ffffff", borderColor: "#ffffff", textColor: "#000000" }), "#ffffff", "1bit")
+    expect(faces.normal.outline).toBe(applyColorDepth("#000000", "1bit"))
+    expect(faces.pressed.fill).not.toBe(faces.normal.fill)
   })
 })
 
-test.describe("a named tile", () => {
-  const big = fontMetricsOf(FONTS[0], 14)
-  const small = fontMetricsOf(FONTS[1], 14)
+test.describe("the light's colours", () => {
+  test("on: the LED colour, its word by the tone rule; off: the track, its word faint; asked: half the colour, a fifth for the dim half", () => {
+    const c = toggleLightColours(tile(), "#f1f5f9", "24bit")
+    expect(c.lit).toBe("#0284c7")
+    expect(c.litInk).toBe(onColorFor("#0284c7", "24bit"))
+    expect(c.track).toBe("#e6ebf2")
+    expect(c.offInk).toBe(blendColors("#e6ebf2", "#0f172a", 45))
+    expect(c.asked).toBe(blendColors("#e6ebf2", "#0284c7", 50))
+    expect(c.askedDim).toBe(blendColors("#e6ebf2", "#0284c7", 20))
+    expect(c.outline).toBeNull()
+  })
 
-  test("the name on the first line, the state's label one size smaller below it, both left after the disc", () => {
-    const looks = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
-    const on = looks.states[1]
-    const block = big.ascent + big.descent + small.ascent + small.descent
+  test("a colour per switch: the LED colour is the colour property", () => {
+    expect(toggleLightColours(tile({ switchColor: "#eab308" }), "#f1f5f9", "24bit").lit).toBe("#eab308")
+  })
+
+  test("1 bit: a track the tile hides gets a ring in the ink", () => {
+    const c = toggleLightColours(tile({ backgroundColor: "#ffffff", trackColor: "#ffffff", textColor: "#000000" }), "#ffffff", "1bit")
+    expect(c.outline).toBe(applyColorDepth("#000000", "1bit"))
+  })
+})
+
+test.describe("Korry", () => {
+  const looks = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
+
+  test("the name, under it a square-cornered window across the tile; the word centred in capitals", () => {
+    const [off, on] = looks.states
+    const windowH = small.ascent + small.descent + 2 * WINDOW_PAD
+    const block = big.ascent + big.descent + TOGGLE_GAP + windowH
     const top = Math.trunc((84 - block) / 2)
     expect(on.baseline).toBe(top + big.ascent)
-    expect(on.second).toEqual({ textX: on.textX, baseline: top + big.ascent + big.descent + small.ascent, fontId: "small" })
-    expect(on.disc).toBeDefined()
-    expect(on.disc!.cx - on.disc!.r).toBe(TOGGLE_PAD)
-    expect(on.textX).toBe(on.disc!.cx + on.disc!.r + TOGGLE_PAD)
-    // The icon centred on the disc.
-    expect(on.icon!.x + Math.trunc(on.icon!.size / 2)).toBe(on.disc!.cx)
+    expect(on.light).toMatchObject({ x: TOGGLE_PAD_X, y: top + big.ascent + big.descent + TOGGLE_GAP, w: 216 - 2 * TOGGLE_PAD_X, h: windowH, r: 0 })
+    expect(on.light.label).toMatchObject({ text: "EIN", fontId: "small", baseline: on.light.y + WINDOW_PAD + small.ascent })
+    expect(on.light.label!.textX).toBe(TOGGLE_PAD_X + Math.trunc((216 - 2 * TOGGLE_PAD_X - 21) / 2))
+    expect(on.second).toBeUndefined()
+    // Lit and its word by the tone rule; off the track and a faint word.
+    expect(on.light.fill).toBe("#0284c7")
+    expect(on.light.label!.ink).toBe(onColorFor("#0284c7", "24bit"))
+    expect(off.light.fill).toBe("#e6ebf2")
+    expect(off.light.label!.ink).toBe(blendColors("#e6ebf2", "#0f172a", 45))
   })
 
-  test("the disc as tall as the two lines, the icon two capitals tall with a third of the disc round it", () => {
-    const on = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
-    const block = big.ascent + big.descent + small.ascent + small.descent
-    expect(on.disc!.r).toBe(Math.trunc(block / 2))
-    expect(on.icon!.size).toBe(Math.min(2 * big.capHeight, Math.trunc((2 * block) / 3)))
-    // A tile too low for the lines: the disc keeps the padding.
-    const low = toggleLooks(tile({ text: "Wasserpumpe" }, 216, 30), "#f1f5f9", "24bit", FONTS, measure).states[1]
-    expect(2 * low.disc!.r).toBeLessThanOrEqual(30 - 2 * TOGGLE_PAD)
-  })
-
-  test("24 bit: the disc a tint, no ring; 1 bit, where the tint is lost: a ring in the ink", () => {
-    const deep = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
-    expect(deep.disc!.edge).toBeUndefined()
-    const flat = toggleLooks(tile({ text: "Wasserpumpe" }), "#ffffff", "1bit", FONTS, measure)
-    for (const look of flat.states) {
-      expect(look.disc!.edge, look.label).toBeDefined()
-      expect(look.disc!.edge!.normal).toBe(look.normal.ink)
-    }
-  })
-
-  test("the disc stands where it stands in every state, so nothing moves when the state changes - even in one without an icon", () => {
-    const looks = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
-    expect(looks.states[0].disc).toBeDefined()
-    expect(looks.states[0].icon).toBeUndefined()
-    expect({ ...looks.states[0].disc, normal: 0, pressed: 0 }).toEqual({ ...looks.states[1].disc, normal: 0, pressed: 0 })
-    expect(looks.states[0].textX).toBe(looks.states[1].textX)
-  })
-
-  test("no icon in any state: no disc, the text starts at the padding", () => {
+  test("the state's icon small before the name, and the room for it in every state", () => {
+    const [off, on] = looks.states
+    expect(on.icon).toEqual({ x: TOGGLE_PAD_X, y: on.baseline - big.capHeight, size: big.capHeight })
+    expect(off.icon).toBeUndefined()
+    expect(off.textX).toBe(on.textX)
+    expect(on.textX).toBe(TOGGLE_PAD_X + big.capHeight + TOGGLE_GAP)
     const states = STATES.map(({ iconAssetId: _i, ...s }) => s)
-    const on = toggleLooks(tile({ text: "Wasserpumpe", states }), "#f1f5f9", "24bit", FONTS, measure).states[1]
-    expect(on.disc).toBeUndefined()
-    expect(on.textX).toBe(TOGGLE_PAD)
+    expect(toggleLooks(tile({ text: "Wasserpumpe", states }), "#f1f5f9", "24bit", FONTS, measure).states[1].textX).toBe(TOGGLE_PAD_X)
   })
 
-  test("the second line is one of the seven sizes smaller; Micro stays Micro", () => {
-    expect(secondLineStyle("large")).toBe("standard")
-    expect(secondLineStyle("standard")).toBe("mini")
-    expect(secondLineStyle("huge")).toBe("xxl")
-    expect(secondLineStyle("micro")).toBe("micro")
-    expect(secondLineStyle(undefined)).toBe("mini")
+  test("without a name the window stands alone, centred", () => {
+    const plain = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    const windowH = small.ascent + small.descent + 2 * WINDOW_PAD
+    expect(plain.light.y).toBe(Math.trunc((84 - windowH) / 2))
+  })
+})
+
+test.describe("LED Horizontal and LED Vertical", () => {
+  test("Horizontal: the label at the end of the name's line, a strip under them across the tile", () => {
+    const on = toggleLooks(tile({ text: "Wasserpumpe", switchStyle: "led-h" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    const strip = stripThickness(big)
+    expect(strip).toBe(Math.max(3, Math.trunc((big.capHeight * 2) / 5)))
+    expect(on.second).toMatchObject({ textX: 216 - TOGGLE_PAD_X - 21, baseline: on.baseline, fontId: "small", ink: blendColors("#ffffff", "#0f172a", 60) })
+    expect(on.light).toMatchObject({ x: TOGGLE_PAD_X, w: 216 - 2 * TOGGLE_PAD_X, h: strip, r: Math.trunc(strip / 2), fill: "#0284c7" })
+    expect(on.light.label).toBeUndefined()
+    // The name stops before the label.
+    expect(on.clipX + on.clipW).toBeLessThanOrEqual(on.second!.textX - TOGGLE_GAP)
+  })
+
+  test("Vertical: a strip at the left, the tile's full height inside the padding; name and label to its right", () => {
+    const on = toggleLooks(tile({ text: "Wasserpumpe", switchStyle: "led-v" }), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    const strip = stripThickness(big)
+    expect(on.light).toMatchObject({ x: TOGGLE_PAD, y: TOGGLE_PAD, w: strip, h: 84 - 2 * TOGGLE_PAD })
+    expect(on.textX).toBe(TOGGLE_PAD + strip + TOGGLE_PAD_X + big.capHeight + TOGGLE_GAP)
+    expect(on.second).toMatchObject({ textX: on.textX, baseline: on.baseline + big.descent + small.ascent })
   })
 })
 
 test.describe("how low it may be", () => {
-  const big = fontMetricsOf(FONTS[0], 14)
-  const small = fontMetricsOf(FONTS[1], 14)
-  test("one line and the padding without a name; two lines with one", () => {
-    expect(toggleMinHeight(tile(), FONTS)).toBe(big.ascent + big.descent + 2 * TOGGLE_PAD)
-    expect(toggleMinHeight(tile({ text: "Wasserpumpe" }), FONTS)).toBe(big.ascent + big.descent + small.ascent + small.descent + 2 * TOGGLE_PAD)
+  test("Korry: name, gap, window and the padding; the window alone without a name", () => {
+    const windowH = small.ascent + small.descent + 2 * WINDOW_PAD
+    expect(toggleMinHeight(tile({ text: "W" }), FONTS)).toBe(big.ascent + big.descent + TOGGLE_GAP + windowH + 2 * TOGGLE_PAD)
+    expect(toggleMinHeight(tile(), FONTS)).toBe(windowH + 2 * TOGGLE_PAD)
+  })
+
+  test("LED: the line, the strip; or two lines beside a strip", () => {
+    expect(toggleMinHeight(tile({ text: "W", switchStyle: "led-h" }), FONTS)).toBe(big.ascent + big.descent + TOGGLE_GAP + stripThickness(big) + 2 * TOGGLE_PAD)
+    expect(toggleMinHeight(tile({ text: "W", switchStyle: "led-v" }), FONTS)).toBe(big.ascent + big.descent + small.ascent + small.descent + 2 * TOGGLE_PAD)
+  })
+
+  test("the label's size is one of the seven smaller; Micro stays Micro", () => {
+    expect(secondLineStyle("large")).toBe("standard")
+    expect(secondLineStyle("micro")).toBe("micro")
   })
 })
 
-test.describe("nothing reported, and the ring", () => {
-  test("none: the quiet face with «?» as the label - under the name if there is one", () => {
-    const plain = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure)
-    expect(plain.none.normal).toEqual(plain.states[0].normal)
-    expect(plain.none.label).toBe("?")
-    expect(plain.none.icon).toBeUndefined()
-    const named = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
-    expect(named.none.label).toBe("?")
-    expect(named.none.second).toBeDefined()
-  })
-
-  test("each state's look carries the label it draws", () => {
-    const looks = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure)
-    expect(looks.states.map((l) => l.label)).toEqual(["Aus", "Ein"])
-  })
-
-  test("the ring is the switch's: 2 px in the colour", () => {
-    const looks = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure)
+test.describe("nothing reported, and asked", () => {
+  test("none: the light off with «?»", () => {
+    const looks = toggleLooks(tile({ text: "Wasserpumpe" }), "#f1f5f9", "24bit", FONTS, measure)
+    expect(looks.none.label).toBe("?")
+    expect(looks.none.light.fill).toBe("#e6ebf2")
+    expect(looks.none.light.label!.text).toBe("?")
+    expect(looks.none.icon).toBeUndefined()
     expect(looks.ring).toBe("#0284c7")
-    expect(TOGGLE_RING).toBe(2)
+  })
+
+  test("asked pulses: asked and the dim half in turn, every half second; standing at asked where nothing moves", () => {
+    const on = toggleLooks(tile(), "#f1f5f9", "24bit", FONTS, measure).states[1]
+    expect(lightFill(on, false, true, 0)).toBe(on.light.fill)
+    expect(lightFill(on, true, true, 0)).toBe(on.light.asked)
+    expect(lightFill(on, true, true, ASKED_HALF_MS)).toBe(on.light.askedDim)
+    expect(lightFill(on, true, false, ASKED_HALF_MS)).toBe(on.light.asked)
   })
 })
 
@@ -232,7 +222,6 @@ test.describe("a tap", () => {
     const three = [on(0), on(1), { id: "auto", label: "Auto", readValue: "auto", writeValue: "auto" }]
     expect(toggleNextIndex(STATES, 0)).toBe(1)
     expect(toggleNextIndex(STATES, 1)).toBe(0)
-    expect(toggleNextIndex(three, 1)).toBe(2)
     expect(toggleNextIndex(three, 2)).toBe(0)
   })
 

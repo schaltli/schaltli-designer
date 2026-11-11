@@ -29,11 +29,11 @@ import type { PillBand } from "@/lib/pill-raster"
  * buttons is heavy and Material spends them sparingly - and outlined for the
  * quiet ones.
  */
-export type ButtonStyle = "filled" | "tonal" | "outlined"
+export type ButtonStyle = "filled" | "tonal" | "outlined" | "text"
 
 export function buttonStyleOf(obj: ScreenObject): ButtonStyle {
   const style = obj.properties.buttonStyle
-  return style === "filled" || style === "outlined" ? style : "tonal"
+  return style === "filled" || style === "outlined" || style === "text" ? style : "tonal"
 }
 
 /** The one colour the author sets; the palette's own when there is none. */
@@ -65,6 +65,9 @@ export interface ButtonLook {
  * - **outlined**: no fill, an outline in that same tint, the label in the
  *   colour. Where the tint is the background (1 bit) the outline takes the
  *   colour instead, and a tonal button becomes an outlined one.
+ * - **text**: no fill, no outline - the label alone in the colour, for a
+ *   quiet action inside a card («Nullen»; docs/2026-11-11-led-look.md,
+ *   decision 10). Pressed, the state layer shows where it is.
  *
  * Pressed is Material's state layer: the content colour laid over the
  * container at 10 %. On a depth that cannot show 10 % - 1 bit always, some
@@ -85,7 +88,9 @@ export function buttonLook(obj: ScreenObject, background: string, colorDepth: st
       ? filled
       : style === "tonal"
         ? { container: tint.track, outline: null, content: onColorFor(tint.track, colorDepth) }
-        : { container: null, outline: tint.framed ? color : tint.track, content: color }
+        : style === "text"
+          ? { container: null, outline: null, content: color }
+          : { container: null, outline: tint.framed ? color : tint.track, content: color }
   if (!pressed) return look
 
   const under = look.container ?? ground

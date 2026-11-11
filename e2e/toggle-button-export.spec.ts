@@ -79,18 +79,24 @@ test.describe("a Toggle Button exported", () => {
       expect(tile.looks).toHaveLength(2)
       expect(tile.looks.map((l: any) => l.label)).toEqual(["Aus", "Ein"])
       expect(tile.noneLook.label).toBe("?")
-      // On is the accent, off the card with its edge - light and dark.
-      expect(lc(tile.looks[1].normal.fill)).toBe(lc(SLATE.light.accent))
+      // docs/2026-11-11-led-look.md: the tile the card with its edge in
+      // every state; the light lit in the accent while on, the track off -
+      // light and dark; the window word, the asked fills.
+      expect(lc(tile.looks[1].normal.fill)).toBe(lc(SLATE.light.panel))
       expect(lc(tile.looks[0].normal.fill)).toBe(lc(SLATE.light.panel))
       expect(lc(tile.looks[0].normal.outline)).toBe(lc(SLATE.light.outline))
-      expect(lc(tile.looksDark[1].normal.fill)).toBe(lc(SLATE.dark.accent))
+      expect(lc(tile.looks[1].light.fill)).toBe(lc(SLATE.light.accent))
+      expect(lc(tile.looksDark[1].light.fill)).toBe(lc(SLATE.dark.accent))
       expect(lc(tile.looksDark[0].normal.fill)).toBe(lc(SLATE.dark.panel))
+      expect(tile.looks[1].light.label.text).toBe("EIN")
+      expect(tile.looks[1].light.asked).toMatch(/^#[0-9a-f]{6}$/i)
       expect(lc(tile.ring)).toBe(lc(SLATE.light.accent))
       expect(lc(tile.ringDark)).toBe(lc(SLATE.dark.accent))
-      // Named: the second line and the disc are in the look, the same in dark.
-      expect(tile.looks[1].second).toBeDefined()
-      expect(tile.looks[1].disc).toBeDefined()
+      // Korry: no second line, the label stands in the window; the layout the
+      // same in dark.
+      expect(tile.looks[1].second).toBeUndefined()
       expect(tile.looksDark[1].textX).toBe(tile.looks[1].textX)
+      expect(tile.looksDark[1].light.y).toBe(tile.looks[1].light.y)
       // 1.5 mm at 6.73 px/mm.
       expect(tile.looks[1].normal.r).toBe(10)
     })
@@ -116,10 +122,9 @@ test.describe("a Toggle Button exported", () => {
     expect(Object.keys(zip.files).filter((f) => f.includes("-dark"))).toEqual([])
   })
 
-  test("without a name: no second line and no disc", async ({ page }) => {
+  test("without a name: no second line; the window alone with its word", async ({ page }) => {
     const { tile } = await exported(page, "__buildDeviceZipForTest", project("24bit", ""))
     expect(tile.looks[1].second).toBeUndefined()
-    expect(tile.looks[1].disc).toBeUndefined()
-    expect(tile.looks[1].icon).toBeDefined()
+    expect(tile.looks[1].light.label.text).toBe("EIN")
   })
 })

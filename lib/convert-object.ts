@@ -116,16 +116,17 @@ export function convertObject(object: ScreenObject, type: ConvertibleType, fonts
       return { ...next, height: levelAcross(next, fonts) }
     }
     case "switch": {
-      const next: ScreenObject = { ...object, type, properties: { ...p, states: withOnState(p.states ?? []) } }
+      const next: ScreenObject = { ...object, type, properties: { ...p, states: withOnState(p.states ?? []), ...(object.type === "toggle-button" ? { switchStyle: "filled" } : {}) } }
       return { ...next, width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))) }
     }
     case "button-group": {
-      const next: ScreenObject = { ...object, type, properties: p }
+      // Korry and the LED strips are the Toggle Button's alone.
+      const next: ScreenObject = { ...object, type, properties: object.type === "toggle-button" ? { ...p, switchStyle: "filled" } : p }
       return { ...next, width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))) }
     }
     case "toggle-button": {
       // No name yet: the state's label alone, as its tool places it.
-      const next: ScreenObject = { ...object, type, properties: { ...p, text: "", states: withOnState(p.states ?? []) } }
+      const next: ScreenObject = { ...object, type, properties: { ...p, text: "", switchStyle: "korry", states: withOnState(p.states ?? []) } }
       return {
         ...next,
         width: Math.max(object.width, Math.ceil(controlMinWidth(next, object.height, fonts))),

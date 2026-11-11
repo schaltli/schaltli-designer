@@ -31,9 +31,11 @@ const EDGES: { value: Edge; label: string }[] = [
   { value: "bottom", label: "Bottom" },
 ]
 
-const GROUNDS: { value: "panel" | "accent"; label: string }[] = [
+const GROUNDS: { value: "panel" | "accent" | "led"; label: string }[] = [
   { value: "panel", label: "Card" },
   { value: "accent", label: "Accent" },
+  // docs/2026-11-11-led-look.md, decision 12.
+  { value: "led", label: "LED" },
 ]
 
 const THEME_SWITCH: { value: ThemeSwitchAt; label: string }[] = [
@@ -100,7 +102,7 @@ export function NavigatorProperties({
         <SelectField
           id="navigatorGround"
           label="Background"
-          value={selectedObject.properties.ground === "accent" ? "accent" : "panel"}
+          value={selectedObject.properties.ground === "accent" || selectedObject.properties.ground === "led" ? selectedObject.properties.ground : "panel"}
           options={GROUNDS}
           onChange={(value) => {
             const properties: Record<string, any> = { ...selectedObject.properties, ground: value }
@@ -110,7 +112,7 @@ export function NavigatorProperties({
             }
             onUpdateObject(selectedObject.id, { properties })
           }}
-          hint="Card with a line towards the screen, or the theme's accent with the open screen the other way round."
+          hint="Card with a line towards the screen; the theme's accent with the open screen the other way round; or LED: the card, the open screen's icon lit with a strip under it."
         />
         <SelectField
           id="navigatorThemeSwitch"
@@ -118,7 +120,7 @@ export function NavigatorProperties({
           value={selectedObject.properties.themeSwitch ?? "none"}
           options={THEME_SWITCH}
           onChange={(value) => onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, themeSwitch: value } })}
-          hint="A sun or moon at the start (Near) or end (Far) of the bar that switches light and dark. It stays put while the bar scrolls."
+          hint="A sun or moon at the start (Near) or end (Far) of the bar, behind a line, that switches light and dark. It stays put while the bar scrolls."
         />
       </PropertySection>
     </PropertySections>

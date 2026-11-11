@@ -42,6 +42,7 @@ const STYLES = [
   { value: "filled", label: "Filled" },
   { value: "tonal", label: "Tonal" },
   { value: "outlined", label: "Outlined" },
+  { value: "text", label: "Text" },
 ] as const
 
 interface SoftwareButtonPropertiesProps {

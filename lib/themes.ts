@@ -723,10 +723,11 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   "text-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
   "time-field": { fieldColor: "panel", lineColor: "accent", textColor: "text" },
   switch: { switchColor: "accent" },
-  "button-group": { switchColor: "accent" },
-  // Off is a card: its colour, its edge, its text (docs/2026-11-06-toggle-
-  // button.md, decision 2).
-  "toggle-button": { switchColor: "accent", backgroundColor: "panel", borderColor: "outline", textColor: "text" },
+  // The LED form's labels, lines and dark strips (docs/2026-11-11-led-look.md, decision 7).
+  "button-group": { switchColor: "accent", textColor: "text", borderColor: "outline", trackColor: "track" },
+  // A calm card - its colour, its edge, its text - and a light dark in the
+  // track until it is lit (docs/2026-11-11-led-look.md, decision 1).
+  "toggle-button": { switchColor: "accent", backgroundColor: "panel", borderColor: "outline", textColor: "text", trackColor: "track" },
   "energy-diagram": {
     textColor: "text",
     mutedColor: "textMuted",

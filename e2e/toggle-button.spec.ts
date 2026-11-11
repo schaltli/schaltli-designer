@@ -46,7 +46,7 @@ async function projectWithTile(prefix: string, extra: Record<string, unknown> = 
           { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
           { id: "on", label: "Ein", readValue: "on", writeValue: "on", showAsOn: true },
         ],
-        switchStyle: "filled",
+        switchStyle: "korry",
         switchColor: "accent",
         ...extra,
       },
@@ -86,8 +86,10 @@ async function colourAt(page: Page, ox: number, oy: number): Promise<string> {
   }, [point.x, point.y])
 }
 
-// Inside the tile, clear of its round end and of the text in its middle.
-const fillAt = (page: Page) => colourAt(page, TILE.x + 24, TILE.y + 12)
+// Inside the tile, above its window (clear of the round end).
+const fillAt = (page: Page) => colourAt(page, TILE.x + 24, TILE.y + 5)
+// Inside the Korry window, which stands centred without a name, clear of its word.
+const windowAt = (page: Page) => colourAt(page, TILE.x + 16, TILE.y + TILE.height / 2)
 // The middle of its top edge: the 1-px card border, or the 2-px ring.
 const edgeAt = (page: Page, dy = 0) => colourAt(page, TILE.x + TILE.width / 2, TILE.y + dy)
 
@@ -105,7 +107,7 @@ test.describe("its rules beside the other controls", () => {
     expect(STRETCHES_HEIGHT.has("toggle-button")).toBe(true)
   })
 
-  test("never narrower than its widest content: plain the widest label, named the name or a label beside the disc", () => {
+  test("never narrower than its widest content: plain the widest label, named the name and its label", () => {
     const fonts = [{ id: "f", name: "f", size: 14, ascent: 12, descent: 3, capHeight: 10 }] as any
     const obj = (props: Record<string, unknown>) =>
       ({ id: "t", type: "toggle-button", x: 0, y: 0, width: 10, height: 84, zIndex: 1, properties: { fontId: "f", states: [{ label: "Aus" }, { label: "Wasserpumpe", iconAssetId: "drop" }], ...props } }) as any
@@ -138,7 +140,7 @@ test.describe("the Toggle Button in the designer", () => {
     expect(await edgeAt(page)).toBe(EDGE)
   })
 
-  test("in the preview a tap sends the next state, the ring stays until it is confirmed, and the tile takes the state's look", async ({ page }) => {
+  test("in the preview a tap sends the next state, the window pulses until it is confirmed, then lights; the tile stays calm", async ({ page }) => {
     const prefix = `e2e-tile/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
     const broker = await connectBroker()
     const sent: string[] = []
@@ -154,18 +156,22 @@ test.describe("the Toggle Button in the designer", () => {
       await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 15000 })
       await expect.poll(() => fillAt(page), { timeout: 15000 }).toBe(CARD)
       expect(await edgeAt(page)).toBe(EDGE)
+      const dark = await windowAt(page)
+      expect(dark).not.toBe(ACCENT)
 
-      // Off -> the next state, On. Nothing answers yet: the face stays the
-      // reported one, Off, and the ring says what was asked.
+      // Off -> the next state, On. Nothing answers yet: the window pulses at
+      // half strength (docs/2026-11-11-led-look.md, decision 4) - neither dark
+      // nor lit - and the tile stays as it was.
       await tapTile(page)
       await expect.poll(() => sent).toEqual(["on"])
-      await expect.poll(() => edgeAt(page, 1), { timeout: 15000 }).toBe(ACCENT)
+      await expect.poll(async () => { const c = await windowAt(page); return c !== dark && c !== ACCENT }, { timeout: 15000 }).toBe(true)
       expect(await fillAt(page)).toBe(CARD)
 
-      // The answer: the tile takes the colour and the ring goes.
+      // The answer: the window lights in the colour; the tile, its edge, stay.
       await publish(broker, `${prefix}/state`, "on")
-      await expect.poll(() => fillAt(page), { timeout: 15000 }).toBe(ACCENT)
-      expect(await edgeAt(page, 1)).toBe(ACCENT)
+      await expect.poll(() => windowAt(page), { timeout: 15000 }).toBe(ACCENT)
+      expect(await fillAt(page)).toBe(CARD)
+      expect(await edgeAt(page)).toBe(EDGE)
 
       // And on wraps back to off.
       await tapTile(page)

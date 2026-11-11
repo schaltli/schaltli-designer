@@ -3,11 +3,13 @@
  * button.md): one tile that is its state - CamperUI's state tile as one
  * object instead of a switcher, a panel per state and a button in each.
  *
- * It is a native button with a look per state. Everything here builds on
- * lib/button-shape.ts - its faces, its radius and pressed morph, its state
- * layer and the inside-out rule - and the export writes what this module
- * works out, so a device picks the reported state's look and draws it with
- * the button code it already has. Nothing is ported (decision 7).
+ * Since 2026-11-11 (docs/2026-11-11-led-look.md) the tile stays calm in
+ * every state and only a light changes: Korry's window, or an LED strip
+ * under the name or at the tile's left. The tile is the native button's
+ * face (lib/button-shape.ts: radius, pressed morph, state layer); the light
+ * is a rectangle and a word. The export writes what this module works out,
+ * so a device picks the reported state's look and draws rectangles and text
+ * it can already draw. Nothing is ported (toggle spec decision 7).
  *
  * Pure: no canvas, no DOM. Integer arithmetic with Math.trunc, as in
  * lib/button-shape.ts and lib/switch-shape.ts.
@@ -16,58 +18,92 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 import { blendColors, onColorFor } from "@/lib/material-colors"
-import { fontMetricsOf, levelTrackLook, type LevelFontMetrics } from "@/lib/level-shape"
+import { fontMetricsOf, type LevelFontMetrics } from "@/lib/level-shape"
 import { buttonCornerRadius, type ButtonFace } from "@/lib/button-shape"
-import { switchColorOf, switchContent, switchStateIsOn, switchStyleOf, SWITCH_GAP } from "@/lib/switch-shape"
+import { switchColorOf, switchStateIsOn } from "@/lib/switch-shape"
 import { smallerStyle } from "@/lib/size-scale"
 
-/** The tile's inner padding, and the gap between the disc and the text. Material's 8. */
-export const TOGGLE_PAD = SWITCH_GAP
-/** The ring that says "asked for, not confirmed": the switch's 2 px. */
-export const TOGGLE_RING = 2
-/** How much of the ink the disc behind a named tile's icon takes. */
-const DISC_TINT = 12
+/**
+ * The tile's padding, across and along (docs/2026-11-11-led-look.md,
+ * decision 2: «8 x 10 px, name and light close together»).
+ */
+export const TOGGLE_PAD = 8
+export const TOGGLE_PAD_X = 10
+/** Between the name and the light under it. */
+export const TOGGLE_GAP = 6
+/**
+ * The tile's corner without a project button radius: a card's on the 4"
+ * (2 mm, CARD_DEFAULTS), not a pill - the tile is a card with a light, not a
+ * push button (docs/2026-11-11-led-look.md, decision 1).
+ */
+export const TOGGLE_RADIUS = 12
+/** The Korry window's padding round its word, above and below. */
+export const WINDOW_PAD = 3
 
-/** One state's look: the native button's, plus what a named tile adds. */
+/** The three looks of decision 1. */
+export type ToggleStyle = "korry" | "led-h" | "led-v"
+export const TOGGLE_STYLES: readonly ToggleStyle[] = ["korry", "led-h", "led-v"]
+
+/**
+ * The object's style. «Filled» and «Tonal», the styles before 2026-11-11, and
+ * none at all, are Korry (decision 6) - a project not yet migrated draws
+ * the same as one that is.
+ */
+export function toggleStyleOf(obj: ScreenObject): ToggleStyle {
+  const style = obj.properties?.switchStyle
+  return style === "led-h" || style === "led-v" ? style : "korry"
+}
+
+/** The light of one look: Korry's window or an LED strip. */
+export interface ToggleLight {
+  x: number
+  y: number
+  w: number
+  h: number
+  r: number
+  /** The state's: lit in the LED colour when it means on, the track otherwise. */
+  fill: string
+  /**
+   * While a request is outstanding a device alternates `asked` and
+   * `askedDim` (decision 4); where it animates nothing it stands at `asked`.
+   */
+  asked: string
+  askedDim: string
+  /** A 1-px ring in the ink where the track could not be told from the tile (1 bit). */
+  outline: string | null
+  /** The window's word, centred, with its ink per fill; Korry only. */
+  label?: { text: string; textX: number; baseline: number; fontId: string; ink: string; askedInk: string }
+}
+
+/** One state's look: the calm tile, its name, and the light. */
 export interface ToggleLook {
   normal: ButtonFace
   pressed: ButtonFace
-  /** What this look writes: the state's label, «?» for none. */
+  /** What the light says: the state's label, «?» for none. */
   label: string
-  /**
-   * Where the first line goes. Without a name the first line is `label`;
-   * with one it is the object's `text` and `label` moves to [second].
-   */
+  /** The name's line: where it starts and stands. */
   textX: number
   baseline: number
   clipX: number
   clipW: number
-  /** The state's icon, a capital of the first line tall; absent without one. */
+  /** The state's icon before the name, a capital tall; absent without one. */
   icon?: { x: number; y: number; size: number }
-  /** The state's label under the name, one size smaller; only with a name. */
-  second?: { textX: number; baseline: number; fontId: string }
   /**
-   * The disc behind the icon, per face; only with a name and an icon
-   * somewhere. As tall as the two lines beside it (the user, 2026-11-06).
-   * `edge` is a 1-px ring in the ink where the disc's tint cannot be told
-   * from the face - all of 1 bit - so the disc is still there.
+   * The state's label as a line of text (LED Horizontal: at the end of the
+   * name's line; LED Vertical: under the name), in the smaller font and
+   * `ink`. Absent for Korry, whose label stands in the window.
    */
-  disc?: {
-    cx: number
-    cy: number
-    r: number
-    normal: string
-    pressed: string
-    edge?: { normal: string | null; pressed: string | null }
-  }
+  second?: { textX: number; baseline: number; fontId: string; ink: string }
+  light: ToggleLight
 }
 
 export interface ToggleLooks {
+  style: ToggleStyle
   /** One per state, in the states' order. */
   states: ToggleLook[]
-  /** Nothing reported: the quiet face and «?». */
+  /** Nothing reported: the light off and «?». */
   none: ToggleLook
-  /** The ring's colour. */
+  /** The LED colour (what the ring was drawn in before 2026-11-11). */
   ring: string
 }
 
@@ -91,59 +127,33 @@ export function toggleName(obj: ScreenObject): string | undefined {
   return hasText(obj.properties?.text) ? obj.properties.text : undefined
 }
 
-/** The size of the second line: the next smaller of the seven (decision 4). */
+/** The size of the second line and of the window's word: the next smaller of the seven. */
 export const secondLineStyle = smallerStyle
 
 /**
- * Both faces of one state on `background`.
- *
- * - **means on** (`showAsOn`): filled in the colour, the ink white or black by
- *   the tone rule; `tonal` takes the colour halfway to the background instead,
- *   as a tonal button and a group's chosen pill do.
- * - **anything else**: the card's colour with its 1-px edge, ink the text
- *   colour (backgroundColor, borderColor and textColor, which the theme fills
- *   with Card, Card border and Text) - CamperUI's look rather than the knob's
- *   half mixture (decision 2). Where the edge would vanish - the same as the
- *   card, the card the same as the ground, as on 1 bit - it takes the ink.
- *
+ * The tile's two faces - the same in every state (decision 1: only the light
+ * changes): the card's colour with its 1-px edge, ink the text colour
+ * (backgroundColor, borderColor and textColor, which the theme fills with
+ * Card, Card border and Text). Where the edge would vanish - the same as the
+ * card, the card the same as the ground, as on 1 bit - it takes the ink.
  * Pressed is the button's: the ink laid over the fill at 10 %, and where a
- * depth cannot show that, the face turned inside out (decision 5).
+ * depth cannot show that, the face turned inside out.
  */
-export function toggleFaces(
-  obj: ScreenObject,
-  background: string,
-  colorDepth: string | undefined,
-  on: boolean,
-): { normal: ButtonFace; pressed: ButtonFace } {
+export function toggleFaces(obj: ScreenObject, background: string, colorDepth: string | undefined): { normal: ButtonFace; pressed: ButtonFace } {
   const w = Math.max(1, Math.round(obj.width))
   const h = Math.max(1, Math.round(obj.height))
   const own = obj.properties?.buttonRadius
-  const radius = typeof own === "number" && Number.isFinite(own) ? own : undefined
+  const radius = typeof own === "number" && Number.isFinite(own) ? own : TOGGLE_RADIUS
   const ground = applyColorDepth(!background || background === "transparent" ? "#ffffff" : background, colorDepth)
-  const color = applyColorDepth(switchColorOf(obj, colorDepth), colorDepth)
-
-  let normal: Omit<ButtonFace, "r">
-  if (on) {
-    const tint = levelTrackLook(color, ground, colorDepth)
-    const fill = switchStyleOf(obj) === "tonal" && !tint.framed ? tint.track : color
-    normal = { fill, outline: null, ink: onColorFor(fill, colorDepth) }
-  } else {
-    const p = obj.properties ?? {}
-    const fill = applyColorDepth(hasText(p.backgroundColor) ? p.backgroundColor : ground, colorDepth)
-    const ink = applyColorDepth(hasText(p.textColor) ? p.textColor : onColorFor(fill, colorDepth), colorDepth)
-    let edge = applyColorDepth(hasText(p.borderColor) ? p.borderColor : color, colorDepth)
-    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
-    if (same(edge, fill) && same(fill, ground)) edge = ink
-    normal = { fill, outline: edge, ink }
-  }
-
-  const under = normal.fill ?? ground
-  const layer = applyColorDepth(blendColors(under, normal.ink, 10), colorDepth)
-  let pressed: Omit<ButtonFace, "r">
-  if (layer.toLowerCase() !== under.toLowerCase()) pressed = { ...normal, fill: layer }
-  else if (on) pressed = { fill: null, outline: under, ink: under }
-  else pressed = { fill: normal.ink, outline: null, ink: under }
-
+  const p = obj.properties ?? {}
+  const fill = applyColorDepth(hasText(p.backgroundColor) ? p.backgroundColor : ground, colorDepth)
+  const ink = applyColorDepth(hasText(p.textColor) ? p.textColor : onColorFor(fill, colorDepth), colorDepth)
+  let edge = applyColorDepth(hasText(p.borderColor) ? p.borderColor : ink, colorDepth)
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+  if (same(edge, fill) && same(fill, ground)) edge = ink
+  const normal = { fill, outline: edge, ink }
+  const layer = applyColorDepth(blendColors(fill, ink, 10), colorDepth)
+  const pressed = !same(layer, fill) ? { ...normal, fill: layer } : { fill: ink, outline: null, ink: fill }
   return {
     normal: { r: buttonCornerRadius(w, h, false, radius), ...normal },
     pressed: { r: buttonCornerRadius(w, h, true, radius), ...pressed },
@@ -154,16 +164,59 @@ function metricsOf(fonts: readonly ProjectFont[] | null | undefined, id: unknown
   return fontMetricsOf(fonts?.find((f) => f.id === id), 14)
 }
 
+/** An LED strip's thickness for a name in `first`: 6 px under a 22 px name. */
+export function stripThickness(first: LevelFontMetrics): number {
+  return Math.max(3, Math.trunc((first.capHeight * 2) / 5))
+}
+
+/** The Korry window's height: its word and a little room above and below. */
+function windowHeight(second: LevelFontMetrics): number {
+  return second.ascent + second.descent + 2 * WINDOW_PAD
+}
+
+/** The colours of the light, by what it shows (decisions 1, 4). */
+export function toggleLightColours(obj: ScreenObject, background: string, colorDepth: string | undefined) {
+  const { normal } = toggleFaces(obj, background, colorDepth)
+  const face = normal.fill ?? "#ffffff"
+  const p = obj.properties ?? {}
+  const track = applyColorDepth(hasText(p.trackColor) ? p.trackColor : blendColors(face, normal.ink, 15), colorDepth)
+  const lit = applyColorDepth(switchColorOf(obj, colorDepth), colorDepth)
+  const asked = applyColorDepth(blendColors(track, lit, 50), colorDepth)
+  const askedDim = applyColorDepth(blendColors(track, lit, 20), colorDepth)
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+  return {
+    face,
+    ink: normal.ink,
+    track,
+    lit,
+    asked,
+    askedDim,
+    // The word on a dark window: the ink, faint.
+    offInk: applyColorDepth(blendColors(track, normal.ink, 45), colorDepth),
+    litInk: onColorFor(lit, colorDepth),
+    askedInk: onColorFor(asked, colorDepth),
+    // A state's label beside the name: the ink, quieter.
+    mutedInk: applyColorDepth(blendColors(face, normal.ink, 60), colorDepth),
+    outline: same(track, face) ? normal.ink : null,
+  }
+}
+
 /**
- * Every look of a Toggle Button: one per state, «none», and the ring.
- * `measure` gives a text's width in a font, as the caller draws it.
+ * Every look of a Toggle Button: one per state and «none». `measure` gives
+ * a text's width in a font, as the caller draws it.
  *
- * Without a name, a state's icon and label are centred - side by side in a
- * strip, stacked in a tile - exactly as in a segment of a button group
- * (switchContent). With a name, the icon sits in a disc on the left and the
- * name and the state's label are two lines beside it. The disc stands in
- * every state wherever any state has an icon, so nothing moves sideways
- * when the state changes.
+ * - **Korry**: the name, under it a square-cornered window across the tile,
+ *   the state's label centred in it in capitals.
+ * - **LED Horizontal**: the name with the state's label at the line's end,
+ *   under them a strip across the tile.
+ * - **LED Vertical**: a strip at the tile's left, its full height inside the
+ *   padding; the name and under it the state's label to its right.
+ *
+ * The state's icon stands small before the name (decision 5), with room for
+ * it in every state wherever any state has an icon, so nothing moves. The
+ * name always on the left, the window's word centred - no alignment to
+ * choose. Without a name the label takes the name's place (LED) or the
+ * window stands alone (Korry).
  */
 export function toggleLooks(
   obj: ScreenObject,
@@ -172,6 +225,7 @@ export function toggleLooks(
   fonts: readonly ProjectFont[] | null | undefined,
   measure: (text: string, fontId: string) => number,
 ): ToggleLooks {
+  const style = toggleStyleOf(obj)
   const w = Math.max(1, Math.trunc(obj.width))
   const h = Math.max(1, Math.trunc(obj.height))
   const fontId = String(obj.properties?.fontId ?? "")
@@ -181,69 +235,136 @@ export function toggleLooks(
   const name = toggleName(obj)
   const states = statesOf(obj)
   const anyIcon = states.some((s) => hasText(s.iconAssetId))
-  const ground = applyColorDepth(!background || background === "transparent" ? "#ffffff" : background, colorDepth)
+  const faces = toggleFaces(obj, background, colorDepth)
+  const c = toggleLightColours(obj, background, colorDepth)
+  const firstLine = first.ascent + first.descent
+  const secondLine = second.ascent + second.descent
+  const strip = stripThickness(first)
+  const iconSize = anyIcon ? Math.max(1, first.capHeight) : 0
+  const iconRoom = anyIcon ? iconSize + TOGGLE_GAP : 0
 
-  const lookOf = (label: string, iconId: string | undefined, faces: { normal: ButtonFace; pressed: ButtonFace }): ToggleLook => {
+  const lookOf = (label: string, iconId: string | undefined, on: boolean): ToggleLook => {
     const hasIcon = hasText(iconId)
-    if (name === undefined) {
-      const content = switchContent({ x: 0, y: 0, w, h, r: 0 }, first, hasIcon, measure(label, fontId))
+    const light = (x: number, y: number, lw: number, lh: number, r: number, word?: { text: string; baseline: number }): ToggleLight => ({
+      x,
+      y,
+      w: Math.max(0, lw),
+      h: Math.max(0, lh),
+      r,
+      fill: on ? c.lit : c.track,
+      asked: c.asked,
+      askedDim: c.askedDim,
+      outline: c.outline,
+      ...(word
+        ? {
+            label: {
+              text: word.text,
+              textX: x + Math.max(0, Math.trunc((lw - measure(word.text, secondFontId)) / 2)),
+              baseline: word.baseline,
+              fontId: secondFontId,
+              ink: on ? c.litInk : c.offInk,
+              askedInk: c.askedInk,
+            },
+          }
+        : {}),
+    })
+
+    if (style === "led-v") {
+      const sx = TOGGLE_PAD
+      const textX = sx + strip + TOGGLE_PAD_X + iconRoom
+      const block = name === undefined ? firstLine : firstLine + secondLine
+      const top = Math.trunc((h - block) / 2)
+      const baseline = top + first.ascent
       return {
         ...faces,
         label,
-        textX: content.textX,
-        baseline: content.baseline,
-        clipX: TOGGLE_PAD,
-        clipW: Math.max(0, w - 2 * TOGGLE_PAD),
-        ...(content.icon ? { icon: { x: content.icon.x, y: content.icon.y, size: content.icon.w } } : {}),
+        textX,
+        baseline,
+        clipX: textX,
+        clipW: Math.max(0, w - TOGGLE_PAD_X - textX),
+        ...(hasIcon ? { icon: { x: textX - iconRoom, y: baseline - iconSize, size: iconSize } } : {}),
+        ...(name !== undefined ? { second: { textX, baseline: baseline + first.descent + second.ascent, fontId: secondFontId, ink: c.mutedInk } } : {}),
+        light: light(sx, TOGGLE_PAD, strip, h - 2 * TOGGLE_PAD, Math.trunc(strip / 2)),
       }
     }
-    const block = first.ascent + first.descent + second.ascent + second.descent
-    const discD = anyIcon ? Math.max(0, Math.min(h - 2 * TOGGLE_PAD, block)) : 0
-    const discR = Math.trunc(discD / 2)
-    // Two capitals tall, and a third of the disc left round it.
-    const iconSize = Math.max(1, Math.min(2 * first.capHeight, Math.trunc((2 * discD) / 3)))
-    const cx = TOGGLE_PAD + discR
-    const cy = Math.trunc(h / 2)
-    const textX = anyIcon ? cx + discR + TOGGLE_PAD : TOGGLE_PAD
+
+    const korry = style === "korry"
+    const alone = korry && name === undefined
+    const lightH = korry ? windowHeight(second) : strip
+    const lightW = w - 2 * TOGGLE_PAD_X
+    const block = (alone ? 0 : firstLine + TOGGLE_GAP) + lightH
     const top = Math.trunc((h - block) / 2)
-    const under = (face: ButtonFace) => face.fill ?? ground
-    const tint = (face: ButtonFace) => applyColorDepth(blendColors(under(face), face.ink, DISC_TINT), colorDepth)
-    const lost = (face: ButtonFace) => tint(face).toLowerCase() === applyColorDepth(under(face), colorDepth).toLowerCase()
-    const edge = lost(faces.normal) || lost(faces.pressed)
-      ? { normal: lost(faces.normal) ? faces.normal.ink : null, pressed: lost(faces.pressed) ? faces.pressed.ink : null }
-      : undefined
+    const baseline = top + first.ascent
+    const textX = TOGGLE_PAD_X + iconRoom
+    const lightY = top + (alone ? 0 : firstLine + TOGGLE_GAP)
+    const icon = hasIcon ? { icon: { x: TOGGLE_PAD_X, y: baseline - iconSize, size: iconSize } } : {}
+    if (korry) {
+      return {
+        ...faces,
+        label,
+        textX,
+        baseline,
+        clipX: textX,
+        clipW: Math.max(0, w - TOGGLE_PAD_X - textX),
+        ...icon,
+        light: light(TOGGLE_PAD_X, lightY, lightW, lightH, 0, { text: label.toUpperCase(), baseline: lightY + WINDOW_PAD + second.ascent }),
+      }
+    }
+    // LED Horizontal: the label at the end of the name's line.
+    const labelW = name !== undefined ? measure(label, secondFontId) : 0
     return {
       ...faces,
       label,
       textX,
-      baseline: top + first.ascent,
+      baseline,
       clipX: textX,
-      clipW: Math.max(0, w - TOGGLE_PAD - textX),
-      ...(hasIcon ? { icon: { x: cx - Math.trunc(iconSize / 2), y: cy - Math.trunc(iconSize / 2), size: iconSize } } : {}),
-      second: { textX, baseline: top + first.ascent + first.descent + second.ascent, fontId: secondFontId },
-      ...(anyIcon ? { disc: { cx, cy, r: discR, normal: tint(faces.normal), pressed: tint(faces.pressed), ...(edge ? { edge } : {}) } } : {}),
+      clipW: Math.max(0, w - TOGGLE_PAD_X - textX - (name !== undefined ? labelW + TOGGLE_GAP : 0)),
+      ...icon,
+      ...(name !== undefined ? { second: { textX: Math.max(textX, w - TOGGLE_PAD_X - labelW), baseline, fontId: secondFontId, ink: c.mutedInk } } : {}),
+      light: light(TOGGLE_PAD_X, lightY, lightW, lightH, Math.trunc(strip / 2)),
     }
   }
 
-  const quiet = toggleFaces(obj, background, colorDepth, false)
-  const loud = toggleFaces(obj, background, colorDepth, true)
   return {
-    states: states.map((s) => lookOf(String(s.label ?? ""), s.iconAssetId, switchStateIsOn(s) ? loud : quiet)),
-    none: lookOf("?", undefined, quiet),
-    ring: applyColorDepth(switchColorOf(obj, colorDepth), colorDepth),
+    style,
+    states: states.map((s) => lookOf(String(s.label ?? ""), s.iconAssetId, switchStateIsOn(s))),
+    none: lookOf("?", undefined, false),
+    ring: c.lit,
   }
 }
 
+/** How long each half of the asked pulse lasts, in the preview and on a device. */
+export const ASKED_HALF_MS = 500
+
 /**
- * How low a Toggle Button may be (the user, 2026-11-06): its text and the
- * padding above and below - two lines with a name, one without.
+ * The light's fill as it is drawn: the state's, or - while a request is
+ * outstanding - `asked` and `askedDim` in turn, every ASKED_HALF_MS
+ * (docs/2026-11-11-led-look.md, decision 4); standing at `asked` where
+ * nothing moves.
+ */
+export function lightFill(look: ToggleLook, asking: boolean, motion: boolean, now: number): string {
+  if (!asking) return look.light.fill
+  if (!motion) return look.light.asked
+  return Math.floor(now / ASKED_HALF_MS) % 2 === 0 ? look.light.asked : look.light.askedDim
+}
+
+/**
+ * How low a Toggle Button may be (the user, 2026-11-06; LED look decision 2):
+ * its lines, the light and the padding above and below.
  */
 export function toggleMinHeight(obj: ScreenObject, fonts: readonly ProjectFont[] | null | undefined): number {
   const first = metricsOf(fonts, obj.properties?.fontId)
-  const line = first.ascent + first.descent
-  if (toggleName(obj) === undefined) return line + 2 * TOGGLE_PAD
   const second = metricsOf(fonts, obj.properties?.secondFontId ?? obj.properties?.fontId)
-  return line + second.ascent + second.descent + 2 * TOGGLE_PAD
+  const firstLine = first.ascent + first.descent
+  const named = toggleName(obj) !== undefined
+  switch (toggleStyleOf(obj)) {
+    case "led-v":
+      return (named ? firstLine + second.ascent + second.descent : firstLine) + 2 * TOGGLE_PAD
+    case "led-h":
+      return firstLine + TOGGLE_GAP + stripThickness(first) + 2 * TOGGLE_PAD
+    default:
+      return (named ? firstLine + TOGGLE_GAP : 0) + windowHeight(second) + 2 * TOGGLE_PAD
+  }
 }
 
 /**

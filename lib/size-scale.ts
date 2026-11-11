@@ -8,6 +8,7 @@
 // every device's result without touching a device description. This file
 // only computes; it knows nothing of React or of objects.
 
+import { stripThickness, TOGGLE_GAP, TOGGLE_PAD, TOGGLE_PAD_X, toggleStyleOf } from "@/lib/toggle-button-shape"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/components/project-editor"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
@@ -258,17 +259,21 @@ export function controlMinWidth(object: ScreenObject, height: number, fonts: rea
   const states: { label?: string; iconAssetId?: string }[] = object.properties.states ?? []
   const n = Math.max(1, states.length)
   if (object.type === "toggle-button") {
-    const pad = SWITCH_GAP
+    // docs/2026-11-11-led-look.md: the name, the state's icon before it,
+    // the label at the end of the line (LED Horizontal), under it (LED
+    // Vertical, beside the strip) or in the window (Korry, in capitals).
     const named = typeof object.properties.text === "string" && object.properties.text.trim() !== ""
     const anyIcon = states.some((st) => !!st.iconAssetId)
-    if (!named) {
-      const widest = Math.max(textWidthIn("?", font), ...states.map((st) => (st.iconAssetId ? iconW : 0) + textWidthIn(st.label ?? "", font)))
-      return 2 * pad + widest
-    }
     const second = fonts.find((f) => f.id === object.properties.secondFontId) ?? font
-    const disc = anyIcon ? 2 * Math.max(1, fontMetricsOf(font, 14).capHeight) + pad : 0
-    const widest = Math.max(textWidthIn(object.properties.text, font), textWidthIn("?", second), ...states.map((st) => textWidthIn(st.label ?? "", second)))
-    return 2 * pad + disc + widest
+    const metrics = fontMetricsOf(font, 14)
+    const icon = anyIcon ? Math.max(1, metrics.capHeight) + TOGGLE_GAP : 0
+    const name = named ? icon + textWidthIn(object.properties.text, font) : 0
+    const labels = ["?", ...states.map((st) => st.label ?? "")]
+    const widestLabel = Math.max(...labels.map((l) => textWidthIn(l, second)))
+    const style = toggleStyleOf(object)
+    if (style === "korry") return 2 * TOGGLE_PAD_X + Math.max(name, Math.max(...labels.map((l) => textWidthIn(l.toUpperCase(), second))) + 2 * TOGGLE_PAD)
+    if (style === "led-h") return 2 * TOGGLE_PAD_X + (named ? name + TOGGLE_GAP + widestLabel : icon + Math.max(...labels.map((l) => textWidthIn(l, font))))
+    return TOGGLE_PAD + stripThickness(metrics) + 2 * TOGGLE_PAD_X + (named ? Math.max(name, icon + widestLabel) : icon + Math.max(...labels.map((l) => textWidthIn(l, font))))
   }
   if (object.type === "switch") {
     const widest = Math.max(0, ...states.map((st) => textWidthIn(st.label ?? "", font)))

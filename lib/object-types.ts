@@ -441,6 +441,12 @@ export function migrateObjects(objects: MigratableObject[] | undefined, separato
         changed = true
       }
     }
+    // A Toggle Button's Filled and Tonal are Korry since 2026-11-11
+    // (docs/2026-11-11-led-look.md, decision 6).
+    if (obj.type === "toggle-button" && obj.properties && !["korry", "led-h", "led-v"].includes(obj.properties.switchStyle)) {
+      obj.properties = { ...obj.properties, switchStyle: "korry" }
+      changed = true
+    }
     // A chart keeps only what the spec says is ever stored (lib/chart.ts).
     if (obj.type === "chart" && obj.properties && chartNeedsNormalizing(obj.properties)) {
       obj.properties = normalizeChart(obj.properties) as unknown as Record<string, any>

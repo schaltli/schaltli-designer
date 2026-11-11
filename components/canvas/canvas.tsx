@@ -2643,6 +2643,8 @@ export function Canvas({
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           pressed: previewMode && pressedSwitch?.id === obj.id,
+          // Asked pulses where the device moves (LED look, decision 4).
+          motion: deviceAnimates !== false,
         })
         break
 
@@ -2664,6 +2666,7 @@ export function Canvas({
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           pressedStateIndex: previewMode && pressedSwitch?.id === obj.id ? pressedSwitch.index : -1,
+          motion: deviceAnimates !== false,
         })
         break
 

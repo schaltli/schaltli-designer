@@ -55,7 +55,9 @@ Ohne Wert zeigt der Schalter eine leere Spur ohne Knopf und ein «?».
 
 Mehrere Schaltflächen nebeneinander, von denen immer eine gewählt ist, etwa Heizstufen «Aus», «Eco», «Komfort». Die Eigenschaften sind dieselben wie beim [Switch](#switch). Statt <span class="ui">Shows as on</span> hat jeder Zustand <span class="ui">Icon when active</span>: ein anderes Icon, solange er gewählt ist, etwa eine gefüllte statt einer leeren Lampe.
 
-**Am Gerät:** Ein Tippen auf eine Schaltfläche schickt ihren Wert. Die gemeldete hat eine gefüllte Fläche, die gewünschte bekommt einen Ring, bis die Anlage antwortet. Ohne Wert ist keine Schaltfläche markiert.
+<span class="ui">Style</span> kennt hier drei Formen. <span class="ui">Full colour</span> und <span class="ui">Tint</span> füllen die gewählte Schaltfläche. <span class="ui">LED</span> hat keinen eigenen Rahmen: Die Schaltflächen stehen nebeneinander, zwischen zweien eine feine Linie, und unter jeder Beschriftung liegt ein Streifen. Unter der gewählten leuchtet er in der <span class="ui">Colour</span>, ihre Beschriftung steht hell, die anderen gedämpft. Diese Form gehört in eine [Karte](/objekte/anordnen#card), die den Rahmen und den Namen gibt. So legen auch die [Baugruppen](/designer/baugruppen) eine Auswahl an.
+
+**Am Gerät:** Ein Tippen auf eine Schaltfläche schickt ihren Wert. Die gemeldete hat eine gefüllte Fläche, die gewünschte bekommt einen Ring, bis die Anlage antwortet. Bei <span class="ui">LED</span> pulsiert stattdessen der Streifen der gewünschten, bis die Anlage antwortet. Ohne Wert ist keine Schaltfläche markiert.
 
 Hat die Button Group genau zwei Schaltflächen, etwa «Aus» und «An», schaltet ein Tippen irgendwo darauf zum jeweils anderen Zustand um, sobald einer gemeldet ist. Du musst also nicht die richtige Hälfte treffen, und die Gruppe darf klein sein, auch wenn die Beschriftung dann nicht mehr ganz hineinpasst. Solange noch kein Zustand gemeldet ist, zählt die Schaltfläche unter dem Finger. Bei drei und mehr Schaltflächen zählt immer die getroffene.
 
@@ -63,13 +65,19 @@ Mit <span class="ui">Convert to</span> machst du aus einer Button Group mit zwei
 
 ## Toggle Button {#toggle-button}
 
-Eine Kachel, die ihren Zustand zeigt: «Wasserpumpe», blau solange sie läuft, weiss mit Rand solange nicht. Ein Tippen schaltet um. So sehen die Relais-Kacheln von CamperUI aus. Die Eigenschaften sind dieselben wie beim [Switch](#switch), dazu unter <span class="ui">Text</span>:
+Eine Kachel mit einem Licht, das ihren Zustand zeigt: «Wasserpumpe», darunter ein Fenster, das leuchtet, solange sie läuft. Ein Tippen schaltet um. Die Kachel selbst bleibt ruhig, wie eine Karte des Themes mit deren Farbe und Rand. Nur das Licht ändert sich. Die Eigenschaften sind dieselben wie beim [Switch](#switch), dazu unter <span class="ui">Text</span>:
 
-- <span class="ui">Name</span>: was gross auf der Kachel steht. Mit Name steht darunter das <span class="ui">Label</span> des Zustands eine Grösse kleiner, das Icon des Zustands in einem Kreis links daneben. Ohne Name steht nur das Label in der Mitte, mit dem Icon daneben.
+- <span class="ui">Name</span>: was auf der Kachel steht, immer links. Hat der Zustand ein Icon, steht es klein davor.
 
-Ein Zustand mit <span class="ui">Shows as on</span> füllt die Kachel mit der <span class="ui">Colour</span>. Bei jedem anderen sieht sie aus wie eine Karte des Themes, mit deren Farbe und Rand. Ihre Ecken richten sich nach dem <span class="ui">Button radius</span>. Die Kachel wird nie schmaler als ihre Beschriftung und nie niedriger als ihre Zeilen.
+<span class="ui">Style</span> wählt das Licht:
 
-**Am Gerät:** Ein Tippen irgendwo auf die Kachel schickt den nächsten Zustand, nach dem letzten wieder den ersten. Bei zwei Zuständen schaltet sie also um, bei drei geht sie der Reihe nach weiter. Die Kachel zeigt weiter den gemeldeten Zustand und bekommt einen Ring in ihrer Farbe, bis die Anlage antwortet. Ohne Wert steht «?» auf der Kachel, und ein Tippen schickt den ersten Zustand, der als «an» gilt.
+- <span class="ui">Korry</span>: unter dem Name ein eckiges Fenster über die ganze Breite, wie die beleuchteten Tasten im Cockpit. Leuchtet es, ist es ganz in der <span class="ui">Colour</span> gefüllt, das <span class="ui">Label</span> des Zustands steht in Grossbuchstaben darauf, schwarz oder weiss, je nachdem, was sich besser liest. Sonst ist es dunkel und das Label schwach.
+- <span class="ui">LED Horizontal</span>: unter dem Name ein Streifen über die ganze Breite, das Label am Ende der Zeile.
+- <span class="ui">LED Vertical</span>: ein Streifen links über die ganze Höhe der Kachel, daneben der Name und darunter das Label.
+
+Das Licht leuchtet bei einem Zustand mit <span class="ui">Shows as on</span>. Die <span class="ui">Colour</span> ist seine Farbe, etwa «Warning» für warmes Wasser, «Accent» für Wasser und «Good» für Licht. Ohne <span class="ui">Button radius</span> unter <span class="ui">Settings</span> › <span class="ui">Cards</span> hat die Kachel die Ecken einer Karte, mit einem Wert die Ecken der Buttons. Sie wird nie schmaler als ihre Beschriftung und nie niedriger als ihre Zeilen und ihr Licht.
+
+**Am Gerät:** Ein Tippen irgendwo auf die Kachel schickt den nächsten Zustand, nach dem letzten wieder den ersten. Bei zwei Zuständen schaltet sie also um, bei drei geht sie der Reihe nach weiter. Bis die Anlage antwortet, pulsiert das Licht mit halber Kraft und zeigt das Label des gewünschten Zustands. Auf dem PaperS3, der nichts bewegt, steht es still auf halber Kraft. Ohne Wert steht «?» im Licht, und ein Tippen schickt den ersten Zustand, der als «an» gilt.
 
 Mit <span class="ui">Convert to</span> wird ein Toggle Button zur Button Group oder, mit genau zwei Zuständen, zum Switch. Der Name geht dabei verloren, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
@@ -84,7 +92,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
   - <span class="ui">Enter setup mode</span>: in die [Einrichtung](/geraete/einrichten) des Geräts
   - <span class="ui">Device action</span>: etwas, das nur dieses Gerät kann
   - <span class="ui">Open a popup</span>, mit <span class="ui">Popup</span>: ein [Popup](/designer/screens#popups) öffnen; auf einem Popup auch <span class="ui">Close this popup</span>
-- <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span> oder <span class="ui">Outlined</span>.
+- <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span>, <span class="ui">Outlined</span> oder <span class="ui">Text</span>. <span class="ui">Text</span> hat weder Fläche noch Rand, nur die Beschriftung in der Farbe, für eine leise Aktion in einer Karte wie «Nullen».
 - <span class="ui">Size</span>: wie hoch der Button ist, wie beim [Switch](#switch).
 - <span class="ui">Text size</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Schriftgrössen](/designer/schriftgroessen).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.

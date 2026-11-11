@@ -1,12 +1,14 @@
 /**
- * Toggle Button renderer (docs/2026-11-06-toggle-button.md): one tile in the
- * look of the state it shows - lib/toggle-button-shape.ts's numbers, which
- * the export writes for a device to draw. Drawn as a device draws it: the
- * face through the Switch's rasteriser, the disc and the ring as further
- * runs, the icon in the ink colour, one or two lines of text.
+ * Toggle Button renderer (docs/2026-11-06-toggle-button.md,
+ * docs/2026-11-11-led-look.md): a calm tile with its name and a light that
+ * says the state - lib/toggle-button-shape.ts's numbers, which the export
+ * writes for a device to draw. Drawn as a device draws it: the tile and the
+ * light through the Switch's rasteriser, the icon in the ink, the name, the
+ * state's label and the window's word as text.
  *
- * The reported state decides the look; a request nobody has confirmed puts
- * the ring round it; nothing reported is the quiet look with «?».
+ * The reported state decides the light; a request nobody has confirmed
+ * makes it pulse at half strength, saying what was asked; nothing reported
+ * is the light off with «?».
  */
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
@@ -14,7 +16,7 @@ import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registr
 import type { BDFFont } from "@/lib/bdffont"
 import type { PillBand } from "@/lib/pill-raster"
 import type { ButtonFace } from "@/lib/button-shape"
-import { toggleLooks, toggleName, TOGGLE_RING, type ToggleLook, type ToggleLooks } from "@/lib/toggle-button-shape"
+import { ASKED_HALF_MS, lightFill, toggleLooks, toggleName, type ToggleLook, type ToggleLooks } from "@/lib/toggle-button-shape"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
 import { getActiveSwitchStateIndex, getAskedSwitchStateIndex } from "./render-switch"
 import { loadBdfFont } from "./render-text-box"
@@ -40,6 +42,10 @@ export interface RenderToggleButtonOptions {
    * what the export draws each state with to cut out its icon.
    */
   forceState?: number
+  /** False where the device animates nothing (screen.motion: false): asked stands still. */
+  motion?: boolean
+  /** The time the pulse is drawn at; now when absent. */
+  now?: number
 }
 
 type Run = { band: PillBand; colour: string | null }
@@ -47,27 +53,20 @@ type Run = { band: PillBand; colour: string | null }
 const box = (x: number, y: number, w: number, h: number, r: number): PillBand => ({ x, y, w, h, rLow: r, rHigh: r })
 
 /**
- * The runs of one face, in priority order (paint-pills.ts): the disc first,
- * then the face - with the ring in place of its edge while a request is
- * outstanding, the face's own fill kept inside it, as a group's ring keeps
- * the chosen pill's.
+ * The runs of one face, in priority order (paint-pills.ts): the light first
+ * - inside a 1-px ring where it needs one -, then the tile, its edge and its
+ * fill.
  */
-export function toggleRuns(x: number, y: number, w: number, h: number, look: ToggleLook, face: ButtonFace, pressed: boolean, ring: string | null): Run[] {
+export function toggleRuns(x: number, y: number, w: number, h: number, look: ToggleLook, face: ButtonFace, light: string): Run[] {
   const runs: Run[] = []
-  if (look.disc && look.disc.r > 0) {
-    const d = look.disc
-    const fill = pressed ? d.pressed : d.normal
-    const edge = d.edge ? (pressed ? d.edge.pressed : d.edge.normal) : null
-    // A ring where the tint cannot be seen (1 bit): the inside first, 1 px in.
-    if (edge && d.r > 1) runs.push({ band: box(x + d.cx - d.r + 1, y + d.cy - d.r + 1, 2 * d.r - 2, 2 * d.r - 2, d.r - 1), colour: fill })
-    runs.push({ band: box(x + d.cx - d.r, y + d.cy - d.r, 2 * d.r, 2 * d.r, d.r), colour: edge ?? fill })
+  const l = look.light
+  if (l.w > 0 && l.h > 0) {
+    if (l.outline && l.w > 2 && l.h > 2) runs.push({ band: box(x + l.x + 1, y + l.y + 1, l.w - 2, l.h - 2, Math.max(0, l.r - 1)), colour: light })
+    runs.push({ band: box(x + l.x, y + l.y, l.w, l.h, l.r), colour: l.outline ?? light })
   }
-  const edge = ring ?? face.outline
-  const t = ring ? TOGGLE_RING : 1
-  if (edge) {
-    const r = Math.max(0, face.r - t)
-    runs.push({ band: box(x + t, y + t, w - 2 * t, h - 2 * t, r), colour: face.fill })
-    runs.push({ band: box(x, y, w, h, face.r), colour: edge })
+  if (face.outline) {
+    runs.push({ band: box(x + 1, y + 1, w - 2, h - 2, Math.max(0, face.r - 1)), colour: face.fill })
+    runs.push({ band: box(x, y, w, h, face.r), colour: face.outline })
   } else if (face.fill) {
     runs.push({ band: box(x, y, w, h, face.r), colour: face.fill })
   }
@@ -147,42 +146,56 @@ export function renderToggleButton(options: RenderToggleButtonOptions): ToggleLo
   const forced = options.forceState !== undefined
   const active = forced ? options.forceState! : getActiveSwitchStateIndex(obj, options.getPreviewValueFromTopic)
   const asked = forced ? -1 : getAskedSwitchStateIndex(obj, options.getAskedValueFromTopic)
-  const look = active >= 0 ? looks.states[active] : looks.none
+  const asking = asked >= 0 && asked !== active
+  // While asked, the light says what was asked for.
+  const look = asking ? looks.states[asked] : active >= 0 ? looks.states[active] : looks.none
   if (!look) return looks
   const pressed = options.pressed === true
   const face = pressed ? look.pressed : look.normal
-  const ring = asked >= 0 && asked !== active ? looks.ring : null
+  const motion = options.motion !== false
+  const now = options.now ?? Date.now()
+  const light = lightFill(look, asking, motion, now)
+  if (asking && motion) setTimeout(() => options.requestRedraw(), ASKED_HALF_MS - (now % ASKED_HALF_MS) + 5)
 
-  paintPills(ctx, toggleRuns(x, y, w, h, look, face, pressed, ring), background, options.colorDepth)
+  paintPills(ctx, toggleRuns(x, y, w, h, look, face, light), background, options.colorDepth)
 
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(x + look.clipX, y, look.clipW, h)
-  if (look.disc) ctx.rect(x, y, w, h)
-  ctx.clip()
-
-  const iconId = active >= 0 ? states[active]?.iconAssetId : undefined
+  // The state's icon before the name, in the ink.
+  const iconId = (asking ? states[asked] : active >= 0 ? states[active] : undefined)?.iconAssetId
   const image = look.icon ? iconOf(options, iconId) : null
   if (look.icon && image && image.complete && image.naturalWidth > 0) {
     const key = buttonIconKey(String(iconId))
     const raster = rasterisedIconOnBaseline(image, look.icon.size, look.icon.size, key)
     if (raster) ctx.drawImage(colouredIcon(raster, key, face.ink), x + look.icon.x, y + look.icon.y)
   }
-  ctx.restore()
 
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(x + look.clipX, y, look.clipW, h)
-  ctx.clip()
-  ctx.fillStyle = face.ink
   const fontId = String(obj.properties.fontId ?? "")
   const name = toggleName(obj)
-  if (look.second && name !== undefined) {
-    font(fontId).draw(name, x + look.textX, y + look.baseline)
-    font(look.second.fontId).draw(look.label, x + look.second.textX, y + look.second.baseline)
-  } else {
-    font(fontId).draw(look.label, x + look.textX, y + look.baseline)
+  // The name - or, an LED without a name, the state's label in its place.
+  const first = name ?? (look.light.label ? undefined : look.label)
+  if (first !== undefined) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(x + look.clipX, y, look.clipW, h)
+    ctx.clip()
+    ctx.fillStyle = face.ink
+    font(fontId).draw(first, x + look.textX, y + look.baseline)
+    ctx.restore()
   }
-  ctx.restore()
+  if (look.second) {
+    ctx.save()
+    ctx.fillStyle = look.second.ink
+    font(look.second.fontId).draw(look.label, x + look.second.textX, y + look.second.baseline)
+    ctx.restore()
+  }
+  const word = look.light.label
+  if (word) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(x + look.light.x, y + look.light.y, look.light.w, look.light.h)
+    ctx.clip()
+    ctx.fillStyle = asking ? word.askedInk : word.ink
+    font(word.fontId).draw(word.text, x + word.textX, y + word.baseline)
+    ctx.restore()
+  }
   return looks
 }

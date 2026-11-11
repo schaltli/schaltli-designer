@@ -144,7 +144,7 @@ test.describe("convert: the model", () => {
   test("Button Group → Toggle Button → Switch: the states kept, the on one marked; no name until one is given; never lower than its line", () => {
     const tile = convertObject(group(3), "toggle-button", FONTS)!
     expect(tile).toMatchObject({ id: "knoepfe", type: "toggle-button", x: 10, y: 100 })
-    expect(tile.properties).toMatchObject({ topic: "pump/state", writeTopic: "pump/set", switchStyle: "filled", switchColor: "accent", text: "" })
+    expect(tile.properties).toMatchObject({ topic: "pump/state", writeTopic: "pump/set", switchStyle: "korry", switchColor: "accent", text: "" })
     expect(tile.properties.states.map((s: Obj) => [s.readValue, s.showAsOn])).toEqual([
       ["OFF", false],
       ["ON", true],

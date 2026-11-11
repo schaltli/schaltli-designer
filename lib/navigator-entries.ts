@@ -6,6 +6,7 @@
 // export writes exactly these objects for a device to draw. What the
 // designer shows of an entry is then what a device gets, object for object.
 
+import { blendColors } from "@/lib/material-colors"
 import type { ScreenObject } from "@/components/project-editor"
 import type { LiveValue } from "@/lib/live-value"
 import { screenIconObject } from "@/lib/screen-icon"
@@ -48,26 +49,44 @@ export interface EntryLook {
   activeColor: string
   activeTextColor: string
   /**
+   * The LED look (docs/2026-11-11-led-look.md, decision 12): every icon on
+   * the card, the open one in the text colour with a strip under it in the
+   * accent, the others in `mutedColor`.
+   */
+  led?: boolean
+  mutedColor?: string
+  /**
    * The edge whose line lies over the entry's screen side, if the navigator
    * draws one: the open entry's box keeps its distance from the line, not
    * from under it (2026-10-11 - it stood 2 px from the line, 4 px from the
    * other side).
    */
   dividerSide?: Edge
+  /** The line between the entries and the light/dark place. */
+  dividerColor?: string
+  /** Where the light/dark place stands, and whether the strip runs across. */
+  themeSwitchAt?: ThemeSwitchAt
+  horizontal?: boolean
 }
 
 /** The navigator object's look, its colours as resolved for the screen it is drawn on. */
 export function entryLook(navigator: ScreenObject, fonts: { id: string; size?: number }[]): EntryLook {
   const p = navigator.properties
   const font = fonts.find((f) => f.id === p.fontId)
+  const textColor = p.textColor ?? "#000000"
+  const led = p.ground === "led"
   return {
     shows: p.shows ?? "iconsAndText",
     fontId: p.fontId,
     fontSize: font?.size ?? 16,
-    textColor: p.textColor ?? "#000000",
+    textColor,
     activeColor: p.activeColor ?? "#6750a4",
-    activeTextColor: p.activeTextColor ?? "#ffffff",
+    activeTextColor: led ? textColor : (p.activeTextColor ?? "#ffffff"),
+    ...(led ? { led: true, mutedColor: blendColors(p.backgroundColor ?? "#ffffff", textColor, 60) } : {}),
     dividerSide: p.borderColor && p.borderColor !== "transparent" ? (p.edge ?? "left") : undefined,
+    ...(p.borderColor && p.borderColor !== "transparent" ? { dividerColor: p.borderColor } : {}),
+    themeSwitchAt: themeSwitchAt(navigator),
+    horizontal: (p.edge ?? "left") === "top" || (p.edge ?? "left") === "bottom",
   }
 }
 
@@ -88,7 +107,25 @@ function asText(name: string): string {
  * §2.7), within an entry `width` by `height`. It is what glides along the
  * strip with a swipe (lib/navigator.ts markerRect).
  */
+/** The LED marker: a strip under the icon, as wide as a strip under a label. */
+export const LED_MARKER_W = 30
+export const LED_MARKER_H = 4
+
 export function markerBox(id: string, width: number, height: number, look: EntryLook): ScreenObject {
+  if (look.led) {
+    const content = look.shows === "iconsAndText" ? ENTRY_ICON + GAP + look.fontSize : ENTRY_ICON
+    const top = Math.floor((height - content - GAP - LED_MARKER_H) / 2)
+    return {
+      id: `${id}-active`,
+      type: "box",
+      x: Math.floor((width - LED_MARKER_W) / 2),
+      y: top + content + GAP,
+      width: LED_MARKER_W,
+      height: LED_MARKER_H,
+      zIndex: 0,
+      properties: { fillColor: look.activeColor, strokeColor: look.activeColor, strokeWidth: 0, cornerRadius: LED_MARKER_H / 2 },
+    } as ScreenObject
+  }
   // The line lies over the strip's last pixels on the screen's side.
   const d = NAVIGATOR_DIVIDER
   const side = look.dividerSide
@@ -105,12 +142,13 @@ export function markerBox(id: string, width: number, height: number, look: Entry
 }
 
 export function navigatorEntryObjects(screen: EntryScreen, width: number, height: number, look: EntryLook, active: boolean): ScreenObject[] {
-  const ink = active ? look.activeTextColor : look.textColor
+  const ink = active ? look.activeTextColor : look.led ? (look.mutedColor ?? look.textColor) : look.textColor
   // An entry without a name - the way back - is its icon alone: an empty
   // text would draw the text's stand-in «Label».
   const withText = look.shows === "iconsAndText" && screen.name !== ""
   const contentHeight = withText ? ENTRY_ICON + GAP + look.fontSize : ENTRY_ICON
-  const top = Math.floor((height - contentHeight) / 2)
+  // The LED look keeps room for its strip under the content, in every entry.
+  const top = Math.floor((height - contentHeight - (look.led ? GAP + LED_MARKER_H : 0)) / 2)
   const objects: ScreenObject[] = []
 
   if (active) objects.push(markerBox(screen.id, width, height, look))
@@ -260,35 +298,46 @@ export function themeSwitchAt(navigator: ScreenObject): ThemeSwitchAt {
 const THEME_SWITCH_HEIGHT = 30
 
 /**
- * The switch's objects in its place, `width` by `height`: one switch,
- * centred, in the colour the open entry stands out in - the accent on
- * «Panel», the screen's ground on «Accent».
+ * The light/dark place's objects, `width` by `height` (docs/2026-11-11-led-
+ * look.md, decision 13): an entry like the others - a moon while the
+ * installation is dark, a sun while it is light, the size of a screen's
+ * icon, in the entries' ink - behind a 1-px line in the edge colour on the
+ * entries' side (`at`: «far» puts the place at the strip's end, so the line
+ * at its start). A tap on the place asks for the other variant; the device
+ * does that for the place, whatever is drawn in it (contract 2.7).
+ * Until 2026-11-11 a switch with the two icons on its knob.
  */
 export function themeSwitchObjects(width: number, height: number, look: EntryLook): ScreenObject[] {
-  const h = Math.min(THEME_SWITCH_HEIGHT, height - 2 * GAP)
-  // Both «on»: light and dark are two choices, not on and off, and a switch
-  // shows a state's icon on its knob only while that state counts as on -
-  // with light «off» the sun never showed and the switch did not say what
-  // it was for (the user, 2026-10-11).
-  const states = [
-    { id: "sun", label: "", readValue: "light", writeValue: "light", showAsOn: true, iconAssetId: THEME_SWITCH_SUN },
-    { id: "moon", label: "", readValue: "dark", writeValue: "dark", showAsOn: true, iconAssetId: THEME_SWITCH_MOON },
-  ]
-  const base = { id: "theme-switch", type: "switch", x: 0, y: 0, width: 1000, height: h, zIndex: 1, properties: { states } } as ScreenObject
-  const w = Math.min(width - 2 * GAP, switchTrack(base, 2).w)
+  const at = look.themeSwitchAt ?? "far"
+  const horizontal = look.horizontal !== false
+  const ink = look.led ? (look.mutedColor ?? look.textColor) : look.textColor
+  const line = look.dividerColor ?? look.textColor
+  const divider = horizontal
+    ? { x: at === "near" ? width - 1 : 0, y: Math.floor(height / 2) - 18, width: 1, height: 36 }
+    : { x: Math.floor(width / 2) - 18, y: at === "near" ? height - 1 : 0, width: 36, height: 1 }
+  const rule = (value: string, icon: string) => ({ op: "==", operand: value, result: { kind: "icon", icon } })
   return [
     {
-      ...base,
-      x: Math.floor((width - w) / 2),
-      y: Math.floor((height - h) / 2),
-      width: w,
+      id: "theme-switch-line",
+      type: "box",
+      ...divider,
+      zIndex: 0,
+      properties: { fillColor: line, strokeColor: line, strokeWidth: 0, cornerRadius: 0 },
+    } as ScreenObject,
+    {
+      id: "theme-switch",
+      type: "icon",
+      x: Math.floor((width - ENTRY_ICON) / 2),
+      y: Math.floor((height - ENTRY_ICON - (look.led ? GAP + LED_MARKER_H : 0)) / 2),
+      width: ENTRY_ICON,
+      height: ENTRY_ICON,
+      zIndex: 1,
       properties: {
-        topic: THEME_STATE_TOPIC,
-        writeTopic: THEME_COMMAND_TOPIC,
-        states,
-        switchStyle: "filled",
-        switchColor: look.activeColor,
-        fontId: look.fontId,
+        assetId: THEME_SWITCH_SUN,
+        iconColor: ink,
+        backgroundColor: "transparent",
+        liveIconId: "lv1",
+        liveValues: [{ id: "lv1", source: { namespace: "topic", path: THEME_STATE_TOPIC }, rules: [rule("dark", THEME_SWITCH_MOON), rule("light", THEME_SWITCH_SUN)] }],
       },
     } as ScreenObject,
   ]

@@ -71,11 +71,18 @@ export function switchForm(obj: ScreenObject): SwitchForm {
   return obj.type === "switch" ? "knob" : "group"
 }
 
-/** How loud the chosen state is: the colour itself, or the colour halfway to the background. */
-export type SwitchStyle = "filled" | "tonal"
+/**
+ * How loud the chosen state is: the colour itself, the colour halfway to the
+ * background, or - a Button Group's third since 2026-11-11 - an LED strip
+ * under its label (docs/2026-11-11-led-look.md, decision 7). A Switch (the
+ * knob) has no LED form and draws it filled.
+ */
+export type SwitchStyle = "filled" | "tonal" | "led"
 
 export function switchStyleOf(obj: ScreenObject): SwitchStyle {
-  return obj.properties.switchStyle === "tonal" ? "tonal" : "filled"
+  const style = obj.properties.switchStyle
+  if (style === "led" && obj.type === "button-group") return "led"
+  return style === "tonal" ? "tonal" : "filled"
 }
 
 /** The one colour the author sets; the palette's own when there is none. */
@@ -271,12 +278,112 @@ export function switchSegments(obj: ScreenObject, count: number): SwitchRect[] {
 
 /** Which segment a finger at `x` is on. */
 export function switchSegmentAt(obj: ScreenObject, count: number, x: number): number {
+  if (switchStyleOf(obj) === "led") return switchLedSegmentAt(obj, count, x)
   const segments = switchSegments(obj, count)
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
     if (x < seg.x + seg.w || i === segments.length - 1) return i
   }
   return 0
+}
+
+/**
+ * The LED form of a Button Group (docs/2026-11-11-led-look.md, decision 7):
+ * no container of its own - the card it stands in frames and names it -,
+ * the segments side by side across the object, a 1-px line in the edge
+ * colour between two, under each label a strip, lit in the colour under the
+ * chosen one.
+ */
+export interface SwitchLedLook {
+  /** The chosen segment's label. */
+  ink: string
+  /** Every other label. */
+  muted: string
+  /** The lines between the segments. */
+  divider: string
+  /** A strip that is not lit. */
+  track: string
+  /** The chosen segment's strip. */
+  lit: string
+  /** An asked segment's strip, in turn with `askedDim` (decision 4). */
+  asked: string
+  askedDim: string
+  /** A ring round a strip the track hides (1 bit). */
+  outline: string | null
+}
+
+function hasColour(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== ""
+}
+
+export function switchLedLook(obj: ScreenObject, background: string, colorDepth: string | undefined): SwitchLedLook {
+  const ground = applyColorDepth(!background || background === "transparent" ? "#ffffff" : background, colorDepth)
+  const p = obj.properties ?? {}
+  const ink = applyColorDepth(hasColour(p.textColor) ? p.textColor : onColorFor(ground, colorDepth), colorDepth)
+  const track = applyColorDepth(hasColour(p.trackColor) ? p.trackColor : blendColors(ground, ink, 15), colorDepth)
+  const lit = applyColorDepth(switchColorOf(obj, colorDepth), colorDepth)
+  return {
+    ink,
+    muted: applyColorDepth(blendColors(ground, ink, 60), colorDepth),
+    divider: applyColorDepth(hasColour(p.borderColor) ? p.borderColor : blendColors(ground, ink, 20), colorDepth),
+    track,
+    lit,
+    asked: applyColorDepth(blendColors(track, lit, 50), colorDepth),
+    askedDim: applyColorDepth(blendColors(track, lit, 20), colorDepth),
+    outline: track.toLowerCase() === ground.toLowerCase() ? ink : null,
+  }
+}
+
+/** Padding beside a strip inside its segment, and between a label and its strip. */
+export const LED_STRIP_INSET = 8
+export const LED_STRIP_GAP = 5
+
+/** A strip's thickness for labels in `metrics`: the Toggle Button's rule, 6 px under 22 px. */
+export function ledStripThickness(metrics: LevelFontMetrics): number {
+  return Math.max(3, Math.trunc((metrics.capHeight * 2) / 5))
+}
+
+export interface SwitchLedLayout {
+  /** The segments, tiling the object edge to edge: where a finger counts and a label is clipped. */
+  segments: SwitchRect[]
+  /** The 1-px lines between two segments, the object's full height. */
+  dividers: { x: number; y: number; h: number }[]
+  /** Each segment's strip. */
+  strips: SwitchRect[]
+  /** The band the labels stand in, label and strip centred in the object together. */
+  labelBand: { y: number; h: number }
+}
+
+export function switchLedLayout(obj: ScreenObject, count: number, metrics: LevelFontMetrics): SwitchLedLayout {
+  const x = Math.trunc(obj.x)
+  const y = Math.trunc(obj.y)
+  const w = Math.max(0, Math.trunc(obj.width))
+  const h = Math.max(0, Math.trunc(obj.height))
+  const n = Math.max(1, count)
+  const line = metrics.ascent + metrics.descent
+  const strip = ledStripThickness(metrics)
+  const top = y + Math.trunc((h - (line + LED_STRIP_GAP + strip)) / 2)
+  const segments: SwitchRect[] = []
+  const strips: SwitchRect[] = []
+  const dividers: { x: number; y: number; h: number }[] = []
+  for (let i = 0; i < n; i++) {
+    const from = x + Math.trunc((w * i) / n)
+    const to = x + Math.trunc((w * (i + 1)) / n)
+    segments.push({ x: from, y, w: to - from, h, r: 0 })
+    // The line belongs to the segment it starts: its label clears it.
+    if (i > 0) dividers.push({ x: from, y, h })
+    const inset = Math.min(LED_STRIP_INSET, Math.trunc((to - from) / 4))
+    strips.push({ x: from + inset, y: top + line + LED_STRIP_GAP, w: Math.max(0, to - from - 2 * inset), h: strip, r: Math.trunc(strip / 2) })
+  }
+  return { segments, dividers, strips, labelBand: { y: top, h: line } }
+}
+
+/** Which segment of the LED form a finger at `x` is on. */
+export function switchLedSegmentAt(obj: ScreenObject, count: number, x: number): number {
+  const n = Math.max(1, count)
+  const w = Math.max(1, Math.trunc(obj.width))
+  const i = Math.trunc(((x - Math.trunc(obj.x)) * n) / w)
+  return Math.max(0, Math.min(n - 1, i))
 }
 
 /** The track of the switch form: two thirds of the object's height, at its left edge. */

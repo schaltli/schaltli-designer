@@ -21,6 +21,7 @@
  * mode selector, which the split already removed the need for.
  */
 
+import { toggleStyleOf } from "@/lib/toggle-button-shape"
 import { switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
 import { smallerStyle, styledFont, type TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
@@ -54,6 +55,14 @@ import {
 const STYLES = [
   { value: "filled", label: "Full colour" },
   { value: "tonal", label: "Tint" },
+] as const
+// A Button Group's: the two, and a strip under the chosen label (docs/2026-11-11-led-look.md, decision 7).
+const GROUP_STYLE_OPTIONS = [...STYLES, { value: "led", label: "LED" }] as const
+// A Toggle Button's (docs/2026-11-11-led-look.md, decision 1).
+const TOGGLE_STYLE_OPTIONS = [
+  { value: "korry", label: "Korry" },
+  { value: "led-h", label: "LED Horizontal" },
+  { value: "led-v", label: "LED Vertical" },
 ] as const
 
 interface SwitchPropertiesProps {
@@ -170,14 +179,25 @@ export function SwitchProperties({
       </PropertySection>
 
       <PropertySection title="Shape">
-        <SelectField
-          id="switchStyle"
-          label="Style"
-          value={switchStyleOf(selectedObject)}
-          options={STYLES}
-          onChange={(value) => updateProperty("switchStyle", value)}
-          hint="How loud the chosen state is. Everything else - the container, the quiet track, the labels - follows from the one colour below."
-        />
+        {tile ? (
+          <SelectField
+            id="switchStyle"
+            label="Style"
+            value={toggleStyleOf(selectedObject)}
+            options={TOGGLE_STYLE_OPTIONS}
+            onChange={(value) => updateProperty("switchStyle", value)}
+            hint="The tile stays calm; a light says the state: a window under the name (Korry), a strip under it, or a strip at the left. The colour below is the light's."
+          />
+        ) : (
+          <SelectField
+            id="switchStyle"
+            label="Style"
+            value={switchStyleOf(selectedObject)}
+            options={selectedObject.type === "button-group" ? GROUP_STYLE_OPTIONS : STYLES}
+            onChange={(value) => updateProperty("switchStyle", value)}
+            hint="How loud the chosen state is. Everything else - the container, the quiet track, the labels - follows from the one colour below."
+          />
+        )}
         {/* The size in millimetres where the device gives a scale: S, M or
             L (docs/2026-09-30-size-scale.md). */}
         {textScale && !tile ? (
@@ -193,7 +213,7 @@ export function SwitchProperties({
       <PropertySection title="States" summary={listSummary(states.length, "state")}>
         <FieldNote>
           {tile
-            ? "One tile in the look of whichever state's read value matches the read topic: in the colour while that state shows as on, a card otherwise. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
+            ? "One calm tile; its light says whichever state's read value matches the read topic: lit in the colour while that state shows as on, dark otherwise, pulsing while a tap waits for its answer. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
             : knob
             ? "One area showing whichever state's read value matches the read topic. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
             : "Segments side by side, in this order. Tapping one publishes its write value, and the active segment is whichever state's read value matches the read topic."}

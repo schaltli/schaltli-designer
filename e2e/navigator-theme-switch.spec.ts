@@ -113,7 +113,7 @@ test.describe("the navigator's bar", () => {
 test.describe("the light/dark switch, drawn and exported", () => {
   test.beforeEach(async ({ page }) => ready(page))
 
-  test("drawn at Near as a switch: knob left while light, right while dark; the entries start below it", async ({ page }) => {
+  test("drawn at Near as an entry: a sun while light, a moon while dark; the entries start below it", async ({ page }) => {
     const p = project({ themeSwitch: "near", backgroundColor: "#202020", textColor: "#c0c0c0", activeColor: "#4060ff", activeTextColor: "#ffffff" })
     const at = async (overrides: Record<string, string>) => {
       const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: { ...p, screens: [{ ...p.screens[1], objects: p.screens[0].objects }, p.screens[2]] }, screenIndex: 0, topicOverrides: overrides })
@@ -122,10 +122,10 @@ test.describe("the light/dark switch, drawn and exported", () => {
     }
     const light = await at({ "schaltli/state/theme": "light" })
     const dark = await at({ "schaltli/state/theme": "dark" })
-    // The knob moves from one end of the track to the other.
+    // The sun becomes the moon (docs/2026-11-11-led-look.md, decision 13).
     let differs = 0
     for (let y = 0; y < THEME_SWITCH_LENGTH; y++) for (let x = 0; x < 78; x++) if (light(x, y) !== dark(x, y)) differs++
-    expect(differs).toBeGreaterThan(100)
+    expect(differs).toBeGreaterThan(20)
     // The first entry, open, starts below the switch: its accent box.
     expect(light(10, THEME_SWITCH_LENGTH + 10)).toBe("#4060ff")
     expect(light(10, 10)).toBe("#202020")
@@ -138,16 +138,16 @@ test.describe("the light/dark switch, drawn and exported", () => {
     const nav = JSON.parse(await zip.file("project.json")!.async("string")).navigators[0]
     expect(nav.themeSwitch).toMatchObject({ at: "far", length: THEME_SWITCH_LENGTH })
     expect(nav.entryLength).toBe(Math.floor((480 - THEME_SWITCH_LENGTH) / 2))
-    const sw = nav.themeSwitch.objects.find((o: any) => o.type === "switch")
-    expect(sw.properties).toMatchObject({ topic: "schaltli/state/theme", writeTopic: "schaltli/cmnd/theme" })
-    expect(sw.properties.states.map((st: any) => st.readValue)).toEqual(["light", "dark"])
-    // Both count as on, so the knob carries the sun as well as the moon.
-    expect(sw.properties.states.map((st: any) => st.showAsOn)).toEqual([true, true])
-    // The sun and the moon on the knob, baked, light and dark.
-    for (const st of sw.properties.states) {
-      expect(zip.file(st.path), st.path).not.toBeNull()
-      expect(zip.file(st.pathDark), st.pathDark).not.toBeNull()
-    }
+    // An entry like the others since 2026-11-11 (LED look, decision 13): a
+    // live icon on the theme - the sun, the moon while dark - behind a line;
+    // the device asks for the other variant on a tap on the place.
+    const icon = nav.themeSwitch.objects.find((o: any) => o.type === "icon")
+    expect(icon.properties.liveValues[0].source).toEqual({ namespace: "topic", path: "schaltli/state/theme" })
+    expect(icon.properties.liveValues[0].rules.map((r: any) => r.operand)).toEqual(["dark", "light"])
+    const line = nav.themeSwitch.objects.find((o: any) => o.type === "box")
+    // The strip runs down the left: the line lies across, at the place's top
+    // (Far), towards the entries.
+    expect(line).toMatchObject({ y: 0, width: 36, height: 1 })
     expect(JSON.parse(await zip.file("project.json")!.async("string")).topics.some((t: any) => t.topic === "schaltli/state/theme")).toBe(true)
 
     const androidBase64: string = await page.evaluate((proj) => (window as any).__buildAndroidZipForTest(proj), p)
@@ -155,8 +155,8 @@ test.describe("the light/dark switch, drawn and exported", () => {
     const androidNav = JSON.parse(await androidZip.file("project.json")!.async("string")).navigators[0]
     expect(androidNav.themeSwitch).toMatchObject({ at: "far", length: THEME_SWITCH_LENGTH })
     expect(androidNav.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
-    const androidSwitch = androidNav.themeSwitch.objects.find((o: any) => o.type === "switch")
-    expect(androidSwitch.properties.topic).toBe("schaltli/state/theme")
+    const androidIcon = androidNav.themeSwitch.objects.find((o: any) => o.type === "icon")
+    expect(androidIcon.properties.liveValues[0].source.path).toBe("schaltli/state/theme")
   })
 
   test("without a switch the export has none, and «Accent» exports no line", async ({ page }) => {
@@ -165,5 +165,29 @@ test.describe("the light/dark switch, drawn and exported", () => {
     const nav = JSON.parse(await zip.file("project.json")!.async("string")).navigators[0]
     expect(nav.themeSwitch).toBeUndefined()
     expect(nav.borderColor).toBeUndefined()
+  })
+})
+
+// docs/2026-11-11-led-look.md, decision 12: «Background» LED - the card, the
+// open screen's icon in the text colour with a strip under it, the others
+// muted; the strip is the marker that glides along with a swipe.
+test.describe("the LED look", () => {
+  test("the open entry: the icon in the text colour, a 30 x 4 strip in the accent under it; the others muted", () => {
+    const nav = { type: "navigator", properties: { ground: "led", shows: "icons", edge: "bottom", backgroundColor: "#181c24", textColor: "#f1f5f9", activeColor: "#0ea5e9", borderColor: "#272d3b" } } as any
+    const look = entryLook(nav, [])
+    expect(look.led).toBe(true)
+    expect(look.activeTextColor).toBe("#f1f5f9")
+    const screen = { id: "a", name: "Licht", iconAssetId: "square" } as any
+    const open = navigatorEntryObjects(screen, 60, 64, look, true)
+    const marker = open.find((o) => o.type === "box")!
+    expect(marker).toMatchObject({ width: 30, height: 4, x: 15, properties: { fillColor: "#0ea5e9" } })
+    const icon = open.find((o) => o.type === "icon")!
+    expect(icon.properties.iconColor).toBe("#f1f5f9")
+    // The strip under the icon, the two centred together.
+    expect(marker.y).toBe(icon.y + icon.height + 4)
+    const shut = navigatorEntryObjects(screen, 60, 64, look, false)
+    expect(shut.find((o) => o.type === "box")).toBeUndefined()
+    expect(shut.find((o) => o.type === "icon")!.properties.iconColor).toBe(look.mutedColor)
+    expect(shut.find((o) => o.type === "icon")!.y).toBe(icon.y)
   })
 })

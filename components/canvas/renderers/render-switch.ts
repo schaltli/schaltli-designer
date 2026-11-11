@@ -40,7 +40,7 @@ import { loadBdfFont } from "./render-text-box"
 import { paintPills, type PaintedPill } from "./paint-pills"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
-import { onColorFor } from "@/lib/material-colors"
+import { blendColors, onColorFor } from "@/lib/material-colors"
 import {
   SWITCH_GAP,
   SWITCH_PAD,
@@ -59,6 +59,9 @@ import {
   switchSegments,
   switchSlotAt,
   switchStateIsOn,
+  switchStyleOf,
+  switchLedLayout,
+  switchLedLook,
   switchTrack,
   type SwitchRect,
 } from "@/lib/switch-shape"
@@ -164,6 +167,10 @@ interface RenderSwitchOptions {
   screenBackgroundColor?: string
   /** The state a finger is holding down, in the preview. */
   pressedStateIndex?: number
+  /** False where the device animates nothing: an asked LED strip stands still. */
+  motion?: boolean
+  /** The time an asked strip's pulse is drawn at; now when absent. */
+  now?: number
 }
 
 export function getActiveSwitchStateIndex(
@@ -324,8 +331,72 @@ export function renderSwitch(options: RenderSwitchOptions): void {
     drawKnobSwitch(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
     return
   }
+  if (switchStyleOf(obj) === "led") {
+    drawLedGroup(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
+    return
+  }
   drawGroup(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
 }
+
+/** How long each half of an asked strip's pulse lasts (the Toggle Button's). */
+const LED_ASKED_HALF_MS = 500
+
+/**
+ * The LED form (docs/2026-11-11-led-look.md, decision 7): no container, the
+ * lines between the segments, a strip under each label - lit under the
+ * chosen one, pulsing under an asked one, standing still at half where the
+ * device moves nothing. The label of the chosen segment in the ink, the
+ * others muted.
+ */
+function drawLedGroup(
+  options: RenderSwitchOptions,
+  states: SwitchState[],
+  metrics: ReturnType<typeof switchFontMetrics>,
+  background: string,
+  activeIndex: number,
+  askedIndex: number,
+  pressedIndex: number,
+): void {
+  const { ctx, obj, colorDepth } = options
+  const look = switchLedLook(obj, background, colorDepth)
+  const layout = switchLedLayout(obj, states.length, metrics)
+  const motion = options.motion !== false
+  const now = options.now ?? Date.now()
+  const asking = askedIndex >= 0 && askedIndex !== activeIndex
+  const pulse = motion && Math.floor(now / LED_ASKED_HALF_MS) % 2 === 1 ? look.askedDim : look.asked
+  if (asking && motion) setTimeout(() => options.requestRedraw(), LED_ASKED_HALF_MS - (now % LED_ASKED_HALF_MS) + 5)
+
+  const painted: PaintedPill[] = []
+  layout.strips.forEach((strip, index) => {
+    const fill = asking && index === askedIndex ? pulse : index === activeIndex && !asking ? look.lit : index === activeIndex ? look.asked : look.track
+    if (look.outline) painted.push(pillInside(strip, 1, fill))
+    painted.push(wholePill(strip, look.outline ?? fill))
+  })
+  for (const d of layout.dividers) painted.push(wholePill({ x: d.x, y: d.y, w: 1, h: d.h, r: 0 }, look.divider))
+  // A finger on a segment: the state layer, the ink at 10 % over the ground.
+  if (pressedIndex >= 0 && layout.segments[pressedIndex]) {
+    painted.push(wholePill(layout.segments[pressedIndex], applyColorDepth(blendColors(background, look.ink, 10), colorDepth)))
+  }
+  paintPills(ctx, painted, background, colorDepth)
+
+  layout.segments.forEach((seg, index) => {
+    const state = states[index]
+    const chosen = asking ? index === askedIndex : index === activeIndex
+    const ink = chosen ? look.ink : look.muted
+    const label = state.label || ""
+    const assetId = (chosen && state.activeIconAssetId) || state.iconAssetId
+    const band = { x: seg.x + 1, y: layout.labelBand.y, w: Math.max(0, seg.w - 2), h: layout.labelBand.h, r: 0 }
+    const content = switchContent({ ...band, w: Math.max(band.w, band.h) }, metrics, !!assetId, measureLabel(options, label))
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(seg.x + 1, seg.y, Math.max(0, seg.w - 1), seg.h)
+    ctx.clip()
+    if (content.icon) drawStateIcon(options, assetId, content.icon, ink)
+    drawLabel(options, seg, label, content.textX, content.baseline, ink)
+    ctx.restore()
+  })
+}
+
 
 function drawGroup(
   options: RenderSwitchOptions,
