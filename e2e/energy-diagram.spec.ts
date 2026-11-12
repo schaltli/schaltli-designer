@@ -13,7 +13,7 @@ import { planDeploy } from "../lib/deploy-plan"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
 import { Jimp } from "jimp"
 import { ENERGY_ROLES, ROLES, THEMES, applyTheme, nearestRole, resolveRole } from "../lib/themes"
-import { FLOW_ICON, defaultDiagram, expand565, pack565, rgb565, rowStep, trackColour, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
+import { FLOW_ICON, modeSwitchLayout, defaultDiagram, expand565, pack565, rgb565, rowStep, trackColour, listedNodes, reorderedNodes, resolveEnergy, sankeyLayout, waveColour, withWatts, type EnergyNode } from "../lib/energy-diagram"
 
 // The energy diagram in the designer (docs/2026-10-11-energy-diagram.md,
 // tasks/energy-diagram-plan.md D1-D8). The core's own numbers are
@@ -491,7 +491,7 @@ async function stillDdf(): Promise<Uint8Array> {
   return zip.generateAsync({ type: "uint8array" })
 }
 
-async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopup = false, stillDevice = false): Promise<string> {
+async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopup = false, stillDevice = false, modeSwitch?: string): Promise<string> {
   const camper: any = await buildCamperProject(stillDevice ? await stillDdf() : new Uint8Array(fs.readFileSync(DDF_43B)))
   const d = defaultDiagram(SIZE)
   const nodes = d.nodes.map((n) => ({
@@ -517,7 +517,7 @@ async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopu
         name: "Energy",
         masterScreenId: master.id,
         objects: [
-          { id: "e", type: "energy-diagram", ...ORIGIN, ...SIZE, zIndex: 1, properties: { ...d, mode, motion, nodes, fontId: font } },
+          { id: "e", type: "energy-diagram", ...ORIGIN, ...SIZE, zIndex: 1, properties: { ...d, mode, motion, nodes, fontId: font, ...(modeSwitch ? { modeSwitch } : {}) } },
           { id: "label", type: "text", x: 600, y: 40, width: 160, height: 30, zIndex: 2, properties: { text: "Still", fontId: font, textColor: "text" } },
         ],
       },
@@ -823,6 +823,40 @@ test.describe("a tap on an energy diagram's node", () => {
         .not.toBe(before)
     })
   }
+})
+
+// docs/2026-11-11-energy-mode-switch.md: the diagram's own switch, tapped in
+// the preview, shows the other mode there - the icon of the mode shown in
+// the text's colour, the other muted.
+test("a tap on the diagram's own switch shows the other mode in the preview", async ({ page }) => {
+  await loadProject(page, await previewProject("flow", false, false, false, "top-right"))
+  await page.getByRole("button", { name: /^Energy/ }).first().click()
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await page.getByRole("button", { name: "Simulation", exact: true }).click()
+  await page.waitForTimeout(400)
+  const sw = modeSwitchLayout("top-right", SIZE)!
+  const disc = sw.flow.shapes.find((sh) => sh.kind === "disc") as { cx: number; cy: number }
+  const at = async (x: number, y: number) => {
+    const px = await canvasPixels(page)
+    const i = ((px.top + ORIGIN.y + y) * px.width + px.left + ORIGIN.x + x) * 4
+    return px.data.slice(i, i + 3).join(",")
+  }
+  // The Flow's dot: its icon in the text's colour while Flow shows.
+  const flowShown = await at(disc.cx, disc.cy)
+  const { box } = await getMainCanvas(page)
+  const tap = sw.sankey.tap
+  const p = devicePoint(box, ORIGIN.x + tap.x + tap.width / 2, ORIGIN.y + tap.y + tap.height / 2, SCREEN_43B)
+  await expect
+    .poll(async () => {
+      await page.mouse.click(p.x, p.y)
+      await page.waitForTimeout(300)
+      return at(disc.cx, disc.cy)
+    }, { timeout: 15000 })
+    .not.toBe(flowShown)
+  // Back to the editor: the object's own mode again, unchanged in the project.
+  await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
+  await page.waitForTimeout(300)
+  expect(await at(disc.cx, disc.cy)).toBe(flowShown)
 })
 
 // Since 2026-10-12 (the knob and the PaperS3 got it): gated by the device's

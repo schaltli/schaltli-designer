@@ -90,9 +90,73 @@ export interface EnergyDiagramProperties {
   fullScale: number
   fontId?: string
   nodes: EnergyNode[]
+  /** Where its own Flow/Sankey switch sits (docs/2026-11-11-energy-mode-switch.md); none where absent. */
+  modeSwitch?: SwitchCorner
 }
 
 export const DEFAULT_FULL_SCALE = 1000
+
+// ---- its own mode switch (docs/2026-11-11-energy-mode-switch.md)
+
+export type SwitchCorner = "none" | "top-left" | "top-right" | "bottom-left" | "bottom-right"
+export const SWITCH_CORNERS: readonly SwitchCorner[] = ["none", "top-left", "top-right", "bottom-left", "bottom-right"]
+/** A finger's tap area per icon, and the icon in its middle (decision 3). */
+export const SWITCH_TAP = 44
+export const SWITCH_ICON = 20
+
+/** A piece of a switch icon: a stroke with round ends, or a dot - outlines the diagram already fills. */
+export type SwitchShape = { kind: "capsule"; x0: number; y0: number; x1: number; y1: number; width: number } | { kind: "disc"; cx: number; cy: number; r: number }
+
+export interface ModeSwitchLayout {
+  corner: SwitchCorner
+  flow: { tap: Box; shapes: SwitchShape[] }
+  sankey: { tap: Box; shapes: SwitchShape[] }
+}
+
+/** A corner a diagram's switch may take - its name, or an exported layout naming it; none for anything else. */
+export function switchCornerOf(v: unknown): SwitchCorner {
+  const named = v && typeof v === "object" ? (v as { corner?: unknown }).corner : v
+  return SWITCH_CORNERS.includes(named as SwitchCorner) ? (named as SwitchCorner) : "none"
+}
+
+/**
+ * The two icons in their corner, Flow first, each in a tap area of 44 px:
+ * Flow a line with a dot on it, Sankey three bands narrowing downwards.
+ * Null without a switch.
+ */
+export function modeSwitchLayout(corner: SwitchCorner, size: Size): ModeSwitchLayout | null {
+  if (corner === "none") return null
+  const x = corner.endsWith("left") ? 0 : size.width - 2 * SWITCH_TAP
+  const y = corner.startsWith("top") ? 0 : size.height - SWITCH_TAP
+  const pad = (SWITCH_TAP - SWITCH_ICON) / 2
+  const fx = x + pad, sx = x + SWITCH_TAP + pad, iy = y + pad
+  return {
+    corner,
+    flow: {
+      tap: { x, y, width: SWITCH_TAP, height: SWITCH_TAP },
+      shapes: [
+        { kind: "capsule", x0: fx + 1, y0: iy + 10, x1: fx + 19, y1: iy + 10, width: 2 },
+        { kind: "disc", cx: fx + 10, cy: iy + 10, r: 4 },
+      ],
+    },
+    sankey: {
+      tap: { x: x + SWITCH_TAP, y, width: SWITCH_TAP, height: SWITCH_TAP },
+      shapes: [
+        { kind: "capsule", x0: sx + 2, y0: iy + 4, x1: sx + 18, y1: iy + 4, width: 4 },
+        { kind: "capsule", x0: sx + 2, y0: iy + 10, x1: sx + 14, y1: iy + 10, width: 4 },
+        { kind: "capsule", x0: sx + 2, y0: iy + 16, x1: sx + 9, y1: iy + 16, width: 4 },
+      ],
+    },
+  }
+}
+
+/** Which mode a tap at (x, y), relative to the diagram, asks for; none off the switch. */
+export function switchAtTap(corner: SwitchCorner, size: Size, x: number, y: number): EnergyMode | undefined {
+  const l = modeSwitchLayout(corner, size)
+  if (!l) return undefined
+  const inside = (b: Box) => x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height
+  return inside(l.flow.tap) ? "flow" : inside(l.sankey.tap) ? "sankey" : undefined
+}
 
 /**
  * A new diagram for a box (the designer's «Insert», spec «Behaviour»): the
@@ -299,6 +363,23 @@ export function sankeyLayout(nodes: readonly ResolvedNode[], size: Size, fullSca
   return { bars, slots, bands, bus }
 }
 
+/**
+ * The Sankey with its switch's corner kept free (decision 4): laid out in
+ * the height under or over the switch's row.
+ */
+export function sankeyLayoutBeside(nodes: readonly ResolvedNode[], size: Size, fullScale: number, corner: SwitchCorner): SankeyLayout {
+  if (corner === "none") return sankeyLayout(nodes, size, fullScale)
+  const l = sankeyLayout(nodes, { width: size.width, height: Math.max(0, size.height - SWITCH_TAP) }, fullScale)
+  if (!corner.startsWith("top")) return l
+  const dy = SWITCH_TAP
+  return {
+    bars: l.bars.map((b) => ({ ...b, y: b.y + dy })),
+    slots: l.slots.map((s) => ({ ...s, y: s.y + dy })),
+    bands: l.bands.map((b) => ({ ...b, polygon: b.polygon.map((q) => ({ x: q.x, y: q.y + dy })) })),
+    bus: { ...l.bus, y: l.bus.y + dy },
+  }
+}
+
 // The Flow's circles (spec decision 9; the target picture).
 export const FLOW_NODE_R = 32
 export const FLOW_BUS_R = 14
@@ -503,9 +584,9 @@ export function flowBoxes(layout: FlowLayout, m: LabelMetrics): DiagramBoxes {
  * within FLOW_NODE_R of its centre; in the Sankey in its slot, on its side
  * - its label and its bar. Never the bus: it has no action (decision 13).
  */
-export function nodeAtTap(mode: string, nodes: readonly EnergyNode[], resolved: readonly ResolvedNode[], size: Size, fullScale: number, x: number, y: number): string | undefined {
+export function nodeAtTap(mode: string, nodes: readonly EnergyNode[], resolved: readonly ResolvedNode[], size: Size, fullScale: number, x: number, y: number, corner: SwitchCorner = "none"): string | undefined {
   if (mode === "sankey") {
-    const layout = sankeyLayout(resolved, size, fullScale)
+    const layout = sankeyLayoutBeside(resolved, size, fullScale, corner)
     const slot = layout.slots.find((s) => y >= s.y && y < s.y + s.height && (s.side === "left" ? x < SANKEY_LABEL_W + SANKEY_BAR_W : x >= size.width - SANKEY_LABEL_W - SANKEY_BAR_W))
     return slot?.id
   }

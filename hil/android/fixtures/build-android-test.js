@@ -122,7 +122,7 @@ const svgAsset = (id, name, body) => ({
 
 // screen-7's diagrams: a source with an icon, a storage with its charge
 // and an icon, the rest; Motion off, so the screenshot is the still picture.
-function energyDiagram(id, mode, x, y, width, height, { motion = false, solarAction } = {}) {
+function energyDiagram(id, mode, x, y, width, height, { motion = false, solarAction, modeSwitch } = {}) {
   const at = (fx, fy) => ({ x: Math.round(width * fx), y: Math.round(height * fy) });
   const watts = [{ text: "{watts} W" }];
   return {
@@ -145,6 +145,9 @@ function energyDiagram(id, mode, x, y, width, height, { motion = false, solarAct
       idleColor: TRACK,
       chargeColor: FILL,
       dischargeColor: "#ff5252",
+      // Its own switch (docs/2026-11-11-energy-mode-switch.md), laid out
+      // as the export lays it out.
+      ...(modeSwitch ? { modeSwitch } : {}),
       nodes: [
         { id: "bus", role: "bus", name: "12 V", ...at(0.5, 0.45) },
         { id: "solar", role: "source", name: "Solar", colorRole: "#ffd54f", color: "#ffd54f", topic: "hil/energy/solar", iconAssetId: "icon-circle", lines: watts, ...(solarAction ? { action: solarAction } : {}), ...at(0.2, 0.2) },
@@ -1058,7 +1061,7 @@ function buildProject(fonts) {
         iconAssetId: "icon-circle",
         objects: [
           energyDiagram("e-flow", "flow", 0, 0, SCREEN_W, 330),
-          energyDiagram("e-sankey", "sankey", 0, 330, SCREEN_W, SCREEN_H - 330),
+          energyDiagram("e-sankey", "sankey", 0, 330, SCREEN_W, SCREEN_H - 330, { modeSwitch: "top-right" }),
           // A band of colour under it: two dark screens with a diagram on
           // them differ by under the 5 % the run's paging check asks of a swipe.
           { id: "e7-band", type: "box", zIndex: 0, x: 0, y: SCREEN_H - 90, width: SCREEN_W, height: 90, properties: { fillColor: "#16263a", strokeColor: "transparent" } },

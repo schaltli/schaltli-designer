@@ -1112,6 +1112,15 @@ topics say, with its port of `lib/energy-diagram.ts`.
   `fullScale` the watts that fill its height; names, lines and icons from
   `flowBoxes` and `sankeyBoxes` with `fontSize` and `valueFontSize`. Every
   number a device needs is in those functions and their constants.
+- **Its own switch** (2026-11-11, docs/2026-11-11-energy-mode-switch.md):
+  where the export carries `modeSwitch` - `{ corner, flow: { tap, shapes },
+  sankey: { tap, shapes } }`, laid out by `modeSwitchLayout` - the Sankey
+  comes from `sankeyLayoutBeside`, its height less `SWITCH_TAP` (44) on the
+  corner's side; the device fills each shape (`capsule` x0 y0 x1 y1 width,
+  `disc` cx cy r) after the diagram, the shown mode's in `textColor`, the
+  other's in `mutedColor`. A tap inside a `tap` box shows that mode on this
+  display until the project is loaded again; a tap on a node still runs its
+  action.
 - **Colours:** a node's colour is its `color`; a storage's is `chargeColor`
   while taking and `dischargeColor` while giving. A node at 0 W is drawn
   in `idleColor` (its circle, line, bar and band). The bus is `busColor`.

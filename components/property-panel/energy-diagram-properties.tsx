@@ -54,6 +54,15 @@ interface EnergyDiagramPropertiesProps {
   deviceAnimates?: boolean
 }
 
+// Where the diagram's own Flow/Sankey switch sits (docs/2026-11-11-energy-mode-switch.md).
+const MODE_SWITCH_CORNERS = [
+  { value: "none", label: "None" },
+  { value: "top-left", label: "Top left" },
+  { value: "top-right", label: "Top right" },
+  { value: "bottom-left", label: "Bottom left" },
+  { value: "bottom-right", label: "Bottom right" },
+]
+
 const MODES = [
   { value: "flow", label: "Flow" },
   { value: "sankey", label: "Sankey" },
@@ -157,6 +166,14 @@ export function EnergyDiagramProperties({
     <PropertySections>
       <PropertySection title="Diagram">
         <SelectField id="energyMode" label="Mode" value={mode} options={MODES} onChange={(value) => update({ mode: value })} hint="The same nodes, as bands or as circles and lines." />
+        <SelectField
+          id="energyModeSwitch"
+          label="Mode switch"
+          value={typeof p.modeSwitch === "string" ? p.modeSwitch : "none"}
+          options={MODE_SWITCH_CORNERS}
+          onChange={(value) => update({ modeSwitch: value === "none" ? undefined : value })}
+          hint="Two icons in a corner: a tap shows Flow or Sankey on the display."
+        />
         {/* A device that animates nothing (the PaperS3) draws it still: nothing to choose. */}
         {deviceAnimates !== false && (
           <ToggleRow label="Motion" checked={p.motion !== false} onChange={(checked) => update({ motion: checked })} text="Dots and waves move" hint="Off: drawn still, on a device too." />

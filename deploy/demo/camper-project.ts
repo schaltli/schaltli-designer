@@ -7,9 +7,9 @@
 // fonts make it 3 MB -: that spec, with DEMO_SEED_DIR, writes it into a
 // project store, which the server's setup copies over.
 //
-//   Energie first, an energy diagram as a Flow or a Sankey - «Flow | Sankey»
-//           top right switches them on this display only (the local topic
-//           local/energie/view, docs/2026-10-13-local-topics.md): the sun,
+//   Energie first, an energy diagram as a Flow or a Sankey - its own two
+//           icons bottom right switch them on this display only
+//           (docs/2026-11-11-energy-mode-switch.md): the sun,
 //           the mains charger and the
 //           DC-DC charger off the engine into the 12 V bus, the battery and
 //           what draws off it, the dots running while watts flow. The
@@ -160,7 +160,6 @@ const jsonTopic = (t: string, type: "numeric" | "text", values: string[]) => ({
   subtopics: [{ id: `${topic(t, "text", []).id}-value`, path: "value", type }],
 })
 
-const ENERGY_VIEW = "local/energie/view"
 
 const TOPICS = [
   ...[1, 2, 3].flatMap((n) => [
@@ -194,9 +193,6 @@ const TOPICS = [
   // Light or dark for every device at once; the bridge keeps it.
   topic(`${S}theme`, "text", ["light", "dark"]),
   topic(`${C}theme`, "text", ["light", "dark"]),
-  // Which look the energy page shows - each display its own, nothing on the
-  // broker (a local topic).
-  { ...topic(ENERGY_VIEW, "text", ["flow", "sankey"]), local: true, initial: "flow" },
 ]
 
 // Any light burning: the Licht page's icon reads it.
@@ -490,7 +486,6 @@ function energyScreen() {
   const box = { x: 124, y: 66, width: 656, height: 404 }
   const at = (fx: number, fy: number) => ({ x: Math.round(box.width * fx), y: Math.round(box.height * fy) })
   const line = (lvId: string, path: string, places: number, unit: string) => ({ text: `{live:${lvId}}`, liveValues: [withUnit(lvId, path, places, unit)] })
-  const diagram = (mode: "flow" | "sankey") => energyDiagram(mode, box, at, line)
   return {
     id: "screen-energie",
     name: "Energie",
@@ -503,35 +498,14 @@ function energyScreen() {
     },
     objects: [
       title("Energie"),
-      // Flow or Sankey, on this display only: the switch writes a local
-      // topic the switcher reads (docs/2026-10-13-local-topics.md).
-      // Between the title and the master's light/dark switch (x 604), as a
-      // button group: both looks on view, the shown one marked.
-      { ...onOff(426, 14, ENERGY_VIEW, ENERGY_VIEW, ["Flow", "Sankey"], ["flow", "sankey"], [172, 48]), type: "button-group", id: id("view") },
-      {
-        id: id("looks"),
-        type: "switcher",
-        ...box,
-        zIndex: next,
-        properties: { topic: ENERGY_VIEW },
-        children: (["flow", "sankey"] as const).map((mode) => ({
-          id: id(`look-${mode}`),
-          type: "panel",
-          x: 0,
-          y: 0,
-          width: box.width,
-          height: box.height,
-          zIndex: 0,
-          properties: { comparisonOperator: "==", comparisonValue: mode },
-          children: [diagram(mode)],
-        })),
-      },
+      // One diagram, Flow or Sankey on this display only by its own icons
+      // bottom right, clear of the circles (docs/2026-11-11-energy-mode-switch.md).
+      { ...energyDiagram("flow", box, at, line), x: box.x, y: box.y },
     ],
   }
 }
 
-// The energy page's diagram in one of its two looks, as a switcher's panel
-// holds it (at the panel's 0,0).
+// The energy page's diagram, with its own switch (at 0,0; placed by the screen).
 function energyDiagram(mode: "flow" | "sankey", box: { width: number; height: number }, at: (fx: number, fy: number) => { x: number; y: number }, line: (lvId: string, path: string, places: number, unit: string) => any) {
   return {
     id: id(`energy-${mode}`),
@@ -545,6 +519,7 @@ function energyDiagram(mode: "flow" | "sankey", box: { width: number; height: nu
       mode,
       motion: true,
       fullScale: 1000,
+      modeSwitch: "bottom-right",
       // No style for a diagram's names and values: the 4.3B's 4-bit Inter,
       // which replaced the Lucida Sans they were in (2026-11-02).
       fontId: "font-inter-c13",

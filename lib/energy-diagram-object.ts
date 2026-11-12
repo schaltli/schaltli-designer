@@ -3,7 +3,7 @@
 // screens, projects, themes, exports.
 
 import type { ScreenObject } from "@/components/project-editor"
-import { DEFAULT_FULL_SCALE, FLOW_ICON, MAX_NODE_LINES, rowStep, type EnergyNode } from "@/lib/energy-diagram"
+import { DEFAULT_FULL_SCALE, FLOW_ICON, MAX_NODE_LINES, modeSwitchLayout, rowStep, switchCornerOf, type EnergyNode } from "@/lib/energy-diagram"
 import { exportedTextProperties } from "@/lib/object-text"
 
 /** The colours the theme gave the diagram (lib/themes.ts applyTheme), with what stands in without one. */
@@ -116,10 +116,15 @@ export function exportedEnergyDiagram(
       ...(n.action ? { action: n.action } : {}),
     }
   })
+  // Its own switch, laid out here (docs/2026-11-11-energy-mode-switch.md):
+  // a device draws the shapes in the text or the muted colour and tests a
+  // tap against the two areas; the Sankey keeps the corner's row free.
+  const sw = modeSwitchLayout(switchCornerOf(p.modeSwitch), { width: obj.width, height: obj.height })
   return {
     ...obj,
     properties: {
       mode: p.mode === "sankey" ? "sankey" : "flow",
+      ...(sw ? { modeSwitch: sw } : {}),
       motion: p.motion !== false,
       fullScale: p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE,
       ...(p.fontId ? { fontId: p.fontId } : {}),

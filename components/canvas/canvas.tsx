@@ -23,7 +23,7 @@ import { chartDateFontSize, chartFontSize, layoutOf, renderChart } from "@/compo
 import { SPAN, dragged, settled, type RangeView } from "@/lib/chart-range"
 import { chartPreview } from "@/lib/chart-preview"
 import { defaultChart } from "@/lib/chart"
-import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
+import { STILL, advanceEnergyMotion, energyDiagramsIn, energyNodeAtTap, energySwitchAtTap, renderEnergyDiagram, type EnergyMotion } from "@/components/canvas/renderers/render-energy-diagram"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
 import { useLiveValueTest } from "@/lib/live-value-test"
@@ -2188,6 +2188,15 @@ export function Canvas({
   // The editor draws them still. A test may hold the motion at one phase
   // (window.__energyFrozenPhase), to compare a frame.
   const energyMotionRef = useRef<EnergyMotion>(STILL)
+  // The mode each diagram shows in the preview after a tap on its own
+  // switch (docs/2026-11-11-energy-mode-switch.md): local, as on a display,
+  // and back to the object's own when the preview ends.
+  const energyModesRef = useRef<Record<string, "flow" | "sankey">>({})
+  useEffect(() => {
+    if (!previewMode) energyModesRef.current = {}
+  }, [previewMode])
+  const shownEnergy = (obj: ScreenObject): ScreenObject =>
+    previewMode && energyModesRef.current[obj.id] ? { ...obj, properties: { ...obj.properties, mode: energyModesRef.current[obj.id] } } : obj
   const movingDiagrams = useMemo(
     () => (previewMode && deviceAnimates !== false ? energyDiagramsIn(previewObjects).filter((d) => d.properties.motion !== false) : []),
     [previewMode, previewObjects, deviceAnimates],
@@ -2476,7 +2485,7 @@ export function Canvas({
         break
 
       case "energy-diagram":
-        renderEnergyDiagram(ctx, obj, {
+        renderEnergyDiagram(ctx, shownEnergy(obj), {
           fonts,
           projectAssets,
           topics,
@@ -3296,9 +3305,15 @@ export function Canvas({
             })
           }
         } else if (clickedObject?.type === "energy-diagram") {
-          // A node's action, as a button's (docs/2026-10-11-energy-diagram.md decision 13).
-          const action = energyNodeAtTap(clickedObject, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined
-          if (action) onPreviewButtonAction?.(action)
+          // Its own switch first (docs/2026-11-11-energy-mode-switch.md),
+          // then a node's action, as a button's (docs/2026-10-11-energy-diagram.md decision 13).
+          const shown = shownEnergy(clickedObject)
+          const asked = energySwitchAtTap(shown, coords)
+          const action = asked ? undefined : (energyNodeAtTap(shown, coords, previewValueRef.current)?.action as HardwareButtonAction | undefined)
+          if (asked) {
+            energyModesRef.current = { ...energyModesRef.current, [clickedObject.id]: asked }
+            redraw()
+          } else if (action) onPreviewButtonAction?.(action)
           else swipeRef.current = { start: coords, axis: null, d: 0 }
         } else if (hasSwitchStates(clickedObject?.type)) {
           // Same two steps the firmware takes: work out which state the
@@ -4683,7 +4698,8 @@ export function Canvas({
         y: Math.round(y),
         ...size,
         // Names in a font near 16 px, the watts near 22 (the target picture's 14 and 18 on a 4.3B).
-        properties: { ...defaultDiagram(size), fontId: fontNear(16)?.id, valueFontId: fontNear(22)?.id },
+        // A new diagram carries its own switch top right (docs/2026-11-11-energy-mode-switch.md, decision 4).
+        properties: { ...defaultDiagram(size), modeSwitch: "top-right", fontId: fontNear(16)?.id, valueFontId: fontNear(22)?.id },
       }
     }
     if (type === "switcher") {

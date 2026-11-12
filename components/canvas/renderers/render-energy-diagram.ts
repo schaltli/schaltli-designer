@@ -34,7 +34,11 @@ import {
   rowStep,
   sankeyBoxes,
   resolveEnergy,
-  sankeyLayout,
+  sankeyLayoutBeside,
+  modeSwitchLayout,
+  switchCornerOf,
+  switchAtTap,
+  type SwitchShape,
   waveColour,
   withWatts,
   type Box,
@@ -91,8 +95,13 @@ export function advanceEnergyMotion(motion: EnergyMotion, seconds: number, diagr
 export function energyNodeAtTap(obj: ScreenObject, at: { x: number; y: number }, value: (topic: string | undefined) => string): EnergyNode | undefined {
   const p = obj.properties as Record<string, any>
   const nodes: EnergyNode[] = Array.isArray(p.nodes) ? p.nodes : []
-  const id = nodeAtTap(p.mode, nodes, resolveEnergy(nodes, energyValues(nodes, value)), { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE, at.x - obj.x, at.y - obj.y)
+  const id = nodeAtTap(p.mode, nodes, resolveEnergy(nodes, energyValues(nodes, value)), { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE, at.x - obj.x, at.y - obj.y, switchCornerOf(p.modeSwitch))
   return id === undefined ? undefined : nodes.find((n) => n.id === id)
+}
+
+/** The mode a tap at `at` (screen coordinates) asks for on the diagram's own switch; none off it. */
+export function energySwitchAtTap(obj: ScreenObject, at: { x: number; y: number }): "flow" | "sankey" | undefined {
+  return switchAtTap(switchCornerOf((obj.properties as Record<string, any>).modeSwitch), { width: obj.width, height: obj.height }, at.x - obj.x, at.y - obj.y)
 }
 
 /** Every diagram on a screen, at any depth. */
@@ -292,9 +301,20 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
   const k = Math.max(1, Math.hypot(t0.a, t0.b))
   const px = new DiagramPixels(Math.ceil(obj.width * k), Math.ceil(obj.height * k), rgb565(depth(ground)), obj.width, obj.height)
   const groundRgb = expand565(rgb565(depth(ground)))
+  // Its own Flow/Sankey switch (docs/2026-11-11-energy-mode-switch.md): the
+  // icon of the mode shown in the text's colour, the other muted.
+  const drawSwitch = () => {
+    const sw = modeSwitchLayout(switchCornerOf(p.modeSwitch), { width: obj.width, height: obj.height })
+    if (!sw) return
+    const outline = (sh: SwitchShape) =>
+      sh.kind === "disc" ? discOutline(sh.cx * k, sh.cy * k, sh.r * k) : capsuleOutline(sh.x0 * k, sh.y0 * k, sh.x1 * k, sh.y1 * k, sh.width * k)
+    const sankey = p.mode === "sankey"
+    for (const sh of sw.flow.shapes) px.fill(outline(sh), rgb565(depth(sankey ? c.muted : c.text)))
+    for (const sh of sw.sankey.shapes) px.fill(outline(sh), rgb565(depth(sankey ? c.text : c.muted)))
+  }
 
   if (p.mode === "sankey") {
-    const layout = sankeyLayout(resolved, { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE)
+    const layout = sankeyLayoutBeside(resolved, { width: obj.width, height: obj.height }, p.fullScale > 0 ? p.fullScale : DEFAULT_FULL_SCALE, switchCornerOf(p.modeSwitch))
     // A node without watts stands only when nothing flows at all: grey, as in the Flow.
     const colours = new Map(resolved.map((r) => [r.id, r.watts > 0 ? colourOf(byId.get(r.id), r, c) : c.idle]))
     // The bands first, each column one colour of its wave (decision 10), so
@@ -318,6 +338,7 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
       const r = Math.min(3, bar.height / 2)
       px.fill(barOutline(bar.x * k, bar.y * k, bar.width * k, bar.height * k, r * k, bar.side === "left"), rgb565(depth(colours.get(bar.id) ?? c.text)))
     }
+    drawSwitch()
     px.drawOn(ctx)
     const boxes = sankeyBoxes(layout, nodes, { width: obj.width, height: obj.height }, t)
     const busNode = nodes.find((n) => n.role === "bus")
@@ -372,6 +393,7 @@ export function renderEnergyDiagram(ctx: CanvasRenderingContext2D, obj: ScreenOb
         px.fill(discOutline(d.x * k, d.y * k, DOT_R * k), ink, Math.round(d.alpha * 256))
       }
     }
+    drawSwitch()
     px.drawOn(ctx)
     const boxes = flowBoxes(layout, t)
     const busNode = nodes.find((n) => n.role === "bus")

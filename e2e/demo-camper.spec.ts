@@ -1,3 +1,4 @@
+import { modeSwitchLayout } from "../lib/energy-diagram"
 import { test, expect } from "@playwright/test"
 import { Jimp } from "jimp"
 import fs from "fs"
@@ -180,7 +181,6 @@ test("Energie: an energy diagram as Flow or Sankey, switched on the display - th
   expect([...read].sort()).toEqual([
     "ble/charger/watts#value",
     "ble/orion/watts#value",
-    "local/energie/view",
     "schaltli/state/battery/power",
     "schaltli/state/battery/soc",
     "van/energy/consumers_watts",
@@ -189,31 +189,25 @@ test("Energie: an energy diagram as Flow or Sankey, switched on the display - th
   // The chargers' topics are declared as JSON with their field "value".
   const charger = project.topics.find((t: any) => t.topic === "ble/charger/watts") as any
   expect(charger).toMatchObject({ type: "json", subtopics: [{ path: "value", type: "numeric" }] })
-  // Nothing on it writes to the van: only its switch, the local topic of
-  // which look this display shows, initially the Flow.
-  expect(JSON.stringify(energie).match(/"writeTopic":"[^"]*"/g)).toEqual(['"writeTopic":"local/energie/view"'])
-  expect(project.topics.find((t: any) => t.topic === "local/energie/view")).toMatchObject({ local: true, initial: "flow" })
+  // Nothing on it writes: the look it shows is the diagram's own, on this
+  // display (docs/2026-11-11-energy-mode-switch.md), no local topic.
+  expect(JSON.stringify(energie).match(/"writeTopic":"[^"]*"/g)).toBeNull()
+  expect(project.topics.find((t: any) => t.topic === "local/energie/view")).toBeUndefined()
   // The page's icon: an empty battery below 20 %.
   expect(energie.iconLive).toMatchObject({ source: { path: "schaltli/state/battery/soc" }, otherwise: { icon: "icon-battery" } })
   expect(energie.iconLive.rules).toEqual([{ op: "<", operand: "20", result: { kind: "icon", icon: "icon-battery-low" } }])
 
-  // The title, «Flow | Sankey» beside it and left of the master's
-  // light/dark switch, and a switcher holding the diagram in both looks.
-  expect(energie.objects.map((o: any) => o.type)).toEqual(["text", "button-group", "switcher"])
-  const [titleText, view, looks] = energie.objects
-  expect(view.properties).toMatchObject({ topic: "local/energie/view", writeTopic: "local/energie/view" })
-  expect(view.properties.states.map((s: any) => [s.label, s.writeValue])).toEqual([["Flow", "flow"], ["Sankey", "sankey"]])
-  const theme = project.screens[0].objects[1] as any
-  expect(view.x).toBeGreaterThanOrEqual(titleText.x + titleText.width)
-  expect(view.x + view.width).toBeLessThanOrEqual(theme.x)
-  expect(looks.properties.topic).toBe("local/energie/view")
-  expect(looks.children.map((p: any) => [p.type, p.properties.comparisonValue])).toEqual([["panel", "flow"], ["panel", "sankey"]])
-  const diagrams = looks.children.map((p: any) => p.children[0])
-  expect(diagrams.map((d: any) => [d.type, d.properties.mode, d.properties.motion])).toEqual([["energy-diagram", "flow", true], ["energy-diagram", "sankey", true]])
-  expect(JSON.stringify(diagrams[1].properties.nodes)).toBe(JSON.stringify(diagrams[0].properties.nodes))
-  // Each fills its panel, which is the switcher's box.
-  const diagram = { ...diagrams[0], x: looks.x, y: looks.y }
-  expect(diagrams[0]).toMatchObject({ x: 0, y: 0, width: looks.width, height: looks.height })
+  // The title and one diagram, its own switch bottom right - no button
+  // group, no switcher, no second diagram (decision 5).
+  expect(energie.objects.map((o: any) => o.type)).toEqual(["text", "energy-diagram"])
+  const diagram = energie.objects[1]
+  expect(diagram.properties).toMatchObject({ mode: "flow", motion: true, modeSwitch: "bottom-right" })
+  // Its switch clear of every circle and label (40 px under a circle's middle the label ends).
+  const sw = modeSwitchLayout("bottom-right", { width: diagram.width, height: diagram.height })!
+  for (const n of diagram.properties.nodes) {
+    const far = n.x + 32 < sw.flow.tap.x || n.y + 32 + 60 < sw.flow.tap.y
+    expect(far, `${n.name} clear of the switch`).toBe(true)
+  }
   const nodes = diagram.properties.nodes
   expect(nodes.map((n: any) => [n.name, n.role, n.colorRole])).toEqual([
     ["12 V", "bus", undefined],
@@ -274,10 +268,10 @@ test("Energie: an energy diagram as Flow or Sankey, switched on the display - th
   }
 })
 
-test("Energie draws a Flow at first and a Sankey once switched - only inside the diagram's box", async ({ page }, testInfo) => {
+test("Energie draws a Flow, and a Sankey as its own switch shows it - only inside the diagram's box", async ({ page }, testInfo) => {
   const project = (await built()) as any
   const index = project.screens.findIndex((s: any) => s.name === "Energie")
-  const looks = project.screens[index].objects.find((o: any) => o.type === "switcher")
+  const diagram = project.screens[index].objects.find((o: any) => o.type === "energy-diagram")
   // The demo van's numbers at half daylight, so both looks have flows to draw.
   const pekaway = fakePekaway()
   const logic = createBridgeLogic()
@@ -288,14 +282,13 @@ test("Energie draws a Flow at first and a Sankey once switched - only inside the
 
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true, undefined, { timeout: 90_000 })
-  const render = async (view: string) => {
-    const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
-      project,
-      screenIndex: index,
-      topicOverrides: { ...values, "local/energie/view": view },
-    })
+  // A tap on its Sankey icon shows the object as if its mode were Sankey.
+  const render = async (mode: string) => {
+    const shown = JSON.parse(JSON.stringify(project))
+    shown.screens[index].objects.find((o: any) => o.type === "energy-diagram").properties.mode = mode
+    const dataUrl: string = await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: shown, screenIndex: index, topicOverrides: values })
     const png = Buffer.from(dataUrl.split(",")[1], "base64")
-    fs.writeFileSync(testInfo.outputPath(`energie-${view}.png`), png)
+    fs.writeFileSync(testInfo.outputPath(`energie-${mode}.png`), png)
     return Jimp.read(png)
   }
   const flow = await render("flow")
@@ -306,14 +299,12 @@ test("Energie draws a Flow at first and a Sankey once switched - only inside the
     for (let x = 0; x < flow.bitmap.width; x++) {
       const i = (y * flow.bitmap.width + x) * 4
       if (flow.bitmap.data[i] === sankey.bitmap.data[i] && flow.bitmap.data[i + 1] === sankey.bitmap.data[i + 1] && flow.bitmap.data[i + 2] === sankey.bitmap.data[i + 2]) continue
-      const inBox = x >= looks.x && x < looks.x + looks.width && y >= looks.y && y < looks.y + looks.height
-      if (inBox) inside++
-      // The switch beside the title shows which look is on: it changes too.
-      else if (!(y < looks.y)) outside++
+      if (x >= diagram.x && x < diagram.x + diagram.width && y >= diagram.y && y < diagram.y + diagram.height) inside++
+      else outside++
     }
   }
   expect(inside, "the two looks differ inside the diagram").toBeGreaterThan(2000)
-  expect(outside, "and nowhere below the switch row outside it").toBe(0)
+  expect(outside, "and nowhere outside it").toBe(0)
 })
 
 test("written into a project store, «Camper» reads back as built", async ({}, testInfo) => {

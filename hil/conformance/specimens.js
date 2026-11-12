@@ -1155,7 +1155,10 @@ const SPECIMENS = {
           { id: "rest", role: "rest", name: "Verbraucher", colorRole: "#7a5bd1", color: "#7a5bd1", lines: lines(), ...at(0.8, 0.7) },
         ];
       };
-      const diagram = (id, mode, x, width, y = 0) => ({
+      // Each with its own switch (docs/2026-11-11-energy-mode-switch.md): the
+      // Flow's bottom left, clear of its circles; the Sankey's top right,
+      // its row kept free.
+      const diagram = (id, mode, x, width, y = 0, modeSwitch = mode === "sankey" ? "top-right" : "bottom-left") => ({
         id: c.id(id),
         type: "energy-diagram",
         zIndex: 1,
@@ -1175,6 +1178,7 @@ const SPECIMENS = {
           idleColor: "#cac4d0",
           chargeColor: "#2f9a52",
           dischargeColor: "#d0453f",
+          modeSwitch,
           nodes: nodes(width),
         },
       });

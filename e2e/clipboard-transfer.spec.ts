@@ -37,21 +37,20 @@ test.describe("what a copy carries and how it merges", () => {
     const payload = unpackClipboard(packClipboard(project, { screen: energie }, "t1"))!
     expect(payload.screen!.name).toBe("Energie")
     expect(payload.assets.map((a) => a.id).sort()).toEqual(["icon-battery", "icon-battery-low", "icon-engine", "icon-load", "icon-plug", "icon-sun"])
-    // With the local topic its «Flow | Sankey» writes and its switcher
-    // reads (2026-10-13): a pasted switch with no topic behind it does nothing.
+    // The topics its diagram reads; its look is the diagram's own since
+    // 2026-11-11 (docs/2026-11-11-energy-mode-switch.md), no local topic.
     expect(payload.topics.map((t) => t.topic).sort()).toEqual([
       "ble/charger/watts",
       "ble/orion/watts",
-      "local/energie/view",
       "schaltli/state/battery/power",
       "schaltli/state/battery/soc",
       "van/energy/consumers_watts",
       "van/energy/solar_watts",
     ])
     expect(payload.combinedTopics).toEqual([])
-    // The 4.3B's 4-bit faces (2026-11-02): the title's bold, the switch's
-    // Label, the diagram's names and values in Inter.
-    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-inter-c13", "font-inter-c18", "font-roboto-c18", "font-robotob-c25"])
+    // The 4.3B's 4-bit faces (2026-11-02): the title's bold, the diagram's
+    // names and values in Inter.
+    expect(payload.fonts.map((f) => f.id).sort()).toEqual(["font-inter-c13", "font-inter-c18", "font-robotob-c25"])
     expect([payload.screenWidth, payload.screenHeight]).toEqual([800, 480])
 
     // Licht's icon asks a combined topic, which comes with the topics it asks.
@@ -162,10 +161,9 @@ test.describe("between two tabs", () => {
 
     const project = await downloadProjectJson(to)
     const energie = project.screens.find((s: any) => s.name === "Energie")
-    // Both looks of the diagram, in the switcher's panels since 2026-10-13.
-    const diagrams = energie.objects.find((o: any) => o.type === "switcher").children.map((panel: any) => panel.children[0])
-    expect(diagrams.map((d: any) => [d.type, d.properties.nodes.length])).toEqual([["energy-diagram", 6], ["energy-diagram", 6]])
-    expect(project.topics.find((t: any) => t.topic === "local/energie/view")).toMatchObject({ local: true, initial: "flow" })
+    // One diagram with its own switch (docs/2026-11-11-energy-mode-switch.md).
+    const diagrams = energie.objects.filter((o: any) => o.type === "energy-diagram")
+    expect(diagrams.map((d: any) => [d.type, d.properties.nodes.length, d.properties.modeSwitch])).toEqual([["energy-diagram", 6, "bottom-right"]])
     expect(project.topics.map((t: any) => t.topic)).toContain("schaltli/state/battery/power")
     expect(project.assets.map((a: any) => a.name)).toEqual(expect.arrayContaining(["Battery", "Battery low", "Plug", "Sun"]))
     expect(energie.iconLive.otherwise.icon).toBe(project.assets.find((a: any) => a.name === "Battery").id)

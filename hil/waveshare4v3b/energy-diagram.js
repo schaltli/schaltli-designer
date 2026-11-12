@@ -17,7 +17,10 @@
 //   4. (--mode nested) a diagram in a switcher's active panel moves, and
 //      stands still once the switcher shows a panel without one; one in an
 //      open popup moves inside the popup, the screen under it stands
-//      (docs/2026-10-13-local-topics.md, decision 8; tasks/energy-nested).
+//      (docs/2026-10-13-local-topics.md, decision 8; tasks/energy-nested);
+//   5. (--mode switch) a tap on the diagram's own Sankey icon shows the
+//      Sankey, a tap on its Flow icon the Flow again, pixel for pixel as
+//      before (docs/2026-11-11-energy-mode-switch.md).
 //
 // The diagram's values come from the broker the board listens to, retained
 // (HIL_BROKER_URL, default mqtt://localhost:1883 - `npm run hil:broker`).
@@ -50,7 +53,7 @@ const OUT_DIR = path.join(__dirname, "report", "energy")
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function parseArgs(argv) {
-  const args = { device: null, modes: ["flow", "sankey", "nested"] }
+  const args = { device: null, modes: ["flow", "sankey", "nested", "switch"] }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     if (argv[i] === "--mode") args.modes = [argv[++i]]
@@ -369,6 +372,30 @@ async function checkNested(base, ddf, check) {
   await publishRetained(`${PREFIX}/${VIEW}`, "")
 }
 
+// The diagram's own switch, bottom left - clear of every node's circle -
+// laid out as lib/energy-diagram.ts modeSwitchLayout does: two areas of 44 px.
+async function checkSwitch(base, ddf, check) {
+  console.log("\n--- switch: its own Flow/Sankey icons ---")
+  const project = energyProject(ddf, "flow", false)
+  const diagram = project.screens[0].objects.find((o) => o.id === "diagram")
+  diagram.properties.modeSwitch = "bottom-left"
+  await install(base, ddf, project)
+  await publishValues(base)
+  await wake(base)
+  const row = DIAGRAM.y + DIAGRAM.height - 22
+  const flow = await glass(base, "switch-flow")
+  await tap(base, DIAGRAM.x + 44 + 22, row)
+  await sleep(1500)
+  const sankey = await glass(base, "switch-sankey")
+  const toSankey = changes(flow, sankey)
+  check("a tap on the Sankey icon shows the Sankey", toSankey.inside > 200 && toSankey.outside === 0, `${toSankey.inside} px inside, ${toSankey.outside} outside`)
+  await tap(base, DIAGRAM.x + 22, row)
+  await sleep(1500)
+  const back = await glass(base, "switch-flow-again")
+  const again = changes(flow, back)
+  check("a tap on the Flow icon shows the Flow again, as it was", again.inside + again.outside === 0, `${again.inside + again.outside} px differ`)
+}
+
 async function main() {
   const args = parseArgs(process.argv)
   if (!args.device) {
@@ -396,6 +423,10 @@ async function main() {
   for (const mode of args.modes) {
     if (mode === "nested") {
       await checkNested(base, ddf, check)
+      continue
+    }
+    if (mode === "switch") {
+      await checkSwitch(base, ddf, check)
       continue
     }
     console.log(`\n--- ${mode}: still ---`)
