@@ -53,7 +53,7 @@ first after a context summary.
 - Stand 2026-11-12: Van-Broker zeigt noch alte Brücke (Dimmer als light, kein schaltli/state/time) -> Erinnerung per Push; S3 hält, bis sie installiert ist
 - [x] S1 script: starter-sprechtext.md neu gefasst (K3-K16, neu K10-2b, K14-4b; sprechtext.py liest Buchstaben-Suffix). Drehbuch-Tabellen erst nach neuer Stimme neu takten
 - [~] S2: Whitelist + Wächter in lib.mjs (vanPublish, guardVan in record(); heater/view nur fan/off, relay/1, dimmer, theme, maxxfan/cover); K9 umgestellt. Koordinaten der Kapitel erst nach Starter-Neubau im Van-Designer
-- [ ] S3 dry run - HALT 2026-11-12: braucht (1) neue Brücke + Node-RED-Tab im Van, (2) Designer-Stand starter-project auf dem Van (van-deploy nur durch den Nutzer)
+- [ ] S3 dry run. Van läuft seit 2026-11-12 auf fw-2026.11.12.1-pre.starter_look (Designer+Brücke, geprüft: time/date, Dimmer number, Blöcke). Nächster Schritt: M1 vorziehen - neue Takes nur für geänderte Kapitel 3,4,5,6,8-16 (starter-vo.json neu angelegt, markiert alle; alte Takes 0,1,2,7,17-20 behalten), dann Kapitelskripte neu takten und Starter im Van-Designer neu aufbauen
 
 ## Phase 9 - film
 - [ ] M1 voice
