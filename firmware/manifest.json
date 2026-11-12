@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.10.1",
-  "commit": "0072b37a238b56a24b0f9b65a0822a8e9a98db58",
+  "release": "fw-2026.11.12.1-pre.starter_look",
+  "commit": "a03f6aa740e1331b289f95bece63f095649a6f50",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.10.1.bin",
-      "size": 2882592,
-      "sha256": "19089ca1a1d2a1dc974b78a07920c0cef2571d050b2804efbdabc0dbf00d2787",
+      "build": "fw-2026.11.12.1-pre.starter_look",
+      "file": "waveshare-knob-1v8-fw-2026.11.12.1-pre.starter_look.bin",
+      "size": 2891696,
+      "sha256": "a88873a890b6ed717ad7f4e567db3fa37dabfd01c01bfdfd02278f32d554ab8b",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-knob-1v8-fw-2026.11.12.1-pre.starter_look.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.10.1.bin",
-        "size": 2948128,
-        "sha256": "130717799d11189709cb47d3bba3846ec544d92fc0f0a08b724c4f1193bebcc9",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.12.1-pre.starter_look.bin",
+        "size": 2957232,
+        "sha256": "c783c4ef26d20ea4ca204e66461c5f6d38824960ab11eab343bfed1069cc63ca",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-knob-1v8-factory-fw-2026.11.12.1-pre.starter_look.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
-      "size": 2827440,
-      "sha256": "9b13000ced6a106a855fec200b8d91fdba7956c7e52e4a890abc703e65813478",
+      "build": "fw-2026.11.12.1-pre.starter_look",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.12.1-pre.starter_look.bin",
+      "size": 2836784,
+      "sha256": "86a95f46130e1ef378341d5d8b55a330b6fb5cd889b596ed99dfcedc0c65f4ae",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-touch-lcd-4v3b-fw-2026.11.12.1-pre.starter_look.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin",
-        "size": 2892976,
-        "sha256": "a7eccba4e2bd0f878443335b5bb5fd77a803873cf8ecc2bdd82fc3cb06630b16",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.12.1-pre.starter_look.bin",
+        "size": 2902320,
+        "sha256": "9649209a8e3a6b135985edfe7a331b0ada1b5a8f5b9be4a7728ed75bcda990e3",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-touch-lcd-4v3b-factory-fw-2026.11.12.1-pre.starter_look.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
-      "size": 2618624,
-      "sha256": "c1941d14aebabb203f5c2dd106a71e96fb5df92c8271a4871c9497305918112e",
+      "build": "fw-2026.11.12.1-pre.starter_look",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.12.1-pre.starter_look.bin",
+      "size": 2627968,
+      "sha256": "a16f46cf54bfa3330884e3e48d75a8b6da7d21e0b48046761b7e2c7a25137a84",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-touch-lcd-4-fw-2026.11.12.1-pre.starter_look.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin",
-        "size": 2684160,
-        "sha256": "5cd0794837594c3a6f686a8906e408c6a0375ddc3f292606f3a53866e61c3faa",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.12.1-pre.starter_look.bin",
+        "size": 2693504,
+        "sha256": "717b36978f363d58835da921a0ef03eb6777b8f3dded289d1e08db03db622fe9",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/waveshare-touch-lcd-4-factory-fw-2026.11.12.1-pre.starter_look.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.10.1",
-      "file": "m5stack-papers3-fw-2026.11.10.1.bin",
-      "size": 2297360,
-      "sha256": "8183b6ce369cb36e65c672bf183a59001b25df55c404036df0b4a40db357c7fc",
+      "build": "fw-2026.11.12.1-pre.starter_look",
+      "file": "m5stack-papers3-fw-2026.11.12.1-pre.starter_look.bin",
+      "size": 2305632,
+      "sha256": "61dcc04f376efc0311aeab36355468e3040c8e74d07cfed5ca6121521212fa07",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/m5stack-papers3-fw-2026.11.12.1-pre.starter_look.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.10.1.bin",
-        "size": 2362896,
-        "sha256": "6776c55f9c9113220c6bacce6c01e42aed2c9daa30d0f3e0d881b5fc8726cadc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-factory-fw-2026.11.10.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.12.1-pre.starter_look.bin",
+        "size": 2371168,
+        "sha256": "0791482688777d511bd176307b93542a80e86824b1d3b8bd8af50744330fe479",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.12.1-pre.starter_look/m5stack-papers3-factory-fw-2026.11.12.1-pre.starter_look.bin"
       }
     }
   }
