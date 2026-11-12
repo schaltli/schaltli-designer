@@ -588,10 +588,19 @@ function levelValueText(
   const read = control.read
   if (!read) return undefined
   const unit = control.unit ? ` ${control.unit}` : control.percent ? " %" : ""
-  const text = labelObject(`{topic:${read}:F0}${unit}`, { ...box, width: Math.max(measureBlockText(`100${unit}`, font), 1) }, palette, font)
+  // The unit inside the live value, after the number (Otherwise): «Aus» at
+  // 0 then stands alone, not as «Aus %», and nothing yet is empty, not «%»
+  // (the starter's levels, 2026-11-12).
+  const text = labelObject(`{topic:${read}:F0}`, { ...box, width: Math.max(measureBlockText(`100${unit}`, font), 1) }, palette, font)
   const off = control.min === 0 && (control.unit === "%" || control.percent)
   const liveValues = (text.properties.liveValues ?? []).map((lv: any, i: number) =>
-    i === 0 && off ? { ...lv, rules: [{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }] } : lv,
+    i !== 0
+      ? lv
+      : {
+          ...lv,
+          ...(off ? { rules: [{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }] } : {}),
+          ...(unit ? { otherwise: { kind: "text", parts: [{ value: true }, unit] } } : {}),
+        },
   )
   return { ...text, properties: { ...text.properties, liveValues, textAlign: "right" } }
 }

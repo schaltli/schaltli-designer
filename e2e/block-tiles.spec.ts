@@ -7,6 +7,8 @@ import { fittedBlockCard } from "../lib/block-card"
 import { controlPalette } from "../lib/control-palette"
 import { layoutObjects } from "../lib/layout"
 import { cardSettingsOf } from "../lib/card"
+import { textOf } from "../lib/live-value"
+import { DEFAULT_SEPARATORS } from "../lib/placeholders"
 import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
 import { fontFor, stepKindOf, stepUpdates, styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
@@ -65,6 +67,13 @@ test("a dimmer (a number 0-100 %): the slider's value beside the name, «Aus» a
   expect(name.properties.text).toBe("Leselicht")
   expect(value.properties.textAlign).toBe("right")
   expect(value.properties.liveValues[0].rules).toEqual([{ op: "==", operand: "0", result: { kind: "text", parts: ["Aus"] } }])
+  // The unit inside the live value: «Aus» alone at 0, «60 %» otherwise, nothing before a value
+  // (it read «Aus %», and «%» alone, in the starter, 2026-11-12).
+  expect(value.properties.text).toBe("{live:lv1}")
+  expect(value.properties.liveValues[0].otherwise).toEqual({ kind: "text", parts: [{ value: true }, " %"] })
+  const lv = value.properties.liveValues[0]
+  expect([textOf(lv, "0", DEFAULT_SEPARATORS), textOf(lv, "60.4", DEFAULT_SEPARATORS)]).toEqual(["Aus", "60 %"])
+  expect(textOf(lv, undefined, DEFAULT_SEPARATORS)).not.toContain("%")
   expect(slider).toMatchObject({ type: "slider", properties: { displayValue: "none" } })
 })
 
