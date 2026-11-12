@@ -218,6 +218,10 @@ async function main() {
     const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
     const zipPath = path.join(os.tmpdir(), `hil-navigator-${deviceTag()}.zip`)
     fs.writeFileSync(zipPath, Buffer.from(base64, "base64"))
+    // No theme said, as the designer's reference has none: a bridge's
+    // retained light/dark left on the bench's broker by another run would
+    // put the sun on the board only (2026-11-12).
+    await new Promise((resolve, reject) => client.publish("schaltli/state/theme", "", { qos: 1, retain: true }, (e) => (e ? reject(e) : resolve())))
     console.log("installing a master with a navigator and twelve screens, S1 hidden ...")
     try {
       execFileSync("curl", ["-s", "--show-error", "-m", "25", "-F", `file=@${zipPath}`, ddf.testInterface.uploadUrl])
@@ -458,23 +462,24 @@ async function main() {
       if (topic === THEME_CMND) asked.push(payload.toString())
     })
     await new Promise((resolve) => client.subscribe(THEME_CMND, { qos: 1 }, resolve))
-    // Nothing said yet: the track alone. Then light, as a bridge keeps it:
-    // the knob on the left with the sun - so the place is not what it was,
-    // and its left half differs from its right.
+    // Nothing said yet: the place behind its divider empty. Then light, as a
+    // bridge keeps it: the sun, an icon in the middle of the place
+    // (docs/2026-11-11-led-look.md, the navigator's theme entry).
     const nothing = switchPixels(await fetchBmp("snapshot.bmp", "theme switch, nothing said"))
     await publish(THEME_STATE, "light")
     await settle()
     await sleep(eink ? 3000 : 1500)
     const lightImg = await fetchBmp("snapshot.bmp", "theme switch, light")
     const sun = switchPixels(lightImg)
-    check("light said: the switch shows it", sun !== nothing)
-    const half = (from, to) => {
+    check("light said: the place shows its icon", sun !== nothing)
+    // The icon in the middle of the strip's width, not at an edge.
+    const band = (from, to) => {
       const out = []
-      for (let y = sh - SWITCH + 6; y < sh - 6; y++) for (let x = from; x < to; x++) out.push(lightImg.getPixelColor(x, y))
+      for (let y = sh - SWITCH + 4; y < sh - 2; y++) for (let x = from; x < to; x++) out.push(lightImg.getPixelColor(x, y))
       return out
     }
     const distinct = (px) => new Set(px).size
-    check("... its knob, with the sun, on the left", distinct(half(14, 40)) > distinct(half(40, 66)) + 2, `${distinct(half(14, 40))} vs ${distinct(half(40, 66))} colours`)
+    check("... the sun in the middle", distinct(band(28, 52)) > distinct(band(2, 14)) + 2, `${distinct(band(28, 52))} vs ${distinct(band(2, 14))} colours`)
     await tap(40, sh - SWITCH / 2)
     await settle()
     check("a tap on the switch while light asks for dark", asked.includes("dark"), JSON.stringify(asked))
