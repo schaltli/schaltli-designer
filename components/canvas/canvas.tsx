@@ -148,6 +148,12 @@ const SWIPE_LOCK = 8
 const SWIPE_COMMIT = 40
 // How long the screen takes to slide the rest of the way, or back.
 const SWIPE_SETTLE_MS = 180
+// Two fingers in the preview arrive as a wheel with Ctrl held: a trackpad's
+// pinch does that, and so do Ctrl and the wheel. One gesture - wheel events
+// with less than this pause between them - is one step, once it has moved
+// this far.
+const PINCH_GESTURE_GAP_MS = 300
+const PINCH_STEP = 40
 // The swipe a movement along an axis is: to the left is «Swipe left».
 function swipeIdOf(axis: "x" | "y", d: number): string {
   return axis === "x" ? (d < 0 ? "swipe-left" : "swipe-right") : d < 0 ? "swipe-up" : "swipe-down"
@@ -2290,6 +2296,10 @@ export function Canvas({
   }, [projectAssets])
   // </CHANGE>
 
+  // The preview's pinch (PINCH_STEP): set below, where the screen's actions are known.
+  const pinchRef = useRef<(e: WheelEvent) => boolean>(() => false)
+  const pinchGestureRef = useRef({ last: 0, sum: 0, fired: false })
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -2297,6 +2307,8 @@ export function Canvas({
     const handleWheel = (e: WheelEvent) => {
       // Prevent default browser zoom
       e.preventDefault()
+      // In the preview, two fingers are the screen's Pinch in / Pinch out.
+      if (pinchRef.current(e)) return
 
       // Only allow integer zoom levels: 1x, 2x, 3x, 4x, 5x for pixel-perfect rendering
       const allowedZoomLevels = [1, 2, 3, 4, 5]
@@ -4888,6 +4900,25 @@ export function Canvas({
       window.removeEventListener("keyup", onKey)
     }
   }, [carrying])
+
+  // Fingers apart (the wheel up) narrow, as Pinch out does on the device;
+  // together widen, as Pinch in. A device without the gesture never sees it.
+  pinchRef.current = (e: WheelEvent) => {
+    if (!previewMode || !e.ctrlKey) return false
+    const g = pinchGestureRef.current
+    const now = performance.now()
+    if (now - g.last > PINCH_GESTURE_GAP_MS) Object.assign(g, { sum: 0, fired: false })
+    g.last = now
+    if (g.fired) return true
+    g.sum += e.deltaY
+    if (Math.abs(g.sum) < PINCH_STEP) return true
+    g.fired = true
+    const id = g.sum < 0 ? "pinch-out" : "pinch-in"
+    if (!hardwareButtons.some((b) => b.id === id)) return true
+    const action = resolveSwipeAction(screen, masterScreen, id, projectScreens ?? [])
+    if (action) onPreviewButtonAction?.(action, true)
+    return true
+  }
 
   const handleMouseUp = useCallback(() => {
     // A chart let go settles on whole days (lib/chart-range.ts settled).

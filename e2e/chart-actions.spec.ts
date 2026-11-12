@@ -214,10 +214,10 @@ test.describe("range actions: the preview follows (A4)", () => {
     test.skip(!(await seedWaveshare4v3bDdf(PREVIEW_DEVICE)), "schaltli-firmware not checked out alongside this repo")
   })
 
-  async function preview(page: Page, objects: any[]) {
+  async function preview(page: Page, objects: any[], device = PREVIEW_DEVICE, buttonActions?: Record<string, unknown>) {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, PREVIEW_DEVICE, "auto-discovered")
+    await chooseDevice(page, device, "auto-discovered")
     await createProject(page)
     await waitForEditorReady(page)
     const saved = await downloadProjectJson(page)
@@ -225,6 +225,7 @@ test.describe("range actions: the preview follows (A4)", () => {
     const s = saved.screens.find((x: any) => !x.isMaster)
     s.objects.push(...objects)
     s.timeRange = "24h"
+    if (buttonActions) s.buttonActions = { ...(s.buttonActions ?? {}), ...buttonActions }
     const zip = new JSZip()
     zip.file("project.json", JSON.stringify(saved))
     const file = path.join(os.tmpdir(), `chart-actions-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -257,4 +258,28 @@ test.describe("range actions: the preview follows (A4)", () => {
     await expect.poll(() => blueAt(page, "right")).toBeGreaterThan(5)
     expect(await blueAt(page, "left")).toBeGreaterThan(5)
   })
+  // Two fingers in the preview (2026-11-12, the starter film): a trackpad's
+  // pinch arrives as a wheel with Ctrl held, and so does Ctrl with the wheel.
+  // Apart, it is the screen's Pinch out - here one step narrower, 24 h to 6 h,
+  // so the curve reaches now at the right edge; the canvas keeps its zoom.
+  test("fingers apart (Ctrl and the wheel up) narrow the time range, as the screen's Pinch out says", async ({ page }) => {
+    test.skip(new Date().getHours() >= 22, "late in the day the 24 h curve reaches the right edge already")
+    test.skip(!(await seedWaveshare4v3bDdf(PINCH_PREVIEW_DEVICE, (m) => {
+      m.supportedFeatures = [...(m.supportedFeatures ?? []), "pinch"]
+    })), "schaltli-firmware not checked out alongside this repo")
+    await preview(page, [curve], PINCH_PREVIEW_DEVICE, { "pinch-in": { type: "widen-range" }, "pinch-out": { type: "narrow-range" } })
+    expect(await blueAt(page, "right")).toBeLessThanOrEqual(5)
+    const zoom = await page.getByText(/^\d+%$/).first().textContent()
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, 400, 250, SCREEN)
+    await page.mouse.move(at.x, at.y)
+    await page.keyboard.down("Control")
+    for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -30)
+    await page.keyboard.up("Control")
+    await expect.poll(() => blueAt(page, "right")).toBeGreaterThan(5)
+    expect(await page.getByText(/^\d+%$/).first().textContent()).toBe(zoom)
+  })
 })
+
+// Its own id too: seeded with pinch, beside A3's and A4's devices.
+const PINCH_PREVIEW_DEVICE = "e2e-chart-pinch-preview-4v3b"
