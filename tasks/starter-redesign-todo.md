@@ -4,54 +4,56 @@ Plan: tasks/starter-redesign-plan.md. State after every step; read this
 first after a context summary.
 
 ## Phase 0
-- [ ] H1 commit specs, review, plan, todo
-- [ ] H2 app/test-render test, commit
+- [x] H1 commit specs, review, plan, todo (9d7de888)
+- [x] H2 app/test-render test, commit (de1b6e15)
 
 ## Phase 1 - bridge
-- [ ] B1 dimmer number
-- [ ] B2 heater/view on
-- [ ] B3 time and date
-- [ ] B4 block descriptions heater, MaxxFan
-- [ ] B5 handbook, bundle, push
+- [x] B1 dimmer number (code, spec, handbook; test:quick running)
+- [x] B2 heater/view on (heater/last_view; also maxxfan/power on -> maxxfan/last_mode)
+- [x] B3 time and date (logic.clock, sbb-clock inject 10 s, only on change)
+- [x] B4 block descriptions heater, MaxxFan (Nullen has look:"text" - designer must read it in L5/L7; cover: no immediate state, so asked pulses until Pekaway reports)
+- [x] B5 handbook, push sent (user installs on the Pi)
 
 ## Phase 2 - LED look
-- [ ] L1 toggle shape styles
-- [ ] L2 migration, panel, renderer
-- [ ] L3 asked pulse
-- [ ] L4 Button Group LED
-- [ ] L5 button style Text
-- [ ] L6 navigator LED, theme entry
-- [ ] L7 block builder
-- [ ] L8 export
-- [ ] L9 demo, handbook
+- [x] L1 toggle shape styles (5cade6d5)
+- [x] L2 migration, panel, renderer, convert, min width, card corner 12 px (5cade6d5)
+- [x] L3 asked pulse (designer, fw loop redraw 500 ms, android LaunchedEffect)
+- [x] L4 Button Group LED (designer, fw SwitchShape ledLayout, android; specimen button-group-led)
+- [x] L5 button style Text (devices draw exported look; no fw change)
+- [x] L6 navigator LED, theme icon entry (devices draw objects; firmware taps the place)
+- [x] L7 block builder (commit after test:quick quick-l7: e2e fixed; papers3-popups fetch failed = network)
+- [x] L8 export (looks carry light; nav objects; text button look)
+- [x] L9 demo (migrates on load; demo-camper green), handbook (bedienen, anordnen, baugruppen)
 
 ## Phase 3 - value cards
-- [ ] V1 heading, wide form
-- [ ] V2 colour of meaning, thin bar
-- [ ] V3 compact chart, sparkline
+- [x] V1 heading, wide form (3940f833)
+- [x] V2 colour of meaning, thin bar (3940f833; Erste Schritte neu: Tank+Batterie breit, Licht|Dimmer als Tabelle)
+- [x] V3 compact chart, sparkline (dc8b9241, fw 17b5c09 geflasht ws4/4v3b/papers3, charts-draw 0 px; Android hat keine Charts → keine Sparkline)
 
 ## Phase 4 - chart
-- [ ] C1 axis rule
-- [ ] C2 series name
-- [ ] C3 invented course
-- [ ] C4 range label
+- [x] C1 axis rule (TS+fw, Achsenenden ohne Binärrest)
+- [x] C2 series name (lib/series-names.ts, Panel über usePrebuiltCatalog)
+- [x] C3 invented course (chart-preview inventedData; Live ohne History: Note «Invented: no history yet»)
+- [x] C4 range label (rangeLabelOf, ersetzt Tagesnamen; fw geflasht, charts-draw/actions grün auf ws4/4v3b/papers3) (a176f2c0, fw 44867b6)
 
 ## Phase 5 - energy
-- [ ] E1 property, icons
-- [ ] E2 preview tap
-- [ ] E3 export
-- [ ] E4 demo
+- [x] E1 property, icons (modeSwitchLayout, Ecke beim Einfügen top-right, defaultDiagram ohne)
+- [x] E2 preview tap (canvas energyModesRef)
+- [x] E3 export + fw (ws4/4v3b/papers3 geflasht, knob gebaut) + Android (HIL 32/32); HIL energy --mode switch, conformance energy 0 px
+- [x] E4 demo (ein Diagramm, bottom-right) (300594d7, fw a03f6aa, android 6a9b1ca)
 
 ## Phase 6 - firmware
-- [ ] F1-F6
+- [x] F1 toggle light + pulse, F2 LED group (fw led-look 9910ea0; conformance 79/79 ws4 + 4v3b; boards flashed over WiFi with --install-checkout)
+- [x] F3 navigator (nichts in fw nötig; HIL korrigiert: retained theme, Icon statt Knopf - grün ws4/4v3b/papers3), F4 chart (17b5c09, 44867b6), F5 energy switch (a03f6aa); F6 knob unerreichbar (gebaut, nicht geflasht)
 
 ## Phase 7 - Android
-- [ ] A1
+- [x] A1 toggle + LED group (780f69f), energy switch (6a9b1ca); Charts kann die App nicht - keine Sparkline dort (Builder fragt supportedObjectTypes)
 
 ## Phase 8 - starter
-- [ ] S1 script
-- [ ] S2 chapter scripts, whitelist
-- [ ] S3 dry run
+- Stand 2026-11-12: Van-Broker zeigt noch alte Brücke (Dimmer als light, kein schaltli/state/time) -> Erinnerung per Push; S3 hält, bis sie installiert ist
+- [x] S1 script: starter-sprechtext.md neu gefasst (K3-K16, neu K10-2b, K14-4b; sprechtext.py liest Buchstaben-Suffix). Drehbuch-Tabellen erst nach neuer Stimme neu takten
+- [~] S2: Whitelist + Wächter in lib.mjs (vanPublish, guardVan in record(); heater/view nur fan/off, relay/1, dimmer, theme, maxxfan/cover); K9 umgestellt. Koordinaten der Kapitel erst nach Starter-Neubau im Van-Designer
+- [ ] S3 dry run - HALT 2026-11-12: braucht (1) neue Brücke + Node-RED-Tab im Van, (2) Designer-Stand starter-project auf dem Van (van-deploy nur durch den Nutzer)
 
 ## Phase 9 - film
 - [ ] M1 voice
@@ -60,3 +62,8 @@ first after a context summary.
 - [ ] M4 starter T5-T8
 
 ## Notes
+- Known limit: on the knob (360 px) the heater description's two dials side by side are left out (as before 2026-11-11); card-blocks spec pins it.
+- L7 decision taken while building: part tiles without heading only for block descriptions (entry id "block ..."); HA entities keep their card with the name, parts inside as Toggle Buttons / LED groups (HA parts «Power» do not say whose they are).
+- Handbook texts of L (bedienen, anordnen, baugruppen) ran through maettel-humanizer (2 small edits).
+- test:quick for phase 1 (quick-b.log) ran while L-edits were being made; e2e may mix. Rerun after L.
+- L7 plan: switch parts -> Toggle Button look "toggle" (default, name inside); choice -> LED group; button look:"text"; multi-part blocks: one card per part (heading = part name, value right for sliders); dimmer 0 -> "Aus".
