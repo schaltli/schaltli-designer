@@ -184,6 +184,43 @@ test.describe("Firmware in the Deploy dialog", () => {
     deviceClient.publish(deployTopic, "", { retain: true })
   })
 
+  // In the van on 2026-11-12 the board's «rebooting» was lost as its radio
+  // went down, and the dialog stood at «Applying» for good. Its return is
+  // the end then: the hello with the release after the update, the hello
+  // after «applying» once it has restarted with the project.
+  test("a board that never says «rebooting»: its return ends the update and the deploy", async ({ page }) => {
+    await stubRelease(page, "fw-2026.09.15.2", true, "1.5")
+    announce("fw-2026.09.15.1")
+    await openDialog(page)
+    await row(page).click()
+
+    const deployTopic = `${TOPIC_PREFIX}/${instanceId}/deploy`
+    const projectTriggers: string[] = []
+    await new Promise<void>((resolve) => deviceClient.subscribe(deployTopic, () => resolve()))
+    deviceClient.on("message", (t, message) => {
+      if (t === deployTopic && message.length > 0) projectTriggers.push(message.toString())
+    })
+    const trigger = nextTrigger()
+    await page.getByRole("button", { name: "Update & Deploy", exact: true }).click()
+    if (await page.getByRole("heading", { name: "Save Project" }).isVisible().catch(() => false)) {
+      await page.locator("#save-project-name").fill(`e2e update lost ${Date.now().toString(36)}`)
+      await page.getByRole("button", { name: "Save", exact: true }).click()
+    }
+    const id = (await trigger).updateId as string
+    publishStatus(id, "applying")
+    // No «rebooting»: the board just comes back with the release.
+    announce("fw-2026.09.15.2")
+    await expect.poll(() => projectTriggers.length, { timeout: 30_000 }).toBe(1)
+    const project = JSON.parse(projectTriggers[0])
+    publishStatus(project.deployId, "downloading", { percent: 50 })
+    publishStatus(project.deployId, "applying")
+    await expect(page.getByText(`Van Panel ${instanceId}: Applying`)).toBeVisible()
+    // Again no «rebooting»: its hello after the restart.
+    announce("fw-2026.09.15.2")
+    await expect(page.getByText(`Van Panel ${instanceId}: Deploy successful`)).toBeVisible({ timeout: 15_000 })
+    deviceClient.publish(deployTopic, "", { retain: true })
+  })
+
   test("a failed update stops Update & Deploy: the project is not sent", async ({ page }) => {
     await stubRelease(page, "fw-2026.09.15.2", true, "1.5")
     announce("fw-2026.09.15.1")

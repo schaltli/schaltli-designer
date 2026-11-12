@@ -435,9 +435,20 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
         activeKindRef.current = "firmware"
         setStatusKind("firmware")
         setDeployStatus({ deployId: updateId, state: "downloading", percent: 0 })
+        // The board back with the release ends it too, should «rebooting» be
+        // lost as the radio goes down (as a deploy's was in the van, 2026-11-12).
+        let backWithRelease = false
         const finished = awaitMessage(
           (l, i, payload) => {
-            const status = l === "deploy-status" && i === instanceId ? statusOf(payload) : null
+            if (i !== instanceId) return false
+            if (l === "hello") {
+              try {
+                return (backWithRelease = JSON.parse(payload).firmwareBuild === release.build)
+              } catch {
+                return false
+              }
+            }
+            const status = l === "deploy-status" ? statusOf(payload) : null
             return !!status && status.deployId === updateId && ["rebooting", "error", "busy", "up_to_date"].includes(status.state)
           },
           FIRMWARE_MS,
@@ -460,7 +471,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
           force: false,
         })
         if (!answered) return
-        const end = statusOf((await finished) ?? "")
+        const endPayload = await finished
+        const end = backWithRelease ? { deployId: updateId, state: "rebooting" as const } : statusOf(endPayload ?? "")
         if (!end) {
           setDeployStatus({ deployId: updateId, state: "error", error: "The firmware update did not finish. The project was not sent." })
           return
@@ -523,10 +535,21 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // Its end, and - for a board, which restarts - its return: «Deploy
       // successful» only once it is back (#52). Until 2026-10-10 the dialog
       // stopped at «Rebooting» and never said whether the board came back.
+      // A board that restarts says «rebooting» first - unless that last word
+      // is lost as the radio goes down, as in the van on 2026-11-12, when the
+      // dialog stood at «Applying» for good. Its hello once it is back counts
+      // the same then; only after «applying», so a reconnect while it
+      // downloads is not taken for the end.
+      let sawApplying = false
+      let cameBack = false
       const ended = awaitMessage(
         (l, i, payload) => {
-          const status = l === "deploy-status" && i === instanceId ? statusOf(payload) : null
-          return !!status && status.deployId === deployId && ["rebooting", "applied", "error", "busy", "up_to_date"].includes(status.state)
+          if (i !== instanceId) return false
+          if (l === "hello") return (cameBack = sawApplying)
+          const status = l === "deploy-status" ? statusOf(payload) : null
+          if (!status || status.deployId !== deployId) return false
+          if (status.state === "applying") sawApplying = true
+          return ["rebooting", "applied", "error", "busy", "up_to_date"].includes(status.state)
         },
         FIRMWARE_MS,
       )
@@ -540,6 +563,11 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
         clientRef.current?.publish(`${HISTORY_WANTS}${instanceId}`, wants.series.length > 0 ? JSON.stringify(wants) : "", { retain: true, qos: 1 })
       }
       void ended.then(async (payload) => {
+        if (cameBack) {
+          layWants()
+          if (activeDeployIdRef.current === deployId) setDeployStatus({ deployId, state: "deployed" })
+          return
+        }
         const state = statusOf(payload ?? "")?.state
         // Up to date too: a deploy whose wants were lost (2026-10-30 the
         // van's 4.3B kept an older project's, and its energy charts got no
