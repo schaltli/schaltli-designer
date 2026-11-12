@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { chartLayout, seriesData, niceStep, axisLabel, weekdayOf, CURVE_SEGMENTS } from "../lib/chart-layout"
+import { chartLayout, seriesData, niceStep, axisLabel, weekdayOf, rangeLabelOf, CURVE_SEGMENTS } from "../lib/chart-layout"
 import { chartWindow, midnightOf } from "../lib/chart-window"
 import type { ChartProperties, ChartSeries } from "../lib/chart"
 
@@ -76,7 +76,8 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
   })
 
   test("auto starts at 0 when every value is above it, and rounds out to a tick", () => {
-    const s = series({})
+    // A percentage (docs/2026-11-11-chart-tweaks.md, decision 1).
+    const s = series({ unit: "%" })
     const l = chartLayout(chart([s]), W24, { s1: seriesData(s, [day({ 4: 13.2, 5: 13.6 })], TZ) }, O)
     expect([l.left.min, l.left.max]).toEqual([0, 15])
     const neg = chartLayout(chart([s]), W24, { s1: seriesData(s, [day({ 4: -120, 5: 380 })], TZ) }, O)
@@ -135,48 +136,64 @@ test.describe("the chart's layout: axes and lines (D2)", () => {
   })
 })
 
-// 2026-10-30, the user: «Datumsangabe besser sichtbar … grösser, im Format
-// "heute Freitag 30.10.", "gestern Donnerstag 29.10.", früher "Mittwoch,
-// 28.10."» - «Position lieber ausserhalb des Rasters, wie im Artifact».
-test.describe("the chart's layout: the days' names above the plot", () => {
+// 2026-11-11, the user (docs/2026-11-11-chart-tweaks.md, decision 4): what
+// the chart shows stands small at the top right, in the date font where the
+// days' names stood - «heute 14.10.», «Di 13.10.», «8.–14.10.», «letzte
+// Stunde», «letzte 6 h».
+test.describe("the chart's layout: the time range at the top right", () => {
   const dates = (l: ReturnType<typeof chartLayout>) => l.texts.filter((t) => t.font === "date")
   const s = series({})
 
-  test("today, yesterday and before, in the date font, in a row of their own above the plot", () => {
+  test("today's 24 h, in the date font, in a row of their own above the plot, right-aligned", () => {
     const o = { ...O, dateFontSize: 22 }
     const today = chartLayout(chart([s]), W24, {}, o)
     // pad 5, the row 22, pad 5: the plot from y 32.
     expect(today.plot).toEqual({ x: 41, y: 32, w: 754, h: 384 })
-    expect(dates(today)).toEqual([{ text: "heute Mittwoch 14.10.", x: 41, y: 5, w: 754, h: 22, align: "left", tone: "text", font: "date" }])
+    expect(dates(today)).toEqual([{ text: "heute 14.10.", x: 41, y: 5, w: 754, h: 22, align: "right", tone: "muted", font: "date" }])
     const back = (days: number) => dates(chartLayout(chart([s]), chartWindow({ mode: "time" }, "24h", NOON, TZ, days * 86400), {}, o)).map((t) => t.text)
-    expect(back(1)).toEqual(["gestern Dienstag 13.10."])
-    expect(back(2)).toEqual(["Montag, 12.10."])
+    expect(back(1)).toEqual(["Di 13.10."])
+    expect(back(2)).toEqual(["Mo 12.10."])
     // Without a date font, the label font's size.
     expect(dates(chartLayout(chart([s]), W24, {}, O))[0]).toMatchObject({ y: 5, h: 14 })
   })
 
-  test("a window across midnight names both days, each from where it begins; all short where one long does not fit", () => {
-    const w = chartWindow({ mode: "time" }, "6h", DAY + 2 * 3600, TZ)
-    const l = chartLayout(chart([s]), w, {}, { ...O, now: DAY + 2 * 3600, dateFontSize: 22 })
-    const [before, after] = dates(l)
-    // Today's part is 2 h 05: «heute Mittwoch 14.10.» is too long for it, so yesterday is short too.
-    expect(before).toMatchObject({ text: "Di 13.10.", x: 41 })
-    expect(after.text).toBe("Mi 14.10.")
-    // With a smaller date font both long.
-    expect(dates(chartLayout(chart([s]), w, {}, { ...O, now: DAY + 2 * 3600, dateFontSize: 16 })).map((t) => t.text)).toEqual(["gestern Dienstag 13.10.", "heute Mittwoch 14.10."])
-    expect(l.midnights).toHaveLength(1)
-    expect(after.x).toBe(l.midnights[0].x + 5)
-    expect(after.x + after.w).toBeCloseTo(41 + 754, 5)
-  })
-
-  test("seven days: each day's name as fits its seventh; per day, none above the bars", () => {
-    const w = chartWindow({ mode: "time" }, "7d", NOON, TZ)
-    expect(dates(chartLayout(chart([s]), w, {}, O)).map((t) => t.text)).toEqual(["Do 8.10.", "Fr 9.10.", "Sa 10.10.", "So 11.10.", "Mo 12.10.", "Di 13.10.", "Mi 14.10."])
-    expect(dates(chartLayout(chart([s]), w, {}, { ...O, dateFontSize: 26 })).map((t) => t.text)).toEqual(["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"])
+  test("the last hour and six, seven days, a short window moved back; per day and compact none", () => {
+    const label = (w: ReturnType<typeof chartWindow>, now = NOON) => rangeLabelOf(w, now, TZ)
+    expect(label(chartWindow({ mode: "time" }, "1h", NOON, TZ))).toBe("letzte Stunde")
+    expect(label(chartWindow({ mode: "time" }, "6h", DAY + 2 * 3600, TZ), DAY + 2 * 3600)).toBe("letzte 6 h")
+    expect(label(chartWindow({ mode: "time" }, "7d", NOON, TZ))).toBe("8.–14.10.")
+    expect(label(chartWindow({ mode: "time" }, "7d", midnightOf("2026-11-03", TZ) + 3600, TZ), midnightOf("2026-11-03", TZ) + 3600)).toBe("28.10.–3.11.")
+    expect(label(chartWindow({ mode: "time" }, "1h", NOON, TZ, 3 * 3600))).toBe("Mi 14.10. 08:01–09:01")
     const pd = chartWindow({ mode: "per-day", days: 7 }, "24h", NOON, TZ)
     const l = chartLayout(chart([s], { mode: "per-day", days: 7 }), pd, {}, { ...O, dateFontSize: 22 })
     expect(dates(l)).toEqual([])
     expect(l.plot.y).toBe(12)
+  })
+})
+
+// 2026-11-11 (docs/2026-11-11-chart-tweaks.md, decision 1): «Automatic»
+// from 0 only for a power or a percentage; any other level round its values.
+test.describe("the chart's layout: the automatic axis", () => {
+  const steps = (v: number[]) => ({ date: "2026-10-14", step: 900, mean: v, min: v, max: v })
+  const axis = (s: ReturnType<typeof series>, v: number[], extra = {}) => {
+    const c = chart([s], extra)
+    return chartLayout(c, W24, { s1: seriesData(s, [steps(v)], TZ) }, O).left
+  }
+  test("a temperature round its values, out to the next tick", () => {
+    const l = axis(series({ unit: "°C" }), [14.2, 16, 21.7])
+    expect(l.min).toBeGreaterThan(0)
+    expect(l.min).toBeLessThanOrEqual(14.2)
+    expect(l.max).toBeGreaterThanOrEqual(21.7)
+    // A flat line still has an axis round it.
+    const flat = axis(series({ unit: "°C" }), [15, 15, 15])
+    expect(flat.min).toBeLessThan(15)
+    expect(flat.max).toBeGreaterThan(15)
+  })
+  test("a percentage and a power from 0", () => {
+    expect(axis(series({ unit: "%" }), [60, 70, 80]).min).toBe(0)
+    expect(axis(series({ valueKind: "power", draw: "area", unit: "W" }), [300, 500]).min).toBe(0)
+    // A percentage on the axis itself.
+    expect(axis(series({}), [60, 70], { left: { scale: "auto", unit: "%" } }).min).toBe(0)
   })
 })
 

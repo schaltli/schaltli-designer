@@ -31,6 +31,8 @@ export interface ChartRenderOptions {
   tz?: Zone
   /** Said in the chart's middle instead of curves: no recorder, no history yet. */
   message?: string
+  /** Written small in the plot's top left corner: an invented course (lib/chart-preview.ts). */
+  note?: string
   decimal?: string
   /** The NowPoint's pulse, its phase 0..1 (lib/chart-shapes.ts); none, and it stands still. */
   pulse?: number
@@ -182,6 +184,8 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   const texts: ChartText[] = [
     ...l.texts,
     ...(message ? [{ text: message, x: plot.x, y: plot.y + plot.h / 2 - fontSize / 2, w: plot.w, h: fontSize, align: "center" as const, tone: "muted" as const }] : []),
+    // Not on a compact chart, which has no room for words.
+    ...(options.note && !obj.properties?.compact ? [{ text: options.note, x: plot.x + 4, y: plot.y + plot.h - fontSize - 4, w: plot.w - 8, h: fontSize, align: "left" as const, tone: "muted" as const }] : []),
   ]
   if (screen) {
     // In the chart's font, as a Text object draws (charts-firmware decision 3).

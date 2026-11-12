@@ -7,9 +7,12 @@
  * the spec says is never stored; it offers only what fits besides.
  */
 
+import { useMemo } from "react"
 import type { ProjectFont, ScreenObject, Topic } from "../project-editor"
 import { normalizeChart, type ChartAxis, type ChartProperties, type ChartZone } from "@/lib/chart"
 import { ChartSeriesSection } from "./chart-series-section"
+import { usePrebuiltCatalog } from "@/hooks/use-block-catalog"
+import { namesByTopic } from "@/lib/series-names"
 import {
   AddListItem,
   ColorField,
@@ -73,6 +76,9 @@ function AxisFields({ axis, name, onChange }: { axis: ChartAxis; name: string; o
 
 export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "24bit", fonts = [], onManageFonts, topics = [] }: ChartPropertiesProps) {
   const chart = normalizeChart(selectedObject.properties ?? {})
+  // A new series named as discovery announces its topic (docs/2026-11-11-chart-tweaks.md, decision 2).
+  const catalog = usePrebuiltCatalog(true)
+  const names = useMemo(() => (catalog.status === "found" ? namesByTopic(catalog.catalog.entries) : {}), [catalog])
   const update = (next: Partial<ChartProperties>) =>
     onUpdateObject(selectedObject.id, { properties: normalizeChart({ ...selectedObject.properties, ...next }) as unknown as Record<string, any> })
   const usesRight = chart.series.some((s) => s.axis === "right")
@@ -91,11 +97,11 @@ export function ChartProperties({ selectedObject, onUpdateObject, colorDepth = "
         <SelectField label="Legend" id="chart-legend" value={chart.legend} options={LEGENDS} onChange={(legend) => update({ legend: legend as ChartProperties["legend"] })} />
         <FontField value={chart.fontId} fonts={fonts} onChange={(fontId) => update({ fontId })} onManageFonts={onManageFonts} />
         {chart.mode === "time" ? (
-          <FontField label="Date font" value={chart.dateFontId ?? chart.fontId} fonts={fonts} onChange={(dateFontId) => update({ dateFontId })} onManageFonts={onManageFonts} hint="The days' names above the chart." />
+          <FontField label="Date font" value={chart.dateFontId ?? chart.fontId} fonts={fonts} onChange={(dateFontId) => update({ dateFontId })} onManageFonts={onManageFonts} hint="The time range above the chart." />
         ) : null}
       </PropertySection>
 
-      <ChartSeriesSection chart={chart} update={update} topics={topics} colorDepth={colorDepth} />
+      <ChartSeriesSection chart={chart} update={update} topics={topics} colorDepth={colorDepth} names={names} />
 
       <PropertySection title="Left axis" defaultCollapsed>
         <AxisFields axis={chart.left} name="left" onChange={(left) => update({ left })} />

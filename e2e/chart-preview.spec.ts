@@ -4,7 +4,7 @@ import JSZip from "jszip"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { chartPreview, historySubscriptions, simulatedData } from "../lib/chart-preview"
+import { chartPreview, historySubscriptions, simulatedData, inventedData, INVENTED_NOTE } from "../lib/chart-preview"
 import { chartWindow, midnightOf } from "../lib/chart-window"
 import { chooseDevice, createProject, loadProject, waitForDeviceGate, waitForEditorReady, getMainCanvas, devicePoint } from "./helpers"
 import { seedWaveshare4v3bDdf } from "./ddf-seed"
@@ -26,11 +26,15 @@ const topics = [
 const now = JSON.stringify({ time: NOON, tz: TZ })
 
 test.describe("a chart in the designer (D5)", () => {
-  test("Live without a recorder says so; with one but nothing laid yet, that", () => {
+  test("Live without a recorder says so; with one but nothing laid yet, an invented course, marked", () => {
     expect(chartPreview(props, { topics, live: {}, now: NOON }).message).toBe("No recorder on this broker")
     expect(chartPreview(props, { topics, live: { "schaltli/history/recorder": JSON.stringify({ state: "offline" }) }, now: NOON }).message).toBe("No recorder on this broker")
     const online = { "schaltli/history/recorder": JSON.stringify({ state: "online", id: "pi" }), "schaltli/history/now": now }
-    expect(chartPreview(props, { topics, live: online, now: NOON }).message).toBe("No history yet")
+    // docs/2026-11-11-chart-tweaks.md, decision 3.
+    const p = chartPreview(props, { topics, live: online, now: NOON })
+    expect(p.message).toBeUndefined()
+    expect(p.note).toBe(INVENTED_NOTE)
+    expect(p.data.s1.steps.length).toBeGreaterThan(0)
   })
 
   test("Live draws the history laid under each series' name, in the recorder's zone", () => {
@@ -60,7 +64,30 @@ test.describe("a chart in the designer (D5)", () => {
       [DAY, DAY + 6 * 3600],
       [DAY + 12 * 3600, DAY + 12 * 3600],
     ].filter(([a2, b]) => b > a2))
-    expect(simulatedData({ ...tank, source: { kind: "topic", topic: "van/none" } }, w, NOON, topics).steps).toEqual([])
+    // A topic without examples: an invented course (decision 3).
+    expect(simulatedData({ ...tank, source: { kind: "topic", topic: "van/none" } }, w, NOON, topics, TZ).steps).toHaveLength(48)
+  })
+
+  // docs/2026-11-11-chart-tweaks.md, decision 3: a plausible day for the
+  // series' kind - the designer's only.
+  test("an invented course: a temperature coolest before dawn, the sun's power at noon and none at night, a tank stepping down", () => {
+    const w = chartWindow({ mode: "time" }, "24h", DAY + 86400 - 60, TZ)
+    const end = DAY + 86400 - 60
+    const at = (d: ReturnType<typeof inventedData>, hour: number) => d.steps.find((st) => st.t >= DAY + hour * 3600)!.mean
+    const temp = inventedData({ ...tank, unit: "°C" }, w, end, TZ, 15)
+    expect(at(temp, 15)).toBeGreaterThan(at(temp, 4))
+    expect(Math.abs(at(temp, 15) - 15)).toBeLessThan(5)
+    const sun = inventedData({ ...tank, valueKind: "power", draw: "area", unit: "W" }, w, end, TZ)
+    expect(at(sun, 2)).toBe(0)
+    expect(at(sun, 13)).toBeGreaterThan(300)
+    const level = inventedData({ ...tank, unit: "%" }, w, end, TZ, 70)
+    expect(at(level, 0)).toBe(70)
+    expect(at(level, 20)).toBeLessThan(70)
+    // The same every time.
+    expect(inventedData({ ...tank, unit: "°C" }, w, end, TZ, 15)).toEqual(temp)
+    // A single example: the course round it, not a flat line.
+    const one = simulatedData(tank, w, end, [{ id: "t", topic: "van/tank", type: "json", examples: ['{"level": 55}'] }] as any, TZ)
+    expect(new Set(one.steps.map((st) => st.mean)).size).toBeGreaterThan(1)
   })
 
   test("the Live preview subscribes to each series' history and the recorder", () => {

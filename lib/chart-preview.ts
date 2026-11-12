@@ -7,7 +7,7 @@
 import type { Topic } from "@/components/project-editor"
 import { DEFAULT_TIME_RANGE, historyName, normalizeChart, type ChartProperties, type ChartSeries, type TimeRange } from "@/lib/chart"
 import { seriesData, type SeriesData } from "@/lib/chart-layout"
-import { chartWindow, historyTopicsFor, HISTORY_PREFIX, type ChartWindow, type Zone } from "@/lib/chart-window"
+import { chartWindow, dateOf, historyTopicsFor, midnightOf, HISTORY_PREFIX, type ChartWindow, type Zone } from "@/lib/chart-window"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { asNumber, isYes, matches } from "@/lib/live-value"
 
@@ -54,15 +54,73 @@ function examplesOf(series: ChartSeries, topics: readonly Topic[]): string[] {
   return examples.map((e) => (path ? extractJsonField(e, path) : e)).filter((e): e is string => e !== undefined)
 }
 
+// ---- an invented course (docs/2026-11-11-chart-tweaks.md, decision 3)
+
+/** The marker the Live preview writes in a chart drawn from an invented course. */
+export const INVENTED_NOTE = "Invented: no history yet"
+
+/**
+ * A plausible day for a series that has no history to show: a state on in
+ * the morning and the evening; a power rising and falling with the sun; a
+ * percentage stepping down as it is used up; any other level warmest in the
+ * afternoon, coolest before dawn - round `base`, the series' example where it
+ * has one. The same every time; the designer's only, never a device's.
+ */
+export function inventedData(series: ChartSeries, window: ChartWindow, now: number, tz: Zone, base?: number): SeriesData {
+  const empty: SeriesData = { steps: [], on: [], days: [] }
+  const end = Math.min(now, window.to)
+  const hourOf = (t: number) => (t - midnightOf(dateOf(t, tz), tz)) / 3600
+  const factor = series.factor ?? 1
+  const shown = (v: number) => (series.invert ? -v : v) * factor
+  if (series.valueKind === "state") {
+    const on: [number, number][] = []
+    for (let d = dateOf(window.from, tz); midnightOf(d, tz) < end; ) {
+      const m = midnightOf(d, tz)
+      for (const [a, b] of [[6, 7.5], [18, 21]]) {
+        const from = Math.max(window.from, m + a * 3600)
+        const to = Math.min(end, m + b * 3600)
+        if (to > from) on.push([from, to])
+      }
+      const next = dateOf(m + 86400 + 7200, tz)
+      if (next === d) break
+      d = next
+    }
+    return { ...empty, on }
+  }
+  const percent = series.unit === "%"
+  const peak = series.valueKind === "power" ? (base && base > 0 ? base : 400) : 0
+  const level = base ?? (percent ? 70 : 18)
+  const at = (t: number) => {
+    const h = hourOf(t)
+    if (series.valueKind === "power") return peak * Math.pow(Math.max(0, Math.sin((Math.PI * (h - 6)) / 14)), 1.5)
+    if (percent) return Math.max(5, level - 4 * Math.floor((t - window.from) / (3 * 3600)))
+    return level + 3.5 * Math.cos((2 * Math.PI * (h - 15)) / 24) + 0.3 * Math.sin(t / 2300)
+  }
+  if (window.source === "daily") {
+    const days = window.dates.map((date) => {
+      if (series.valueKind === "power") return { date, up: shown(peak * 6), down: 0 }
+      return { date, up: shown(level), down: null }
+    })
+    return { ...empty, days }
+  }
+  const steps = []
+  for (let t = window.from; t + window.step <= end; t += window.step) {
+    const v = shown(at(t + window.step / 2))
+    steps.push({ t, len: window.step, mean: v, min: v, max: v })
+  }
+  return { ...empty, steps }
+}
+
 /**
  * History made from a series' examples over the window, up to now: a smooth
  * curve through the numbers in turn, or a state on and off as they say. A
- * series without examples has none.
+ * series with fewer than two numbers to go through - none, or one that would
+ * draw a flat line - gets an invented course round its example instead.
  */
-export function simulatedData(series: ChartSeries, window: ChartWindow, now: number, topics: readonly Topic[]): SeriesData {
+export function simulatedData(series: ChartSeries, window: ChartWindow, now: number, topics: readonly Topic[], tz: Zone = Intl.DateTimeFormat().resolvedOptions().timeZone): SeriesData {
   const examples = examplesOf(series, topics)
   const empty: SeriesData = { steps: [], on: [], days: [] }
-  if (examples.length === 0) return empty
+  if (examples.length === 0) return series.source.kind === "topic" ? inventedData(series, window, now, tz) : empty
   const end = Math.min(now, window.to)
   const span = window.to - window.from
   if (series.valueKind === "state") {
@@ -79,6 +137,7 @@ export function simulatedData(series: ChartSeries, window: ChartWindow, now: num
   }
   const numbers = examples.map(asNumber).filter((v): v is number => v !== undefined)
   if (numbers.length === 0) return empty
+  if (new Set(numbers).size < 2) return inventedData(series, window, now, tz, numbers[0])
   const factor = series.factor ?? 1
   const shown = (v: number) => (series.invert ? -v : v) * factor
   // Through the numbers in turn and back to the first: a cosine between each two.
@@ -126,6 +185,8 @@ export interface ChartPreview {
   now: number
   tz: Zone
   message?: string
+  /** Written small in the corner over a course the designer invented: Live, no history yet. */
+  note?: string
 }
 
 /**
@@ -147,7 +208,7 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
   const window = chartWindow(chart, range, now, tz, back)
   const data: Record<string, SeriesData> = {}
   if (!live) {
-    for (const s of chart.series) data[s.id] = simulatedData(s, window, now, input.topics)
+    for (const s of chart.series) data[s.id] = simulatedData(s, window, now, input.topics, tz)
     return { range, back, data, now, tz }
   }
   const recorder = parse(live[RECORDER_TOPIC])
@@ -159,6 +220,9 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
     if (payloads.some((p) => p)) any = true
     data[s.id] = seriesData(s, payloads, tz)
   }
-  return any || chart.series.length === 0 ? { range, back, data, now, tz } : { range, back, data, now, tz, message: "No history yet" }
+  if (any || chart.series.length === 0) return { range, back, data, now, tz }
+  // A recorder with nothing yet: an invented course, marked as such.
+  for (const s of chart.series) data[s.id] = simulatedData(s, window, now, input.topics, tz)
+  return { range, back, data, now, tz, note: INVENTED_NOTE }
 }
 

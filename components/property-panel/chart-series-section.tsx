@@ -53,15 +53,18 @@ function examplesFor(reference: string, topics: readonly Topic[]): string[] {
   return examples.map((e) => (path ? extractJsonField(e, path) : e)).filter((e): e is string => e !== undefined)
 }
 
-/** A new series reading `reference`: its kind guessed, named after the topic's last part, the next colour. */
-export function newSeries(reference: string, chart: ChartProperties, topics: readonly Topic[]): ChartSeries {
+/**
+ * A new series reading `reference`: its kind guessed, named as discovery
+ * announces the topic (`names`) or else after its last part, the next colour.
+ */
+export function newSeries(reference: string, chart: ChartProperties, topics: readonly Topic[], names: Readonly<Record<string, string>> = {}): ChartSeries {
   const valueKind = inferValueKind({ examples: examplesFor(reference, topics) })
   const [name, path] = reference.split("#")
   const defaults = defaultSeries(valueKind)
   return {
     id: nextSeriesId(chart.series),
     source: { kind: "topic", topic: reference },
-    name: path ?? name.split("/").pop() ?? reference,
+    name: names[reference] ?? path ?? name.split("/").pop() ?? reference,
     valueKind,
     ...defaults,
     draw: chart.mode === "per-day" ? "bars" : defaults.draw,
@@ -74,9 +77,11 @@ interface Props {
   update: (next: Partial<ChartProperties>) => void
   topics: readonly Topic[]
   colorDepth: "1bit" | "4bit" | "24bit"
+  /** The names discovery announces topics under (lib/series-names.ts). */
+  names?: Readonly<Record<string, string>>
 }
 
-export function ChartSeriesSection({ chart, update, topics, colorDepth }: Props) {
+export function ChartSeriesSection({ chart, update, topics, colorDepth, names }: Props) {
   const list = chart.series
   const set = (i: number, next: Partial<ChartSeries>) => update({ series: list.map((s, k) => (k === i ? { ...s, ...next } : s)) })
   const options = readables(topics)
@@ -193,7 +198,7 @@ export function ChartSeriesSection({ chart, update, topics, colorDepth }: Props)
           value=""
           placeholder={stacked ? "Add a series to the stack…" : "Add a series from a topic…"}
           options={options}
-          onChange={(reference) => reference && update({ series: [...list, newSeries(reference, chart, topics)] })}
+          onChange={(reference) => reference && update({ series: [...list, newSeries(reference, chart, topics, names)] })}
         />
       ) : (
         <AddListItem label="Add series" onClick={() => update({ series: [...list, newSeries("", chart, topics)] })} />

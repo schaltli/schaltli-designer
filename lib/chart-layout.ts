@@ -317,6 +317,35 @@ export function dateLabelOf(date: string, today: string | null): string {
 }
 
 /**
+ * What a time chart shows, for its top right corner
+ * (docs/2026-11-11-chart-tweaks.md, decision 4): «heute 11.11.» for today,
+ * «Mi 10.11.» for another day, «5.–11.11.» for seven days, «letzte
+ * Stunde» and «letzte 6 h» while they end now; moved back, the day and the
+ * hours, «Mi 10.11. 13:00–14:00».
+ */
+export function rangeLabelOf(window: ChartWindow, now: number, tz: Zone): string {
+  const dm = (date: string) => {
+    const [, m, d] = date.split("-").map(Number)
+    return { d, m }
+  }
+  const span = window.to - window.from
+  const endsNow = now >= window.from && now < window.to
+  if (endsNow && window.source === "recent") return "letzte Stunde"
+  if (endsNow && window.source === "recent6") return "letzte 6 h"
+  if (window.source === "day" && window.dates.length > 1 && span > 86400 * 1.5) {
+    const a = dm(window.dates[0])
+    const b = dm(window.dates[window.dates.length - 1])
+    return a.m === b.m ? `${a.d}.–${b.d}.${b.m}.` : `${a.d}.${a.m}.–${b.d}.${b.m}.`
+  }
+  const first = dateOf(window.from, tz)
+  if (window.source === "day" && span >= 86400 * 0.9 && span <= 86400 * 1.1) {
+    const { d, m } = dm(first)
+    return now > 0 && first === dateOf(now, tz) ? `heute ${d}.${m}.` : dayLabelOf(first)
+  }
+  return `${dayLabelOf(first)} ${clockText(window.from, tz)}–${clockText(window.to, tz)}`
+}
+
+/**
  * About how wide a text is in a font of `size` px: no renderer's metrics,
  * so every renderer drops the same day names (a glyph of the fonts the
  * devices have is rarely wider than six tenths of their size).
@@ -325,20 +354,29 @@ export function textWidthGuess(text: string, size: number): number {
   return text.length * size * 0.6
 }
 
-function axisRange(axis: ChartAxis, values: number[]): { min: number; max: number } {
+function axisRange(axis: ChartAxis, values: number[], fromZero = true): { min: number; max: number } {
   const lo = values.length > 0 ? Math.min(...values) : 0
   const hi = values.length > 0 ? Math.max(...values) : 1
   if (axis.scale === "fixed" && axis.min !== undefined && axis.max !== undefined && axis.max > axis.min) return { min: axis.min, max: axis.max }
   if (axis.scale === "at-least" && axis.min !== undefined && axis.max !== undefined) {
     return { min: Math.min(axis.min, lo), max: Math.max(axis.max, hi) }
   }
-  // auto: from 0 where nothing is below it, out to the next tick.
-  let min = lo >= 0 ? 0 : lo
-  let max = Math.max(hi, 0)
-  if (max <= min) max = min + 1
+  // auto: a power or a percentage from 0 where nothing is below it; any
+  // other level round its values (docs/2026-11-11-chart-tweaks.md,
+  // decision 1) - out to the next tick either side.
+  let min = fromZero ? (lo >= 0 ? 0 : lo) : lo
+  let max = fromZero ? Math.max(hi, 0) : hi
+  if (max <= min) {
+    if (fromZero) max = min + 1
+    else {
+      min -= 1
+      max += 1
+    }
+  }
   const step = niceStep(max - min)
-  min = Math.floor(min / step) * step
-  max = Math.ceil(max / step) * step
+  // To the tick, without a binary remainder: 13.6, not 13.600000000000001.
+  min = Math.round(Math.floor(min / step) * step * 1e9) / 1e9
+  max = Math.round(Math.ceil(max / step) * step * 1e9) / 1e9
   return { min, max }
 }
 
@@ -459,8 +497,14 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
         if (s.draw === "stacked") return (stacks.get(s.id) ?? []).filter(inWindow).flatMap((x) => [x.lo, x.hi])
         return (data[s.id]?.steps ?? []).filter(inWindow).flatMap((st) => (s.range ? [st.min, st.max] : [st.mean]))
       })
-  const leftRange = axisRange(chart.left, valuesOn("left"))
-  const rightRange = usesRight ? axisRange(chart.right ?? { scale: "auto" }, valuesOn("right")) : undefined
+  // From 0 on an axis with a power or a percentage on it, per day, or
+  // with nothing on it; round the values for any other level.
+  const fromZeroOn = (axis: "left" | "right", own: ChartAxis | undefined) => {
+    const on = chart.series.filter((s) => (s.axis ?? "left") === axis && s.valueKind !== "state")
+    return perDay || own?.unit === "%" || on.length === 0 || on.some((s) => s.valueKind === "power" || s.unit === "%")
+  }
+  const leftRange = axisRange(chart.left, valuesOn("left"), fromZeroOn("left", chart.left))
+  const rightRange = usesRight ? axisRange(chart.right ?? { scale: "auto" }, valuesOn("right"), fromZeroOn("right", chart.right)) : undefined
   const left = axisLayout(leftRange, plot, decimal)
   const right = rightRange ? axisLayout(rightRange, plot, decimal) : undefined
   if (compact) {
@@ -629,23 +673,10 @@ export function chartLayout(chart: ChartProperties, window: ChartWindow, data: R
   const texts: ChartText[] = []
   const box = (text: string, x: number, y: number, w: number, align: ChartText["align"], tone: ChartText["tone"]) =>
     texts.push({ text, x: round1(x), y: round1(y), w: round1(w), h: o.fontSize, align, tone })
-  // Each day in the window, its name above its part of the plot: the whole
-  // row long («heute Freitag 30.10.»), else short («Fr 30.10.»), else the
-  // weekday - the longest every day fits; a day too narrow for any, unnamed.
+  // What it shows, small in the date font at the top right, above the plot
+  // (docs/2026-11-11-chart-tweaks.md, decision 4).
   if (!perDay && !compact) {
-    const today = o.now > 0 ? dateOf(o.now, o.tz) : null
-    const days: { x: number; w: number; names: string[]; fits: number }[] = []
-    for (let d = dateOf(window.from, o.tz); midnightOf(d, o.tz) < window.to; d = addDays(d, 1)) {
-      const a = Math.max(window.from, midnightOf(d, o.tz))
-      const b = Math.min(window.to, midnightOf(addDays(d, 1), o.tz))
-      if (b <= a) continue
-      const x = xOf(a) + (a > window.from ? pad : 0)
-      const names = [dateLabelOf(d, today), dayLabelOf(d), weekdayOf(d)]
-      const fits = names.findIndex((t) => textWidthGuess(t, dateSize) <= xOf(b) - x - pad)
-      if (fits >= 0) days.push({ x, w: xOf(b) - x, names, fits })
-    }
-    const level = Math.max(0, ...days.map((d) => d.fits))
-    for (const d of days) texts.push({ text: d.names[level], x: round1(d.x), y: pad, w: round1(d.w), h: dateSize, align: "left", tone: "text", font: "date" })
+    texts.push({ text: rangeLabelOf(window, o.now, o.tz), x: round1(plot.x), y: pad, w: round1(plot.w), h: dateSize, align: "right", tone: "muted", font: "date" })
   }
   for (const t of left.ticks) box(t.label, 0, t.y - half, plot.x - pad, "right", "muted")
   for (const t of right?.ticks ?? []) box(t.label, plot.x + plot.w + pad, t.y - half, labelW, "left", "muted")
