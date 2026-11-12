@@ -53,10 +53,10 @@ first after a context summary.
 - Stand 2026-11-12: Van-Broker zeigt noch alte Brücke (Dimmer als light, kein schaltli/state/time) -> Erinnerung per Push; S3 hält, bis sie installiert ist
 - [x] S1 script: starter-sprechtext.md neu gefasst (K3-K16, neu K10-2b, K14-4b; sprechtext.py liest Buchstaben-Suffix). Drehbuch-Tabellen erst nach neuer Stimme neu takten
 - [~] S2: Whitelist + Wächter in lib.mjs (vanPublish, guardVan in record(); heater/view nur fan/off, relay/1, dimmer, theme, maxxfan/cover); K9 umgestellt. Koordinaten der Kapitel erst nach Starter-Neubau im Van-Designer
-- [ ] S3 dry run. Van läuft seit 2026-11-12 auf fw-2026.11.12.1-pre.starter_look (Designer+Brücke, geprüft: time/date, Dimmer number, Blöcke). Nächster Schritt: M1 vorziehen - neue Takes nur für geänderte Kapitel 3,4,5,6,8-16 (starter-vo.json neu angelegt, markiert alle; alte Takes 0,1,2,7,17-20 behalten), dann Kapitelskripte neu takten und Starter im Van-Designer neu aufbauen
+- [ ] S3 dry run (nächster Schritt: Kapitelskripte K3-K16 auf neue Wortzeiten und neue Bausteine umschreiben, Starter im Van-Designer neu aufbauen). Van läuft seit 2026-11-12 auf fw-2026.11.12.1-pre.starter_look (Designer+Brücke, geprüft: time/date, Dimmer number, Blöcke). Nächster Schritt: M1 vorziehen - neue Takes nur für geänderte Kapitel 3,4,5,6,8-16 (starter-vo.json neu angelegt, markiert alle; alte Takes 0,1,2,7,17-20 behalten), dann Kapitelskripte neu takten und Starter im Van-Designer neu aufbauen
 
 ## Phase 9 - film
-- [ ] M1 voice
+- [x] M1 voice (vorgezogen, 2026-11-12): neue Takes a/b + b.words.json für K3-K6, K8-K16 in public/vo-st (alte als *.old.*), Session-IDs in vo-st/sessions-2026-11-12.json; Text-Korrekturen K9 (Karten), K11 (Kalibrier-Absatz raus); K0-2, K7, K17-K20 alte Takes. Nutzer muss noch reinhören
 - [ ] M2 record
 - [ ] M3 assemble
 - [ ] M4 starter T5-T8
