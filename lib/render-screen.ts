@@ -599,7 +599,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           obj,
           {
             ...(options.chart ??
-              chartPreview(obj.properties, options.chartLive ? { topics, live: options.chartLive.live, now: options.chartLive.now, range: options.chartLive.range } : { topics })),
+              chartPreview(obj.properties, options.chartLive ? { topics, live: options.chartLive.live, now: options.chartLive.now, range: options.chartLive.range, invent: false } : { topics })),
             colorDepth,
             fontSize: chartFontSize(obj, fonts),
             dateFontSize: chartDateFontSize(obj, fonts),

@@ -179,13 +179,16 @@ export function renderChart(ctx: CanvasRenderingContext2D, obj: ScreenObject, op
   px.drawOn(ctx)
 
   // Every text where the layout puts it - and, said in the middle, no
-  // recorder, no history yet, or nothing to show at all.
-  const message = options.message ?? (l.series.length === 0 ? "Chart: add a series" : undefined)
+  // recorder, no history yet, or nothing to show at all. Not on a compact
+  // chart: beside a value card's number it has no room for words, and «No
+  // history yet» ran over the card on the 4" (2026-11-12) - it stays empty.
+  const compact = !!obj.properties?.compact
+  const message = compact ? undefined : (options.message ?? (l.series.length === 0 ? "Chart: add a series" : undefined))
   const texts: ChartText[] = [
     ...l.texts,
     ...(message ? [{ text: message, x: plot.x, y: plot.y + plot.h / 2 - fontSize / 2, w: plot.w, h: fontSize, align: "center" as const, tone: "muted" as const }] : []),
     // Not on a compact chart, which has no room for words.
-    ...(options.note && !obj.properties?.compact ? [{ text: options.note, x: plot.x + 4, y: plot.y + plot.h - fontSize - 4, w: plot.w - 8, h: fontSize, align: "left" as const, tone: "muted" as const }] : []),
+    ...(options.note && !compact ? [{ text: options.note, x: plot.x + 4, y: plot.y + plot.h - fontSize - 4, w: plot.w - 8, h: fontSize, align: "left" as const, tone: "muted" as const }] : []),
   ]
   if (screen) {
     // In the chart's font, as a Text object draws (charts-firmware decision 3).

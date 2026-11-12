@@ -105,6 +105,9 @@ Users: whoever places blocks in the designer - the starter first.
   the draft «Kopfzeile und Home», placed from Prebuilt without retouching.
 - A compact chart shows the last 3 h on the 4" once the recorder has
   them, and an invented course in the designer before.
+- Without a recorder or history a compact chart stays empty, on the
+  devices as in the designer: no «No history yet» beside the number
+  (it ran over the card on the 4", 2026-11-12).
 
 ## Open questions
 

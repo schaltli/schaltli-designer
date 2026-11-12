@@ -35,6 +35,12 @@ test.describe("a chart in the designer (D5)", () => {
     expect(p.message).toBeUndefined()
     expect(p.note).toBe(INVENTED_NOTE)
     expect(p.data.s1.steps.length).toBeGreaterThan(0)
+    // The reference a board's picture is held to invents nothing: it says
+    // what a device says (lib/render-screen.ts, 2026-11-12).
+    const asBoard = chartPreview(props, { topics, live: online, now: NOON, invent: false })
+    expect(asBoard.message).toBe("No history yet")
+    expect(asBoard.note).toBeUndefined()
+    expect(Object.values(asBoard.data).every((d) => d.steps.length === 0 && d.on.length === 0 && d.days.length === 0)).toBe(true)
   })
 
   test("Live draws the history laid under each series' name, in the recorder's zone", () => {

@@ -36,6 +36,8 @@ const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = `${require("./device-tag").deviceTag()}-${Date.now().toString(36)}`
 const LEVEL = `hil-chart-${RUN}/level`
 const HEATER = `hil-chart-${RUN}/heater`
+// A topic the recorder holds nothing for: its compact chart stays empty.
+const NONE = `hil-chart-${RUN}/none`
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 const OUT_DIR = path.join(__dirname, "charts-draw-report", deviceTag())
 
@@ -67,6 +69,7 @@ function chartProject(ddf, stamp) {
   project.topics = [
     { id: "level", topic: LEVEL, type: "numeric", examples: ["50"] },
     { id: "heater", topic: HEATER, type: "text", examples: ["on", "off"] },
+    { id: "none", topic: NONE, type: "numeric", examples: ["50"] },
   ]
   project.screens = [
     {
@@ -122,6 +125,28 @@ function chartProject(ddf, stamp) {
             nowColor: "#c62828",
             left: { scale: "auto" },
             series: [{ id: "s1", source: { kind: "topic", topic: LEVEL }, name: "Level", valueKind: "level", draw: "area", color: "#2255aa" }],
+          },
+        },
+        // A compact chart with no history at all: empty, no «No history yet»
+        // beside a value card's number (2026-11-12, it ran over the card).
+        {
+          id: "spark-none",
+          type: "chart",
+          zIndex: 1,
+          x: inner.x + Math.round(inner.w * 0.52),
+          y: inner.y + Math.round(inner.h * 0.8),
+          width: Math.round(inner.w * 0.2),
+          height: Math.round(inner.h * 0.12),
+          properties: {
+            mode: "time",
+            compact: true,
+            scroll: false,
+            legend: "none",
+            fontId: font.id,
+            lineColor: "#cac4d0",
+            nowColor: "#c62828",
+            left: { scale: "auto" },
+            series: [{ id: "s1", source: { kind: "topic", topic: NONE }, name: "None", valueKind: "level", draw: "area", color: "#2255aa" }],
           },
         },
       ],

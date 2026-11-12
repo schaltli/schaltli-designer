@@ -176,6 +176,13 @@ export interface ChartPreviewInput {
   /** The broker's values in Live; none for Simulation, the editor and thumbnails. */
   live?: Record<string, string> | null
   now?: number
+  /**
+   * false: nothing invented where the recorder holds nothing - «No history
+   * yet», as a device says it; the reference a board's picture is held to
+   * (lib/render-screen.ts chartLive). The preview invents a course, marked
+   * as such (docs/2026-11-11-chart-tweaks.md).
+   */
+  invent?: boolean
 }
 
 export interface ChartPreview {
@@ -221,6 +228,7 @@ export function chartPreview(properties: Record<string, any>, input: ChartPrevie
     data[s.id] = seriesData(s, payloads, tz)
   }
   if (any || chart.series.length === 0) return { range, back, data, now, tz }
+  if (input.invent === false) return { range, back, data, now, tz, message: "No history yet" }
   // A recorder with nothing yet: an invented course, marked as such.
   for (const s of chart.series) data[s.id] = simulatedData(s, window, now, input.topics, tz)
   return { range, back, data, now, tz, note: INVENTED_NOTE }
