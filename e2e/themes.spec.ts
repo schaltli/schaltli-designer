@@ -519,7 +519,7 @@ test.describe("drawing and export from roles", () => {
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
   })
 
-  test("the preview shows light or dark as schaltli/state/theme says, as a device does; Dark stays a view", async ({ page }) => {
+  test("the preview shows light or dark as schaltli/state/theme says, as a device does; Dark shows it, out of reach, and is a view again after", async ({ page }) => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     const { file } = await themedProjectZip((project) =>
@@ -532,12 +532,15 @@ test.describe("drawing and export from roles", () => {
     await page.getByRole("button", { name: "Preview", exact: true }).click()
     await page.getByRole("button", { name: "Simulation", exact: true }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
-    // The installation says dark: the canvas follows, the Dark switch does not.
+    // The installation says dark: the canvas follows, and so does the Dark
+    // switch - out of reach, saying why, where it used to look dead (2026-11-12).
     const value = page.locator("label", { hasText: THEME_STATE_TOPIC }).first().locator("xpath=../..").locator("input, textarea").first()
     await value.fill("dark")
     await value.press("Enter")
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
-    await expect(dark).toHaveAttribute("aria-checked", "false")
+    await expect(dark).toHaveAttribute("aria-checked", "true")
+    await expect(dark).toBeDisabled()
+    await expect(page.locator("label", { has: dark })).toHaveAttribute("title", `Follows the installation: ${THEME_STATE_TOPIC} says dark`)
     await value.fill("light")
     await value.press("Enter")
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
@@ -545,9 +548,11 @@ test.describe("drawing and export from roles", () => {
     await value.press("Enter")
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
 
-    // Out of the preview, the Dark switch's view again.
+    // Out of the preview, the Dark switch's view again, in reach.
     await page.getByTestId("demo-mode-switch").getByRole("button", { name: "Designer" }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+    await expect(dark).toBeEnabled()
+    await expect(dark).toHaveAttribute("aria-checked", "false")
   })
 
   test("a grey or 1-bit device has one variant, and the Dark switch says so", async ({ page }) => {

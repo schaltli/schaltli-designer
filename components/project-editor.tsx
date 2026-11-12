@@ -1947,10 +1947,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // shows it; without a word from it, and outside the preview, the Dark
   // switch's - which stays a view and does not follow the topic
   // (docs/2026-09-25-theme-topic.md).
-  const shownVariant: Variant =
-    (isPreviewMode &&
-      variantFromTopic(previewSource === "live" ? liveValues[THEME_STATE_TOPIC] : previewTopicValues[THEME_STATE_TOPIC])) ||
-    themeVariant
+  const variantOfTopic =
+    isPreviewMode &&
+    variantFromTopic(previewSource === "live" ? liveValues[THEME_STATE_TOPIC] : previewTopicValues[THEME_STATE_TOPIC])
+  const themeFromTopic = !!variantOfTopic
+  const shownVariant: Variant = variantOfTopic || themeVariant
 
   // Live, the light/dark switch shows the variant the view is in where the
   // broker has said nothing of it.
@@ -5008,16 +5009,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           {/* Which variant of the themes the canvas, the thumbnails and the
               preview show. View state: not saved, not an undo step. A grey or
               1-bit device has one variant, so there is nothing to switch
-              (docs/2026-09-24-themes-model.md, criterion 4). */}
+              (docs/2026-09-24-themes-model.md, criterion 4). In the preview,
+              once the installation says light or dark on THEME_STATE_TOPIC,
+              that decides (shownVariant): the switch shows it and is out of
+              reach, where it used to look dead (2026-11-12). */}
           <FooterSwitch
             label="Dark"
-            checked={(project.settings.colorDepth || "24bit") === "24bit" && themeVariant === "dark"}
+            checked={(project.settings.colorDepth || "24bit") === "24bit" && (themeFromTopic ? shownVariant : themeVariant) === "dark"}
             onChange={(dark) => setThemeVariant(dark ? "dark" : "light")}
-            disabled={(project.settings.colorDepth || "24bit") !== "24bit"}
+            disabled={(project.settings.colorDepth || "24bit") !== "24bit" || themeFromTopic}
             title={
-              (project.settings.colorDepth || "24bit") === "24bit"
-                ? "Show the dark variant of the themes"
-                : "This device shows one variant only"
+              (project.settings.colorDepth || "24bit") !== "24bit"
+                ? "This device shows one variant only"
+                : themeFromTopic
+                  ? `Follows the installation: ${THEME_STATE_TOPIC} says ${shownVariant}`
+                  : "Show the dark variant of the themes"
             }
           />
           <FooterSwitch
