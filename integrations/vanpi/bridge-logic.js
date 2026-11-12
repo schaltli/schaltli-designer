@@ -776,8 +776,10 @@ function createBridgeLogic() {
         look: "dial",
         size: "l",
       },
-      // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
-      { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", column: 1, row: "fuel" },
+      // The line says what it is: «2.100 l seit 05.12.2024 18:00h». Small,
+      // as the status line: in XL it took 274 px on the 4" and the table gave
+      // both columns that, 558 px in all (the starter, 2026-11-12).
+      { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", small: true, column: 1, row: "fuel" },
       // A quiet text button (LED look 10).
       { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", size: "xs", look: "text", section: "Verbrauch", column: 2, row: "fuel" },
     ]

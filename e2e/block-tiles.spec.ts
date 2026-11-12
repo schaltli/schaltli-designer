@@ -7,6 +7,8 @@ import { fittedBlockCard } from "../lib/block-card"
 import { controlPalette } from "../lib/control-palette"
 import { layoutObjects } from "../lib/layout"
 import { cardSettingsOf } from "../lib/card"
+import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
+import { fontFor, stepKindOf, stepUpdates, styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 
 // Blocks in the LED look (docs/2026-11-11-led-look.md, decisions 8 and 9):
@@ -146,4 +148,44 @@ test("drawn: the MaxxFan and the heater placed on a 4\" screen", async ({ page }
     fs.mkdirSync(path.dirname(out), { recursive: true })
     fs.writeFileSync(out, Buffer.from(dataUrl.split(",")[1], "base64"))
   }
+})
+
+// Fix (3) of the starter (2026-11-12): on the van the heater block came out
+// 558 px wide on the 4" - the fuel's line «0.000 l seit 06.11.2026 23:31h» in
+// XL took 274 px, and the table gives both columns its widest. The line is
+// small, as the status line is, so the block fits the screen less its margins.
+test("the heater on the 4\" with the van's texts, in the editor's fonts: no wider than the screen less its margins", async () => {
+  const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4.ddf.zip"))
+  const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), "")
+  const ppm = fields.pixelsPerMm!
+  const fonts = fields.fonts as any[]
+  const textScale = textScaleOf({ pixelsPerMm: ppm, typographies: fields.typographies }, "Geometric")!
+  const xl = fontFor("xl", false, textScale.typography, fonts, ppm)!
+  const entry = described("heater", HEATER, "heater")
+  const parts = entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
+  const built = buildEntry({ entry, rect: { x: 0, y: 0, width: 200, height: 40 }, palette: controlPalette("24bit"), font: { id: xl.id, size: xl.size }, options: { label: entry.label, look: "", icon: null, parts } })
+  // As the editor writes it (components/project-editor.tsx buildArmed).
+  const stepped = built.objects.map((object) => {
+    const { blockTextStyle, blockSizeStep, ...properties } = object.properties ?? {}
+    const style = blockTextStyle === "caption" ? "standard" : typeof blockTextStyle === "string" ? blockTextStyle : properties.fontId === xl.id ? "xl" : undefined
+    const own = { ...object, properties: { ...properties, ...(style ? styledFont(style as TextStyle, false, textScale, fonts) ?? {} : {}) } }
+    return stepKindOf(own.type) ? { ...own, ...stepUpdates(own as any, blockSizeStep ?? "m", ppm, fonts) } : own
+  })
+  const topics = [
+    { topic: "schaltli/state/heater/fuel_text", type: "text", examples: ["0.000 l seit 06.11.2026 23:31h"] },
+    { topic: "schaltli/state/heater/status_line", type: "text", examples: ["Bereit"] },
+  ]
+  const scale = { pixelsPerMm: ppm, fonts, topics, cards: cardSettingsOf(undefined) } as any
+  const smaller = (style: "large" | "standard") => styledFont(style, false, textScale, fonts)
+  const piece = fittedBlockCard({ ...built, objects: stepped }, scale, 480, smaller)
+  let n = 0
+  const withIds = (o: any): any => ({ ...o, id: o.id || `o${n++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+  const laid = layoutObjects([withIds({ ...piece, x: 8, y: 52 })], scale)[0]
+  expect(laid.width).toBeLessThanOrEqual(480 - 16)
+  // And what it holds within it: its table, the modes' card across both columns.
+  const table = laid.children!.find((o: any) => o.type === "table")!
+  expect(table.x + table.width).toBeLessThanOrEqual(laid.width)
+  // The fuel's line small, as the status line is.
+  const fuel = walk(laid).find((o) => o.properties?.liveValues?.[0]?.source.path === "schaltli/state/heater/fuel_text")
+  expect(fuel.properties.textStyle).toBe("standard")
 })
