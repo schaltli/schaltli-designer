@@ -82,3 +82,6 @@ first after a context summary.
 - Handbook texts of L (bedienen, anordnen, baugruppen) ran through maettel-humanizer (2 small edits).
 - test:quick for phase 1 (quick-b.log) ran while L-edits were being made; e2e may mix. Rerun after L.
 - L7 plan: switch parts -> Toggle Button look "toggle" (default, name inside); choice -> LED group; button look:"text"; multi-part blocks: one card per part (heading = part name, value right for sliders); dimmer 0 -> "Aus".
+
+- 2026-11-12 nach van-deploy starter_look2: K8 neu aufgenommen (gut), K13 neu (Sprechtext K13-6/7 getauscht, neue Takes, alte als *.old2; Heizung ganz in der Simulation der Vorschau - die Autoterm nahm heater/view fan nicht an, power blieb off; Vorschau öffnet jedes Mal in Live, das Skript wählt Simulation und prüft es). K9 aufgenommen, aber die Dimmer zeigten «Aus %» (Einheit ausserhalb des Live-Werts) - Fix in bausteine.ts, nach nächstem van-deploy K9 neu.
+- Für den Nutzer: Heizungsblock mit Timer ist auf dem 4" höher als der Platz über der Leiste (Verbrauch/«Nullen» darunter), erst ohne Timer sichtbar.

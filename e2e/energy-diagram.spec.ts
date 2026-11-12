@@ -529,15 +529,17 @@ async function previewProject(mode: "flow" | "sankey", motion: boolean, withPopu
   return out
 }
 
-/** The main canvas's pixels now, as screen coordinates (zoom 1, the screen centred). */
-async function canvasPixels(page: Page): Promise<{ left: number; top: number; width: number; height: number; data: number[] }> {
-  return page.evaluate(({ sw, sh }) => {
+// Pixels of the screen (zoom 1, the screen centred) read in the page, each as "r,g,b": carrying the
+// whole canvas out took 13 s a call, and the tests that tapped until a pixel
+// changed ran into their minute (2026-11-12).
+async function screenPixels(page: Page, points: [number, number][]): Promise<string[]> {
+  return page.evaluate(({ sw, sh, points }) => {
     const canvas = [...document.querySelectorAll("canvas")].sort((a, b) => b.width * b.height - a.width * a.height)[0]
     const ctx = canvas.getContext("2d")!
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    // The screen's top left on the canvas: centred, as the canvas draws it.
-    return { left: Math.round((canvas.width - sw) / 2), top: Math.round((canvas.height - sh) / 2), width: canvas.width, height: canvas.height, data: Array.from(data) }
-  }, { sw: SCREEN_43B.width, sh: SCREEN_43B.height })
+    const left = Math.round((canvas.width - sw) / 2)
+    const top = Math.round((canvas.height - sh) / 2)
+    return points.map(([x, y]) => [...ctx.getImageData(left + x, top + y, 1, 1).data.slice(0, 3)].join(","))
+  }, { sw: SCREEN_43B.width, sh: SCREEN_43B.height, points })
 }
 
 // The canvas kept in the page under `key`, and compared there: carrying the
@@ -774,14 +776,7 @@ test.describe("the energy diagram's nodes dragged in the Flow", () => {
 
 test.describe("a tap on an energy diagram's node", () => {
   /** Whether the screen outside the diagram looks as it did: a popup over it dims it. */
-  const outside = async (page: Page) => {
-    const px = await canvasPixels(page)
-    const at = (x: number, y: number) => {
-      const i = ((px.top + y) * px.width + px.left + x) * 4
-      return px.data.slice(i, i + 3).join(",")
-    }
-    return [at(600, 460), at(10, 470), at(700, 300)].join(" ")
-  }
+  const outside = async (page: Page) => (await screenPixels(page, [[600, 460], [10, 470], [700, 300]])).join(" ")
 
   for (const mode of ["flow", "sankey"] as const) {
     test(`${mode}: on a node with «Open a popup» it opens; on one without, nothing`, async ({ page }) => {
@@ -836,11 +831,7 @@ test("a tap on the diagram's own switch shows the other mode in the preview", as
   await page.waitForTimeout(400)
   const sw = modeSwitchLayout("top-right", SIZE)!
   const disc = sw.flow.shapes.find((sh) => sh.kind === "disc") as { cx: number; cy: number }
-  const at = async (x: number, y: number) => {
-    const px = await canvasPixels(page)
-    const i = ((px.top + ORIGIN.y + y) * px.width + px.left + ORIGIN.x + x) * 4
-    return px.data.slice(i, i + 3).join(",")
-  }
+  const at = async (x: number, y: number) => (await screenPixels(page, [[ORIGIN.x + x, ORIGIN.y + y]]))[0]
   // The Flow's dot: its icon in the text's colour while Flow shows.
   const flowShown = await at(disc.cx, disc.cy)
   const { box } = await getMainCanvas(page)
