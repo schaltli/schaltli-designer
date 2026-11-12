@@ -55,6 +55,14 @@ first after a context summary.
 - [~] S2: Whitelist + Wächter in lib.mjs (vanPublish, guardVan in record(); heater/view nur fan/off, relay/1, dimmer, theme, maxxfan/cover); K9 umgestellt. Koordinaten der Kapitel erst nach Starter-Neubau im Van-Designer
 - [ ] S3 dry run (nächster Schritt: Kapitelskripte K3-K16 auf neue Wortzeiten und neue Bausteine umschreiben, Starter im Van-Designer neu aufbauen). Van läuft seit 2026-11-12 auf fw-2026.11.12.1-pre.starter_look (Designer+Brücke, geprüft: time/date, Dimmer number, Blöcke). Nächster Schritt: M1 vorziehen - neue Takes nur für geänderte Kapitel 3,4,5,6,8-16 (starter-vo.json neu angelegt, markiert alle; alte Takes 0,1,2,7,17-20 behalten), dann Kapitelskripte neu takten und Starter im Van-Designer neu aufbauen
 
+
+## S3-Lauf: Stand und Erkenntnisse (2026-11-12, nachts)
+- Neu aufgenommen gegen den Van-Designer (Rohvideos raw/K*.mp4, Zustände states/after-K*.json): K3 (Toggle Button), K4 (7 Screens, Temperaturen unter Klima), K5 (Kopfzeile: Uhrzeit/Datum-Text links, Flamme rechts, Line-Werkzeug per Klick+Doppelklick), K6 (Navigator LED, 7 Einträge, Theme-Platz 40 px), K7 unverändert. K8 in Arbeit.
+- Aufnahme-Browser: Chromium auf :9333 headless, Profil scratchpad/chrome-film (Palette angedockt = localStorage schaltli.palette mode dock). Start: `cmd /c start "" /b chrome.exe --headless=new --remote-debugging-port=9333 --window-size=1614,1051 --force-device-scale-factor=1.2 --user-data-dir=<profil>` (Start-Process-Instanzen starben). Screenshots in Gerätepixeln (÷1.2 = CSS).
+- Native <select> im Headless nie anklicken (Tab-Crash), nur hinzeigen + selectOption. Theme-Combobox: Option per Locator-Klick nach scrollIntoView.
+- lib.mjs: openProject setzt Van auf hell (vanPublish theme light); guardVan in record(); check-cues.mjs prüft Wortmarken.
+- Home-Layout (4"): Kartenabstand paddingMm 1.2 (in after-K7.json gesetzt), Favoriten-Toggles Text size «Large · 16 px», Tabelle «Equal columns» + Width 68.4 mm (6.78 px/mm). Objektliste: Neuestes oben, innere Kartentabellen heissen auch «table» -> äussere Tabelle über kleinste x-Einrückung wählen. Alt-Snap: Karte wird an der Mitte getragen, rastet mit Oberkante 3 px unter/neben ein -> Ziel aus draft()-Geometrie rechnen, nicht feste Koordinaten.
+
 ## Phase 9 - film
 - [x] M1 voice (vorgezogen, 2026-11-12): neue Takes a/b + b.words.json für K3-K6, K8-K16 in public/vo-st (alte als *.old.*), Session-IDs in vo-st/sessions-2026-11-12.json; Text-Korrekturen K9 (Karten), K11 (Kalibrier-Absatz raus); K0-2, K7, K17-K20 alte Takes. Nutzer muss noch reinhören
 - [ ] M2 record
