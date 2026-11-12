@@ -67,7 +67,7 @@ first after a context summary.
 
 - S3 weiter: neu aufgenommen auch K9 (Dimmer-Karten), K10 (mit Tipps auf den eigenen Energie-Schalter), K11 (Tanks breit, Pumpe|Ventil-Paar Standard 14 px, Equal columns 68.4 mm), K12 (Ventil als LED-Gruppe Zu|Offen via Convert to, Frame-Abschnitt aufklappen). K8 läuft, sieht aber erst nach Fix (1) richtig aus.
 - Fix (3) gelöst (e98cb3f8): die Verbrauchszeile der Heizung stand in XL (274 px) und die Tabelle gibt beiden Spalten die breiteste - jetzt klein (`small: true` in der Brücke), Test in e2e/block-tiles.spec.ts. Wirkt erst nach van-deploy (Brücke). K13-Plan: Heizung nie per Taste einschalten (heater/view on = verboten), sondern bei «Erst wenn sie an ist» vanPublish heater/view fan, am Ende off.
-- HALT 2026-11-12: van-deploy nötig (Designer 0ba994d7 + Brücke e98cb3f8), dann K8, K9 neu, K13 ff. Frage an den Nutzer: 4" absichtlich im Van-WLAN (192.168.8.168)? test:quick überspringt ws4 deshalb.
+- HALT 2026-11-12: van-deploy nötig (Designer 0ba994d7 + Brücke e98cb3f8), dann K8, K9 neu, K13 ff. Der 4" ist im Van (Nutzer, 2026-11-12; 192.168.8.168), K19-Halt damit erledigt, test:quick überspringt ws4. van-deploy unter neuem Namen starter_look2 (der Tag fw-2026.11.12.1-pre.starter_look bestand schon).
 - Hinweise für den Nutzer: K10 Sankey-Tipp zeigt noch leere Bänder (Knoten erst danach gebunden). Slate: Accent #0284c7 und Accent 3 #0891b2 kaum unterscheidbar (Frisch-/Abwasser). Die LED-Gruppe des Ventils steht ohne Karte/Namen.
 
 ## Phase 9 - film
