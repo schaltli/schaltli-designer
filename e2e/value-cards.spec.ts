@@ -98,6 +98,9 @@ test("where the device draws charts: the last three hours as a sparkline beside 
   const mid = chart.y + chart.height / 2
   expect(mid).toBeGreaterThan(number.y)
   expect(mid).toBeLessThan(number.y + number.height)
+  // Narrow of its own: it fills its cell, and its old 100 px beside a 28 px
+  // number made two cards side by side overflow the 4" (2026-11-12).
+  expect(line.width).toBeLessThanOrEqual(font.size * 2.5)
   // Without charts, none.
   const plain = buildFromCatalog({ entry, control: entry.controls[0], rect: RECT, palette, font, options: { look: "number" } })
   expect(plain.objects.some((o) => o.type === "chart")).toBe(false)

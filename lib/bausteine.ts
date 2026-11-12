@@ -930,7 +930,10 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           // Its last three hours beside it, where the device draws charts -
           // of the topic as the recorder hears it, so not of a scaled one.
           if (charts && !scaled) {
-            const line = sparkline(read, labelText, colour, control.unit, { x: parts.control.x, y: parts.control.y, width: Math.round(parts.control.width / 2), height: Math.round((font?.size ?? 18) * 1.6) })
+            // Narrow at least: it fills its cell anyway, and its old half of the
+            // row made a card with a 28 px number 246 px wide - two of them
+            // side by side overflowed the 4" (2026-11-12).
+            const line = sparkline(read, labelText, colour, control.unit, { x: parts.control.x, y: parts.control.y, width: Math.round((font?.size ?? 18) * 2.5), height: Math.round((font?.size ?? 18) * 1.6) })
             return {
               objects: [...quiet, big, line],
               partColumns: [1, 2],

@@ -63,6 +63,12 @@ first after a context summary.
 - lib.mjs: openProject setzt Van auf hell (vanPublish theme light); guardVan in record(); check-cues.mjs prüft Wortmarken.
 - Home-Layout (4"): Kartenabstand paddingMm 1.2 (in after-K7.json gesetzt), Favoriten-Toggles Text size «Large · 16 px», Tabelle «Equal columns» + Width 68.4 mm (6.78 px/mm). Objektliste: Neuestes oben, innere Kartentabellen heissen auch «table» -> äussere Tabelle über kleinste x-Einrückung wählen. Alt-Snap: Karte wird an der Mitte getragen, rastet mit Oberkante 3 px unter/neben ein -> Ziel aus draft()-Geometrie rechnen, nicht feste Koordinaten.
 
+- Offene Designer-Fixes aus S3 (uncommitted, brauchen test:quick, Commit, dann van-deploy durch den Nutzer): (1) Sparkline-Mindestbreite 2.5×Schrift statt halbe Zeile (Wert-Karten 246 statt 227 px, zwei nebeneinander zu breit; Test value-cards «sparkline beside»), (2) Kopfzeile: Icon weicht vor dem Wert («Aus» bleibt; Test block-tiles «on the 4"»). Danach K8/K9 neu aufnehmen.
+
+- S3 weiter: neu aufgenommen auch K9 (Dimmer-Karten), K10 (mit Tipps auf den eigenen Energie-Schalter), K11 (Tanks breit, Pumpe|Ventil-Paar Standard 14 px, Equal columns 68.4 mm), K12 (Ventil als LED-Gruppe Zu|Offen via Convert to, Frame-Abschnitt aufklappen). K8 läuft, sieht aber erst nach Fix (1) richtig aus.
+- Fix (3) offen, nicht gelöst: Heizungsblock auf dem 4" 558 px breit (Spalte 2 wächst, vermutlich wegen der auf M gestuften Moduswahl über beide Spalten mit echten Schriften); im reinen Test (e2e) 464 px. K13 erst danach. K13-Plan: Heizung nie per Taste einschalten (heater/view on = verboten), sondern bei «Erst wenn sie an ist» vanPublish heater/view fan, am Ende off.
+- Hinweise für den Nutzer: K10 Sankey-Tipp zeigt noch leere Bänder (Knoten erst danach gebunden). Slate: Accent #0284c7 und Accent 3 #0891b2 kaum unterscheidbar (Frisch-/Abwasser). Die LED-Gruppe des Ventils steht ohne Karte/Namen.
+
 ## Phase 9 - film
 - [x] M1 voice (vorgezogen, 2026-11-12): neue Takes a/b + b.words.json für K3-K6, K8-K16 in public/vo-st (alte als *.old.*), Session-IDs in vo-st/sessions-2026-11-12.json; Text-Korrekturen K9 (Karten), K11 (Kalibrier-Absatz raus); K0-2, K7, K17-K20 alte Takes. Nutzer muss noch reinhören
 - [ ] M2 record

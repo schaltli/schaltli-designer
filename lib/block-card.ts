@@ -144,8 +144,12 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
   const valueAt = name.findIndex((piece) => piece.properties?.headingValue)
   if (valueAt >= 0) {
     const gap = Math.round(SNAP_GAP_MM * scale.pixelsPerMm)
-    const need = name.reduce((sum, piece, i) => sum + naturalWidth(withIds(piece, `h${i}`), scale), 0) + gap * (name.length - 1)
-    if (need > width) {
+    const needOf = (pieces: Piece[]) => pieces.reduce((sum, piece, i) => sum + naturalWidth(withIds(piece, `h${i}`), scale), 0) + gap * (pieces.length - 1)
+    // The value before the icon (2026-11-12, the starter's levels on the
+    // 4"): «Aus» at 0 says more than the bulb, so the icon goes first.
+    const iconAt = name.findIndex((piece) => piece.type === "icon")
+    if (needOf(name) > width && iconAt >= 0 && needOf(name.filter((_, i) => i !== iconAt)) <= width) name.splice(iconAt, 1)
+    else if (needOf(name) > width) {
       name.splice(valueAt, 1)
       for (let i = 0; i < controls.length; i++) {
         const fallback = controls[i].properties?.headingValueFallback

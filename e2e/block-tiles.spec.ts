@@ -66,6 +66,22 @@ test("a dimmer (a number 0-100 %): the slider's value beside the name, «Aus» a
   expect(slider).toMatchObject({ type: "slider", properties: { displayValue: "none" } })
 })
 
+// 2026-11-12, the starter's dimmers on the 4": with the bulb, the name and
+// the value were too wide for half the screen, and the value went - the
+// slider showing «0» where «Aus» belongs. The icon goes first.
+test("a dimmer on the 4\": where name, value and icon do not fit, the icon goes and the value with «Aus» stays", () => {
+  const entry = { id: "dim", label: "Dimmer 1", controls: [{ kind: "level", read: "d/level", write: "d/set", min: 0, max: 100, step: 1, unit: "%" }] } as any
+  const built = buildEntry({ entry, rect: { x: 0, y: 0, width: 200, height: 60 }, palette: controlPalette("24bit"), font: { id: "f", size: 18 }, options: { label: entry.label, look: "", icon: { name: "mdi:lightbulb", data: "<svg/>", size: 41 } } })
+  const scale = { pixelsPerMm: 6.78, fonts: [], cards: cardSettingsOf(undefined) }
+  // A screen where the three do not fit, the name and the value do (the
+  // test font's widths: 220 holds all three, 180 not even the two).
+  const card = fittedBlockCard(built, scale, 200)
+  const all = walk(card)
+  expect(all.some((o) => o.type === "icon")).toBe(false)
+  expect(all.find((o) => o.type === "text" && o.properties.textAlign === "right")?.properties.headingValue).toBe(true)
+  expect(all.find((o) => o.type === "slider")?.properties.displayValue).toBe("none")
+})
+
 test("the MaxxFan: «Lüfter» and «Deckel» side by side, then Betrieb, the slider and Luft each in a card - every edge in line", () => {
   const { built, laid } = placed(described("maxxfan", MAXXFAN, "maxxfan"))
   expect(built.partTiles).toBe(true)
