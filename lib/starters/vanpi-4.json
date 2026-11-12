@@ -1,0 +1,5764 @@
+{
+ "starterOf": "waveshare-touch-lcd-4",
+ "screens": [
+  {
+   "id": "master-1",
+   "name": "Master 1",
+   "objects": [
+    {
+     "type": "line",
+     "x": 10,
+     "y": 44,
+     "width": 460,
+     "height": 0,
+     "properties": {
+      "color": "text",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "filletRadius": 0,
+      "points": [
+       {
+        "x": 10,
+        "y": 44
+       },
+       {
+        "x": 470,
+        "y": 44
+       }
+      ]
+     },
+     "id": "obj-32",
+     "zIndex": 3
+    },
+    {
+     "type": "icon",
+     "x": 423,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "properties": {
+      "assetId": "icon-30",
+      "iconName": "solar:fire-bold",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/heater/power"
+        },
+        "rules": [
+         {
+          "op": "==",
+          "operand": "off",
+          "result": {
+           "kind": "icon",
+           "icon": ""
+          }
+         }
+        ],
+        "otherwise": {
+         "kind": "icon",
+         "icon": "icon-30"
+        }
+       }
+      ]
+     },
+     "id": "obj-30",
+     "zIndex": 2
+    },
+    {
+     "type": "icon",
+     "x": 255,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "properties": {
+      "assetId": "icon-187",
+      "iconName": "mdi:alert-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/battery/soc"
+        },
+        "rules": [
+         {
+          "op": ">=",
+          "operand": "20",
+          "result": {
+           "kind": "icon",
+           "icon": ""
+          }
+         }
+        ],
+        "otherwise": {
+         "kind": "icon",
+         "icon": "icon-187"
+        }
+       }
+      ],
+      "iconColor": "alarm"
+     },
+     "id": "obj-187",
+     "zIndex": 5
+    },
+    {
+     "type": "icon",
+     "x": 255,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "properties": {
+      "assetId": "icon-187",
+      "iconName": "mdi:alert-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/temp/1/value"
+        },
+        "rules": [
+         {
+          "op": ">=",
+          "operand": "3",
+          "result": {
+           "kind": "icon",
+           "icon": ""
+          }
+         }
+        ],
+        "otherwise": {
+         "kind": "icon",
+         "icon": "icon-187"
+        }
+       }
+      ],
+      "iconColor": "alarm"
+     },
+     "id": "obj-189",
+     "zIndex": 6
+    },
+    {
+     "type": "icon",
+     "x": 255,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "properties": {
+      "assetId": "icon-187",
+      "iconName": "mdi:alert-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/tank/2/level"
+        },
+        "rules": [
+         {
+          "op": "<=",
+          "operand": "90",
+          "result": {
+           "kind": "icon",
+           "icon": ""
+          }
+         }
+        ],
+        "otherwise": {
+         "kind": "icon",
+         "icon": "icon-187"
+        }
+       }
+      ],
+      "iconColor": "alarm"
+     },
+     "id": "obj-190",
+     "zIndex": 7
+    },
+    {
+     "type": "text",
+     "x": 5,
+     "y": 11,
+     "width": 136,
+     "height": 23,
+     "properties": {
+      "text": "{live:lv1}   {live:lv2}",
+      "textStyle": "standard",
+      "textBold": false,
+      "fontId": "font-montserrat-c10",
+      "fontSize": 18,
+      "color": "text",
+      "textAlign": "left",
+      "fontWeight": "normal",
+      "backgroundColor": "transparent",
+      "borderColor": "transparent",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/time"
+        },
+        "rules": []
+       },
+       {
+        "id": "lv2",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/date"
+        },
+        "rules": []
+       }
+      ]
+     },
+     "id": "obj-27",
+     "zIndex": 1
+    },
+    {
+     "type": "navigator",
+     "x": 0,
+     "y": 416,
+     "width": 480,
+     "height": 64,
+     "properties": {
+      "edge": "bottom",
+      "shows": "icons",
+      "fontId": "font-inter-c7",
+      "ground": "led",
+      "themeSwitch": "far"
+     },
+     "id": "obj-33",
+     "zIndex": 4
+    }
+   ],
+   "isMaster": true,
+   "themeId": "slate",
+   "typography": "Geometric"
+  },
+  {
+   "id": "screen-1",
+   "name": "Home",
+   "objects": [
+    {
+     "id": "obj-38",
+     "type": "table",
+     "x": 9,
+     "y": 48,
+     "width": 464,
+     "height": 195,
+     "zIndex": 1,
+     "properties": {
+      "grid": 1,
+      "columns": [
+       {},
+       {}
+      ],
+      "rows": [
+       {},
+       {}
+      ],
+      "equalColumns": true,
+      "widthMm": 68.4
+     },
+     "children": [
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/1/power",
+        "writeTopic": "schaltli/cmnd/relay/1",
+        "text": "Boiler 12V",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-36",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/3/power",
+        "writeTopic": "schaltli/cmnd/relay/3",
+        "text": "Frischwasserpumpe",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-37",
+       "zIndex": 2
+      },
+      {
+       "type": "free",
+       "x": 0,
+       "y": 88,
+       "width": 227,
+       "height": 107,
+       "properties": {
+        "look": "card",
+        "cell": {
+         "row": 1,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 102
+        },
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1
+       },
+       "children": [
+        {
+         "type": "text",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 34,
+         "properties": {
+          "text": "Innen",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "dock": "top",
+          "ownSize": {
+           "width": 211
+          }
+         },
+         "zIndex": 2,
+         "id": "obj-40"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 51,
+         "width": 213,
+         "height": 42,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {
+            "mm": 16.81422711864407
+           },
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "text",
+           "x": 0,
+           "y": 4,
+           "width": 114,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1} °C",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/temp/1/value"
+              },
+              "rules": []
+             }
+            ],
+            "fontId": "font-montserrat-c20",
+            "fontSize": 36,
+            "color": "text",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xxl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-42",
+           "zIndex": 0
+          },
+          {
+           "type": "chart",
+           "x": 124,
+           "y": 0,
+           "width": 89,
+           "height": 42,
+           "properties": {
+            "mode": "time",
+            "compact": true,
+            "scroll": false,
+            "legend": "none",
+            "left": {
+             "scale": "auto"
+            },
+            "series": [
+             {
+              "id": "s1",
+              "source": {
+               "kind": "topic",
+               "topic": "schaltli/state/temp/1/value"
+              },
+              "name": "Innen",
+              "valueKind": "level",
+              "draw": "area",
+              "color": "text",
+              "unit": "°C"
+             }
+            ],
+            "cell": {
+             "row": 0,
+             "column": 1,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 65
+            }
+           },
+           "id": "obj-43",
+           "zIndex": 1
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-41"
+        }
+       ],
+       "id": "obj-39",
+       "zIndex": 2
+      },
+      {
+       "type": "free",
+       "x": 237,
+       "y": 88,
+       "width": 227,
+       "height": 107,
+       "properties": {
+        "look": "card",
+        "cell": {
+         "row": 1,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 107
+        },
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1
+       },
+       "children": [
+        {
+         "type": "table",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 41,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {},
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "top"
+         },
+         "children": [
+          {
+           "type": "icon",
+           "x": 0,
+           "y": 0,
+           "width": 41,
+           "height": 41,
+           "properties": {
+            "assetId": "baustein-icon-mdi-solar-power",
+            "iconName": "default",
+            "iconColor": "text",
+            "backgroundColor": "transparent",
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-46",
+           "zIndex": 0
+          },
+          {
+           "type": "text",
+           "x": 51,
+           "y": 4,
+           "width": 162,
+           "height": 34,
+           "properties": {
+            "text": "Solar",
+            "fontId": "font-montserrat-c10",
+            "fontSize": 18,
+            "color": "textMuted",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "standard",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 1
+            }
+           },
+           "id": "obj-47",
+           "zIndex": 1
+          }
+         ],
+         "zIndex": 2,
+         "id": "obj-45"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 58,
+         "width": 213,
+         "height": 42,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {
+            "mm": 16.81422711864407
+           },
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "text",
+           "x": 0,
+           "y": 4,
+           "width": 114,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1} W",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/solar/power"
+              },
+              "rules": []
+             }
+            ],
+            "fontId": "font-montserrat-c20",
+            "fontSize": 36,
+            "color": "energySun",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xxl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-49",
+           "zIndex": 0
+          },
+          {
+           "type": "chart",
+           "x": 124,
+           "y": 0,
+           "width": 89,
+           "height": 42,
+           "properties": {
+            "mode": "time",
+            "compact": true,
+            "scroll": false,
+            "legend": "none",
+            "left": {
+             "scale": "auto"
+            },
+            "series": [
+             {
+              "id": "s1",
+              "source": {
+               "kind": "topic",
+               "topic": "schaltli/state/solar/power"
+              },
+              "name": "Solar",
+              "valueKind": "level",
+              "draw": "area",
+              "color": "energySun",
+              "unit": "W"
+             }
+            ],
+            "cell": {
+             "row": 0,
+             "column": 1,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 65
+            }
+           },
+           "id": "obj-50",
+           "zIndex": 1
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-48"
+        }
+       ],
+       "id": "obj-44",
+       "zIndex": 2
+      }
+     ]
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 254,
+     "width": 464,
+     "height": 73,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 450,
+       "height": 41,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {},
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "top"
+       },
+       "children": [
+        {
+         "type": "icon",
+         "x": 0,
+         "y": 0,
+         "width": 41,
+         "height": 41,
+         "properties": {
+          "assetId": "baustein-icon-game-icons-batteries",
+          "iconName": "default",
+          "iconColor": "text",
+          "backgroundColor": "transparent",
+          "sizeStep": "m",
+          "cell": {
+           "row": 0,
+           "column": 0
+          }
+         },
+         "id": "obj-53",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 51,
+         "y": 4,
+         "width": 59,
+         "height": 34,
+         "properties": {
+          "text": "Batterie",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-54",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 120,
+         "y": 4,
+         "width": 330,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1} %",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/battery/soc"
+            },
+            "rules": [],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "good",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 2
+          }
+         },
+         "id": "obj-55",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 2,
+       "id": "obj-52"
+      },
+      {
+       "type": "table",
+       "x": 7,
+       "y": 58,
+       "width": 450,
+       "height": 8,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "fill"
+       },
+       "children": [
+        {
+         "type": "bar",
+         "x": 0,
+         "y": 0,
+         "width": 450,
+         "height": 8,
+         "properties": {
+          "topic": "schaltli/state/battery/soc",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "good",
+          "thickness": 8,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 211
+          }
+         },
+         "id": "obj-57",
+         "zIndex": 0
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-56"
+      }
+     ],
+     "id": "obj-51",
+     "zIndex": 2
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 338,
+     "width": 464,
+     "height": 73,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 450,
+       "height": 41,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {},
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "top"
+       },
+       "children": [
+        {
+         "type": "icon",
+         "x": 0,
+         "y": 0,
+         "width": 41,
+         "height": 41,
+         "properties": {
+          "assetId": "baustein-icon-mdi-water",
+          "iconName": "default",
+          "iconColor": "text",
+          "backgroundColor": "transparent",
+          "sizeStep": "m",
+          "cell": {
+           "row": 0,
+           "column": 0
+          }
+         },
+         "id": "obj-60",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 51,
+         "y": 4,
+         "width": 94,
+         "height": 34,
+         "properties": {
+          "text": "Frischwasser",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-61",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 155,
+         "y": 4,
+         "width": 295,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1} %",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/tank/1/level"
+            },
+            "rules": [],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "accent",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 2
+          }
+         },
+         "id": "obj-62",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 2,
+       "id": "obj-59"
+      },
+      {
+       "type": "table",
+       "x": 7,
+       "y": 58,
+       "width": 450,
+       "height": 8,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "fill"
+       },
+       "children": [
+        {
+         "type": "bar",
+         "x": 0,
+         "y": 0,
+         "width": 450,
+         "height": 8,
+         "properties": {
+          "topic": "schaltli/state/tank/1/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 8,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 211
+          }
+         },
+         "id": "obj-64",
+         "zIndex": 0
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-63"
+      }
+     ],
+     "id": "obj-58",
+     "zIndex": 3
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-9"
+  },
+  {
+   "id": "screen-10",
+   "name": "Dimmer",
+   "objects": [
+    {
+     "id": "obj-79",
+     "type": "table",
+     "x": 2,
+     "y": 74,
+     "width": 464,
+     "height": 120,
+     "zIndex": 1,
+     "properties": {
+      "grid": 1,
+      "columns": [
+       {},
+       {}
+      ],
+      "rows": [
+       {}
+      ]
+     },
+     "children": [
+      {
+       "type": "free",
+       "x": 0,
+       "y": 0,
+       "width": 227,
+       "height": 120,
+       "properties": {
+        "look": "card",
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 120
+        }
+       },
+       "children": [
+        {
+         "type": "table",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 41,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {},
+           {},
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "top"
+         },
+         "children": [
+          {
+           "type": "icon",
+           "x": 0,
+           "y": 0,
+           "width": 41,
+           "height": 41,
+           "properties": {
+            "assetId": "baustein-icon-mdi-lightbulb-on-outline",
+            "iconName": "default",
+            "iconColor": "text",
+            "backgroundColor": "transparent",
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-67",
+           "zIndex": 0
+          },
+          {
+           "type": "text",
+           "x": 51,
+           "y": 4,
+           "width": 97,
+           "height": 34,
+           "properties": {
+            "text": "Dimmer 1",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 1
+            }
+           },
+           "id": "obj-68",
+           "zIndex": 1
+          },
+          {
+           "type": "text",
+           "x": 158,
+           "y": 4,
+           "width": 55,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1}",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/dimmer/1/level"
+              },
+              "rules": [
+               {
+                "op": "==",
+                "operand": "0",
+                "result": {
+                 "kind": "text",
+                 "parts": [
+                  "Aus"
+                 ]
+                }
+               }
+              ],
+              "format": {
+               "kind": "number",
+               "decimals": 0,
+               "grouped": false
+              },
+              "otherwise": {
+               "kind": "text",
+               "parts": [
+                {
+                 "value": true
+                },
+                " %"
+               ]
+              }
+             }
+            ],
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "right",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "headingValue": true,
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 2
+            }
+           },
+           "id": "obj-69",
+           "zIndex": 2
+          }
+         ],
+         "zIndex": 2,
+         "id": "obj-66"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 58,
+         "width": 213,
+         "height": 55,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "slider",
+           "x": 0,
+           "y": 0,
+           "width": 213,
+           "height": 55,
+           "properties": {
+            "topic": "schaltli/state/dimmer/1/level",
+            "direction": "left-to-right",
+            "calibrationPoints": [
+             {
+              "value": 0,
+              "barSizePercent": 0
+             },
+             {
+              "value": 100,
+              "barSizePercent": 100
+             }
+            ],
+            "displayValue": "none",
+            "fillColor": "accent",
+            "thickness": 20,
+            "textColor": "text",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "writeTopic": "schaltli/cmnd/dimmer/1",
+            "step": 1,
+            "headingValueFallback": "value",
+            "textStyle": "xl",
+            "textBold": false,
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 213
+            }
+           },
+           "id": "obj-71",
+           "zIndex": 0
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-70"
+        }
+       ],
+       "id": "obj-65",
+       "zIndex": 1
+      },
+      {
+       "type": "free",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 120,
+       "properties": {
+        "look": "card",
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 120
+        },
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1
+       },
+       "children": [
+        {
+         "type": "table",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 41,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {},
+           {},
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "top"
+         },
+         "children": [
+          {
+           "type": "icon",
+           "x": 0,
+           "y": 0,
+           "width": 41,
+           "height": 41,
+           "properties": {
+            "assetId": "baustein-icon-mdi-lightbulb-on-outline",
+            "iconName": "default",
+            "iconColor": "text",
+            "backgroundColor": "transparent",
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-74",
+           "zIndex": 0
+          },
+          {
+           "type": "text",
+           "x": 51,
+           "y": 4,
+           "width": 101,
+           "height": 34,
+           "properties": {
+            "text": "Dimmer 2",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 1
+            }
+           },
+           "id": "obj-75",
+           "zIndex": 1
+          },
+          {
+           "type": "text",
+           "x": 162,
+           "y": 4,
+           "width": 51,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1}",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/dimmer/2/level"
+              },
+              "rules": [
+               {
+                "op": "==",
+                "operand": "0",
+                "result": {
+                 "kind": "text",
+                 "parts": [
+                  "Aus"
+                 ]
+                }
+               }
+              ],
+              "format": {
+               "kind": "number",
+               "decimals": 0,
+               "grouped": false
+              },
+              "otherwise": {
+               "kind": "text",
+               "parts": [
+                {
+                 "value": true
+                },
+                " %"
+               ]
+              }
+             }
+            ],
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "right",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "headingValue": true,
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 2
+            }
+           },
+           "id": "obj-76",
+           "zIndex": 2
+          }
+         ],
+         "zIndex": 2,
+         "id": "obj-73"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 58,
+         "width": 213,
+         "height": 55,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "slider",
+           "x": 0,
+           "y": 0,
+           "width": 213,
+           "height": 55,
+           "properties": {
+            "topic": "schaltli/state/dimmer/2/level",
+            "direction": "left-to-right",
+            "calibrationPoints": [
+             {
+              "value": 0,
+              "barSizePercent": 0
+             },
+             {
+              "value": 100,
+              "barSizePercent": 100
+             }
+            ],
+            "displayValue": "none",
+            "fillColor": "accent",
+            "thickness": 20,
+            "textColor": "text",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "writeTopic": "schaltli/cmnd/dimmer/2",
+            "step": 1,
+            "headingValueFallback": "value",
+            "textStyle": "xl",
+            "textBold": false,
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 213
+            }
+           },
+           "id": "obj-78",
+           "zIndex": 0
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-77"
+        }
+       ],
+       "id": "obj-72",
+       "zIndex": 2
+      }
+     ]
+    },
+    {
+     "id": "obj-94",
+     "type": "table",
+     "x": 2,
+     "y": 262,
+     "width": 464,
+     "height": 120,
+     "zIndex": 2,
+     "properties": {
+      "grid": 1,
+      "columns": [
+       {},
+       {}
+      ],
+      "rows": [
+       {}
+      ]
+     },
+     "children": [
+      {
+       "type": "free",
+       "x": 0,
+       "y": 0,
+       "width": 227,
+       "height": 120,
+       "properties": {
+        "look": "card",
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 120
+        }
+       },
+       "children": [
+        {
+         "type": "table",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 41,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {},
+           {},
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "top"
+         },
+         "children": [
+          {
+           "type": "icon",
+           "x": 0,
+           "y": 0,
+           "width": 41,
+           "height": 41,
+           "properties": {
+            "assetId": "baustein-icon-mdi-lightbulb-on-outline",
+            "iconName": "default",
+            "iconColor": "text",
+            "backgroundColor": "transparent",
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-82",
+           "zIndex": 0
+          },
+          {
+           "type": "text",
+           "x": 51,
+           "y": 4,
+           "width": 101,
+           "height": 34,
+           "properties": {
+            "text": "Dimmer 3",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 1
+            }
+           },
+           "id": "obj-83",
+           "zIndex": 1
+          },
+          {
+           "type": "text",
+           "x": 162,
+           "y": 4,
+           "width": 51,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1}",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/dimmer/3/level"
+              },
+              "rules": [
+               {
+                "op": "==",
+                "operand": "0",
+                "result": {
+                 "kind": "text",
+                 "parts": [
+                  "Aus"
+                 ]
+                }
+               }
+              ],
+              "format": {
+               "kind": "number",
+               "decimals": 0,
+               "grouped": false
+              },
+              "otherwise": {
+               "kind": "text",
+               "parts": [
+                {
+                 "value": true
+                },
+                " %"
+               ]
+              }
+             }
+            ],
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "right",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "headingValue": true,
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 2
+            }
+           },
+           "id": "obj-84",
+           "zIndex": 2
+          }
+         ],
+         "zIndex": 2,
+         "id": "obj-81"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 58,
+         "width": 213,
+         "height": 55,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "slider",
+           "x": 0,
+           "y": 0,
+           "width": 213,
+           "height": 55,
+           "properties": {
+            "topic": "schaltli/state/dimmer/3/level",
+            "direction": "left-to-right",
+            "calibrationPoints": [
+             {
+              "value": 0,
+              "barSizePercent": 0
+             },
+             {
+              "value": 100,
+              "barSizePercent": 100
+             }
+            ],
+            "displayValue": "none",
+            "fillColor": "accent",
+            "thickness": 20,
+            "textColor": "text",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "writeTopic": "schaltli/cmnd/dimmer/3",
+            "step": 1,
+            "headingValueFallback": "value",
+            "textStyle": "xl",
+            "textBold": false,
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 213
+            }
+           },
+           "id": "obj-86",
+           "zIndex": 0
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-85"
+        }
+       ],
+       "id": "obj-80",
+       "zIndex": 2
+      },
+      {
+       "type": "free",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 120,
+       "properties": {
+        "look": "card",
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 120
+        },
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1
+       },
+       "children": [
+        {
+         "type": "table",
+         "x": 7,
+         "y": 7,
+         "width": 213,
+         "height": 41,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {},
+           {},
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "top"
+         },
+         "children": [
+          {
+           "type": "icon",
+           "x": 0,
+           "y": 0,
+           "width": 41,
+           "height": 41,
+           "properties": {
+            "assetId": "baustein-icon-mdi-lightbulb-on-outline",
+            "iconName": "default",
+            "iconColor": "text",
+            "backgroundColor": "transparent",
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0
+            }
+           },
+           "id": "obj-89",
+           "zIndex": 0
+          },
+          {
+           "type": "text",
+           "x": 51,
+           "y": 4,
+           "width": 103,
+           "height": 34,
+           "properties": {
+            "text": "Dimmer 4",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "left",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 1
+            }
+           },
+           "id": "obj-90",
+           "zIndex": 1
+          },
+          {
+           "type": "text",
+           "x": 164,
+           "y": 4,
+           "width": 49,
+           "height": 34,
+           "properties": {
+            "text": "{live:lv1}",
+            "liveValues": [
+             {
+              "id": "lv1",
+              "source": {
+               "namespace": "topic",
+               "path": "schaltli/state/dimmer/4/level"
+              },
+              "rules": [
+               {
+                "op": "==",
+                "operand": "0",
+                "result": {
+                 "kind": "text",
+                 "parts": [
+                  "Aus"
+                 ]
+                }
+               }
+              ],
+              "format": {
+               "kind": "number",
+               "decimals": 0,
+               "grouped": false
+              },
+              "otherwise": {
+               "kind": "text",
+               "parts": [
+                {
+                 "value": true
+                },
+                " %"
+               ]
+              }
+             }
+            ],
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "color": "text",
+            "textAlign": "right",
+            "fontWeight": "normal",
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "headingValue": true,
+            "textStyle": "xl",
+            "textBold": false,
+            "cell": {
+             "row": 0,
+             "column": 2
+            }
+           },
+           "id": "obj-91",
+           "zIndex": 2
+          }
+         ],
+         "zIndex": 2,
+         "id": "obj-88"
+        },
+        {
+         "type": "table",
+         "x": 7,
+         "y": 58,
+         "width": 213,
+         "height": 55,
+         "properties": {
+          "grid": 1,
+          "columns": [
+           {}
+          ],
+          "rows": [
+           {}
+          ],
+          "dock": "fill"
+         },
+         "children": [
+          {
+           "type": "slider",
+           "x": 0,
+           "y": 0,
+           "width": 213,
+           "height": 55,
+           "properties": {
+            "topic": "schaltli/state/dimmer/4/level",
+            "direction": "left-to-right",
+            "calibrationPoints": [
+             {
+              "value": 0,
+              "barSizePercent": 0
+             },
+             {
+              "value": 100,
+              "barSizePercent": 100
+             }
+            ],
+            "displayValue": "none",
+            "fillColor": "accent",
+            "thickness": 20,
+            "textColor": "text",
+            "fontId": "font-montserrat-c14",
+            "fontSize": 26,
+            "writeTopic": "schaltli/cmnd/dimmer/4",
+            "step": 1,
+            "headingValueFallback": "value",
+            "textStyle": "xl",
+            "textBold": false,
+            "sizeStep": "m",
+            "cell": {
+             "row": 0,
+             "column": 0,
+             "anchor": {
+              "x": "stretch"
+             },
+             "drawnWidth": 213
+            }
+           },
+           "id": "obj-93",
+           "zIndex": 0
+          }
+         ],
+         "zIndex": 1,
+         "id": "obj-92"
+        }
+       ],
+       "id": "obj-87",
+       "zIndex": 3
+      }
+     ]
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-11",
+   "iconLive": {
+    "id": "lv1",
+    "source": {
+     "namespace": "topic",
+     "path": "schaltli/state/dimmer/1/level"
+    },
+    "rules": [
+     {
+      "op": "==",
+      "operand": "0",
+      "result": {
+       "kind": "icon",
+       "icon": "icon-34"
+      }
+     }
+    ],
+    "otherwise": {
+     "kind": "icon",
+     "icon": "icon-11"
+    }
+   }
+  },
+  {
+   "id": "screen-12",
+   "name": "Power",
+   "objects": [
+    {
+     "type": "energy-diagram",
+     "x": 2,
+     "y": 47,
+     "width": 476,
+     "height": 366,
+     "properties": {
+      "mode": "flow",
+      "motion": true,
+      "fullScale": 1000,
+      "nodes": [
+       {
+        "id": "bus",
+        "role": "bus",
+        "name": "12 V",
+        "x": 238,
+        "y": 165
+       },
+       {
+        "id": "solar",
+        "role": "source",
+        "name": "Solar",
+        "colorRole": "energySun",
+        "lines": [
+         {
+          "text": "{watts} W"
+         }
+        ],
+        "x": 61,
+        "y": 64,
+        "topic": "schaltli/state/solar/power"
+       },
+       {
+        "id": "storage",
+        "role": "storage",
+        "name": "Storage",
+        "colorRole": "energyCharge",
+        "lines": [
+         {
+          "text": "{watts} W"
+         }
+        ],
+        "x": 111,
+        "y": 279,
+        "topic": "schaltli/state/battery/power"
+       },
+       {
+        "id": "consumers",
+        "role": "rest",
+        "name": "Consumers",
+        "colorRole": "energyLoad",
+        "lines": [
+         {
+          "text": "{watts} W"
+         }
+        ],
+        "x": 366,
+        "y": 279
+       },
+       {
+        "id": "n4",
+        "role": "source",
+        "name": "Landstrom",
+        "x": 238,
+        "y": 54,
+        "colorRole": "energySun",
+        "lines": [
+         {
+          "text": "{watts} W"
+         }
+        ],
+        "topic": "schaltli/state/shore/power"
+       },
+       {
+        "id": "n5",
+        "role": "source",
+        "name": "Lichtmaschine",
+        "x": 411,
+        "y": 64,
+        "colorRole": "energySun",
+        "lines": [
+         {
+          "text": "{watts} W"
+         }
+        ],
+        "topic": "schaltli/state/booster/power"
+       }
+      ],
+      "modeSwitch": "top-right",
+      "fontId": "font-roboto-c10",
+      "valueFontId": "font-montserrat-c11"
+     },
+     "id": "obj-95",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-13"
+  },
+  {
+   "id": "screen-14",
+   "name": "Wasser",
+   "objects": [
+    {
+     "id": "obj-113",
+     "type": "table",
+     "x": 9,
+     "y": 220,
+     "width": 464,
+     "height": 78,
+     "zIndex": 3,
+     "properties": {
+      "grid": 1,
+      "columns": [
+       {},
+       {}
+      ],
+      "rows": [
+       {}
+      ],
+      "equalColumns": true,
+      "widthMm": 68.4
+     },
+     "children": [
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/3/power",
+        "writeTopic": "schaltli/cmnd/relay/3",
+        "text": "Frischwasserpumpe",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-111",
+       "zIndex": 3
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/4/power",
+        "writeTopic": "schaltli/cmnd/relay/4",
+        "text": "Abwasserventil",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-112",
+       "zIndex": 4
+      }
+     ]
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 54,
+     "width": 464,
+     "height": 73,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 450,
+       "height": 41,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {},
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "top"
+       },
+       "children": [
+        {
+         "type": "icon",
+         "x": 0,
+         "y": 0,
+         "width": 41,
+         "height": 41,
+         "properties": {
+          "assetId": "baustein-icon-mdi-water",
+          "iconName": "default",
+          "iconColor": "text",
+          "backgroundColor": "transparent",
+          "sizeStep": "m",
+          "cell": {
+           "row": 0,
+           "column": 0
+          }
+         },
+         "id": "obj-99",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 51,
+         "y": 4,
+         "width": 94,
+         "height": 34,
+         "properties": {
+          "text": "Frischwasser",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-100",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 155,
+         "y": 4,
+         "width": 295,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1} %",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/tank/1/level"
+            },
+            "rules": [],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "accent",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 2
+          }
+         },
+         "id": "obj-101",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 2,
+       "id": "obj-98"
+      },
+      {
+       "type": "table",
+       "x": 7,
+       "y": 58,
+       "width": 450,
+       "height": 8,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "fill"
+       },
+       "children": [
+        {
+         "type": "bar",
+         "x": 0,
+         "y": 0,
+         "width": 450,
+         "height": 8,
+         "properties": {
+          "topic": "schaltli/state/tank/1/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 8,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 213
+          }
+         },
+         "id": "obj-103",
+         "zIndex": 0
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-102"
+      }
+     ],
+     "id": "obj-97",
+     "zIndex": 1
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 137,
+     "width": 464,
+     "height": 73,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 450,
+       "height": 41,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {},
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "top"
+       },
+       "children": [
+        {
+         "type": "icon",
+         "x": 0,
+         "y": 0,
+         "width": 41,
+         "height": 41,
+         "properties": {
+          "assetId": "baustein-icon-mdi-water-opacity",
+          "iconName": "default",
+          "iconColor": "text",
+          "backgroundColor": "transparent",
+          "sizeStep": "m",
+          "cell": {
+           "row": 0,
+           "column": 0
+          }
+         },
+         "id": "obj-106",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 51,
+         "y": 4,
+         "width": 70,
+         "height": 34,
+         "properties": {
+          "text": "Abwasser",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-107",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 131,
+         "y": 4,
+         "width": 319,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1} %",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/tank/2/level"
+            },
+            "rules": [],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "accent3",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 2
+          }
+         },
+         "id": "obj-108",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 2,
+       "id": "obj-105"
+      },
+      {
+       "type": "table",
+       "x": 7,
+       "y": 58,
+       "width": 450,
+       "height": 8,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "fill"
+       },
+       "children": [
+        {
+         "type": "bar",
+         "x": 0,
+         "y": 0,
+         "width": 450,
+         "height": 8,
+         "properties": {
+          "topic": "schaltli/state/tank/2/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent3",
+          "thickness": 8,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 213
+          }
+         },
+         "id": "obj-110",
+         "zIndex": 0
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-109"
+      }
+     ],
+     "id": "obj-104",
+     "zIndex": 2
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-15"
+  },
+  {
+   "id": "screen-16",
+   "name": "Klima",
+   "objects": [
+    {
+     "type": "free",
+     "x": 8,
+     "y": 36,
+     "width": 464,
+     "height": 388,
+     "properties": {
+      "blockTiles": true,
+      "strokeWidth": 0,
+      "padding": 0
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 0,
+       "y": 0,
+       "width": 464,
+       "height": 388,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {}
+        ],
+        "rows": [
+         {},
+         {},
+         {},
+         {},
+         {}
+        ],
+        "equalColumns": true,
+        "widthMm": 68.43685423728813
+       },
+       "children": [
+        {
+         "type": "toggle-button",
+         "x": 0,
+         "y": 0,
+         "width": 227,
+         "height": 78,
+         "properties": {
+          "topic": "schaltli/state/heater/power",
+          "writeTopic": "schaltli/cmnd/heater/view",
+          "text": "Heizung",
+          "states": [
+           {
+            "id": "off",
+            "label": "Aus",
+            "readValue": "off",
+            "writeValue": "off"
+           },
+           {
+            "id": "on",
+            "label": "An",
+            "readValue": "on",
+            "writeValue": "on",
+            "showAsOn": true,
+            "iconAssetId": "baustein-icon-mdi-fire"
+           }
+          ],
+          "switchStyle": "korry",
+          "switchColor": "accent",
+          "fontId": "font-montserrat-c14",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 227
+          }
+         },
+         "id": "obj-125",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 237,
+         "y": 22,
+         "width": 227,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1}",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/heater/status_line"
+            },
+            "rules": []
+           }
+          ],
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-126",
+         "zIndex": 1
+        },
+        {
+         "type": "switcher",
+         "x": 0,
+         "y": 88,
+         "width": 464,
+         "height": 86,
+         "properties": {
+          "topic": "schaltli/state/heater/power",
+          "comparisonOperator": "==",
+          "comparisonValue": "",
+          "cell": {
+           "row": 1,
+           "column": 0,
+           "columnSpan": 2,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 464
+          }
+         },
+         "children": [
+          {
+           "id": "obj-128",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 464,
+           "height": 86,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "on"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 464,
+             "height": 86,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "free",
+               "x": 0,
+               "y": 0,
+               "width": 464,
+               "height": 86,
+               "properties": {
+                "cell": {
+                 "row": 0,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "text": "Betrieb",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "dock": "top",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 2,
+                 "id": "obj-131"
+                },
+                {
+                 "type": "button-group",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 28,
+                 "properties": {
+                  "topic": "schaltli/state/heater/view",
+                  "writeTopic": "schaltli/cmnd/heater/view",
+                  "states": [
+                   {
+                    "id": "option-0",
+                    "label": "Temperatur",
+                    "readValue": "target",
+                    "writeValue": "target"
+                   },
+                   {
+                    "id": "option-1",
+                    "label": "Leistung",
+                    "readValue": "power",
+                    "writeValue": "power"
+                   },
+                   {
+                    "id": "option-2",
+                    "label": "Lüften",
+                    "readValue": "fan",
+                    "writeValue": "fan"
+                   }
+                  ],
+                  "switchStyle": "led",
+                  "switchColor": "accent",
+                  "fontId": "font-montserrat-c10",
+                  "textStyle": "standard",
+                  "textBold": false,
+                  "fontSize": 18,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 444
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-132"
+                }
+               ],
+               "id": "obj-130",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-129",
+             "zIndex": 0
+            }
+           ]
+          }
+         ],
+         "id": "obj-127",
+         "zIndex": 2
+        },
+        {
+         "type": "switcher",
+         "x": 0,
+         "y": 184,
+         "width": 227,
+         "height": 160,
+         "properties": {
+          "topic": "schaltli/state/heater/view",
+          "comparisonOperator": "==",
+          "comparisonValue": "",
+          "cell": {
+           "row": 2,
+           "column": 0,
+           "rowSpan": 2,
+           "anchor": {
+            "x": "stretch",
+            "y": "bottom"
+           },
+           "drawnWidth": 227
+          }
+         },
+         "children": [
+          {
+           "id": "obj-134",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 227,
+           "height": 160,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "target"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 227,
+             "height": 160,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "dial",
+               "x": 34,
+               "y": 0,
+               "width": 160,
+               "height": 160,
+               "properties": {
+                "topic": "schaltli/state/temp/1/value",
+                "calibrationPoints": [
+                 {
+                  "value": 12,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 30,
+                  "barSizePercent": 100
+                 }
+                ],
+                "minAngle": 225,
+                "maxAngle": 135,
+                "direction": "cw",
+                "thickness": 16,
+                "displayValue": "value",
+                "fillColor": "accent",
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/heater/target",
+                "setpointTopic": "schaltli/state/heater/target",
+                "step": 1,
+                "cell": {
+                 "row": 0,
+                 "column": 0
+                }
+               },
+               "id": "obj-136",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-135",
+             "zIndex": 0
+            }
+           ]
+          },
+          {
+           "id": "obj-137",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 227,
+           "height": 160,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "off"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 227,
+             "height": 160,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "dial",
+               "x": 34,
+               "y": 0,
+               "width": 160,
+               "height": 160,
+               "properties": {
+                "topic": "schaltli/state/temp/1/value",
+                "calibrationPoints": [
+                 {
+                  "value": 12,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 30,
+                  "barSizePercent": 100
+                 }
+                ],
+                "minAngle": 225,
+                "maxAngle": 135,
+                "direction": "cw",
+                "thickness": 16,
+                "displayValue": "value",
+                "fillColor": "accent",
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/heater/target",
+                "setpointTopic": "schaltli/state/heater/target",
+                "step": 1,
+                "cell": {
+                 "row": 0,
+                 "column": 0
+                }
+               },
+               "id": "obj-139",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-138",
+             "zIndex": 0
+            }
+           ]
+          },
+          {
+           "id": "obj-140",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 227,
+           "height": 160,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "power"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 227,
+             "height": 160,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "dial",
+               "x": 34,
+               "y": 0,
+               "width": 160,
+               "height": 160,
+               "properties": {
+                "topic": "schaltli/state/heater/power_level",
+                "calibrationPoints": [
+                 {
+                  "value": 1,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 10,
+                  "barSizePercent": 100
+                 }
+                ],
+                "minAngle": 225,
+                "maxAngle": 135,
+                "direction": "cw",
+                "thickness": 16,
+                "displayValue": "value",
+                "fillColor": "accent",
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/heater/power_level",
+                "step": 1,
+                "cell": {
+                 "row": 0,
+                 "column": 0
+                }
+               },
+               "id": "obj-142",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-141",
+             "zIndex": 0
+            }
+           ]
+          },
+          {
+           "id": "obj-143",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 227,
+           "height": 160,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "fan"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 227,
+             "height": 160,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "dial",
+               "x": 34,
+               "y": 0,
+               "width": 160,
+               "height": 160,
+               "properties": {
+                "topic": "schaltli/state/heater/fan_level",
+                "calibrationPoints": [
+                 {
+                  "value": 1,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 10,
+                  "barSizePercent": 100
+                 }
+                ],
+                "minAngle": 225,
+                "maxAngle": 135,
+                "direction": "cw",
+                "thickness": 16,
+                "displayValue": "value",
+                "fillColor": "accent",
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/heater/fan_level",
+                "step": 1,
+                "cell": {
+                 "row": 0,
+                 "column": 0
+                }
+               },
+               "id": "obj-145",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-144",
+             "zIndex": 0
+            }
+           ]
+          }
+         ],
+         "id": "obj-133",
+         "zIndex": 3
+        },
+        {
+         "type": "text",
+         "x": 0,
+         "y": 354,
+         "width": 227,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1}",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/heater/fuel_text"
+            },
+            "rules": []
+           }
+          ],
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 4,
+           "column": 0
+          }
+         },
+         "id": "obj-151",
+         "zIndex": 6
+        },
+        {
+         "type": "button",
+         "x": 300,
+         "y": 354,
+         "width": 102,
+         "height": 34,
+         "properties": {
+          "text": "Nullen",
+          "iconAssetId": null,
+          "buttonStyle": "text",
+          "buttonColor": "accent",
+          "fontId": "font-montserrat-c14",
+          "action": {
+           "type": "send-mqtt",
+           "mqttTopic": "schaltli/cmnd/heater/fuel",
+           "mqttMessage": "reset"
+          },
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 4,
+           "column": 1
+          }
+         },
+         "id": "obj-152",
+         "zIndex": 7
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-124"
+      }
+     ],
+     "id": "obj-123",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-17",
+   "iconLive": {
+    "id": "lv1",
+    "source": {
+     "namespace": "topic",
+     "path": "schaltli/state/heater/power"
+    },
+    "rules": [
+     {
+      "op": "==",
+      "operand": "off",
+      "result": {
+       "kind": "icon",
+       "icon": "icon-35"
+      }
+     }
+    ],
+    "otherwise": {
+     "kind": "icon",
+     "icon": "icon-17"
+    }
+   }
+  },
+  {
+   "id": "screen-18",
+   "name": "MaxxFan",
+   "objects": [
+    {
+     "type": "free",
+     "x": 8,
+     "y": 52,
+     "width": 464,
+     "height": 362,
+     "properties": {
+      "blockTiles": true,
+      "strokeWidth": 0,
+      "padding": 0
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 0,
+       "y": 0,
+       "width": 464,
+       "height": 362,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {}
+        ],
+        "rows": [
+         {},
+         {}
+        ],
+        "equalColumns": true,
+        "widthMm": 68.43685423728813
+       },
+       "children": [
+        {
+         "type": "toggle-button",
+         "x": 0,
+         "y": 0,
+         "width": 227,
+         "height": 78,
+         "properties": {
+          "topic": "schaltli/state/maxxfan/power",
+          "writeTopic": "schaltli/cmnd/maxxfan/power",
+          "text": "Lüfter",
+          "states": [
+           {
+            "id": "off",
+            "label": "Aus",
+            "readValue": "off",
+            "writeValue": "off"
+           },
+           {
+            "id": "on",
+            "label": "An",
+            "readValue": "on",
+            "writeValue": "on",
+            "showAsOn": true,
+            "iconAssetId": "baustein-icon-mdi-fan"
+           }
+          ],
+          "switchStyle": "korry",
+          "switchColor": "accent",
+          "fontId": "font-montserrat-c14",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 227
+          }
+         },
+         "id": "obj-157",
+         "zIndex": 0
+        },
+        {
+         "type": "toggle-button",
+         "x": 237,
+         "y": 0,
+         "width": 227,
+         "height": 78,
+         "properties": {
+          "topic": "schaltli/state/maxxfan/cover",
+          "writeTopic": "schaltli/cmnd/maxxfan/cover",
+          "text": "Deckel",
+          "states": [
+           {
+            "id": "off",
+            "label": "Zu",
+            "readValue": "closed",
+            "writeValue": "closed"
+           },
+           {
+            "id": "on",
+            "label": "Offen",
+            "readValue": "open",
+            "writeValue": "open",
+            "showAsOn": true
+           }
+          ],
+          "switchStyle": "korry",
+          "switchColor": "accent",
+          "fontId": "font-montserrat-c14",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 227
+          }
+         },
+         "id": "obj-158",
+         "zIndex": 1
+        },
+        {
+         "type": "switcher",
+         "x": 0,
+         "y": 88,
+         "width": 464,
+         "height": 274,
+         "properties": {
+          "topic": "schaltli/state/maxxfan/hvac_mode",
+          "comparisonOperator": "==",
+          "comparisonValue": "",
+          "cell": {
+           "row": 1,
+           "column": 0,
+           "columnSpan": 2,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 464
+          }
+         },
+         "children": [
+          {
+           "id": "obj-160",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 464,
+           "height": 274,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "fan_only"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 464,
+             "height": 274,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {},
+               {},
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "free",
+               "x": 0,
+               "y": 0,
+               "width": 464,
+               "height": 86,
+               "properties": {
+                "cell": {
+                 "row": 0,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "text": "Betrieb",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "dock": "top",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 2,
+                 "id": "obj-163"
+                },
+                {
+                 "type": "button-group",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 28,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/hvac_mode",
+                  "writeTopic": "schaltli/cmnd/maxxfan/mode",
+                  "states": [
+                   {
+                    "id": "option-0",
+                    "label": "Hand",
+                    "readValue": "fan_only",
+                    "writeValue": "fan_only"
+                   },
+                   {
+                    "id": "option-1",
+                    "label": "Auto",
+                    "readValue": "auto",
+                    "writeValue": "auto"
+                   }
+                  ],
+                  "switchStyle": "led",
+                  "switchColor": "accent",
+                  "fontId": "font-montserrat-c10",
+                  "textStyle": "standard",
+                  "textBold": false,
+                  "fontSize": 18,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-164"
+                }
+               ],
+               "id": "obj-162",
+               "zIndex": 0
+              },
+              {
+               "type": "free",
+               "x": 0,
+               "y": 96,
+               "width": 464,
+               "height": 82,
+               "properties": {
+                "cell": {
+                 "row": 1,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "table",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "grid": 1,
+                  "columns": [
+                   {},
+                   {}
+                  ],
+                  "rows": [
+                   {}
+                  ],
+                  "dock": "top"
+                 },
+                 "children": [
+                  {
+                   "type": "text",
+                   "x": 0,
+                   "y": 0,
+                   "width": 93,
+                   "height": 34,
+                   "properties": {
+                    "text": "Drehzahl",
+                    "fontId": "font-montserrat-c14",
+                    "fontSize": 26,
+                    "color": "text",
+                    "textAlign": "left",
+                    "fontWeight": "normal",
+                    "backgroundColor": "transparent",
+                    "borderColor": "transparent",
+                    "cell": {
+                     "row": 0,
+                     "column": 0
+                    }
+                   },
+                   "id": "obj-167",
+                   "zIndex": 0
+                  },
+                  {
+                   "type": "text",
+                   "x": 103,
+                   "y": 0,
+                   "width": 347,
+                   "height": 34,
+                   "properties": {
+                    "text": "{live:lv1}",
+                    "liveValues": [
+                     {
+                      "id": "lv1",
+                      "source": {
+                       "namespace": "topic",
+                       "path": "schaltli/state/maxxfan/speed"
+                      },
+                      "rules": [],
+                      "format": {
+                       "kind": "number",
+                       "decimals": 0,
+                       "grouped": false
+                      },
+                      "otherwise": {
+                       "kind": "text",
+                       "parts": [
+                        {
+                         "value": true
+                        },
+                        " %"
+                       ]
+                      }
+                     }
+                    ],
+                    "fontId": "font-montserrat-c14",
+                    "fontSize": 26,
+                    "color": "text",
+                    "textAlign": "right",
+                    "fontWeight": "normal",
+                    "backgroundColor": "transparent",
+                    "borderColor": "transparent",
+                    "cell": {
+                     "row": 0,
+                     "column": 1
+                    }
+                   },
+                   "id": "obj-168",
+                   "zIndex": 1
+                  }
+                 ],
+                 "zIndex": 2,
+                 "id": "obj-166"
+                },
+                {
+                 "type": "slider",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 24,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/speed",
+                  "direction": "left-to-right",
+                  "calibrationPoints": [
+                   {
+                    "value": 10,
+                    "barSizePercent": 0
+                   },
+                   {
+                    "value": 100,
+                    "barSizePercent": 100
+                   }
+                  ],
+                  "displayValue": "none",
+                  "fillColor": "accent",
+                  "thickness": 16,
+                  "textColor": "text",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "writeTopic": "schaltli/cmnd/maxxfan/speed",
+                  "step": 10,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-169"
+                }
+               ],
+               "id": "obj-165",
+               "zIndex": 0
+              },
+              {
+               "type": "free",
+               "x": 0,
+               "y": 188,
+               "width": 464,
+               "height": 86,
+               "properties": {
+                "cell": {
+                 "row": 2,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "text": "Luft",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "dock": "top",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 2,
+                 "id": "obj-171"
+                },
+                {
+                 "type": "button-group",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 28,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/airflow",
+                  "writeTopic": "schaltli/cmnd/maxxfan/airflow",
+                  "states": [
+                   {
+                    "id": "option-0",
+                    "label": "Rein",
+                    "readValue": "in",
+                    "writeValue": "in"
+                   },
+                   {
+                    "id": "option-1",
+                    "label": "Raus",
+                    "readValue": "out",
+                    "writeValue": "out"
+                   }
+                  ],
+                  "switchStyle": "led",
+                  "switchColor": "accent",
+                  "fontId": "font-montserrat-c10",
+                  "textStyle": "standard",
+                  "textBold": false,
+                  "fontSize": 18,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-172"
+                }
+               ],
+               "id": "obj-170",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-161",
+             "zIndex": 0
+            }
+           ]
+          },
+          {
+           "id": "obj-173",
+           "type": "panel",
+           "x": 0,
+           "y": 0,
+           "width": 464,
+           "height": 274,
+           "zIndex": 0,
+           "properties": {
+            "comparisonOperator": "==",
+            "comparisonValue": "auto"
+           },
+           "children": [
+            {
+             "type": "table",
+             "x": 0,
+             "y": 0,
+             "width": 464,
+             "height": 274,
+             "properties": {
+              "grid": 1,
+              "columns": [
+               {}
+              ],
+              "rows": [
+               {},
+               {},
+               {}
+              ]
+             },
+             "children": [
+              {
+               "type": "free",
+               "x": 0,
+               "y": 0,
+               "width": 464,
+               "height": 86,
+               "properties": {
+                "cell": {
+                 "row": 0,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "text": "Betrieb",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "dock": "top",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 2,
+                 "id": "obj-176"
+                },
+                {
+                 "type": "button-group",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 28,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/hvac_mode",
+                  "writeTopic": "schaltli/cmnd/maxxfan/mode",
+                  "states": [
+                   {
+                    "id": "option-0",
+                    "label": "Hand",
+                    "readValue": "fan_only",
+                    "writeValue": "fan_only"
+                   },
+                   {
+                    "id": "option-1",
+                    "label": "Auto",
+                    "readValue": "auto",
+                    "writeValue": "auto"
+                   }
+                  ],
+                  "switchStyle": "led",
+                  "switchColor": "accent",
+                  "fontId": "font-montserrat-c10",
+                  "textStyle": "standard",
+                  "textBold": false,
+                  "fontSize": 18,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-177"
+                }
+               ],
+               "id": "obj-175",
+               "zIndex": 0
+              },
+              {
+               "type": "free",
+               "x": 0,
+               "y": 96,
+               "width": 464,
+               "height": 82,
+               "properties": {
+                "cell": {
+                 "row": 1,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "table",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "grid": 1,
+                  "columns": [
+                   {},
+                   {}
+                  ],
+                  "rows": [
+                   {}
+                  ],
+                  "dock": "top"
+                 },
+                 "children": [
+                  {
+                   "type": "text",
+                   "x": 0,
+                   "y": 0,
+                   "width": 121,
+                   "height": 34,
+                   "properties": {
+                    "text": "Temperatur",
+                    "fontId": "font-montserrat-c14",
+                    "fontSize": 26,
+                    "color": "text",
+                    "textAlign": "left",
+                    "fontWeight": "normal",
+                    "backgroundColor": "transparent",
+                    "borderColor": "transparent",
+                    "cell": {
+                     "row": 0,
+                     "column": 0
+                    }
+                   },
+                   "id": "obj-180",
+                   "zIndex": 0
+                  },
+                  {
+                   "type": "text",
+                   "x": 131,
+                   "y": 0,
+                   "width": 319,
+                   "height": 34,
+                   "properties": {
+                    "text": "{live:lv1}",
+                    "liveValues": [
+                     {
+                      "id": "lv1",
+                      "source": {
+                       "namespace": "topic",
+                       "path": "schaltli/state/maxxfan/temperature"
+                      },
+                      "rules": [],
+                      "format": {
+                       "kind": "number",
+                       "decimals": 0,
+                       "grouped": false
+                      },
+                      "otherwise": {
+                       "kind": "text",
+                       "parts": [
+                        {
+                         "value": true
+                        },
+                        " °C"
+                       ]
+                      }
+                     }
+                    ],
+                    "fontId": "font-montserrat-c14",
+                    "fontSize": 26,
+                    "color": "text",
+                    "textAlign": "right",
+                    "fontWeight": "normal",
+                    "backgroundColor": "transparent",
+                    "borderColor": "transparent",
+                    "cell": {
+                     "row": 0,
+                     "column": 1
+                    }
+                   },
+                   "id": "obj-181",
+                   "zIndex": 1
+                  }
+                 ],
+                 "zIndex": 2,
+                 "id": "obj-179"
+                },
+                {
+                 "type": "slider",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 24,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/temperature",
+                  "direction": "left-to-right",
+                  "calibrationPoints": [
+                   {
+                    "value": 0,
+                    "barSizePercent": 0
+                   },
+                   {
+                    "value": 37,
+                    "barSizePercent": 100
+                   }
+                  ],
+                  "displayValue": "none",
+                  "fillColor": "accent",
+                  "thickness": 16,
+                  "textColor": "text",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "writeTopic": "schaltli/cmnd/maxxfan/temperature",
+                  "step": 1,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-182"
+                }
+               ],
+               "id": "obj-178",
+               "zIndex": 0
+              },
+              {
+               "type": "free",
+               "x": 0,
+               "y": 188,
+               "width": 464,
+               "height": 86,
+               "properties": {
+                "cell": {
+                 "row": 2,
+                 "column": 0,
+                 "anchor": {
+                  "x": "stretch"
+                 },
+                 "drawnWidth": 464
+                },
+                "look": "card",
+                "fillColor": "panel",
+                "strokeColor": "outline",
+                "strokeWidth": 1,
+                "cornerRadius": 14,
+                "padding": 1
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 7,
+                 "y": 7,
+                 "width": 450,
+                 "height": 34,
+                 "properties": {
+                  "text": "Luft",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "dock": "top",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 2,
+                 "id": "obj-184"
+                },
+                {
+                 "type": "button-group",
+                 "x": 7,
+                 "y": 51,
+                 "width": 450,
+                 "height": 28,
+                 "properties": {
+                  "topic": "schaltli/state/maxxfan/airflow",
+                  "writeTopic": "schaltli/cmnd/maxxfan/airflow",
+                  "states": [
+                   {
+                    "id": "option-0",
+                    "label": "Rein",
+                    "readValue": "in",
+                    "writeValue": "in"
+                   },
+                   {
+                    "id": "option-1",
+                    "label": "Raus",
+                    "readValue": "out",
+                    "writeValue": "out"
+                   }
+                  ],
+                  "switchStyle": "led",
+                  "switchColor": "accent",
+                  "fontId": "font-montserrat-c10",
+                  "textStyle": "standard",
+                  "textBold": false,
+                  "fontSize": 18,
+                  "dock": "fill",
+                  "ownSize": {
+                   "width": 213
+                  }
+                 },
+                 "zIndex": 1,
+                 "id": "obj-185"
+                }
+               ],
+               "id": "obj-183",
+               "zIndex": 0
+              }
+             ],
+             "id": "obj-174",
+             "zIndex": 0
+            }
+           ]
+          }
+         ],
+         "id": "obj-159",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-156"
+      }
+     ],
+     "id": "obj-155",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-19"
+  },
+  {
+   "id": "screen-20",
+   "name": "Schalter",
+   "objects": [
+    {
+     "id": "obj-swt",
+     "type": "table",
+     "x": 8,
+     "y": 52,
+     "width": 464,
+     "height": 342,
+     "zIndex": 1,
+     "properties": {
+      "grid": 1,
+      "columns": [
+       {},
+       {}
+      ],
+      "rows": [
+       {},
+       {},
+       {},
+       {}
+      ],
+      "equalColumns": true,
+      "widthMm": 68.4
+     },
+     "children": [
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/1/power",
+        "writeTopic": "schaltli/cmnd/relay/1",
+        "text": "Boiler 12V",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw1",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/2/power",
+        "writeTopic": "schaltli/cmnd/relay/2",
+        "text": "Boiler 220V",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw2",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 88,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/3/power",
+        "writeTopic": "schaltli/cmnd/relay/3",
+        "text": "Frischwasserpumpe",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 1,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw3",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 88,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/4/power",
+        "writeTopic": "schaltli/cmnd/relay/4",
+        "text": "Abwasserventil",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 1,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw4",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 176,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/5/power",
+        "writeTopic": "schaltli/cmnd/relay/5",
+        "text": "Kuehlschrank",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 2,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw5",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 176,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/6/power",
+        "writeTopic": "schaltli/cmnd/relay/6",
+        "text": "Abwasserpumpe",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 2,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw6",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 0,
+       "y": 264,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/7/power",
+        "writeTopic": "schaltli/cmnd/relay/7",
+        "text": "Relay 7",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 3,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw7",
+       "zIndex": 1
+      },
+      {
+       "type": "toggle-button",
+       "x": 237,
+       "y": 264,
+       "width": 227,
+       "height": 78,
+       "properties": {
+        "topic": "schaltli/state/relay/8/power",
+        "writeTopic": "schaltli/cmnd/relay/8",
+        "text": "Relay 8",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true
+         }
+        ],
+        "switchStyle": "korry",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c10",
+        "textStyle": "standard",
+        "textBold": false,
+        "cell": {
+         "row": 3,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         },
+         "drawnWidth": 227,
+         "drawnHeight": 78
+        },
+        "fontSize": 18,
+        "secondFontId": "font-montserrat-c8"
+       },
+       "id": "obj-sw8",
+       "zIndex": 1
+      }
+     ]
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-21"
+  },
+  {
+   "id": "screen-22",
+   "name": "Ablassen",
+   "objects": [
+    {
+     "type": "camera",
+     "x": 0,
+     "y": 0,
+     "width": 240,
+     "height": 240,
+     "properties": {
+      "url": "",
+      "username": "",
+      "password": ""
+     },
+     "id": "obj-114",
+     "zIndex": 1
+    },
+    {
+     "type": "button-group",
+     "x": 248,
+     "y": 22,
+     "width": 227,
+     "height": 78,
+     "properties": {
+      "topic": "schaltli/state/relay/4/power",
+      "writeTopic": "schaltli/cmnd/relay/4",
+      "states": [
+       {
+        "id": "off",
+        "label": "Zu",
+        "readValue": "off",
+        "writeValue": "off"
+       },
+       {
+        "id": "on",
+        "label": "Offen",
+        "readValue": "on",
+        "writeValue": "on",
+        "showAsOn": true
+       }
+      ],
+      "switchStyle": "led",
+      "switchColor": "accent",
+      "fontId": "font-montserrat-c14",
+      "textStyle": "xl",
+      "textBold": false
+     },
+     "id": "obj-122",
+     "zIndex": 3
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 250,
+     "width": 464,
+     "height": 73,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 450,
+       "height": 41,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {},
+         {},
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "top"
+       },
+       "children": [
+        {
+         "type": "icon",
+         "x": 0,
+         "y": 0,
+         "width": 41,
+         "height": 41,
+         "properties": {
+          "assetId": "baustein-icon-mdi-water-opacity",
+          "iconName": "default",
+          "iconColor": "text",
+          "backgroundColor": "transparent",
+          "sizeStep": "m",
+          "cell": {
+           "row": 0,
+           "column": 0
+          }
+         },
+         "id": "obj-117",
+         "zIndex": 0
+        },
+        {
+         "type": "text",
+         "x": 51,
+         "y": 4,
+         "width": 70,
+         "height": 34,
+         "properties": {
+          "text": "Abwasser",
+          "fontId": "font-montserrat-c10",
+          "fontSize": 18,
+          "color": "textMuted",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "standard",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
+          }
+         },
+         "id": "obj-118",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 131,
+         "y": 4,
+         "width": 319,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1} %",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/tank/2/level"
+            },
+            "rules": [],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "accent3",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 2
+          }
+         },
+         "id": "obj-119",
+         "zIndex": 2
+        }
+       ],
+       "zIndex": 2,
+       "id": "obj-116"
+      },
+      {
+       "type": "table",
+       "x": 7,
+       "y": 58,
+       "width": 450,
+       "height": 8,
+       "properties": {
+        "grid": 1,
+        "columns": [
+         {}
+        ],
+        "rows": [
+         {}
+        ],
+        "dock": "fill"
+       },
+       "children": [
+        {
+         "type": "bar",
+         "x": 0,
+         "y": 0,
+         "width": 450,
+         "height": 8,
+         "properties": {
+          "topic": "schaltli/state/tank/2/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent3",
+          "thickness": 8,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "xs",
+          "cell": {
+           "row": 0,
+           "column": 0,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 213
+          }
+         },
+         "id": "obj-121",
+         "zIndex": 0
+        }
+       ],
+       "zIndex": 1,
+       "id": "obj-120"
+      }
+     ],
+     "id": "obj-115",
+     "zIndex": 2
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-15",
+   "dock": {
+    "screenId": "screen-14",
+    "edge": "down"
+   },
+   "showMaster": false
+  },
+  {
+   "id": "screen-23",
+   "name": "Solar",
+   "objects": [
+    {
+     "type": "chart",
+     "x": 2,
+     "y": 3,
+     "width": 476,
+     "height": 476,
+     "properties": {
+      "mode": "time",
+      "scroll": true,
+      "left": {
+       "scale": "auto"
+      },
+      "legend": "top-right",
+      "series": [
+       {
+        "id": "s1",
+        "source": {
+         "kind": "topic",
+         "topic": "schaltli/state/solar/power"
+        },
+        "name": "Solar",
+        "valueKind": "level",
+        "draw": "line",
+        "annotations": [
+         "current"
+        ],
+        "color": "accent"
+       }
+      ],
+      "fontId": "font-roboto-c8",
+      "dateFontId": "font-montserrat-c11"
+     },
+     "id": "obj-99",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-13",
+   "dock": {
+    "screenId": "screen-12",
+    "edge": "up"
+   },
+   "showMaster": false
+  },
+  {
+   "id": "screen-24",
+   "name": "Batterie",
+   "objects": [
+    {
+     "type": "chart",
+     "x": 2,
+     "y": 3,
+     "width": 476,
+     "height": 476,
+     "properties": {
+      "mode": "time",
+      "scroll": true,
+      "left": {
+       "scale": "auto"
+      },
+      "legend": "top-right",
+      "series": [
+       {
+        "id": "s1",
+        "source": {
+         "kind": "topic",
+         "topic": "schaltli/state/battery/soc"
+        },
+        "name": "Batterie",
+        "valueKind": "level",
+        "draw": "line",
+        "annotations": [
+         "current"
+        ],
+        "color": "accent"
+       }
+      ],
+      "fontId": "font-roboto-c8",
+      "dateFontId": "font-montserrat-c11"
+     },
+     "id": "obj-100",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-13",
+   "dock": {
+    "screenId": "screen-12",
+    "edge": "down"
+   },
+   "showMaster": false
+  },
+  {
+   "id": "screen-25",
+   "name": "Temperaturen",
+   "objects": [
+    {
+     "type": "toggle-button",
+     "x": 8,
+     "y": 331,
+     "width": 227,
+     "height": 78,
+     "properties": {
+      "topic": "schaltli/state/relay/1/power",
+      "writeTopic": "schaltli/cmnd/relay/1",
+      "text": "Boiler 12V",
+      "states": [
+       {
+        "id": "off",
+        "label": "Aus",
+        "readValue": "off",
+        "writeValue": "off"
+       },
+       {
+        "id": "on",
+        "label": "An",
+        "readValue": "on",
+        "writeValue": "on",
+        "showAsOn": true
+       }
+      ],
+      "switchStyle": "korry",
+      "switchColor": "accent",
+      "fontId": "font-montserrat-c10",
+      "textStyle": "standard",
+      "textBold": false,
+      "fontSize": 18,
+      "secondFontId": "font-montserrat-c8"
+     },
+     "id": "obj-186",
+     "zIndex": 2
+    },
+    {
+     "type": "free",
+     "x": 8,
+     "y": 52,
+     "width": 464,
+     "height": 285,
+     "properties": {
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
+     },
+     "children": [
+      {
+       "type": "chart",
+       "x": 7,
+       "y": 7,
+       "width": 424,
+       "height": 271,
+       "properties": {
+        "mode": "time",
+        "scroll": true,
+        "left": {
+         "scale": "auto"
+        },
+        "legend": "top-left",
+        "series": [
+         {
+          "id": "s1",
+          "source": {
+           "kind": "topic",
+           "topic": "schaltli/state/temp/1/value"
+          },
+          "name": "Innen",
+          "valueKind": "level",
+          "draw": "line",
+          "annotations": [
+           "current",
+           "min",
+           "max"
+          ],
+          "color": "accent"
+         },
+         {
+          "id": "s2",
+          "source": {
+           "kind": "topic",
+           "topic": "schaltli/state/temp/2/value"
+          },
+          "name": "Boiler",
+          "valueKind": "level",
+          "draw": "line",
+          "annotations": [
+           "current",
+           "min",
+           "max"
+          ],
+          "color": "energySun"
+         }
+        ],
+        "fontId": "font-roboto-c8",
+        "dateFontId": "font-montserrat-c11",
+        "dock": "fill"
+       },
+       "id": "obj-154",
+       "zIndex": 1
+      }
+     ],
+     "id": "obj-153",
+     "zIndex": 1
+    }
+   ],
+   "masterScreenId": "master-1",
+   "iconAssetId": "icon-26",
+   "dock": {
+    "screenId": "screen-16",
+    "edge": "down"
+   },
+   "buttonActions": {
+    "pinch-in": {
+     "type": "widen-range"
+    },
+    "pinch-out": {
+     "type": "narrow-range"
+    }
+   }
+  }
+ ],
+ "topics": [
+  {
+   "topic": "schaltli/state/relay/1/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ],
+   "id": "topic_4"
+  },
+  {
+   "topic": "schaltli/cmnd/relay/1",
+   "type": "text",
+   "examples": [],
+   "id": "topic_5"
+  },
+  {
+   "topic": "schaltli/state/time",
+   "type": "text",
+   "examples": [
+    "03:33",
+    "03:32"
+   ],
+   "id": "topic_28"
+  },
+  {
+   "topic": "schaltli/state/date",
+   "type": "text",
+   "examples": [
+    "Do 12.11."
+   ],
+   "id": "topic_29"
+  },
+  {
+   "id": "topic_1794450816289",
+   "topic": "schaltli/state/heater/power",
+   "type": "text",
+   "examples": []
+  },
+  {
+   "id": "topic_1794451133662",
+   "topic": "schaltli/state/dimmer/1/level",
+   "type": "text",
+   "examples": []
+  },
+  {
+   "topic": "schaltli/state/relay/3/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ],
+   "id": "topic_1794452220504"
+  },
+  {
+   "topic": "schaltli/cmnd/relay/3",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ],
+   "id": "topic_1794452220505"
+  },
+  {
+   "topic": "schaltli/state/temp/1/value",
+   "type": "numeric",
+   "examples": [
+    "10.8"
+   ],
+   "id": "topic_1794452229526"
+  },
+  {
+   "topic": "schaltli/state/solar/power",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794452236320"
+  },
+  {
+   "topic": "schaltli/state/battery/soc",
+   "type": "numeric",
+   "examples": [
+    "95"
+   ],
+   "id": "topic_1794452262559"
+  },
+  {
+   "topic": "schaltli/state/tank/1/level",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794452267808"
+  },
+  {
+   "topic": "schaltli/cmnd/dimmer/1",
+   "type": "numeric",
+   "examples": [
+    "50"
+   ],
+   "id": "topic_1794452421291"
+  },
+  {
+   "topic": "schaltli/state/dimmer/2/level",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794452444899"
+  },
+  {
+   "topic": "schaltli/cmnd/dimmer/2",
+   "type": "numeric",
+   "examples": [
+    "50"
+   ],
+   "id": "topic_1794452444900"
+  },
+  {
+   "topic": "schaltli/state/dimmer/3/level",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794452449662"
+  },
+  {
+   "topic": "schaltli/cmnd/dimmer/3",
+   "type": "numeric",
+   "examples": [
+    "50"
+   ],
+   "id": "topic_1794452449663"
+  },
+  {
+   "topic": "schaltli/state/dimmer/4/level",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794452454529"
+  },
+  {
+   "topic": "schaltli/cmnd/dimmer/4",
+   "type": "numeric",
+   "examples": [
+    "50"
+   ],
+   "id": "topic_1794452454530"
+  },
+  {
+   "topic": "schaltli/state/shore/power",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_92"
+  },
+  {
+   "topic": "schaltli/state/booster/power",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_93"
+  },
+  {
+   "topic": "schaltli/state/battery/power",
+   "type": "numeric",
+   "examples": [
+    "-11",
+    "-12"
+   ],
+   "id": "topic_94"
+  },
+  {
+   "topic": "schaltli/state/tank/2/level",
+   "type": "numeric",
+   "examples": [
+    "0"
+   ],
+   "id": "topic_1794453338188"
+  },
+  {
+   "topic": "schaltli/state/relay/4/power",
+   "type": "text",
+   "examples": [
+    "on"
+   ],
+   "id": "topic_1794453362008"
+  },
+  {
+   "topic": "schaltli/cmnd/relay/4",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ],
+   "id": "topic_1794453362009"
+  },
+  {
+   "topic": "schaltli/cmnd/heater/view",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ],
+   "id": "topic_1794459377434"
+  },
+  {
+   "topic": "schaltli/state/heater/status_line",
+   "type": "text",
+   "examples": [
+    "Bereit"
+   ],
+   "id": "topic_1794459377435"
+  },
+  {
+   "topic": "schaltli/state/heater/view",
+   "type": "text",
+   "examples": [
+    "off"
+   ],
+   "id": "topic_1794459377436"
+  },
+  {
+   "topic": "schaltli/state/heater/target",
+   "type": "numeric",
+   "examples": [
+    "19"
+   ],
+   "id": "topic_1794459377437"
+  },
+  {
+   "topic": "schaltli/cmnd/heater/target",
+   "type": "numeric",
+   "examples": [
+    "21"
+   ],
+   "id": "topic_1794459377438"
+  },
+  {
+   "topic": "schaltli/state/heater/power_level",
+   "type": "numeric",
+   "examples": [
+    "5"
+   ],
+   "id": "topic_1794459377439"
+  },
+  {
+   "topic": "schaltli/cmnd/heater/power_level",
+   "type": "numeric",
+   "examples": [
+    "6"
+   ],
+   "id": "topic_1794459377440"
+  },
+  {
+   "topic": "schaltli/state/heater/fan_level",
+   "type": "numeric",
+   "examples": [
+    "1"
+   ],
+   "id": "topic_1794459377441"
+  },
+  {
+   "topic": "schaltli/cmnd/heater/fan_level",
+   "type": "numeric",
+   "examples": [
+    "6"
+   ],
+   "id": "topic_1794459377442"
+  },
+  {
+   "topic": "schaltli/state/heater/fuel_text",
+   "type": "text",
+   "examples": [
+    "0.000 l seit 06.11.2026 23:31h"
+   ],
+   "id": "topic_1794459377447"
+  },
+  {
+   "topic": "schaltli/cmnd/heater/fuel",
+   "type": "text",
+   "examples": [
+    "reset"
+   ],
+   "id": "topic_1794459377448"
+  },
+  {
+   "id": "topic_1794466095364",
+   "topic": "schaltli/state/temp/2/value",
+   "type": "text",
+   "examples": []
+  },
+  {
+   "topic": "schaltli/state/maxxfan/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ],
+   "id": "topic_1794466207432"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/power",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ],
+   "id": "topic_1794466207433"
+  },
+  {
+   "topic": "schaltli/state/maxxfan/cover",
+   "type": "text",
+   "examples": [
+    "closed"
+   ],
+   "id": "topic_1794466207434"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/cover",
+   "type": "text",
+   "examples": [
+    "open",
+    "closed"
+   ],
+   "id": "topic_1794466207435"
+  },
+  {
+   "topic": "schaltli/state/maxxfan/hvac_mode",
+   "type": "text",
+   "examples": [
+    "off"
+   ],
+   "id": "topic_1794466207436"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/mode",
+   "type": "text",
+   "examples": [
+    "fan_only",
+    "auto"
+   ],
+   "id": "topic_1794466207437"
+  },
+  {
+   "topic": "schaltli/state/maxxfan/temperature",
+   "type": "numeric",
+   "examples": [
+    "6"
+   ],
+   "id": "topic_1794466207438"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/temperature",
+   "type": "numeric",
+   "examples": [
+    "19"
+   ],
+   "id": "topic_1794466207439"
+  },
+  {
+   "topic": "schaltli/state/maxxfan/speed",
+   "type": "numeric",
+   "examples": [
+    "20"
+   ],
+   "id": "topic_1794466207440"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/speed",
+   "type": "numeric",
+   "examples": [
+    "60"
+   ],
+   "id": "topic_1794466207441"
+  },
+  {
+   "topic": "schaltli/state/maxxfan/airflow",
+   "type": "text",
+   "examples": [
+    "out"
+   ],
+   "id": "topic_1794466207442"
+  },
+  {
+   "topic": "schaltli/cmnd/maxxfan/airflow",
+   "type": "text",
+   "examples": [
+    "in",
+    "out"
+   ],
+   "id": "topic_1794466207443"
+  },
+  {
+   "id": "topic_sw2s",
+   "topic": "schaltli/state/relay/2/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw2c",
+   "topic": "schaltli/cmnd/relay/2",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw5s",
+   "topic": "schaltli/state/relay/5/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw5c",
+   "topic": "schaltli/cmnd/relay/5",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw6s",
+   "topic": "schaltli/state/relay/6/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw6c",
+   "topic": "schaltli/cmnd/relay/6",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw7s",
+   "topic": "schaltli/state/relay/7/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw7c",
+   "topic": "schaltli/cmnd/relay/7",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw8s",
+   "topic": "schaltli/state/relay/8/power",
+   "type": "text",
+   "examples": [
+    "off"
+   ]
+  },
+  {
+   "id": "topic_sw8c",
+   "topic": "schaltli/cmnd/relay/8",
+   "type": "text",
+   "examples": [
+    "on",
+    "off"
+   ]
+  }
+ ],
+ "assets": [
+  {
+   "id": "icon-9",
+   "name": "material-symbols:home",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTQgMjFWOWw4LTZsOCA2djEyaC02di03aC00djd6Ii8+PC9zdmc+",
+   "size": 153
+  },
+  {
+   "id": "icon-11",
+   "name": "material-symbols:lightbulb",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEwLjU4OCAyMS40MTNRMTAgMjAuODI1IDEwIDIwaDRxMCAuODI1LS41ODcgMS40MTNUMTIgMjJ0LTEuNDEyLS41ODdNOCAxOXYtMmg4djJ6bS4yNS0zcS0xLjcyNS0xLjAyNS0yLjczOC0yLjc1VDQuNSA5LjVxMC0zLjEyNSAyLjE4OC01LjMxMlQxMiAydDUuMzEzIDIuMTg4VDE5LjUgOS41cTAgMi4wMjUtMS4wMTIgMy43NVQxNS43NSAxNnoiLz48L3N2Zz4=",
+   "size": 317
+  },
+  {
+   "id": "icon-13",
+   "name": "mdi:battery",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE2LjY3IDRIMTVWMkg5djJINy4zM0ExLjMzIDEuMzMgMCAwIDAgNiA1LjMzdjE1LjM0QzYgMjEuNCA2LjYgMjIgNy4zMyAyMmg5LjM0QTEuMzMgMS4zMyAwIDAgMCAxOCAyMC42N1Y1LjMzQzE4IDQuNiAxNy40IDQgMTYuNjcgNCIvPjwvc3ZnPg==",
+   "size": 253
+  },
+  {
+   "id": "icon-15",
+   "name": "material-symbols:water",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTIgMTh2LTJxLjk1IDAgMS40MTMtLjVUNS4zNSAxNXQxLjkzOC41dDEuMzYyLjVxLjk1IDAgMS40MTMtLjVUMTIgMTVxMS40MjUgMCAxLjkzOC41dDEuNDEyLjVxLjk1IDAgMS4zODgtLjV0MS45MTItLjV0MS45MzguNVQyMiAxNnYycS0xLjQyNSAwLTEuOTM3LS41VDE4LjY1IDE3dC0xLjM2Mi41dC0xLjkzOC41cS0xLjQyNSAwLTEuOTM3LS41VDEyIDE3cS0uOTUgMC0xLjQxMi41VDguNjUgMTh0LTEuOTEyLS41VDUuMzUgMTd0LTEuNDEyLjVUMiAxOG0wLTR2LTJxLjk1IDAgMS40MTMtLjVUNS4zNSAxMXExLjQyNSAwIDEuOTEzLjV0MS4zODcuNXEuOTUgMCAxLjQxMi0uNVQxMiAxMXExLjQyNSAwIDEuOTI1LjV0MS4zNzUuNXEuOTUgMCAxLjQxMi0uNXQxLjkzOC0uNXExLjQyNSAwIDEuOTM4LjVUMjIgMTJ2MnEtMS40NzUgMC0xLjk2My0uNVQxOC42NSAxM3QtMS4zNjIuNXQtMS45MzguNXEtMS40MjUgMC0xLjkzNy0uNVQxMiAxM3EtLjk1IDAtMS4zODguNVQ4LjcgMTR0LTEuOTYyLS41VDUuMzUgMTN0LTEuNDEyLjVUMiAxNG0wLTRWOHEuOTUgMCAxLjQxMy0uNVQ1LjM1IDdxMS40MjUgMCAxLjkxMy41VDguNjUgOHEuOTUgMCAxLjQxMi0uNVQxMiA3cTEuNDI1IDAgMS45MjUuNVQxNS4zIDhxLjk1IDAgMS40MTItLjVUMTguNjUgN3ExLjQyNSAwIDEuOTM4LjVUMjIgOHYycS0xLjQ3NSAwLTEuOTYzLS41VDE4LjY1IDl0LTEuMzYyLjV0LTEuOTM4LjVxLTEuNDI1IDAtMS45MzctLjVUMTIgOXEtLjk1IDAtMS4zODguNVQ4LjcgMTB0LTEuOTYyLS41VDUuMzUgOXQtMS40MTIuNVQyIDEwIi8+PC9zdmc+",
+   "size": 909
+  },
+  {
+   "id": "icon-17",
+   "name": "mdi:fire",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE3LjY2IDExLjJjLS4yMy0uMy0uNTEtLjU2LS43Ny0uODJjLS42Ny0uNi0xLjQzLTEuMDMtMi4wNy0xLjY2QzEzLjMzIDcuMjYgMTMgNC44NSAxMy45NSAzYy0uOTUuMjMtMS43OC43NS0yLjQ5IDEuMzJjLTIuNTkgMi4wOC0zLjYxIDUuNzUtMi4zOSA4LjljLjA0LjEuMDguMi4wOC4zM2MwIC4yMi0uMTUuNDItLjM1LjVjLS4yMy4xLS40Ny4wNC0uNjYtLjEyYS42LjYgMCAwIDEtLjE0LS4xN2MtMS4xMy0xLjQzLTEuMzEtMy40OC0uNTUtNS4xMkM1Ljc4IDEwIDQuODcgMTIuMyA1IDE0LjQ3Yy4wNi41LjEyIDEgLjI5IDEuNWMuMTQuNi40MSAxLjIuNzEgMS43M2MxLjA4IDEuNzMgMi45NSAyLjk3IDQuOTYgMy4yMmMyLjE0LjI3IDQuNDMtLjEyIDYuMDctMS42YzEuODMtMS42NiAyLjQ3LTQuMzIgMS41My02LjZsLS4xMy0uMjZjLS4yMS0uNDYtLjc3LTEuMjYtLjc3LTEuMjZtLTMuMTYgNi4zYy0uMjguMjQtLjc0LjUtMS4xLjZjLTEuMTIuNC0yLjI0LS4xNi0yLjktLjgyYzEuMTktLjI4IDEuOS0xLjE2IDIuMTEtMi4wNWMuMTctLjgtLjE1LTEuNDYtLjI4LTIuMjNjLS4xMi0uNzQtLjEtMS4zNy4xNy0yLjA2Yy4xOS4zOC4zOS43Ni42MyAxLjA2Yy43NyAxIDEuOTggMS40NCAyLjI0IDIuOGMuMDQuMTQuMDYuMjguMDYuNDNjLjAzLjgyLS4zMyAxLjcyLS45MyAyLjI3Ii8+PC9zdmc+",
+   "size": 786
+  },
+  {
+   "id": "icon-19",
+   "name": "mdi:fan",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDExYTEgMSAwIDAgMC0xIDFhMSAxIDAgMCAwIDEgMWExIDEgMCAwIDAgMS0xYTEgMSAwIDAgMC0xLTFtLjUtOWM0LjUgMCA0LjYxIDMuNTcgMi4yNSA0Ljc1Yy0uOTkuNDktMS40MyAxLjU0LTEuNjIgMi40N2MuNDguMi45LjUxIDEuMjIuOTFjMy43LTIgNy42OC0xLjIxIDcuNjggMi4zN2MwIDQuNS0zLjU3IDQuNi00Ljc1IDIuMjNjLS41LS45OS0xLjU2LTEuNDMtMi40OS0xLjYyYy0uMi40OC0uNTEuODktLjkxIDEuMjNjMS45OSAzLjY5IDEuMiA3LjY2LTIuMzggNy42NmMtNC41IDAtNC41OS0zLjU4LTIuMjMtNC43NmMuOTgtLjQ5IDEuNDItMS41MyAxLjYyLTIuNDVjLS40OS0uMi0uOTItLjUyLTEuMjQtLjkyQzUuOTYgMTUuODUgMiAxNS4wNyAyIDExLjVDMiA3IDUuNTYgNi44OSA2Ljc0IDkuMjZjLjUuOTkgMS41NSAxLjQyIDIuNDggMS42MWMuMTktLjQ4LjUxLS45LjkyLTEuMjJDOC4xNSA1Ljk2IDguOTQgMiAxMi41IDIiLz48L3N2Zz4=",
+   "size": 596
+  },
+  {
+   "id": "icon-21",
+   "name": "ri:toggle-fill",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTggNWg4YTcgNyAwIDEgMSAwIDE0SDhBNyA3IDAgMSAxIDggNW04IDEwYTMgMyAwIDEgMCAwLTZhMyAzIDAgMCAwIDAgNiIvPjwvc3ZnPg==",
+   "size": 193
+  },
+  {
+   "id": "icon-26",
+   "name": "material-symbols:thermometer",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDIxcS0yLjA3NSAwLTMuNTM3LTEuNDYzVDcgMTZxMC0xLjIuNTI1LTIuMjM4VDkgMTJWNnEwLTEuMjUuODc1LTIuMTI1VDEyIDN0Mi4xMjUuODc1VDE1IDZ2NnEuOTUuNzI1IDEuNDc1IDEuNzYzVDE3IDE2cTAgMi4wNzUtMS40NjMgMy41MzhUMTIgMjFtLTEtMTFoMlY2cTAtLjQyNS0uMjg4LS43MTJUMTIgNXQtLjcxMi4yODhUMTEgNnoiLz48L3N2Zz4=",
+   "size": 317
+  },
+  {
+   "id": "icon-30",
+   "name": "solar:fire-bold",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyLjgzMjQgMjEuODAxM0MxNS45NTgzIDIxLjE3NDcgMjAgMTguOTI2IDIwIDEzLjExMTJDMjAgNy44MTk2IDE2LjEyNjcgNC4yOTU5MyAxMy4zNDE1IDIuNjc2ODVDMTIuNzIzNSAyLjMxNzU3IDEyIDIuNzkwMDYgMTIgMy41MDQ5MlY1LjMzMzRDMTIgNi43NzUyNiAxMS4zOTM4IDkuNDA3MTEgOS43MDkzMiAxMC41MDE4QzguODQ5MzIgMTEuMDYwNyA3LjkyMDUyIDEwLjIyNDIgNy44MTYgOS4yMDM4OEw3LjczMDE3IDguMzY2MDRDNy42MzA0IDcuMzkyMDMgNi42Mzg0MSA2LjgwMDc1IDUuODU5OTYgNy4zOTQ2QzQuNDYxNDcgOC40NjE0NCAzIDEwLjMyOTYgMyAxMy4xMTEyQzMgMjAuMjIyMyA4LjI4ODg5IDIyLjAwMDEgMTAuOTMzMyAyMi4wMDAxQzExLjA4NzEgMjIuMDAwMSAxMS4yNDg4IDIxLjk5NTUgMTEuNDE3MSAyMS45ODU4QzEwLjExMTMgMjEuODc0MiA4IDIxLjA2NCA4IDE4LjQ0NDJDOCAxNi4zOTQ5IDkuNDk1MDcgMTUuMDA4NSAxMC42MzEgMTQuMzM0NkMxMC45MzY1IDE0LjE1MzMgMTEuMjk0MSAxNC4zODg3IDExLjI5NDEgMTQuNzQzOVYxNS4zMzMxQzExLjI5NDEgMTUuNzg0IDExLjQ2ODUgMTYuNDg4OSAxMS44ODM2IDE2Ljk3MTRDMTIuMzUzNCAxNy41MTc0IDEzLjA0MjkgMTYuOTQ1NCAxMy4wOTg1IDE2LjIyNzNDMTMuMTE2MSAxNi4wMDA4IDEzLjM0MzkgMTUuODU2NCAxMy41NDAxIDE1Ljk3MTFDMTQuMTgxNCAxNi4zNDU5IDE1IDE3LjE0NjUgMTUgMTguNDQ0MkMxNSAyMC40OTIyIDEzLjg3MSAyMS40MzQzIDEyLjgzMjQgMjEuODAxM1oiLz48L3N2Zz4=",
+   "size": 896
+  },
+  {
+   "id": "icon-34",
+   "name": "material-symbols:lightbulb-outline-rounded",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEwLjU4OCAyMS40MTNRMTAgMjAuODI1IDEwIDIwaDRxMCAuODI1LS41ODcgMS40MTNUMTIgMjJ0LTEuNDEyLS41ODdNOSAxOXEtLjQyNSAwLS43MTItLjI4OFQ4IDE4dC4yODgtLjcxMlQ5IDE3aDZxLjQyNSAwIC43MTMuMjg4VDE2IDE4dC0uMjg4LjcxM1QxNSAxOXptLS43NS0zcS0xLjcyNS0xLjAyNS0yLjczOC0yLjc1VDQuNSA5LjVxMC0zLjEyNSAyLjE4OC01LjMxMlQxMiAydDUuMzEzIDIuMTg4VDE5LjUgOS41cTAgMi4wMjUtMS4wMTIgMy43NVQxNS43NSAxNnptLjYtMmg2LjNxMS4xMjUtLjggMS43MzgtMS45NzVUMTcuNSA5LjVxMC0yLjMtMS42LTMuOVQxMiA0VDguMSA1LjZUNi41IDkuNXEwIDEuMzUuNjEzIDIuNTI1VDguODUgMTRNMTIgMTQiLz48L3N2Zz4=",
+   "size": 494
+  },
+  {
+   "id": "icon-35",
+   "name": "flowbite:fire-outline",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTE4LjEyMiAxNy42NDVhNy4yIDcuMiAwIDAgMS0yLjY1NiAyLjQ5NWE3LjA2IDcuMDYgMCAwIDEtMy41Mi44NTNhNi42IDYuNiAwIDAgMS0zLjMwNi0uNzE4YTYuNzMgNi43MyAwIDAgMS0yLjU0LTIuMjY2Yy0yLjY3Mi00LjU3LjI4Ny04Ljg0Ni44ODctOS42NjhBNC40NSA0LjQ1IDAgMCAwIDguMDcgNi4zMUE0LjUgNC41IDAgMCAwIDcuOTk3IDRjMS4yODQuOTY1IDYuNDMgMy4yNTggNS41MjUgMTAuNjMxYzEuNDk2LTEuMTM2IDIuNy0zLjA0NiAyLjg0Ni02LjIxNmMxLjQzIDEuMDYxIDMuOTg1IDUuNDYyIDEuNzU0IDkuMjMiLz48L3N2Zz4=",
+   "size": 500
+  },
+  {
+   "id": "baustein-icon-mdi-solar-power",
+   "type": "icon",
+   "name": "mdi:solar-power",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTExLjQ1IDJ2My41NUwxNSAzLjc3em0tMSA2TDggMTAuNDZsMy43NSAxLjI1ek0yIDExLjQ1TDMuNzcgMTVsMS43OC0zLjU1ek0xMCAySDJ2OGMuNTcuMTcgMS4xNy4yNSAxLjc3LjI1YzMuNTguMDEgNi40OS0yLjkgNi41LTYuNWMtLjAxLS41OS0uMS0xLjE4LS4yNy0xLjc1bTcgMjB2LTZoLTNsNS05djZoM3oiLz48L3N2Zz4=",
+   "size": 299
+  },
+  {
+   "id": "baustein-icon-game-icons-batteries",
+   "type": "icon",
+   "name": "game-icons:batteries",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBkPSJNMTY4LjA2MyAyMS44NDRjLTI1LjAwOCAwLTQ3LjcxMyA1LjA5LTY0Ljk3IDEzLjk2OGMtMTYuOTM4IDguNzE2LTI5LjcyMiAyMS45NjItMzAuMTg3IDM4LjYyNmgtLjAzdjkzLjYyNUM1OS4yNTggMTgwLjMyNSA0Ni45IDE5Ny45MiAzNy43NSAyMTkuMDMyYy05Ljk0IDIyLjkzNC0xNC4yODQgNDUuODItMTMgNjUuMTg3YzEuMjUgMTguODQgOC4xNzMgMzUuNzQgMjMgNDIuOTA1bC4zNDQuMTU2Yy4zMDIuMTQzLjU5OC4yNzQuOTA2LjQwOGwyMy44NzUgMTAuMzQzdjEwOC44MTRoLjAzYy42NzUgMTYuNDU4IDEzLjM5NiAyOS41NDcgMzAuMTkgMzguMTg3YzE3LjI1NyA4Ljg4IDM5Ljk3IDEzLjk3IDY0Ljk2OCAxMy45N2MyNC45OTYgMCA0Ny43MS01LjA5IDY0Ljk2OC0xMy45N2MxNi43OTQtOC42NCAyOS41MTUtMjEuNzI4IDMwLjE5LTM4LjE4NmguMDNWNDIwLjU2bDQyLjg0NCAxOC41NjNsLjIyLjA5NGw3NC41NiAzMi4zMWw3LjcyIDMuMzQ1bC44NDQuMzc1di0uMDNjMTUuNDggNi4yMTIgMzIuNzMtLjI2NCA0Ny40NjgtMTIuMzQ1YzE1LjAxLTEyLjMwMiAyOC43MS0zMS4xMTggMzguNjU2LTU0LjA2M2M5Ljk0Ni0yMi45NDQgMTQuMzE1LTQ1LjgyMyAxMy4wMzItNjUuMTg3Yy0xLjI2LTE5LjAxLTguMzMtMzYuMDEtMjMuNDM4LTQzLjA2M3YtLjAzbC04LjU2Mi0zLjcyTDM4Mi4wMyAyNjQuNWwtMTE4Ljc4LTUxLjQ3Vjc2Ljk3Yy4wMjUtLjUzLjAzLTEuMDYuMDMtMS41OTVjMC0uMzE1LS4wMi0uNjI1LS4wMy0uOTM4Yy0uNDY1LTE2LjY2My0xMy4yNDgtMjkuOTEtMzAuMTg4LTM4LjYyNGMtMTcuMjU2LTguODgtMzkuOTkyLTEzLjk3LTY1LTEzLjk3ek0xNDAuMjUgNDMuMDYyYy4wMy0uMDA1LjA2NC4wMDYuMDk0IDBjLTYuNzQzIDMuMjM3LTEwLjkwNiA3LjYzNy0xMC45MDYgMTIuNWMwIDkuOTMgMTcuMjkyIDE3Ljk3IDM4LjYyNSAxNy45N3MzOC42MjUtOC4wNCAzOC42MjUtMTcuOTdjMC00Ljg2My00LjE2NC05LjI2My0xMC45MDctMTIuNWMxMS4xMSAyLjA5MyAyMC45MjcgNS4zNjYgMjguNzIgOS4zNzZjMTMuODE4IDcuMTEgMjAuMDk0IDE1LjY0NiAyMC4wOTQgMjIuOTM3YzAgNy4yOS02LjI3NiAxNS43OTctMjAuMDk0IDIyLjkwNmMtMTMuODE4IDcuMTEtMzQuMDI4IDExLjkwNy01Ni40MzggMTEuOTA3cy00Mi42Mi00Ljc5Ny01Ni40MzctMTEuOTA2Yy0xMy44MTgtNy4xMDgtMjAuMDYzLTE1LjYxNC0yMC4wNjMtMjIuOTA1YzAtNy4yOSA2LjI0NS0xNS44MjggMjAuMDYzLTIyLjkzOGM3Ljc3Mi0zLjk5OCAxNy41NTQtNy4yOCAyOC42MjUtOS4zNzR6TTcyLjg3NSAxOTUuNjU2djEyMmwtMTYuNDM4LTcuMTI1Yy02LjY3OC0yLjg5NC0xMi4wMDMtMTIuMDItMTMuMDMtMjcuNTNjLTEuMDMtMTUuNTEgMi41OTMtMzUuOTgzIDExLjUtNTYuNTNjNS4wODItMTEuNzMgMTEuMzE2LTIyLjE3IDE3Ljk2OC0zMC44MTR6bTE3MS42ODggMS43NVY0NDUuNDdjMCA3LjI3OC02LjI0IDE1LjgyNS0yMC4wNjMgMjIuOTM2cy0zNC4wNDIgMTEuOTA2LTU2LjQzOCAxMS45MDZjLTIyLjM5NSAwLTQyLjYxNS00Ljc5NC01Ni40MzctMTEuOTA2Yy0xMy44MjItNy4xMS0yMC4wNjMtMTUuNjU4LTIwLjA2My0yMi45MzdWMjAwLjMxTDE0NS4zNzUgMjgwbC0zNi44NDQgMTIuODc1TDIyOS43NSA0MjAuMjVsLTUxLjcyLTEwNS43OGwyMy45MDctMTEuODQ1bC00MC4xNTYtODQuMTg4YzIuMDgyLjA3MyA0LjE2OC4xMjUgNi4yODIuMTI1YzI0Ljk5NyAwIDQ3LjcxLTUuMDkgNjQuOTctMTMuOTY4YzQuMTM0LTIuMTI4IDguMDA4LTQuNTM3IDExLjUzLTcuMTg4bTE4LjY4NyAzNmw3OSAzNC4yNWwtNzkgMTQuNzh6bTE4Ny45NyA4Mi43OGMyLjA5NC4wMzUgMy45ODMuNDMzIDUuNjU1IDEuMTU4YzYuNjkgMi45IDEyLjAzNSAxMi4wMjYgMTMuMDYzIDI3LjUzYy41NzcgOC43MTUtLjMzMyAxOC45OTUtMi44MTMgMjkuOTdjLS4zMDUtNy40MjUtMi42ODItMTIuOTUtNy4xMjUtMTQuODc1Yy05LjExLTMuOTUtMjMuMzkgOC43MDctMzEuODc1IDI4LjI4cy03Ljk1MyAzOC42NDUgMS4xNTYgNDIuNTk0YzQuNDUgMS45MjggMTAuMTItLjEwNCAxNS43NS00Ljk3Yy02LjMxNiA5LjMzLTEzLjIwNyAxNy4wMjMtMTkuOTY3IDIyLjU2M2MtMTIuMDIgOS44NS0yMi4zNDIgMTIuMTgtMjkuMDMyIDkuMjgyYy02LjY4OC0yLjktMTIuMDM0LTEyLjAyNy0xMy4wNi0yNy41MzNjLTEuMDMtMTUuNTA1IDIuNjE4LTM1Ljk0IDExLjUzLTU2LjVzMjEuMzU3LTM3LjIxIDMzLjM3NS00Ny4wNjJjOS4wMTQtNy4zODggMTcuMDU4LTEwLjUzNyAyMy4zNDQtMTAuNDM4em0tMTUzLjUgOC42NThjLS45IDEuODktMS43OCAzLjgtMi42MjYgNS43NWMtOS45NCAyMi45MzUtMTQuMzE1IDQ1Ljc5LTEzLjAzIDY1LjE1NmMuMzA3IDQuNjUuOTY2IDkuMTczIDEuOTk4IDEzLjQ3bC0yMC44MTItOXYtNzQuMTI2eiIvPjwvc3ZnPg==",
+   "size": 2536
+  },
+  {
+   "id": "baustein-icon-mdi-water",
+   "type": "icon",
+   "name": "mdi:water",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDIwYTYgNiAwIDAgMS02LTZjMC00IDYtMTAuNzUgNi0xMC43NVMxOCAxMCAxOCAxNGE2IDYgMCAwIDEtNiA2Ii8+PC9zdmc+",
+   "size": 189
+  },
+  {
+   "id": "baustein-icon-mdi-lightbulb-on-outline",
+   "type": "icon",
+   "name": "mdi:lightbulb-on-outline",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTIwIDExaDN2MmgtM3pNMSAxMWgzdjJIMXpNMTMgMXYzaC0yVjF6TTQuOTIgMy41bDIuMTMgMi4xNGwtMS40MiAxLjQxTDMuNSA0Ljkzem0xMi4wMyAyLjEzbDIuMTItMi4xM2wxLjQzIDEuNDNsLTIuMTMgMi4xMnpNMTIgNmE2IDYgMCAwIDEgNiA2YzAgMi4yMi0xLjIxIDQuMTYtMyA1LjJWMTlhMSAxIDAgMCAxLTEgMWgtNGExIDEgMCAwIDEtMS0xdi0xLjhjLTEuNzktMS4wNC0zLTIuOTgtMy01LjJhNiA2IDAgMCAxIDYtNm0yIDE1djFhMSAxIDAgMCAxLTEgMWgtMmExIDEgMCAwIDEtMS0xdi0xem0tMy0zaDJ2LTIuMTNjMS43My0uNDQgMy0yLjAxIDMtMy44N2E0IDQgMCAwIDAtNC00YTQgNCAwIDAgMC00IDRjMCAxLjg2IDEuMjcgMy40MyAzIDMuODd6Ii8+PC9zdmc+",
+   "size": 495
+  },
+  {
+   "id": "baustein-icon-mdi-water-opacity",
+   "type": "icon",
+   "name": "mdi:water-opacity",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE2IDE0di0yaDEuNjFjLjI0LjcxLjM5IDEuMzkuMzkgMnptLS40Mi02Yy0uNDYtLjcxLS45My0xLjM5LTEuMzgtMkgxNHYyem0uNDIgNHYtMmgtMnYyem0wLTMuMzJWMTBoLjc0Yy0uMjQtLjQ0LS40OC0uODktLjc0LTEuMzJNMTIgMTZ2LTJoMnYtMmgtMnYtMmgyVjhoLTJWNmgydi0uMjdjLTEuMS0xLjQ3LTItMi40OC0yLTIuNDhTNiAxMCA2IDE0YzAgMy4zMSAyLjY5IDYgNiA2di0yaDJ2LTJ6bTIgMy42NWMuNzUtLjI2IDEuNDItLjY1IDItMS4xOVYxOGgtMnpNMTQgMTZoMnYtMmgtMnptMiAyaC40NmMuNTQtLjU4LjkzLTEuMjUgMS4xOS0ySDE2eiIvPjwvc3ZnPg==",
+   "size": 436
+  },
+  {
+   "id": "baustein-icon-mdi-radiator",
+   "type": "icon",
+   "name": "mdi:radiator",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTcuOTUgM0w2LjUzIDUuMTlMNy45NSA3LjRoLS4wMWwtMS45OSAzLjFsLTEuNzMtLjlsMS40Mi0yLjIxbC0xLjQyLTIuMmwyLTMuMXptNi0uMTFMMTIuNTMgNS4xbDEuNDIgMi4ybC0uMDEuMDFsLTEuOTkgMy4wOWwtMS43My0uOWwxLjQyLTIuMmwtMS40Mi0yLjJsMi0zLjF6bTYuMDUgMEwxOC41NiA1LjFMMjAgNy4zdi4wMWwtMiAzLjA5bC0xLjc1LS45bDEuNDItMi4ybC0xLjQyLTIuMmwyLTMuMXpNMiAyMnYtOGEyIDIgMCAwIDEgMi0yaDE2YTIgMiAwIDAgMSAyIDJ2OGgtMnYtMkg0djJ6bTQtOGExIDEgMCAwIDAtMSAxdjJhMSAxIDAgMCAwIDEgMWExIDEgMCAwIDAgMS0xdi0yYTEgMSAwIDAgMC0xLTFtNCAwYTEgMSAwIDAgMC0xIDF2MmExIDEgMCAwIDAgMSAxYTEgMSAwIDAgMCAxLTF2LTJhMSAxIDAgMCAwLTEtMW00IDBhMSAxIDAgMCAwLTEgMXYyYTEgMSAwIDAgMCAxIDFhMSAxIDAgMCAwIDEtMXYtMmExIDEgMCAwIDAtMS0xbTQgMGExIDEgMCAwIDAtMSAxdjJhMSAxIDAgMCAwIDEgMWExIDEgMCAwIDAgMS0xdi0yYTEgMSAwIDAgMC0xLTEiLz48L3N2Zz4=",
+   "size": 662
+  },
+  {
+   "id": "baustein-icon-mdi-fire",
+   "type": "icon",
+   "name": "mdi:fire",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE3LjY2IDExLjJjLS4yMy0uMy0uNTEtLjU2LS43Ny0uODJjLS42Ny0uNi0xLjQzLTEuMDMtMi4wNy0xLjY2QzEzLjMzIDcuMjYgMTMgNC44NSAxMy45NSAzYy0uOTUuMjMtMS43OC43NS0yLjQ5IDEuMzJjLTIuNTkgMi4wOC0zLjYxIDUuNzUtMi4zOSA4LjljLjA0LjEuMDguMi4wOC4zM2MwIC4yMi0uMTUuNDItLjM1LjVjLS4yMy4xLS40Ny4wNC0uNjYtLjEyYS42LjYgMCAwIDEtLjE0LS4xN2MtMS4xMy0xLjQzLTEuMzEtMy40OC0uNTUtNS4xMkM1Ljc4IDEwIDQuODcgMTIuMyA1IDE0LjQ3Yy4wNi41LjEyIDEgLjI5IDEuNWMuMTQuNi40MSAxLjIuNzEgMS43M2MxLjA4IDEuNzMgMi45NSAyLjk3IDQuOTYgMy4yMmMyLjE0LjI3IDQuNDMtLjEyIDYuMDctMS42YzEuODMtMS42NiAyLjQ3LTQuMzIgMS41My02LjZsLS4xMy0uMjZjLS4yMS0uNDYtLjc3LTEuMjYtLjc3LTEuMjZtLTMuMTYgNi4zYy0uMjguMjQtLjc0LjUtMS4xLjZjLTEuMTIuNC0yLjI0LS4xNi0yLjktLjgyYzEuMTktLjI4IDEuOS0xLjE2IDIuMTEtMi4wNWMuMTctLjgtLjE1LTEuNDYtLjI4LTIuMjNjLS4xMi0uNzQtLjEtMS4zNy4xNy0yLjA2Yy4xOS4zOC4zOS43Ni42MyAxLjA2Yy43NyAxIDEuOTggMS40NCAyLjI0IDIuOGMuMDQuMTQuMDYuMjguMDYuNDNjLjAzLjgyLS4zMyAxLjcyLS45MyAyLjI3Ii8+PC9zdmc+",
+   "size": 786
+  },
+  {
+   "id": "baustein-icon-mdi-timer-off-outline",
+   "type": "icon",
+   "name": "mdi:timer-off-outline",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDIwYTcgNyAwIDAgMS03LTdjMC0xLjI4LjM1LTIuNS45NS0zLjVsOS41NSA5LjU0Yy0xIC42MS0yLjIyLjk2LTMuNS45Nk0zIDRMMS43NSA1LjI3TDQuNSA4LjAzQTguOSA4LjkgMCAwIDAgMyAxM2E5IDkgMCAwIDAgOSA5YzEuODQgMCAzLjU1LS41NSA1LTEuNWwyLjUgMi41bDEuMjUtMS4yN0wxMy4wNCAxNHptOCA1LjQ0bDIgMlY4aC0ybTQtN0g5djJoNm00LjA0IDEuNTVsLTEuNDIgMS40MkE5IDkgMCAwIDAgMTIgNGMtMS44MyAwLTMuNTMuNTUtNC45NSAxLjVMOC41IDYuOTRDOS41MyA2LjM1IDEwLjczIDYgMTIgNmE3IDcgMCAwIDEgNyA3YzAgMS4yNy0uMzUgMi40Ny0uOTQgMy41bDEuNDQgMS40NGMuOTUtMS40MSAxLjUtMy4xMSAxLjUtNC45NGMwLTIuMTItLjc0LTQuMDctMS45Ny01LjYxbDEuNDItMS40MnoiLz48L3N2Zz4=",
+   "size": 533
+  },
+  {
+   "id": "baustein-icon-mdi-timer-sand",
+   "type": "icon",
+   "name": "mdi:timer-sand",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTYgMmgxMnY2bC00IDRsNCA0djZINnYtNmw0LTRsLTQtNHptMTAgMTQuNWwtNC00bC00IDRWMjBoOHptLTQtNWw0LTRWNEg4djMuNXpNMTAgNmg0di43NWwtMiAybC0yLTJ6Ii8+PC9zdmc+",
+   "size": 222
+  },
+  {
+   "id": "baustein-icon-mdi-fan",
+   "type": "icon",
+   "name": "mdi:fan",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDExYTEgMSAwIDAgMC0xIDFhMSAxIDAgMCAwIDEgMWExIDEgMCAwIDAgMS0xYTEgMSAwIDAgMC0xLTFtLjUtOWM0LjUgMCA0LjYxIDMuNTcgMi4yNSA0Ljc1Yy0uOTkuNDktMS40MyAxLjU0LTEuNjIgMi40N2MuNDguMi45LjUxIDEuMjIuOTFjMy43LTIgNy42OC0xLjIxIDcuNjggMi4zN2MwIDQuNS0zLjU3IDQuNi00Ljc1IDIuMjNjLS41LS45OS0xLjU2LTEuNDMtMi40OS0xLjYyYy0uMi40OC0uNTEuODktLjkxIDEuMjNjMS45OSAzLjY5IDEuMiA3LjY2LTIuMzggNy42NmMtNC41IDAtNC41OS0zLjU4LTIuMjMtNC43NmMuOTgtLjQ5IDEuNDItMS41MyAxLjYyLTIuNDVjLS40OS0uMi0uOTItLjUyLTEuMjQtLjkyQzUuOTYgMTUuODUgMiAxNS4wNyAyIDExLjVDMiA3IDUuNTYgNi44OSA2Ljc0IDkuMjZjLjUuOTkgMS41NSAxLjQyIDIuNDggMS42MWMuMTktLjQ4LjUxLS45LjkyLTEuMjJDOC4xNSA1Ljk2IDguOTQgMiAxMi41IDIiLz48L3N2Zz4=",
+   "size": 596
+  },
+  {
+   "id": "icon-187",
+   "name": "mdi:alert-outline",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDJMMSAyMWgyMk0xMiA2bDcuNTMgMTNINC40N00xMSAxMHY0aDJ2LTRtLTIgNnYyaDJ2LTIiLz48L3N2Zz4=",
+   "size": 179
+  }
+ ],
+ "nextId": 191,
+ "snapGuides": [],
+ "settings": {
+  "exportFormat": "esp32",
+  "gridSize": 20,
+  "snapTolerance": 8,
+  "snapGrid": "{\"horizontal\":[], \"vertical\":[]}",
+  "decimalSeparator": ".",
+  "thousandsSeparator": "'",
+  "cards": {
+   "radiusMm": 2,
+   "edgePx": 1,
+   "accentEdgePx": 2,
+   "paddingMm": 1
+  }
+ }
+}

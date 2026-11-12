@@ -79,7 +79,7 @@ as_user env NEXT_TELEMETRY_DISABLED=1 npm run build --silent >/dev/null
 if [ -f "$SEED" ]; then
   log "Seeding the start project"
   as_user mkdir -p "$DIR/.data"
-  rm -rf "$DIR/.data/projects/Camper"
+  rm -rf "$DIR/.data/projects/Camper" "$DIR/.data/projects/VanPi-Starter"
   tar -xzf "$SEED" -C "$DIR/.data"
   chown -R "$USER_NAME:$USER_NAME" "$DIR/.data"
   rm -f "$SEED"

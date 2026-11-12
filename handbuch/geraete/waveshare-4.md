@@ -29,6 +29,22 @@ Bedient wird es wie der 4.3B. Wischgesten belegst du im Designer in den Eigensch
 
 Nach einer Weile ohne Berührung geht das Display aus. Die erste Berührung weckt es nur, sie schaltet nichts. Wie lange es an bleibt, stellst du in der [Einrichtung](/geraete/einrichten#geraet) ein.
 
+## Der Starter {#starter}
+
+Für dieses Display gibt es einen fertigen Anfang. Wählst du beim [neuen Projekt](/designer/projekte#ein-neues-projekt) unter <span class="ui">Start with</span> den <span class="ui">VanPi-Starter (4")</span>, hat das Projekt sofort die Screens aus dem Video zum Starter:
+
+- Home mit zwei Tasten und den wichtigsten Werten
+- Dimmer
+- Power mit dem [Energiediagramm](/objekte/anzeigen#energiediagramm), darüber der Verlauf der Sonne, darunter der der Batterie
+- Wasser mit den Tanks, darunter Ablassen mit der Kamera
+- Klima mit der Heizung, darunter die Temperaturen
+- MaxxFan
+- Schalter mit allen acht Relais
+
+Unten liegt der [Navigator](/objekte/anordnen#navigator), oben die Kopfzeile mit Uhr, Datum, Flamme und Warnsymbol. Aufteilung und Aussehen haben CamperUI von Niklas Jester zum Vorbild.
+
+Der Starter liest nur Topics unter `schaltli/`, also nur, was die [VanPi-Brücke](/betrieb/vanpi-bruecke) liefert. Was bei dir nicht angeschlossen ist, bleibt leer. Die Camera auf Ablassen hat noch keine Adresse, die trägst du bei ihr unter <span class="ui">URL</span> ein. Danach passt du das Projekt an deinen Van an wie jedes andere.
+
 ## Zurück in die Einrichtung
 
 Halte einen Finger fünf Sekunden still irgendwo auf den Bildschirm. Nach drei Sekunden erscheint <span class="ui fw">Setup in</span> mit einem Countdown. Bewegt sich der Finger, beginnt die Zeit von vorn, und lässt du vorher los, passiert nichts.

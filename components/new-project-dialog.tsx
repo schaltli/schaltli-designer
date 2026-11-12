@@ -9,6 +9,9 @@
  * A name another project has is refused here rather than offered for
  * replacing: a new, empty project replacing an existing one would bury its
  * work under an empty version.
+ *
+ * For a device a starter is made for (lib/starters.ts), the name step also
+ * asks what to start with: an empty project, or the starter.
  */
 
 import { useEffect, useState } from "react"
@@ -18,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DeviceChooser } from "@/components/device-chooser"
 import { checkProjectName, sameProjectName } from "@/lib/project-name"
+import { startersFor } from "@/lib/starters"
 import type { ProjectListEntry } from "./save-project-dialog"
 
 interface NewProjectDialogProps {
@@ -25,12 +29,15 @@ interface NewProjectDialogProps {
   onOpenChange: (open: boolean) => void
   // Resolves once the project is created and open; rejects with the message
   // to show.
-  onCreate: (ddfPath: string, name: string) => Promise<void>
+  // `starterId`: the starter chosen to begin with; none for an empty project.
+  onCreate: (ddfPath: string, name: string, starterId?: string) => Promise<void>
 }
 
 export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDialogProps) {
   const [step, setStep] = useState<"device" | "name">("device")
   const [ddfPath, setDdfPath] = useState("")
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined)
+  const [starterId, setStarterId] = useState("")
   const [name, setName] = useState("")
   const [projects, setProjects] = useState<ProjectListEntry[] | null>(null)
   const [creating, setCreating] = useState(false)
@@ -40,6 +47,8 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
     if (!open) return
     setStep("device")
     setDdfPath("")
+    setDeviceId(undefined)
+    setStarterId("")
     setName("")
     setCreateError(null)
   }, [open])
@@ -59,12 +68,14 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
   const problem =
     !check.ok && name.trim() !== "" ? check.reason : existing ? `"${existing.name}" already exists.` : null
 
+  const starters = startersFor(deviceId)
+
   const create = async () => {
     if (!check.ok || existing || creating || projects === null) return
     setCreating(true)
     setCreateError(null)
     try {
-      await onCreate(ddfPath, check.name)
+      await onCreate(ddfPath, check.name, starters.some((st) => st.id === starterId) ? starterId : undefined)
       onOpenChange(false)
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Could not create the project")
@@ -91,9 +102,13 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
           <>
             <DeviceChooser
               selectedDdfPath={ddfPath}
-              onSelect={setDdfPath}
-              onOpen={(path) => {
+              onSelect={(path, id) => {
                 setDdfPath(path)
+                setDeviceId(id)
+              }}
+              onOpen={(path, id) => {
+                setDdfPath(path)
+                setDeviceId(id)
                 setStep("name")
               }}
             />
@@ -127,6 +142,23 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
               <p id="new-project-name-problem" role="alert" className="text-sm text-destructive min-h-5">
                 {problem ?? createError}
               </p>
+              {starters.length > 0 && (
+                <fieldset className="space-y-2 pt-1">
+                  <legend className="text-sm font-medium leading-none mb-2">Start with</legend>
+                  {[{ id: "", label: "Empty" }, ...starters].map((choice) => (
+                    <label key={choice.id || "empty"} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="new-project-start"
+                        value={choice.id}
+                        checked={starterId === choice.id}
+                        onChange={() => setStarterId(choice.id)}
+                      />
+                      {choice.label}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
             </form>
             <DialogFooter>
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={creating}>

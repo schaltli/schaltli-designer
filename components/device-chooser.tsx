@@ -116,8 +116,8 @@ function DdfSection({
   source: "curated" | "auto-discovered"
   entries: DeviceDescriptionListEntry[]
   selectedDdfPath: string
-  onSelect: (path: string) => void
-  onOpen: (path: string) => void
+  onSelect: (path: string, deviceId?: string) => void
+  onOpen: (path: string, deviceId?: string) => void
 }) {
   if (entries.length === 0) return null
   return (
@@ -130,8 +130,8 @@ function DdfSection({
               <DdfCard
                 ddf={ddf}
                 isSelected={selectedDdfPath === ddf.path}
-                onSelect={() => onSelect(ddf.path)}
-                onOpen={() => onOpen(ddf.path)}
+                onSelect={() => onSelect(ddf.path, ddf.deviceId ?? undefined)}
+                onOpen={() => onOpen(ddf.path, ddf.deviceId ?? undefined)}
               />
             </CarouselItem>
           ))}
@@ -155,9 +155,9 @@ export function DeviceChooser({
   onOpen,
 }: {
   selectedDdfPath: string
-  onSelect: (path: string) => void
+  onSelect: (path: string, deviceId?: string) => void
   // A double click on a card: choose it and go on.
-  onOpen: (path: string) => void
+  onOpen: (path: string, deviceId?: string) => void
 }) {
   const demo = useDemoMode()
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])

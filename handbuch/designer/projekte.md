@@ -22,6 +22,8 @@ Meldet sich ein Gerät beim Broker, aber seine Beschreibung kommt nicht beim Des
 
 Dann gibst du dem Projekt einen Namen. <span class="ui">Create Project</span> speichert es und öffnet es im Editor. Ist der Name schon vergeben, sagt der Dialog das und legt nichts an. <span class="ui">Back</span> führt zurück zur Geräteauswahl.
 
+Beim [4-Zoll-Display](/geraete/waveshare-4) fragt der Dialog darunter, womit du beginnst. Unter <span class="ui">Start with</span> wählst du <span class="ui">Empty</span> für ein leeres Projekt wie bei jedem Gerät oder <span class="ui">VanPi-Starter (4")</span> für fertige Screens für einen Van mit VanPi, siehe [Der Starter](/geraete/waveshare-4#starter). Bei anderen Geräten fehlt die Frage.
+
 Ein neues Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Slate (auf dem PaperS3 Paper) und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
 
 Über das Feld <span class="ui">Add</span> in der Geräteauswahl fügst du ein Gerät hinzu, dessen Beschreibung (eine `.ddf.zip`-Datei) im Internet liegt.

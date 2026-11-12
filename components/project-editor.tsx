@@ -100,6 +100,7 @@ import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styled
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
+import { loadStarter, withStarter } from "@/lib/starters"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
@@ -3480,9 +3481,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // chosen device, saves it under its name as its first version, and opens
   // it, saved. Throws, for the dialog to show, if the device cannot be
   // loaded or the name is taken meanwhile.
-  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string, name: string) => {
+  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string, name: string, starterId?: string) => {
     const fields = await loadDeviceDescriptionByPath(ddfPath)
-    const fresh: Project = {
+    // A starter chosen (lib/starters.ts): loaded before anything is made.
+    const starter = starterId ? await loadStarter(starterId) : null
+    let fresh: Project = {
       ...createDefaultProject(),
       name,
       screenWidth: fields.screenWidth,
@@ -3520,6 +3523,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     fresh.screens = fresh.screens.map((screen) =>
       screen.isMaster ? { ...screen, themeId: defaultThemeIdFor(fields.colorDepth) } : screen,
     )
+    // Its screens, topics, icons and settings over the device's own.
+    if (starter) fresh = withStarter(fresh, starter)
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)
