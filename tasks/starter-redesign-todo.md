@@ -73,8 +73,8 @@ first after a context summary.
 ## Phase 9 - film
 - [x] M1 voice (vorgezogen, 2026-11-12): neue Takes a/b + b.words.json für K3-K6, K8-K16 in public/vo-st (alte als *.old.*), Session-IDs in vo-st/sessions-2026-11-12.json; Text-Korrekturen K9 (Karten), K11 (Kalibrier-Absatz raus); K0-2, K7, K17-K20 alte Takes. Nutzer muss noch reinhören
 - [ ] M2 record
-- [ ] M3 assemble
-- [ ] M4 starter T5-T8
+- [~] M3 assemble (2026-11-12: K0 aus Bildern, k0-intro.py; Kamera nach Absätzen des Sprechtexts für neu gesprochene Kapitel, assemble.py AUTO_CAM; K19 mit Standbildern vom 4", K20 mit Home, CamperUI und Einblendungen; Fehler beim Zählen der Eingaben behoben)
+- [x] M4 starter T5-T8 (3a2b5747: lib/starters, New Project «Start with», Demo-Seed, Handbuch)
 
 ## Notes
 - Known limit: on the knob (360 px) the heater description's two dials side by side are left out (as before 2026-11-11); card-blocks spec pins it.
@@ -91,3 +91,5 @@ first after a context summary.
 - Palette: die Blöcke der Brücke kommen 4-8 s nach den HA-Einträgen; davor bietet Prebuilt das Klima-Gerät «MaxxFan» statt des Blocks an (kein Fehler, aber Falle für Skripte: 10 s warten).
 - Für den Nutzer: Legende links oben überdeckt im Chart die Min/Max-Marke oben links; «No recorder on this broker» blitzt beim Öffnen der Live-Vorschau kurz auf.
 - Bekannter Ausreisser: PaperS3 charts-draw, 13 px am Rand des NowPoint im kompakten Chart (Graustufen, je nach Uhrzeit der Sinus-Testdaten); einzeln 0 px. Zweimal in test:quick am 2026-11-12, vor und nach 13add36.
+- 2026-11-12 später: K10 neu (Knoten an ihre Plätze gezogen, untere Knoten höher), Stände K11-K18 mit Power/Solar/Batterie aus after-K10 nachgeführt; Deploy-Dialog hing bei «Applying» (rebooting ging im Van verloren) - f0cd83c8; K19 neu, «Deploy successful» nach gut 4 min; K19dev Standbilder; K20 neu (Projekt «Mein Van» bleibt auf dem Designer im Van - Löschen hat der Auto-Modus verweigert, Nutzer löscht von Hand).
+- Offen für den Nutzer: Takes anhören; Projekt «Mein Van» im Van löschen; Handy hängt nicht mehr an adb (Android-Lane scheitert); Film ansehen.
