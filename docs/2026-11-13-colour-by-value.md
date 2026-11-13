@@ -5,7 +5,7 @@ The starter warns with four red icons in the header (frost, battery, fresh
 water, waste water). The user asked whether the navigator could light up
 instead: «then it is clear where to look». Today it cannot. A rule gives an
 icon or a text but never a colour, and the navigator draws every screen icon
-in its own ink. **Status: draft, not yet approved.**
+in its own ink. **Status: approved by the user on 2026-11-13.**
 
 ## Objective
 
@@ -61,8 +61,8 @@ screen is showing.
    value yet.
 7. **A text result colours its whole Text object,** not only the part the
    live value inserts. If several live values in one text give a colour, the
-   first in the text wins. (Colouring only the inserted part needs styled runs
-   inside one label on every device. See open question 1.)
+   first in the text wins. Colouring only the inserted part would need styled
+   runs inside one label on every device (settled question 1).
 8. **The fill of a bar or a gauge** gets colour rules over its own value. A
    live value on the object's topic gives results of a third kind,
    `{ kind: "colour", colour }`. No rule applies: the fill colour set in the
@@ -126,19 +126,15 @@ Once built, the VanPi starter (`templates/vanpi-4.json`, golden copy
 Whether the four warnings stay in the header is the user's call then. They
 say *what*, and the navigator says *where*.
 
-## Open questions
+## Settled questions (the user, 2026-11-13)
 
 1. **Colouring only the inserted part of a text** («Fresh water» stays, «1 %»
-   red). Is it worth styled runs in a label on four devices? Recommendation:
-   not now. A value in a colour of its own can be its own Text object.
-2. **Which objects besides bar and gauge** get fill rules: slider, dial, the
-   energy diagram's charge ring? Recommendation: bar and gauge first, the
-   others when a project asks.
-3. **Good** as a third derived topic, for «everything fine» in green?
-   Recommendation: no, until someone wants it.
-4. **Objects that are not shown,** for example a panel of a switcher that is
-   hidden. Should their rules count? Recommendation: yes. The value is the
-   van's, not the panel's.
+   red): no. A value in a colour of its own is its own Text object.
+2. **Objects besides bar and gauge** with fill rules (slider, dial, the
+   energy diagram's charge ring): later, when a project asks.
+3. **Good** as a third derived topic: no.
+4. **Objects that are not shown,** for example a hidden panel of a switcher:
+   their rules count. The value is the van's, not the panel's.
 
 ## Tests
 
