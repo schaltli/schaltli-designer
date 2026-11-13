@@ -46,7 +46,9 @@ test("the shipped starter is neutral: every topic under schaltli/, no address of
 // while its value is past the limit, never for a value that has not come.
 test("the starter's header: four warnings side by side, each its own icon, the theme switch on the right", () => {
   const master = starter.screens.find((s: any) => s.isMaster)
-  const warnings = master.objects.filter((o: any) => o.type === "icon" && o.properties.iconColor === "alarm")
+  // The red icons but the heater's flame, which says the heater is on.
+  const isFlame = (o: any) => JSON.stringify(o.properties?.liveValues ?? []).includes("schaltli/state/heater/power")
+  const warnings = master.objects.filter((o: any) => o.type === "icon" && o.properties.iconColor === "alarm" && !isFlame(o))
   const iconName = (id: string) => starter.assets.find((a: any) => a.id === id)?.name
   const seen = warnings
     .sort((a: any, b: any) => a.x - b.x)
@@ -72,7 +74,7 @@ test("the starter's header: four warnings side by side, each its own icon, the t
   const xs = warnings.map((o: any) => o.x).sort((a: number, b: number) => a - b)
   for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(warnings[0].width)
   // The heater on: a red flame, nothing while it is off.
-  const flame = master.objects.find((o: any) => JSON.stringify(o.properties?.liveValues ?? []).includes("schaltli/state/heater/power"))
+  const flame = master.objects.find(isFlame)
   expect(flame.properties.iconColor).toBe("alarm")
   expect(flame.properties.liveValues[0].rules).toEqual([{ op: "==", operand: "off", result: { kind: "icon", icon: "" } }])
   // Light and dark switched in the header, not in the navigator.
