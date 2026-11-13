@@ -10,8 +10,9 @@
  * replacing: a new, empty project replacing an existing one would bury its
  * work under an empty version.
  *
- * For a device a starter is made for (lib/starters.ts), the name step also
- * asks what to start with: an empty project, or the starter.
+ * The name step also asks what to start with (lib/templates.ts): Empty, or
+ * From template with the templates made for the device chosen. A device
+ * without any has From template greyed out.
  */
 
 import { useEffect, useState } from "react"
@@ -21,7 +22,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DeviceChooser } from "@/components/device-chooser"
 import { checkProjectName, sameProjectName } from "@/lib/project-name"
-import { startersFor } from "@/lib/starters"
+import type { TemplateSummary } from "@/lib/templates"
 import type { ProjectListEntry } from "./save-project-dialog"
 
 interface NewProjectDialogProps {
@@ -29,15 +30,17 @@ interface NewProjectDialogProps {
   onOpenChange: (open: boolean) => void
   // Resolves once the project is created and open; rejects with the message
   // to show.
-  // `starterId`: the starter chosen to begin with; none for an empty project.
-  onCreate: (ddfPath: string, name: string, starterId?: string) => Promise<void>
+  // `templateName`: the template chosen to begin with; none for an empty project.
+  onCreate: (ddfPath: string, name: string, templateName?: string) => Promise<void>
 }
 
 export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDialogProps) {
   const [step, setStep] = useState<"device" | "name">("device")
   const [ddfPath, setDdfPath] = useState("")
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined)
-  const [starterId, setStarterId] = useState("")
+  const [fromTemplate, setFromTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState("")
+  const [templates, setTemplates] = useState<TemplateSummary[]>([])
   const [name, setName] = useState("")
   const [projects, setProjects] = useState<ProjectListEntry[] | null>(null)
   const [creating, setCreating] = useState(false)
@@ -48,7 +51,9 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
     setStep("device")
     setDdfPath("")
     setDeviceId(undefined)
-    setStarterId("")
+    setFromTemplate(false)
+    setTemplateName("")
+    setTemplates([])
     setName("")
     setCreateError(null)
   }, [open])
@@ -63,19 +68,37 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
       .catch(() => setProjects([]))
   }, [open, step])
 
+  // The templates made for the device chosen, fetched with the name step.
+  useEffect(() => {
+    if (!open || step !== "name" || !deviceId) return
+    let current = true
+    fetch(`/api/templates?device=${encodeURIComponent(deviceId)}`)
+      .then((res) => (res.ok ? res.json() : { templates: [] }))
+      .then((data) => {
+        if (!current) return
+        const list: TemplateSummary[] = data.templates ?? []
+        setTemplates(list)
+        setTemplateName((chosen) => (list.some((t) => t.name === chosen) ? chosen : list[0]?.name ?? ""))
+        if (list.length === 0) setFromTemplate(false)
+      })
+      .catch(() => current && setTemplates([]))
+    return () => {
+      current = false
+    }
+  }, [open, step, deviceId])
+
   const check = checkProjectName(name)
   const existing = check.ok ? projects?.find((p) => sameProjectName(p.name, check.name)) : undefined
   const problem =
     !check.ok && name.trim() !== "" ? check.reason : existing ? `"${existing.name}" already exists.` : null
-
-  const starters = startersFor(deviceId)
 
   const create = async () => {
     if (!check.ok || existing || creating || projects === null) return
     setCreating(true)
     setCreateError(null)
     try {
-      await onCreate(ddfPath, check.name, starters.some((st) => st.id === starterId) ? starterId : undefined)
+      const chosen = fromTemplate && templates.some((t) => t.name === templateName) ? templateName : undefined
+      await onCreate(ddfPath, check.name, chosen)
       onOpenChange(false)
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Could not create the project")
@@ -142,23 +165,43 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
               <p id="new-project-name-problem" role="alert" className="text-sm text-destructive min-h-5">
                 {problem ?? createError}
               </p>
-              {starters.length > 0 && (
-                <fieldset className="space-y-2 pt-1">
-                  <legend className="text-sm font-medium leading-none mb-2">Start with</legend>
-                  {[{ id: "", label: "Empty" }, ...starters].map((choice) => (
-                    <label key={choice.id || "empty"} className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name="new-project-start"
-                        value={choice.id}
-                        checked={starterId === choice.id}
-                        onChange={() => setStarterId(choice.id)}
-                      />
-                      {choice.label}
-                    </label>
-                  ))}
-                </fieldset>
-              )}
+              <fieldset className="space-y-2 pt-1">
+                <legend className="text-sm font-medium leading-none mb-2">Start with</legend>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="new-project-start" checked={!fromTemplate} onChange={() => setFromTemplate(false)} />
+                  Empty
+                </label>
+                <label
+                  className={`flex items-center gap-2 text-sm ${templates.length ? "cursor-pointer" : "text-muted-foreground"}`}
+                  title={templates.length ? undefined : "There is no template for this device yet"}
+                >
+                  <input
+                    type="radio"
+                    name="new-project-start"
+                    checked={fromTemplate}
+                    disabled={templates.length === 0}
+                    onChange={() => setFromTemplate(true)}
+                  />
+                  From template
+                </label>
+                {templates.length > 0 && (
+                  <select
+                    aria-label="Template"
+                    value={templateName}
+                    onChange={(e) => {
+                      setTemplateName(e.target.value)
+                      setFromTemplate(true)
+                    }}
+                    className="ml-6 w-[calc(100%-1.5rem)] h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    {templates.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </fieldset>
             </form>
             <DialogFooter>
               <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={creating}>

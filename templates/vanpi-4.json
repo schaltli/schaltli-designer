@@ -1,5 +1,7 @@
 {
- "starterOf": "waveshare-touch-lcd-4",
+ "format": 1,
+ "name": "VanPi-Starter (4\")",
+ "deviceId": "waveshare-touch-lcd-4",
  "screens": [
   {
    "id": "master-1",

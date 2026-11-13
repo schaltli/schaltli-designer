@@ -31,7 +31,7 @@ Nach einer Weile ohne Berührung geht das Display aus. Die erste Berührung weck
 
 ## Der Starter {#starter}
 
-Für dieses Display gibt es einen fertigen Anfang. Wählst du beim [neuen Projekt](/designer/projekte#ein-neues-projekt) unter <span class="ui">Start with</span> den <span class="ui">VanPi-Starter (4")</span>, hat das Projekt sofort die Screens aus dem Video zum Starter:
+Für dieses Display bringt der Designer eine [Vorlage](/designer/projekte#vorlagen) mit. Wählst du beim [neuen Projekt](/designer/projekte#ein-neues-projekt) unter <span class="ui">Start with</span> › <span class="ui">From template</span> den «VanPi-Starter (4")», hat das Projekt sofort die Screens aus dem Video zum Starter:
 
 - Home mit zwei Tasten und den wichtigsten Werten
 - Dimmer

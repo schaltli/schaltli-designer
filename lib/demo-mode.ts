@@ -33,6 +33,8 @@ const ALLOWED: { method: string; path: RegExp }[] = [
   { method: "GET", path: /^\/api\/projects$/ },
   { method: "GET", path: /^\/api\/projects\/[^/]+$/ },
   { method: "GET", path: /^\/api\/projects\/[^/]+\/versions$/ },
+  { method: "GET", path: /^\/api\/templates$/ },
+  { method: "GET", path: /^\/api\/templates\/[^/]+$/ },
   { method: "GET", path: /^\/api\/ddf\/list$/ },
   { method: "GET", path: /^\/api\/ddf\/data\/[^/]+$/ },
   { method: "GET", path: /^\/api\/fonts\/list$/ },

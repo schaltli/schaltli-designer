@@ -22,9 +22,9 @@ Meldet sich ein Gerät beim Broker, aber seine Beschreibung kommt nicht beim Des
 
 Dann gibst du dem Projekt einen Namen. <span class="ui">Create Project</span> speichert es und öffnet es im Editor. Ist der Name schon vergeben, sagt der Dialog das und legt nichts an. <span class="ui">Back</span> führt zurück zur Geräteauswahl.
 
-Beim [4-Zoll-Display](/geraete/waveshare-4) fragt der Dialog darunter, womit du beginnst. Unter <span class="ui">Start with</span> wählst du <span class="ui">Empty</span> für ein leeres Projekt wie bei jedem Gerät oder <span class="ui">VanPi-Starter (4")</span> für fertige Screens für einen Van mit VanPi, siehe [Der Starter](/geraete/waveshare-4#starter). Bei anderen Geräten fehlt die Frage.
+Darunter fragt der Dialog unter <span class="ui">Start with</span>, womit du beginnst: <span class="ui">Empty</span> für ein leeres Projekt oder <span class="ui">From template</span> für ein Projekt aus einer [Vorlage](#vorlagen). Die Liste darunter zeigt nur die Vorlagen für das gewählte Gerät. Gibt es für das Gerät keine, ist <span class="ui">From template</span> ausgegraut.
 
-Ein neues Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Slate (auf dem PaperS3 Paper) und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
+Ein neues, leeres Projekt hat einen Master-Screen «Master 1» mit dem [Theme](/designer/themes) Slate (auf dem PaperS3 Paper) und einen Screen «Screen 1», der diesen Master verwendet. Grösse, Farbtiefe, Schriften und Gerätrahmen kommen vom Gerät.
 
 Über das Feld <span class="ui">Add</span> in der Geräteauswahl fügst du ein Gerät hinzu, dessen Beschreibung (eine `.ddf.zip`-Datei) im Internet liegt.
 
@@ -48,6 +48,16 @@ Hat ein Projekt noch keinen Namen, etwa eine hochgeladene Datei, heisst es «Unt
 Jedes Speichern legt eine neue [Version](/designer/versionen) an. Auch jede [Übertragung auf ein Gerät](/designer/deploy) speichert vorher.
 
 Verlässt du ein Projekt mit ungespeicherten Änderungen, fragt der Designer <span class="ui">Save changes to</span> …, mit <span class="ui">Save</span>, <span class="ui">Don't Save</span> und <span class="ui">Cancel</span>. Das gilt, wenn du ein anderes Projekt öffnest, ein neues anlegst oder eine Datei hochlädst. Schliesst oder lädst du den Tab neu, warnt der Browser selbst.
+
+## Vorlagen {#vorlagen}
+
+Eine Vorlage ist ein Projekt, mit dem du ein neues beginnst statt mit einem leeren. Das neue Projekt hat sofort ihre Screens, Topics, Icons und Bilder. Grösse, Schriften und Gerätrahmen kommen wie bei einem leeren Projekt vom Gerät. Jede Vorlage gehört zu einem Gerätetyp und wird nur dort angeboten.
+
+Eine Vorlage bringt der Designer mit: «VanPi-Starter (4")» für das [4-Zoll-Display](/geraete/waveshare-4#starter), fertige Screens für einen Van mit VanPi.
+
+<span class="ui">File</span> › <span class="ui">Save as Template...</span> macht aus dem offenen Projekt eine eigene Vorlage, etwa wenn ein zweites Display im Van dieselben Screens bekommen soll. In die Vorlage kommt, was das Projekt in diesem Moment enthält, auch Ungespeichertes. Spätere Änderungen am Projekt ändern die Vorlage nicht. Der Dialog zeigt die Vorlagen, die es für dieses Gerät schon gibt. Wählst du den Namen einer eigenen, fragt er nach und ersetzt sie mit <span class="ui">Replace</span>. Die mitgelieferten lassen sich nicht ersetzen.
+
+Eigene Vorlagen liegen beim Designer im Ordner `.data/templates/`, eine Datei pro Vorlage. Willst du eine loswerden, löschst du ihre Datei. Du kannst eine solche Datei auch weitergeben: Liegt sie im selben Ordner eines anderen Designers, bietet dessen <span class="ui">New Project</span> sie ebenfalls an. Eine Vorlage enthält alles, was im Projekt steht, auch Adressen wie die <span class="ui">URL</span> einer Camera. Schau sie vorher durch.
 
 ## Projekte öffnen, umbenennen, löschen {#projekte-oeffnen-umbenennen-loeschen}
 

@@ -1,10 +1,10 @@
 // The VanPi starter as a project on demo.schaltli.com, beside «Camper»
 // (tasks/starter-project-todo.md, T7): the 4" a project is made for, as the
-// New Project dialog makes one, with the starter added (lib/starters.ts).
+// New Project dialog makes one from the shipped template (templates/vanpi-4.json).
 import { parseDeviceDescriptionFile, deviceDescriptionToProjectFields } from "@/lib/device-description"
 import { declaresTouch } from "@/lib/object-types"
 import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
-import { withStarter, type StarterContent } from "@/lib/starters"
+import { withTemplate, type Template } from "@/lib/templates"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -51,7 +51,6 @@ export async function buildStarterProject(ddfZip: Uint8Array, starterId = "vanpi
       popupCloseRadius: fields.popupCloseRadius,
     },
   }
-  // Read from its file: loadStarter's import is the page's, through the bundler.
-  const content = JSON.parse(fs.readFileSync(path.join(process.cwd(), "lib", "starters", `${starterId}.json`), "utf8")) as StarterContent
-  return withStarter(base, content)
+  const template = JSON.parse(fs.readFileSync(path.join(process.cwd(), "templates", `${starterId}.json`), "utf8")) as Template
+  return withTemplate(base, template)
 }

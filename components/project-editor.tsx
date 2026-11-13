@@ -87,7 +87,7 @@ import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
 import { applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
+import { FilePlus2, LayoutTemplate, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast, toast as showToast } from "@/hooks/use-toast"
@@ -100,7 +100,8 @@ import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styled
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
-import { loadStarter, withStarter } from "@/lib/starters"
+import { SaveTemplateDialog } from "./save-template-dialog"
+import { withTemplate, type Template } from "@/lib/templates"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { DemoModeSwitch, demoSwitchFloat } from "./demo-mode-switch"
@@ -1204,6 +1205,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     saveDialogDoneRef.current = null
   }, [])
   const handleSaveAs = useCallback(() => setSaveDialog("saveAs"), [])
+  // File > Save as Template (lib/templates.ts).
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
 
   // Saves the open project: a version under its name, or - never saved yet -
   // through the Save dialog. Resolves to what was saved, or null if nothing
@@ -3482,10 +3485,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // chosen device, saves it under its name as its first version, and opens
   // it, saved. Throws, for the dialog to show, if the device cannot be
   // loaded or the name is taken meanwhile.
-  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string, name: string, starterId?: string) => {
+  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string, name: string, templateName?: string) => {
     const fields = await loadDeviceDescriptionByPath(ddfPath)
-    // A starter chosen (lib/starters.ts): loaded before anything is made.
-    const starter = starterId ? await loadStarter(starterId) : null
+    // A template chosen (lib/templates.ts): loaded before anything is made.
+    let template: Template | null = null
+    if (templateName) {
+      const res = await fetch(`/api/templates/${encodeURIComponent(templateName)}`)
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `Could not load the template "${templateName}"`)
+      template = (await res.json()).template
+    }
     let fresh: Project = {
       ...createDefaultProject(),
       name,
@@ -3525,7 +3533,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       screen.isMaster ? { ...screen, themeId: defaultThemeIdFor(fields.colorDepth) } : screen,
     )
     // Its screens, topics, icons and settings over the device's own.
-    if (starter) fresh = withStarter(fresh, starter)
+    if (template) fresh = withTemplate(fresh, template)
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)
@@ -4461,6 +4469,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 Save As...
                 <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => (demo ? demoRefuses("save") : setSaveTemplateOpen(true))}
+                className="flex items-center gap-2"
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                Save as Template...
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <ExportDialog project={project}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
@@ -4552,6 +4567,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             }}
           />
           <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={handleCreateProjectWithDevice} />
+          <SaveTemplateDialog
+            open={saveTemplateOpen}
+            onOpenChange={setSaveTemplateOpen}
+            project={project as unknown as Parameters<typeof SaveTemplateDialog>[0]["project"]}
+            onSaved={(name) => toast({ title: "Template saved", description: `New Project offers "${name}" for this device.` })}
+          />
           <LeaveProjectDialog
             open={leavePromptOpen}
             projectName={save.displayName}

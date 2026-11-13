@@ -6,7 +6,7 @@
 #
 # 1. builds the start project «Camper» into a project store
 #    (e2e/demo-camper.spec.ts with DEMO_SEED_DIR), the VanPi starter beside
-#    it (e2e/starter-project.spec.ts), and packs them, and the demo
+#    it (e2e/templates.spec.ts), and packs them, and the demo
 #    camera's frames from the user's drain video (hil/camera-server.js
 #    --prepare-demo; SCHALTLI_CAMERA_VIDEO or the file it names in
 #    Downloads). The video stays on this PC: the repo is public. Without it
@@ -43,7 +43,7 @@ trap 'rm -rf "$SEED_DIR"' EXIT
 echo "[demo-deploy] building the start project"
 DEMO_SEED_DIR="$SEED_DIR/store" npx playwright test e2e/demo-camper.spec.ts -g "written into a project store" --reporter=line >/dev/null
 # The VanPi starter beside it (tasks/starter-project-todo.md, T7).
-DEMO_SEED_DIR="$SEED_DIR/store" npx playwright test e2e/starter-project.spec.ts -g "written into a project store" --reporter=line >/dev/null
+DEMO_SEED_DIR="$SEED_DIR/store" npx playwright test e2e/templates.spec.ts -g "written into a project store" --reporter=line >/dev/null
 tar -czf "$SEED_DIR/seed.tar.gz" -C "$SEED_DIR/store" projects blobs
 
 echo "[demo-deploy] preparing the camera's frames"
