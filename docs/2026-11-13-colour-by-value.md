@@ -85,19 +85,19 @@ screen is showing.
     texts, icons and fills, in nested objects too. The condition is the rule's
     own: its source, its operator, its operand.
 12. **Only colours set by a rule count.** A button that is always red is not
-    an alarm. Otherwise and No value yet do not count either (decision 14).
+    an alarm. Otherwise and No value yet do not count either: they have no
+    condition of their own to take over.
 13. **Referenced by the screen's id, shown with its name.** In the project
     a reader stores `{ namespace: "combined", path: "screen:<screenId>:alarm" }`.
     The picker and the topic list show «Water: Alarm». Renaming the screen
     changes nothing in the project. Deleting it leaves a reference the designer
     marks red, as with any combined topic that is gone.
-14. **Exact, or a warning.** Rules are read top to bottom, and the first that
-    applies wins. So a coloured rule after another one only applies when the
-    earlier one does not, and «any» over the rules' own conditions would light
-    up too often. The derivation is exact when every rule before a coloured
-    one has the same colour. Otherwise the designer says next to the rule that
-    the screen's topic does not follow it. The same note goes on a colour set
-    in Otherwise.
+14. **Each rule's own condition, no more** (decided by the user, 2026-11-13:
+    «you get what you ordered»). Rules are read top to bottom, and the first
+    that applies wins. So with «below 3 % → "empty"» before «below 10 % → in
+    Alarm», at 2 % the screen shows «empty» uncoloured while «Water: Alarm»
+    is yes. That is accepted, and the designer gives no warning. The handbook
+    says it, with the remedy: give the earlier rule the colour too.
 15. **Offered, not imposed.** The topics appear in the topic list as
     «automatic», greyed out and not editable, under the combined topics. Any
     reader can pick them: a screen's icon in the navigator, a warning in the
@@ -145,8 +145,8 @@ say *what*, and the navigator says *where*.
 - `lib/live-value/vectors.json`: results with a colour, the `colour` kind,
   precedence.
 - e2e: the colour pickers next to icons and in the rule form, a red screen
-  icon in the preview's navigator, the derivation (exact cases and the note
-  of decision 14), rename and delete of a screen.
+  icon in the preview's navigator, the derivation (a rule's own
+  condition, also behind an earlier rule, decision 14), rename and delete of a screen.
 - HIL: one fixture per device with a coloured result in an icon, a text and a
   bar, switched light/dark.
 
