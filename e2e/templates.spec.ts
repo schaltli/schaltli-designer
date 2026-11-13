@@ -96,6 +96,26 @@ test("the starter's dimmers: each row's name and value from its own dimmer", () 
   }
 })
 
+// The energy diagram (2026-11-13): every node but the bus with an icon of the
+// template's and a German name; the battery the car battery Power has, with
+// its charge for the ring.
+test("the starter's energy diagram: icons, German names, the battery's charge", () => {
+  const diagram = starter.screens.flatMap((s: any) => (s.objects ?? []).flatMap(walk)).find((o: any) => o.type === "energy-diagram")
+  const nodes = diagram.properties.nodes.filter((n: any) => n.role !== "bus")
+  const iconName = (id: string) => starter.assets.find((a: any) => a.id === id)?.name
+  expect(Object.fromEntries(nodes.map((n: any) => [n.name, iconName(n.iconAssetId)]))).toEqual({
+    Solar: "mdi:white-balance-sunny",
+    Batterie: "bxs:car-battery",
+    Verbraucher: "mdi:power-plug",
+    Landstrom: "mdi:transmission-tower",
+    Lichtmaschine: "mdi:engine",
+  })
+  const battery = nodes.find((n: any) => n.role === "storage")
+  expect(battery.chargeTopic).toBe("schaltli/state/battery/soc")
+  const power = starter.screens.find((s: any) => s.name === "Power")
+  expect(battery.iconAssetId).toBe(power.iconAssetId)
+})
+
 test("the store: shipped and own per device, a name only once, a shipped one stays", async ({}, testInfo) => {
   const store = createTemplateStore(testInfo.outputPath("data"), SHIPPED_DIR)
   const OTHER = "waveshare-touch-lcd-4v3b"

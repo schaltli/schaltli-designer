@@ -2050,12 +2050,13 @@
         ],
         "x": 61,
         "y": 64,
-        "topic": "schaltli/state/solar/power"
+        "topic": "schaltli/state/solar/power",
+        "iconAssetId": "icon-energy-white-balance-sunny"
        },
        {
         "id": "storage",
         "role": "storage",
-        "name": "Storage",
+        "name": "Batterie",
         "colorRole": "energyCharge",
         "lines": [
          {
@@ -2065,12 +2066,13 @@
         "x": 111,
         "y": 279,
         "topic": "schaltli/state/battery/power",
-        "chargeTopic": "schaltli/state/battery/soc"
+        "chargeTopic": "schaltli/state/battery/soc",
+        "iconAssetId": "icon-197"
        },
        {
         "id": "consumers",
         "role": "rest",
-        "name": "Consumers",
+        "name": "Verbraucher",
         "colorRole": "energyLoad",
         "lines": [
          {
@@ -2078,7 +2080,8 @@
          }
         ],
         "x": 366,
-        "y": 279
+        "y": 279,
+        "iconAssetId": "icon-energy-power-plug"
        },
        {
         "id": "n4",
@@ -2092,7 +2095,8 @@
           "text": "{watts} W"
          }
         ],
-        "topic": "schaltli/state/shore/power"
+        "topic": "schaltli/state/shore/power",
+        "iconAssetId": "icon-energy-transmission-tower"
        },
        {
         "id": "n5",
@@ -2106,7 +2110,8 @@
           "text": "{watts} W"
          }
         ],
-        "topic": "schaltli/state/booster/power"
+        "topic": "schaltli/state/booster/power",
+        "iconAssetId": "icon-energy-engine"
        }
       ],
       "modeSwitch": "top-right",
@@ -5774,6 +5779,34 @@
    "type": "icon",
    "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTIwIDZINGMtMS4xMDMgMC0yIC44OTctMiAydjEwYzAgMS4xMDMuODk3IDIgMiAyaDE2YzEuMTAzIDAgMi0uODk3IDItMlY4YzAtMS4xMDMtLjg5Ny0yLTItMk05IDE0SDR2LTJoNXptMTEgMGgtMnYyaC0ydi0yaC0ydi0yaDJ2LTJoMnYyaDJ6TTQgM2g0djJINHptMTIgMGg0djJoLTR6Ii8+PC9zdmc+",
    "size": 285
+  },
+  {
+   "id": "icon-energy-white-balance-sunny",
+   "name": "mdi:white-balance-sunny",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0ibTMuNTUgMTkuMDlsMS40MSAxLjQxbDEuOC0xLjc5bC0xLjQyLTEuNDJNMTIgNmMtMy4zMSAwLTYgMi42OS02IDZzMi42OSA2IDYgNnM2LTIuNjkgNi02YzAtMy4zMi0yLjY5LTYtNi02bTggN2gzdi0yaC0zbS0yLjc2IDcuNzFsMS44IDEuNzlsMS40MS0xLjQxbC0xLjc5LTEuOE0yMC40NSA1bC0xLjQxLTEuNGwtMS44IDEuNzlsMS40MiAxLjQyTTEzIDFoLTJ2M2gyTTYuNzYgNS4zOUw0Ljk2IDMuNkwzLjU1IDVsMS43OSAxLjgxek0xIDEzaDN2LTJIMW0xMiA5aC0ydjNoMiIvPjwvc3ZnPg==",
+   "size": 391
+  },
+  {
+   "id": "icon-energy-power-plug",
+   "name": "mdi:power-plug",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE2IDdWM2gtMnY0aC00VjNIOHY0QzcgNyA2IDggNiA5djUuNUw5LjUgMTh2M2g1di0zbDMuNS0zLjVWOWMwLTEtMS0yLTItMiIvPjwvc3ZnPg==",
+   "size": 196
+  },
+  {
+   "id": "icon-energy-transmission-tower",
+   "name": "mdi:transmission-tower",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0ibTguMjggNS40NWwtMS43OC0uOUw3Ljc2IDJoOC40N2wxLjI3IDIuNTVsLTEuNzguODlMMTUgNEg5ek0xOC42MiA4aC00LjUzbC0uNzktM2gtMi42bC0uNzkgM0g1LjM4TDQuMSAxMC41NWwxLjc5Ljg5bC43My0xLjQ0aDEwLjc2bC43MiAxLjQ1bDEuNzktLjg5em0tLjg1IDE0SDE1LjdsLS4yNC0uOUwxMiAxNS45bC0zLjQ3IDUuMmwtLjIzLjlINi4yM2wyLjg5LTExaDIuMDdsLS4zNiAxLjM1TDEyIDE0LjFsMS4xNi0xLjc1bC0uMzUtMS4zNWgyLjA3em0tNi4zNy03bC0uOS0xLjM1bC0xLjE4IDQuNDh6bTMuMjggMy4xMmwtMS4xOC00LjQ4bC0uOSAxLjM2eiIvPjwvc3ZnPg==",
+   "size": 439
+  },
+  {
+   "id": "icon-energy-engine",
+   "name": "mdi:engine",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTcgNHYyaDN2Mkg3bC0yIDJ2M0gzdi0zSDF2OGgydi0zaDJ2M2gzbDIgMmg4di00aDJ2M2gzVjloLTN2M2gtMlY4aC02VjZoM1Y0eiIvPjwvc3ZnPg==",
+   "size": 199
   }
  ],
  "nextId": 218,
