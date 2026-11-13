@@ -71,6 +71,10 @@ test("the starter's header: four warnings side by side, each its own icon, the t
   // Side by side, none over another.
   const xs = warnings.map((o: any) => o.x).sort((a: number, b: number) => a - b)
   for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(warnings[0].width)
+  // The heater on: a red flame, nothing while it is off.
+  const flame = master.objects.find((o: any) => JSON.stringify(o.properties?.liveValues ?? []).includes("schaltli/state/heater/power"))
+  expect(flame.properties.iconColor).toBe("alarm")
+  expect(flame.properties.liveValues[0].rules).toEqual([{ op: "==", operand: "off", result: { kind: "icon", icon: "" } }])
   // Light and dark switched in the header, not in the navigator.
   const themeSwitch = master.objects.find((o: any) => o.properties?.writeTopic === "schaltli/cmnd/theme")
   expect(themeSwitch.x + themeSwitch.width).toBeLessThanOrEqual(480)
