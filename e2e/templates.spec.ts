@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import fs from "node:fs"
 import path from "node:path"
+import { spawnSync } from "node:child_process"
 import { chooseDevice, createProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { createProjectStore } from "../lib/project-store"
 import { createTemplateStore } from "../lib/template-store"
@@ -205,6 +206,48 @@ test.describe("New Project from a template", () => {
       for (const p of [project, made]) await page.request.delete(`/api/projects/${encodeURIComponent(p)}`)
     }
   })
+})
+
+// npm run template:pull (scripts/template-pull.mjs): a shipped template from
+// its golden copy on a designer - made neutral, and refused while it names
+// something of one van.
+test("template:pull writes the golden copy as a template, its camera emptied, and refuses one van's topics", async ({ request, baseURL }, testInfo) => {
+  const golden = uniqueName("golden", testInfo.testId)
+  const out = testInfo.outputPath("pulled.json")
+  const project = {
+    name: golden,
+    screens: [{ id: "s1", name: "Home", objects: [{ id: "o1", type: "camera", x: 0, y: 0, width: 100, height: 80, properties: { url: "http://192.168.8.50/cam" } }, { id: "o2", type: "text", x: 0, y: 90, width: 100, height: 20, properties: { topic: "schaltli/state/battery/soc" } }] }],
+    topics: [{ topic: "schaltli/state/battery/soc" }],
+    assets: [],
+    nextId: 3,
+    settings: { deviceId: FOUR_INCH, deviceName: "4\"", gridSize: 20 },
+  }
+  const run = () => {
+    const r = spawnSync(process.execPath, ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "scripts/template-pull.mjs", "--designer", baseURL!, "--project", golden, "--out", out, "--name", "Pulled"], { encoding: "utf8" })
+    return { code: r.status, text: r.stdout + r.stderr }
+  }
+  try {
+    expect((await request.post("/api/projects", { data: { name: golden, project } })).status()).toBe(201)
+    const ok = run()
+    expect(ok.code, ok.text).toBe(0)
+    const pulled = JSON.parse(fs.readFileSync(out, "utf8"))
+    expect(pulled.name).toBe("Pulled")
+    expect(pulled.deviceId).toBe(FOUR_INCH)
+    expect(pulled.screens[0].objects[0].properties.url).toBe("")
+    expect(pulled.settings).toEqual({ gridSize: 20 })
+
+    // A topic of one van: refused, the file left as it was.
+    const theirs = structuredClone(project)
+    theirs.screens[0].objects[1].properties.topic = "vanpi/relay1"
+    theirs.topics = [{ topic: "vanpi/relay1" }]
+    await request.post(`/api/projects/${encodeURIComponent(golden)}/versions`, { data: theirs })
+    const refused = run()
+    expect(refused.code).toBe(1)
+    expect(refused.text).toContain("vanpi/relay1")
+    expect(JSON.parse(fs.readFileSync(out, "utf8"))).toEqual(pulled)
+  } finally {
+    await request.delete(`/api/projects/${encodeURIComponent(golden)}`)
+  }
 })
 
 // demo.schaltli.com (T7): the starter seeded beside «Camper» by

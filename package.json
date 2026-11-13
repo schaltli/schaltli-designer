@@ -10,6 +10,7 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "dev": "next dev --webpack",
+    "template:pull": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/template-pull.mjs",
     "start": "next start",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
