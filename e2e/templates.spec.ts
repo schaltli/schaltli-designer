@@ -40,6 +40,39 @@ test("the shipped starter is neutral: every topic under schaltli/, no address of
   expect(starter.screens.find((s: any) => !s.isMaster).name).toBe("Home")
 })
 
+// The header (2026-11-13): a warning says what it warns of - its own red icon
+// on its own place, side by side so several can show at once - and shows only
+// while its value is past the limit, never for a value that has not come.
+test("the starter's header: four warnings side by side, each its own icon, the theme switch on the right", () => {
+  const master = starter.screens.find((s: any) => s.isMaster)
+  const warnings = master.objects.filter((o: any) => o.type === "icon" && o.properties.iconColor === "alarm")
+  const seen = warnings
+    .sort((a: any, b: any) => a.x - b.x)
+    .map((o: any) => {
+      const lv = o.properties.liveValues.find((v: any) => v.id === o.properties.liveIconId)
+      expect(lv.otherwise).toBeUndefined()
+      expect(lv.noValueYet).toBeUndefined()
+      expect(lv.rules).toHaveLength(1)
+      expect(lv.rules[0].result).toEqual({ kind: "icon", icon: o.properties.assetId })
+      expect(starter.assets.some((a: any) => a.id === o.properties.assetId)).toBe(true)
+      return [o.properties.iconName, lv.source.path, lv.rules[0].op + lv.rules[0].operand]
+    })
+  expect(seen).toEqual([
+    ["mdi:snowflake", "schaltli/state/temp/1/value", "<3"],
+    ["mdi:battery-alert-variant-outline", "schaltli/state/battery/soc", "<20"],
+    ["mdi:water-off-outline", "schaltli/state/tank/1/level", "<10"],
+    ["mdi:water-alert-outline", "schaltli/state/tank/2/level", ">90"],
+  ])
+  // Side by side, none over another.
+  const xs = warnings.map((o: any) => o.x).sort((a: number, b: number) => a - b)
+  for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(warnings[0].width)
+  // Light and dark switched in the header, not in the navigator.
+  const themeSwitch = master.objects.find((o: any) => o.properties?.writeTopic === "schaltli/cmnd/theme")
+  expect(themeSwitch.x + themeSwitch.width).toBeLessThanOrEqual(480)
+  expect(themeSwitch.x).toBeGreaterThan(Math.max(...xs))
+  expect(master.objects.find((o: any) => o.type === "navigator").properties.themeSwitch).toBe("none")
+})
+
 test("the store: shipped and own per device, a name only once, a shipped one stays", async ({}, testInfo) => {
   const store = createTemplateStore(testInfo.outputPath("data"), SHIPPED_DIR)
   const OTHER = "waveshare-touch-lcd-4v3b"

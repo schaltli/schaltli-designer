@@ -41,7 +41,7 @@ Für dieses Display bringt der Designer eine [Vorlage](/designer/projekte#vorlag
 - MaxxFan
 - Schalter mit allen acht Relais
 
-Unten liegt der [Navigator](/objekte/anordnen#navigator), oben die Kopfzeile mit Uhr, Datum, Flamme und Warnsymbol. Aufteilung und Aussehen haben CamperUI von Niklas Jester zum Vorbild.
+Unten liegt der [Navigator](/objekte/anordnen#navigator), oben die Kopfzeile mit Uhr und Datum. Daneben stehen vier rote Warnungen, jede mit einem eigenen Symbol und an ihrem eigenen Platz: eine Schneeflocke bei Frost (innen unter 3 °C), eine Batterie unter 20 %, ein durchgestrichener Tropfen, wenn das Frischwasser unter 10 % fällt, und ein Tropfen mit Ausrufezeichen, wenn das Abwasser über 90 % steigt. Eine Warnung erscheint nur, solange ihr Wert die Grenze überschreitet. Kommt kein Wert, etwa weil kein Tank angeschlossen ist, bleibt ihr Platz leer. Rechts davon zeigt eine Flamme, dass die Heizung läuft, und ganz rechts schaltet ein Umschalter mit Sonne und Mond die ganze Anlage zwischen hell und dunkel um, siehe [Hell und dunkel](/designer/themes#hell-und-dunkel). Aufteilung und Aussehen haben CamperUI von Niklas Jester zum Vorbild.
 
 Der Starter liest nur Topics unter `schaltli/`, also nur, was die [VanPi-Brücke](/betrieb/vanpi-bruecke) liefert. Was bei dir nicht angeschlossen ist, bleibt leer. Die Camera auf Ablassen hat noch keine Adresse, die trägst du bei ihr unter <span class="ui">URL</span> ein. Danach passt du das Projekt an deinen Van an wie jedes andere.
 

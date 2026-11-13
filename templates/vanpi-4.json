@@ -34,7 +34,7 @@
     },
     {
      "type": "icon",
-     "x": 423,
+     "x": 325,
      "y": 2,
      "width": 41,
      "height": 41,
@@ -70,126 +70,6 @@
      },
      "id": "obj-30",
      "zIndex": 2
-    },
-    {
-     "type": "icon",
-     "x": 255,
-     "y": 2,
-     "width": 41,
-     "height": 41,
-     "properties": {
-      "assetId": "icon-187",
-      "iconName": "mdi:alert-outline",
-      "backgroundColor": "transparent",
-      "sizeStep": "m",
-      "liveIconId": "lv1",
-      "liveValues": [
-       {
-        "id": "lv1",
-        "source": {
-         "namespace": "topic",
-         "path": "schaltli/state/battery/soc"
-        },
-        "rules": [
-         {
-          "op": ">=",
-          "operand": "20",
-          "result": {
-           "kind": "icon",
-           "icon": ""
-          }
-         }
-        ],
-        "otherwise": {
-         "kind": "icon",
-         "icon": "icon-187"
-        }
-       }
-      ],
-      "iconColor": "alarm"
-     },
-     "id": "obj-187",
-     "zIndex": 5
-    },
-    {
-     "type": "icon",
-     "x": 255,
-     "y": 2,
-     "width": 41,
-     "height": 41,
-     "properties": {
-      "assetId": "icon-187",
-      "iconName": "mdi:alert-outline",
-      "backgroundColor": "transparent",
-      "sizeStep": "m",
-      "liveIconId": "lv1",
-      "liveValues": [
-       {
-        "id": "lv1",
-        "source": {
-         "namespace": "topic",
-         "path": "schaltli/state/temp/1/value"
-        },
-        "rules": [
-         {
-          "op": ">=",
-          "operand": "3",
-          "result": {
-           "kind": "icon",
-           "icon": ""
-          }
-         }
-        ],
-        "otherwise": {
-         "kind": "icon",
-         "icon": "icon-187"
-        }
-       }
-      ],
-      "iconColor": "alarm"
-     },
-     "id": "obj-189",
-     "zIndex": 6
-    },
-    {
-     "type": "icon",
-     "x": 255,
-     "y": 2,
-     "width": 41,
-     "height": 41,
-     "properties": {
-      "assetId": "icon-187",
-      "iconName": "mdi:alert-outline",
-      "backgroundColor": "transparent",
-      "sizeStep": "m",
-      "liveIconId": "lv1",
-      "liveValues": [
-       {
-        "id": "lv1",
-        "source": {
-         "namespace": "topic",
-         "path": "schaltli/state/tank/2/level"
-        },
-        "rules": [
-         {
-          "op": "<=",
-          "operand": "90",
-          "result": {
-           "kind": "icon",
-           "icon": ""
-          }
-         }
-        ],
-        "otherwise": {
-         "kind": "icon",
-         "icon": "icon-187"
-        }
-       }
-      ],
-      "iconColor": "alarm"
-     },
-     "id": "obj-190",
-     "zIndex": 7
     },
     {
      "type": "text",
@@ -241,10 +121,189 @@
       "shows": "icons",
       "fontId": "font-inter-c7",
       "ground": "led",
-      "themeSwitch": "far"
+      "themeSwitch": "none"
      },
      "id": "obj-33",
      "zIndex": 4
+    },
+    {
+     "type": "icon",
+     "x": 150,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "id": "obj-192",
+     "zIndex": 5,
+     "properties": {
+      "assetId": "icon-warn-snowflake",
+      "iconName": "mdi:snowflake",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "iconColor": "alarm",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/temp/1/value"
+        },
+        "rules": [
+         {
+          "op": "<",
+          "operand": "3",
+          "result": {
+           "kind": "icon",
+           "icon": "icon-warn-snowflake"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "type": "icon",
+     "x": 192,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "id": "obj-193",
+     "zIndex": 6,
+     "properties": {
+      "assetId": "icon-warn-battery-alert-variant-outline",
+      "iconName": "mdi:battery-alert-variant-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "iconColor": "alarm",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/battery/soc"
+        },
+        "rules": [
+         {
+          "op": "<",
+          "operand": "20",
+          "result": {
+           "kind": "icon",
+           "icon": "icon-warn-battery-alert-variant-outline"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "type": "icon",
+     "x": 234,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "id": "obj-194",
+     "zIndex": 7,
+     "properties": {
+      "assetId": "icon-warn-water-off-outline",
+      "iconName": "mdi:water-off-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "iconColor": "alarm",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/tank/1/level"
+        },
+        "rules": [
+         {
+          "op": "<",
+          "operand": "10",
+          "result": {
+           "kind": "icon",
+           "icon": "icon-warn-water-off-outline"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "type": "icon",
+     "x": 276,
+     "y": 2,
+     "width": 41,
+     "height": 41,
+     "id": "obj-195",
+     "zIndex": 8,
+     "properties": {
+      "assetId": "icon-warn-water-alert-outline",
+      "iconName": "mdi:water-alert-outline",
+      "backgroundColor": "transparent",
+      "sizeStep": "m",
+      "iconColor": "alarm",
+      "liveIconId": "lv1",
+      "liveValues": [
+       {
+        "id": "lv1",
+        "source": {
+         "namespace": "topic",
+         "path": "schaltli/state/tank/2/level"
+        },
+        "rules": [
+         {
+          "op": ">",
+          "operand": "90",
+          "result": {
+           "kind": "icon",
+           "icon": "icon-warn-water-alert-outline"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "obj-196",
+     "type": "button-group",
+     "zIndex": 9,
+     "properties": {
+      "topic": "schaltli/state/theme",
+      "writeTopic": "schaltli/cmnd/theme",
+      "mode": "segmented",
+      "fontId": "font-montserrat-c14",
+      "states": [
+       {
+        "id": "light",
+        "label": "",
+        "readValue": "light",
+        "writeValue": "light",
+        "showAsOn": false,
+        "iconAssetId": "schaltli-theme-sun"
+       },
+       {
+        "id": "dark",
+        "label": "",
+        "readValue": "dark",
+        "writeValue": "dark",
+        "showAsOn": true,
+        "iconAssetId": "schaltli-theme-moon"
+       }
+      ],
+      "switchColor": "accent",
+      "switchStyle": "led"
+     },
+     "x": 374,
+     "y": 0,
+     "width": 96,
+     "height": 32
     }
    ],
    "isMaster": true,
@@ -5740,14 +5799,47 @@
    "size": 596
   },
   {
-   "id": "icon-187",
-   "name": "mdi:alert-outline",
+   "id": "icon-warn-snowflake",
+   "name": "mdi:snowflake",
    "type": "icon",
-   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEyIDJMMSAyMWgyMk0xMiA2bDcuNTMgMTNINC40N00xMSAxMHY0aDJ2LTRtLTIgNnYyaDJ2LTIiLz48L3N2Zz4=",
-   "size": 179
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0ibTIwLjc5IDEzLjk1bC0yLjMzLjYybC0yLTEuMTN2LTIuODhsMi0xLjEzbDIuMzMuNjJsLjUyLTEuOTNsLTEuNzctLjQ3bC40Ni0xLjc3bC0xLjkzLS41MmwtLjYyIDIuMzNsLTIgMS4xM0wxMyA3LjM4VjUuMTJsMS43MS0xLjcxTDEzLjI5IDJMMTIgMy4yOUwxMC43MSAyTDkuMjkgMy40MUwxMSA1LjEydjIuMjZMOC41IDguODJsLTItMS4xM2wtLjU4LTIuMzNMNCA1Ljg4bC40NyAxLjc3bC0xLjc3LjQ3bC41MiAxLjkzbDIuMzMtLjYybDIgMS4xM3YyLjg5bC0yIDEuMTNsLTIuMzMtLjYybC0uNTIgMS45M2wxLjc3LjQ3TDQgMTguMTJsMS45My41MmwuNjItMi4zM2wyLTEuMTNMMTEgMTYuNjJ2Mi4yNmwtMS43MSAxLjcxTDEwLjcxIDIyTDEyIDIwLjcxTDEzLjI5IDIybDEuNDEtMS40MWwtMS43LTEuNzF2LTIuMjZsMi41LTEuNDVsMiAxLjEzbC42MiAyLjMzbDEuODgtLjUxbC0uNDctMS43N2wxLjc3LS40N3pNOS41IDEwLjU2TDEyIDkuMTFsMi41IDEuNDV2Mi44OEwxMiAxNC44OWwtMi41LTEuNDV6Ii8+PC9zdmc+",
+   "size": 633
+  },
+  {
+   "id": "icon-warn-battery-alert-variant-outline",
+   "name": "mdi:battery-alert-variant-outline",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTE0IDIwSDZWNmg4bS42Ny0ySDEzVjJIN3YySDUuMzNDNC42IDQgNCA0LjYgNCA1LjMzdjE1LjM0QzQgMjEuNCA0LjYgMjIgNS4zMyAyMmg5LjM0Yy43MyAwIDEuMzMtLjYgMS4zMy0xLjMzVjUuMzNDMTYgNC42IDE1LjQgNCAxNC42NyA0TTIxIDdoLTJ2NmgyVjhtMCA3aC0ydjJoMnoiLz48L3N2Zz4=",
+   "size": 284
+  },
+  {
+   "id": "icon-warn-water-off-outline",
+   "name": "mdi:water-off-outline",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTIyLjExIDIxLjQ2TDIuMzkgMS43M0wxLjExIDNsNi41NCA2LjU0QzYuNzQgMTEuMDMgNiAxMi42NSA2IDE0LjIzYzAgMy4zMSAyLjY5IDYgNiA2YTUuOSA1LjkgMCAwIDAgNC40LTEuOTRsNC40NCA0LjQ0ek0xMiAxOC4yM2MtMi4yMiAwLTQtMS43OC00LTRjMC0uNzMuNS0xLjk2IDEuMTQtMy4yTDE1IDE2Ljg4Yy0uNzQuODMtMS44IDEuMzUtMyAxLjM1bS0uODYtMTAuMjlMOS43MSA2LjVjLjg2LTEuMTIgMS41NC0xLjg5IDEuNTQtMS44OWwuNzUtLjg0bC43NS44NHMxLjI4IDEuNDUgMi41NyAzLjMzUzE4IDEyLjA3IDE4IDE0LjIzYzAgLjE4IDAgLjM2LS4wMy41NGwtMi41MS0yLjUxYy0uNDYtMS4wMy0xLjA5LTIuMTktMS43OC0zLjE5Yy0uODQtMS4yMi0xLjI0LTEuNjUtMS42OC0yLjE3Yy0uMjcuMzEtLjUuNi0uODYgMS4wNCIvPjwvc3ZnPg==",
+   "size": 538
+  },
+  {
+   "id": "icon-warn-water-alert-outline",
+   "name": "mdi:water-alert-outline",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTEwIDMuMjVTNCAxMCA0IDE0YzAgMy4zMSAyLjY5IDYgNiA2czYtMi42OSA2LTZjMC00LTYtMTAuNzUtNi0xMC43NU0xMCAxOGMtMi4yMSAwLTQtMS43OS00LTRjMC0xLjc3IDItNS4wNCA0LTcuNjFjMiAyLjU2IDQgNS44NCA0IDcuNjFjMCAyLjIxLTEuNzkgNC00IDRNMjAgN3Y2aC0yVjd6bS0yIDEwaDJ2LTJoLTJ6Ii8+PC9zdmc+",
+   "size": 303
+  },
+  {
+   "id": "schaltli-theme-sun",
+   "name": "Light",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iNC41IiBmaWxsPSJjdXJyZW50Q29sb3IiLz48cGF0aCBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIGQ9Ik0xMiAxLjV2Mi41TTEyIDIwdjIuNU0xLjUgMTJINE0yMCAxMmgyLjVNNC42IDQuNmwxLjggMS44TTE3LjYgMTcuNmwxLjggMS44TTQuNiAxOS40bDEuOC0xLjhNMTcuNiA2LjRsMS44LTEuOCIvPjwvc3ZnPg=="
+  },
+  {
+   "id": "schaltli-theme-moon",
+   "name": "Dark",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBkPSJNMTQuNSAyLjVhOS41IDkuNSAwIDEgMCA3IDE1LjZBOCA4IDAgMCAxIDE0LjUgMi41eiIvPjwvc3ZnPg=="
   }
  ],
- "nextId": 191,
+ "nextId": 197,
  "snapGuides": [],
  "settings": {
   "exportFormat": "esp32",
