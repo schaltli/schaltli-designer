@@ -789,7 +789,7 @@ export function liftOut(objects: ScreenObject[], tableId: string, objectId: stri
  * Objects deleted, wherever they stand (2026-11-13): one in a table goes as
  * one dragged out of it does (liftOut) - the column or row it leaves empty
  * goes too, and a table left with one object dissolves into it - rather than
- * leaving an empty column behind (reported: the Dimmer screen's icons
+ * leaving an empty column behind (reported: the icons of a column
  * deleted, their column stayed).
  */
 export function deleteObjects(objects: ScreenObject[], ids: readonly string[], scale: LayoutScale): ScreenObject[] {
