@@ -84,21 +84,24 @@ test("the starter's header: four warnings side by side, each its own icon, the t
   expect(master.objects.find((o: any) => o.type === "navigator").properties.themeSwitch).toBe("none")
 })
 
-// The dimmers (2026-11-13): each row named by the van (dimmer/<n>/name, its
-// number until a name has come) and showing its own dimmer's level - three of
-// them had read dimmer 1's.
-test("the starter's dimmers: each row's name and value from its own dimmer", () => {
+// The dimmers (2026-11-13): one table in one card, a row per dimmer - a
+// longer name widens one column for all - each row named by the van
+// (dimmer/<n>/name, its number until a name has come) and showing its own
+// dimmer's level (three had read dimmer 1's).
+test("the starter's dimmers: one table, each row's name and value from its own dimmer", () => {
   const screen = starter.screens.find((s: any) => s.name === "Dimmer")
-  const rows = screen.objects.flatMap(walk).filter((o: any) => o.children?.some((c: any) => c.type === "slider"))
+  const tables = screen.objects.flatMap(walk).filter((o: any) => o.properties?.grid === 1)
+  expect(tables).toHaveLength(1)
+  const cells = tables[0].children
+  const rows = [...new Set(cells.map((c: any) => c.properties.cell.row))]
   expect(rows.length).toBeGreaterThan(0)
-  for (const row of rows) {
-    const slider = row.children.find((c: any) => c.type === "slider")
+  for (const r of rows) {
+    const row = cells.filter((c: any) => c.properties.cell.row === r)
+    const slider = row.find((c: any) => c.type === "slider")
     const n = slider.properties.topic.match(/^schaltli\/state\/dimmer\/(\d+)\/level$/)[1]
-    const texts = row.children.filter((c: any) => c.type === "text")
-    const paths = texts.flatMap((t: any) => (t.properties.liveValues ?? []).map((lv: any) => lv.source.path))
-    expect(paths.sort()).toEqual([`schaltli/state/dimmer/${n}/level`, `schaltli/state/dimmer/${n}/name`])
-    const name = texts.flatMap((t: any) => t.properties.liveValues ?? []).find((lv: any) => lv.source.path.endsWith("/name"))
-    expect(name.noValueYet).toEqual({ kind: "text", parts: [`Dimmer ${n}`] })
+    const lvs = row.filter((c: any) => c.type === "text").flatMap((t: any) => t.properties.liveValues ?? [])
+    expect(lvs.map((lv: any) => lv.source.path).sort()).toEqual([`schaltli/state/dimmer/${n}/level`, `schaltli/state/dimmer/${n}/name`])
+    expect(lvs.find((lv: any) => lv.source.path.endsWith("/name")).noValueYet).toEqual({ kind: "text", parts: [`Dimmer ${n}`] })
   }
 })
 

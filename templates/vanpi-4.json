@@ -1166,829 +1166,631 @@
    "name": "Dimmer",
    "objects": [
     {
-     "id": "obj-205",
-     "type": "table",
+     "id": "obj-220",
+     "type": "free",
      "x": 20,
      "y": 57,
      "width": 440,
-     "height": 222,
+     "height": 180,
      "zIndex": 1,
      "properties": {
-      "grid": 1,
-      "columns": [
-       {}
-      ],
-      "rows": [
-       {},
-       {},
-       {},
-       {}
-      ]
+      "look": "card",
+      "fillColor": "panel",
+      "strokeColor": "outline",
+      "strokeWidth": 1,
+      "cornerRadius": 14,
+      "padding": 1
      },
      "children": [
       {
-       "type": "free",
-       "x": 0,
-       "y": 0,
-       "width": 440,
-       "height": 48,
+       "id": "obj-219",
+       "type": "table",
+       "x": 7,
+       "y": 7,
+       "width": 426,
+       "height": 166,
+       "zIndex": 1,
        "properties": {
-        "look": "card",
-        "fillColor": "panel",
-        "strokeColor": "outline",
-        "strokeWidth": 1,
-        "cornerRadius": 14,
-        "padding": 1,
-        "cell": {
-         "row": 0,
-         "column": 0,
-         "anchor": {
-          "x": "stretch",
-          "y": "stretch"
+        "grid": 1,
+        "columns": [
+         {
+          "mm": 19
          },
-         "drawnWidth": 440,
-         "drawnHeight": 48
-        }
+         {
+          "mm": 7
+         },
+         {}
+        ],
+        "rows": [
+         {},
+         {},
+         {},
+         {}
+        ],
+        "dock": "top"
        },
        "children": [
         {
-         "type": "table",
-         "x": 7,
-         "y": 7,
-         "width": 426,
+         "type": "text",
+         "x": 0,
+         "y": 0,
+         "width": 129,
          "height": 34,
          "properties": {
-          "grid": 1,
-          "columns": [
+          "text": "{live:name}",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 0
+          },
+          "liveValues": [
            {
-            "mm": 19
-           },
-           {
-            "mm": 7
-           },
-           {}
-          ],
-          "rows": [
-           {}
-          ],
-          "dock": "top"
-         },
-         "children": [
-          {
-           "type": "text",
-           "x": 0,
-           "y": 0,
-           "width": 129,
-           "height": 34,
-           "properties": {
-            "text": "{live:name}",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "left",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 0
+            "id": "name",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/1/name"
             },
-            "liveValues": [
-             {
-              "id": "name",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/1/name"
-              },
-              "rules": [],
-              "noValueYet": {
-               "kind": "text",
-               "parts": [
-                "Dimmer 1"
-               ]
-              }
-             }
-            ]
-           },
-           "id": "obj-68",
-           "zIndex": 1
-          },
-          {
-           "type": "text",
-           "x": 139,
-           "y": 0,
-           "width": 47,
-           "height": 34,
-           "properties": {
-            "text": "{live:lv1}",
-            "liveValues": [
-             {
-              "id": "lv1",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/1/level"
-              },
-              "rules": [
-               {
-                "op": "==",
-                "operand": "0",
-                "result": {
-                 "kind": "text",
-                 "parts": [
-                  "Aus"
-                 ]
-                }
-               }
-              ],
-              "format": {
-               "kind": "number",
-               "decimals": 0,
-               "grouped": false
-              },
-              "otherwise": {
-               "kind": "text",
-               "parts": [
-                {
-                 "value": true
-                },
-                " %"
-               ]
-              }
-             }
-            ],
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "right",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "headingValue": true,
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 1
+            "rules": [],
+            "noValueYet": {
+             "kind": "text",
+             "parts": [
+              "Dimmer 1"
+             ]
             }
-           },
-           "id": "obj-69",
-           "zIndex": 2
-          },
-          {
-           "type": "slider",
-           "x": 196,
-           "y": 1,
-           "width": 230,
-           "height": 33,
-           "properties": {
-            "topic": "schaltli/state/dimmer/1/level",
-            "direction": "left-to-right",
-            "calibrationPoints": [
-             {
-              "value": 0,
-              "barSizePercent": 0
-             },
-             {
-              "value": 100,
-              "barSizePercent": 100
-             }
-            ],
-            "displayValue": "none",
-            "fillColor": "accent",
-            "thickness": 12,
-            "textColor": "text",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "writeTopic": "schaltli/cmnd/dimmer/1",
-            "step": 1,
-            "headingValueFallback": "value",
-            "textStyle": "xl",
-            "textBold": false,
-            "sizeStep": "s",
-            "cell": {
-             "row": 0,
-             "column": 2,
-             "anchor": {
-              "x": "stretch"
-             },
-             "drawnWidth": 100
-            }
-           },
-           "id": "obj-71",
-           "zIndex": 3
-          }
-         ],
-         "zIndex": 2,
-         "id": "obj-66"
-        }
-       ],
-       "id": "obj-65",
-       "zIndex": 1
-      },
-      {
-       "type": "free",
-       "x": 0,
-       "y": 58,
-       "width": 440,
-       "height": 48,
-       "properties": {
-        "look": "card",
-        "fillColor": "panel",
-        "strokeColor": "outline",
-        "strokeWidth": 1,
-        "cornerRadius": 14,
-        "padding": 1,
-        "cell": {
-         "row": 1,
-         "column": 0,
-         "anchor": {
-          "x": "stretch",
-          "y": "stretch"
+           }
+          ]
          },
-         "drawnWidth": 440,
-         "drawnHeight": 48
-        }
-       },
-       "children": [
+         "id": "obj-68",
+         "zIndex": 1
+        },
         {
-         "type": "table",
-         "x": 7,
-         "y": 7,
-         "width": 426,
+         "type": "text",
+         "x": 139,
+         "y": 0,
+         "width": 47,
          "height": 34,
          "properties": {
-          "grid": 1,
-          "columns": [
+          "text": "{live:lv1}",
+          "liveValues": [
            {
-            "mm": 19
-           },
-           {
-            "mm": 7
-           },
-           {}
-          ],
-          "rows": [
-           {}
-          ],
-          "dock": "top"
-         },
-         "children": [
-          {
-           "type": "text",
-           "x": 0,
-           "y": 0,
-           "width": 129,
-           "height": 34,
-           "properties": {
-            "text": "{live:name}",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "left",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 0
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/1/level"
             },
-            "liveValues": [
+            "rules": [
              {
-              "id": "name",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/2/name"
-              },
-              "rules": [],
-              "noValueYet": {
+              "op": "==",
+              "operand": "0",
+              "result": {
                "kind": "text",
                "parts": [
-                "Dimmer 2"
-               ]
-              }
-             }
-            ]
-           },
-           "id": "obj-202",
-           "zIndex": 1
-          },
-          {
-           "type": "text",
-           "x": 139,
-           "y": 0,
-           "width": 47,
-           "height": 34,
-           "properties": {
-            "text": "{live:lv1}",
-            "liveValues": [
-             {
-              "id": "lv1",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/2/level"
-              },
-              "rules": [
-               {
-                "op": "==",
-                "operand": "0",
-                "result": {
-                 "kind": "text",
-                 "parts": [
-                  "Aus"
-                 ]
-                }
-               }
-              ],
-              "format": {
-               "kind": "number",
-               "decimals": 0,
-               "grouped": false
-              },
-              "otherwise": {
-               "kind": "text",
-               "parts": [
-                {
-                 "value": true
-                },
-                " %"
+                "Aus"
                ]
               }
              }
             ],
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "right",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "headingValue": true,
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 1
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            },
+            "otherwise": {
+             "kind": "text",
+             "parts": [
+              {
+               "value": true
+              },
+              " %"
+             ]
             }
-           },
-           "id": "obj-203",
-           "zIndex": 2
-          },
-          {
-           "type": "slider",
-           "x": 196,
-           "y": 1,
-           "width": 230,
-           "height": 33,
-           "properties": {
-            "topic": "schaltli/state/dimmer/2/level",
-            "direction": "left-to-right",
-            "calibrationPoints": [
-             {
-              "value": 0,
-              "barSizePercent": 0
-             },
-             {
-              "value": 100,
-              "barSizePercent": 100
-             }
-            ],
-            "displayValue": "none",
-            "fillColor": "accent",
-            "thickness": 12,
-            "textColor": "text",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "writeTopic": "schaltli/cmnd/dimmer/2",
-            "step": 1,
-            "headingValueFallback": "value",
-            "textStyle": "xl",
-            "textBold": false,
-            "sizeStep": "s",
-            "cell": {
-             "row": 0,
-             "column": 2,
-             "anchor": {
-              "x": "stretch"
-             },
-             "drawnWidth": 100
-            }
-           },
-           "id": "obj-204",
-           "zIndex": 3
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 0,
+           "column": 1
           }
-         ],
-         "zIndex": 2,
-         "id": "obj-200"
-        }
-       ],
-       "id": "obj-199",
-       "zIndex": 5
-      },
-      {
-       "type": "free",
-       "x": 0,
-       "y": 116,
-       "width": 440,
-       "height": 48,
-       "properties": {
-        "look": "card",
-        "fillColor": "panel",
-        "strokeColor": "outline",
-        "strokeWidth": 1,
-        "cornerRadius": 14,
-        "padding": 1,
-        "cell": {
-         "row": 2,
-         "column": 0,
-         "anchor": {
-          "x": "stretch",
-          "y": "stretch"
          },
-         "drawnWidth": 440,
-         "drawnHeight": 48
-        }
-       },
-       "children": [
+         "id": "obj-69",
+         "zIndex": 2
+        },
         {
-         "type": "table",
-         "x": 7,
-         "y": 7,
-         "width": 426,
-         "height": 34,
+         "type": "slider",
+         "x": 196,
+         "y": 1,
+         "width": 230,
+         "height": 33,
          "properties": {
-          "grid": 1,
-          "columns": [
+          "topic": "schaltli/state/dimmer/1/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
            {
-            "mm": 19
+            "value": 0,
+            "barSizePercent": 0
            },
            {
-            "mm": 7
-           },
-           {}
+            "value": 100,
+            "barSizePercent": 100
+           }
           ],
-          "rows": [
-           {}
-          ],
-          "dock": "top"
-         },
-         "children": [
-          {
-           "type": "text",
-           "x": 0,
-           "y": 0,
-           "width": 129,
-           "height": 34,
-           "properties": {
-            "text": "{live:name}",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "left",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 0
-            },
-            "liveValues": [
-             {
-              "id": "name",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/3/name"
-              },
-              "rules": [],
-              "noValueYet": {
-               "kind": "text",
-               "parts": [
-                "Dimmer 3"
-               ]
-              }
-             }
-            ]
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 12,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "writeTopic": "schaltli/cmnd/dimmer/1",
+          "step": 1,
+          "headingValueFallback": "value",
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "s",
+          "cell": {
+           "row": 0,
+           "column": 2,
+           "anchor": {
+            "x": "stretch"
            },
-           "id": "obj-209",
-           "zIndex": 1
-          },
-          {
-           "type": "text",
-           "x": 139,
-           "y": 0,
-           "width": 47,
-           "height": 34,
-           "properties": {
-            "text": "{live:lv1}",
-            "liveValues": [
-             {
-              "id": "lv1",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/3/level"
-              },
-              "rules": [
-               {
-                "op": "==",
-                "operand": "0",
-                "result": {
-                 "kind": "text",
-                 "parts": [
-                  "Aus"
-                 ]
-                }
-               }
-              ],
-              "format": {
-               "kind": "number",
-               "decimals": 0,
-               "grouped": false
-              },
-              "otherwise": {
-               "kind": "text",
-               "parts": [
-                {
-                 "value": true
-                },
-                " %"
-               ]
-              }
-             }
-            ],
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "right",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "headingValue": true,
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 1
-            }
-           },
-           "id": "obj-210",
-           "zIndex": 2
-          },
-          {
-           "type": "slider",
-           "x": 196,
-           "y": 1,
-           "width": 230,
-           "height": 33,
-           "properties": {
-            "topic": "schaltli/state/dimmer/3/level",
-            "direction": "left-to-right",
-            "calibrationPoints": [
-             {
-              "value": 0,
-              "barSizePercent": 0
-             },
-             {
-              "value": 100,
-              "barSizePercent": 100
-             }
-            ],
-            "displayValue": "none",
-            "fillColor": "accent",
-            "thickness": 12,
-            "textColor": "text",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "writeTopic": "schaltli/cmnd/dimmer/3",
-            "step": 1,
-            "headingValueFallback": "value",
-            "textStyle": "xl",
-            "textBold": false,
-            "sizeStep": "s",
-            "cell": {
-             "row": 0,
-             "column": 2,
-             "anchor": {
-              "x": "stretch"
-             },
-             "drawnWidth": 100
-            }
-           },
-           "id": "obj-211",
-           "zIndex": 3
+           "drawnWidth": 100
           }
-         ],
-         "zIndex": 2,
-         "id": "obj-207"
-        }
-       ],
-       "id": "obj-206",
-       "zIndex": 5
-      },
-      {
-       "type": "free",
-       "x": 0,
-       "y": 174,
-       "width": 440,
-       "height": 48,
-       "properties": {
-        "look": "card",
-        "fillColor": "panel",
-        "strokeColor": "outline",
-        "strokeWidth": 1,
-        "cornerRadius": 14,
-        "padding": 1,
-        "cell": {
-         "row": 3,
-         "column": 0,
-         "anchor": {
-          "x": "stretch",
-          "y": "stretch"
          },
-         "drawnWidth": 440,
-         "drawnHeight": 48
-        }
-       },
-       "children": [
+         "id": "obj-71",
+         "zIndex": 3
+        },
         {
-         "type": "table",
-         "x": 7,
-         "y": 7,
-         "width": 426,
+         "type": "text",
+         "x": 0,
+         "y": 44,
+         "width": 129,
          "height": 34,
          "properties": {
-          "grid": 1,
-          "columns": [
+          "text": "{live:name}",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 1,
+           "column": 0
+          },
+          "liveValues": [
            {
-            "mm": 19
-           },
-           {
-            "mm": 7
-           },
-           {}
-          ],
-          "rows": [
-           {}
-          ],
-          "dock": "top"
-         },
-         "children": [
-          {
-           "type": "text",
-           "x": 0,
-           "y": 0,
-           "width": 129,
-           "height": 34,
-           "properties": {
-            "text": "{live:name}",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "left",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 0
+            "id": "name",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/2/name"
             },
-            "liveValues": [
+            "rules": [],
+            "noValueYet": {
+             "kind": "text",
+             "parts": [
+              "Dimmer 2"
+             ]
+            }
+           }
+          ]
+         },
+         "id": "obj-202",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 139,
+         "y": 44,
+         "width": 47,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1}",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/2/level"
+            },
+            "rules": [
              {
-              "id": "name",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/4/name"
-              },
-              "rules": [],
-              "noValueYet": {
+              "op": "==",
+              "operand": "0",
+              "result": {
                "kind": "text",
                "parts": [
-                "Dimmer 4"
-               ]
-              }
-             }
-            ]
-           },
-           "id": "obj-215",
-           "zIndex": 1
-          },
-          {
-           "type": "text",
-           "x": 139,
-           "y": 0,
-           "width": 47,
-           "height": 34,
-           "properties": {
-            "text": "{live:lv1}",
-            "liveValues": [
-             {
-              "id": "lv1",
-              "source": {
-               "namespace": "topic",
-               "path": "schaltli/state/dimmer/4/level"
-              },
-              "rules": [
-               {
-                "op": "==",
-                "operand": "0",
-                "result": {
-                 "kind": "text",
-                 "parts": [
-                  "Aus"
-                 ]
-                }
-               }
-              ],
-              "format": {
-               "kind": "number",
-               "decimals": 0,
-               "grouped": false
-              },
-              "otherwise": {
-               "kind": "text",
-               "parts": [
-                {
-                 "value": true
-                },
-                " %"
+                "Aus"
                ]
               }
              }
             ],
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "color": "text",
-            "textAlign": "right",
-            "fontWeight": "normal",
-            "backgroundColor": "transparent",
-            "borderColor": "transparent",
-            "headingValue": true,
-            "textStyle": "xl",
-            "textBold": false,
-            "cell": {
-             "row": 0,
-             "column": 1
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            },
+            "otherwise": {
+             "kind": "text",
+             "parts": [
+              {
+               "value": true
+              },
+              " %"
+             ]
             }
-           },
-           "id": "obj-216",
-           "zIndex": 2
-          },
-          {
-           "type": "slider",
-           "x": 196,
-           "y": 1,
-           "width": 230,
-           "height": 33,
-           "properties": {
-            "topic": "schaltli/state/dimmer/4/level",
-            "direction": "left-to-right",
-            "calibrationPoints": [
-             {
-              "value": 0,
-              "barSizePercent": 0
-             },
-             {
-              "value": 100,
-              "barSizePercent": 100
-             }
-            ],
-            "displayValue": "none",
-            "fillColor": "accent",
-            "thickness": 12,
-            "textColor": "text",
-            "fontId": "font-montserrat-c14",
-            "fontSize": 26,
-            "writeTopic": "schaltli/cmnd/dimmer/4",
-            "step": 1,
-            "headingValueFallback": "value",
-            "textStyle": "xl",
-            "textBold": false,
-            "sizeStep": "s",
-            "cell": {
-             "row": 0,
-             "column": 2,
-             "anchor": {
-              "x": "stretch"
-             },
-             "drawnWidth": 100
-            }
-           },
-           "id": "obj-217",
-           "zIndex": 3
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 1,
+           "column": 1
           }
-         ],
-         "zIndex": 2,
-         "id": "obj-213"
+         },
+         "id": "obj-203",
+         "zIndex": 2
+        },
+        {
+         "type": "slider",
+         "x": 196,
+         "y": 45,
+         "width": 230,
+         "height": 33,
+         "properties": {
+          "topic": "schaltli/state/dimmer/2/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 12,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "writeTopic": "schaltli/cmnd/dimmer/2",
+          "step": 1,
+          "headingValueFallback": "value",
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "s",
+          "cell": {
+           "row": 1,
+           "column": 2,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 100
+          }
+         },
+         "id": "obj-204",
+         "zIndex": 3
+        },
+        {
+         "type": "text",
+         "x": 0,
+         "y": 88,
+         "width": 129,
+         "height": 34,
+         "properties": {
+          "text": "{live:name}",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 2,
+           "column": 0
+          },
+          "liveValues": [
+           {
+            "id": "name",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/3/name"
+            },
+            "rules": [],
+            "noValueYet": {
+             "kind": "text",
+             "parts": [
+              "Dimmer 3"
+             ]
+            }
+           }
+          ]
+         },
+         "id": "obj-209",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 139,
+         "y": 88,
+         "width": 47,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1}",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/3/level"
+            },
+            "rules": [
+             {
+              "op": "==",
+              "operand": "0",
+              "result": {
+               "kind": "text",
+               "parts": [
+                "Aus"
+               ]
+              }
+             }
+            ],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            },
+            "otherwise": {
+             "kind": "text",
+             "parts": [
+              {
+               "value": true
+              },
+              " %"
+             ]
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 2,
+           "column": 1
+          }
+         },
+         "id": "obj-210",
+         "zIndex": 2
+        },
+        {
+         "type": "slider",
+         "x": 196,
+         "y": 89,
+         "width": 230,
+         "height": 33,
+         "properties": {
+          "topic": "schaltli/state/dimmer/3/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 12,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "writeTopic": "schaltli/cmnd/dimmer/3",
+          "step": 1,
+          "headingValueFallback": "value",
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "s",
+          "cell": {
+           "row": 2,
+           "column": 2,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 100
+          }
+         },
+         "id": "obj-211",
+         "zIndex": 3
+        },
+        {
+         "type": "text",
+         "x": 0,
+         "y": 132,
+         "width": 129,
+         "height": 34,
+         "properties": {
+          "text": "{live:name}",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "left",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 3,
+           "column": 0
+          },
+          "liveValues": [
+           {
+            "id": "name",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/4/name"
+            },
+            "rules": [],
+            "noValueYet": {
+             "kind": "text",
+             "parts": [
+              "Dimmer 4"
+             ]
+            }
+           }
+          ]
+         },
+         "id": "obj-215",
+         "zIndex": 1
+        },
+        {
+         "type": "text",
+         "x": 139,
+         "y": 132,
+         "width": 47,
+         "height": 34,
+         "properties": {
+          "text": "{live:lv1}",
+          "liveValues": [
+           {
+            "id": "lv1",
+            "source": {
+             "namespace": "topic",
+             "path": "schaltli/state/dimmer/4/level"
+            },
+            "rules": [
+             {
+              "op": "==",
+              "operand": "0",
+              "result": {
+               "kind": "text",
+               "parts": [
+                "Aus"
+               ]
+              }
+             }
+            ],
+            "format": {
+             "kind": "number",
+             "decimals": 0,
+             "grouped": false
+            },
+            "otherwise": {
+             "kind": "text",
+             "parts": [
+              {
+               "value": true
+              },
+              " %"
+             ]
+            }
+           }
+          ],
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "color": "text",
+          "textAlign": "right",
+          "fontWeight": "normal",
+          "backgroundColor": "transparent",
+          "borderColor": "transparent",
+          "headingValue": true,
+          "textStyle": "xl",
+          "textBold": false,
+          "cell": {
+           "row": 3,
+           "column": 1
+          }
+         },
+         "id": "obj-216",
+         "zIndex": 2
+        },
+        {
+         "type": "slider",
+         "x": 196,
+         "y": 133,
+         "width": 230,
+         "height": 33,
+         "properties": {
+          "topic": "schaltli/state/dimmer/4/level",
+          "direction": "left-to-right",
+          "calibrationPoints": [
+           {
+            "value": 0,
+            "barSizePercent": 0
+           },
+           {
+            "value": 100,
+            "barSizePercent": 100
+           }
+          ],
+          "displayValue": "none",
+          "fillColor": "accent",
+          "thickness": 12,
+          "textColor": "text",
+          "fontId": "font-montserrat-c14",
+          "fontSize": 26,
+          "writeTopic": "schaltli/cmnd/dimmer/4",
+          "step": 1,
+          "headingValueFallback": "value",
+          "textStyle": "xl",
+          "textBold": false,
+          "sizeStep": "s",
+          "cell": {
+           "row": 3,
+           "column": 2,
+           "anchor": {
+            "x": "stretch"
+           },
+           "drawnWidth": 100
+          }
+         },
+         "id": "obj-217",
+         "zIndex": 3
         }
-       ],
-       "id": "obj-212",
-       "zIndex": 5
+       ]
       }
      ]
     }
@@ -5810,7 +5612,7 @@
    "size": 199
   }
  ],
- "nextId": 218,
+ "nextId": 221,
  "snapGuides": [],
  "settings": {
   "exportFormat": "esp32",
