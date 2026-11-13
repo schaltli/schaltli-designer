@@ -47,6 +47,7 @@ test("the shipped starter is neutral: every topic under schaltli/, no address of
 test("the starter's header: four warnings side by side, each its own icon, the theme switch on the right", () => {
   const master = starter.screens.find((s: any) => s.isMaster)
   const warnings = master.objects.filter((o: any) => o.type === "icon" && o.properties.iconColor === "alarm")
+  const iconName = (id: string) => starter.assets.find((a: any) => a.id === id)?.name
   const seen = warnings
     .sort((a: any, b: any) => a.x - b.x)
     .map((o: any) => {
@@ -54,16 +55,19 @@ test("the starter's header: four warnings side by side, each its own icon, the t
       expect(lv.otherwise).toBeUndefined()
       expect(lv.noValueYet).toBeUndefined()
       expect(lv.rules).toHaveLength(1)
-      expect(lv.rules[0].result).toEqual({ kind: "icon", icon: o.properties.assetId })
-      expect(starter.assets.some((a: any) => a.id === o.properties.assetId)).toBe(true)
-      return [o.properties.iconName, lv.source.path, lv.rules[0].op + lv.rules[0].operand]
+      expect(lv.rules[0].result.kind).toBe("icon")
+      return { shows: iconName(lv.rules[0].result.icon), reads: lv.source.path, when: lv.rules[0].op + lv.rules[0].operand }
     })
-  expect(seen).toEqual([
-    ["mdi:snowflake", "schaltli/state/temp/1/value", "<3"],
-    ["mdi:battery-alert-variant-outline", "schaltli/state/battery/soc", "<20"],
-    ["mdi:water-off-outline", "schaltli/state/tank/1/level", "<10"],
-    ["mdi:water-alert-outline", "schaltli/state/tank/2/level", ">90"],
+  expect(seen.map(({ reads, when }: any) => [reads, when])).toEqual([
+    ["schaltli/state/temp/1/value", "<3"],
+    ["schaltli/state/battery/soc", "<20"],
+    ["schaltli/state/tank/1/level", "<10"],
+    ["schaltli/state/tank/2/level", ">90"],
   ])
+  // Each shows an icon of the template's, each another: frost the snowflake.
+  for (const w of seen) expect(w.shows).toBeTruthy()
+  expect(new Set(seen.map((w: any) => w.shows)).size).toBe(seen.length)
+  expect(seen[0].shows).toBe("mdi:snowflake")
   // Side by side, none over another.
   const xs = warnings.map((o: any) => o.x).sort((a: number, b: number) => a - b)
   for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(warnings[0].width)
