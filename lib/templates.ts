@@ -43,6 +43,16 @@ export const DEVICE_SETTINGS = [
   "typographies", "screenShape", "screenMotion", "popupCloseRadius", "boundInstanceId",
 ]
 
+// Every string in `value`: lib/assets-in-use.ts's way of finding the icons in
+// use, repeated here because scripts/template-pull.mjs runs this file in plain
+// Node, which cannot import a .ts file without its extension.
+function stringsIn(value: unknown, found = new Set<string>()): Set<string> {
+  if (typeof value === "string") found.add(value)
+  else if (Array.isArray(value)) value.forEach((v) => stringsIn(v, found))
+  else if (value && typeof value === "object") Object.values(value).forEach((v) => stringsIn(v, found))
+  return found
+}
+
 interface ProjectLike {
   screens: unknown[]
   topics?: unknown[]
@@ -54,8 +64,8 @@ interface ProjectLike {
 }
 
 /**
- * A template from a project: its screens, the topics its objects use, its
- * icons and the settings that are not the device's. `deviceId` is the
+ * A template from a project: its screens, the topics and icons its objects
+ * use and the settings that are not the device's. `deviceId` is the
  * device the project is made for, which a template is offered for.
  */
 export function templateFromProject(name: string, project: ProjectLike): Template {
@@ -66,6 +76,10 @@ export function templateFromProject(name: string, project: ProjectLike): Templat
     const topic = (t as { topic?: string }).topic ?? ""
     return text.includes(`"${topic}`) || text.includes(`:${topic}`) || text.includes(`${topic}"`)
   })
+  // What Remove Unused Assets would keep (lib/assets-in-use.ts), of the
+  // template as it will be: no icon nothing in it uses.
+  const used = stringsIn({ screens, combinedTopics: project.combinedTopics, settings })
+  const assets = (project.assets ?? []).filter((a) => used.has(String((a as { id?: unknown }).id)))
   return {
     format: TEMPLATE_FORMAT,
     name,
@@ -73,7 +87,7 @@ export function templateFromProject(name: string, project: ProjectLike): Templat
     screens,
     topics: structuredClone(topics),
     ...(project.combinedTopics?.length ? { combinedTopics: structuredClone(project.combinedTopics) } : {}),
-    assets: structuredClone(project.assets ?? []),
+    assets: structuredClone(assets),
     nextId: project.nextId,
     snapGuides: structuredClone(project.snapGuides ?? []),
     settings: structuredClone(settings),

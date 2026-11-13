@@ -37,6 +37,9 @@ test("the shipped starter is neutral: every topic under schaltli/, no address of
   expect(starter.settings.deviceId).toBeUndefined()
   expect(starter.embeddedDdfZipBase64).toBeUndefined()
   expect(starter.fonts).toBeUndefined()
+  // No icon nothing in it uses.
+  const rest = JSON.stringify({ screens: starter.screens, combinedTopics: starter.combinedTopics, settings: starter.settings })
+  expect(starter.assets.filter((a: any) => !rest.includes(`"${a.id}"`)).map((a: any) => a.name)).toEqual([])
   // Home is the screen it opens on: the first after the master.
   expect(starter.screens.find((s: any) => !s.isMaster).name).toBe("Home")
 })
@@ -134,17 +137,18 @@ test("the store: shipped and own per device, a name only once, a shipped one sta
   expect(await store.list(OTHER)).toEqual([])
 
   const project = {
-    screens: [{ id: "s1", name: "Mine", objects: [{ id: "o1", type: "label", properties: { topic: "a/b" } }] }],
+    screens: [{ id: "s1", name: "Mine", iconAssetId: "icon-2", objects: [{ id: "o1", type: "label", properties: { topic: "a/b" } }] }],
     topics: [{ topic: "a/b" }, { topic: "unused/x" }],
-    assets: [],
+    assets: [{ id: "icon-2", name: "mdi:home" }, { id: "icon-3", name: "mdi:unused" }],
     nextId: 7,
     settings: { deviceId: OTHER, deviceName: "4.3B", gridSize: 10 },
   }
   const template = templateFromProject("Zweiter Screen", project)
-  // The device's own is left out, and the topics no object reads.
+  // The device's own is left out, and the topics and icons nothing uses.
   expect(template.deviceId).toBe(OTHER)
   expect(template.settings).toEqual({ gridSize: 10 })
   expect(template.topics).toEqual([{ topic: "a/b" }])
+  expect(template.assets).toEqual([{ id: "icon-2", name: "mdi:home" }])
 
   await store.create(template)
   expect(await store.list(OTHER)).toEqual([{ name: "Zweiter Screen", deviceId: OTHER, shipped: false }])
