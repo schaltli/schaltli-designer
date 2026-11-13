@@ -76,6 +76,8 @@ test("the starter's header: four warnings side by side, each its own icon, the t
   // The heater on: a red flame, nothing while it is off.
   const flame = master.objects.find(isFlame)
   expect(flame.properties.iconColor).toBe("alarm")
+  // As large as the warnings beside it.
+  expect([flame.width, flame.height, flame.properties.sizeStep]).toEqual([warnings[0].width, warnings[0].height, warnings[0].properties.sizeStep])
   expect(flame.properties.liveValues[0].rules).toEqual([{ op: "==", operand: "off", result: { kind: "icon", icon: "" } }])
   // Light and dark switched in the header, not in the navigator.
   const themeSwitch = master.objects.find((o: any) => o.properties?.writeTopic === "schaltli/cmnd/theme")

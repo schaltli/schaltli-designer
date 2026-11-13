@@ -34,15 +34,15 @@
     },
     {
      "type": "icon",
-     "x": 325,
-     "y": 2,
-     "width": 41,
-     "height": 41,
+     "x": 339,
+     "y": 8,
+     "width": 27,
+     "height": 27,
      "properties": {
       "assetId": "icon-30",
       "iconName": "solar:fire-bold",
       "backgroundColor": "transparent",
-      "sizeStep": "m",
+      "sizeStep": "s",
       "liveIconId": "lv1",
       "liveValues": [
        {
