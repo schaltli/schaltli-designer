@@ -819,8 +819,8 @@
          "width": 41,
          "height": 41,
          "properties": {
-          "assetId": "baustein-icon-game-icons-batteries",
-          "iconName": "default",
+          "assetId": "icon-197",
+          "iconName": "bxs:car-battery",
           "iconColor": "text",
           "backgroundColor": "transparent",
           "sizeStep": "m",
@@ -2220,7 +2220,7 @@
     }
    ],
    "masterScreenId": "master-1",
-   "iconAssetId": "icon-13"
+   "iconAssetId": "icon-197"
   },
   {
    "id": "screen-14",
@@ -5837,9 +5837,16 @@
    "name": "Dark",
    "type": "icon",
    "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBkPSJNMTQuNSAyLjVhOS41IDkuNSAwIDEgMCA3IDE1LjZBOCA4IDAgMCAxIDE0LjUgMi41eiIvPjwvc3ZnPg=="
+  },
+  {
+   "id": "icon-197",
+   "name": "bxs:car-battery",
+   "type": "icon",
+   "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPjxwYXRoIGZpbGw9ImN1cnJlbnRDb2xvciIgZD0iTTIwIDZINGMtMS4xMDMgMC0yIC44OTctMiAydjEwYzAgMS4xMDMuODk3IDIgMiAyaDE2YzEuMTAzIDAgMi0uODk3IDItMlY4YzAtMS4xMDMtLjg5Ny0yLTItMk05IDE0SDR2LTJoNXptMTEgMGgtMnYyaC0ydi0yaC0ydi0yaDJ2LTJoMnYyaDJ6TTQgM2g0djJINHptMTIgMGg0djJoLTR6Ii8+PC9zdmc+",
+   "size": 285
   }
  ],
- "nextId": 197,
+ "nextId": 198,
  "snapGuides": [],
  "settings": {
   "exportFormat": "esp32",
