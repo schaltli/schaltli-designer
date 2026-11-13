@@ -5,6 +5,7 @@ import { dissolveGroupsInProject } from "../lib/object-groups"
 import {
   applySnapDrop,
   arrangeSnapTable,
+  deleteObjects,
   freeSideAt,
   liftOut,
   moveOutOf,
@@ -362,6 +363,39 @@ test.describe("snap table: editing", () => {
     expect(freeSideAt(o, { x: 145, y: 110 }, 25)).toBe("right")
     expect(freeSideAt(o, { x: 120, y: 125 }, 25)).toBe("bottom")
     expect(freeSideAt(o, { x: 120, y: 60 }, 25)).toBeNull()
+  })
+})
+
+// Delete (2026-11-13): an object deleted from a table goes as one dragged out
+// does - the column it leaves empty goes too (reported: the Dimmer screen's
+// icons deleted, their column stayed empty).
+test.describe("snap table: deleting", () => {
+  test("deleting the only object of a column takes the column with it, the others move left", () => {
+    const icon = box(20, 20, { row: 0, column: 0 })
+    const name = box(40, 20, { row: 0, column: 1 })
+    const value = box(30, 20, { row: 0, column: 2 })
+    const t = arrangeSnapTable(table([icon, name, value], [{}, { mm: 12 }, {}], [{}]), SCALE)
+    const [after] = deleteObjects([t], [icon.id], SCALE)
+    expect(isSnapTable(after)).toBe(true)
+    expect(after.children!.map((c) => c.id)).toEqual([name.id, value.id])
+    expect(snapColumnsOf(after)).toEqual([{ mm: 12 }, {}])
+    expect(after.children!.map((c) => snapCellOf(c).column)).toEqual([0, 1])
+  })
+
+  test("in a table nested in a card, and with one object left the table dissolves into it", () => {
+    const a = box(20, 20, { row: 0, column: 0 })
+    const b = box(40, 20, { row: 0, column: 1 })
+    const t = table([a, b], [{}, {}], [{}])
+    const card = { id: "card", type: "free", x: 0, y: 0, width: 200, height: 40, zIndex: 1, properties: {}, children: [t] } as ScreenObject
+    const [out] = deleteObjects([card], [a.id], SCALE)
+    expect(out.children!.map((c) => c.id)).toEqual([b.id])
+    expect(out.children![0].properties?.cell).toBeUndefined()
+  })
+
+  test("objects outside tables are deleted as ever", () => {
+    const a = box(20, 20, {})
+    const b = box(20, 20, {})
+    expect(deleteObjects([a, b], [a.id], SCALE).map((o) => o.id)).toEqual([b.id])
   })
 })
 

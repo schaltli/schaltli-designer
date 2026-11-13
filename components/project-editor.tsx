@@ -61,7 +61,6 @@ import {
   findParentOf,
   updateObjectById,
   updateObjectsById,
-  deleteObjectById,
   insertObjectIntoParent,
   canDropAsChildOf,
   movedTogether,
@@ -84,7 +83,7 @@ import { layoutProject, layoutScaleOf } from "@/lib/layout"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
-import { applySnapDrop, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
+import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
 
 import { cn } from "@/lib/utils"
 import { FilePlus2, LayoutTemplate, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
@@ -2588,7 +2587,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId ? { ...screen, objects: deleteObjectById(screen.objects, objectId) } : screen,
+          screen.id === currentScreenId ? { ...screen, objects: deleteObjects(screen.objects, [objectId], layoutScaleOf(prev)) } : screen,
         ),
       }))
 
@@ -3945,7 +3944,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setProject((prev) => ({
       ...prev,
       screens: prev.screens.map((screen) =>
-        screen.id === currentScreenId ? { ...screen, objects: ids.reduce((list, id) => deleteObjectById(list, id), screen.objects) } : screen,
+        screen.id === currentScreenId ? { ...screen, objects: deleteObjects(screen.objects, ids, layoutScaleOf(prev)) } : screen,
       ),
     }))
     setSelectedObjectIds([])

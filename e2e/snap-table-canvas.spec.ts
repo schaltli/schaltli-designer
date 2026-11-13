@@ -231,6 +231,19 @@ test.describe("snap table: snapping", () => {
     }
   })
 
+  // 2026-11-13 (the Dimmer screen's icons deleted, their column stayed empty).
+  test("Delete on the only object of a column takes the column with it", async ({ page }) => {
+    const { zip, table } = await snapProject()
+    await loadProject(page, zip)
+    // A double click selects an object in the table, a click the table.
+    await doubleClick(page, middleOf(table, "pumpe"))
+    await page.keyboard.press("Delete")
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(grid.children!.map((c) => c.id).sort()).toEqual(["bad", "licht"])
+    expect(grid.properties!.columns).toHaveLength(1)
+    expect(grid.children!.map((c) => c.properties?.cell?.column)).toEqual([0, 0])
+  })
+
   test("a wide box held at its left end goes into the empty cell under the pointer, not where its middle is (decided 2026-11-07)", async ({ page }) => {
     const wide = { id: "breit", type: "box", x: 20, y: 240, width: 120, height: 20, zIndex: 9, properties: { backgroundColor: "#cccccc" } }
     const { zip, table } = await snapProject([wide])

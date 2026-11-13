@@ -786,6 +786,29 @@ export function liftOut(objects: ScreenObject[], tableId: string, objectId: stri
 }
 
 /**
+ * Objects deleted, wherever they stand (2026-11-13): one in a table goes as
+ * one dragged out of it does (liftOut) - the column or row it leaves empty
+ * goes too, and a table left with one object dissolves into it - rather than
+ * leaving an empty column behind (reported: the Dimmer screen's icons
+ * deleted, their column stayed).
+ */
+export function deleteObjects(objects: ScreenObject[], ids: readonly string[], scale: LayoutScale): ScreenObject[] {
+  let list = objects
+  for (const table of objects.filter(isSnapTable)) {
+    for (const child of table.children ?? []) {
+      if (!ids.includes(child.id)) continue
+      const current = list.find((o) => o.id === table.id) ?? list.find((o) => (o.children ?? []).some((c) => c.id === child.id))
+      if (!current || !isSnapTable(current)) continue
+      const out = liftOut(list, current.id, child.id, scale)
+      if (out.taken) list = out.objects.filter((o) => o !== out.taken)
+    }
+  }
+  return list
+    .filter((o) => !ids.includes(o.id))
+    .map((o) => (o.children?.length ? { ...o, children: deleteObjects(o.children, ids, scale) } : o))
+}
+
+/**
  * An object dragged out of a table and let go: out of it (liftOut), moved
  * so its top left corner is at `to`, then snapped where `drop` says - into
  * a table or beside an object - or left lying free. In one space, in its
