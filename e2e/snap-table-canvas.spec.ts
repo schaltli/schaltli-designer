@@ -825,7 +825,7 @@ test.describe("snap table: selection", () => {
 // The user, 2026-11-14, in the starter's heater page: a Toggle Button 78 px
 // tall in a table, no handle to make it lower (the four span), and a span cut
 // from two rows to one left an empty row nothing could take away.
-async function cellProject(): Promise<{ zip: string; table: ScreenObject }> {
+async function cellProject(more: Obj[] = []): Promise<{ zip: string; table: ScreenObject }> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const toggle = {
@@ -860,7 +860,7 @@ async function cellProject(): Promise<{ zip: string; table: ScreenObject }> {
       height: 1,
       zIndex: 1,
       properties: { grid: 1, columns: [{}, {}], rows: [{}, {}] },
-      children: [toggle, text("lang", "Lang", 2, { row: 0, column: 1, rowSpan: 2 })],
+      children: [toggle, text("lang", "Lang", 2, { row: 0, column: 1, rowSpan: 2 }), ...more],
     },
   ]
   const laid = layoutProject(project)
@@ -907,6 +907,25 @@ test.describe("snap table: an object's own height in its cell", () => {
     const typed = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "heizung")!
     expect(typed.height).toBeGreaterThan(18 * 2)
     expect(typed.height).toBeLessThan(78)
+  })
+
+  // No grid for a ring's diameter since 2026-11-14 (the user): 30 px less is 30 px less.
+  test("a ring's height handle sets its diameter, to the pixel, no lower than four track widths", async ({ page }) => {
+    const ring = { id: "regler", type: "dial", x: 0, y: 0, width: 160, height: 160, zIndex: 3, properties: { topic: "f/level", writeTopic: "f/set", thickness: 16, minAngle: 225, maxAngle: 135, direction: "cw", cell: { row: 1, column: 0 } } }
+    const { zip } = await cellProject([ring])
+    await loadProject(page, zip)
+    await openAllTwisties(page)
+    await objectTreeRow(page, "regler").click()
+    const { canvas } = await getMainCanvas(page)
+    await expect.poll(() => canvas.getAttribute("data-cell-height-handle")).not.toBeNull()
+    const handle = JSON.parse((await canvas.getAttribute("data-cell-height-handle"))!) as { x: number; y: number }
+    await plainDrag(page, handle, { x: handle.x, y: handle.y - 30 })
+    const smaller = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "regler")!
+    expect([smaller.width, smaller.height]).toEqual([130, 130])
+    const again = JSON.parse((await canvas.getAttribute("data-cell-height-handle"))!) as { x: number; y: number }
+    await plainDrag(page, again, { x: again.x, y: again.y - 300 })
+    const least = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "regler")!
+    expect([least.width, least.height]).toEqual([64, 64])
   })
 
   test("a span cut from two rows to one, let go: the row left empty goes", async ({ page }) => {

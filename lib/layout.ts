@@ -158,16 +158,15 @@ function shownText(obj: ScreenObject, scale: LayoutScale, font: ProjectFont | un
 
 /**
  * A child given a width by its container, with the height that follows: a
- * ring keeps its diameter, but never more than the room (on the grid of its
- * track, as the size scale puts it - snapDiameter, rounded down here, so it
- * never sticks out); a container as tall as its content; a switcher as tall
+ * ring keeps its diameter, but never more than the room (and never less than
+ * four track widths, lib/size-scale.ts ringDiameter); a container as tall as its content; a switcher as tall
  * as its tallest panel; a `free` container and everything else as tall as
  * it is.
  */
 export function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObject {
   if (child.type === "gauge" || child.type === "dial") {
-    const grid = 2 * (child.properties?.thickness ?? FALLBACK_RING_THICKNESS)
-    const diameter = Math.max(2 * grid, Math.floor(Math.min(child.width, width) / grid) * grid)
+    const thickness = child.properties?.thickness ?? FALLBACK_RING_THICKNESS
+    const diameter = Math.max(4 * thickness, Math.floor(Math.min(child.width, width)))
     return { ...child, width: diameter, height: diameter }
   }
   if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)

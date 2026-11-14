@@ -93,13 +93,13 @@ test.describe("layout: what it leaves alone", () => {
 })
 
 test.describe("layout: what takes its height from the width it gets", () => {
-  test("a ring keeps its diameter in a table, on its track's grid", () => {
+  // No grid since 2026-11-14 (the user): 100 stays 100; four track widths at least.
+  test("a ring keeps its diameter in a table, round, no lower than four track widths", () => {
     const place = (diameter: number) =>
       layoutObjects([column({}, [obj("dial", { width: diameter, height: diameter, properties: { thickness: 12 } })])], SCALE)[0].children![0]
     expect(place(96)).toMatchObject({ width: 96, height: 96 })
-    const odd = place(100)
-    expect(odd.width).toBe(odd.height)
-    expect(odd.width).toBe(96)
+    expect(place(100)).toMatchObject({ width: 100, height: 100 })
+    expect(place(20)).toMatchObject({ width: 48, height: 48 })
   })
 
   test("a switcher as tall as its tallest panel, as wide as its widest, every panel and the table in it at its width", () => {

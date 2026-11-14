@@ -1088,9 +1088,10 @@ test.describe("VanPi bridge logic", () => {
       // The countdown in the middle of the timer's dial as h:mm:ss.
       expect(timerDial.properties.displayValue).toBe("duration")
       // On the 4.3B the whole block fits its 480 px, with the bigger dials
-      // of 2026-10-28 (414 px then) and the switch «Heizung» on top of
-      // 2026-11-11 (434).
-      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(440)
+      // of 2026-10-28 (414 px then), the switch «Heizung» on top of
+      // 2026-11-11 (434) and the dials no longer rounded down to their
+      // track's grid since 2026-11-14 (442).
+      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(450)
     })
   }
 

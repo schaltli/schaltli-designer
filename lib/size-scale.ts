@@ -327,14 +327,14 @@ export function withHonestSteps(objects: ScreenObject[], pixelsPerMm: number): S
 }
 
 /**
- * A ring's diameter on the grid its track makes: a whole number of track
- * widths either side, so rings of one step nest exactly (user, 2026-09-30:
- * concentric circles). At least two, which leaves a hole as wide as the
- * ring for the value.
+ * A ring's diameter: as given, in whole pixels, at least four track widths -
+ * a hole as wide as the ring for the value. Until 2026-11-14 it sat on the
+ * grid of twice its track, so that rings of one step nest exactly (the user,
+ * 2026-09-30); no project nests rings, and the grid kept a dial in a cell
+ * from anything between 128 and 160 px (the user, 2026-11-14: «Raster weg»).
  */
-export function snapDiameter(diameter: number, thickness: number): number {
-  const grid = 2 * thickness
-  return Math.max(2 * grid, Math.round(diameter / grid) * grid)
+export function ringDiameter(diameter: number, thickness: number): number {
+  return Math.max(4 * thickness, Math.round(diameter))
 }
 
 /**
@@ -355,7 +355,7 @@ export function levelAcross(object: ScreenObject, fonts: readonly ProjectFont[])
  * gets a box just deep enough across for the track - the handle where it
  * can have one - its glow and, beside a horizontal bar, the number's line;
  * its length stays. A gauge or dial gets its diameter put on the grid of
- * the new track (snapDiameter). An icon gets the step as its edge; a switch,
+ * the new track (ringDiameter). An icon gets the step as its edge; a switch,
  * button group or button as its height, widened if its labels need it. The
  * top-left corner stays put. undefined for types without steps.
  */
@@ -370,7 +370,7 @@ export function stepUpdates(
     const thickness = stepPx(kind, step, pixelsPerMm)
     const properties = { ...object.properties, sizeStep: step, thickness }
     if (object.type === "gauge" || object.type === "dial") {
-      const diameter = snapDiameter(Math.min(object.width, object.height), thickness)
+      const diameter = ringDiameter(Math.min(object.width, object.height), thickness)
       return { properties, width: diameter, height: diameter }
     }
     const shaped = { ...object, properties }

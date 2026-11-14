@@ -100,7 +100,7 @@ test.describe("convert: the model", () => {
     for (const key of BOUND) expect(dial.properties[key], key).toEqual(slider.properties[key])
     expect(dial.properties).toMatchObject({ minAngle: 225, maxAngle: 135, direction: "cw" })
     expect(dial.width).toBe(dial.height)
-    // On the grid of its track (lib/size-scale.ts snapDiameter): a multiple of 24 near 120.
+    // As wide as the slider was (lib/size-scale.ts ringDiameter), at least four track widths.
     expect(dial.width).toBe(120)
     const back = convertObject(dial, "slider")!
     expect(back).toMatchObject({ id: "regler", type: "slider", x: 20, y: 30, width: 120 })

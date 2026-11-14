@@ -20,7 +20,7 @@
  */
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
-import { controlMinWidth, levelAcross, snapDiameter } from "@/lib/size-scale"
+import { controlMinWidth, levelAcross, ringDiameter } from "@/lib/size-scale"
 import { levelThickness } from "@/lib/level-shape"
 import { isSnapTable } from "@/lib/snap-table"
 import { layoutObjects, type LayoutScale } from "@/lib/layout"
@@ -106,7 +106,7 @@ export function convertObject(object: ScreenObject, type: ConvertibleType, fonts
     case "dial":
     case "gauge": {
       const properties = { ...p, ...RING_SHAPE }
-      const side = snapDiameter(object.width, levelThickness({ ...object, properties }))
+      const side = ringDiameter(object.width, levelThickness({ ...object, properties }))
       return { ...object, type, width: side, height: side, properties }
     }
     case "slider":
@@ -184,7 +184,7 @@ export function convertInTree(objects: ScreenObject[], id: string, type: Convert
   const parent = path[path.length - 2]
   if (parent && isSnapTable(parent) && (type === "dial" || type === "gauge")) {
     const size = fonts.find((f) => f.id === next!.properties.fontId)?.size ?? 14
-    const side = snapDiameter(Math.round(CELL_RING_LINES * size), levelThickness(next))
+    const side = ringDiameter(Math.round(CELL_RING_LINES * size), levelThickness(next))
     next = { ...next, width: side, height: side }
   }
   // Which cards end with their content, asked before the change.

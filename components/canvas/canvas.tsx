@@ -50,7 +50,7 @@ import { contentArea, pullTabColor, pullTabNudge, pullTabObjects, type Area } fr
 import { neighboursOf, SWIPE_TO_SIDE, type ScreenEdge } from "@/lib/screen-graph"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
-import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
+import { nearestStep, ringDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderArcLevel, arcValueFromPoint } from "./renderers/render-arc-level"
@@ -143,11 +143,13 @@ export function carriesFromRibbon(tool: string): boolean {
 const SPAN_HANDLE_HIT = 9
 // What has a height of its own in a table's cell, to drag at its corner;
 // a text's is its font's, a ring's its diameter, a switcher's its panels'.
-const CELL_HEIGHT_TYPES = new Set(["toggle-button", "button", "box", "free", "chart", "camera"])
+const CELL_HEIGHT_TYPES = new Set(["toggle-button", "button", "box", "free", "chart", "camera", "gauge", "dial"])
+const isRing = (obj: ScreenObject) => obj.type === "gauge" || obj.type === "dial"
 // No lower than its look or its content needs.
 function cellMinHeight(obj: ScreenObject, scale: LayoutScale): number {
   if (obj.type === "toggle-button") return toggleMinHeight(obj, scale.fonts)
   if (obj.type === "free") return freeMinSize(obj, scale)?.height ?? 8
+  if (isRing(obj)) return ringDiameter(0, obj.properties?.thickness ?? 10)
   return 8
 }
 // How near a table's column or row line a press takes it, in screen pixels.
@@ -3810,7 +3812,8 @@ export function Canvas({
           const cell = obj.properties?.cell
           // Stretched in its cell, its row follows the height it was drawn at.
           const drawn = cell && typeof cell.drawnHeight === "number" ? { properties: { ...obj.properties, cell: { ...cell, drawnHeight: height } } } : {}
-          if (height !== obj.height) onUpdateObject(obj.id, { height, ...drawn })
+          // A ring is round: its diameter is the height dragged.
+          if (height !== obj.height) onUpdateObject(obj.id, isRing(obj) ? { width: height, height } : { height, ...drawn })
         }
         return
       }
@@ -4451,7 +4454,7 @@ export function Canvas({
               newHeight = height
             }
           } else if (stepped.kind === "diameter") {
-            const d = snapDiameter(Math.max(newWidth, newHeight), stepped.thickness)
+            const d = ringDiameter(Math.max(newWidth, newHeight), stepped.thickness)
             if (movesLeft) newX = x + width - d
             if (movesTop) newY = y + height - d
             newWidth = d

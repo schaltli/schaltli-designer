@@ -31,7 +31,7 @@ import {
   stepOf,
   stepSizeOf,
   stepUpdates,
-  snapDiameter,
+  ringDiameter,
   withHonestSteps,
   type TextStyle,
 } from "../lib/size-scale"
@@ -785,19 +785,19 @@ test.describe("styled objects follow the device", () => {
     const barM = { ...bar, ...stepUpdates(bar, "m", ppm, fonts) }
     expect(barM).toMatchObject({ width: 300, height: 25 })
 
-    // A ring: 130 is nearest 150 on M's 50 px grid; at least two tracks
-    // either side; rings of one step nest.
+    // A ring keeps its diameter, no grid since 2026-11-14; at least four
+    // track widths, a hole as wide as the ring for the value.
     const dialM = { ...dial, ...stepUpdates(dial, "m", ppm, fonts) }
-    expect([dialM.width, dialM.height]).toEqual([150, 150])
-    expect(snapDiameter(10, 25)).toBe(100)
-    expect(snapDiameter(174, 25)).toBe(150)
-    expect(snapDiameter(176, 25)).toBe(200)
+    expect([dialM.width, dialM.height]).toEqual([130, 130])
+    expect(ringDiameter(10, 25)).toBe(100)
+    expect(ringDiameter(174, 25)).toBe(174)
+    expect(ringDiameter(176.4, 25)).toBe(176)
 
-    // Moved to the Knob (M is 23 px there): the Knob's M, on the Knob's grid.
+    // Moved to the Knob (M is 23 px there): the Knob's M, the diameter kept.
     const moved = resolveScale(projectOn(knob!, [sliderM, dialM])).screens[0].objects
     const knobM = Math.round(2.89 * knob!.pixelsPerMm!)
     expect(moved.map((o) => o.properties.thickness)).toEqual([knobM, knobM])
-    expect(moved[1].width % (2 * knobM)).toBe(0)
+    expect(moved[1].width).toBe(130)
     expect(moved.map((o) => o.properties.sizeStep)).toEqual(["m", "m"])
   })
 
@@ -1034,15 +1034,15 @@ test.describe("a level's size step", () => {
     expect(after.properties.sizeStep).toBe("m")
   })
 
-  test("a stepped dial resizes on its track's grid; a switch lands on a step", async ({ page }) => {
+  // No grid for a ring since 2026-11-14 (the user): it resizes to the pixel, round.
+  test("a stepped dial resizes to the pixel and stays round; a switch lands on a step", async ({ page }) => {
     await knobProject(page)
     await draw(page, "Dial", [80, 80], [200, 200])
     const [dial] = await objectsOf(page, "dial")
-    const grid = 2 * dial.properties.thickness
-    expect(dial.width % grid).toBe(0)
-    await drag(page, [dial.x + dial.width, dial.y + dial.height], [dial.x + dial.width + grid - 5, dial.y + dial.height + grid - 5])
+    expect(dial.width).toBe(dial.height)
+    await drag(page, [dial.x + dial.width, dial.y + dial.height], [dial.x + dial.width + 27, dial.y + dial.height + 27])
     const [bigger] = await objectsOf(page, "dial")
-    expect(bigger.width).toBe(dial.width + grid)
+    expect(bigger.width).toBe(dial.width + 27)
     expect(bigger.height).toBe(bigger.width)
 
     await draw(page, "Switch", [60, 260], [260, 300])
