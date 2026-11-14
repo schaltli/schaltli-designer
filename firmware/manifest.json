@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.10.1",
-  "commit": "0072b37a238b56a24b0f9b65a0822a8e9a98db58",
+  "release": "fw-2026.11.14.2-pre.dock_gap",
+  "commit": "13add36f80d6ca9febd3c3020b51e3dd9c60d65b",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.10.1.bin",
-      "size": 2882592,
-      "sha256": "19089ca1a1d2a1dc974b78a07920c0cef2571d050b2804efbdabc0dbf00d2787",
+      "build": "fw-2026.11.14.2-pre.dock_gap",
+      "file": "waveshare-knob-1v8-fw-2026.11.14.2-pre.dock_gap.bin",
+      "size": 2891696,
+      "sha256": "eb1f2b2ee0ab11fbdf7aedf85828eeca78782d6bfd666da062e170bd53075b8f",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-knob-1v8-fw-2026.11.14.2-pre.dock_gap.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.10.1.bin",
-        "size": 2948128,
-        "sha256": "130717799d11189709cb47d3bba3846ec544d92fc0f0a08b724c4f1193bebcc9",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.14.2-pre.dock_gap.bin",
+        "size": 2957232,
+        "sha256": "1d4a41d86336c56ac97ba41fee39060d27d1982902502522e4640ab24ffc8d7d",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-knob-1v8-factory-fw-2026.11.14.2-pre.dock_gap.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
-      "size": 2827440,
-      "sha256": "9b13000ced6a106a855fec200b8d91fdba7956c7e52e4a890abc703e65813478",
+      "build": "fw-2026.11.14.2-pre.dock_gap",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.14.2-pre.dock_gap.bin",
+      "size": 2836800,
+      "sha256": "16bfffe67379b1bfe50ccbfefbe294e555906479253d7875a2814787e23b949d",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-touch-lcd-4v3b-fw-2026.11.14.2-pre.dock_gap.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin",
-        "size": 2892976,
-        "sha256": "a7eccba4e2bd0f878443335b5bb5fd77a803873cf8ecc2bdd82fc3cb06630b16",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.14.2-pre.dock_gap.bin",
+        "size": 2902336,
+        "sha256": "caf6697ad4babf8d46326dbc83ef88fdf8b697ccde6c5e337deb37d51f40469a",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-touch-lcd-4v3b-factory-fw-2026.11.14.2-pre.dock_gap.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
-      "size": 2618624,
-      "sha256": "c1941d14aebabb203f5c2dd106a71e96fb5df92c8271a4871c9497305918112e",
+      "build": "fw-2026.11.14.2-pre.dock_gap",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.14.2-pre.dock_gap.bin",
+      "size": 2627984,
+      "sha256": "61bd646006e190ace409f4ef6c7fdf56f413668b9b154173b56c7c9eab815b49",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-touch-lcd-4-fw-2026.11.14.2-pre.dock_gap.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin",
-        "size": 2684160,
-        "sha256": "5cd0794837594c3a6f686a8906e408c6a0375ddc3f292606f3a53866e61c3faa",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.14.2-pre.dock_gap.bin",
+        "size": 2693520,
+        "sha256": "f8ae6064dcce140fb02337848206b0022527d1baf31bcf6c384111e5bc2bca65",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/waveshare-touch-lcd-4-factory-fw-2026.11.14.2-pre.dock_gap.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.10.1",
-      "file": "m5stack-papers3-fw-2026.11.10.1.bin",
-      "size": 2297360,
-      "sha256": "8183b6ce369cb36e65c672bf183a59001b25df55c404036df0b4a40db357c7fc",
+      "build": "fw-2026.11.14.2-pre.dock_gap",
+      "file": "m5stack-papers3-fw-2026.11.14.2-pre.dock_gap.bin",
+      "size": 2305632,
+      "sha256": "a7281198b3843493686757caaa6006790262cb3849369658a456c8f2782a5eac",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/m5stack-papers3-fw-2026.11.14.2-pre.dock_gap.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.10.1.bin",
-        "size": 2362896,
-        "sha256": "6776c55f9c9113220c6bacce6c01e42aed2c9daa30d0f3e0d881b5fc8726cadc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-factory-fw-2026.11.10.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.14.2-pre.dock_gap.bin",
+        "size": 2371168,
+        "sha256": "aeb74c9fe7a011df6cdbc02f9d763c3388b91c14d896b430a4b7cb5b7a8570e3",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.2-pre.dock_gap/m5stack-papers3-factory-fw-2026.11.14.2-pre.dock_gap.bin"
       }
     }
   }
