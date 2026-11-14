@@ -213,6 +213,11 @@ export interface BausteinBuildResult {
   /** A card across both columns of a grid: a fill read along (value cards, decision 5). */
   wide?: boolean
   /**
+   * A value card (docs/2026-11-11-value-cards.md): its card docks name and
+   * value 0.5 mm apart, not a table's 1.5 (the user, 2026-11-14).
+   */
+  valueCard?: boolean
+  /**
    * Several parts, each in a tile of its own and no heading of the block's
    * own (LED look, decision 9): the block card lays them out as a table and
    * draws no card round them. Set by buildEntry().
@@ -946,11 +951,12 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
             return {
               objects: [...quiet, big, line],
               partColumns: [1, 2],
+              valueCard: true,
               topics: [readTopicEntry(read, "numeric", reported)],
               assets,
             }
           }
-          return { objects: [...quiet, big], topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
+          return { objects: [...quiet, big], valueCard: true, topics: [readTopicEntry(read, "numeric", reported)], ...(scaled ? { combinedTopics: [scaled] } : {}), assets }
         }
         const unit = control.unit ? ` ${control.unit}` : ""
         const value = labelObject(`{topic:${scaled ? `${COMBINED}${scaled.name}` : read}:F0}${unit}`, { ...parts.label, width: measureBlockText(`100${unit}`, font) }, palette, font)
@@ -960,6 +966,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           objects: [...quiet, shown, bar],
           headingPieces: quiet.length + 1,
           wide: true,
+          valueCard: true,
           topics: [readTopicEntry(read, "numeric", reported)],
           ...(scaled ? { combinedTopics: [scaled] } : {}),
           assets,

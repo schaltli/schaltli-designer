@@ -67,6 +67,9 @@ function partTile(piece: Piece, width: number, padding: number, scale: LayoutSca
   return { ...card, height: bottom + padding }
 }
 
+/** Between a value card's name and its value (the user, 2026-11-14): Free › Gap. */
+export const VALUE_CARD_GAP_MM = 0.5
+
 /** The width a block's parts need: their table's, as narrow as it goes. */
 export function blockPartsWidth(built: BausteinBuildResult, scale: LayoutScale): number {
   const controls = built.objects.slice(built.labelCount ?? 0)
@@ -178,7 +181,7 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
     y: 0,
     width: width + 2 * padding,
     height: 0,
-    properties: { look: "card" },
+    properties: { look: "card", ...(built.valueCard ? { gapMm: VALUE_CARD_GAP_MM } : {}) },
     children: [...(heading ? [heading] : []), parts] as ScreenObject[],
   }
   // Laid out at a height with room to spare: what it holds ends where its

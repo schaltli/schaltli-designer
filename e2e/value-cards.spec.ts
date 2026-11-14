@@ -167,5 +167,12 @@ test("on the 4\": the card's name as tall as its font's line, the value right be
   expect(laidName.height).toBe(nameFont.ascent + nameFont.descent)
   const below = laid.children!.filter((o: any) => o !== laidName && o.y > laidName.y)
   expect(below.length).toBeGreaterThan(0)
-  expect(Math.min(...below.map((o: any) => o.y))).toBe(laidName.y + laidName.height + Math.round(1.5 * ppm))
+  // 0.5 mm apart, the card's Gap (the user, 2026-11-14), not a table's 1.5.
+  expect(laid.properties.gapMm).toBe(0.5)
+  expect(Math.min(...below.map((o: any) => o.y))).toBe(laidName.y + laidName.height + Math.round(0.5 * ppm))
+  // A tank's card the same; a block that is no value card keeps the 1.5.
+  const tank = fittedBlockCard({ ...buildFromCatalog({ entry: e["Frischwasser"], control: e["Frischwasser"].controls[0], rect: RECT, palette, font: { id: xl.id, size: xl.size }, options: { look: "bar" } }), labelCount: 1 } as any, scale, 480)
+  expect(tank.properties?.gapMm).toBe(0.5)
+  const switchCard = fittedBlockCard({ ...buildFromCatalog({ entry: e["Innen"], control: e["Innen"].controls[0], rect: RECT, palette, font: { id: xl.id, size: xl.size }, options: { look: "number" }, bare: true }), labelCount: 1 } as any, scale, 480)
+  expect(switchCard.properties?.gapMm).toBeUndefined()
 })
