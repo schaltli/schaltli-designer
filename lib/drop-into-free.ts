@@ -41,7 +41,7 @@ const inside = (p: Point, x: number, y: number, w: number, h: number) => p.x >= 
  * areas overlap. Excluded objects are neither taken nor looked into: a free
  * area never goes into itself or what it holds.
  */
-function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>): ScreenObject | null {
+function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, pinned?: PinnedPanel): ScreenObject | null {
   const topmostFirst = [...list].sort((a, b) => b.zIndex - a.zIndex)
   for (const obj of topmostFirst) {
     if (exclude.has(obj.id)) continue
@@ -49,15 +49,24 @@ function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<
     const y = origin.y + obj.y
     if (obj.type === "free") {
       if (!inside(point, x, y, obj.width, obj.height)) continue
-      return areaIn(obj.children ?? [], { x, y }, point, exclude) ?? obj
+      return areaIn(obj.children ?? [], { x, y }, point, exclude, pinned) ?? obj
     }
     if ((obj.type === "table" || obj.type === "group") && inside(point, x, y, obj.width, obj.height)) {
-      const found = areaIn(obj.children ?? [], { x, y }, point, exclude)
+      const found = areaIn(obj.children ?? [], { x, y }, point, exclude, pinned)
       if (found) return found
+    }
+    // A switcher whose panel is held open on the canvas (the user,
+    // 2026-11-14): that panel is a place to drop into, as a free area is.
+    if (obj.type === "switcher" && pinned && inside(point, x, y, obj.width, obj.height)) {
+      const panel = pinned(obj)
+      if (panel && !exclude.has(panel.id)) return areaIn(panel.children ?? [], { x, y }, point, exclude, pinned) ?? panel
     }
   }
   return null
 }
+
+/** The panel of a switcher held open on the canvas, if one is. */
+export type PinnedPanel = (switcher: ScreenObject) => ScreenObject | undefined
 
 /** The panel `id` stands in, itself if it is one, or null for the screen. */
 function panelOf(objects: ScreenObject[], id: string | null): string | null {
@@ -74,10 +83,10 @@ function panelOf(objects: ScreenObject[], id: string | null): string | null {
  * stands in. Null: it stays with its parent. Looked for only in the screen or
  * panel the objects are in.
  */
-export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point): AreaDrop | null {
+export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point, pinned?: PinnedPanel): AreaDrop | null {
   const root = panelOf(objects, parentId)
   const rootList = root ? (findObjectById(objects, root)?.children ?? []) : objects
-  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids))
+  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids), pinned)
   if (area) return area.id === parentId ? null : { into: area.id }
   const parent = parentId ? findObjectById(objects, parentId) : null
   if (parent?.type !== "free") return null

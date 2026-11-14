@@ -58,6 +58,10 @@ Alle Panels füllen den Switcher genau aus. Verschieben und Grösse ändern kann
 
 **Bearbeiten:** Ist der Switcher ausgewählt, erscheinen über ihm Reiter, einer pro Panel. Ein Klick auf einen Reiter öffnet dieses Panel. Neue Objekte landen dann darin. <span class="ui">+</span> bei den Reitern fügt ein Panel hinzu. In der Objektliste kannst du Objekte auch in ein Panel ziehen.
 
+Ein geöffnetes Panel bleibt auf dem Screen offen, auch wenn du danach etwas ausserhalb wählst, und seine Reiter bleiben stehen. Erst ein anderer Reiter desselben Switchers oder <kbd>Esc</kbd> gibt es wieder frei; dann zeigt der Switcher wieder, was seine Bedingung sagt. So kannst du ein Objekt von aussen in ein Panel ziehen und es mit <kbd>Alt</kbd> an etwas darin stecken, auch wenn das Panel gerade nicht dran ist, etwa das Panel «on» einer Heizung, die aus ist.
+
+Das geht auch in einem Zug: Zieh das Objekt auf dem Screen los, fahr mit gedrückter Maustaste hinüber in die Objektliste und halte einen Moment über der Zeile des Panels. Das Panel öffnet sich auf dem Screen. Dann fährst du zurück und lässt los, wo es hin soll. Hältst du über einem zugeklappten Eintrag, klappt er auf. Lässt du über der Objektliste los, bleibt das Objekt, wo es war.
+
 Ohne Wert zeigt der Switcher das erste Panel.
 
 Die Reiter gibt es nur im Designer. Auf dem Gerät sieht man immer nur das gerade gültige Panel.

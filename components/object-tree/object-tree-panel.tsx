@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   ArrowRight,
@@ -88,6 +88,12 @@ const SCROLL_EDGE_PX = 32
 // The mark on a docked object's row, by its dock.
 const DOCK_MARKS: Record<string, string> = { top: "⤒ Top", bottom: "⤓ Bottom", left: "⇤ Left", right: "⇥ Right", fill: "▣ Fill" }
 const HOVER_OPEN_MS = 600
+/**
+ * Opens a row of the list, and every row above it, from outside: the canvas
+ * sends it while an object dragged there is held over a row of the list (the
+ * user, 2026-11-14) - detail is the object's id.
+ */
+export const TREE_OPEN_EVENT = "schaltli:tree-open"
 
 // A layers-panel-style tree: frontmost object at the top (matches zIndex
 // convention - see lib/object-order.ts's sortChildrenByZIndex, ascending =
@@ -125,6 +131,18 @@ export function ObjectTreePanel({
   // reached, and a closed container held over for a moment opens.
   const scrollRef = useRef<HTMLDivElement>(null)
   const hoverRef = useRef<{ id: string; since: number } | null>(null)
+
+  // Opened from the canvas (TREE_OPEN_EVENT): the row and the rows it stands in.
+  useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      const chain: string[] = []
+      for (let node = findObjectById(objects, id); node; node = findParentOf(objects, node.id)?.parent ?? null) chain.push(node.id)
+      setCollapsedIds((prev) => (chain.some((c) => prev.has(c)) ? new Set([...prev].filter((c) => !chain.includes(c))) : prev))
+    }
+    window.addEventListener(TREE_OPEN_EVENT, open)
+    return () => window.removeEventListener(TREE_OPEN_EVENT, open)
+  }, [objects])
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsedIds((prev) => {

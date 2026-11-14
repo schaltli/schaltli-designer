@@ -123,6 +123,7 @@ import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel,
 import { toggleMinHeight, toggleNextIndex } from "@/lib/toggle-button-shape"
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects, type LayoutScale } from "@/lib/layout"
 import { cellAnchorOf } from "@/lib/anchor"
+import { TREE_OPEN_EVENT } from "@/components/object-tree/object-tree-panel"
 import { TABLE_TYPE } from "@/lib/table"
 import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
@@ -141,6 +142,9 @@ export function carriesFromRibbon(tool: string): boolean {
 }
 // How near a span handle a press takes it, in screen pixels.
 const SPAN_HANDLE_HIT = 9
+// A row of the object list held under a dragged object this long opens (as
+// the list's own drags do, components/object-tree/object-tree-panel.tsx).
+const TREE_HOVER_OPEN_MS = 600
 // What has a height of its own in a table's cell, to drag at its corner;
 // a text's is its font's, a ring's its diameter, a switcher's its panels'.
 const CELL_HEIGHT_TYPES = new Set(["toggle-button", "button", "box", "free", "chart", "camera", "gauge", "dial"])
@@ -1104,6 +1108,27 @@ export function Canvas({
   for (let node = editingContainer; node; node = findParentOf(screen.objects, node.id)?.parent ?? null) {
     editingChain.add(node.id)
   }
+  // A panel once opened stays open on the canvas - drawn, its tabs shown, a
+  // place to drop into - until another tab of its switcher is opened or Esc
+  // is pressed, whatever its switcher's condition says (the user,
+  // 2026-11-14: an «on» panel whose condition was not met vanished as soon as something
+  // outside it was chosen, so nothing could be snapped to what it holds).
+  // Switcher id -> panel id.
+  const [pinnedPanels, setPinnedPanels] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const opened: Record<string, string> = {}
+    for (let node = editingContainer; node; node = findParentOf(screen.objects, node.id)?.parent ?? null) {
+      const parent = node.type === "panel" ? findParentOf(screen.objects, node.id)?.parent : null
+      if (parent?.type === "switcher") opened[parent.id] = node.id
+    }
+    if (Object.keys(opened).length === 0) return
+    setPinnedPanels((prev) => (Object.entries(opened).some(([s, panel]) => prev[s] !== panel) ? { ...prev, ...opened } : prev))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingContainerId, screen.objects])
+  const pinnedPanelOf = useCallback(
+    (switcher: ScreenObject): ScreenObject | undefined => (previewMode ? undefined : switcher.children?.find((p) => p.id === pinnedPanels[switcher.id])),
+    [previewMode, pinnedPanels],
+  )
 
   // The flat object list every interaction helper (findObjectAtPoint,
   // calculateSnap, selection-rectangle, resize) already expects, with
@@ -1363,13 +1388,13 @@ export function Canvas({
   // else the space open now. `moved`: not the space open now.
   const spaceAtPointer = useCallback(
     (p: { x: number; y: number }, exclude: string[]) => {
-      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p)
+      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p, pinnedPanelOf)
       if (!drop) return { ...drawSpace, moved: false }
       const origin = childOrigin(screen.objects, drop.into)
       const list = drop.into ? (findObjectById(screen.objects, drop.into)?.children ?? []) : screen.objects
       return { id: drop.into, origin, objects: list.map((c) => translateObject(c, origin.x, origin.y)), moved: true }
     },
-    [screen.objects, drawSpace],
+    [screen.objects, drawSpace, pinnedPanelOf],
   )
 
   // How something carried snaps in a space: with Alt as tables are built,
@@ -2169,6 +2194,7 @@ export function Canvas({
     liveValues,
     askedValues,
     editingContainerId,
+    pinnedPanelOf,
     liveValueTest,
     combinedTopics,
   ])
@@ -2722,13 +2748,17 @@ export function Canvas({
         // only the first matching panel.
         const pinnedPanel = obj.children?.find((p) => editingChain.has(p.id)) ?? null
         const isEditingThisTabControl = pinnedPanel !== null
-        const activePanel = pinnedPanel ?? getActivePanel(obj, getPreviewValueFromTopic)
+        // Held open since it was last opened, though worked on elsewhere now.
+        const heldPanel = pinnedPanel ? undefined : pinnedPanelOf(obj)
+        const activePanel = pinnedPanel ?? heldPanel ?? getActivePanel(obj, getPreviewValueFromTopic)
 
         // Tab strip: one clickable label per panel, drawn above the box,
         // visible only once this tab-control (or something inside its
         // open panel) is part of the current selection - see
         // drawTabStrip() and hit-testing in handleMouseDown.
-        const showTabStrip = isSelected || isEditingThisTabControl
+        // A held panel keeps its tabs, so it shows which panel is held and
+        // not what the switcher's condition says.
+        const showTabStrip = isSelected || isEditingThisTabControl || !!heldPanel
         if (showTabStrip) {
           drawTabStrip(ctx, obj, activePanel?.id ?? null, isEditingThisTabControl, zoom)
         }
@@ -3419,7 +3449,7 @@ export function Canvas({
       // checked, so this can never intercept a click meant for something else.
       for (const obj of screen.objects) {
         if (obj.type !== "switcher") continue
-        if (!(selectedObjectIds.includes(obj.id) || obj.children?.some((p) => editingChain.has(p.id)))) continue
+        if (!(selectedObjectIds.includes(obj.id) || obj.children?.some((p) => editingChain.has(p.id)) || pinnedPanels[obj.id])) continue
         const tab = hitTestTabStrip(obj, coords.x, coords.y, zoom)
         if (!tab) continue
         if (tab.kind === "add") {
@@ -3670,6 +3700,7 @@ export function Canvas({
       setDragState,
       onIconToolClick,
       editingContainerId,
+      pinnedPanels,
       editingGroup,
       onAddPanel,
       onSetEditingContainer,
@@ -5292,6 +5323,67 @@ export function Canvas({
     [selectedObjectIds, onDeleteObject, interactionObjects, updateInteractionObject],
   )
 
+  // An object dragged and given up: put back where it was, nothing snapped -
+  // what Esc does, and a release off the canvas (below).
+  const cancelObjectDrag = () => {
+    if (dragState?.mode !== "drag" || !dragState.objectId) return
+    // Out of a table it never moved: nothing to put back.
+    if (!outDrag) updateInteractionObject(dragState.objectId, { x: dragState.startObjectPos.x, y: dragState.startObjectPos.y })
+    setDragState(null)
+    setSnapDrop(null)
+    setOutDrag(null)
+    setDockDrag(null)
+    setAreaDrop(null)
+    setPlaceArea(null)
+    setPlaceHint(null)
+    setSnapSpace(null)
+  }
+  const cancelObjectDragRef = useRef(cancelObjectDrag)
+  cancelObjectDragRef.current = cancelObjectDrag
+  const objectsRef = useRef(screen.objects)
+  objectsRef.current = screen.objects
+
+  // An object dragged on the canvas may go over the object list and come
+  // back (the user, 2026-11-14): held a moment over a row there, that row
+  // opens in the list - a switcher its panels - and a panel opens on the
+  // canvas, held, so what it holds can be snapped to. Let go anywhere but
+  // the canvas, the drag is given up.
+  const draggingObject = dragState?.mode === "drag" && !!dragState.objectId
+  useEffect(() => {
+    if (!draggingObject) return
+    let hover: { id: string; timer: number } | null = null
+    const forget = () => {
+      if (hover) window.clearTimeout(hover.timer)
+      hover = null
+    }
+    const open = (id: string) => {
+      const node = findObjectById(objectsRef.current, id)
+      if (!node) return
+      window.dispatchEvent(new CustomEvent(TREE_OPEN_EVENT, { detail: id }))
+      const parent = node.type === "panel" ? findParentOf(objectsRef.current, id)?.parent : null
+      if (parent?.type === "switcher") setPinnedPanels((prev) => (prev[parent.id] === id ? prev : { ...prev, [parent.id]: id }))
+    }
+    const onMove = (e: MouseEvent) => {
+      if (e.target === canvasRef.current) return forget()
+      const row = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest("[data-object-id]")
+      const id = row?.getAttribute("data-object-id") ?? null
+      if (id === hover?.id) return
+      forget()
+      if (id) hover = { id, timer: window.setTimeout(() => open(id), TREE_HOVER_OPEN_MS) }
+    }
+    const onUp = (e: MouseEvent) => {
+      forget()
+      if (e.target !== canvasRef.current) cancelObjectDragRef.current()
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+    return () => {
+      forget()
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+  }, [draggingObject])
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (previewMode) return
@@ -5342,19 +5434,12 @@ export function Canvas({
       if (e.key === "Escape" && dragState?.mode === "drag" && dragState.objectId) {
         e.preventDefault()
         e.stopPropagation()
-        // Out of a table it never moved: nothing to put back.
-        if (!outDrag) updateInteractionObject(dragState.objectId, { x: dragState.startObjectPos.x, y: dragState.startObjectPos.y })
-        setDragState(null)
-        setSnapDrop(null)
-        setOutDrag(null)
-        setDockDrag(null)
-        setAreaDrop(null)
-        setPlaceArea(null)
-        setPlaceHint(null)
-        setSnapSpace(null)
+        cancelObjectDrag()
         return
       }
       if (e.key === "Escape") {
+        // Every panel held open goes back to what its switcher's condition says.
+        setPinnedPanels({})
         // Inside a group, Escape leaves it and selects it - the editor does
         // that for the whole window (project-editor.tsx), since a group is
         // entered from the object list too, where the canvas has no keys.
@@ -5542,6 +5627,8 @@ export function Canvas({
         data-pixels-per-mm={layoutScale.pixelsPerMm}
         data-span-handles={spanHandles ? JSON.stringify(spanHandles.handles) : undefined}
         data-cell-height-handle={spanHandles?.grow ? JSON.stringify(spanHandles.grow) : undefined}
+        // Switcher id -> the panel held open on the canvas, for tests.
+        data-pinned-panels={Object.keys(pinnedPanels).length > 0 ? JSON.stringify(pinnedPanels) : undefined}
         data-size-lines={sizeLines ? JSON.stringify(sizeLines.lines) : undefined}
         data-editing-container={editingContainerId ?? undefined}
         // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.
