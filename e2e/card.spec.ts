@@ -17,7 +17,7 @@ const project = (objects: ScreenObject[], cards?: Record<string, number>, pixels
 
 test.describe("card: the model", () => {
   test("the defaults; a setting overrides only itself; nonsense is the default", () => {
-    expect(cardSettingsOf(undefined)).toEqual({ radiusMm: 2, edgePx: 1, accentEdgePx: 2, paddingMm: 2 })
+    expect(cardSettingsOf(undefined)).toEqual({ radiusMm: 2, edgePx: 1, accentEdgePx: 2, paddingMm: 1 })
     expect(cardSettingsOf({ cards: { radiusMm: 3 } })).toEqual({ ...CARD_DEFAULTS, radiusMm: 3 })
     expect(cardSettingsOf({ cards: { edgePx: -1, paddingMm: NaN } as any })).toEqual(CARD_DEFAULTS)
   })
@@ -29,7 +29,7 @@ test.describe("card: the model", () => {
       strokeColor: "outline",
       strokeWidth: 1,
       cornerRadius: 10,
-      padding: 2,
+      padding: 1,
     })
     expect(withCardLook(area({ look: "card-accent" }), CARD_DEFAULTS, 7.88).properties).toMatchObject({
       strokeColor: "accent",
@@ -45,7 +45,7 @@ test.describe("card: the model", () => {
     expect(withCardLook(card, CARD_DEFAULTS, 5)).toBe(card)
     const { look: _l, ...none } = card.properties!
     const back = withCardLook({ ...card, properties: none }, CARD_DEFAULTS, 5)
-    expect(back.properties).toEqual({ fillColor: "panel", strokeColor: "outline", strokeWidth: 1, cornerRadius: 10, padding: 2 })
+    expect(back.properties).toEqual({ fillColor: "panel", strokeColor: "outline", strokeWidth: 1, cornerRadius: 10, padding: 1 })
   })
 
   test("the layout pass applies looks on every screen and at any depth, before docking; a second pass changes nothing", () => {

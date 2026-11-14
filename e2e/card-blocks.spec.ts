@@ -60,8 +60,8 @@ function placed(piece: Omit<ScreenObject, "id" | "zIndex">): ScreenObject {
 test.describe("card blocks: the model", () => {
   test("a block of several parts: a card, the name docked at the top, the parts below docked Fill", () => {
     const card = blockCard(build(), 300, SCALE)
-    // The parts as wide as the block was built, the card its padding (2 mm, 10 px) wider each side.
-    expect(card).toMatchObject({ type: "free", width: 320, properties: { look: "card" } })
+    // The parts as wide as the block was built, the card its padding (1 mm, 5 px) wider each side.
+    expect(card).toMatchObject({ type: "free", width: 310, properties: { look: "card" } })
     const [heading, parts] = card.children!
     expect(heading).toMatchObject({ type: "text", properties: { dock: "top", text: "Hall" } })
     expect(isSnapTable(parts)).toBe(true)
@@ -83,7 +83,7 @@ test.describe("card blocks: the model", () => {
   test("as tall as its content: laid out, the parts end the padding above its bottom; nothing left out", () => {
     const card = layoutObjects([placed(blockCard(build(), 300, SCALE))], SCALE)[0]
     const parts = card.children!.find((c) => c.properties?.dock === "fill")!
-    expect(card.height - (parts.y + parts.height)).toBe(10)
+    expect(card.height - (parts.y + parts.height)).toBe(5)
     expect(card.children!.some((c) => c.properties?.dockedOut)).toBe(false)
     // The parts across the card inside its padding.
     expect(parts.width).toBe(300)

@@ -294,9 +294,9 @@ test.describe("convert: in a cell and a card", () => {
     const slider = find(after, "slider")!
     expect(slider.id).toBe(dial.id)
     expect(after.height).toBeLessThan(card.height)
-    // Still ending with its content: the parts the padding (2 mm) above its bottom.
+    // Still ending with its content: the parts the padding (1 mm) above its bottom.
     const parts = partsOf(after)
-    expect(after.height - (parts.y + parts.height)).toBe(10)
+    expect(after.height - (parts.y + parts.height)).toBe(5)
     nothingOverlaps(parts)
     const [again] = layoutObjects(convertInTree([after], dial.id, "dial", SCALE)!, SCALE)
     expect(again.height).toBeGreaterThan(after.height)
@@ -304,7 +304,7 @@ test.describe("convert: in a cell and a card", () => {
     const ring = find(again, "dial")!
     expect(ring.width).toBe(ring.height)
     expect(Math.abs(ring.width - 6 * 14)).toBeLessThanOrEqual(2 * (ring.properties.thickness ?? 0))
-    expect(again.height - (partsOf(again).y + partsOf(again).height)).toBe(10)
+    expect(again.height - (partsOf(again).y + partsOf(again).height)).toBe(5)
     nothingOverlaps(partsOf(again))
   })
 

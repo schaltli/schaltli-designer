@@ -83,7 +83,8 @@ test("a dimmer (a number 0-100 %): the slider's value beside the name, «Aus» a
 test("a dimmer on the 4\": where name, value and icon do not fit, the icon goes and the value with «Aus» stays", () => {
   const entry = { id: "dim", label: "Dimmer 1", controls: [{ kind: "level", read: "d/level", write: "d/set", min: 0, max: 100, step: 1, unit: "%" }] } as any
   const built = buildEntry({ entry, rect: { x: 0, y: 0, width: 200, height: 60 }, palette: controlPalette("24bit"), font: { id: "f", size: 18 }, options: { label: entry.label, look: "", icon: { name: "mdi:lightbulb", data: "<svg/>", size: 41 } } })
-  const scale = { pixelsPerMm: 6.78, fonts: [], cards: cardSettingsOf(undefined) }
+  // The cards' padding as it was then (2 mm; 1 since 2026-11-14), so the room is the one described below.
+  const scale = { pixelsPerMm: 6.78, fonts: [], cards: cardSettingsOf({ cards: { paddingMm: 2 } }) }
   // A screen where the three do not fit, the name and the value do (the
   // test font's widths: 220 holds all three, 180 not even the two).
   const card = fittedBlockCard(built, scale, 200)

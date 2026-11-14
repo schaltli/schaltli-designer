@@ -179,9 +179,10 @@ test("a docked table dragged on the canvas shows its outline following the point
   const { canvas, box } = await getMainCanvas(page)
   // Chosen in the tree, where it is one click away however deep it stands.
   await objectTreeRow(page, "grau").click()
-  // Pressed in its first cell, away from its column line.
-  const from = devicePoint(box, 45, 45)
-  const to = devicePoint(box, 45, 225)
+  // Pressed in its first cell, away from its column line (at x 45 since the
+  // cards' padding is 1 mm, 2026-11-14).
+  const from = devicePoint(box, 33, 40)
+  const to = devicePoint(box, 33, 220)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   for (let i = 1; i <= 10; i++) await page.mouse.move(from.x, from.y + ((to.y - from.y) * i) / 10)

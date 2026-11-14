@@ -27,8 +27,8 @@ export interface CardSettings {
   buttonRadiusMm?: number
 }
 
-/** The defaults (the user, 2026-11-03): about CamperUI's on the 4". */
-export const CARD_DEFAULTS: CardSettings = { radiusMm: 2, edgePx: 1, accentEdgePx: 2, paddingMm: 2 }
+/** The defaults (the user, 2026-11-03): about CamperUI's on the 4"; the padding 1 mm since 2026-11-14 (the user: 2 wasted room). */
+export const CARD_DEFAULTS: CardSettings = { radiusMm: 2, edgePx: 1, accentEdgePx: 2, paddingMm: 1 }
 
 const number = (value: unknown, fallback: number) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback)
 

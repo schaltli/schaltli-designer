@@ -52,7 +52,7 @@ test("the Card tool beside Free places a card: Panel, an Outline edge, the radiu
     strokeColor: "outline",
     strokeWidth: 1,
     cornerRadius: Math.round(2 * ppm),
-    padding: 2,
+    padding: 1,
   })
   expect([card.width, card.height]).toEqual([Math.round(40 * ppm), Math.round(30 * ppm)])
 })
