@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.10.1",
-  "commit": "0072b37a238b56a24b0f9b65a0822a8e9a98db58",
+  "release": "fw-2026.11.14.6-pre.rings",
+  "commit": "13add36f80d6ca9febd3c3020b51e3dd9c60d65b",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.10.1.bin",
-      "size": 2882592,
-      "sha256": "19089ca1a1d2a1dc974b78a07920c0cef2571d050b2804efbdabc0dbf00d2787",
+      "build": "fw-2026.11.14.6-pre.rings",
+      "file": "waveshare-knob-1v8-fw-2026.11.14.6-pre.rings.bin",
+      "size": 2891696,
+      "sha256": "a225830c3485fd8f22606285a3754c73c03e6b58261016015ad9a40a49b4cf9b",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-knob-1v8-fw-2026.11.14.6-pre.rings.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.10.1.bin",
-        "size": 2948128,
-        "sha256": "130717799d11189709cb47d3bba3846ec544d92fc0f0a08b724c4f1193bebcc9",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-knob-1v8-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.14.6-pre.rings.bin",
+        "size": 2957232,
+        "sha256": "0129d486aeaded1282d891369c667a53501b10abf0e22ce859519d8fb37799dd",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-knob-1v8-factory-fw-2026.11.14.6-pre.rings.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
-      "size": 2827440,
-      "sha256": "9b13000ced6a106a855fec200b8d91fdba7956c7e52e4a890abc703e65813478",
+      "build": "fw-2026.11.14.6-pre.rings",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.14.6-pre.rings.bin",
+      "size": 2836800,
+      "sha256": "eace6e36cfbdefb419a754bc9844b63126410d9f4c853e3dbc3c4ee36c3a266b",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-touch-lcd-4v3b-fw-2026.11.14.6-pre.rings.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin",
-        "size": 2892976,
-        "sha256": "a7eccba4e2bd0f878443335b5bb5fd77a803873cf8ecc2bdd82fc3cb06630b16",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.14.6-pre.rings.bin",
+        "size": 2902336,
+        "sha256": "4ea4b1f84b2639bec1eaa2088336eb66451d081fc5aa91f266597ae85181db42",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-touch-lcd-4v3b-factory-fw-2026.11.14.6-pre.rings.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.10.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
-      "size": 2618624,
-      "sha256": "c1941d14aebabb203f5c2dd106a71e96fb5df92c8271a4871c9497305918112e",
+      "build": "fw-2026.11.14.6-pre.rings",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.14.6-pre.rings.bin",
+      "size": 2627984,
+      "sha256": "d1685638828cd055c35ff60febbd43a4292994d1684d055e5e4651731233553b",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-touch-lcd-4-fw-2026.11.14.6-pre.rings.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin",
-        "size": 2684160,
-        "sha256": "5cd0794837594c3a6f686a8906e408c6a0375ddc3f292606f3a53866e61c3faa",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/waveshare-touch-lcd-4-factory-fw-2026.11.10.1.bin"
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.14.6-pre.rings.bin",
+        "size": 2693520,
+        "sha256": "fa78ba8451212c70a9698b87eb1ca101b04ff4089ce1d66ba5671a5411e7bedc",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/waveshare-touch-lcd-4-factory-fw-2026.11.14.6-pre.rings.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.10.1",
-      "file": "m5stack-papers3-fw-2026.11.10.1.bin",
-      "size": 2297360,
-      "sha256": "8183b6ce369cb36e65c672bf183a59001b25df55c404036df0b4a40db357c7fc",
+      "build": "fw-2026.11.14.6-pre.rings",
+      "file": "m5stack-papers3-fw-2026.11.14.6-pre.rings.bin",
+      "size": 2305632,
+      "sha256": "73c1134308a202f133e7fecc9c8db58eec14f3124a38f31f280ed9be08d47538",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-fw-2026.11.10.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/m5stack-papers3-fw-2026.11.14.6-pre.rings.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.10.1.bin",
-        "size": 2362896,
-        "sha256": "6776c55f9c9113220c6bacce6c01e42aed2c9daa30d0f3e0d881b5fc8726cadc",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.10.1/m5stack-papers3-factory-fw-2026.11.10.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.14.6-pre.rings.bin",
+        "size": 2371168,
+        "sha256": "26b2797ddf23576f8198f4a4ff13ec28ba08b4a2a957fd09e5bb3c898d58cb35",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.14.6-pre.rings/m5stack-papers3-factory-fw-2026.11.14.6-pre.rings.bin"
       }
     }
   }
