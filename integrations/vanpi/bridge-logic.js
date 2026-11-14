@@ -118,6 +118,15 @@ function createBridgeLogic() {
   // The answers this bridge asks for, in the order it asks.
   var REQUESTS = ["batt", "level", "temp", "relay", "dimmer", "heater", "mppt", "bms", "maxxfan"]
 
+  // How many of each Pekaway knows: 8 relays on the VanPi, 16 with an
+  // Out-X-In Pro; 8 dimmers, 15 with a Dimmy Pro; 8 WiFi relays. Pekaway's
+  // MQTT API routes pkw/cmnd/relay/1-16 and pkw/cmnd/dimmer/1-15 (its MQTT API
+  // tab, checked in the van 2026-11-14; #78). Only what an answer names is
+  // published or announced, so a VanPi without them sees nothing new.
+  var RELAYS = 16
+  var WIFI_RELAYS = 8
+  var DIMMERS = 15
+
   // One Pekaway answer -> [{ topic, value }] under schaltli/state. Unknown or
   // malformed answers give nothing rather than throwing: a bridge that stops
   // on one odd message stops every value. `last` is what was published so
@@ -165,18 +174,18 @@ function createBridgeLogic() {
         put("temp/" + s + "/name", sensor.name)
       }
     } else if (kind === "relay") {
-      for (var r = 1; r <= 8; r++) {
+      for (var r = 1; r <= RELAYS; r++) {
         if ("Relay" + r in data) {
           put("relay/" + r + "/power", onOff(data["Relay" + r]))
           put("relay/" + r + "/name", data["Relay" + r + " Name"])
         }
-        if ("WifiRelay" + r in data) {
+        if (r <= WIFI_RELAYS && "WifiRelay" + r in data) {
           put("wifirelay/" + r + "/power", onOff(data["WifiRelay" + r]))
           put("wifirelay/" + r + "/name", data["WifiRelay" + r + " Name"])
         }
       }
     } else if (kind === "dimmer") {
-      for (var d = 1; d <= 8; d++) {
+      for (var d = 1; d <= DIMMERS; d++) {
         var dimmer = data["dimmer" + d]
         if (!dimmer) continue
         put("dimmer/" + d + "/level", dimmer.state)
@@ -410,12 +419,12 @@ function createBridgeLogic() {
         device_class: "battery",
       })
     } else if (kind === "relay") {
-      for (var r = 1; r <= 8; r++) {
+      for (var r = 1; r <= RELAYS; r++) {
         if ("Relay" + r in data) relay("relay", "Relay", r, "Relais")
-        if ("WifiRelay" + r in data) relay("wifirelay", "WifiRelay", r, "WiFi-Relais")
+        if (r <= WIFI_RELAYS && "WifiRelay" + r in data) relay("wifirelay", "WifiRelay", r, "WiFi-Relais")
       }
     } else if (kind === "dimmer") {
-      for (var d = 1; d <= 8; d++) {
+      for (var d = 1; d <= DIMMERS; d++) {
         var dimmer = data["dimmer" + d]
         if (!dimmer || typeof dimmer !== "object") continue
         // A number from 0 to 100 %, as the Dimmy itself knows it: 0 is off
@@ -1022,7 +1031,7 @@ function createBridgeLogic() {
     }
 
     if ((group === "relay" || group === "wifirelay") && parts.length === 4) {
-      var n = intIn(parts[3], 1, 8)
+      var n = intIn(parts[3], 1, group === "relay" ? RELAYS : WIFI_RELAYS)
       var wanted = n && power(state[PREFIX + group + "/" + n + "/power"])
       if (!wanted) return null
       var pkw = group === "relay" ? "relay" : "wrelay"
@@ -1040,7 +1049,7 @@ function createBridgeLogic() {
       }
     }
     if (group === "dimmer" && parts.length === 4) {
-      var dn = intIn(parts[3], 1, 8)
+      var dn = intIn(parts[3], 1, DIMMERS)
       if (!dn) return null
       var level = dimmerLevel(p, PREFIX + "dimmer/" + dn + "/", state)
       if (level === null) return null

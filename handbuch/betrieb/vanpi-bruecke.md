@@ -20,9 +20,9 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt dana
 | `schaltli/state/battery/time_to_go` | wie lange die Batterie noch reicht, in ganzen Minuten; `none` beim Laden, im Leerlauf oder wenn Pekaway es nicht weiss. Pekaway rechnet die Restzeit selbst oder übernimmt sie vom Victron-Shunt oder BMS, legt sie aber nicht auf MQTT; die Brücke liest sie aus Pekaways Node-RED |
 | `schaltli/state/bms/voltage`, `…/current`, `…/soc`, `…/capacity`, `…/cell/<n>` | Werte des Batteriemanagements, bis 16 Zellen |
 | `schaltli/state/temp/<n>/value`, `…/name` | Temperaturfühler |
-| `schaltli/state/relay/<n>/power`, `…/name` | Relais 1 bis 8, `on` oder `off` |
+| `schaltli/state/relay/<n>/power`, `…/name` | Relais 1 bis 8, mit einer Out-X-In Pro bis 16, `on` oder `off` |
 | `schaltli/state/wifirelay/<n>/power`, `…/name` | WLAN-Relais 1 bis 8 |
-| `schaltli/state/dimmer/<n>/level`, `…/name` | Dimmer 1 bis 8, Helligkeit 0 bis 100 |
+| `schaltli/state/dimmer/<n>/level`, `…/name` | Dimmer 1 bis 8, mit einem Dimmy Pro bis 15, Helligkeit 0 bis 100 |
 | `schaltli/state/dimmer/<n>/power` | `on`, sobald die Helligkeit über 0 liegt, sonst `off`; Pekaway meldet das nicht, die Brücke leitet es ab |
 | `schaltli/state/dimmer/<n>/on_level` | die letzte Helligkeit über 0, auf die `on` zurückgeht |
 | `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error`, `…/name` | Heizung |
@@ -185,7 +185,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 | Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Landstrom», «Lichtmaschine», «Solar» |
 
-Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
+Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt, mit einer Out-X-In Pro alle sechzehn. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
 Batteriemanagement und die einzelnen Werte des Solarladereglers kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 

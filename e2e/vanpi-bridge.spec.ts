@@ -231,7 +231,9 @@ test.describe("VanPi bridge logic", () => {
     expect(logic.command("schaltli/cmnd/switchall", "off", state).publish[0].topic).toBe("pkw/cmnd/switchall/POWER")
 
     for (const [topic, payload] of [
-      ["schaltli/cmnd/relay/9", "on"],
+      ["schaltli/cmnd/relay/17", "on"],
+      ["schaltli/cmnd/wifirelay/9", "on"],
+      ["schaltli/cmnd/dimmer/16", "40"],
       ["schaltli/cmnd/relay/3", "maybe"],
       ["schaltli/cmnd/dimmer/2", "150"],
       ["schaltli/cmnd/heater/target", "40"],
@@ -243,6 +245,52 @@ test.describe("VanPi bridge logic", () => {
     ]) {
       expect(logic.command(topic, payload, state), `${topic} = ${payload}`).toBeNull()
     }
+  })
+
+  // A VanPi with an Out-X-In Pro (relays 9-16) and a Dimmy Pro (dimmers 9-15),
+  // as a tester's Pekaway answered (forum thread 2781 #23, 2026-11-14; #78).
+  // Pekaway's MQTT API routes pkw/cmnd/relay/1-16 and pkw/cmnd/dimmer/1-15.
+  test("relays 9-16 and dimmers 9-15 of an Out-X-In Pro and a Dimmy Pro are read, announced and switched", () => {
+    const relay = JSON.stringify({
+      ...JSON.parse(RECORDED.relay),
+      Relay9: false, "Relay9 Name": "markise einfahren",
+      Relay10: true, "Relay10 Name": "markise ausfahren",
+      Relay11: false, "Relay11 Name": "wait",
+      Relay16: false, "Relay16 Name": "Relay 16",
+    })
+    const dimmer = JSON.stringify({
+      ...JSON.parse(RECORDED.dimmer),
+      dimmer9: { state: 0, name: "Küche", autooff: null, offtime: null },
+      dimmer12: { state: 35, name: "Werkstatt", autooff: null, offtime: null },
+      dimmer15: { state: 0, name: "Bodenlicht", autooff: null, offtime: null },
+      rgbw1: { state: { rgb: { r: 255, g: 255, b: 255 }, white: 0, bri: 0 }, name: "Markisenbeleuchtung", autooff: 0, offtime: null },
+    })
+    const logic = createBridgeLogic()
+
+    const relays = asMap(logic.flatten("relay", relay))
+    expect(relays["schaltli/state/relay/9/name"]).toBe("markise einfahren")
+    expect(relays["schaltli/state/relay/10/power"]).toBe("on")
+    expect(relays["schaltli/state/relay/16/power"]).toBe("off")
+    expect(relays["schaltli/state/relay/12/power"]).toBeUndefined()
+    const dimmers = asMap(logic.flatten("dimmer", dimmer))
+    expect(dimmers["schaltli/state/dimmer/12/level"]).toBe("35")
+    expect(dimmers["schaltli/state/dimmer/9/name"]).toBe("Küche")
+    expect(dimmers["schaltli/state/dimmer/15/power"]).toBe("off")
+
+    const names = (kind: string, payload: string) =>
+      logic
+        .announce(kind, payload, {})
+        .publish.filter((c: { payload: string }) => c.payload)
+        .map((c: { payload: string }) => JSON.parse(c.payload).name)
+    expect(names("relay", relay)).toEqual(expect.arrayContaining(["markise einfahren", "markise ausfahren", "Relay 16"]))
+    expect(names("dimmer", dimmer)).toEqual(expect.arrayContaining(["Küche", "Werkstatt", "Bodenlicht"]))
+    // A VanPi without them announces what it did before, and no more.
+    expect(names("relay", RECORDED.relay).filter((n: string) => /^markise|Relay 16$/.test(n))).toEqual([])
+
+    const state = { ...asMap(logic.flatten("relay", relay)), ...asMap(logic.flatten("dimmer", dimmer)) }
+    expect(logic.command("schaltli/cmnd/relay/16", "on", state).publish).toEqual([{ topic: "pkw/cmnd/relay/16/POWER", payload: "on" }])
+    expect(logic.command("schaltli/cmnd/relay/10", "toggle", state).publish[0].payload).toBe("off")
+    expect(logic.command("schaltli/cmnd/dimmer/15", "40", state).publish).toEqual([{ topic: "pkw/cmnd/dimmer/15/POWER", payload: "40" }])
   })
 
   // Block plan Task 9: what the bridge publishes, announced in Home
