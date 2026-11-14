@@ -102,7 +102,7 @@ import {
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
-import { areaDropAt, middleOf, type AreaDrop } from "@/lib/drop-into-free"
+import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
 import { onGlass, type CarryTarget } from "@/lib/carry"
 
 // Interaction imports
@@ -1408,6 +1408,24 @@ export function Canvas({
       return under?.kind === "table" && under.target.kind === "cell" ? under : null
     },
     [layoutScale],
+  )
+
+  // With Alt, a panel held open takes what is carried where it would snap to
+  // something the panel holds, the pointer over it or not: a switcher 160 px
+  // tall, held at its middle, never had the pointer over the 33 px panel
+  // whose button group it was to go below (the user, 2026-11-14).
+  const heldPanelSnap = useCallback(
+    (carried: ScreenObject, rect: SnapRect, pointer: { x: number; y: number }, skip: string | null) => {
+      for (const panel of heldPanels(screen.objects, [carried.id], drawSpace.id, pinnedPanelOf)) {
+        if (panel.id === skip) continue
+        const origin = childOrigin(screen.objects, panel.id)
+        const objects = [...(panel.children ?? []).map((c) => translateObject(c, origin.x, origin.y)), { ...carried, ...rect }]
+        const snap = placingSnap(objects, carried.id, rect, pointer, true)
+        if (snap) return { id: panel.id, objects, snap }
+      }
+      return null
+    },
+    [screen.objects, drawSpace, pinnedPanelOf, placingSnap],
   )
 
   // What the hint at the pointer says: what letting go does now, and what
@@ -4078,10 +4096,12 @@ export function Canvas({
           const lifted = liftOut(drawSpace.objects, editingContainer!.id, draggedObject.id, layoutScale, true)
           const space = lifted.objects.map((o) => (o.id === draggedObject.id ? translateObject(o, Math.round(rect.x - o.x), Math.round(rect.y - o.y)) : o))
           setOutDrag({ tableId: editingContainer!.id, id: draggedObject.id, rect, space })
-          const target = spaceAtPointer(pointer, [draggedObject.id, editingContainer!.id])
+          const atPointer = spaceAtPointer(pointer, [draggedObject.id, editingContainer!.id])
+          const held = previewMode ? null : heldPanelSnap(draggedObject, rect, pointer, atPointer.moved ? atPointer.id : drawSpace.id)
+          const target = alt && held ? { id: held.id, objects: held.objects.slice(0, -1), moved: true } : atPointer
           const there = target.moved ? [...target.objects, { ...draggedObject, ...rect }] : space
-          const snapping = previewMode ? null : placingSnap(there, draggedObject.id, rect, pointer, alt)
-          const altSnap = previewMode || alt ? null : placingSnap(there, draggedObject.id, rect, pointer, true)
+          const snapping = previewMode ? null : alt && held ? held.snap : placingSnap(there, draggedObject.id, rect, pointer, alt)
+          const altSnap = previewMode || alt ? null : (held?.snap ?? placingSnap(there, draggedObject.id, rect, pointer, true))
           const into = target.moved && onMoveIntoArea ? { into: target.id, ids: [draggedObject.id], snap: snapping, space: there } : null
           setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(into) ? current : into))
           const here = into ? null : snapping
@@ -4099,11 +4119,13 @@ export function Canvas({
           const shiftY = dragState.startObjectPos.y + deltaY - draggedObject.y
           const rect = { x: draggedObject.x + shiftX, y: draggedObject.y + shiftY, width: draggedObject.width, height: draggedObject.height }
           const ids = selectedObjects.map((obj) => obj.id)
-          const target = spaceAtPointer(pointer, ids)
-          const there = target.moved ? [...target.objects, { ...draggedObject, ...rect }] : interactionObjects
+          const atPointer = spaceAtPointer(pointer, ids)
           const single = ids.length === 1 && !!onSnapDrop
-          const snapping = single ? placingSnap(there, draggedObject.id, rect, pointer, alt) : null
-          const altSnap = single && !alt ? placingSnap(there, draggedObject.id, rect, pointer, true) : null
+          const held = single ? heldPanelSnap(draggedObject, rect, pointer, atPointer.moved ? atPointer.id : drawSpace.id) : null
+          const target = alt && held ? { id: held.id, objects: held.objects.slice(0, -1), moved: true } : atPointer
+          const there = target.moved ? [...target.objects, { ...draggedObject, ...rect }] : interactionObjects
+          const snapping = single ? (alt && held ? held.snap : placingSnap(there, draggedObject.id, rect, pointer, alt)) : null
+          const altSnap = single && !alt ? (held?.snap ?? placingSnap(there, draggedObject.id, rect, pointer, true)) : null
           const into = target.moved && onMoveIntoArea ? { into: target.id, ids, snap: snapping, space: there } : null
           setAreaDrop((current) => (JSON.stringify(current) === JSON.stringify(into) ? current : into))
           const here = into ? null : snapping
@@ -4519,6 +4541,7 @@ export function Canvas({
       onSnapMoveOut,
       onMoveIntoArea,
       spaceAtPointer,
+      heldPanelSnap,
       placingSnap,
       placeHintFor,
       spanHandles,

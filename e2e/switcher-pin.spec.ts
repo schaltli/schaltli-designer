@@ -132,3 +132,76 @@ test("dragged on the canvas and let go over the object list: nothing moves, as w
   const objects = await savedObjects(page)
   expect(objects.find((o) => o.id === "draussen")).toMatchObject({ x: 40, y: 220 })
 })
+
+// The heater's case (the user, 2026-11-14): the switcher whose panel is held
+// stands in a table, and so does what is carried - out of that same table,
+// which is no place to drop into, though the panel held in it is. And the
+// carried object, 160 px tall and held at its middle, has the pointer far
+// below the 80 px panel when its top edge is under the box there: with Alt,
+// a held panel takes it where it snaps to something the panel holds.
+async function inATable(): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(await project()))
+  const p = JSON.parse(await zip.file("project.json")!.async("string"))
+  const screen = p.screens.find((s: Obj) => s.id === "screen-1")
+  const [weiche] = screen.objects
+  screen.objects = [
+    {
+      id: "tabelle",
+      type: "table",
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 250,
+      zIndex: 1,
+      properties: { grid: 1, columns: [{}], rows: [{}, {}] },
+      children: [
+        { ...weiche, properties: { ...weiche.properties, cell: { row: 0, column: 0 } } },
+        { ...box("hoch", 0, 90, 2), height: 160, properties: { fillColor: "#3366cc", cell: { row: 1, column: 0 } } },
+      ],
+    },
+  ]
+  zip.file("project.json", JSON.stringify(p))
+  const out = path.join(os.tmpdir(), `switcher-pin-table-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return out
+}
+
+test("out of a table into a panel held in it: with Alt it snaps below what the panel holds, the pointer far below the panel", async ({ page }) => {
+  await loadProject(page, await inATable())
+  await openAllTwisties(page)
+  await objectTreeRow(page, "an").click()
+  expect(await pins(page)).toEqual({ weiche: "an" })
+  await objectTreeRow(page, "hoch").click()
+  const { canvas, box: c } = await getMainCanvas(page)
+  // Where the table put the switcher and the tall box, from what is saved.
+  const before = await savedObjects(page)
+  const table = before.find((o) => o.id === "tabelle")!
+  const sw = table.children!.find((o) => o.id === "weiche")!
+  const hoch = table.children!.find((o) => o.id === "hoch")!
+  const modusBottom = table.y + sw.y + 30
+  const mid = { x: table.x + hoch.x + 75, y: table.y + hoch.y + 80 }
+  // Its top edge carried to 3 px under «modus»: the pointer at its middle,
+  // 80 px further down - below the panel.
+  const toY = modusBottom + 3 + 80
+  expect(toY).toBeGreaterThan(table.y + sw.y + sw.height)
+  const from = devicePoint(c, mid.x, mid.y)
+  const to = devicePoint(c, mid.x, toY)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.keyboard.down("Alt")
+  for (let i = 1; i <= 10; i++) await page.mouse.move(from.x + 1, from.y + ((to.y - from.y) * i) / 10)
+  await expect.poll(async () => JSON.parse((await canvas.getAttribute("data-place-hint")) ?? "{}").now).toBe("Table")
+  await page.mouse.up()
+  await page.keyboard.up("Alt")
+  // Saved again under the same name: Ctrl+S asks no more.
+  await page.keyboard.press("ControlOrMeta+s")
+  const name = saved.get(page)!
+  const reread = async () => (await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()).project.screens.find((s: Obj) => s.id === "screen-1").objects as ScreenObject[]
+  await expect.poll(async () => JSON.stringify(await reread()).includes('"type":"table","x":0')).toBe(true)
+  const after = await reread()
+  const weiche = after.flatMap((o) => (o.id === "weiche" ? [o] : (o.children ?? []).filter((c) => c.id === "weiche")))[0]
+  const inPanel = weiche.children!.find((p) => p.id === "an")!.children!.find((c) => c.type === "table")!
+  const cell = (id: string) => inPanel.children!.find((c) => c.id === id)!.properties!.cell
+  expect(cell("modus")).toMatchObject({ row: 0, column: 0 })
+  expect(cell("hoch")).toMatchObject({ row: 1, column: 0 })
+})

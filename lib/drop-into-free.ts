@@ -44,9 +44,19 @@ const inside = (p: Point, x: number, y: number, w: number, h: number) => p.x >= 
 function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, pinned?: PinnedPanel): ScreenObject | null {
   const topmostFirst = [...list].sort((a, b) => b.zIndex - a.zIndex)
   for (const obj of topmostFirst) {
-    if (exclude.has(obj.id)) continue
     const x = origin.x + obj.x
     const y = origin.y + obj.y
+    if (exclude.has(obj.id)) {
+      // The table something is carried out of is no place to drop into, but
+      // a panel held open in it is (the user, 2026-11-14: a switcher in the
+      // same table, to go below the button group in the panel of the
+      // switcher above it).
+      if (pinned && (obj.type === "table" || obj.type === "group") && inside(point, x, y, obj.width, obj.height)) {
+        const held = heldPanelIn(obj.children ?? [], { x, y }, point, exclude, pinned)
+        if (held) return held
+      }
+      continue
+    }
     if (obj.type === "free") {
       if (!inside(point, x, y, obj.width, obj.height)) continue
       return areaIn(obj.children ?? [], { x, y }, point, exclude, pinned) ?? obj
@@ -67,6 +77,49 @@ function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<
 
 /** The panel of a switcher held open on the canvas, if one is. */
 export type PinnedPanel = (switcher: ScreenObject) => ScreenObject | undefined
+
+// A panel held open under `point` among `list` and what it holds, or what
+// it holds itself - areas elsewhere not taken.
+function heldPanelIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, pinned: PinnedPanel): ScreenObject | null {
+  for (const obj of [...list].sort((a, b) => b.zIndex - a.zIndex)) {
+    if (exclude.has(obj.id)) continue
+    const x = origin.x + obj.x
+    const y = origin.y + obj.y
+    if (!inside(point, x, y, obj.width, obj.height)) continue
+    if (obj.type === "switcher") {
+      const panel = pinned(obj)
+      if (panel && !exclude.has(panel.id)) return areaIn(panel.children ?? [], { x, y }, point, exclude, pinned) ?? panel
+    } else if (obj.type === "table" || obj.type === "group" || obj.type === "free") {
+      const found = heldPanelIn(obj.children ?? [], { x, y }, point, exclude, pinned)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/**
+ * The panels held open in the screen or panel `parentId` stands in, front
+ * first - not those of what is carried, nor of a panel that is not drawn.
+ */
+export function heldPanels(objects: ScreenObject[], ids: string[], parentId: string | null, pinned: PinnedPanel): ScreenObject[] {
+  const root = panelOf(objects, parentId)
+  const exclude = new Set(ids)
+  const found: ScreenObject[] = []
+  const walk = (list: ScreenObject[]) => {
+    for (const obj of [...list].sort((a, b) => b.zIndex - a.zIndex)) {
+      if (exclude.has(obj.id)) continue
+      if (obj.type === "switcher") {
+        const panel = pinned(obj)
+        if (panel && !exclude.has(panel.id)) {
+          found.push(panel)
+          walk(panel.children ?? [])
+        }
+      } else if (obj.children) walk(obj.children)
+    }
+  }
+  walk(root ? (findObjectById(objects, root)?.children ?? []) : objects)
+  return found
+}
 
 /** The panel `id` stands in, itself if it is one, or null for the screen. */
 function panelOf(objects: ScreenObject[], id: string | null): string | null {
