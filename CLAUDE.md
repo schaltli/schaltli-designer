@@ -1,9 +1,23 @@
 # Testing
 
-For every change run `npm run test:quick` (about 7 minutes: the e2e suite
-against a production build and each device's core checks, the devices in
-parallel lanes); before a release run the full `npm run test:all`. See
-`hil/README.md` («Lanes, and the quick run»).
+Which run a change needs depends on what it touches (decided 2026-11-14):
+
+- **Designer only** - layout, editor, property panel, templates, handbook:
+  `npm run test:e2e:prod` (about 10 minutes, the e2e suite against a
+  production build). The device lanes add nothing here: a device draws the
+  project it is given, as the designer does.
+- **What a device draws or receives** - export and project format
+  (`lib/project-zip.ts`, `lib/android-export.ts`), renderers
+  (`lib/render-screen.ts`, `components/canvas/renderers/`), DDFs, anything in
+  `schaltli-firmware` or `schaltli-android`: `npm run test:quick` (e2e plus
+  each device's core checks, the devices in parallel lanes).
+- **Before a release:** the full `npm run test:all`.
+
+See `hil/README.md` («Lanes, and the quick run»).
+
+Why: running the device lanes for designer-only changes cost 15-25 minutes a
+time and mostly showed boards that hung, not regressions (the user,
+2026-11-14).
 
 Run the full local test suite with `npm run test:all` (bundles the
 Playwright `e2e/` suite and every HIL suite: `hil/waveshare/`,
