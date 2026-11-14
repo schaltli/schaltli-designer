@@ -4,7 +4,8 @@
  * An object directly in a free area may be docked: Top, Bottom, Left, Right
  * or Fill. The area places its docked objects inside its padding, in the
  * order of the object list - top of the list first, which is front first -
- * each along the edge it is docked to, the table gap between them, Fill
+ * each along the edge it is docked to, its Gap between them (1.5 mm as a
+ * table's unless set, the user 2026-11-14), Fill
  * taking what is left. Across the dock an object takes the room where it can
  * stretch that way, else it stands in it by its Horizontal/Vertical.
  *
@@ -23,7 +24,7 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { textLineHeight } from "@/lib/font-utils"
 import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
-import { arrangeSnapTable, isSnapTable, SNAP_GAP_MM } from "@/lib/snap-table"
+import { arrangeSnapTable, gapMmOf, isSnapTable } from "@/lib/snap-table"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { translateObject } from "@/lib/object-groups"
 import { clipsContents } from "@/lib/clip"
@@ -132,7 +133,7 @@ export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
 
   const px = (mm: number) => Math.round(mm * scale.pixelsPerMm)
   const pad = px(paddingOf(area))
-  const gap = px(SNAP_GAP_MM)
+  const gap = px(gapMmOf(area))
   let room = { x: pad, y: pad, w: Math.max(0, area.width - 2 * pad), h: Math.max(0, area.height - 2 * pad) }
   const done = new Map<string, ScreenObject>()
 

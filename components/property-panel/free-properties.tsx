@@ -11,6 +11,7 @@ import { areaAnchorOf, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA, type A
 import { dockOf, type Dock } from "@/lib/dock"
 import { cardLookOf } from "@/lib/card"
 import { freeMinSize } from "@/lib/free-min-size"
+import { gapMmOf, SNAP_GAP_MM } from "@/lib/snap-table"
 import type { LayoutScale } from "@/lib/layout"
 
 const LOOK = [
@@ -70,6 +71,17 @@ export function FreeProperties({
           unit="mm"
           hint="Room left free inside its edge for what is docked in it."
         />}
+        <NumberField
+          id="freeGap"
+          label="Gap"
+          value={gapMmOf(selectedObject)}
+          onChange={(value) => set("gapMm", value === SNAP_GAP_MM ? undefined : value)}
+          min={0}
+          max={10}
+          step={0.5}
+          unit="mm"
+          hint="Between the objects docked in it."
+        />
       </PropertySection>
       {look ? null : <PropertySection title="Shape">
         <NumberField

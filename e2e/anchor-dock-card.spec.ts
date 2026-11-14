@@ -136,4 +136,10 @@ test("a card: heading and value docked at the top, a table filling the rest, kep
   await shot(page, "card-240x180")
   // The heading's row in the object list says it is docked.
   await expect(objectTreeRow(page, "kopf").getByTestId("dock-mark")).toHaveText("⤒ Top")
+  // Its Gap (the user, 2026-11-14): 0 puts the value right under the heading.
+  await page.locator("#freeGap").fill("0")
+  await page.locator("#freeGap").blur()
+  const flush = await savedCard(page)
+  expect(flush.properties.gapMm).toBe(0)
+  expect(kid(flush, "wert").y).toBe(kid(flush, "kopf").y + kid(flush, "kopf").height)
 })

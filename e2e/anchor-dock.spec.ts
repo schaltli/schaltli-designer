@@ -254,6 +254,17 @@ test.describe("dock: in a free area", () => {
     expect(kid(dockFree(card([name]), SCALE), "name").height).toBe(34)
   })
 
+  // The user, 2026-11-14: the 1.5 mm between «Innen» and its table wasted room - a setting on the area.
+  test("the area's Gap between what is docked: 1.5 mm unless set, 0 puts them edge to edge", () => {
+    const parts = () => [docked("head", "box", 40, 20, "top", 3), docked("foot", "box", 40, 10, "bottom", 2), docked("body", "box", 10, 10, "fill", 1)]
+    const flush = dockFree({ ...card(parts()), properties: { padding: 2, gapMm: 0 } } as ScreenObject, SCALE)
+    expect(kid(flush, "body").y).toBe(PAD + 20)
+    expect(kid(flush, "body").height).toBe(120 - 2 * PAD - 20 - 10)
+    const half = dockFree({ ...card(parts()), properties: { padding: 2, gapMm: 0.5 } } as ScreenObject, SCALE)
+    expect(kid(half, "body").y).toBe(PAD + 20 + Math.round(0.5 * SCALE.pixelsPerMm))
+    expect(kid(dockFree(card(parts()), SCALE), "body").y).toBe(PAD + 20 + G)
+  })
+
   test("too little room: what can be cut is cut along the dock, what cannot is left out of export and preview", () => {
     const a = dockFree(
       card([docked("head", "text", 50, 18, "top", 3, { text: "Kopf" }), docked("big", "box", 50, 200, "top", 2), docked("late", "text", 50, 18, "top", 1, { text: "Rest" })], 200, 60),
