@@ -369,6 +369,27 @@ test.describe("snap table: editing", () => {
 // Delete (2026-11-13): an object deleted from a table goes as one dragged out
 // does - the column it leaves empty goes too (reported: the Dimmer screen's
 // icons deleted, their column stayed empty).
+// The user, 2026-11-14: the starter's «Batterie» row 34 px tall for a name in
+// an 18 px font and a value in a 26 px one - saved with the label's height.
+test("a text of one line in a cell no taller than its font's line; its row as tall as the tallest of them", () => {
+  const fonts = [
+    { id: "m18", name: "m18", size: 18, ascent: 14, descent: 4 },
+    { id: "m26", name: "m26", size: 26, ascent: 20, descent: 6 },
+  ] as any
+  const text = (id: string, words: string, fontId: string, column: number): ScreenObject => ({ id, type: "text", x: 0, y: 0, width: 50, height: 34, zIndex: column, properties: { text: words, fontId, cell: { row: 0, column } } })
+  const t = arrangeSnapTable(table([text("name", "Batterie", "m18", 0), text("value", "88 %", "m26", 1)], [{}, {}], [{}]), { ...SCALE, fonts })
+  expect(child(t, "name").height).toBe(18)
+  expect(child(t, "value").height).toBe(26)
+  expect(snapTableGeometry(t, { ...SCALE, fonts }).heights).toEqual([26])
+  // Several lines keep their height; without the fonts, as before.
+  const two = arrangeSnapTable(table([text("two", "Zwei\nZeilen", "m18", 0)], [{}], [{}]), { ...SCALE, fonts })
+  expect(child(two, "two").height).toBe(34)
+  expect(child(arrangeSnapTable(table([text("bare", "Batterie", "m18", 0)], [{}], [{}]), SCALE), "bare").height).toBe(34)
+  // Never taller: one set tighter than its line keeps it (the CamperUI rebuild: 16 px in an 18 px font).
+  const tight = arrangeSnapTable(table([{ ...text("tight", "Aussen", "m18", 0), height: 16 }], [{}], [{}]), { ...SCALE, fonts })
+  expect(child(tight, "tight").height).toBe(16)
+})
+
 test.describe("snap table: deleting", () => {
   test("deleting the only object of a column takes the column with it, the others move left", () => {
     const icon = box(20, 20, { row: 0, column: 0 })

@@ -25,6 +25,31 @@ export function textLineHeight(fonts: readonly ProjectFont[] | undefined, fontId
 }
 
 /**
+ * A text of one line no taller than its font's line, whatever height it was
+ * saved with - the height the Text panel shows and locks. A value card's
+ * name restyled small kept the 34 px of the label it was made as, 16 px of
+ * nothing under «Innen» (the user, 2026-11-14). Where a free area docks it
+ * (lib/dock.ts) and where a table measures and places it (lib/snap-table.ts).
+ * Never taller: one set tighter than its line keeps it (the CamperUI
+ * rebuild's cards hold names of 16 px in an 18 px font). A text of several
+ * lines, anything else and a text without the fonts to hand come back as
+ * they are; its own height kept beside a docked size goes.
+ */
+export function textNoTallerThanItsFont<T extends ScreenObject>(obj: T, fonts: readonly ProjectFont[] | undefined): T {
+  if (obj.type !== "text" || !fonts) return obj
+  const text = obj.properties?.text
+  if (typeof text === "string" && text.includes("\n")) return obj
+  const line = textLineHeight(fonts, obj.properties?.fontId, obj.properties?.fontSize)
+  const o = obj.properties?.ownSize
+  const saved = typeof o?.height === "number" ? o.height : obj.height
+  const height = Math.min(saved, line)
+  if (obj.height === height && typeof o?.height !== "number") return obj
+  const { height: _h, ...ownRest } = o ?? {}
+  const { ownSize: _o, ...rest } = obj.properties ?? {}
+  return { ...obj, height, properties: Object.keys(ownRest).length > 0 ? { ...rest, ownSize: ownRest } : rest }
+}
+
+/**
  * Get font height from font object or calculate from BDF font data.
  * Prefers using pre-calculated values from font object for performance.
  */

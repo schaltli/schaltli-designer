@@ -19,6 +19,7 @@ import type { ScreenObject } from "@/components/project-editor"
 import { fit, naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
 import { cellAnchorOf, offsetIn, resizeFree, type Anchor } from "@/lib/anchor"
+import { textNoTallerThanItsFont } from "@/lib/font-utils"
 
 /** What marks a table as this kind. */
 export const SNAP_GRID = 1
@@ -164,7 +165,12 @@ function measure(table: ScreenObject, scale: LayoutScale) {
   const { rows, columns } = dimensions(table)
   const gap = px(gapMmOf(table), scale)
   const empty = px(SNAP_EMPTY_MM, scale)
-  const sized = (table.children ?? []).map((child) => ({ child, cell: snapCellOf(child), size: natural(child, scale) }))
+  // A text of one line as tall as its font's line (the user, 2026-11-14: a
+  // card's name and its value 34 px tall in a row their 18 and 26 px fill).
+  const sized = (table.children ?? []).map((given) => {
+    const child = textNoTallerThanItsFont(given, scale.fonts)
+    return { child, cell: snapCellOf(child), size: natural(child, scale) }
+  })
 
   const naturalWidths = Array.from({ length: columns }, (_, c) => {
     const own = sized.filter(({ cell }) => cell.column === c && cell.columnSpan === 1)

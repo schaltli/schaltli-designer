@@ -503,9 +503,9 @@
           {
            "type": "text",
            "x": 0,
-           "y": 4,
+           "y": 3,
            "width": 114,
-           "height": 34,
+           "height": 36,
            "properties": {
             "text": "{live:lv1} °C",
             "liveValues": [
@@ -650,9 +650,9 @@
           {
            "type": "text",
            "x": 51,
-           "y": 4,
+           "y": 12,
            "width": 162,
-           "height": 34,
+           "height": 18,
            "properties": {
             "text": "Solar",
             "fontId": "font-montserrat-c10",
@@ -699,9 +699,9 @@
           {
            "type": "text",
            "x": 0,
-           "y": 4,
+           "y": 3,
            "width": 114,
-           "height": 34,
+           "height": 36,
            "properties": {
             "text": "{live:lv1} W",
             "liveValues": [
@@ -839,9 +839,9 @@
         {
          "type": "text",
          "x": 51,
-         "y": 4,
+         "y": 12,
          "width": 59,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Batterie",
           "fontId": "font-montserrat-c10",
@@ -864,9 +864,9 @@
         {
          "type": "text",
          "x": 120,
-         "y": 4,
+         "y": 8,
          "width": 330,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1} %",
           "liveValues": [
@@ -1029,9 +1029,9 @@
         {
          "type": "text",
          "x": 51,
-         "y": 4,
+         "y": 12,
          "width": 94,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Frischwasser",
           "fontId": "font-montserrat-c10",
@@ -1054,9 +1054,9 @@
         {
          "type": "text",
          "x": 155,
-         "y": 4,
+         "y": 8,
          "width": 295,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1} %",
           "liveValues": [
@@ -1192,7 +1192,7 @@
        "x": 7,
        "y": 7,
        "width": 426,
-       "height": 166,
+       "height": 162,
        "zIndex": 1,
        "properties": {
         "grid": 1,
@@ -1217,9 +1217,9 @@
         {
          "type": "text",
          "x": 0,
-         "y": 0,
+         "y": 4,
          "width": 129,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:name}",
           "fontId": "font-montserrat-c14",
@@ -1258,9 +1258,9 @@
         {
          "type": "text",
          "x": 139,
-         "y": 0,
+         "y": 4,
          "width": 47,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -1319,7 +1319,7 @@
         {
          "type": "slider",
          "x": 196,
-         "y": 1,
+         "y": 0,
          "width": 230,
          "height": 33,
          "properties": {
@@ -1362,9 +1362,9 @@
         {
          "type": "text",
          "x": 0,
-         "y": 44,
+         "y": 47,
          "width": 129,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:name}",
           "fontId": "font-montserrat-c14",
@@ -1403,9 +1403,9 @@
         {
          "type": "text",
          "x": 139,
-         "y": 44,
+         "y": 47,
          "width": 47,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -1464,7 +1464,7 @@
         {
          "type": "slider",
          "x": 196,
-         "y": 45,
+         "y": 43,
          "width": 230,
          "height": 33,
          "properties": {
@@ -1507,9 +1507,9 @@
         {
          "type": "text",
          "x": 0,
-         "y": 88,
+         "y": 90,
          "width": 129,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:name}",
           "fontId": "font-montserrat-c14",
@@ -1548,9 +1548,9 @@
         {
          "type": "text",
          "x": 139,
-         "y": 88,
+         "y": 90,
          "width": 47,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -1609,7 +1609,7 @@
         {
          "type": "slider",
          "x": 196,
-         "y": 89,
+         "y": 86,
          "width": 230,
          "height": 33,
          "properties": {
@@ -1652,9 +1652,9 @@
         {
          "type": "text",
          "x": 0,
-         "y": 132,
+         "y": 133,
          "width": 129,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:name}",
           "fontId": "font-montserrat-c14",
@@ -1693,9 +1693,9 @@
         {
          "type": "text",
          "x": 139,
-         "y": 132,
+         "y": 133,
          "width": 47,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -1754,7 +1754,7 @@
         {
          "type": "slider",
          "x": 196,
-         "y": 133,
+         "y": 129,
          "width": 230,
          "height": 33,
          "properties": {
@@ -2109,9 +2109,9 @@
         {
          "type": "text",
          "x": 51,
-         "y": 4,
+         "y": 12,
          "width": 94,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Frischwasser",
           "fontId": "font-montserrat-c10",
@@ -2134,9 +2134,9 @@
         {
          "type": "text",
          "x": 155,
-         "y": 4,
+         "y": 8,
          "width": 295,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1} %",
           "liveValues": [
@@ -2299,9 +2299,9 @@
         {
          "type": "text",
          "x": 51,
-         "y": 4,
+         "y": 12,
          "width": 70,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Abwasser",
           "fontId": "font-montserrat-c10",
@@ -2324,9 +2324,9 @@
         {
          "type": "text",
          "x": 131,
-         "y": 4,
+         "y": 8,
          "width": 319,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1} %",
           "liveValues": [
@@ -2520,9 +2520,9 @@
         {
          "type": "text",
          "x": 237,
-         "y": 22,
+         "y": 30,
          "width": 227,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -3024,9 +3024,9 @@
         {
          "type": "text",
          "x": 0,
-         "y": 354,
+         "y": 362,
          "width": 227,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "{live:lv1}",
           "liveValues": [
@@ -3405,7 +3405,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "grid": 1,
                   "columns": [
@@ -3423,7 +3423,7 @@
                    "x": 0,
                    "y": 0,
                    "width": 93,
-                   "height": 34,
+                   "height": 26,
                    "properties": {
                     "text": "Drehzahl",
                     "fontId": "font-montserrat-c14",
@@ -3446,7 +3446,7 @@
                    "x": 103,
                    "y": 0,
                    "width": 347,
-                   "height": 34,
+                   "height": 26,
                    "properties": {
                     "text": "{live:lv1}",
                     "liveValues": [
@@ -3495,7 +3495,7 @@
                 {
                  "type": "slider",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 24,
                  "properties": {
@@ -3770,7 +3770,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "grid": 1,
                   "columns": [
@@ -3788,7 +3788,7 @@
                    "x": 0,
                    "y": 0,
                    "width": 121,
-                   "height": 34,
+                   "height": 26,
                    "properties": {
                     "text": "Temperatur",
                     "fontId": "font-montserrat-c14",
@@ -3811,7 +3811,7 @@
                    "x": 131,
                    "y": 0,
                    "width": 319,
-                   "height": 34,
+                   "height": 26,
                    "properties": {
                     "text": "{live:lv1}",
                     "liveValues": [
@@ -3860,7 +3860,7 @@
                 {
                  "type": "slider",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 24,
                  "properties": {
@@ -4516,9 +4516,9 @@
         {
          "type": "text",
          "x": 51,
-         "y": 4,
+         "y": 12,
          "width": 70,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Abwasser",
           "fontId": "font-montserrat-c10",
@@ -4541,9 +4541,9 @@
         {
          "type": "text",
          "x": 131,
-         "y": 4,
+         "y": 8,
          "width": 319,
-         "height": 34,
+         "height": 26,
          "properties": {
           "text": "{live:lv1} %",
           "liveValues": [
