@@ -1,4 +1,4 @@
-// Builds the Node-RED tab "Schaltli VanPi Bridge" (docs/2026-09-15-live-data.md,
+// Builds the Node-RED tab "Schaltli VanPi Bridge userflow" (docs/2026-09-15-live-data.md,
 // decision 1), in the shape Node-RED's admin API takes for a single flow:
 // POST /flow and PUT /flow/:id with { id, label, info, nodes, configs }.
 //
@@ -31,6 +31,7 @@ const { createBridgeLogic } = require("./bridge-logic")
 
 const TAB_ID = "schaltli-vanpi-bridge"
 const BROKER_ID = "schaltli-vanpi-bridge-broker"
+const BRIDGE_LABEL = "Schaltli VanPi Bridge userflow"
 
 const LOGIC_INIT = `${createBridgeLogic.toString()}
 context.set("logic", createBridgeLogic());`
@@ -537,11 +538,17 @@ return null;`,
 
   return {
     id: tabId,
-    label: "Schaltli VanPi Bridge",
+    // "userflow" in the name, because Pekaway's online update keeps only tabs
+    // whose label matches /.*user\s*flow.*/i, with every node inside them,
+    // and replaces the rest (VanPi-Core-OS/updatescript.sh, read 2026-11-14;
+    // #77). The broker config node lies inside the tab and survives with it.
+    // The installer finds the tab by that node's id, not by this name, so an
+    // installed bridge under its old name is renamed in place.
+    label: BRIDGE_LABEL,
     info: "Installed and updated by the Schaltli designer's install script (scripts/install-vanpi-bridge.js).",
     nodes,
     configs,
   }
 }
 
-module.exports = { buildBridgeFlow, TAB_ID, BROKER_ID }
+module.exports = { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL }

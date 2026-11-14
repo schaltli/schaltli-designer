@@ -18,7 +18,7 @@ import os from "node:os"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { buildBridgeFlow, TAB_ID, BROKER_ID } = require("../integrations/vanpi/build-flow")
+const { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL } = require("../integrations/vanpi/build-flow")
 import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
 import { blockTable, buildEntry, catalogLooks } from "../lib/bausteine"
@@ -1713,7 +1713,8 @@ test.describe("installing the VanPi bridge", () => {
         const flow = await readBody(req)
         if (flow.id !== match[1]) return send(400, { code: "invalid_request", message: "id mismatch" })
         if (!flows.some((f) => f.id === match[1] && f.type === "tab")) return send(404)
-        flows = flows.filter((f) => f.z !== match[1])
+        // As Node-RED does: the tab takes the label it is sent.
+        flows = flows.filter((f) => f.z !== match[1]).map((f) => (f.id === match[1] ? { ...f, label: flow.label } : f))
         for (const n of [...flow.nodes, ...(flow.configs || [])]) flows.push({ ...n, z: match[1] })
         return send(204)
       }
@@ -1779,6 +1780,41 @@ test.describe("installing the VanPi bridge", () => {
     expect(bridgeTabs()).toEqual([])
     expect(flows.filter((f) => f.z === tab || f.id === tab)).toEqual([])
     expect(flows.map((f) => f.id)).toEqual(["pekaway-tab", "pekaway-batt"])
+  })
+
+  // Pekaway's online update keeps only tabs whose label matches
+  // /.*user\s*flow.*/i, with the nodes inside them, plus global *-config
+  // nodes, and replaces everything else (VanPi-Core-OS/updatescript.sh, its
+  // jq "extract user flows", read 2026-11-14; #77). Mirrored here, so the
+  // bridge is shown to survive it - not only to carry the word.
+  const pekawayUpdateKeeps = (all: FlowNode[]) => {
+    const tabs = all.filter((n) => n.type === "tab" && /.*user\s*flow.*/i.test(String(n.label ?? "")))
+    const ids = new Set(tabs.map((t) => t.id))
+    return [...tabs, ...all.filter((n) => n.z && ids.has(n.z)), ...all.filter((n) => String(n.type).endsWith("-config"))]
+  }
+
+  test("a bridge under its old name is renamed in place, and survives Pekaway's update with its broker", async () => {
+    flows = [
+      { id: "pekaway-tab", type: "tab", label: "MQTT API" },
+      { id: "pekaway-batt", type: "mqtt in", z: "pekaway-tab", topic: "pkw/stat/batt" },
+    ]
+    expect((await install()).code).toBe(0)
+    const tab = bridgeTabs()[0]
+    // As every bridge before 2026-11-14 was named.
+    flows = flows.map((f) => (f.id === tab ? { ...f, label: "Schaltli VanPi Bridge" } : f))
+    expect(pekawayUpdateKeeps(flows)).toEqual([])
+
+    const update = await install()
+    expect(update.code, update.output).toBe(0)
+    expect(bridgeTabs()).toEqual([tab])
+    expect(flows.filter((f) => f.type === "tab" && /Schaltli/.test(String(f.label)))).toEqual([{ id: tab, type: "tab", label: BRIDGE_LABEL }])
+
+    const kept = pekawayUpdateKeeps(flows)
+    const bridge = flows.filter((f) => f.id === tab || f.z === tab)
+    expect(kept.map((f) => f.id).sort()).toEqual(bridge.map((f) => f.id).sort())
+    expect(kept.find((f) => f.id === BROKER_ID)).toMatchObject({ type: "mqtt-broker", z: tab })
+    expect(kept.some((f) => f.z === "pekaway-tab")).toBe(false)
+    await install("--uninstall")
   })
 
   test("keeps a copy of the flows from before each install, the newest three", async () => {
