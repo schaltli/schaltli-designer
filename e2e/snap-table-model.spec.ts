@@ -392,6 +392,47 @@ test.describe("snap table: deleting", () => {
     expect(out.children![0].properties?.cell).toBeUndefined()
   })
 
+  // The user, 2026-11-14: a docked table of two dissolved, and what was left
+  // came loose - it takes the table's place: Dock, Position, cell, list place.
+  test("a docked table that dissolves gives its Dock, Position and place in the list to the object left, deleted or dragged out", () => {
+    for (const dock of ["top", "fill"]) {
+      const a = box(20, 20, { row: 0, column: 0 })
+      const b = box(40, 20, { row: 0, column: 1 }, { anchor: { x: "right" } })
+      const t = { ...table([a, b], [{}, {}], [{}]), zIndex: 7, properties: { grid: 1, columns: [{}, {}], rows: [{}], dock, anchor: { x: "stretch" } } } as ScreenObject
+      const card = { id: "card", type: "free", x: 0, y: 0, width: 200, height: 80, zIndex: 1, properties: {}, children: [t] } as ScreenObject
+      const [out] = deleteObjects([card], [a.id], SCALE)
+      const left = out.children![0]
+      expect(left.id).toBe(b.id)
+      expect(left.properties).toMatchObject({ dock, anchor: { x: "stretch" } })
+      expect(left.properties?.cell).toBeUndefined()
+      expect(left.zIndex).toBe(7)
+      // Dragged out instead of deleted: the same for the one left; the one dragged takes nothing.
+      const lifted = liftOut([t], t.id, b.id, SCALE)
+      expect(lifted.objects[0]).toMatchObject({ id: a.id, zIndex: 7, properties: { dock } })
+      expect(lifted.taken!.properties?.dock).toBeUndefined()
+    }
+  })
+
+  test("a table in a cell of another that dissolves gives the object left its cell there", () => {
+    const a = box(20, 20, { row: 0, column: 0 })
+    const b = box(40, 20, { row: 0, column: 1 })
+    const inner = { ...table([a, b], [{}, {}], [{}]), properties: { grid: 1, columns: [{}, {}], rows: [{}], cell: { row: 1, column: 2, columnSpan: 2 } } } as ScreenObject
+    const out = takeOutOf(inner, a.id)
+    expect(out.left!.properties?.cell).toEqual({ row: 1, column: 2, columnSpan: 2 })
+  })
+
+  test("snapped beside a docked object, the new table takes its Dock, Position and place; in the cells they have none", () => {
+    const still = { id: "s", type: "box", x: 10, y: 10, width: 40, height: 20, zIndex: 4, properties: { dock: "top", anchor: { y: "bottom" } } } as ScreenObject
+    const moving = { id: "m", type: "box", x: 60, y: 10, width: 30, height: 20, zIndex: 9, properties: { anchor: { x: "right" } } } as ScreenObject
+    const pair = snapPair(still, moving, "right", SCALE)
+    expect(pair.zIndex).toBe(4)
+    expect(pair.properties).toMatchObject({ dock: "top", anchor: { y: "bottom" } })
+    for (const c of pair.children!) {
+      expect(c.properties?.dock).toBeUndefined()
+      expect(c.properties?.anchor).toBeUndefined()
+    }
+  })
+
   test("objects outside tables are deleted as ever", () => {
     const a = box(20, 20, {})
     const b = box(20, 20, {})

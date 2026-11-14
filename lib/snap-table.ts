@@ -402,6 +402,29 @@ function tidied(table: ScreenObject): ScreenObject {
 
 // An object out of its table: where it stood on the screen, as drawn, with
 // nothing left of its place in the table.
+/**
+ * What says where an object stands in what holds it, rather than what it is:
+ * its Dock and Position in a free area, its cell in a table, its place in the
+ * object list. It goes with the place (the user, 2026-11-14): a table that
+ * dissolves gives it to the object left, a table made by snapping takes it
+ * from the object that stood there - a docked value no longer came loose
+ * when its neighbour was deleted.
+ */
+const PLACE_KEYS = ["dock", "anchor", "cell"] as const
+
+function withoutPlace(obj: ScreenObject): ScreenObject {
+  const properties = { ...(obj.properties ?? {}) }
+  for (const key of PLACE_KEYS) delete properties[key]
+  return { ...obj, properties }
+}
+
+/** `obj` standing where `from` stood: its place-keys and its place in the list. */
+function inPlaceOf(from: ScreenObject, obj: ScreenObject): ScreenObject {
+  const place = Object.fromEntries(PLACE_KEYS.filter((key) => from.properties?.[key] !== undefined).map((key) => [key, from.properties[key]]))
+  const bare = withoutPlace(obj)
+  return { ...bare, zIndex: from.zIndex, properties: { ...bare.properties, ...place } }
+}
+
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
   const { cell: _cell, ...properties } = child.properties ?? {}
   const own = drawn(child)
@@ -421,7 +444,7 @@ export function takeOutOf(table: ScreenObject, id: string): { table: ScreenObjec
   if (!taken) throw new Error(`no object ${id} in table ${table.id}`)
   const rest = (table.children ?? []).filter((child) => child.id !== id)
   if (rest.length === 0) return { table: null, taken: freed(table, taken) }
-  if (rest.length === 1) return { table: null, taken: freed(table, taken), left: freed(table, rest[0]) }
+  if (rest.length === 1) return { table: null, taken: freed(table, taken), left: inPlaceOf(table, freed(table, rest[0])) }
   return { table: tidied({ ...table, children: rest }), taken: freed(table, taken) }
 }
 
@@ -508,8 +531,9 @@ export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSi
   const first = side === "left" || side === "top" ? moving : still
   const second = first === moving ? still : moving
   // Where they stood: the layout moves each into its cell, a line with its points.
-  const at = (obj: ScreenObject, i: number) => landed(withCell(obj, along ? { row: 0, column: i } : { row: i, column: 0 }))
-  const table: ScreenObject = {
+  // In a cell, Dock and Position mean nothing: the table takes the place of what stood there.
+  const at = (obj: ScreenObject, i: number) => landed(withCell(withoutPlace(obj), along ? { row: 0, column: i } : { row: i, column: 0 }))
+  const table: ScreenObject = inPlaceOf(still, {
     id,
     type: "table",
     x: still.x,
@@ -519,7 +543,7 @@ export function snapPair(still: ScreenObject, moving: ScreenObject, side: SnapSi
     zIndex: still.zIndex,
     properties: { grid: SNAP_GRID, columns: along ? [{}, {}] : [{}], rows: along ? [{}] : [{}, {}] },
     children: [at(first, 0), at(second, 1)],
-  }
+  })
   return anchored(arrangeSnapTable(table, scale), still.id, still.x, still.y)
 }
 
