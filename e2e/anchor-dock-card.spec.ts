@@ -143,3 +143,55 @@ test("a card: heading and value docked at the top, a table filling the rest, kep
   expect(flush.properties.gapMm).toBe(0)
   expect(kid(flush, "wert").y).toBe(kid(flush, "kopf").y + kid(flush, "kopf").height)
 })
+
+// The user, 2026-11-14: two cards stretched side by side in a table's row, one
+// remembering a height of 114 px for 77 of content (cell.drawnHeight, which
+// only ever grew). A height typed under Frame snapped back to it - typed, it
+// is the card's and its cell's, no smaller than its content needs.
+test("a card stretched in a table's cell: a height typed under Frame is its row's, down to what its content needs", async ({ page }) => {
+  test.skip(!(await seedRoundFixtureDdf()), "the round fixture's DDF could not be seeded")
+  const stretched = (id: string, column: number, drawnHeight: number) => ({
+    ...card(),
+    id,
+    x: 0,
+    y: 0,
+    width: 140,
+    height: drawnHeight,
+    properties: { look: "card", cell: { row: 0, column, anchor: { x: "stretch", y: "stretch" }, drawnWidth: 140, drawnHeight } },
+    children: [text(`${id}-kopf`, "Innen", 2, { dock: "top" }), text(`${id}-wert`, "13.1 °C", 1, { dock: "fill" })],
+  })
+  const row = { id: "reihe", type: "table", x: 30, y: 100, width: 1, height: 1, zIndex: 1, properties: { grid: 1, columns: [{}, {}], rows: [{}] }, children: [stretched("karte", 0, 150), stretched("nachbar", 1, 90)] }
+  const zip = await JSZip.loadAsync(fs.readFileSync(COLOUR_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  project.screens.find((s: Obj) => s.id === SCREEN.id).objects = [row]
+  zip.file("project.json", JSON.stringify(project))
+  const file = path.join(os.tmpdir(), `anchor-card-row-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+  await loadProject(page, file)
+  const savedRow = async () => {
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+    const chunks: Buffer[] = []
+    for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+    const p = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+    return p.screens.find((s: Obj) => s.id === SCREEN.id).objects.find((o: Obj) => o.id === "reihe")
+  }
+  const before = await savedRow()
+  expect(kid(before, "karte").height).toBe(150)
+  expect(kid(before, "nachbar").height).toBe(150)
+  // Typed far too small: the card takes the least its content needs.
+  await objectTreeRow(page, "karte").click()
+  await openFrameSection(page)
+  await page.locator("#height").fill("1")
+  await page.locator("#height").blur()
+  const after = await savedRow()
+  const card1 = kid(after, "karte")
+  const content = Math.max(...card1.children.map((c: Obj) => c.y + c.height))
+  // Its own height the typed one, as small as its content allows - below the 150 it remembered.
+  const own = card1.properties.cell.drawnHeight
+  expect(own).toBeLessThan(90)
+  expect(own).toBeGreaterThanOrEqual(content)
+  // The row now as high as the neighbour's 90, both cards stretched to it.
+  expect(card1.height).toBe(90)
+  expect(kid(after, "nachbar").height).toBe(90)
+})
