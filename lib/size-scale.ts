@@ -11,7 +11,7 @@
 import { stripThickness, TOGGLE_GAP, TOGGLE_PAD, TOGGLE_PAD_X, toggleStyleOf } from "@/lib/toggle-button-shape"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/components/project-editor"
-import { calculateTextObjectHeight } from "@/lib/font-utils"
+import { textLineHeight } from "@/lib/font-utils"
 import { STANDARD_TYPOGRAPHY, type TypographyKey, type Typography } from "@/lib/device-description"
 import { themeMaster } from "@/lib/themes"
 import {
@@ -562,6 +562,24 @@ export function styledFont(
 const TEXT_BOX_TYPES = new Set(["text"])
 
 /**
+ * An object in a font of its own - a style's, from styledFont. A text of one
+ * line becomes as tall as that font's line, the height the Text panel shows
+ * and locks: a value card's name restyled small once kept the 34 px of the
+ * label it was made as, 16 px of nothing under «Innen» (the user, 2026-11-14).
+ * A text of several lines keeps its height, as does anything else.
+ */
+export function inFont<T extends { type: string; height: number; properties?: Record<string, any> }>(
+  object: T,
+  font: { fontId: string; fontSize: number } & Record<string, unknown>,
+  fonts: readonly ProjectFont[] | undefined,
+): T {
+  const text = object.properties?.text
+  const oneLine = !(typeof text === "string" && text.includes("\n"))
+  const height = TEXT_BOX_TYPES.has(object.type) && oneLine ? textLineHeight(fonts, font.fontId, font.fontSize) : object.height
+  return { ...object, height, properties: { ...object.properties, ...font } }
+}
+
+/**
  * Every styled object's font, and every stepped object's size, anew, for the project's device as it is now:
  * after a device change, a new DDF on opening, another typography or
  * another master (docs/2026-09-30-size-scale.md). Each screen in its own
@@ -581,11 +599,7 @@ export function resolveScale(project: Project): Project {
     if (style) {
       const styled = styledFont(style, object.properties.textBold === true, scale, project.fonts)
       if (styled && (styled.fontId !== object.properties.fontId || styled.fontSize !== object.properties.fontSize || style !== object.properties.textStyle)) {
-        next = {
-          ...object,
-          ...(TEXT_BOX_TYPES.has(object.type) ? { height: calculateTextObjectHeight(styled.fontSize) } : {}),
-          properties: { ...object.properties, ...styled },
-        }
+        next = inFont(object, styled, project.fonts)
         changed = true
       }
     }

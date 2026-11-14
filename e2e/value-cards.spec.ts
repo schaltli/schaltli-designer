@@ -8,6 +8,8 @@ import { layoutObjects } from "../lib/layout"
 import fs from "node:fs"
 import { applyTheme, themeById } from "../lib/themes"
 import path from "node:path"
+import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
+import { fontFor, inFont, styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 
 // Value cards (docs/2026-11-11-value-cards.md): the name small and muted,
@@ -132,4 +134,38 @@ test("drawn: a value card with its sparkline, and a tank", async ({ page }) => {
   const out = path.join("test-results", "value-cards.png")
   fs.mkdirSync(path.dirname(out), { recursive: true })
   fs.writeFileSync(out, Buffer.from(dataUrl.split(",")[1], "base64"))
+})
+
+// «Unser Bus», 2026-11-14: the name of the card «Innen» stood 34 px tall in
+// its 18 px font - made as a label, restyled small, its height kept - and
+// left 16 px of nothing above the value. Placed as the editor places it
+// (components/project-editor.tsx, inFont), in the 4"'s fonts.
+test("on the 4\": the card's name as tall as its font's line, the value right below it", async () => {
+  const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", "waveshare-touch-lcd-4.ddf.zip"))
+  const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), "")
+  const ppm = fields.pixelsPerMm!
+  const fonts = fields.fonts as any[]
+  const textScale = textScaleOf({ pixelsPerMm: ppm, typographies: fields.typographies }, "Geometric")!
+  const xl = fontFor("xl", false, textScale.typography, fonts, ppm)!
+  const e = bridgeEntries()
+  const built = buildFromCatalog({ entry: e["Innen"], control: e["Innen"].controls[0], rect: RECT, palette, font: { id: xl.id, size: xl.size }, options: { look: "number" }, charts: true })
+  const objects = built.objects.map((object: any) => {
+    const { blockTextStyle, ...properties } = object.properties ?? {}
+    const styled = typeof blockTextStyle === "string" ? styledFont(blockTextStyle as TextStyle, false, textScale, fonts) : undefined
+    return styled ? inFont({ ...object, properties }, styled, fonts) : { ...object, properties }
+  })
+  const name = objects.find((o: any) => o.properties?.text === "Innen")
+  const nameFont = fonts.find((f) => f.id === name.properties.fontId)
+  expect(name.height).toBe(nameFont.ascent + nameFont.descent)
+  // Laid out in its card: the value's table starts one gap below the name.
+  const scale = { pixelsPerMm: ppm, fonts, topics: built.topics, cards: cardSettingsOf(undefined) } as any
+  const piece = fittedBlockCard({ ...built, objects, labelCount: 1 }, scale, 480)
+  let n = 0
+  const withIds = (o: any): any => ({ ...o, id: o.id || `o${n++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+  const laid = layoutObjects([withIds({ ...piece, x: 8, y: 8 })], scale)[0]
+  const laidName = walk(laid).find((o) => o.properties?.text === "Innen")
+  expect(laidName.height).toBe(nameFont.ascent + nameFont.descent)
+  const below = laid.children!.filter((o: any) => o !== laidName && o.y > laidName.y)
+  expect(below.length).toBeGreaterThan(0)
+  expect(Math.min(...below.map((o: any) => o.y))).toBe(laidName.y + laidName.height + Math.round(1.5 * ppm))
 })

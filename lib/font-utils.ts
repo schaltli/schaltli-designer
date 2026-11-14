@@ -13,6 +13,18 @@ export function calculateTextObjectHeight(fontSize: number): number {
 }
 
 /**
+ * How tall a text of one line is in this font: its line height, ascent plus
+ * descent - what the property panel shows as its height. Without the font,
+ * the old guess from the size.
+ */
+export function textLineHeight(fonts: readonly ProjectFont[] | undefined, fontId: unknown, fontSize?: number): number {
+  const font = fonts?.find((f) => f.id === fontId)
+  if (font && typeof font.ascent === "number" && typeof font.descent === "number") return font.ascent + font.descent
+  if (font?.size) return font.size
+  return calculateTextObjectHeight(fontSize || 16)
+}
+
+/**
  * Get font height from font object or calculate from BDF font data.
  * Prefers using pre-calculated values from font object for performance.
  */

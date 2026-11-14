@@ -95,7 +95,7 @@ import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-histor
 import { moveIntoArea } from "@/lib/drop-into-free"
 import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, inFont, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -2477,14 +2477,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // A part the description sets small is in the Caption style instead.
       const styled = (object: Omit<ScreenObject, "id" | "zIndex">): Omit<ScreenObject, "id" | "zIndex"> => {
         const { blockTextStyle, ...properties } = object.properties ?? {}
+        // In a font of its own, as tall as that font's line (lib/size-scale.ts inFont).
+        const restyled = (font: ReturnType<typeof styledFont>) => (font ? inFont({ ...object, properties }, font, project.fonts) : { ...object, properties })
         if (blockTextStyle === "caption") {
-          const caption = scale ? styledFont("standard", false, scale, project.fonts) : undefined
-          return { ...object, properties: { ...properties, ...(caption ?? {}) } }
+          return restyled(scale ? styledFont("standard", false, scale, project.fonts) : undefined)
         }
         // A value card's name and number in their own sizes (docs/2026-11-11-value-cards.md).
         if (typeof blockTextStyle === "string" && (TEXT_STYLES as readonly string[]).includes(blockTextStyle)) {
-          const own = scale ? styledFont(blockTextStyle as TextStyle, false, scale, project.fonts) : undefined
-          return { ...object, properties: { ...properties, ...(own ?? {}) } }
+          return restyled(scale ? styledFont(blockTextStyle as TextStyle, false, scale, project.fonts) : undefined)
         }
         return labelFont && properties.fontId === labelFont.id ? { ...object, properties: { ...properties, textStyle: "xl", textBold: false } } : object
       }

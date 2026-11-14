@@ -20,7 +20,8 @@
  * `properties.ownSize` while it differs, and given back once it is undocked.
  */
 
-import type { ScreenObject } from "@/components/project-editor"
+import type { ProjectFont, ScreenObject } from "@/components/project-editor"
+import { textLineHeight } from "@/lib/font-utils"
 import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
 import { arrangeSnapTable, isSnapTable, SNAP_GAP_MM } from "@/lib/snap-table"
 import { sortChildrenByZIndex } from "@/lib/object-order"
@@ -32,6 +33,24 @@ const DOCKS: ReadonlySet<string> = new Set(["top", "bottom", "left", "right", "f
 
 export interface DockScale {
   pixelsPerMm: number
+  /** The project's fonts: a docked text is as tall as its font's line. */
+  fonts?: readonly ProjectFont[]
+}
+
+// A text of one line is as tall as its font's line, whatever height it was
+// saved with: the panel shows that height and locks it, and a value card's
+// name restyled small kept the 34 px of the label it was made as - 16 px
+// of nothing under «Innen» (the user, 2026-11-14).
+function asTallAsItsFont(child: ScreenObject, scale: DockScale): ScreenObject {
+  if (child.type !== "text" || !scale.fonts) return child
+  const text = child.properties?.text
+  if (typeof text === "string" && text.includes("\n")) return child
+  const height = textLineHeight(scale.fonts, child.properties?.fontId, child.properties?.fontSize)
+  const o = child.properties?.ownSize
+  if (child.height === height && typeof o?.height !== "number") return child
+  const { height: _h, ...ownRest } = o ?? {}
+  const { ownSize: _o, ...rest } = child.properties ?? {}
+  return { ...child, height, properties: Object.keys(ownRest).length > 0 ? { ...rest, ownSize: ownRest } : rest }
 }
 
 export function dockOf(obj: ScreenObject): Dock | undefined {
@@ -117,7 +136,8 @@ export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
   let room = { x: pad, y: pad, w: Math.max(0, area.width - 2 * pad), h: Math.max(0, area.height - 2 * pad) }
   const done = new Map<string, ScreenObject>()
 
-  for (const child of docked) {
+  for (const given of docked) {
+    const child = asTallAsItsFont(given, scale)
     const dock = dockOf(child)!
     const size = own(child)
     const anchor = areaAnchorOf(child)

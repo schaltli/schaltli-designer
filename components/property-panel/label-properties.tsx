@@ -14,7 +14,7 @@
  */
 
 import type { CombinedTopic } from "@/lib/combined-topics"
-import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
+import { textLineHeight } from "@/lib/font-utils"
 import type { Separators } from "@/lib/placeholders"
 import { LiveTextEditor } from "./live-text-editor"
 import { liveValuesOf } from "@/lib/object-text"
@@ -95,10 +95,7 @@ export function LabelProperties({
   const liveValues = liveValuesOf(selectedObject)
 
   // As tall as the font it is drawn in.
-  const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
-  const derivedHeight = font
-    ? getFontHeight(font)
-    : calculateTextObjectHeight(selectedObject.properties.fontSize || 16)
+  const derivedHeight = textLineHeight(fonts, selectedObject.properties.fontId, selectedObject.properties.fontSize)
 
   return (
     <PropertySections>
@@ -132,7 +129,7 @@ export function LabelProperties({
             scale={textScale}
             onChange={(styled) =>
               onUpdateObject(selectedObject.id, {
-                height: calculateTextObjectHeight(styled.fontSize),
+                height: textLineHeight(fonts, styled.fontId, styled.fontSize),
                 properties: { ...selectedObject.properties, ...styled },
               })
             }
@@ -146,7 +143,7 @@ export function LabelProperties({
               const f = fonts.find((fn) => fn.id === value)
               const fontSize = f?.size || selectedObject.properties.fontSize || 16
               onUpdateObject(selectedObject.id, {
-                height: calculateTextObjectHeight(fontSize),
+                height: textLineHeight(fonts, value, fontSize),
                 properties: { ...selectedObject.properties, fontId: value, fontSize },
               })
             }}

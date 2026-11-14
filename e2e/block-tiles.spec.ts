@@ -10,7 +10,7 @@ import { cardSettingsOf } from "../lib/card"
 import { textOf } from "../lib/live-value"
 import { DEFAULT_SEPARATORS } from "../lib/placeholders"
 import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
-import { fontFor, stepKindOf, stepUpdates, styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
+import { fontFor, inFont, stepKindOf, stepUpdates, styledFont, textScaleOf, type TextStyle } from "../lib/size-scale"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 
 // Blocks in the LED look (docs/2026-11-11-led-look.md, decisions 8 and 9):
@@ -177,7 +177,8 @@ test("the heater on the 4\" with the van's texts, in the editor's fonts: no wide
   const stepped = built.objects.map((object) => {
     const { blockTextStyle, blockSizeStep, ...properties } = object.properties ?? {}
     const style = blockTextStyle === "caption" ? "standard" : typeof blockTextStyle === "string" ? blockTextStyle : properties.fontId === xl.id ? "xl" : undefined
-    const own = { ...object, properties: { ...properties, ...(style ? styledFont(style as TextStyle, false, textScale, fonts) ?? {} : {}) } }
+    const font = style ? styledFont(style as TextStyle, false, textScale, fonts) : undefined
+    const own = font ? inFont({ ...object, properties }, font, fonts) : { ...object, properties }
     return stepKindOf(own.type) ? { ...own, ...stepUpdates(own as any, blockSizeStep ?? "m", ppm, fonts) } : own
   })
   const topics = [

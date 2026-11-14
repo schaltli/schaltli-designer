@@ -236,6 +236,24 @@ test.describe("dock: in a free area", () => {
     expect(kid(a, "grid").width).toBe(200 - 2 * PAD)
   })
 
+  // «Unser Bus», 2026-11-14: the value card «Innen» kept its name 34 px tall
+  // in an 18 px font - the panel showed 18 and locked it, the dock took 34.
+  test("a docked text of one line is as tall as its font's line, whatever height it was saved with", () => {
+    const fonts = [{ id: "m18", name: "m18", size: 18, ascent: 14, descent: 4 }] as any
+    const name = docked("name", "text", 30, 34, "top", 2, { text: "Innen", fontId: "m18", fontSize: 18 })
+    const two = docked("two", "text", 30, 40, "top", 3, { text: "Zwei\nZeilen", fontId: "m18", fontSize: 18 })
+    const body = docked("body", "box", 10, 10, "fill", 1)
+    const a = dockFree(card([two, name, body]), { ...SCALE, fonts })
+    expect(at(kid(a, "name"))).toEqual([PAD, PAD + 40 + G, 200 - 2 * PAD, 18])
+    expect(kid(a, "name").properties).not.toHaveProperty("ownSize.height")
+    // The rest follows right below it.
+    expect(kid(a, "body").y).toBe(PAD + 40 + G + 18 + G)
+    // Several lines keep their height.
+    expect(kid(a, "two").height).toBe(40)
+    // Without the fonts (a scale that has none) as before.
+    expect(kid(dockFree(card([name]), SCALE), "name").height).toBe(34)
+  })
+
   test("too little room: what can be cut is cut along the dock, what cannot is left out of export and preview", () => {
     const a = dockFree(
       card([docked("head", "text", 50, 18, "top", 3, { text: "Kopf" }), docked("big", "box", 50, 200, "top", 2), docked("late", "text", 50, 18, "top", 1, { text: "Rest" })], 200, 60),

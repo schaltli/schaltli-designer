@@ -459,7 +459,7 @@
          "x": 7,
          "y": 7,
          "width": 213,
-         "height": 34,
+         "height": 18,
          "properties": {
           "text": "Innen",
           "fontId": "font-montserrat-c10",
@@ -482,7 +482,7 @@
         {
          "type": "table",
          "x": 7,
-         "y": 51,
+         "y": 35,
          "width": 213,
          "height": 42,
          "properties": {
@@ -2624,7 +2624,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "text": "Betrieb",
                   "fontId": "font-montserrat-c14",
@@ -2645,7 +2645,7 @@
                 {
                  "type": "button-group",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 28,
                  "properties": {
@@ -3312,7 +3312,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "text": "Betrieb",
                   "fontId": "font-montserrat-c14",
@@ -3333,7 +3333,7 @@
                 {
                  "type": "button-group",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 28,
                  "properties": {
@@ -3553,7 +3553,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "text": "Luft",
                   "fontId": "font-montserrat-c14",
@@ -3574,7 +3574,7 @@
                 {
                  "type": "button-group",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 28,
                  "properties": {
@@ -3677,7 +3677,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "text": "Betrieb",
                   "fontId": "font-montserrat-c14",
@@ -3698,7 +3698,7 @@
                 {
                  "type": "button-group",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 28,
                  "properties": {
@@ -3918,7 +3918,7 @@
                  "x": 7,
                  "y": 7,
                  "width": 450,
-                 "height": 34,
+                 "height": 26,
                  "properties": {
                   "text": "Luft",
                   "fontId": "font-montserrat-c14",
@@ -3939,7 +3939,7 @@
                 {
                  "type": "button-group",
                  "x": 7,
-                 "y": 51,
+                 "y": 43,
                  "width": 450,
                  "height": 28,
                  "properties": {

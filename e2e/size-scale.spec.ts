@@ -36,7 +36,7 @@ import {
   type TextStyle,
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
-import { calculateTextObjectHeight } from "../lib/font-utils"
+import { calculateTextObjectHeight, textLineHeight } from "../lib/font-utils"
 import { BDFFont } from "../lib/bdffont"
 import type { Project, ProjectFont } from "../components/project-editor"
 import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, placingFreely, waitForDeviceGate, waitForEditorReady } from "./helpers"
@@ -709,9 +709,10 @@ test.describe("styled objects follow the device", () => {
     // "Load device" to the Knob: its fonts and scale, the objects as they were.
     const moved = resolveScale({ ...projectOn(knob!, [styled, custom], "Technic") })
     const [a, b] = moved.screens[0].objects
-    // Display on the Knob: its own Seven Segment; the height follows the font.
+    // Display on the Knob: its own Seven Segment; the height is that font's
+    // line, as the Text panel shows it (not a guess from the size, 2026-11-14).
     expect(a.properties).toMatchObject({ textStyle: "huge", fontId: "font-seg7-49-4bit", fontSize: 49 })
-    expect(a.height).toBe(calculateTextObjectHeight(49))
+    expect(a.height).toBe(textLineHeight(knob!.fonts as any, "font-seg7-49-4bit", 49))
     // The Custom text keeps what it had, even a font the Knob does not have.
     expect(b).toBe(custom)
   })
