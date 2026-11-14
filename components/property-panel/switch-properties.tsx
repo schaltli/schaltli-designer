@@ -24,6 +24,7 @@
 import { toggleStyleOf } from "@/lib/toggle-button-shape"
 import { switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
 import { smallerStyle, styledFont, type TextScale } from "@/lib/size-scale"
+import { toggleMinHeight } from "@/lib/toggle-button-shape"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
 import {
   AddListItem,
@@ -113,7 +114,10 @@ export function SwitchProperties({
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
-    onUpdateObject(selectedObject.id, { [key]: value })
+    // A Toggle Button no lower than its look needs, as when dragged
+    // (the user, 2026-11-14: typed 50, the Korry window was cut off).
+    const least = key === "height" && selectedObject.type === "toggle-button" ? toggleMinHeight(selectedObject, fonts) : 0
+    onUpdateObject(selectedObject.id, { [key]: Math.max(value, least) })
   }
 
   const states: any[] = selectedObject.properties.states || []

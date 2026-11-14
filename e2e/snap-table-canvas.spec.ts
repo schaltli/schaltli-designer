@@ -821,3 +821,104 @@ test.describe("snap table: selection", () => {
     expect(await getSelectedHeader(page)).not.toContain("grid")
   })
 })
+
+// The user, 2026-11-14, in the starter's heater page: a Toggle Button 78 px
+// tall in a table, no handle to make it lower (the four span), and a span cut
+// from two rows to one left an empty row nothing could take away.
+async function cellProject(): Promise<{ zip: string; table: ScreenObject }> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const toggle = {
+    id: "heizung",
+    type: "toggle-button",
+    x: 0,
+    y: 0,
+    width: 120,
+    height: 78,
+    zIndex: 1,
+    properties: {
+      text: "Heizung",
+      switchStyle: "led-v",
+      fontId: "font-helvR12",
+      fontSize: 18,
+      topic: "h/state",
+      writeTopic: "h/set",
+      states: [
+        { label: "Aus", readValue: "off", writeValue: "off" },
+        { label: "An", readValue: "on", writeValue: "on", on: true },
+      ],
+      cell: { row: 0, column: 0 },
+    },
+  }
+  project.screens.find((s: Obj) => s.id === "screen-1").objects = [
+    {
+      id: "grid",
+      type: "table",
+      x: 40,
+      y: 40,
+      width: 1,
+      height: 1,
+      zIndex: 1,
+      properties: { grid: 1, columns: [{}, {}], rows: [{}, {}] },
+      children: [toggle, text("lang", "Lang", 2, { row: 0, column: 1, rowSpan: 2 })],
+    },
+  ]
+  const laid = layoutProject(project)
+  zip.file("project.json", JSON.stringify(laid))
+  const out = path.join(os.tmpdir(), `snap-cell-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return { zip: out, table: laid.screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "grid") }
+}
+async function plainDrag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  const a = await at(page, from)
+  const b = await at(page, to)
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 10; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 10, a.y + ((b.y - a.y) * i) / 10)
+  await page.mouse.up()
+}
+
+test.describe("snap table: an object's own height in its cell", () => {
+  test("its height handle at the bottom right makes it lower and taller, never lower than its look needs", async ({ page }) => {
+    const { zip, table } = await cellProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "heizung")
+    const { canvas } = await getMainCanvas(page)
+    await expect.poll(() => canvas.getAttribute("data-cell-height-handle")).not.toBeNull()
+    const handle = JSON.parse((await canvas.getAttribute("data-cell-height-handle"))!) as { x: number; y: number }
+    await plainDrag(page, handle, { x: handle.x, y: handle.y - 20 })
+    const lower = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "heizung")!
+    expect(lower.height).toBe(58)
+    // Far up: it stops at the least its LED Vertical look needs, the name and the label below it.
+    const at58 = JSON.parse((await canvas.getAttribute("data-cell-height-handle"))!) as { x: number; y: number }
+    await plainDrag(page, at58, { x: at58.x, y: at58.y - 200 })
+    const least = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "heizung")!
+    expect(least.height).toBeLessThan(58)
+    expect(least.height).toBeGreaterThan(18 * 2)
+  })
+
+  test("typed under Frame below what its look needs, a Toggle Button takes that least height", async ({ page }) => {
+    const { zip, table } = await cellProject()
+    await loadProject(page, zip)
+    await chooseInTable(page, table, "heizung")
+    await openFrameSection(page)
+    await page.locator("#height").fill("5")
+    await page.locator("#height").blur()
+    const typed = (await savedObjects(page)).find((o) => o.id === "grid")!.children!.find((c) => c.id === "heizung")!
+    expect(typed.height).toBeGreaterThan(18 * 2)
+    expect(typed.height).toBeLessThan(78)
+  })
+
+  test("a span cut from two rows to one, let go: the row left empty goes", async ({ page }) => {
+    const { zip, table } = await cellProject()
+    await loadProject(page, zip)
+    await openAllTwisties(page)
+    await objectTreeRow(page, "lang").click()
+    await expect.poll(() => getSelectedHeader(page)).toContain("lang")
+    const bottom = await spanHandle(page, "bottom")
+    await drag(page, bottom, { x: bottom.x, y: table.y + 10 })
+    const grid = (await savedObjects(page)).find((o) => o.id === "grid")!
+    expect(grid.children!.find((c) => c.id === "lang")!.properties!.cell.rowSpan).toBeUndefined()
+    expect(grid.properties!.rows).toHaveLength(1)
+  })
+})

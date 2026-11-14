@@ -386,6 +386,18 @@ export function setLineSize(table: ScreenObject, kind: "row" | "column", index: 
 }
 
 // Rows and columns that hold nothing, not even part of a span, taken out.
+/**
+ * A table without the rows and columns nothing stands in any more, what is
+ * below and to the right moved up and left - as after a delete or a drag out
+ * (2026-11-13), and since 2026-11-14 when a span handle is let go: a span
+ * cut from two rows to one left an empty row nothing could take away (the
+ * user). The same table when nothing is empty.
+ */
+export function withoutEmptyLines(table: ScreenObject): ScreenObject {
+  const t = tidied(table)
+  return JSON.stringify(snapRowsOf(t)) === JSON.stringify(snapRowsOf(table)) && JSON.stringify(snapColumnsOf(t)) === JSON.stringify(snapColumnsOf(table)) ? table : t
+}
+
 function tidied(table: ScreenObject): ScreenObject {
   let t = padded(table)
   for (const kind of ["row", "column"] as const) {

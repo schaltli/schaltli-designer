@@ -121,11 +121,12 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel, type ObjectType } from "@/lib/object-types"
 import { toggleMinHeight, toggleNextIndex } from "@/lib/toggle-button-shape"
-import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects } from "@/lib/layout"
+import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects, type LayoutScale } from "@/lib/layout"
+import { cellAnchorOf } from "@/lib/anchor"
 import { TABLE_TYPE } from "@/lib/table"
-import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, snapChipText } from "./snap-table-overlay"
+import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
-import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
+import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, withoutEmptyLines, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
 
 // How near a table or a free object a dragged object snaps
 // (docs/2026-10-09-snap-tables.md, open question 5: proposed).
@@ -140,6 +141,15 @@ export function carriesFromRibbon(tool: string): boolean {
 }
 // How near a span handle a press takes it, in screen pixels.
 const SPAN_HANDLE_HIT = 9
+// What has a height of its own in a table's cell, to drag at its corner;
+// a text's is its font's, a ring's its diameter, a switcher's its panels'.
+const CELL_HEIGHT_TYPES = new Set(["toggle-button", "button", "box", "free", "chart", "camera"])
+// No lower than its look or its content needs.
+function cellMinHeight(obj: ScreenObject, scale: LayoutScale): number {
+  if (obj.type === "toggle-button") return toggleMinHeight(obj, scale.fonts)
+  if (obj.type === "free") return freeMinSize(obj, scale)?.height ?? 8
+  return 8
+}
 // How near a table's column or row line a press takes it, in screen pixels.
 const SIZE_LINE_HIT = 4
 // A swipe in the preview, in screen pixels: it takes an axis once it has
@@ -1303,6 +1313,7 @@ export function Canvas({
   const blockTableRef = useRef<Omit<ScreenObject, "id" | "zIndex"> | null>(null)
   // A span handle being dragged (Task 7).
   const spanDragRef = useRef<{ tableId: string; id: string; side: SnapSide } | null>(null)
+  const cellHeightDragRef = useRef<{ id: string; startY: number; startHeight: number; min: number } | null>(null)
   // A column or row line being dragged (Task 8), and what it shows meanwhile.
   const lineDragRef = useRef<{ tableId: string; kind: "column" | "row"; index: number } | null>(null)
   const [lineLabel, setLineLabel] = useState<{ x: number; y: number; text: string } | null>(null)
@@ -1469,7 +1480,12 @@ export function Canvas({
       { side: "top", x: x + w / 2, y },
       { side: "bottom", x: x + w / 2, y: y + h },
     ]
-    return { tableId: parent.id, id, handles }
+    // Its own height, at its bottom right corner, where it has one of its
+    // own: in a cell the four handles span, so it could only be typed
+    // under Frame (the user, 2026-11-14: a Toggle Button 78 px tall).
+    const tall = CELL_HEIGHT_TYPES.has(obj.type) && (cellAnchorOf(obj).y !== "stretch" || typeof obj.properties?.cell?.drawnHeight === "number")
+    const grow = tall ? { x: origin.x + obj.x + obj.width, y: origin.y + obj.y + obj.height } : null
+    return { tableId: parent.id, id, handles, grow }
   }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
 
   // The lines of a selected table put together by snapping (Task 8): one
@@ -2018,6 +2034,7 @@ export function Canvas({
 
     if (snapChip && dragState?.mode !== "drag") drawSnapChip(ctx, snapChip.at, snapChip.text, LAYOUT_HINT_COLOR, zoom)
     if (spanHandles && !dragState) drawSpanHandles(ctx, spanHandles.handles, LAYOUT_HINT_COLOR, zoom)
+    if (spanHandles?.grow && !dragState) drawCellHeightHandle(ctx, spanHandles.grow, LAYOUT_HINT_COLOR, zoom)
     if (sizeLines && !dragState) drawSizeLines(ctx, sizeLines.lines, LAYOUT_HINT_COLOR, zoom)
     if (lineLabel) drawSnapChip(ctx, { x: lineLabel.x + 10 / zoom, y: lineLabel.y - 4 / zoom }, lineLabel.text, LAYOUT_HINT_COLOR, zoom)
     // An object carried out of a table: its outline at the pointer.
@@ -3414,6 +3431,14 @@ export function Canvas({
 
       // A span handle of the object chosen in a table put together by
       // snapping (Task 7): dragged, its span grows or shrinks.
+      // Its height handle in the cell, dragged: its own height.
+      if (activeTool === "select" && spanHandles?.grow && Math.hypot(coords.x - spanHandles.grow.x, coords.y - spanHandles.grow.y) <= SPAN_HANDLE_HIT / zoom) {
+        const obj = findObjectById(screen.objects, spanHandles.id)
+        if (obj) {
+          cellHeightDragRef.current = { id: obj.id, startY: coords.y, startHeight: obj.height, min: cellMinHeight(obj, layoutScale) }
+          return
+        }
+      }
       if (activeTool === "select" && spanHandles) {
         const hit = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)
         if (hit) {
@@ -3777,6 +3802,18 @@ export function Canvas({
       // A span handle dragged (Task 7): the span's edge follows the pointer
       // across the lines, over empty cells only (lib/snap-table.ts
       // resizeSpan); every step one more update of the same gesture.
+      const growing = cellHeightDragRef.current
+      if (growing) {
+        const obj = findObjectById(screen.objects, growing.id)
+        if (obj) {
+          const height = Math.max(growing.min, Math.round(growing.startHeight + coords.y - growing.startY))
+          const cell = obj.properties?.cell
+          // Stretched in its cell, its row follows the height it was drawn at.
+          const drawn = cell && typeof cell.drawnHeight === "number" ? { properties: { ...obj.properties, cell: { ...cell, drawnHeight: height } } } : {}
+          if (height !== obj.height) onUpdateObject(obj.id, { height, ...drawn })
+        }
+        return
+      }
       const span = spanDragRef.current
       if (span) {
         const parent = findObjectById(screen.objects, span.tableId)
@@ -3847,6 +3884,8 @@ export function Canvas({
 
         if (activeTool !== "select" && activeTool !== "background") {
           canvas.style.cursor = "crosshair"
+        } else if (spanHandles?.grow && Math.hypot(coords.x - spanHandles.grow.x, coords.y - spanHandles.grow.y) <= SPAN_HANDLE_HIT / zoom) {
+          canvas.style.cursor = "ns-resize"
         } else if (spanHandles && spanHandles.handles.some((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)) {
           // Over a span handle: the way it grows.
           const h = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)!
@@ -5011,8 +5050,18 @@ export function Canvas({
       return
     }
 
+    if (cellHeightDragRef.current) {
+      cellHeightDragRef.current = null
+      return
+    }
     if (spanDragRef.current) {
+      // Let go: the rows and columns the span left empty go (lib/snap-table.ts withoutEmptyLines).
+      const table = findObjectById(screen.objects, spanDragRef.current.tableId)
       spanDragRef.current = null
+      if (table && isSnapTable(table)) {
+        const tidy = withoutEmptyLines(table)
+        if (tidy !== table) onUpdateObject(table.id, { properties: tidy.properties, children: tidy.children })
+      }
       return
     }
     if (lineDragRef.current) {
@@ -5489,6 +5538,7 @@ export function Canvas({
         data-snap-tables={snapTableRects}
         data-pixels-per-mm={layoutScale.pixelsPerMm}
         data-span-handles={spanHandles ? JSON.stringify(spanHandles.handles) : undefined}
+        data-cell-height-handle={spanHandles?.grow ? JSON.stringify(spanHandles.grow) : undefined}
         data-size-lines={sizeLines ? JSON.stringify(sizeLines.lines) : undefined}
         data-editing-container={editingContainerId ?? undefined}
         // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.

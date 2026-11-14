@@ -165,6 +165,26 @@ export function drawSpanHandles(ctx: CanvasRenderingContext2D, handles: Array<{ 
 }
 
 /**
+ * The height handle of an object in a cell (the user, 2026-11-14): a small
+ * square at its bottom right corner, with a vertical double arrow, apart
+ * from the span handles at the middle of its edges.
+ */
+export function drawCellHeightHandle(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, color: string, zoom: number): void {
+  const size = 11 / zoom
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.roundRect(at.x - size / 2, at.y - size / 2, size, size, 2 / zoom)
+  ctx.fill()
+  ctx.fillStyle = "#ffffff"
+  ctx.font = `600 ${9 / zoom}px system-ui, sans-serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText("↕", at.x, at.y + 0.5 / zoom)
+  ctx.restore()
+}
+
+/**
  * The column and row lines of a selected table: a size set by hand drawn
  * solid, an automatic one faint and dashed - each to be dragged (Task 8).
  */
