@@ -1,4 +1,5 @@
 import JSZip from "jszip"
+import { withExportedGuard } from "@/lib/guard"
 import { assertCombinedExportable } from "./combined-topics"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
@@ -783,7 +784,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         // The navigator goes once, in navigators[]; a screen names it.
         objects: mapObjectsDeep(
           jsonObjects.filter((o: any) => o.type !== "navigator"),
-          (original: any) => appObject(original, screen.id),
+          (original: any) => withExportedGuard(appObject(original, screen.id), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined),
         ),
       }
     }),

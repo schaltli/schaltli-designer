@@ -9,6 +9,7 @@
  * rasteriser (paint-pills.ts), the icon in the ink colour, the label at its
  * place.
  */
+import { fillRuns, guardCornerLock, guardLockRuns, isGuarded } from "@/lib/guard"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
@@ -145,6 +146,11 @@ export function drawSoftwareButton(o: DrawSoftwareButtonOptions): ButtonContentL
     ctx.fillText(text, x + layout.textX, y + layout.baseline)
   }
   ctx.restore()
+  // Guarded: the lock in the top-right corner, in the ink (docs/2026-11-15-guard.md, decision 4).
+  if (isGuarded(obj)) {
+    const lock = guardCornerLock(obj, o.fonts)
+    fillRuns(ctx, guardLockRuns(lock.size), lock.x, lock.y, face.ink)
+  }
   return layout
 }
 

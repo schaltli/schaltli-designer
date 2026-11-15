@@ -63,6 +63,7 @@ import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangl
 import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 import { DeviceAddressLine } from "./device-address-line"
 import { clipFeature } from "@/lib/clip"
+import { guardFeature } from "@/lib/guard"
 
 interface DeployDialogProps {
   project: Project
@@ -743,11 +744,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const pinch = pinchFeature(project as any)
   // And a card that cuts what it holds to its round corners (docs/2026-11-03-card-clip.md).
   const clip = clipFeature(project as any)
+  // And a guarded control: a device that ignores `guard` would switch on a tap (docs/2026-11-15-guard.md).
+  const guard = guardFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, clip, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, clip, guard, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [

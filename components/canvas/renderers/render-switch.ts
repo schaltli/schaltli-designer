@@ -32,6 +32,8 @@
  * they are drawn, so one image serves a chosen segment and an unchosen one.
  */
 
+import { fillRuns, guardBadge, guardKnobLock, guardLockRuns, isGuarded } from "@/lib/guard"
+import { roundRectSpans } from "@/lib/clip"
 import { applyColorDepth } from "@/lib/color-depth"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
@@ -333,9 +335,21 @@ export function renderSwitch(options: RenderSwitchOptions): void {
   }
   if (switchStyleOf(obj) === "led") {
     drawLedGroup(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
-    return
+  } else {
+    drawGroup(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
   }
-  drawGroup(options, states, metrics, background, activeIndex, askedIndex, pressedIndex)
+  // A guarded group wears a badge on its top-right corner (docs/2026-11-15-guard.md, decision 4).
+  if (isGuarded(obj)) drawGuardBadge(ctx, obj, background, colorDepth)
+}
+
+/** The badge: a disc in the group's colour, the lock in its on-colour, all whole pixels. */
+export function drawGuardBadge(ctx: CanvasRenderingContext2D, obj: ScreenObject, background: string, colorDepth: string | undefined): void {
+  const badge = guardBadge(obj)
+  const look = switchLook(obj, background, colorDepth)
+  const d = badge.r * 2
+  const disc = roundRectSpans(d, d, badge.r).map((span): Array<[number, number]> => (span[1] > span[0] ? [span] : []))
+  fillRuns(ctx, disc, badge.cx - badge.r, badge.cy - badge.r, look.chosen)
+  fillRuns(ctx, guardLockRuns(badge.lock.size), badge.lock.x, badge.lock.y, look.onChosen)
 }
 
 /** How long each half of an asked strip's pulse lasts (the Toggle Button's). */
@@ -511,7 +525,13 @@ function drawKnobSwitch(
   // Through switchKnobIcon rather than three fifths written out here, because
   // the bake has to arrive at the same number and once did not.
   const assetId = on ? state.activeIconAssetId || state.iconAssetId : undefined
-  if (assetId) {
+  if (isGuarded(obj)) {
+    // Guarded: the lock takes the icon's place and moves with the knob
+    // (docs/2026-11-15-guard.md, decision 4); the knob's place, size and the
+    // label still say the state.
+    const lock = guardKnobLock(knob)
+    fillRuns(ctx, guardLockRuns(lock.size), lock.x, lock.y, look.onKnob)
+  } else if (assetId) {
     drawStateIcon(options, assetId, switchKnobIcon(knob), look.onKnob)
   }
 

@@ -6,6 +6,7 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
+import { withExportedGuard } from "@/lib/guard"
 import { slimFontData } from "@/lib/project-font-data"
 import { assertCombinedExportable } from "@/lib/combined-topics"
 import { applyColorDepth } from "@/lib/color-depth"
@@ -491,7 +492,10 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // icon's baked paths, a button's and a switch state's - keyed by the
   // screen (or navigator entry, lib/navigator-entries.ts entryKey) its
   // bakes were made for.
-  const deviceObject = (original: any, keyId: string): any => {
+  // A guarded control carries its geometry (lib/guard.ts, device contract §2.14).
+  const deviceObject = (original: any, keyId: string): any =>
+    withExportedGuard(deviceObjectOf(original, keyId), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined)
+  const deviceObjectOf = (original: any, keyId: string): any => {
     // A Bar or Slider has no name or icon of its own any more
     // (2026-09-29). Loading a project drops them (migrateObjects); this
     // drops them again for one that reached the export another way, so a
