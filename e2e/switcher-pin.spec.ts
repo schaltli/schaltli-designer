@@ -139,9 +139,14 @@ test("dragged on the canvas and let go over the object list: nothing moves, as w
 // carried object, 160 px tall and held at its middle, has the pointer far
 // below the 80 px panel when its top edge is under the box there: with Alt,
 // a held panel takes it where it snaps to something the panel holds.
-async function inATable(): Promise<string> {
+// Or the panel drawn because its switcher's condition says so, held by
+// nobody - in the van a switcher listening and reading nothing yet shows its
+// first panel, and only once had the user opened it by its tab, the one time
+// it worked (2026-11-15). Here its topic's example says «on».
+async function inATable(shownByItself = false): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(await project()))
   const p = JSON.parse(await zip.file("project.json")!.async("string"))
+  if (shownByItself) p.topics = p.topics.map((t: Obj) => (t.id === "t-heater" ? { ...t, examples: ["on"] } : t))
   const screen = p.screens.find((s: Obj) => s.id === "screen-1")
   const [weiche] = screen.objects
   screen.objects = [
@@ -166,11 +171,11 @@ async function inATable(): Promise<string> {
   return out
 }
 
-test("out of a table into a panel held in it: with Alt it snaps below what the panel holds, the pointer far below the panel", async ({ page }) => {
-  await loadProject(page, await inATable())
+for (const shown of [false, true]) test(`out of a table into a panel ${shown ? "drawn by its condition" : "held"} in it: with Alt it snaps below what the panel holds, the pointer far below the panel`, async ({ page }) => {
+  await loadProject(page, await inATable(shown))
   await openAllTwisties(page)
-  await objectTreeRow(page, "an").click()
-  expect(await pins(page)).toEqual({ weiche: "an" })
+  if (!shown) await objectTreeRow(page, "an").click()
+  expect(await pins(page)).toEqual(shown ? {} : { weiche: "an" })
   await objectTreeRow(page, "hoch").click()
   const { canvas, box: c } = await getMainCanvas(page)
   // Where the table put the switcher and the tall box, from what is saved.

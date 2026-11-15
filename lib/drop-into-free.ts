@@ -98,8 +98,8 @@ function heldPanelIn(list: ScreenObject[], origin: Point, point: Point, exclude:
 }
 
 /**
- * The panels held open in the screen or panel `parentId` stands in, front
- * first - not those of what is carried, nor of a panel that is not drawn.
+ * The panels `pinned` names in the screen or panel `parentId` stands in,
+ * front first - not those of what is carried, nor of a panel not drawn.
  */
 export function heldPanels(objects: ScreenObject[], ids: string[], parentId: string | null, pinned: PinnedPanel): ScreenObject[] {
   const root = panelOf(objects, parentId)

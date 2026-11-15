@@ -1410,13 +1410,21 @@ export function Canvas({
     [layoutScale],
   )
 
-  // With Alt, a panel held open takes what is carried where it would snap to
-  // something the panel holds, the pointer over it or not: a switcher 160 px
-  // tall, held at its middle, never had the pointer over the 33 px panel
-  // whose button group it was to go below (the user, 2026-11-14).
+  // With Alt, a panel drawn on the canvas takes what is carried where it
+  // would snap to something the panel holds, the pointer over it or not: a
+  // switcher 160 px tall, held at its middle, never had the pointer over the
+  // 33 px panel whose button group it was to go below (the user,
+  // 2026-11-14). Held open, or drawn because its condition says so - a
+  // switcher with no value yet shows its first panel, and only once had the
+  // user opened it by its tab (2026-11-15).
+  const drawnPanelOf = useCallback(
+    (switcher: ScreenObject): ScreenObject | undefined =>
+      previewMode ? undefined : (pinnedPanelOf(switcher) ?? getActivePanel(switcher, previewValueRef.current)),
+    [previewMode, pinnedPanelOf],
+  )
   const heldPanelSnap = useCallback(
     (carried: ScreenObject, rect: SnapRect, pointer: { x: number; y: number }, skip: string | null) => {
-      for (const panel of heldPanels(screen.objects, [carried.id], drawSpace.id, pinnedPanelOf)) {
+      for (const panel of heldPanels(screen.objects, [carried.id], drawSpace.id, drawnPanelOf)) {
         if (panel.id === skip) continue
         const origin = childOrigin(screen.objects, panel.id)
         const objects = [...(panel.children ?? []).map((c) => translateObject(c, origin.x, origin.y)), { ...carried, ...rect }]
@@ -1425,7 +1433,7 @@ export function Canvas({
       }
       return null
     },
-    [screen.objects, drawSpace, pinnedPanelOf, placingSnap],
+    [screen.objects, drawSpace, drawnPanelOf, placingSnap],
   )
 
   // What the hint at the pointer says: what letting go does now, and what
