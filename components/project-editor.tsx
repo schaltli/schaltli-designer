@@ -83,7 +83,9 @@ import { layoutProject, layoutScaleOf } from "@/lib/layout"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
-import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop } from "@/lib/snap-table"
+import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop, type SnapSide } from "@/lib/snap-table"
+import { canPasteBeside, canPasteReplacing, pasteBeside, pasteReplacing } from "@/lib/paste-beside"
+import type { EditMenuActions } from "@/components/edit-menu-items"
 
 import { cn } from "@/lib/utils"
 import { FilePlus2, LayoutTemplate, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
@@ -4045,6 +4047,73 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     if (foreign) madeFor(foreign)
   }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject])
 
+  // Paste Above, Below, Left, Right (lib/paste-beside.ts): the one object on
+  // the clipboard snapped beside the one chosen, in one step. The table it
+  // stands in is open afterwards, the pasted object chosen, as after
+  // snapping by carrying.
+  const handlePasteBeside = useCallback(
+    (side: SnapSide) => {
+      if (selectedObjectIds.length !== 1 || !canPasteBeside(currentScreen.objects, selectedObjectIds[0], clipboard)) return
+      const targetId = selectedObjectIds[0]
+      let done: { tableId: string; pastedId: string } | null = null
+      flushSync(() =>
+        setProject((prev) => {
+          const screen = prev.screens.find((s) => s.id === currentScreenId)
+          if (!screen) return prev
+          const fresh = withFreshIds(clipboard[0], prev.nextId)
+          const newTableId = `obj-${fresh.nextId}`
+          const result = pasteBeside(screen.objects, targetId, fresh.object, side, layoutScaleOf(prev), newTableId)
+          if (!result) return prev
+          done = { tableId: result.tableId, pastedId: fresh.object.id }
+          return {
+            ...prev,
+            nextId: fresh.nextId + 1,
+            screens: prev.screens.map((s) => (s.id === currentScreenId ? { ...s, objects: result.objects } : s)),
+          }
+        }),
+      )
+      const placed = done as { tableId: string; pastedId: string } | null
+      if (!placed) return
+      setEditingContainerId(placed.tableId)
+      setSelectedObjectIds([placed.pastedId])
+    },
+    [selectedObjectIds, currentScreen.objects, clipboard, currentScreenId, setProject],
+  )
+
+  // Paste Replace (lib/paste-beside.ts): the clipboard's one object where
+  // the one chosen was - its cell, or its place and Dock - and that one
+  // gone, in one step. The pasted one is chosen afterwards.
+  const handlePasteReplace = useCallback(() => {
+    if (selectedObjectIds.length !== 1 || !canPasteReplacing(currentScreen.objects, selectedObjectIds[0], clipboard)) return
+    const targetId = selectedObjectIds[0]
+    let pastedId: string | null = null
+    flushSync(() =>
+      setProject((prev) => {
+        const screen = prev.screens.find((s) => s.id === currentScreenId)
+        if (!screen) return prev
+        const fresh = withFreshIds(clipboard[0], prev.nextId)
+        const result = pasteReplacing(screen.objects, targetId, fresh.object)
+        if (!result) return prev
+        pastedId = fresh.object.id
+        return { ...prev, nextId: fresh.nextId, screens: prev.screens.map((s) => (s.id === currentScreenId ? { ...s, objects: result } : s)) }
+      }),
+    )
+    if (pastedId) setSelectedObjectIds([pastedId])
+  }, [selectedObjectIds, currentScreen.objects, clipboard, currentScreenId, setProject])
+
+  // What the right-click menus of the canvas and of the object list offer.
+  const editMenu: EditMenuActions = {
+    hasSelection: selectedObjectIds.length > 0,
+    hasClipboard: clipboard.length > 0,
+    onCopy: handleCopy,
+    onCut: handleCut,
+    onPaste: () => handlePaste(),
+    onPasteBeside: handlePasteBeside,
+    canPasteBeside: selectedObjectIds.length === 1 && canPasteBeside(currentScreen.objects, selectedObjectIds[0], clipboard),
+    onPasteReplace: handlePasteReplace,
+    canPasteReplace: selectedObjectIds.length === 1 && canPasteReplacing(currentScreen.objects, selectedObjectIds[0], clipboard),
+  }
+
   // A copy made for a screen of another size is pasted as it is; say so.
   const madeFor = useCallback(
     (payload: ClipboardPayload) => {
@@ -4819,6 +4888,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onCopy={handleCopy}
             onCut={handleCut}
             onPaste={() => handlePaste()}
+            onPasteBeside={handlePasteBeside}
+            canPasteBeside={editMenu.canPasteBeside}
+            onPasteReplace={handlePasteReplace}
+            canPasteReplace={editMenu.canPasteReplace}
             onSelectAll={handleSelectAll}
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
@@ -4934,6 +5007,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   onCarryTo={carryTo}
                   onSetEditingContainer={setEditingContainerId}
                   onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
+                  editMenu={editMenu}
                 />
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">

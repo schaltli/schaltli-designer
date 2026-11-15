@@ -24,6 +24,8 @@ import {
   ToggleLeft,
   Type,
 } from "lucide-react"
+import { createPortal } from "react-dom"
+import { EditMenuItems, type EditMenuActions } from "@/components/edit-menu-items"
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
@@ -55,6 +57,9 @@ interface ObjectTreePanelProps {
   onSetEditingContainer: (containerId: string | null) => void
   // Locks or unlocks an object for the canvas (ScreenObject.locked).
   onToggleLocked: (id: string, locked: boolean) => void
+  // A row's right-click menu: Copy, Cut, Paste and the pastes beside and
+  // in place of the one chosen, as the canvas's (the user, 2026-11-15).
+  editMenu?: EditMenuActions
 }
 
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = OBJECT_ICONS
@@ -114,7 +119,9 @@ export function ObjectTreePanel({
   onCarryTo,
   onSetEditingContainer,
   onToggleLocked,
+  editMenu,
 }: ObjectTreePanelProps) {
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const isScreenSelected = selectedObjectIds.length === 0
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   // What a drag carries: the row taken, or - when it is selected along with
@@ -332,26 +339,15 @@ export function ObjectTreePanel({
             commitDrop()
           }}
           onDragEnd={handleDragEnd}
-          onClick={(e) => {
-            const modifierKey = e.ctrlKey || e.metaKey || e.shiftKey
-            onSelectObject(obj.id, modifierKey)
-            // Selecting a panel here is the tree's equivalent of clicking its
-            // tab in the canvas strip - it should open that panel for
-            // editing too (dashed-outline + its own contents visible on
-            // canvas), not just show its condition in the property panel.
-            // Selecting what a panel or a group holds opens that container
-            // the same way: the object is worked on where it lives, as
-            // after a double click into a group on the canvas.
-            if (!modifierKey) {
-              // A free area too: what is drawn next goes into it (2026-10-05).
-              if (obj.type === "panel" || obj.type === "free") {
-                onSetEditingContainer(obj.id)
-              } else if (parentId) {
-                const parentType = parentTypes.get(parentId)
-                if (parentType === "panel" || parentType === "group" || isContainerType(parentType)) onSetEditingContainer(parentId)
-              }
-            }
+          onContextMenu={(e) => {
+            if (!editMenu) return
+            e.preventDefault()
+            e.stopPropagation()
+            // Right-clicked outside the selection: that row is chosen, as by a click.
+            if (!selectedObjectIds.includes(obj.id)) choose(obj, parentId, false)
+            setMenuAt({ x: e.clientX, y: e.clientY })
           }}
+          onClick={(e) => choose(obj, parentId, e.ctrlKey || e.metaKey || e.shiftKey)}
           data-object-id={obj.id}
           title={`${obj.type} · ${obj.id}`}
           className={cn(
@@ -424,6 +420,27 @@ export function ObjectTreePanel({
     )
   }
 
+  // A row chosen, by a click or a right-click.
+  const choose = (obj: ScreenObject, parentId: string | null, modifierKey: boolean) => {
+    onSelectObject(obj.id, modifierKey)
+    // Selecting a panel here is the tree's equivalent of clicking its
+    // tab in the canvas strip - it should open that panel for
+    // editing too (dashed-outline + its own contents visible on
+    // canvas), not just show its condition in the property panel.
+    // Selecting what a panel or a group holds opens that container
+    // the same way: the object is worked on where it lives, as
+    // after a double click into a group on the canvas.
+    if (!modifierKey) {
+      // A free area too: what is drawn next goes into it (2026-10-05).
+      if (obj.type === "panel" || obj.type === "free") {
+        onSetEditingContainer(obj.id)
+      } else if (parentId) {
+        const parentType = parentTypes.get(parentId)
+        if (parentType === "panel" || parentType === "group" || isContainerType(parentType)) onSetEditingContainer(parentId)
+      }
+    }
+  }
+
   return (
     <div
       ref={scrollRef}
@@ -464,6 +481,28 @@ export function ObjectTreePanel({
       ) : (
         <div className="pl-4">{renderChildren(objects, 0, null)}</div>
       )}
+      {menuAt && editMenu
+        ? createPortal(
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setMenuAt(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setMenuAt(null)
+                }}
+              />
+              <div
+                data-testid="object-tree-menu"
+                className="fixed z-50 bg-popover border border-border rounded-md shadow-md py-1 min-w-[160px]"
+                style={{ left: menuAt.x, top: menuAt.y }}
+              >
+                <EditMenuItems actions={editMenu} onDone={() => setMenuAt(null)} />
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }

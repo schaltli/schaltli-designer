@@ -102,6 +102,7 @@ import {
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
+import { EditMenuItems } from "@/components/edit-menu-items"
 import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
 import { onGlass, type CarryTarget } from "@/lib/carry"
 
@@ -144,6 +145,7 @@ export function carriesFromRibbon(tool: string): boolean {
 const SPAN_HANDLE_HIT = 9
 // A row of the object list held under a dragged object this long opens (as
 // the list's own drags do, components/object-tree/object-tree-panel.tsx).
+
 const TREE_HOVER_OPEN_MS = 600
 // What has a height of its own in a table's cell, to drag at its corner;
 // a text's is its font's, a ring's its diameter, a switcher's its panels'.
@@ -406,6 +408,13 @@ export interface CanvasProps {
   /** Copy and delete the selection, one undo step. */
   onCut?: () => void
   onPaste: () => void
+  /** Paste Above, Below, Left, Right: the clipboard snapped beside the one chosen (lib/paste-beside.ts). */
+  onPasteBeside?: (side: SnapSide) => void
+  /** Whether that may be done now. */
+  canPasteBeside?: boolean
+  /** Paste Replace: the clipboard's one object where the chosen one was. */
+  onPasteReplace?: () => void
+  canPasteReplace?: boolean
   onSelectAll: () => void
   hasClipboard: boolean
   screenWidth: number
@@ -877,6 +886,10 @@ export function Canvas({
   onCopy,
   onCut,
   onPaste,
+  onPasteBeside,
+  canPasteBeside = false,
+  onPasteReplace,
+  canPasteReplace = false,
   onSelectAll,
   hasClipboard = false,
   screenWidth,
@@ -5582,25 +5595,6 @@ export function Canvas({
     setContextMenuPosition(null)
   }, [])
 
-  const handleCopyFromMenu = useCallback(() => {
-    if (onCopy) {
-      onCopy()
-    }
-    handleCloseContextMenu()
-  }, [onCopy, handleCloseContextMenu])
-
-  const handleCutFromMenu = useCallback(() => {
-    onCut?.()
-    handleCloseContextMenu()
-  }, [onCut, handleCloseContextMenu])
-
-  const handlePasteFromMenu = useCallback(() => {
-    if (onPaste) {
-      onPaste()
-    }
-    handleCloseContextMenu()
-  }, [onPaste, handleCloseContextMenu])
-
   const handleSelectAllFromMenu = useCallback(() => {
     onSelectAll()
     handleCloseContextMenu()
@@ -5735,29 +5729,20 @@ export function Canvas({
               top: contextMenuPosition.y,
             }}
           >
-            <button
-              className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleCopyFromMenu}
-              disabled={selectedObjectIds.length === 0}
-            >
-              Copy
-            </button>
-            {onCut ? (
-              <button
-                className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleCutFromMenu}
-                disabled={selectedObjectIds.length === 0}
-              >
-                Cut
-              </button>
-            ) : null}
-            <button
-              className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handlePasteFromMenu}
-              disabled={!hasClipboard}
-            >
-              Paste
-            </button>
+            <EditMenuItems
+              actions={{
+                hasSelection: selectedObjectIds.length > 0,
+                hasClipboard,
+                onCopy,
+                onCut,
+                onPaste,
+                onPasteBeside,
+                canPasteBeside,
+                onPasteReplace,
+                canPasteReplace,
+              }}
+              onDone={handleCloseContextMenu}
+            />
             <button
               className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground"
               onClick={handleSelectAllFromMenu}

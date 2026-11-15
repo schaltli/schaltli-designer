@@ -52,13 +52,13 @@ Daneben stehen alle Screens des Projekts als kleine Vorschaubilder, oben die Mas
 
 In der Mitte steht der Screen in seiner echten Pixelgrösse, im Rahmen des Geräts. Die Tasten im Rahmen, etwa der Drehring des Knob, lassen sich anklicken und belegen, siehe [Hardware-Tasten und Gesten](/designer/tasten).
 
-Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span>. Ist ein Slider, Dial, Bar, Gauge, Switch, Toggle Button oder eine Button Group ausgewählt, steht dort auch <span class="ui">Convert to</span>, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
+Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Cut</span>, <span class="ui">Paste</span>, <span class="ui">Paste Above</span>, <span class="ui">Paste Below</span>, <span class="ui">Paste Left</span>, <span class="ui">Paste Right</span>, <span class="ui">Paste Replace</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span>. Was die Einfüge-Befehle tun, steht unter [Einfügen statt ziehen](/objekte/anordnen#zusammenstecken). Ist ein Slider, Dial, Bar, Gauge, Switch, Toggle Button oder eine Button Group ausgewählt, steht dort auch <span class="ui">Convert to</span>, siehe [Umwandeln](/objekte/gemeinsames#umwandeln).
 
 Ein Klick auf ein Objekt einer [Gruppe](/objekte/anordnen#gruppe) wählt die ganze Gruppe, ein Doppelklick führt hinein zum einzelnen Objekt.
 
 ## Objekte und Eigenschaften
 
-Rechts oben listet <span class="ui">Objects</span> alle Objekte des Screens, das vorderste oben. Darunter stehen die Eigenschaften dessen, was ausgewählt ist: eines Objekts, mehrerer Objekte oder, wenn nichts ausgewählt ist, des Screens selbst. Die rechte Spalte lässt sich an ihrem linken Rand breiter und schmaler ziehen.
+Rechts oben listet <span class="ui">Objects</span> alle Objekte des Screens, das vorderste oben. Darunter stehen die Eigenschaften dessen, was ausgewählt ist: eines Objekts, mehrerer Objekte oder, wenn nichts ausgewählt ist, des Screens selbst. Ein Rechtsklick auf eine Zeile von <span class="ui">Objects</span> wählt das Objekt und öffnet dasselbe Menü zum Kopieren, Ausschneiden und Einfügen wie auf dem Screen. Die rechte Spalte lässt sich an ihrem linken Rand breiter und schmaler ziehen.
 
 ## Statusleiste
 
