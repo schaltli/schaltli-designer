@@ -125,6 +125,7 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
   const masters = [];
   const taps = {};
   const drags = {};
+  const guards = {};
   const topics = [];
   const assets = new Map();
   const skipped = [];
@@ -163,6 +164,12 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
   // exactly one screen - it ran two, and failed on every board, 2026-11-03).
   if (!typesOnly && (ddf.supportedFeatures || []).includes("clip") && supportedObjectTypes.includes("box")) {
     runs.push({ type: "card-clip", specimen: SPECIMENS["card-clip"], picker });
+  }
+  // Guarded controls, where the board says it draws and honours them
+  // (docs/2026-11-15-guard.md): their locks photographed, their gesture run.
+  const guardTypes = ["button", "button-group", "switch", "toggle-button"];
+  if (!typesOnly && (ddf.supportedFeatures || []).includes("guard") && guardTypes.every((t) => supportedObjectTypes.includes(t))) {
+    runs.push({ type: "guard", specimen: SPECIMENS.guard, picker });
   }
 
   for (const { type, specimen, picker: { font, fontSize } } of runs) {
@@ -210,6 +217,7 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
     // stray field in project.json would reach the firmware's loader.
     if (built.taps && built.taps.length) taps[type] = built.taps;
     if (built.drags && built.drags.length) drags[type] = built.drags;
+    if (built.guards && built.guards.length) guards[type] = built.guards;
 
     // A specimen that lives on a master - the navigator does, and a device
     // draws it over every screen that uses the master - brings that master's
@@ -279,7 +287,7 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
     screens: [...screens, ...masters],
   };
 
-  return { project, skipped, fontsWithData: fonts, taps, drags };
+  return { project, skipped, fontsWithData: fonts, taps, drags, guards };
 }
 
 // How much one install may hold: the project's files as the board unpacks

@@ -14,10 +14,27 @@ export interface AskedValue {
   holding?: boolean
   /** A released level: until when only the answer to `value` ends it. */
   awaitUntil?: number
+  /** A Switch's request: when it is dropped without an answer. */
+  giveUpAt?: number
 }
 
 /** How long a released level waits for the answer to the value it was released on. */
 export const LEVEL_AWAIT_MS = 2500
+
+/**
+ * How long a Switch's request waits for any answer before its mark goes - the
+ * 4.3B's and the 4"'s PENDING_TIMEOUT_MS. A bridge publishes only changes, so
+ * a command the installation did not take is never answered: without this the
+ * asked segment pulsed for good (the starter's «Lüften» while it heated,
+ * 2026-11-15).
+ */
+export const SWITCH_AWAIT_MS = 4000
+
+/** When a request ends without an answer, or undefined while it may wait. */
+export function askedValueDeadline(held: AskedValue): number | undefined {
+  if (held.holding) return undefined
+  return held.awaitUntil ?? held.giveUpAt
+}
 
 /** At most one level command per this many ms while dragging; the release always goes. */
 export const LEVEL_PUBLISH_MIN_MS = 100

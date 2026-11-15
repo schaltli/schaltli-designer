@@ -117,3 +117,23 @@ export function rectsIntersect(
 ): boolean {
   return !(x1 + width1 < x2 || x2 + width2 < x1 || y1 + height1 < y2 || y2 + height2 < y1)
 }
+
+/**
+ * The object `id` as the preview shows it, at its place on the screen - or
+ * undefined where it is not showing: in a switcher's panel that is not the
+ * active one (a guard's cover locks then, docs/2026-11-15-guard.md E4).
+ */
+export function visiblePreviewObject(
+  id: string,
+  objects: ScreenObject[],
+  activePanel: (switcher: ScreenObject) => ScreenObject | undefined,
+): ScreenObject | undefined {
+  for (const o of objects) {
+    if (o.id === id) return o
+    if (o.type !== "switcher") continue
+    const panel = activePanel(o)
+    const inner = panel ? visiblePreviewObject(id, panel.children ?? [], activePanel) : undefined
+    if (inner) return { ...inner, x: inner.x + o.x, y: inner.y + o.y }
+  }
+  return undefined
+}

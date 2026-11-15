@@ -134,7 +134,15 @@ import { BrokerListener } from "@/components/broker-listener"
 import { TopicAdderContext, type NewTopic } from "@/components/topic-adder-context"
 import { brokerStore, useHeardTopics, useListenGeneration, useListening } from "@/lib/broker-store"
 import type { ObjectType } from "@/lib/object-types"
-import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
+import {
+  askedValueAnswered,
+  askedValueDeadline,
+  LEVEL_AWAIT_MS,
+  LEVEL_PUBLISH_MIN_MS,
+  sameLevel,
+  SWITCH_AWAIT_MS,
+  type AskedValue,
+} from "@/lib/asked-value"
 import { blockPartsRoom, fittedBlockCard } from "@/lib/block-card"
 import { Palette, type PaletteTab } from "@/components/palette/palette"
 import { PrebuiltRows } from "@/components/palette/prebuilt-rows"
@@ -1376,11 +1384,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // the broker delivered, and drawn as the marker - never as the fill. Keyed
   // by the topic the request was about (the setpoint topic where there is one,
   // else the read topic), exactly as the firmware keys its own, and dropped as
-  // soon as a message arrives on that topic. No timeout: the bridge asks again
-  // every two seconds, so a command that never landed corrects itself - and
-  // until it does, the marker sits visibly away from the bar, which is the
-  // honest picture rather than a bar that lies (2026-09-18: the preview still
-  // moved the fill here long after the devices had stopped).
+  // soon as a message arrives on that topic (2026-09-18: the preview still
+  // moved the fill here long after the devices had stopped). A Switch's
+  // request also goes after SWITCH_AWAIT_MS without an answer, as on the
+  // devices: a bridge publishes only changes, so a command the installation
+  // did not take is never answered, and the asked segment pulsed for good.
   //
   // A level's request ends differently since 2026-09-27, as on the devices:
   // while the mouse is held (holding) no answer ends it - the hand is still
@@ -1644,11 +1652,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Just the requests, for the canvas to draw as markers. The values the
   // broker delivered go their own way, untouched - see askedValues above for
   // why these two must not be merged.
-  // A released level whose end value was never answered: the installation's
-  // last word is shown after all (decision 6c) - just later.
+  // A released level whose end value was never answered, or a Switch's tap
+  // nothing answered: the installation's last word is shown after all
+  // (decision 6c) - just later.
   useEffect(() => {
     const waits = Object.values(askedValues)
-      .map((a) => a.awaitUntil)
+      .map(askedValueDeadline)
       .filter((t): t is number => t !== undefined)
     if (waits.length === 0) return
     const timer = setTimeout(() => {
@@ -1657,7 +1666,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const next = { ...prev }
         let changed = false
         for (const [t, a] of Object.entries(prev)) {
-          if (a.awaitUntil !== undefined && a.awaitUntil <= now) {
+          const deadline = askedValueDeadline(a)
+          if (deadline !== undefined && deadline <= now) {
             delete next[t]
             changed = true
           }
@@ -1730,7 +1740,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if (!topic || isLocalTopic(project.topics, topic)) return
       setAskedValues((prev) => ({
         ...prev,
-        [topic]: { value: expected, seen: prev[topic]?.seen ?? liveValues[topic] },
+        [topic]: { value: expected, seen: prev[topic]?.seen ?? liveValues[topic], giveUpAt: Date.now() + SWITCH_AWAIT_MS },
       }))
     },
     [liveValues, project.topics],

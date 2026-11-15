@@ -574,6 +574,98 @@ async function fetchSnapshot(testInterface, attempts = 3) {
   );
 }
 
+// A guarded control (designer docs/2026-11-15-guard.md) and what the device
+// makes of a finger on it, step by step: a plain tap sends nothing; a swipe
+// that starts on it sends nothing and pages nothing; pushed up past its
+// travel and then tapped it sends its value - which, coming after the swipe,
+// also proves the swipe left the screen where it was; and pushed up, then
+// taken off the screen and back, it is locked again (E2).
+//
+// Returns null on success, or a sentence saying what went wrong.
+async function guardAndExpect(g, testInterface, mqttClient, screenIndex, otherIndex) {
+  const origin = new URL(testInterface.snapshotUrl).origin;
+  const url = `${origin}/api/touch`;
+  const send = async (x, y, down) => {
+    const res = await fetch(`${url}?x=${Math.round(x)}&y=${Math.round(y)}&down=${down}`, {
+      method: "POST",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status === 404) return "this device has no /api/touch endpoint, so a touch cannot be simulated";
+    if (!res.ok) return `POST ${url} answered ${res.status}`;
+    return null;
+  };
+  const seen = [];
+  const onMessage = (topic, payload) => {
+    if (topic === g.topic) seen.push(payload.toString());
+  };
+  mqttClient.on("message", onMessage);
+  try {
+    await new Promise((resolve, reject) => mqttClient.subscribe(g.topic, { qos: 1 }, (err) => (err ? reject(err) : resolve())));
+    if (g.state) {
+      mqttClient.publish(g.state.topic, g.state.value, { qos: 1 });
+      await sleep(1500);
+    }
+    // A dark panel takes the first contact as a wake-up: given one, off the control.
+    let failed = (await send(2, 2, 1)) || (await sleep(120), await send(2, 2, 0));
+    if (failed) return failed;
+    await sleep(400);
+
+    const tap = async () => (await send(g.x, g.y, 1)) || (await sleep(120), await send(g.x, g.y, 0));
+    const stroke = async (dx, dy) => {
+      const steps = 6;
+      for (let i = 0; i <= steps; i++) {
+        const f = await send(g.x + (dx * i) / steps, g.y + (dy * i) / steps, 1);
+        if (f) return f;
+        await sleep(120);
+      }
+      return send(g.x + dx, g.y + dy, 0);
+    };
+    const quiet = async (ms, what) => {
+      const before = seen.length;
+      await sleep(ms);
+      return seen.length > before ? `${what} sent ${seen.slice(before).map((v) => `"${v}"`).join(", ")}` : null;
+    };
+    const heard = async (ms, what) => {
+      const before = seen.length;
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        if (seen.slice(before).includes(g.value)) return null;
+        await sleep(100);
+      }
+      return `${what}: "${g.value}" never arrived on ${g.topic} within ${ms / 1000}s` + (seen.length > before ? ` (saw ${seen.slice(before).join(", ")})` : "");
+    };
+
+    failed = (await tap()) || (await quiet(2500, "a plain tap on the locked control"));
+    if (failed) return failed;
+    // Let the hint and the cover go.
+    await sleep(1800);
+    failed = (await stroke(-g.swipe, 0)) || (await quiet(1500, "a swipe starting on the locked control"));
+    if (failed) return failed;
+    await sleep(800);
+    failed = (await stroke(0, -g.push)) || (await sleep(500), await tap()) || (await heard(10000, "pushed up past its travel, then tapped"));
+    if (failed) return failed;
+    // Locked again after the wait (5 s, topped up by that tap), then pushed
+    // up once more and taken off the screen and back: locked (E2).
+    await sleep(7000);
+    // A run of one screen has nowhere to go: that step is left out.
+    if (otherIndex < 0) return null;
+    failed = await stroke(0, -g.push);
+    if (failed) return failed;
+    try {
+      await switchScreen(otherIndex, testInterface);
+      await sleep(500);
+      await switchScreen(screenIndex, testInterface);
+    } catch (error) {
+      return `switching screens to check it locks: ${error.message}`;
+    }
+    await sleep(1200);
+    failed = (await tap()) || (await quiet(2500, "after a screen change, a tap on the control unlocked before it"));
+    return failed || null;
+  } finally {
+    mqttClient.removeListener("message", onMessage);
+  }
+}
+
 async function switchScreen(index, testInterface, timeoutMs = 20000) {
   const res = await fetch(testInterface.screenSwitchUrl, {
     method: testInterface.screenSwitchMethod || "POST",
@@ -617,7 +709,7 @@ async function main() {
     effectiveDdf = { ...ddf, supportedObjectTypes: args.only };
   }
 
-  const { project, skipped, taps, drags } = buildProject(effectiveDdf);
+  const { project, skipped, taps, drags, guards } = buildProject(effectiveDdf);
   for (const [type, why] of Object.entries(PENDING_FIRMWARE)) {
     if (effectiveDdf.supportedObjectTypes.includes(type))
       console.log(`\n!! ${type}: pending firmware, its failures are not counted - ${why}\n`);
@@ -1002,6 +1094,30 @@ async function main() {
             })
           }
         }
+      }
+
+      // Guarded controls: the gesture a photograph cannot speak for.
+      const screenGuards = guards[screen.name] || [];
+      for (const g of screenGuards) {
+        const problem = await guardAndExpect(g, ddf.testInterface, mqttClient, si, shown.length > 1 ? (si === 0 ? 1 : 0) : -1);
+        console.log(`  ${problem ? "FAIL" : "PASS"} guard ${g.what}` + (problem ? `  (${problem})` : ""));
+        results.push({
+          screenIndex: results.length,
+          screenName: `${screen.name} (guard ${g.what})`,
+          comboIndex: 0,
+          overrides: {},
+          pass: !problem,
+          error: problem || undefined,
+          diffPixels: problem ? -1 : 0,
+          totalPixels: 0,
+          quantisationPixels: 0,
+          realPixels: 0,
+          dimensionMismatch: false,
+          actualFile: "",
+          expectedFile: "",
+          actualDims: "0x0",
+          expectedDims: "0x0",
+        });
       }
 
       // Pressing, for the types a photograph cannot speak for.

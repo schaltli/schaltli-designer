@@ -105,11 +105,28 @@ import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, tran
 import { EditMenuItems } from "@/components/edit-menu-items"
 import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
 import { onGlass, type CarryTarget } from "@/lib/carry"
+import {
+  GUARD_HINT,
+  GUARD_HINT_MS,
+  drawGuardCover,
+  guardChanged,
+  guardCover,
+  guardDown,
+  guardDrawn,
+  guardMove,
+  guardTick,
+  guardUnlockTravel,
+  guardUnlocked,
+  guardUp,
+  isGuarded,
+  type GuardCover,
+} from "@/lib/guard"
 
 // Interaction imports
 import {
   findObjectAtPoint,
   findPreviewObjectAt,
+  visiblePreviewObject,
   getCanvasCoordinates,
   handleMouseDown,
   handleMouseMove,
@@ -1055,6 +1072,59 @@ export function Canvas({
   // The same for a Switch, which needs the state under the finger as well as
   // the object - a group marks that one segment (docs/2026-09-20-switch-look.md).
   const [pressedSwitch, setPressedSwitch] = useState<{ id: string; index: number } | null>(null)
+  // Guarded controls' covers in the preview (docs/2026-11-15-guard.md): one
+  // per control, by id; the finger pushing one; until when the hint shows.
+  // Refs, moved on by an animation frame of their own while any is showing.
+  const guardCoversRef = useRef(new Map<string, GuardCover>())
+  const guardFingerRef = useRef<{ id: string; travel: number } | null>(null)
+  const guardHintUntilRef = useRef(0)
+  const guardFrameRef = useRef<number | null>(null)
+  const guardAnimate = useCallback(() => {
+    if (guardFrameRef.current !== null) return
+    const frame = () => {
+      const now = Date.now()
+      const covers = guardCoversRef.current
+      for (const [id, cover] of covers) {
+        const next = guardTick(cover, now)
+        if (next) covers.set(id, next)
+        else covers.delete(id)
+      }
+      drawRef.current()
+      guardFrameRef.current = covers.size > 0 || now < guardHintUntilRef.current ? requestAnimationFrame(frame) : null
+    }
+    guardFrameRef.current = requestAnimationFrame(frame)
+  }, [])
+  // A tap that changed a control while its cover waits tops the time up (decision 13).
+  const guardTapped = useCallback((id: string) => {
+    const cover = guardCoversRef.current.get(id)
+    if (cover) guardCoversRef.current.set(id, guardChanged(cover, Date.now()))
+  }, [])
+  // The finger lifted: a cover not locked in goes, a plain tap shows the hint (decisions 10, E5).
+  const guardRelease = useCallback((): boolean => {
+    const finger = guardFingerRef.current
+    if (!finger) return false
+    guardFingerRef.current = null
+    const cover = guardCoversRef.current.get(finger.id)
+    if (cover) {
+      const now = Date.now()
+      const up = guardUp(cover, now)
+      if (up.cover) guardCoversRef.current.set(finger.id, up.cover)
+      if (up.hint) guardHintUntilRef.current = now + GUARD_HINT_MS
+    }
+    guardAnimate()
+    return true
+  }, [guardAnimate])
+  useEffect(() => {
+    window.addEventListener("mouseup", guardRelease)
+    return () => window.removeEventListener("mouseup", guardRelease)
+  }, [guardRelease])
+  // Leaving the screen, or the preview, locks every guarded control at once,
+  // without animation (E2).
+  useEffect(() => {
+    guardCoversRef.current.clear()
+    guardFingerRef.current = null
+    guardHintUntilRef.current = 0
+  }, [screen.id, previewMode])
   useEffect(() => {
     if (!pressedButtonId && !pressedSwitch) return
     const release = () => {
@@ -1952,6 +2022,48 @@ export function Canvas({
       ctx.lineCap = "round"
       ctx.stroke()
       ctx.restore()
+    }
+
+    // Guarded controls' covers over everything they guard, and the hint
+    // after a plain tap (docs/2026-11-15-guard.md). A control no longer
+    // showing - its panel closed - locks at once (E4).
+    if (previewMode) {
+      const now = Date.now()
+      const covers = guardCoversRef.current
+      const shown: string[] = []
+      for (const [id, cover] of covers) {
+        const obj = visiblePreviewObject(id, previewObjects, (switcher) => getActivePanel(switcher, previewValueRef.current))
+        if (!obj || !isGuarded(obj)) {
+          covers.delete(id)
+          if (guardFingerRef.current?.id === id) guardFingerRef.current = null
+          continue
+        }
+        const outline = guardCover(obj)
+        drawGuardCover(ctx, outline, guardDrawn(cover, now, outline.height, deviceAnimates !== false))
+        shown.push(`${id}:${cover.phase}`)
+      }
+      canvas.dataset.guards = shown.join(" ")
+      const hint = now < guardHintUntilRef.current
+      canvas.dataset.guardHint = hint ? GUARD_HINT : ""
+      if (hint) {
+        // Centred at the bottom of the screen (E5).
+        ctx.save()
+        ctx.font = "14px sans-serif"
+        const textW = Math.ceil(ctx.measureText(GUARD_HINT).width)
+        const w = textW + 24
+        const h = 30
+        const x = Math.round((screenWidth - w) / 2)
+        const y = Math.round(screenHeight - h - 16)
+        ctx.fillStyle = "rgba(32, 32, 32, 0.88)"
+        ctx.beginPath()
+        ctx.roundRect(x, y, w, h, h / 2)
+        ctx.fill()
+        ctx.fillStyle = "#ffffff"
+        ctx.textBaseline = "middle"
+        ctx.textAlign = "center"
+        ctx.fillText(GUARD_HINT, x + w / 2, y + h / 2 + 1)
+        ctx.restore()
+      }
     }
 
     // The pull tabs over the screen, then - while a swipe follows the
@@ -3388,10 +3500,20 @@ export function Canvas({
         const clickedObject = findPreviewObjectAt(coords.x, coords.y, previewObjects, (switcher) =>
           getActivePanel(switcher, previewValueRef.current),
         )
+        // A guarded control that is not unlocked: the press shows its cover
+        // and owns the gesture - nothing is switched, no pressed look, no
+        // swipe (docs/2026-11-15-guard.md, decisions 5 and 8, E6, E8).
+        if (clickedObject && isGuarded(clickedObject) && !guardUnlocked(guardCoversRef.current.get(clickedObject.id))) {
+          guardCoversRef.current.set(clickedObject.id, guardDown(Date.now(), coords.x, coords.y))
+          guardFingerRef.current = { id: clickedObject.id, travel: guardUnlockTravel(guardCover(clickedObject).height, textScale?.pixelsPerMm) }
+          guardAnimate()
+          return
+        }
         if (clickedObject?.type === "button") {
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
+          guardTapped(clickedObject.id)
         } else if (clickedObject?.type === "text-field" || clickedObject?.type === "time-field") {
           // The keyboard opens on what the field shows; nothing is sent
           // until OK, as on a device (tasks/ha-text-plan.md).
@@ -3431,6 +3553,7 @@ export function Canvas({
           setPressedSwitch({ id: clickedObject.id, index })
           if (state?.writeValue && writeTopic) {
             onPreviewPublish?.(writeTopic, state.writeValue)
+            guardTapped(clickedObject.id)
             // What this tap asked the switch to become, so the picture can show
             // it before the installation has answered - the same bookkeeping a
             // dragged level's marker uses.
@@ -3717,6 +3840,9 @@ export function Canvas({
       }
     },
     [
+      guardAnimate,
+      guardTapped,
+      textScale,
       sizedBySnapTable,
       layoutScale,
       spanHandles,
@@ -3801,6 +3927,15 @@ export function Canvas({
       }
 
       if (previewMode) {
+        // A finger on a cover: it follows straight up, and the movement is
+        // the cover's whichever way it goes (decision 8, E6).
+        const finger = guardFingerRef.current
+        if (finger) {
+          const cover = guardCoversRef.current.get(finger.id)
+          if (cover) guardCoversRef.current.set(finger.id, guardMove(cover, Date.now(), coords.x, coords.y, finger.travel))
+          drawRef.current()
+          return
+        }
         const drag = navigatorDragRef.current
         if (drag) {
           const delta = drag.layout.horizontal ? coords.x - drag.start.x : coords.y - drag.start.y
@@ -5038,6 +5173,7 @@ export function Canvas({
   }
 
   const handleMouseUp = useCallback(() => {
+    if (guardRelease()) return
     // A chart let go settles on whole days (lib/chart-range.ts settled).
     if (chartDragRef.current) {
       chartDragRef.current = null
@@ -5270,7 +5406,7 @@ export function Canvas({
     if (canvas) {
       canvas.style.cursor = activeTool !== "select" ? "crosshair" : "default"
     }
-  }, [
+  }, [guardRelease, 
     screen,
     masterScreen,
     projectScreens,

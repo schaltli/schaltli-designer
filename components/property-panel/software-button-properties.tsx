@@ -32,6 +32,7 @@ import {
   IconField,
   PropertySection,
   PropertySections,
+  ToggleRow,
   SizeStepField,
   SelectField,
   TextField,
@@ -248,6 +249,14 @@ export function SoftwareButtonProperties({
         {action?.type === "goto-setup-mode" ? (
           <FieldNote>Puts the device into its own setup screen, where the WiFi and broker are entered.</FieldNote>
         ) : null}
+        {/* docs/2026-11-15-guard.md: a cover pushed up before it acts. */}
+        <ToggleRow
+          label="Guard"
+          checked={selectedObject.properties.guard === true}
+          onChange={(guard) => updateProperty("guard", guard || undefined)}
+          text="Push a cover up before it acts"
+          hint="Against a brushed screen: a finger on it shows a cover, pushed up the button works for 5 s."
+        />
       </PropertySection>
 
       <PropertySection title="Shape">

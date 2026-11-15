@@ -180,6 +180,14 @@ export function SwitchProperties({
           onManageTopics={onManageTopics}
           allowSubtopics={false}
         />
+        {/* docs/2026-11-15-guard.md: a cover pushed up before it changes. */}
+        <ToggleRow
+          label="Guard"
+          checked={selectedObject.properties.guard === true}
+          onChange={(guard) => updateProperty("guard", guard || undefined)}
+          text="Push a cover up before it switches"
+          hint="Against a brushed screen: a finger on it shows a cover, pushed up the control works for 5 s. Only touch is guarded - a value over MQTT changes it as always."
+        />
       </PropertySection>
 
       <PropertySection title="Shape">

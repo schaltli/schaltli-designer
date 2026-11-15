@@ -2084,6 +2084,34 @@ async function checkAlarm(deviceSerial, mqttClient, project, screen, si) {
  * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
  * app's swipe navigation never asked whether a control had taken the touch.
  */
+// A guarded button (the designer's docs/2026-11-15-guard.md): a tap on it
+// while locked sends nothing - its cover takes the touch; pushed up past its
+// travel and then tapped, it sends. Run on the screen that shows it.
+async function checkGuard(deviceSerial, mqttClient, project, screen) {
+  const flat = (list) => (list || []).flatMap((o) => [o, ...flat(o.children)]);
+  const button = flat(screen.objects).find((o) => o.properties?.guard === true && o.type === "button");
+  if (!button) return;
+  const topic = button.properties.action.mqttTopic;
+  const x = button.x + button.width / 2;
+  const y = button.y + button.height / 2;
+  const tapAt = async () => {
+    const p = await devicePointFor(deviceSerial, project, x, y);
+    await phoneApi.tap(p.x, p.y);
+  };
+  const silent = nextMessageOn(mqttClient, topic, 2500).catch(() => null);
+  await tapAt();
+  if ((await silent) !== null) throw new Error(`Guard: a tap on the locked button "${button.id}" sent its message`);
+  await sleep(1800);
+  const a = await devicePointFor(deviceSerial, project, x, y);
+  const b = await devicePointFor(deviceSerial, project, x, y - button.height * 0.9 - 6);
+  await phoneApi.swipe(a.x, a.y, b.x, b.y, 500);
+  await sleep(500);
+  const heard = nextMessageOn(mqttClient, topic, 8000).catch(() => null);
+  await tapAt();
+  if ((await heard) !== "pressed") throw new Error(`Guard: pushed up and tapped, "${button.id}" sent nothing on ${topic}`);
+  console.log(`  guard: a tap on the locked button sends nothing; pushed up, a tap sends`);
+}
+
 async function checkSliderDoesNotPage(deviceSerial, project, screen) {
   const flat = (list) => (list || []).flatMap((o) => [o, ...flat(o.children)]);
   const slider = flat(screen.objects).find((o) => o.type === "slider" && o.properties?.writeTopic);
@@ -2666,6 +2694,13 @@ Screen ${si} "${screen.name}": a local topic - checked, not compared`);
     currentScreen = 0;
   }
   await checkSliderDoesNotPage(deviceSerial, project, project.screens[0]);
+  const guardHome = project.screens.findIndex((s) => JSON.stringify(s.objects).includes('"guard":true'));
+  if (guardHome >= 0) {
+    console.log("\nA guarded button...");
+    await swipeToScreen(deviceSerial, currentScreen, guardHome);
+    currentScreen = guardHome;
+    await checkGuard(deviceSerial, mqttClient, project, project.screens[guardHome]);
+  }
   const popupHome = project.screens.findIndex((s) =>
     JSON.stringify(s.objects).includes('"open-popup"'),
   );

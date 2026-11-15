@@ -18,6 +18,8 @@ Was du in der Live-Vorschau antippst, geht als Befehl an den Broker. Ein Schalte
 
 Stellst du einen Regler, zeigt die Vorschau den gewünschten Wert als Markierung, bis die Anlage den neuen Stand meldet.
 
+Tippst du auf einen Schalter, ist der gewünschte Zustand markiert, bis die Anlage antwortet. Kommt nach vier Sekunden keine Antwort, verschwindet die Markierung, und der Schalter zeigt wieder, was die Anlage zuletzt gemeldet hat, wie auf dem 4" und dem 4.3B. Springt er so zurück, hat die Anlage den Befehl nicht übernommen.
+
 ## Simulation {#simulation}
 
 <span class="ui">Simulation</span> zeigt statt der echten Werte die Beispielwerte der Topics. Veröffentlicht wird nichts. Findet der Designer keinen Broker, schaltet er von selbst auf Simulation.
@@ -39,6 +41,10 @@ Wo eine Wischgeste zu einem Nachbarn führt, steht am Rand ein kurzer Strich, di
 <Screenshot name="vorschau-lasche" alt="Der Screen Verlauf mit der Lasche oben in der Mitte und dem Pfeil zurück im Navigator" caption="«Verlauf» liegt unter «Energie»: Die Lasche oben zeigt, dass du nach unten zurückwischen kannst." />
 
 Eine Geste gehört dem, worauf sie beginnt. Auf einem Regler stellst du den Wert, auf dem Navigator scrollst du ihn, und auf einem Button oder Schalter löst schon der Druck dessen Aktion aus. Auf dem PaperS3 folgt der Screen nicht dem Finger und die Lasche bewegt sich nicht, denn das Gerät zeichnet keine Bewegung.
+
+## Guard {#guard}
+
+Ein Control mit [Guard](/objekte/bedienen#guard) verhält sich in der Vorschau wie am Gerät, die Maus ist der Finger. Drückst du darauf, liegt der gestreifte Deckel darüber. Schieb ihn mit gedrückter Maustaste nach oben, bis er einrastet; dann schaltet das Control 5 Sekunden lang. Klickst du nur, verschwindet der Deckel, und unten steht kurz <span class="ui fw">Slide up to unlock</span>. Wege und Zeiten sind dieselben wie auf den Geräten.
 
 ## Gut zu wissen
 

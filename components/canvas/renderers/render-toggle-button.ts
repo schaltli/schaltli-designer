@@ -10,6 +10,7 @@
  * makes it pulse at half strength, saying what was asked; nothing reported
  * is the light off with «?».
  */
+import { fillRuns, guardCornerLock, guardLockRuns, isGuarded } from "@/lib/guard"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
@@ -196,6 +197,11 @@ export function renderToggleButton(options: RenderToggleButtonOptions): ToggleLo
     ctx.fillStyle = asking ? word.askedInk : word.ink
     font(word.fontId).draw(word.text, x + word.textX, y + word.baseline)
     ctx.restore()
+  }
+  // Guarded: the lock in the top-right corner, in the ink (docs/2026-11-15-guard.md, decision 4).
+  if (isGuarded(obj)) {
+    const lock = guardCornerLock(obj, options.fonts)
+    fillRuns(ctx, guardLockRuns(lock.size), lock.x, lock.y, face.ink)
   }
   return looks
 }
