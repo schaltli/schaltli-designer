@@ -49,13 +49,15 @@ Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er l�
 
 In den Eigenschaften eines Objekts steht unter <span class="ui">Data</span>, welches Topic es liest und, bei Schaltern und Reglern, in welches es schreibt. Die Auswahl zeigt einen Baum mit einer Zeile pro Ebene, zugeklappt bis zum Topic, das gerade gewählt ist. Im Baum stehen die Topics des Projekts, mit ✓ markiert, und alles, was der Designer auf dem Broker gehört hat, jeweils mit dem letzten Wert. Ein Topic des Projekts, auf dem nichts kam, steht blass da, mit «not heard». <span class="ui">Project only</span> blendet alles andere aus.
 
-Ins Suchfeld tippst du einen Teil des Namens, etwa `water` oder `tele/water`. Der Baum zeigt dann nur noch die Äste mit einem Treffer und ist bis zu ihnen aufgeklappt, egal auf welcher Ebene der Teil steht.
+Ins Suchfeld tippst du einen Teil des Namens, etwa `water` oder `tele/water`. Der Baum zeigt dann nur noch die Äste mit einem Treffer und ist bis zu ihnen aufgeklappt, egal auf welcher Ebene der Teil steht. Gesucht wird nur im Namen, nicht im Wert.
+
+<kbd>Tab</kbd> ergänzt den Namen wie in einer Konsole. Grau hinter dem Getippten steht, was dazukommt. Aus `sch` wird so `schaltli`, so weit alle passenden Topics übereinstimmen. Gibt es danach mehrere Möglichkeiten, etwa `schaltli/` und `schaltli2/`, blättert jedes weitere <kbd>Tab</kbd> eine weiter und am Ende wieder zur ersten, <kbd>Shift</kbd>+<kbd>Tab</kbd> rückwärts. Ergänzt wird bis zum nächsten `/`. Das geht auch mitten im Namen: `heater` ergänzt in `schaltli/state/heater/status` weiter zu `heater/status`. Es muss aber am Anfang eines Abschnitts stehen. Passt kein Abschnitt, tut <kbd>Tab</kbd> nichts.
 
 Wählst du ein gehörtes Topic, das noch nicht im Projekt ist, trägt der Designer es gleich ein: mit dem Typ, den er aus den Nachrichten erkannt hat, bei JSON mit den Feldern, und als Beispielwerte mit dem, was er gehört hat. Bei einem Schreib-Topic bleiben die Beispielwerte leer, denn was andere dorthin geschickt haben, ist kein Befehl dieses Screens. Ein <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt Eintrag und Wahl zusammen zurück.
 
 Gibt es das Topic noch nicht, weil gerade niemand darauf sendet, tippst du den ganzen Namen ins Suchfeld. Darunter steht dann <span class="ui">Add topic</span> mit dem Namen. Ein Klick auf einen der Typen dahinter trägt es ohne Beispielwerte ein und wählt es. Den Umweg über die Projekteinstellungen brauchst du dafür nicht. Ganz unten führt <span class="ui">Manage Topics...</span> trotzdem dorthin.
 
-Auch die Suche nach einem Wert im Text, die <kbd>{</kbd> öffnet, bietet unter <span class="ui">Heard on the broker</span> die gehörten Topics an, nach denen des Projekts. Wählst du eines, kommt es ebenso ins Projekt.
+Auch die Suche nach einem Wert im Text, die <kbd>{</kbd> öffnet, zeigt die gehörten Topics, in derselben Liste wie die des Projekts und gleich markiert: ✓ für eines im Projekt, blass mit «not heard», wenn darauf nichts kam. Ohne Suchtext stehen die Topics des Projekts vorne. <kbd>Tab</kbd> ergänzt dort genauso. Wählst du ein gehörtes Topic, kommt es ebenso ins Projekt.
 
 Bei einem JSON-Topic wählst du daneben das Feld. Ohne Wahl gilt <span class="ui">Whole payload</span>, die ganze Nachricht. Ein Feld schreibst du als Pfad: `temp`, `nested.temp` oder `readings[0].value`. Geschrieben wird immer die ganze Nachricht, deshalb gibt es bei Schreib-Topics keine Feldauswahl.
 

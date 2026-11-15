@@ -8,14 +8,22 @@ import { extractJsonField } from "@/lib/json-path"
 import { FIELDS, parse } from "@/lib/placeholders"
 
 export interface ReferenceEntry {
-  /** "heard": a topic the designer heard on the broker that the project lacks yet. */
-  section: "topic" | "heard" | "combined" | "device" | "project" | "screen"
+  section: "topic" | "combined" | "device" | "project" | "screen"
   /** What is written between the braces: `topic:a/b#temp`, `device:model`. */
   reference: string
   /** The type for a topic, a short description for a field. */
   detail: string
-  /** A topic's first example (a JSON field's value in it), if any. */
+  /**
+   * A topic's latest value heard on the broker, else its first example (a
+   * JSON field's value in it), if any.
+   */
   example?: string
+  /** A topic: whether the project has it - picking one it lacks adds it. */
+  inProject?: boolean
+  /** A topic: whether the designer heard it on the broker. */
+  heard?: boolean
+  /** A topic the display keeps itself (lib/local-topics.ts): never heard, and none missed. */
+  local?: boolean
 }
 
 const FIELD_DETAILS: Record<string, string> = {
@@ -33,13 +41,38 @@ export interface HeardReference {
   latest?: string
 }
 
+// A topic reference's path, `a/b#temp` of `topic:a/b#temp`.
+const pathOf = (reference: string) => reference.slice(reference.indexOf(":") + 1)
+
+// Where in `path` a segment starts: its beginning and after every «/».
+function segmentStarts(path: string): number[] {
+  const starts = [0]
+  for (let i = path.indexOf("/"); i >= 0; i = path.indexOf("/", i + 1)) starts.push(i + 1)
+  return starts
+}
+
+// How well a path matches the search, best first: the path itself, its
+// beginning, the beginning of one of its segments, anywhere.
+function rank(path: string, term: string): number {
+  const lower = path.toLowerCase()
+  if (lower === term) return 0
+  if (lower.startsWith(term)) return 1
+  if (segmentStarts(lower).some((at) => lower.startsWith(term, at))) return 2
+  return 3
+}
+
 /**
- * What stage one offers for a query, in section order: the project's topics
- * (a JSON topic also once per declared field), then the topics heard on the
- * broker that the project lacks (docs/2026-10-14-topic-discovery.md,
- * decision 4), then device and project fields. The query matches anywhere in the reference or in the example -
- * `küch` finds the topic whose example is «Küche» - and a namespace
- * typed in front (`topic:kitchen`) keeps to that section.
+ * What the value search offers for a query, in section order: the topics -
+ * the project's and those heard on the broker in one list (the user,
+ * 2026-11-15; until then the heard ones were a section of their own) - then
+ * combined topics, then device, project and screen fields. The query
+ * matches the path only, ignoring case: a topic whose value holds «hello»
+ * is not found by typing it, which surprised (2026-11-15; until then the
+ * example was searched too, so a name held in a value found its topic).
+ * A namespace typed in front (`topic:kitchen`) keeps to
+ * that section. Without a query the project's topics come first, in their
+ * order, then the heard ones by path - a van's broker carries hundreds; with
+ * one, the topics by how well they match, then by path.
  */
 export function referenceEntries(
   query: string,
@@ -47,27 +80,35 @@ export function referenceEntries(
   combined: readonly { name: string; mode?: string }[] = [],
   heard: readonly HeardReference[] = [],
 ): ReferenceEntry[] {
-  const all: ReferenceEntry[] = []
+  const latest = new Map(heard.map((h) => [h.topic, h.latest]))
+  const project: ReferenceEntry[] = []
   for (const topic of topics) {
-    const first = topic.examples?.[0]
-    all.push({ section: "topic", reference: `topic:${topic.topic}`, detail: topic.type, example: first })
+    const wasHeard = latest.has(topic.topic)
+    const value = wasHeard ? latest.get(topic.topic) : topic.examples?.[0]
+    const marks = { inProject: true, heard: wasHeard, ...(topic.local ? { local: true } : {}) }
+    project.push({ section: "topic", reference: `topic:${topic.topic}`, detail: topic.type, example: value, ...marks })
     for (const field of topic.subtopics ?? []) {
-      all.push({
+      project.push({
         section: "topic",
         reference: `topic:${topic.topic}#${field.path}`,
         detail: field.type,
-        example: first !== undefined ? extractJsonField(first, field.path) : undefined,
+        example: value !== undefined ? extractJsonField(value, field.path) : undefined,
+        ...marks,
       })
     }
   }
   const declared = new Set(topics.map((t) => t.topic))
-  for (const h of heard) if (!declared.has(h.topic)) all.push({ section: "heard", reference: `topic:${h.topic}`, detail: h.type, example: h.latest })
+  const fromBroker = heard
+    .filter((h) => !declared.has(h.topic))
+    .map((h): ReferenceEntry => ({ section: "topic", reference: `topic:${h.topic}`, detail: h.type, example: h.latest, inProject: false, heard: true }))
+    .sort((a, b) => a.reference.localeCompare(b.reference))
+  const others: ReferenceEntry[] = []
   // Combined topics after the topics they are made of (lib/combined-topics.ts).
-  for (const ct of combined) all.push({ section: "combined", reference: `combined:${ct.name}`, detail: ct.mode === "scale" ? "number" : "yes / no" })
+  for (const ct of combined) others.push({ section: "combined", reference: `combined:${ct.name}`, detail: ct.mode === "scale" ? "number" : "yes / no" })
   for (const namespace of ["device", "project", "screen"] as const) {
     for (const field of FIELDS[namespace]) {
       const reference = `${namespace}:${field}`
-      all.push({ section: namespace, reference, detail: FIELD_DETAILS[reference] ?? "" })
+      others.push({ section: namespace, reference, detail: FIELD_DETAILS[reference] ?? "" })
     }
   }
 
@@ -79,13 +120,61 @@ export function referenceEntries(
       term = term.slice(namespace.length + 1)
     }
   }
-  return all.filter(
-    (entry) =>
-      (!section || entry.section === section || (section === "topic" && entry.section === "heard")) &&
-      (term === "" ||
-        entry.reference.toLowerCase().includes(term) ||
-        (entry.example !== undefined && entry.example.toLowerCase().includes(term))),
-  )
+  const keep = (entry: ReferenceEntry) => (!section || entry.section === section) && (term === "" || entry.reference.toLowerCase().includes(term))
+  const topicEntries = [...project, ...fromBroker].filter(keep)
+  if (term !== "") {
+    topicEntries.sort((a, b) => rank(pathOf(a.reference), term) - rank(pathOf(b.reference), term) || pathOf(a.reference).localeCompare(pathOf(b.reference)))
+  }
+  return [...topicEntries, ...others.filter(keep)]
+}
+
+/**
+ * What Tab may make of a search (the user, 2026-11-15), as a shell does
+ * with a path: wherever the query starts a segment of a path - at its
+ * beginning or after a «/» - what follows it up to the next «/», added to the
+ * query. The choices, sorted; none where no path has a segment starting so.
+ * «sch» with schaltli/a and schaltli2/b: «schaltli/» and «schaltli2/».
+ */
+export function completionChoices(query: string, paths: readonly string[]): string[] {
+  if (query === "") return []
+  const term = query.toLowerCase()
+  const found = new Set<string>()
+  for (const path of paths) {
+    const lower = path.toLowerCase()
+    for (const at of segmentStarts(lower)) {
+      if (!lower.startsWith(term, at)) continue
+      const rest = path.slice(at + term.length)
+      const slash = rest.indexOf("/")
+      found.add(query + (slash < 0 ? rest : rest.slice(0, slash + 1)))
+    }
+  }
+  return [...found].sort((a, b) => a.localeCompare(b))
+}
+
+/**
+ * One press of Tab: the query made longer as far as all choices agree, or -
+ * where they part at once - the choices to go through, one per press, from
+ * the first that differs from the query and round again (the user,
+ * 2026-11-15: like `cd` in a shell). Null: nothing to add.
+ */
+export function tabStep(query: string, paths: readonly string[]): { next: string } | { cycle: string[]; start: number } | null {
+  const choices = completionChoices(query, paths)
+  if (choices.length === 0) return null
+  if (choices.length === 1) return choices[0] === query ? null : { next: choices[0] }
+  const tails = choices.map((c) => c.slice(query.length))
+  let common = tails[0]
+  for (const t of tails) while (!t.startsWith(common)) common = common.slice(0, -1)
+  if (common !== "") return { next: query + common }
+  const start = choices.findIndex((c) => c !== query)
+  return { cycle: choices, start: start < 0 ? 0 : start }
+}
+
+/** What Tab would add, shown grey after the query: the part all choices agree on, or the first choice's. */
+export function tabGhost(query: string, paths: readonly string[]): string {
+  const step = tabStep(query, paths)
+  if (!step) return ""
+  const next = "next" in step ? step.next : step.cycle[step.start]
+  return next.toLowerCase().startsWith(query.toLowerCase()) ? next.slice(query.length) : ""
 }
 
 /**

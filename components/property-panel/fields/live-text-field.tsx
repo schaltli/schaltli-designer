@@ -23,7 +23,7 @@ import { TopicAdderContext } from "@/components/topic-adder-context"
 import { topicFromHeard } from "@/components/property-panel/topic-selector"
 import type { Topic } from "@/components/project-editor"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { referenceEntries, placeholderProblems } from "@/lib/placeholder-completion"
+import { referenceEntries, placeholderProblems, tabGhost, tabStep } from "@/lib/placeholder-completion"
 import {
   liveTextSegments,
   lowerLiveText,
@@ -77,7 +77,7 @@ const CLIPBOARD_TYPE = "web application/x-schaltli-live-text"
 
 export const LIVE_TEXT_HINT = "Type { to insert a value. Click a value to set how it shows."
 
-const HEADINGS = { topic: "Topics", heard: "Heard on the broker", combined: "Combined", device: "Device", project: "Project", screen: "Screen" } as const
+const HEADINGS = { topic: "Topics", combined: "Combined", device: "Device", project: "Project", screen: "Screen" } as const
 
 /** The stored string the field's DOM stands for. */
 function serialize(root: Node): string {
@@ -205,6 +205,9 @@ export function LiveTextField({
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState(0)
+  // Going round the choices with Tab where they part (the user, 2026-11-15:
+  // like `cd` in a shell); gone once anything is typed.
+  const [cycle, setCycle] = useState<{ choices: string[]; index: number } | null>(null)
 
   // Rebuilt only when the string changed from outside.
   useLayoutEffect(() => {
@@ -271,6 +274,14 @@ export function LiveTextField({
     [heard.topics, addTopic],
   )
   const entries = useMemo(() => referenceEntries(query, topics, combinedTopics, heardReferences), [query, topics, combinedTopics, heardReferences])
+  // Every topic path, the project's and those heard, for Tab to complete.
+  const topicPaths = useMemo(
+    () => referenceEntries("", topics, [], heardReferences).flatMap((e) => (e.section === "topic" ? [e.reference.slice("topic:".length)] : [])),
+    [topics, heardReferences],
+  )
+  // `topic:` typed in front stays in front; Tab completes what follows it.
+  const typedPrefix = /^topic:/i.test(query) ? query.slice(0, "topic:".length) : ""
+  const ghost = cycle ? "" : tabGhost(query.slice(typedPrefix.length), topicPaths)
   useEffect(() => setHighlight(0), [query])
   useEffect(() => {
     if (!searching) return
@@ -295,6 +306,7 @@ export function LiveTextField({
     }
     insertAtRef.current = range
     setQuery("")
+    setCycle(null)
     setSearching(true)
   }
 
@@ -493,6 +505,35 @@ export function LiveTextField({
     read()
   }
 
+  // Tab completes the search as a shell completes a path (lib/placeholder-
+  // completion.ts, tabStep): as far as the topics agree, then round the
+  // choices, Shift+Tab backwards. Nothing to add: nothing happens - it no
+  // longer inserts, Enter does (2026-11-15).
+  // The completed search with the caret at its end, to type on from there.
+  const completeTo = (next: string) => {
+    setQuery(next)
+    requestAnimationFrame(() => searchRef.current?.setSelectionRange(next.length, next.length))
+  }
+  const completeWithTab = (back: boolean) => {
+    const typed = query.slice(typedPrefix.length)
+    if (cycle && cycle.choices[cycle.index] === typed) {
+      const index = (cycle.index + (back ? cycle.choices.length - 1 : 1)) % cycle.choices.length
+      setCycle({ ...cycle, index })
+      completeTo(typedPrefix + cycle.choices[index])
+      return
+    }
+    const step = tabStep(typed, topicPaths)
+    if (!step) return
+    if ("next" in step) {
+      setCycle(null)
+      completeTo(typedPrefix + step.next)
+      return
+    }
+    const index = back ? (step.start - 1 + step.cycle.length) % step.cycle.length : step.start
+    setCycle({ choices: step.cycle, index })
+    completeTo(typedPrefix + step.cycle[index])
+  }
+
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "{" && query === "") {
       e.preventDefault()
@@ -502,7 +543,8 @@ export function LiveTextField({
     const count = entries.length
     if (e.key === "ArrowDown" && count) setHighlight((h) => (h + 1) % count)
     else if (e.key === "ArrowUp" && count) setHighlight((h) => (h - 1 + count) % count)
-    else if ((e.key === "Enter" || e.key === "Tab") && count) insert(entries[Math.min(highlight, count - 1)].reference)
+    else if (e.key === "Enter" && count) insert(entries[Math.min(highlight, count - 1)].reference)
+    else if (e.key === "Tab") completeWithTab(e.shiftKey)
     else if (e.key === "Escape") closeSearch(true)
     else return
     e.preventDefault()
@@ -561,7 +603,7 @@ export function LiveTextField({
   }
 
   let index = 0
-  const groups: { heading: string; entries: { reference: string; text: string; detail?: string; example?: string; index: number }[] }[] = []
+  const groups: { heading: string; entries: { reference: string; text: string; detail?: string; example?: string; index: number; inProject?: boolean; notHeard?: boolean }[] }[] = []
   for (const entry of entries) {
     const heading = HEADINGS[entry.section]
     let group = groups.find((g) => g.heading === heading)
@@ -572,6 +614,9 @@ export function LiveTextField({
       detail: entry.detail,
       example: entry.example,
       index: index++,
+      inProject: entry.inProject,
+      // As the Topic picker marks it: in the project, but the broker sends nothing.
+      notHeard: !!addTopic && entry.inProject && !entry.heard && !entry.local,
     })
   }
 
@@ -649,21 +694,31 @@ export function LiveTextField({
         >
           <div className="flex items-center gap-2 border-b px-3 py-2">
             <span className="font-mono text-xs text-muted-foreground">{"{"}</span>
-            <input
-              ref={searchRef}
-              aria-label="Find a value"
-              data-testid="live-value-search"
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onSearchKeyDown}
-              role="combobox"
-              aria-expanded
-              aria-controls={listId}
-              aria-activedescendant={entries.length ? `${listId}-${highlight}` : undefined}
-              autoComplete="off"
-              spellCheck={false}
-            />
+            {/* What Tab would add, grey after what is typed (the user, 2026-11-15). */}
+            <div className="relative min-w-0 flex-1">
+              <div aria-hidden data-testid="live-value-ghost" className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre text-sm">
+                <span className="invisible">{query}</span>
+                <span className="text-muted-foreground/60">{ghost}</span>
+              </div>
+              <input
+                ref={searchRef}
+                aria-label="Find a value"
+                data-testid="live-value-search"
+                className="relative block w-full bg-transparent text-sm outline-none"
+                value={query}
+                onChange={(e) => {
+                  setCycle(null)
+                  setQuery(e.target.value)
+                }}
+                onKeyDown={onSearchKeyDown}
+                role="combobox"
+                aria-expanded
+                aria-controls={listId}
+                aria-activedescendant={entries.length ? `${listId}-${highlight}` : undefined}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
           </div>
           <div ref={listRef} id={listId} role="listbox" aria-label="Values" data-testid="placeholder-picker" className="max-h-64 overflow-y-auto p-1">
             {groups.length === 0 ? <p className="px-2 py-1.5 text-xs text-muted-foreground">{`Nothing matches «${query}».`}</p> : null}
@@ -687,17 +742,25 @@ export function LiveTextField({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => insert(entry.reference)}
                   >
-                    <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{entry.text}</span>
+                    <span className={cn("min-w-0 flex-1 truncate font-mono text-[12px]", entry.notHeard && "text-muted-foreground")}>{entry.text}</span>
                     {entry.detail ? <span className="shrink-0 text-xs text-muted-foreground">{entry.detail}</span> : null}
-                    {entry.example !== undefined ? (
+                    {entry.notHeard ? (
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">not heard</span>
+                    ) : entry.example !== undefined ? (
                       <span className="max-w-32 shrink-0 truncate text-xs text-muted-foreground">{entry.example}</span>
+                    ) : null}
+                    {/* In the project, as the Topic picker marks it; one not yet is added when picked. */}
+                    {entry.inProject !== undefined && addTopic ? (
+                      <span className="w-4 shrink-0 text-xs text-primary" data-in-project={entry.inProject} title={entry.inProject ? "in project" : undefined}>
+                        {entry.inProject ? "✓" : ""}
+                      </span>
                     ) : null}
                   </div>
                 ))}
               </div>
             ))}
           </div>
-          <p className="border-t px-3 py-1.5 text-[11px] text-muted-foreground">Enter inserts the value and opens how it shows.</p>
+          <p className="border-t px-3 py-1.5 text-[11px] text-muted-foreground">Tab completes the path. Enter inserts the value and opens how it shows.</p>
         </PopoverContent>
       </Popover>
     </PropertyRow>

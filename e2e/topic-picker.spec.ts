@@ -25,6 +25,29 @@ const picker = (page: Page, row: string) => field(page, row).getByRole("combobox
 const listbox = (page: Page) => page.getByRole("listbox")
 const search = (page: Page) => page.getByRole("textbox", { name: "Search topics" })
 
+// The grey of what Tab would add lies exactly behind what is typed: the
+// typed part, drawn invisible in it, as wide and at the same height as in
+// the field (it stood 3 px high, the user 2026-11-15).
+async function expectGhostOver(page: Page, inputSelector: string, ghostTestId: string) {
+  const at = await page.evaluate(
+    ([inputSel, ghostId]) => {
+      const input = document.querySelector(inputSel) as HTMLInputElement
+      const ghost = document.querySelector(`[data-testid="${ghostId}"]`) as HTMLElement
+      const typed = ghost.querySelector("span") as HTMLElement
+      const ctx = document.createElement("canvas").getContext("2d")!
+      ctx.font = getComputedStyle(input).font
+      const i = input.getBoundingClientRect()
+      const t = typed.getBoundingClientRect()
+      const padLeft = parseFloat(getComputedStyle(input).paddingLeft) + parseFloat(getComputedStyle(input).borderLeftWidth)
+      return { dx: t.left - (i.left + padLeft), dy: t.top + t.height / 2 - (i.top + i.height / 2), dw: t.width - ctx.measureText(input.value).width }
+    },
+    [inputSelector, ghostTestId] as const,
+  )
+  expect(Math.abs(at.dx)).toBeLessThan(1)
+  expect(Math.abs(at.dy)).toBeLessThan(1)
+  expect(Math.abs(at.dw)).toBeLessThan(1)
+}
+
 test.describe("the Topic Picker and what was heard", () => {
   let own: OwnBroker
   test.beforeEach(async ({ page }) => {
@@ -51,6 +74,35 @@ test.describe("the Topic Picker and what was heard", () => {
     await search(page).fill("switch")
     await expect(listbox(page).getByRole("option", { name: /^switch-mode/ })).toBeVisible()
     await expect(listbox(page).getByRole("option", { name: /^switch-cmd/ })).toBeVisible()
+  })
+
+  // Tab completes as a shell completes a path (the user, 2026-11-15).
+  test("Tab completes the search as far as the topics agree, then goes round where they part; grey shows what it adds", async ({ page }) => {
+    await picker(page, "Read topic").click()
+    await search(page).fill("pkw/te")
+    await expect(page.getByTestId("topic-search-ghost")).toContainText("pkw/tele/")
+    await expectGhostOver(page, 'input[aria-label="Search topics"]', "topic-search-ghost")
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/")
+    await expect(search(page)).toBeFocused()
+    // heater and water part at once: round them, alphabetically, and back.
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/heater/")
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/water/")
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/heater/")
+    await page.keyboard.press("Shift+Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/water/")
+    await expect(search(page)).toBeFocused()
+    // Typing ends the round: «g» and Tab go on from there.
+    await page.keyboard.type("g")
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("pkw/tele/water/grey")
+    // Inside a word: nothing to add, nothing happens.
+    await search(page).fill("ater")
+    await page.keyboard.press("Tab")
+    await expect(search(page)).toHaveValue("ater")
   })
 
   test("«Project only» shows the project's topics alone", async ({ page }) => {
@@ -127,8 +179,9 @@ test("a project topic without a type, or typed \"number\", is listed and chosen"
   await expect(picker(page, "Read topic")).toContainText("test/old-number")
 })
 
-// The `{` search of a text offers the heard topics after the project's;
-// picking one adds it (topic-picker, decision 6).
+// The `{` search of a text offers the heard topics among the project's, in
+// one list since 2026-11-15 (the user); picking one adds it (topic-picker,
+// decision 6).
 test.describe("the value search of a text and what was heard", () => {
   let own: OwnBroker
   test.beforeEach(async ({ page }) => {
@@ -142,7 +195,7 @@ test.describe("the value search of a text and what was heard", () => {
     await own.close()
   })
 
-  test("«water/fresh» offers the heard topic under its own heading; picked, it is added and read", async ({ page }) => {
+  test("«water/fresh» offers the heard topic among the project's, not marked as in it; picked, it is added and read", async ({ page }) => {
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 20, 200)
@@ -159,11 +212,45 @@ test.describe("the value search of a text and what was heard", () => {
     await expect(page.getByTestId("live-value-search")).toBeFocused()
     // «fresh» alone finds the project's Freshwater/Level first.
     await page.keyboard.type("water/fresh")
-    const heardGroup = page.getByTestId("placeholder-picker").getByRole("group", { name: "Heard on the broker" })
-    await expect(heardGroup.getByRole("option", { name: /pkw\/tele\/water\/fresh/ })).toBeVisible()
+    const topicsGroup = page.getByTestId("placeholder-picker").getByRole("group", { name: "Topics" })
+    const fresh = topicsGroup.getByRole("option", { name: /pkw\/tele\/water\/fresh/ })
+    await expect(fresh).toBeVisible()
+    await expect(fresh.locator("[data-in-project]")).toHaveAttribute("data-in-project", "false")
+    await expect(page.getByTestId("placeholder-picker").getByRole("group", { name: "Heard on the broker" })).toHaveCount(0)
     await page.keyboard.press("Enter")
 
     const saved = await savedProject(page)
     expect(saved.topics.find((t) => t.topic === "pkw/tele/water/fresh")).toMatchObject({ type: "numeric", examples: ["64"] })
+  })
+
+  // Tab completes, Enter inserts (the user, 2026-11-15; Tab inserted until then).
+  test("Tab completes the path, grey shows what it adds; Enter inserts", async ({ page }) => {
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 220, 224)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await placingFreely(page, async () => {
+      await page.mouse.move(to.x, to.y, { steps: 5 })
+      await page.mouse.up()
+    })
+    await expect(page.locator("#text")).toBeFocused()
+    await page.keyboard.type("{")
+    const valueSearch = page.getByTestId("live-value-search")
+    await expect(valueSearch).toBeFocused()
+    await page.keyboard.type("pkw/te")
+    await expect(page.getByTestId("live-value-ghost")).toContainText("pkw/tele/")
+    await expectGhostOver(page, '[data-testid="live-value-search"]', "live-value-ghost")    // One segment per press, as a shell does.
+    await page.keyboard.press("Tab")
+    await expect(valueSearch).toHaveValue("pkw/tele/")
+    await page.keyboard.press("Tab")
+    await expect(valueSearch).toHaveValue("pkw/tele/water/")
+    await page.keyboard.press("Tab")
+    await expect(valueSearch).toHaveValue("pkw/tele/water/fresh")
+    await expect(valueSearch).toBeFocused()
+    await page.keyboard.press("Enter")
+    const saved = await savedProject(page)
+    expect(saved.topics.some((t) => t.topic === "pkw/tele/water/fresh")).toBe(true)
   })
 })

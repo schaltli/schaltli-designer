@@ -19,7 +19,8 @@ Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> sta
 | <kbd>Strg</kbd>- oder <kbd>Shift</kbd>-Klick | ein Objekt zur Auswahl hinzufügen oder wegnehmen |
 | Doppelklick auf eine Gruppe | in die Gruppe hinein, um ein einzelnes Objekt darin zu bearbeiten |
 | Mausrad über dem Screen | zoomen, in ganzen Stufen |
-| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span>, <span class="ui">Ungroup</span> und, bei einem ausgewählten Objekt, das sich umwandeln lässt, <span class="ui">Convert to</span> |
+| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Cut</span>, <span class="ui">Paste</span>, den Einfüge-Befehlen <span class="ui">Paste Above</span> bis <span class="ui">Paste Replace</span>, <span class="ui">Select All</span>, <span class="ui">Group</span>, <span class="ui">Ungroup</span> und, bei einem ausgewählten Objekt, das sich umwandeln lässt, <span class="ui">Convert to</span> |
+| Rechtsklick auf eine Zeile in <span class="ui">Objects</span> | wählt das Objekt; Menü mit <span class="ui">Copy</span>, <span class="ui">Cut</span>, <span class="ui">Paste</span> und den Einfüge-Befehlen |
 | Doppelklick auf eine Gerätekarte | im Dialog <span class="ui">New Project</span>: Gerät wählen und gleich weiter zum Namen |
 | <kbd>F2</kbd> auf einem Eintrag der Projektliste | Projekt umbenennen |
 
@@ -38,6 +39,8 @@ Im Feld <span class="ui">Text</span> eines Texts mit [Werten](/objekte/anzeigen#
 |---|---|
 | `{` | Wert suchen und als Chip einfügen |
 | `{` und gleich noch einmal `{` | eine geschweifte Klammer als Zeichen |
+| <kbd>Tab</kbd> in der Suche | den Pfad ergänzen; nochmals <kbd>Tab</kbd> blättert durch die Möglichkeiten, <kbd>Shift</kbd>+<kbd>Tab</kbd> rückwärts |
+| <kbd>Enter</kbd> in der Suche | den gewählten Wert als Chip einfügen |
 | Pfeiltasten | über einen Chip springen |
 | <kbd>Backspace</kbd> oder <kbd>Entf</kbd> neben einem Chip | den Chip löschen |
 | <kbd>Pos1</kbd> oder <kbd>Ende</kbd> | an den Anfang oder ans Ende des Texts |

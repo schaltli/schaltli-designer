@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils"
 import { splitTopicPath } from "@/lib/json-path"
 import { SubtopicPicker } from "./subtopic-picker"
 import { ChevronRight, ChevronDown, ChevronsUpDown, Check, Search, Plus } from "lucide-react"
-import { useContext, useId, useMemo, useState } from "react"
+import { useContext, useId, useMemo, useRef, useState } from "react"
 import { topicTree, searchTopicTree, sortedChildren, ancestorPaths, type TopicTreeNode } from "@/lib/topic-tree"
 import { useHeardTopics } from "@/lib/broker-store"
 import type { HeardTopic } from "@/lib/heard-topic"
 import { TopicAdderContext, type NewTopic } from "../topic-adder-context"
+import { tabGhost, tabStep } from "@/lib/placeholder-completion"
 
 interface TopicSelectorProps {
   selectedTopicId?: string
@@ -152,12 +153,44 @@ export function TopicSelector({
   const isOpen = (path: string) => expanded.has(path) || !!searched?.open.has(path)
   const offerAdd = !!addTopic && isPlainTopicName(typed) && !items.some((i) => i.topic === typed)
 
+  // Tab completes the search as a shell completes a path, as in a text's
+  // value search (lib/placeholder-completion.ts, tabStep; the user,
+  // 2026-11-15): as far as the topics shown agree, then round the choices.
+  const [cycle, setCycle] = useState<{ choices: string[]; index: number } | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const paths = useMemo(() => shown.map((i) => i.topic), [shown])
+  const ghost = cycle ? "" : tabGhost(query, paths)
+  // The completed search with the caret at its end, to type on from there.
+  const completeTo = (next: string) => {
+    setQuery(next)
+    requestAnimationFrame(() => searchInputRef.current?.setSelectionRange(next.length, next.length))
+  }
+  const completeWithTab = (back: boolean) => {
+    if (cycle && cycle.choices[cycle.index] === query) {
+      const index = (cycle.index + (back ? cycle.choices.length - 1 : 1)) % cycle.choices.length
+      setCycle({ ...cycle, index })
+      completeTo(cycle.choices[index])
+      return
+    }
+    const step = tabStep(query, paths)
+    if (!step) return
+    if ("next" in step) {
+      setCycle(null)
+      completeTo(step.next)
+      return
+    }
+    const index = back ? (step.start - 1 + step.cycle.length) % step.cycle.length : step.start
+    setCycle({ choices: step.cycle, index })
+    completeTo(step.cycle[index])
+  }
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
     if (!next) return
     // Fresh on every open: «All», no search, folded - except the way to
     // whatever is bound, so the current choice is in view.
     setQuery("")
+    setCycle(null)
     setProjectOnly(false)
     setExpanded(selectedRealTopic ? new Set(ancestorPaths(selectedRealTopic)) : new Set())
   }
@@ -312,13 +345,29 @@ export function TopicSelector({
               <div className="p-2 border-b space-y-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  {/* What Tab would add, grey after what is typed (the user, 2026-11-15). */}
+                  <div aria-hidden data-testid="topic-search-ghost" className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre border border-transparent pl-8 pr-2 text-sm">
+                    <span className="invisible">{query}</span>
+                    <span className="text-muted-foreground/60">{ghost}</span>
+                  </div>
                   <input
+                    ref={searchInputRef}
                     autoFocus
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      setCycle(null)
+                      setQuery(e.target.value)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Tab") return
+                      // Not on to the popover's focus trap, which would move on from here.
+                      e.preventDefault()
+                      e.stopPropagation()
+                      completeWithTab(e.shiftKey)
+                    }}
                     placeholder="Search topics..."
                     aria-label="Search topics"
-                    className="h-8 w-full rounded-md border border-input bg-transparent pl-8 pr-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="relative block h-8 w-full rounded-md border border-input bg-transparent pl-8 pr-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   />
                 </div>
                 {addTopic && (
