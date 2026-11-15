@@ -18,6 +18,8 @@ Was du in der Live-Vorschau antippst, geht als Befehl an den Broker. Ein Schalte
 
 Stellst du einen Regler, zeigt die Vorschau den gewünschten Wert als Markierung, bis die Anlage den neuen Stand meldet.
 
+Tippst du auf einen Schalter, ist der gewünschte Zustand markiert, bis die Anlage antwortet. Kommt nach vier Sekunden keine Antwort, verschwindet die Markierung, und der Schalter zeigt wieder, was die Anlage zuletzt gemeldet hat, wie auf dem 4" und dem 4.3B. Springt er so zurück, hat die Anlage den Befehl nicht übernommen.
+
 ## Simulation {#simulation}
 
 <span class="ui">Simulation</span> zeigt statt der echten Werte die Beispielwerte der Topics. Veröffentlicht wird nichts. Findet der Designer keinen Broker, schaltet er von selbst auf Simulation.
