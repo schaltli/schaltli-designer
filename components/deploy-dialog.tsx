@@ -1072,7 +1072,8 @@ function DeployProgress({
         </span>
       </div>
 
-      {status.state === "downloading" && (
+      {/* Applying says how far too, where the device tells (the 4" takes a while to unpack, 2026-11-15). */}
+      {(status.state === "downloading" || (status.state === "applying" && (status.percent ?? -1) >= 0)) && (
         <div className="h-2 rounded-full bg-muted overflow-hidden">
           <div
             className="h-full bg-primary transition-all"

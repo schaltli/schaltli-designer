@@ -31,7 +31,7 @@ Danach zeigt der Dialog jeden Schritt:
 |---|---|
 | <span class="ui">Downloading</span> | das Gerät lädt das Projekt |
 | <span class="ui">Verifying</span> | es prüft das Projekt |
-| <span class="ui">Applying</span> | es übernimmt das Projekt |
+| <span class="ui">Applying</span> | es entpackt und übernimmt das Projekt; der Balken zeigt, wie weit. Auf dem Waveshare 4" dauert das bei einem grossen Projekt gut eine Minute, das Display steht so lange still |
 | <span class="ui">Rebooting</span> | es startet neu; der Dialog wartet, bis es wieder da ist |
 | <span class="ui">Deploy successful</span> | das Board ist mit dem neuen Projekt zurück, fertig |
 | <span class="ui">Done</span> | fertig (Android-App, ohne Neustart) |

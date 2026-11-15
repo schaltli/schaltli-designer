@@ -27,6 +27,11 @@
 //   4. the retained trigger is gone, and no second deploy ran
 //
 // Run: node hil/deploy-check.js --device <ip>
+//
+// --project <file> deploys a real project instead - a designer project file,
+// or a saved version from .data/projects/<name>/versions/ - and checks the
+// board comes back running its first screen. A large project once left the
+// 4" hanging after the install, never restarted (2026-11-15).
 // Needs the dev server (npm run dev) and the broker (npm run hil:broker).
 // Exit 0 pass, 1 fail, 2 device, designer or broker not reachable (skipped,
 // loudly).
@@ -53,9 +58,10 @@ const brokerUrl = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 const PREFERRED_TYPES = ["label", "box", "line"]
 
 function parseArgs(argv) {
-  const args = { device: null }
+  const args = { device: null, project: null }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
+    else if (argv[i] === "--project") args.project = argv[++i]
   }
   if (!args.device) {
     console.error("usage: node hil/deploy-check.js --device <ip>")
@@ -76,7 +82,7 @@ async function installedScreens(base) {
 }
 
 async function main() {
-  const { device } = parseArgs(process.argv)
+  const { device, project: projectFile } = parseArgs(process.argv)
   const base = `http://${device}`
 
   let before
@@ -97,11 +103,20 @@ async function main() {
     console.error(`FAIL - ${ddf.deviceId} declares none of ${PREFERRED_TYPES.join(", ")}`)
     process.exit(1)
   }
-  const { project } = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: `hil-deploy-${deviceTag()}`, typesOnly: true })
-  const screenId = `screen-deploy-${crypto.randomBytes(4).toString("hex")}`
-  project.screens[0].id = screenId
-  project.screens[0].name = `deploy ${screenId.slice(-8)}`
-  project.name = `${ddf.deviceName} deploy check`
+  let project
+  let screenId
+  if (projectFile) {
+    // A saved version wraps the project ({ storeFormat, project }).
+    const loaded = JSON.parse(require("fs").readFileSync(projectFile, "utf8"))
+    project = loaded.project && loaded.project.screens ? loaded.project : loaded
+    screenId = (project.screens.find((s) => !s.isMaster) || project.screens[0]).id
+  } else {
+    project = buildProject({ ...ddf, supportedObjectTypes: [type] }, { topicPrefix: `hil-deploy-${deviceTag()}`, typesOnly: true }).project
+    screenId = `screen-deploy-${crypto.randomBytes(4).toString("hex")}`
+    project.screens[0].id = screenId
+    project.screens[0].name = `deploy ${screenId.slice(-8)}`
+    project.name = `${ddf.deviceName} deploy check`
+  }
   // With its DDF inside, as every project the designer deploys carries one -
   // and the board keeps the deployed zip as its recovery copy. Conformance
   // leaves the DDF out on purpose, for throwaway installs over HTTP that never
@@ -139,7 +154,7 @@ async function main() {
     }
     // The device's own fonts, as conformance does: the export needs them to
     // bake the screen, the board already has them.
-    const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), { ...project, fonts: ddf.fonts })
+    const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), projectFile ? project : { ...project, fonts: ddf.fonts })
     zip = Buffer.from(base64, "base64")
   } finally {
     await browser.close()
@@ -181,7 +196,7 @@ async function main() {
       })
       client.subscribe(`${TOPIC_PREFIX}/+/hello`)
     })
-    console.log(`${device} is ${clientId} (${ddf.deviceId}); deploying one ${type} screen as ${screenId}, ${zip.length} bytes`)
+    console.log(`${device} is ${clientId} (${ddf.deviceId}); deploying ${projectFile ? `"${project.name}"` : `one ${type} screen as ${screenId}`}, ${zip.length} bytes`)
 
     const deployTopic = `${TOPIC_PREFIX}/${clientId}/deploy`
     const deployId = `hil-deploy-${crypto.randomBytes(4).toString("hex")}`
@@ -221,8 +236,12 @@ async function main() {
     }
     check(after !== null, "2. the board came back")
     if (after) check(after.reset === "software", `2b. restarted by software (was ${after.reset})`)
-    check(screens !== null && screens.length === 1 && screens[0] === screenId,
-      `3. running exactly the deployed screen (${screens ? `[${screens.join(", ")}]` : "no screen list"})`)
+    if (projectFile) {
+      check(screens !== null && screens.includes(screenId), `3. running the deployed project (${screens ? `${screens.length} screen(s)` : "no screen list"})`)
+    } else {
+      check(screens !== null && screens.length === 1 && screens[0] === screenId,
+        `3. running exactly the deployed screen (${screens ? `[${screens.join(", ")}]` : "no screen list"})`)
+    }
 
     await sleep(15000)
     const retained = await new Promise((resolve) => {

@@ -10,9 +10,12 @@ import JSZip from "jszip"
 
 type Obj = Record<string, any>
 
-const svg = (fill: string) =>
+// Each a different shape: an icon is baked in the switch's ink, so four
+// full squares come out byte for byte the same - and the export keeps
+// identical pictures once (lib/asset-dedup.ts).
+const svg = (fill: string, width = 24) =>
   "data:image/svg+xml;base64," +
-  Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="${fill}"/></svg>`).toString("base64")
+  Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="${width}" height="24" fill="${fill}"/></svg>`).toString("base64")
 
 function buttons(id: string, topic: string, words: [string, string], icons?: [string, string]): Obj {
   const state = (stateId: string, word: string, icon?: string) => ({
@@ -48,10 +51,10 @@ function project(): Obj {
     settings: { colorDepth: "24bit" },
     fonts: [],
     assets: [
-      { id: "eye-closed", name: "eye closed", type: "icon", data: svg("#000") },
-      { id: "eye-open", name: "eye open", type: "icon", data: svg("#333") },
-      { id: "fan-slow", name: "fan slow", type: "icon", data: svg("#666") },
-      { id: "fan-fast", name: "fan fast", type: "icon", data: svg("#999") },
+      { id: "eye-closed", name: "eye closed", type: "icon", data: svg("#000", 6) },
+      { id: "eye-open", name: "eye open", type: "icon", data: svg("#333", 12) },
+      { id: "fan-slow", name: "fan slow", type: "icon", data: svg("#666", 18) },
+      { id: "fan-fast", name: "fan fast", type: "icon", data: svg("#999", 24) },
     ],
     topics: [],
     hardwareButtons: [],

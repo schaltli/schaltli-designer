@@ -6,6 +6,7 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
+import { dedupAssets, withMovedAssets } from "@/lib/asset-dedup"
 import { withExportedGuard } from "@/lib/guard"
 import { slimFontData } from "@/lib/project-font-data"
 import { assertCombinedExportable } from "@/lib/combined-topics"
@@ -831,7 +832,13 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   //
   // A no-op at 24bit, and idempotent at 1bit, where the firmware applies its
   // own threshold to a value that is already black or white.
-  zip.file("project.json", JSON.stringify(quantizeColorsDeep(withPopupsApart(exportProject, project, project.settings.colorDepth), project.settings.colorDepth), null, 2))
+  // Identical pictures once, every path to them pointing at that one
+  // (lib/asset-dedup.ts): each file costs a board's filesystem time.
+  const movedAssets = await dedupAssets(zip)
+  zip.file(
+    "project.json",
+    withMovedAssets(JSON.stringify(quantizeColorsDeep(withPopupsApart(exportProject, project, project.settings.colorDepth), project.settings.colorDepth), null, 2), movedAssets),
+  )
 
   // Embeds the full editable project (which itself embeds the DDF) as an
   // opaque blob, zip-in-zip - the other half of nested provenance: a
