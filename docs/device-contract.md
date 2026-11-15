@@ -84,7 +84,7 @@ device.json
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 ├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
-├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content), "screen-graph" (§2.10), "scaled-values" (§2.11), "duration-display" (§2.12)
+├── supportedFeatures?[]     // what the firmware can do beyond its object types: "local-topics" (§2.9), "static-objects" (§2, Static content), "screen-graph" (§2.10), "scaled-values" (§2.11), "duration-display" (§2.12), "guard" (§2.14)
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -1464,6 +1464,55 @@ Values over time (`docs/2026-10-16-charts.md`, the model there in full;
 - **On deploy** the designer lays retained
   `schaltli/history/wants/<instance>`: what this display's charts ask the
   recorder to record (`historyWants`). The device does nothing with it.
+
+### 2.14 Guard - feature `guard` (designer side 2026-11-15)
+
+docs/2026-11-15-guard.md. A `switch`, `button-group`, `toggle-button` or
+`button` with `properties.guard: true` needs a deliberate gesture before it
+changes. Beside it the export writes `guard`, the geometry, in the same
+coordinate space as the object's own `x`/`y` (lib/guard.ts `exportedGuard`):
+
+```jsonc
+"guard": {
+  "cover": { "x", "y", "width", "height", "radius" },  // the outline the cover fills
+  "travel": 27,                                     // px the cover must pass to lock in
+  "lock":  { "x", "y", "size" },                    // button, toggle-button
+  "badge": { "cx", "cy", "r", "lock": { "x", "y", "size" } }  // button-group
+}
+```
+
+At rest the control is drawn as without a Guard, plus the lock, whole pixels:
+
+- **switch**: on the knob in place of its state icon, whichever state:
+  `size = max(8, trunc(4r / 5))`, at `(cx - trunc(size/2), cy - trunc(size/2))`,
+  in the knob look's `onKnob`.
+- **button, toggle-button**: `lock`, in the shown face's `ink`.
+- **button-group**: the badge, a disc `roundRect(cx - r, cy - r, 2r, 2r, r)` in
+  the switch look's `chosen`, the lock in its `onChosen`.
+
+The lock (`guardLockRuns`) and the double arrow (`guardArrowRuns`) are runs per
+row; the lock is built from the `fillRoundRect` spans of §2.1 `clip`.
+`lib/fixtures/guard-spans.json` is the reference.
+
+On touch: a finger down on a guarded control that is not unlocked shows the
+cover over `cover` - the two yellows `#f5c542`/`#ebb526` in diagonal stripes
+8 px wide (`floor((x + y) / 8)` odd is the second, from the cover's top left),
+lock and double arrow side by side in `#3a2d00`, never themed - and owns the
+contact: no tap, no pressed look, no swipe, a second finger ignored. The cover
+follows the finger straight up, never down. Past `travel` it locks in at once
+and slides (0.2 s) to just above the control, 55 % opaque; the control then
+works as without a Guard. 5 s after locking in it falls back in 0.2 s and
+fades; every change while it waits tops the time left up to 2 s. Lifted before
+locking in, the cover goes; after a plain tap (moved under 8 px)
+«Slide up to unlock» shows at the bottom for 1.5 s. A screen change, a popup,
+the panel going dark, a reload or the control's panel closing lock it at once.
+A value over MQTT changes the control as always. A device that moves nothing
+(the PaperS3) draws the cover where it lies, waiting, or gone, one refresh each.
+
+- **Declare** `"guard"` in `supportedFeatures` (§1) once the device does all of
+  the above. A device without it never receives a guarded project: Deploy
+  refuses it, or offers the firmware that declares it - one that ignored
+  `guard` would switch on a tap.
 
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 

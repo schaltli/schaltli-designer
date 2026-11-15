@@ -42,6 +42,10 @@ Wo eine Wischgeste zu einem Nachbarn führt, steht am Rand ein kurzer Strich, di
 
 Eine Geste gehört dem, worauf sie beginnt. Auf einem Regler stellst du den Wert, auf dem Navigator scrollst du ihn, und auf einem Button oder Schalter löst schon der Druck dessen Aktion aus. Auf dem PaperS3 folgt der Screen nicht dem Finger und die Lasche bewegt sich nicht, denn das Gerät zeichnet keine Bewegung.
 
+## Guard {#guard}
+
+Ein Control mit [Guard](/objekte/bedienen#guard) verhält sich in der Vorschau wie am Gerät, die Maus ist der Finger. Drückst du darauf, liegt der gestreifte Deckel darüber. Schieb ihn mit gedrückter Maustaste nach oben, bis er einrastet; dann schaltet das Control 5 Sekunden lang. Klickst du nur, verschwindet der Deckel, und unten steht kurz <span class="ui fw">Slide up to unlock</span>. Wege und Zeiten sind dieselben wie auf den Geräten.
+
 ## Gut zu wissen
 
 - Ein [Popup](/designer/screens#popups) legt die Vorschau über den Screen und dunkelt den Rest ab. Ein Klick daneben oder auf das ✕ oben rechts am Fenster schliesst es. Startest du die Vorschau, während du ein Popup bearbeitest, liegt es offen über dem ersten Screen.

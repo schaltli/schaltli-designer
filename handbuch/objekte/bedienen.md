@@ -111,6 +111,24 @@ Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder au
 
 Den gedrückten Zustand zeigt derzeit nur der [4.3B](/geraete/waveshare-4-3b).
 
+## Guard {#guard}
+
+Manches im Van soll nicht aus Versehen schalten: Die Heizung soll nicht angehen, weil jemand den Screen gestreift hat, und Kühlschrank oder Router sollen nicht ausgehen. Mit <span class="ui">Guard</span> braucht ein Control zuerst einen bewussten Griff, bevor es schaltet. Den Schalter dafür findest du beim [Switch](#switch), bei der [Button Group](#button-group) und beim [Toggle Button](#toggle-button) unter <span class="ui">Data</span>, beim [Button](#button) unter <span class="ui">Action</span>.
+
+Der Guard gilt für das ganze Control und jeden Zustand: an, aus, jede Schaltfläche einer Gruppe, jeden Druck auf einen Button. Er gehört zum Control, nicht zum Topic. Zwei Controls auf demselben Topic sind also unabhängig voneinander geschützt.
+
+In Ruhe sieht ein geschütztes Control aus wie sonst, mit einem kleinen Schloss darauf. Beim Switch sitzt es auf dem Knopf und wandert mit ihm, statt des Icons. Beim Button und beim Toggle Button steht es oben rechts in der Ecke, bei der Button Group als runde Plakette auf der Ecke oben rechts.
+
+**Am Gerät:** Legst du den Finger auf ein geschütztes Control, liegt sofort ein gelb gestreifter Deckel darüber, mit Schloss und Doppelpfeil nach oben. Geschaltet ist noch nichts. Schieb den Deckel in einem Zug nach oben. Ist er gut halb so weit gewandert, wie das Control hoch ist, rastet er ein und springt über das Control. Dort wartet er halb durchsichtig, und das Control schaltet wie ohne Guard, so oft du willst. Nach 5 Sekunden fällt der Deckel zurück und verschwindet; nur das Schloss bleibt. Jedes Umschalten verlängert die Wartezeit auf mindestens 2 Sekunden, so kannst du eine Gruppe in Ruhe durchschalten.
+
+Lässt du los, bevor der Deckel eingerastet ist, verschwindet er. Nach einem blossen Antippen steht unten am Screen kurz <span class="ui fw">Slide up to unlock</span>. Ein Wischen, das auf einem geschützten Control beginnt, gehört dem Deckel und blättert den Screen nicht um. Wechselst du den Screen, geht das Display aus oder schliesst sich das Panel des Controls, ist es sofort wieder gesperrt.
+
+Der Guard schützt nur vor dem Finger auf dem Glas. Meldet die Anlage über MQTT einen neuen Zustand, zeigt das Control ihn wie immer. Auch der Drehknopf des [Knob](/geraete/knob) kümmert sich nicht um den Guard: Er löst die Aktion aus, die du ihm gegeben hast. Auf dem [PaperS3](/geraete/papers3) folgt der Deckel dem Finger nicht. Er erscheint, wenn du drückst, steht nach genug Weg oben und verschwindet ohne Bewegung.
+
+Ein Gerät, das den Guard nicht kennt, würde auf einen Tipp schalten. Darum geht ein Projekt mit Guard nur auf ein Gerät, das ihn kennt: Bei älterer Firmware oder App bietet dir der [Deploy](/designer/deploy) das Update an oder lehnt ab.
+
+In der [Vorschau](/designer/vorschau) probierst du den Guard mit der Maus aus.
+
 ## Text field {#text-field}
 
 Ein Feld mit einem Text, den du am Gerät neu eintippst, etwa den Namen, den ein Display im Van anzeigt, oder ein Passwort. Der Text kommt von einem Topic und geht an ein anderes.

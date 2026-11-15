@@ -1492,6 +1492,24 @@ function buildProject(fonts) {
               },
             ],
           },
+          // A guarded button (the designer's docs/2026-11-15-guard.md): its
+          // lock in the picture, and orchestrator.js checkGuard - a tap sends
+          // nothing, a push up and then a tap sends.
+          {
+            id: "guard-button",
+            type: "button",
+            zIndex: 4,
+            x: 60,
+            y: 330,
+            width: 240,
+            height: 56,
+            properties: {
+              guard: true,
+              text: "Heizung",
+              buttonColor: ACCENT,
+              action: { type: "send-mqtt", mqttTopic: "hil/guard/button", mqttMessage: "pressed" },
+            },
+          },
         ],
       },
     ],

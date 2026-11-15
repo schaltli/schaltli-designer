@@ -136,6 +136,99 @@ const SPECIMENS = {
   // `clip` (build-project.js). A heading with a fill of its own across the
   // card's top, cut at the corners inside the edge; a smaller clipping card
   // inside, a box standing out past its corner, cut by both.
+  // Guard (docs/2026-11-15-guard.md): the four types a Guard goes on, each
+  // wearing its lock at rest - the picture. What a picture cannot say is in
+  // `guards`: a tap on a locked control sends nothing, a swipe from it pages
+  // nothing, a push past its travel and then a tap sends, and a screen
+  // change locks it again (run.js guardAndExpect).
+  guard: {
+    build: (c) => {
+      const gap = Math.round(c.square.height * 0.05);
+      const h = Math.round((c.square.height - 3 * gap) / 4);
+      const row = (i) => ({ x: c.square.x, y: c.square.y + i * (h + gap), width: c.square.width, height: h });
+      const topic = c.topic("klappe", "string", ["0", "1"]);
+      const states = [
+        { id: "st-off", label: "AUS", readValue: "0", writeValue: "aus" },
+        { id: "st-on", label: "AN", readValue: "1", writeValue: "an", showAsOn: true },
+      ];
+      const button = row(0);
+      const group = row(1);
+      const push = Math.round(h * 0.9) + 6;
+      const middle = (r) => ({ x: r.x + Math.round(r.width / 2), y: r.y + Math.round(r.height / 2) });
+      return {
+        guards: [
+          {
+            what: "the guarded button",
+            ...middle(button),
+            push,
+            swipe: Math.round(c.square.width * 0.6),
+            topic: `${c.topicPrefix}/guard-button`,
+            value: "pressed",
+          },
+          {
+            what: "the guarded group",
+            ...middle(group),
+            push,
+            swipe: Math.round(c.square.width * 0.6),
+            topic: `${topic}/set`,
+            value: "an",
+            state: { topic, value: "0" },
+          },
+        ],
+        objects: [
+          {
+            id: c.id("button"),
+            type: "button",
+            zIndex: 1,
+            ...button,
+            properties: {
+              guard: true,
+              text: "Heizung",
+              buttonColor: c.colors.accent,
+              fontId: c.font("medium"),
+              action: { type: "send-mqtt", mqttTopic: `${c.topicPrefix}/guard-button`, mqttMessage: "pressed" },
+            },
+          },
+          {
+            id: c.id("group"),
+            type: "button-group",
+            zIndex: 1,
+            ...group,
+            properties: { guard: true, topic, writeTopic: `${topic}/set`, states, switchStyle: "filled", switchColor: c.colors.accent, fontId: c.font("medium") },
+          },
+          {
+            id: c.id("switch"),
+            type: "switch",
+            zIndex: 1,
+            ...row(2),
+            properties: { guard: true, topic, writeTopic: `${topic}/set`, states, switchColor: c.colors.accent, fontId: c.font("medium") },
+          },
+          {
+            id: c.id("toggle"),
+            type: "toggle-button",
+            zIndex: 1,
+            ...row(3),
+            properties: {
+              guard: true,
+              text: "",
+              topic,
+              writeTopic: `${topic}/set`,
+              states,
+              switchStyle: "korry",
+              switchColor: c.colors.accent,
+              backgroundColor: c.colors.bg,
+              borderColor: c.colors.border,
+              textColor: c.colors.fg,
+              trackColor: c.colors.track,
+              fontId: c.font("medium"),
+              secondFontId: c.font("small"),
+            },
+          },
+        ],
+      };
+    },
+  },
+
   "card-clip": {
     build: (c) => {
       const w = c.wide.width
