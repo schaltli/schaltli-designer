@@ -33,14 +33,19 @@ Each step ends with `npm run test:quick` and a stop for the user.
 ## Step 2 - one kept size
 - [x] T7 cell.drawnWidth/drawnHeight become ownSize; migration at formatVersion 3 (a project of step 1 gets step 2 only); «Min W»/«Min H» on it. 2026-11-16: baseline green, three cases in areas-migration. Kept as it was: the size is written while stretched and dropped once not - the spec's «dropped where the content needs as much» would need each type's content size and changes no layout
 - [x] T8 docking keeps no size (decision 14): across its dock an object keeps a least size only where typed («Min W»/«Min H», 0 until then), and the area is no smaller than it asks; what was kept there goes on load. Along the dock its own length is still kept while the area cuts it - dropping that would let a cut become permanent. Handbook: objekte/anordnen.md («Andocken»). Tests: anchor-dock (2 rewritten, 1 new), areas-migration, area-panel-canvas
-- [ ] Checkpoint 2: test:quick noted here; the user confirms step 3
+- [x] Checkpoint 2: skipped as a stop - the user asked for steps 2 and 3 in one go (2026-11-16). test:e2e:prod after step 2: 2473 passed, 1 failed - templates:189, a real fault: a project made from the starter template opened with unsaved changes, the template taken for current. Fixed (a template says its own format, lib/templates.ts)
 
 ## Step 3 - the cell is an area
-- [ ] T9 the cell in the model: type cell, measure by cells, dissolve, migration; layout stable
-- [ ] T10 editing a table of cells: lib operations, then canvas and tree; one-object cells skipped
-- [ ] T11 «Position» for «Cell»; Dock: Fill shown and changeable
-- [ ] T12 look and padding on a cell; a stretched Free area becomes its cell; E4, E5
-- [ ] T13 several objects in a cell: E6, levels, «Cell» in the list; e2e/area-cell.spec.ts
-- [ ] T14 prebuilts and templates build cells with a look (E10)
-- [ ] T15 handbook rewritten; e2e/area-maxxfan.spec.ts; test:quick
-- [ ] Checkpoint 3: the spec's success criteria, with the user
+Built otherwise than planned (2026-11-16, lib/cell-area.ts): a table's children stay objects that name their cell. A cell that holds more than one object, or has a look, is an area the designer makes around what stood in it and takes away again; a card stretched in its cell counts as a cell unmarked. The spec's `type: "cell"` for every cell, and `properties.cell` gone from objects, is NOT built - it would rewrite lib/snap-table.ts and everything that reads a cell for the same result on the screen. To be put to the user.
+- [x] T9 the cell as an area in the model: wrapInCell, unwrappedCells, the drop search names an occupied cell; e2e/area-cell.spec.ts (17)
+- [x] T10 let go on an occupied cell without Alt, an object goes into it (E6); «Cell» and «Area» in the object list; e2e/area-cell-canvas.spec.ts
+- [x] T11 «Position» for «Cell»: Dock (Fill), Horizontal, Vertical, «Cell look»; a dock to an edge or a look makes the cell an area
+- [x] T12 look and padding on a cell (the cell's area shows the sections of an area, titled «Cell»); E4, E5 in the model spec. No migration: an area stretched both ways in its cell is a cell as it is
+- [x] T13 several objects in a cell: E6, levels (table, cell, object) as an area in a cell has them
+- [x] T14 prebuilts and templates: unchanged - their cards stand stretched in their cells and are cells by that (E10)
+- [x] T15 handbook objekte/anordnen.md («In den Eigenschaften», «Mehr als ein Objekt in einer Zelle», «Ein Raster aus Karten»)
+- [ ] OPEN: an object alone in a cell's area that is taken away stands by its Horizontal and Vertical again, not where it was moved to inside the cell
+- [ ] OPEN: a text let go in a cell keeps the width it was drawn at (the user's label, 227 px, made its column that wide); in a slot it is as wide as its words
+- [ ] OPEN: e2e/area-maxxfan.spec.ts (the spec's success criterion as a test) not written; tried by hand on a copy of the van's project instead
+- [ ] OPEN: carried from the object list onto an occupied cell goes through the same code (lib/carry.ts) but has no case of its own
+- [ ] Checkpoint 3: test:e2e:prod and test:quick after step 3, then the spec's success criteria with the user
