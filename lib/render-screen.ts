@@ -41,7 +41,7 @@ import { sortChildrenByZIndex } from "@/lib/object-order"
 import { applyColorDepth } from "@/lib/color-depth"
 import { barLayout, clampScroll, cornerInset, dividerRect, entryRect, markerRect, scrollToShow } from "@/lib/navigator"
 import { BACK_ARROW_ASSETS, entryLook, markerBox, navigatorEntries, navigatorEntryObjects, THEME_SWITCH_ASSETS, themeSwitchAt, themeSwitchObjects, type EntryScreen } from "@/lib/navigator-entries"
-import { freeBackground } from "@/lib/object-groups"
+import { freeBackground, panelBackground, panelClip } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { areaShape, clipCanvasTo, clipsContents, clipsOf } from "@/lib/clip"
 
@@ -534,7 +534,14 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         if (!activePanel) break
         ctx.save()
         ctx.translate(obj.x, obj.y)
-        renderScreenObjects(ctx, activePanel.children ?? [], { ...options, nested: true })
+        // A panel still in the designer's own form with a look
+        // (docs/2026-11-16-areas.md): its box below what it holds, clipped to
+        // its shape. Exported, the box is one of its objects already.
+        const panelBox = panelBackground(activePanel)
+        if (panelBox) renderScreenObjects(ctx, [panelBox], { ...options, nested: true })
+        const panelShape = panelClip(activePanel)
+        if (panelShape) clipCanvasTo(ctx, panelShape)
+        renderScreenObjects(ctx, (activePanel.children ?? []).filter((child) => !child.properties?.dockedOut), { ...options, nested: true })
         ctx.restore()
         break
       }

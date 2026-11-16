@@ -4,6 +4,7 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
+import { migrateToAreas } from "../lib/area-migration"
 
 // A switcher's panel is an area (docs/2026-11-16-areas.md, step 1), in the
 // designer: an object in a panel has «Position» with Dock, the panel has
@@ -23,8 +24,9 @@ const box = (id: string, x: number, y: number, width: number, height: number): O
   properties: { fillColor: "#808080", strokeColor: "#000000", strokeWidth: 1 },
 })
 
-// A switcher at 20, 20, 300 × 200, its one panel holding `children`.
-async function projectWith(children: Obj[]): Promise<string> {
+// The fixture project with a switcher at 20, 20, 300 × 200, its one panel
+// holding `children`.
+async function projectJson(children: Obj[]): Promise<{ zip: JSZip; project: Obj }> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   project.screens.find((s: Obj) => s.id === "screen-1").objects = [
@@ -40,6 +42,11 @@ async function projectWith(children: Obj[]): Promise<string> {
       children: [{ id: "p1", type: "panel", x: 0, y: 0, width: 300, height: 200, zIndex: 1, properties: { comparisonOperator: "==", comparisonValue: "a" }, children }],
     },
   ]
+  return { zip, project }
+}
+
+async function projectWith(children: Obj[]): Promise<string> {
+  const { zip, project } = await projectJson(children)
   zip.file("project.json", JSON.stringify(project))
   const out = path.join(os.tmpdir(), `area-panel-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
   fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
@@ -113,4 +120,62 @@ test("the switcher dragged smaller stops where its panel still holds what is in 
   const { switcher, panel } = await saved(page)
   expect([switcher.x, switcher.y, switcher.width, switcher.height]).toEqual([20, 20, 70, 40])
   expect([panel.children[0].x, panel.children[0].y]).toEqual([10, 10])
+})
+
+// Old projects (lib/area-migration.ts; the model is in
+// e2e/areas-migration.spec.ts): a card that filled its panel.
+const cardFilling = (look: string | undefined): Obj => ({
+  id: "karte",
+  type: "free",
+  x: 0,
+  y: 0,
+  width: 300,
+  height: 200,
+  zIndex: 1,
+  properties: look ? { look } : {},
+  children: [{ ...box("kopf", 0, 0, 80, 30), properties: { ...box("kopf", 0, 0, 80, 30).properties, dock: "top" } }, box("kasten", 40, 80, 60, 30)],
+})
+
+test("an old project's card filling its panel: opened, the panel is the card and shows its Look", async ({ page }) => {
+  await loadProject(page, await projectWith([cardFilling("card")]))
+  await objectTreeRow(page, "p1").click()
+  await expect(page.locator("#freeLook")).toHaveValue("card")
+  await expect(objectTreeRow(page, "karte")).toHaveCount(0)
+  // What stood in the card stands in the panel, and has its Position there.
+  await objectTreeRow(page, "kopf").click()
+  await expect(page.locator("#areaDock")).toHaveValue("top")
+
+  const { switcher, panel } = await saved(page)
+  expect(panel.properties).toMatchObject({ look: "card", areaBox: { id: "karte-background", zIndex: 1 } })
+  expect(panel.children.map((c: Obj) => c.id)).toEqual(["kopf", "kasten"])
+  expect([switcher.width, switcher.height]).toEqual([300, 200])
+})
+
+test("the panel that took its card over is drawn as the card in the panel was", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  // Laid out only, its colours as they are: the theme's roles a project's
+  // colours become on opening are not resolved by this render.
+  const render = async (children: Obj[], migrate: boolean): Promise<string> => {
+    const { project } = await projectJson(children)
+    if (migrate) migrateToAreas(project)
+    return page.evaluate(
+      async ({ p, index }) => {
+        const w = window as any
+        return w.__renderScreenForTest({ project: w.__layoutProjectForTest(p), screenIndex: index, topicOverrides: { m: "a" } })
+      },
+      { p: project, index: project.screens.findIndex((s: Obj) => s.id === "screen-1") },
+    )
+  }
+  // Left as it is the card stays an area in its panel; migrated, the panel
+  // takes it over. Both draw the same pixels.
+  // A fill and an edge of its own, round corners that cut the box docked
+  // at its top: the theme's roles of a card's look are not resolved here.
+  const own = { fillColor: "#204060", strokeColor: "#ffffff", strokeWidth: 3, cornerRadius: 24 }
+  const card = () => ({ ...cardFilling(undefined), properties: own })
+  const asArea = await render([card()], false)
+  const takenOver = await render([card()], true)
+  expect(takenOver).toBe(asArea)
+  // And the card is in them: without its fill the picture is another.
+  expect(await render([cardFilling(undefined)], true)).not.toBe(takenOver)
 })

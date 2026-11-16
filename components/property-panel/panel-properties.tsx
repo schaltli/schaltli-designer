@@ -17,14 +17,15 @@
 
 import type { ScreenObject } from "../project-editor"
 import type { ComparisonOperator } from "@/lib/comparison-operators"
-import { ConditionRow, FieldNote, NumberField, PropertySection, PropertySections } from "./fields"
-import { gapMmOf, SNAP_GAP_MM } from "@/lib/snap-table"
+import { ConditionRow, FieldNote, PropertySection, PropertySections } from "./fields"
+import { AreaSections } from "./free-properties"
 
 interface PanelPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   parentTabControl: ScreenObject | null
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
 }
 
 export function PanelProperties({
@@ -32,6 +33,7 @@ export function PanelProperties({
   onUpdateObject,
   parentTabControl,
   onSelectObject,
+  colorDepth,
 }: PanelPropertiesProps) {
   const updateProperty = (key: string, value: unknown) => {
     onUpdateObject(selectedObject.id, {
@@ -76,32 +78,16 @@ export function PanelProperties({
         ) : null}
       </PropertySection>
 
-      {/* A panel is an area (docs/2026-11-16-areas.md): what stands in it
-          docks inside its padding, with its gap between. */}
-      <PropertySection title="Area">
-        <NumberField
-          id="padding"
-          label="Padding"
-          value={selectedObject.properties.padding ?? 0}
-          onChange={(value) => updateProperty("padding", value > 0 ? value : undefined)}
-          min={0}
-          max={20}
-          step={0.5}
-          unit="mm"
-          hint="Room left free inside its edge for what stands in it."
-        />
-        <NumberField
-          id="areaGap"
-          label="Gap"
-          value={gapMmOf(selectedObject)}
-          onChange={(value) => updateProperty("gapMm", value === SNAP_GAP_MM ? undefined : value)}
-          min={0}
-          max={10}
-          step={0.5}
-          unit="mm"
-          hint="Between the objects docked in it."
-        />
-      </PropertySection>
+      {/* A panel is an area (docs/2026-11-16-areas.md): the sections an
+          area standing alone has - what stands in it docks inside its
+          padding, and it can look like a card. */}
+      <AreaSections
+        selectedObject={selectedObject}
+        onUpdateObject={onUpdateObject}
+        colorDepth={colorDepth}
+        title="Area"
+        note="What is put into it stays where it is placed, or is docked to an edge, as its Position says. It looks like a Box, if you give it a fill or an edge."
+      />
 
       <PropertySection title="Frame" defaultCollapsed summary="Follows the switcher">
         <FieldNote>

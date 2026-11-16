@@ -622,6 +622,7 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   parentTabControl={findParentTabControl(currentScreen.objects, selectedObject.id)}
                   onSelectObject={onSelectObject}
+                  colorDepth={colorDepth}
                 />
               )}
             </FrameLockContext.Provider>

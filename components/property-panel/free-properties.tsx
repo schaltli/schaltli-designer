@@ -20,18 +20,24 @@ const LOOK = [
   { value: "card-accent", label: "Card, accent" },
 ]
 
-/** A free area: only its frame - what is in it stays where it is placed. */
-export function FreeProperties({
+/**
+ * What every area has, wherever it appears (docs/2026-11-16-areas.md): its
+ * look, its padding and gap, and - without a look - the shape and colours of
+ * the box a device draws for it. The area standing alone and a switcher's
+ * panel show the same sections.
+ */
+export function AreaSections({
   selectedObject,
   onUpdateObject,
   colorDepth,
-  scale,
+  title,
+  note,
 }: {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
-  // For how small it can be made: its fonts and the panel's pixels per mm.
-  scale?: LayoutScale
+  title: string
+  note: string
 }) {
   const set = (key: string, value: unknown) =>
     onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, [key]: value } })
@@ -47,12 +53,9 @@ export function FreeProperties({
     onUpdateObject(selectedObject.id, { properties: value === "none" ? rest : { ...rest, look: value } })
   }
   return (
-    <PropertySections>
-      <PropertySection title="Free">
-        <FieldNote>
-          What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a
-          Box, if you give it a fill or an edge.
-        </FieldNote>
+    <>
+      <PropertySection title={title}>
+        <FieldNote>{note}</FieldNote>
         <SelectField id="freeLook" label="Look" value={look ?? "none"} options={LOOK} onChange={setLook} />
         {look ? (
           <FieldNote>
@@ -120,6 +123,32 @@ export function FreeProperties({
           allowTransparent={false}
         />
       </PropertySection>}
+    </>
+  )
+}
+
+/** A free area: only its frame - what is in it stays where it is placed. */
+export function FreeProperties({
+  selectedObject,
+  onUpdateObject,
+  colorDepth,
+  scale,
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
+  // For how small it can be made: its fonts and the panel's pixels per mm.
+  scale?: LayoutScale
+}) {
+  return (
+    <PropertySections>
+      <AreaSections
+        selectedObject={selectedObject}
+        onUpdateObject={onUpdateObject}
+        colorDepth={colorDepth}
+        title="Free"
+        note="What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a Box, if you give it a fill or an edge."
+      />
       <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
         <FrameFields
           x={selectedObject.x}

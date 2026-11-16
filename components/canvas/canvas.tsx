@@ -101,7 +101,7 @@ import {
 } from "@/lib/popup"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
-import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
+import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, panelBackground, panelClip, translateObject } from "@/lib/object-groups"
 import { EditMenuItems } from "@/components/edit-menu-items"
 import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
 import { onGlass, type CarryTarget } from "@/lib/carry"
@@ -2933,6 +2933,14 @@ export function Canvas({
         const children = sortChildrenByZIndex(activePanel.children ?? [])
         ctx.save()
         ctx.translate(obj.x, obj.y)
+        // A panel is an area (docs/2026-11-16-areas.md): its look a box
+        // below what it holds, which it clips to its shape - as an area
+        // standing alone. In the preview the export has made that box an
+        // object of the panel already (lib/object-groups.ts).
+        const panelBox = panelBackground(activePanel)
+        if (panelBox) drawObject(ctx, panelBox, false, false, zoom, placeholders)
+        const panelShape = panelClip(activePanel)
+        if (panelShape) clipCanvasTo(ctx, panelShape)
         for (const child of children) {
           const childSelected = selectedObjectIds.includes(child.id)
           const childHovered = child.id === hoveredObjectId && !childSelected

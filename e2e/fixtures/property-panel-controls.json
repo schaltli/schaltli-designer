@@ -605,8 +605,15 @@
         "input:text: e.g. TEMP or 42",
         "button: v-tab-control",
         "button: Area",
+        "select: Look",
         "input:number: Padding",
         "input:number: Gap",
+        "button: Shape",
+        "input:number: Stroke width",
+        "input:number: Corner radius",
+        "button: Colour",
+        "combobox: Fill",
+        "combobox: Stroke",
         "button: Frame Follows the switcher"
       ]
     },
