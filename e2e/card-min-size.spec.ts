@@ -5,7 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
 import { freeMinSize, withCardsFollowing, withCardsGrown } from "../lib/free-min-size"
-import { moveOutOf, snapTableGeometry } from "../lib/snap-table"
+import { applySnapDrop, moveOutOf, snapTableGeometry } from "../lib/snap-table"
 import { resizeFree } from "../lib/anchor"
 import { dockFree } from "../lib/dock"
 import { buildEntry } from "../lib/bausteine"
@@ -426,6 +426,56 @@ test.describe("a card grows with its content", () => {
     expect(card.children![0].x + card.children![0].width).toBeLessThanOrEqual(card.width - card.children![0].x)
     expect(grown(opened)).toBe(opened)
   })
+})
+
+// The user's «MaxxFan», 2026-11-16: a card let go on the empty cell beside a
+// switch that stands in the middle of its row. The row is as high as the
+// card then, and the table grows upwards around the switch, which keeps its
+// place (lib/snap-table.ts keepInPlace) - out of the top of the area the
+// table stands in, which has no padding to move it back in by. The area was
+// left 21 px high below a table of 88.
+test("a table that grows upwards in an area without padding is moved in, and the area grows down", () => {
+  type P = { name: string; screens: Array<{ id: string; objects: ScreenObject[] }> }
+  const relayout = (p: P): P => ({ ...p, screens: p.screens.map((sc) => ({ ...sc, objects: layoutObjects(sc.objects, SCALE) })) })
+  const box = (id: string, width: number, height: number, properties: Obj = {}): ScreenObject => ({ id, type: "box", x: 0, y: 0, width, height, zIndex: 1, properties: { strokeWidth: 0, ...properties } })
+  const flaeche: ScreenObject = {
+    id: "flaeche",
+    type: "free",
+    x: 10,
+    y: 50,
+    width: 200,
+    height: 80,
+    zIndex: 1,
+    properties: {},
+    children: [
+      {
+        id: "tabelle",
+        type: "table",
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        zIndex: 1,
+        properties: { grid: 1, columns: [{}, {}], rows: [{}] },
+        children: [box("schalter", 100, 80, { cell: { row: 0, column: 0, anchor: { x: "left", y: "center" } } })],
+      },
+      { ...box("karte", 90, 200), x: 110, y: -60, zIndex: 2 },
+    ],
+  }
+  const before = relayout({ name: "p", screens: [{ id: "s", objects: [flaeche] }] })
+  const inArea = before.screens[0].objects[0]
+  const children = applySnapDrop(inArea.children!, "karte", { kind: "table", tableId: "tabelle", target: { kind: "cell", row: 0, column: 1 } }, SCALE)
+  // As the drop leaves it: the switch where it stood, the table 60 above the area.
+  expect(children.find((c) => c.id === "tabelle")!.y).toBe(-60)
+
+  const after = withCardsGrown(relayout({ ...before, screens: [{ id: "s", objects: [{ ...inArea, children }] }] }), SCALE, relayout)
+  const area = after.screens[0].objects[0]
+  const table = area.children!.find((c) => c.id === "tabelle")!
+  expect([area.x, area.y], "the area's corner stays").toEqual([10, 50])
+  expect([table.x, table.y], "the table is in the area").toEqual([0, 0])
+  expect(table.height).toBe(200)
+  expect(area.height, "and the area holds it").toBe(200)
+  expect(freeMinSize(area, SCALE)!.height).toBe(200)
 })
 
 test("in the designer: a heading docked Top in «Küche» - the card grows by it, nothing left out", async ({ page }) => {

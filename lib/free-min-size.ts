@@ -177,9 +177,11 @@ function remembered(area: ScreenObject, width: number, height: number, set = fal
 export function keptInPadding(area: ScreenObject, scale: LayoutScale): ScreenObject {
   if (!isArea(area) || !area.children?.length) return area
   const pad = Math.round(paddingOf(area) * scale.pixelsPerMm)
-  // A panel keeps what stands in it inside its left and top edge without a
-  // padding too: there it cannot grow (docs/2026-11-16-areas.md, E2).
-  if (pad <= 0 && area.type !== "panel") return area
+  // Without a padding too: an area grows to the right and down only, so what
+  // stands past its left or top edge is moved in. A table that grew upwards
+  // around what stood in it (lib/snap-table.ts keepInPlace) hung out above
+  // its area, which then shrank to the strip left of it (the user's
+  // screen in the van, 2026-11-16).
   let moved = false
   const children = area.children.map((child) => {
     if (dockOf(child)) return child
