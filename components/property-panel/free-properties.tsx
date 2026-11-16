@@ -214,7 +214,7 @@ export function FreePositionProperties({
       <FieldNote>
         {dock
           ? "The area places it along its edge, inside its padding, in the order of the object list."
-          : "When the free area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both."}
+          : "When the area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both."}
       </FieldNote>
     </PropertySection>
   )

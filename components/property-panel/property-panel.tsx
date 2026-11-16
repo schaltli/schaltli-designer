@@ -35,6 +35,7 @@ import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
+import { isArea } from "@/lib/area"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel } from "@/lib/object-types"
@@ -156,10 +157,11 @@ function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boole
   return isSnapTable(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
-// Whether it stands directly in a free area (docs/2026-11-03-anchor-dock.md).
+// Whether it stands directly in an area - one standing alone, or a
+// switcher's panel (docs/2026-11-03-anchor-dock.md, docs/2026-11-16-areas.md).
 function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
-  return findParentOf(screen.objects ?? [], id)?.parent?.type === "free"
+  return isArea(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
 type FrameKey = "x" | "y" | "width" | "height"
@@ -192,10 +194,10 @@ function layoutFrameLock(
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
   const placedBy = found.parent?.type
-  // Docked in a free area (lib/dock.ts): the area places and sizes it.
-  const docked = placedBy === "free" ? findObjectById(screen.objects ?? [], id) : null
+  // Docked in an area (lib/dock.ts): the area places and sizes it.
+  const docked = isArea(found.parent) ? findObjectById(screen.objects ?? [], id) : null
   if (docked && dockSets(docked).length > 0) {
-    return { locked: dockSets(docked), hint: "Docked: the free area places it, and sizes it across its edge where it can stretch. See Position." }
+    return { locked: dockSets(docked), hint: "Docked: the area places it, and sizes it across its edge where it can stretch. See Position." }
   }
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x and y are the table's to

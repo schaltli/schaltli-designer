@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-11-15",
+  "harvestedAt": "2026-11-16",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -604,6 +604,9 @@
         "select: Shown when",
         "input:text: e.g. TEMP or 42",
         "button: v-tab-control",
+        "button: Area",
+        "input:number: Padding",
+        "input:number: Gap",
         "button: Frame Follows the switcher"
       ]
     },

@@ -17,7 +17,8 @@
 
 import type { ScreenObject } from "../project-editor"
 import type { ComparisonOperator } from "@/lib/comparison-operators"
-import { ConditionRow, FieldNote, PropertySection, PropertySections } from "./fields"
+import { ConditionRow, FieldNote, NumberField, PropertySection, PropertySections } from "./fields"
+import { gapMmOf, SNAP_GAP_MM } from "@/lib/snap-table"
 
 interface PanelPropertiesProps {
   selectedObject: ScreenObject
@@ -75,10 +76,37 @@ export function PanelProperties({
         ) : null}
       </PropertySection>
 
+      {/* A panel is an area (docs/2026-11-16-areas.md): what stands in it
+          docks inside its padding, with its gap between. */}
+      <PropertySection title="Area">
+        <NumberField
+          id="padding"
+          label="Padding"
+          value={selectedObject.properties.padding ?? 0}
+          onChange={(value) => updateProperty("padding", value > 0 ? value : undefined)}
+          min={0}
+          max={20}
+          step={0.5}
+          unit="mm"
+          hint="Room left free inside its edge for what stands in it."
+        />
+        <NumberField
+          id="areaGap"
+          label="Gap"
+          value={gapMmOf(selectedObject)}
+          onChange={(value) => updateProperty("gapMm", value === SNAP_GAP_MM ? undefined : value)}
+          min={0}
+          max={10}
+          step={0.5}
+          unit="mm"
+          hint="Between the objects docked in it."
+        />
+      </PropertySection>
+
       <PropertySection title="Frame" defaultCollapsed summary="Follows the switcher">
         <FieldNote>
           A panel fills its switcher's box exactly, so it has no position or size of its own. Move or resize the
-          switcher instead.
+          switcher instead. The switcher is never smaller than what its panels hold.
         </FieldNote>
       </PropertySection>
     </PropertySections>

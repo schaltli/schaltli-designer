@@ -1,7 +1,7 @@
 "use client"
 
 import { barLayout, clampScroll, entryAt, MARKER_SETTLE_MS, markerGlides, markerOffset, markerSettle, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
-import { freeMinSize } from "@/lib/free-min-size"
+import { freeMinSize, switcherMinSize } from "@/lib/free-min-size"
 import { FLOW_BUS_R, FLOW_NODE_R, defaultDiagram, type EnergyNode } from "@/lib/energy-diagram"
 
 // The node or bus of a Flow diagram under a point, if any: its circle, and a
@@ -4626,12 +4626,17 @@ export function Canvas({
         // A card - any free area holding something - only so small that all
         // it holds keeps its room (the user, 2026-11-06; lib/free-min-size.ts):
         // the edge dragged stops there, the opposite one stays.
-        if (resizingObject?.type === "free") {
+        // A switcher the same way: where every panel still holds what is in
+        // it (docs/2026-11-16-areas.md, E2).
+        if (resizingObject?.type === "free" || resizingObject?.type === "switcher") {
           const cached = freeMinRef.current
+          const sized = { ...resizingObject, ...dragState.startObjectPos }
           const min =
             cached && cached.drag === dragState
               ? cached.min
-              : freeMinSize({ ...resizingObject, ...dragState.startObjectPos }, layoutScale)
+              : resizingObject.type === "switcher"
+                ? switcherMinSize(sized, layoutScale)
+                : freeMinSize(sized, layoutScale)
           if (!cached || cached.drag !== dragState) freeMinRef.current = { drag: dragState, min }
           if (min && newWidth < min.width) {
             if (handle === "nw" || handle === "sw" || handle === "baseline-left") newX = x + width - min.width
