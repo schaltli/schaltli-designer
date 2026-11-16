@@ -23,8 +23,12 @@ Each step ends with `npm run test:quick` and a stop for the user.
   - OPEN: Position (Horizontal/Vertical) on a screen on a device change - the size scale is untouched, nothing places anchored objects afterwards yet (the plan's question 2). E8 (knob) has no case of its own: its area is the project's square screen
   - OPEN: `dockedOut` is still set by lib/dock.ts for an area standing alone; cards grow before it shows
 - [x] T5 «Position» on a screen and in a panel; property-panel-controls.json harvested (done with T2 and T4). test:e2e:prod 2026-11-16 at d838c351: 2466 passed, 1 failed - anchor-dock-canvas:97 asserted that an area on the screen has no Position, rewritten
-- [ ] T6 «Free» becomes «Area»; handbook objekte/anordnen.md, designer/index.md; test:quick
-- [ ] Checkpoint 1: test:quick noted here; the user looks at «MaxxFan»
+- [x] T6 «Free» becomes «Area»; handbook objekte/anordnen.md, designer/screens.md, designer/index.md, designer/objekte.md (anchor #free kept); a newer formatVersion is refused (how the designer shows that error is not checked)
+- [ ] Checkpoint 1: the user looks at it (dev server on 3000, 2026-11-16). test:quick 2026-11-16 at 4147b550, HIL broker up: Overall FAIL
+  - green: typecheck, e2e 2468 passed, every host check; conformance 84/84 on 4.3B and 4"; deploy «back running exactly the deployed screen» on knob, 4" and PaperS3; PaperS3 all green
+  - failed, none of them on a picture that differs: 4.3B placeholder-redraw and live-values («sent no description within 30 s»), screen-graph (timeout), charts-actions (0 s back, 0 px moved); knob charts-draw («never held the chart's history»), scaled-values (timeout); 4" charts-draw (NowPoint does not pulse)
+  - skipped: 4.3B deploy, install-gate, popups (unreachable at the time); Android (no phone)
+  - a first run the same day failed in every device lane for want of the HIL broker on 1883 (`npm run hil:broker`)
 
 ## Step 2 - one kept size
 - [ ] T7 cell.drawnWidth/drawnHeight become ownSize; migration; «Min W»/«Min H» on it
