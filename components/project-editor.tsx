@@ -80,6 +80,8 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { layoutProject, layoutScaleOf } from "@/lib/layout"
+import { FORMAT_VERSION } from "@/lib/area-migration"
+import type { ScreenArea } from "@/lib/area"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
@@ -245,6 +247,12 @@ export interface ProjectScreen {
   id: string
   name: string
   objects: ScreenObject[]
+  // The screen is an area (docs/2026-11-16-areas.md, lib/area.ts): its
+  // Padding and Gap for what is docked on it. `areaSize` is written by the
+  // layout while what is docked needs more than the panel: how far the
+  // area has grown past it, for the editor to draw. No device reads either.
+  area?: ScreenArea
+  areaSize?: { width: number; height: number }
   // Screen background color - inherited from the master when unset, and
   // needs no override-none flag: undefined
   // already unambiguously means "inherit, or fall back to white"
@@ -396,6 +404,10 @@ export interface PropertyPanelProps {
 }
 
 export interface ProjectSettings {
+  // The form the project has (lib/area-migration.ts FORMAT_VERSION): absent
+  // in one saved before areas (docs/2026-11-16-areas.md), which is brought
+  // to them on load, once.
+  formatVersion?: number
   exportFormat: "esp32" | "arduino" | "json"
   gridSize: number
   snapTolerance: number
@@ -878,6 +890,9 @@ function createDefaultProject(): Project {
     hardwareButtons: [],
     snapGuides: [],
     settings: {
+      // A project made here has the current form (lib/area-migration.ts):
+      // what is docked on its screens is meant.
+      formatVersion: FORMAT_VERSION,
       exportFormat: "esp32",
       gridSize: 20,
       snapTolerance: 8,

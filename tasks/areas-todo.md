@@ -16,7 +16,12 @@ Each step ends with `npm run test:quick` and a stop for the user.
   - a switcher in a cell keeps the size its card gave it in `ownSize`, the least it asks for (T7 makes that «Min W»/«Min H»)
   - the baseline leaves the designer's place notes out of project.json (cell, anchor, dock, ownSize, dockedOut): they ride along in the export and neither firmware nor app reads them. «Byte for byte» holds for everything else
   - no saved project on this machine has a panel holding one Free area (searched .data/projects): the migration is tested on built cases only
-- [ ] T4 a screen is an area: screen.area, dock, growth (E1), free anywhere (E1a), masters (E7), knob (E8); e2e/area-screen.spec.ts
+- [x] T4 a screen is an area: screen.area, dock, growth (E1), free anywhere (E1a), masters (E7); e2e/area-screen.spec.ts (11), e2e/area-screen-canvas.spec.ts (1). 2026-11-16:
+  - lib/area.ts screenAreaLaid: only what is docked is placed; `screen.areaSize` written while the area has grown, drawn dashed on the canvas
+  - the migration drops dock/anchor/ownSize/dockedOut an object kept on a screen or in a panel, where they meant nothing; a new project is made at formatVersion 2
+  - a box or area docked Fill asked for a room as wide as any height tried (minWidthOf): now 1
+  - OPEN: Position (Horizontal/Vertical) on a screen on a device change - the size scale is untouched, nothing places anchored objects afterwards yet (the plan's question 2). E8 (knob) has no case of its own: its area is the project's square screen
+  - OPEN: `dockedOut` is still set by lib/dock.ts for an area standing alone; cards grow before it shows
 - [ ] T5 «Position» on a screen and in a panel; property-panel-controls.json harvested
 - [ ] T6 «Free» becomes «Area»; handbook objekte/anordnen.md, designer/index.md; test:quick
 - [ ] Checkpoint 1: test:quick noted here; the user looks at «MaxxFan»

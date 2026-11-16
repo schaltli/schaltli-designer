@@ -32,11 +32,13 @@ import type { IconTarget } from "./live-value-editor"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import {
   ColorField,
+  NumberField,
   PropertySection,
   PropertySections,
   SelectField,
   ThemeField,
 } from "./fields"
+import { SNAP_GAP_MM } from "@/lib/snap-table"
 
 // The typography select's "inherit" entry; no typography is named this.
 const INHERIT_TYPOGRAPHY = "__inherit__"
@@ -229,6 +231,41 @@ export function ScreenProperties({
           ))}
         </PropertySection>
       ) : null}
+
+      {/* The screen is an area (docs/2026-11-16-areas.md): what is docked
+          on it stands inside its padding, with its gap between. */}
+      <PropertySection title="Area" defaultCollapsed>
+        <NumberField
+          id="screenPadding"
+          label="Padding"
+          value={currentScreen.area?.padding ?? 0}
+          onChange={(value) => {
+            const { padding: _old, ...rest } = currentScreen.area ?? {}
+            const next = value > 0 ? { ...rest, padding: value } : rest
+            onPatchScreen({ area: Object.keys(next).length > 0 ? next : undefined })
+          }}
+          min={0}
+          max={20}
+          step={0.5}
+          unit="mm"
+          hint="Room left free inside the screen's edge for what is docked on it."
+        />
+        <NumberField
+          id="screenGap"
+          label="Gap"
+          value={currentScreen.area?.gapMm ?? SNAP_GAP_MM}
+          onChange={(value) => {
+            const { gapMm: _old, ...rest } = currentScreen.area ?? {}
+            const next = value === SNAP_GAP_MM ? rest : { ...rest, gapMm: value }
+            onPatchScreen({ area: Object.keys(next).length > 0 ? next : undefined })
+          }}
+          min={0}
+          max={10}
+          step={0.5}
+          unit="mm"
+          hint="Between the objects docked on it."
+        />
+      </PropertySection>
 
       <PropertySection title="Look">
         {/* The theme first: every colour below is a role of it. A master

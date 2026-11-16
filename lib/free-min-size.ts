@@ -20,7 +20,7 @@
 import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { toggleMinHeight } from "@/lib/toggle-button-shape"
-import { areaAnchorOf, resizeFree } from "@/lib/anchor"
+import { areaAnchorOf, resizeFree, STRETCHES_HEIGHT_IN_AREA } from "@/lib/anchor"
 import { dockFree, dockOf, paddingOf, resizeSwitcher } from "@/lib/dock"
 import { naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
@@ -36,6 +36,10 @@ const ENDLESS = 100000
 // longer than it is thick.
 function minWidthOf(obj: ScreenObject, scale: LayoutScale): number {
   if (isSnapTable(obj) || ["text", "switch", "button-group", "toggle-button", "button"].includes(obj.type)) return naturalWidth(obj, scale)
+  // A box or an area has no track: stretched both ways - docked Fill - its
+  // height is its room's, and held to that it asked for a room as wide as
+  // any height tried (a box docked Fill on a screen, 2026-11-16).
+  if (STRETCHES_HEIGHT_IN_AREA.has(obj.type)) return 1
   return Math.max(1, Math.abs(obj.height))
 }
 

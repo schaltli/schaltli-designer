@@ -13,6 +13,10 @@
  *   bottom edge it grows when the project is laid out
  *   (lib/free-min-size.ts withCardsGrown).
  *
+ * - What an object kept of an area it once stood in - `dock`, `anchor`,
+ *   `ownSize`, `dockedOut` - and still carries on a screen or in a panel,
+ *   where they meant nothing, goes: there they would now place it.
+ *
  * Run once per project: `settings.formatVersion` says which form it has.
  * In place, as lib/object-types.ts migrateProject does everything.
  */
@@ -25,6 +29,23 @@ import { objectBounds, translateObject } from "@/lib/object-groups"
 export const FORMAT_VERSION = 2
 
 type Obj = ScreenObject
+
+const STALE = ["dock", "anchor", "ownSize", "dockedOut"] as const
+
+// `obj` without what it kept of an area it no longer stands in.
+function withoutStale(obj: Obj): Obj {
+  const p = obj.properties
+  if (!p || !STALE.some((key) => key in p)) return obj
+  return { ...obj, properties: Object.fromEntries(Object.entries(p).filter(([key]) => !(STALE as readonly string[]).includes(key))) }
+}
+
+// Every panel's own objects without it, at any depth; what stands in an
+// area standing alone keeps it, there it is in use.
+function panelsCleared(obj: Obj): Obj {
+  if (!obj.children) return obj
+  const children = obj.children.map((child) => panelsCleared(obj.type === "panel" ? withoutStale(child) : child))
+  return children.some((c, i) => c !== obj.children![i]) ? { ...obj, children } : obj
+}
 
 // The one area a panel holds that fills it, or undefined.
 function fillingArea(panel: Obj, switcher: Obj): Obj | undefined {
@@ -109,7 +130,7 @@ export function migrateToAreas(project: { screens?: Array<{ objects?: unknown[] 
   const version = Number(project.settings?.formatVersion) || 1
   if (version >= FORMAT_VERSION) return false
   for (const screen of project.screens ?? []) {
-    if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map(migrated)
+    if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => migrated(panelsCleared(withoutStale(obj))))
   }
   project.settings = { ...(project.settings ?? {}), formatVersion: FORMAT_VERSION }
   return true

@@ -157,11 +157,13 @@ function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boole
   return isSnapTable(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
-// Whether it stands directly in an area - one standing alone, or a
-// switcher's panel (docs/2026-11-03-anchor-dock.md, docs/2026-11-16-areas.md).
+// Whether it stands directly in an area - one standing alone, a switcher's
+// panel, or the screen itself (docs/2026-11-03-anchor-dock.md,
+// docs/2026-11-16-areas.md).
 function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
-  return isArea(findParentOf(screen.objects ?? [], id)?.parent)
+  const found = findParentOf(screen.objects ?? [], id)
+  return !!found && (found.parent === null || isArea(found.parent))
 }
 
 type FrameKey = "x" | "y" | "width" | "height"
@@ -195,7 +197,7 @@ function layoutFrameLock(
   if (!found) return null
   const placedBy = found.parent?.type
   // Docked in an area (lib/dock.ts): the area places and sizes it.
-  const docked = isArea(found.parent) ? findObjectById(screen.objects ?? [], id) : null
+  const docked = found.parent === null || isArea(found.parent) ? findObjectById(screen.objects ?? [], id) : null
   if (docked && dockSets(docked).length > 0) {
     return { locked: dockSets(docked), hint: "Docked: the area places it, and sizes it across its edge where it can stretch. See Position." }
   }

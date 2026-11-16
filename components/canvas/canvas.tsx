@@ -1863,6 +1863,15 @@ export function Canvas({
     ctx.strokeStyle = "#999999"
     ctx.lineWidth = 1 / zoom
     ctx.strokeRect(0, 0, screenWidth, screenHeight)
+    // The screen's area where what is docked on it needs more than the
+    // panel (docs/2026-11-16-areas.md, E1): how far it has grown, dashed.
+    // The device shows what lies on its panel.
+    if (!previewMode && screen.areaSize) {
+      ctx.save()
+      ctx.setLineDash([4 / zoom, 4 / zoom])
+      ctx.strokeRect(0, 0, screen.areaSize.width, screen.areaSize.height)
+      ctx.restore()
+    }
 
     // Grid color stays purely local/auto - it doesn't inherit (2026-08-16
     // grilling decision) - but its auto-derivation now follows whichever

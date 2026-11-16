@@ -21,7 +21,7 @@ import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/pl
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 import { dockFree, dockOf, dockedHeight, paddingOf } from "@/lib/dock"
 import { filledPanel } from "@/lib/anchor"
-import { isArea } from "@/lib/area"
+import { isArea, screenAreaLaid, type ScreenArea } from "@/lib/area"
 import { CARD_DEFAULTS, cardSettingsOf, withButtonRadius, withCardLook, type CardSettings } from "@/lib/card"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
@@ -314,6 +314,9 @@ export function keepUnchanged<T>(prev: T, next: T): T {
  * in them.
  */
 interface ScaledProject {
+  // The panel, as the project has it (rotated already): a screen's area.
+  screenWidth?: number
+  screenHeight?: number
   fonts?: readonly ProjectFont[]
   topics?: readonly { topic: string; examples?: readonly string[] }[]
   settings?: { pixelsPerMm?: number; decimalSeparator?: string; thousandsSeparator?: string }
@@ -330,16 +333,28 @@ export function layoutScaleOf(project: ScaledProject): LayoutScale {
   }
 }
 
-export function layoutProject<P extends ScaledProject & { screens?: Array<{ objects?: ScreenObject[] }> }>(project: P): P {
+export function layoutProject<
+  P extends ScaledProject & { screens?: Array<{ objects?: ScreenObject[]; area?: ScreenArea; areaSize?: { width: number; height: number } }> },
+>(project: P): P {
   if (!project?.screens) return project
   const scale = layoutScaleOf(project)
+  const width = Number(project.screenWidth) || 0
+  const height = Number(project.screenHeight) || 0
   let changed = false
   const screens = project.screens.map((screen) => {
     const objects = screen.objects ?? []
-    const laid = keepUnchanged(objects, layoutObjects(objects, scale))
-    if (laid === objects) return screen
+    // What each container holds first, then the screen's own area: what is
+    // docked on it (lib/area.ts). `areaSize` says how far the area has
+    // grown past the panel, for the editor to draw; absent while it has not.
+    const inside = layoutObjects(objects, scale)
+    const onScreen = width > 0 && height > 0 ? screenAreaLaid(inside, screen.area, width, height, scale) : { objects: inside }
+    const laid = keepUnchanged(objects, onScreen.objects)
+    const size = onScreen.size
+    const sameSize = (screen.areaSize?.width ?? 0) === (size?.width ?? 0) && (screen.areaSize?.height ?? 0) === (size?.height ?? 0)
+    if (laid === objects && sameSize) return screen
     changed = true
-    return { ...screen, objects: laid }
+    const { areaSize: _was, ...rest } = screen
+    return { ...rest, objects: laid, ...(size ? { areaSize: size } : {}) } as typeof screen
   })
   return changed ? { ...project, screens } : project
 }
