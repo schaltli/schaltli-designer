@@ -5,6 +5,7 @@ import { withCardsGrown } from "../lib/free-min-size"
 import { dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition } from "../lib/object-tree"
 import { areaDropAt, moveIntoArea } from "../lib/drop-into-free"
+import { takeOutOf } from "../lib/snap-table"
 import { cellAreaId, isCellArea, unwrappedCells, withCellArea, wrapInCell } from "../lib/cell-area"
 
 // A table's cell as an area (docs/2026-11-16-areas.md, step 3;
@@ -215,5 +216,40 @@ test.describe("a drop onto an occupied cell (E6)", () => {
     const { objects } = fixture()
     const label = obj("box", { x: 300, y: 300, width: 50, height: 16 })
     expect(areaDropAt([...objects, label], [label.id], null, { x: 190, y: 30 })).toBeNull()
+  })
+})
+
+test.describe("a card in a table is a cell (decision 7, E10)", () => {
+  const card = (children: ScreenObject[] = []) =>
+    obj("free", { id: "karte", width: 150, height: 80, properties: { look: "card", cell: { row: 0, column: 0, anchor: { x: "stretch", y: "stretch" } } }, children })
+
+  test("an area stretched both ways in its cell is one, nothing marked; one that only stands in its cell is not", () => {
+    expect(isCellArea(card())).toBe(true)
+    expect(isCellArea(obj("free", { properties: { look: "card", cell: { row: 0, column: 0, anchor: { x: "stretch" } } } }))).toBe(false)
+    expect(isCellArea(obj("free", { properties: { look: "card" } }))).toBe(false)
+    expect(isCellArea(box(40, 20, { row: 0, column: 0, anchor: { x: "stretch", y: "stretch" } }))).toBe(false)
+  })
+
+  test("an area somebody placed and stretched is never taken away, whatever it holds", () => {
+    const plain = obj("free", { id: "flaeche", width: 100, height: 60, properties: { cell: { row: 0, column: 1, anchor: { x: "stretch", y: "stretch" } } }, children: [obj("box", { x: 12, y: 9 })] })
+    const laid = opened([table([card(), plain])])
+    const kept = find(laid, "flaeche")!
+    expect(kept.type).toBe("free")
+    expect([kept.children![0].x, kept.children![0].y]).toEqual([12, 9])
+  })
+
+  test("the last cell left of a table that holds several objects stands alone as an area (E5)", () => {
+    const { button, objects } = fixture()
+    const label = obj("box", { x: 171, y: 24, width: 50, height: 16 })
+    const wrapped = withCellArea([...objects, label], button.id, SCALE)
+    const both = opened(moveIntoArea(wrapped.objects, [label.id], wrapped.areaId))
+    const t = find(both, "tabelle")!
+    const other = t.children!.find((c) => c.id !== wrapped.areaId)!
+    const { table: rest, left } = takeOutOf(t, other.id)
+    expect(rest).toBeNull()
+    expect(left!.type).toBe("free")
+    expect(left!.properties).not.toHaveProperty("cellArea")
+    expect(left!.properties).not.toHaveProperty("cell")
+    expect(left!.children!.map((c) => c.id)).toEqual([button.id, label.id])
   })
 })

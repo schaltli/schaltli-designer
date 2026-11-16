@@ -414,7 +414,7 @@ export function PropertyPanel({
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties title={isCellArea(selectedObject) ? "Cell" : "Area"} selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
-              {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} onMakeCell={onMakeCellArea} />}
+              {inSnapTable(currentScreen, selectedObject.id) && selectedObject.properties?.cellArea !== true && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} onMakeCell={onMakeCellArea} />}
               {inFreeArea(currentScreen, selectedObject.id) && <FreePositionProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 

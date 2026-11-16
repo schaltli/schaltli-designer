@@ -27,10 +27,24 @@ import { fit, naturalWidth, type LayoutScale } from "@/lib/layout"
 import { freeBackground, objectBounds, translateObject } from "@/lib/object-groups"
 import { isSnapTable, ownSizeOf, snapCellOf, snapTableGeometry } from "@/lib/snap-table"
 
-/** Whether `obj` is the area of a table's cell. */
+/**
+ * Whether `obj` is the area of a table's cell: one the designer made around
+ * what stood in the cell (`cellArea`), or any area filling its cell both
+ * ways - a card snapped into a table, a block's card (E10). Nothing has to be
+ * marked for that: a card in a table is a cell with the look «Card»
+ * (decision 7) by standing there stretched.
+ */
 export function isCellArea(obj: ScreenObject | null | undefined): boolean {
-  return obj?.type === "free" && obj.properties?.cellArea === true
+  if (obj?.type !== "free") return false
+  if (isMadeCell(obj)) return true
+  const anchor = obj.properties?.cell?.anchor
+  return !!obj.properties?.cell && anchor?.x === "stretch" && anchor?.y === "stretch"
 }
+
+// An area the designer made itself around what stood in a cell (wrapInCell):
+// only such a one is taken away again when it is no more than a slot. An
+// area somebody placed and stretched stays, whatever it holds.
+const isMadeCell = (obj: ScreenObject | null | undefined) => obj?.type === "free" && obj.properties?.cellArea === true
 
 /** The id a cell's area gets from the object it is made around. */
 export const cellAreaId = (occupantId: string) => `cell-${occupantId}`
@@ -143,9 +157,9 @@ function backInSlot(area: ScreenObject, child: ScreenObject): ScreenObject {
  * E3). The same table where none is.
  */
 export function unwrappedCells(table: ScreenObject): ScreenObject {
-  if (!isSnapTable(table) || !(table.children ?? []).some((child) => isCellArea(child) && !isMoreThanASlot(child))) return table
+  if (!isSnapTable(table) || !(table.children ?? []).some((child) => isMadeCell(child) && !isMoreThanASlot(child))) return table
   const children = (table.children ?? []).flatMap((child) => {
-    if (!isCellArea(child) || isMoreThanASlot(child)) return [child]
+    if (!isMadeCell(child) || isMoreThanASlot(child)) return [child]
     const only = child.children?.[0]
     return only ? [backInSlot(child, only)] : []
   })

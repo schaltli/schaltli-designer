@@ -457,7 +457,8 @@ function inPlaceOf(from: ScreenObject, obj: ScreenObject): ScreenObject {
 }
 
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
-  const { cell: _cell, ownSize: _least, ...properties } = child.properties ?? {}
+  // Out of its table a cell's area is an area standing alone (E5).
+  const { cell: _cell, ownSize: _least, cellArea: _made, ...properties } = child.properties ?? {}
   const own = drawn(child)
   // Back at its drawn size, a free area taking its objects along.
   const sized = child.type === "free" ? { ...resizeFree(child, own.width, own.height), properties } : { ...child, width: own.width, height: own.height, properties }
