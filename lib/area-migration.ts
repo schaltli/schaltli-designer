@@ -128,6 +128,11 @@ function migrated(obj: Obj): Obj {
  */
 export function migrateToAreas(project: { screens?: Array<{ objects?: unknown[] }>; settings?: Record<string, any> }): boolean {
   const version = Number(project.settings?.formatVersion) || 1
+  // A project of a designer newer than this one: laid out by rules this one
+  // does not know, it would open looking right and be saved wrong.
+  if (version > FORMAT_VERSION) {
+    throw new Error(`This project was saved by a newer Schaltli designer (format ${version}, this designer reads up to ${FORMAT_VERSION}). Reload the designer to get the current one.`)
+  }
   if (version >= FORMAT_VERSION) return false
   for (const screen of project.screens ?? []) {
     if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => migrated(panelsCleared(withoutStale(obj))))

@@ -175,6 +175,11 @@ test.describe("once per project", () => {
     expect(copy).toEqual(current)
   })
 
+  test("a project of a newer format is refused, saying so", () => {
+    const newer = project([], { formatVersion: FORMAT_VERSION + 1 })
+    expect(() => migrateToAreas(newer)).toThrow(/newer Schaltli designer/)
+  })
+
   test("migrated twice is migrated once", () => {
     const inner = obj("free", { width: 200, height: 120, properties: { look: "card" }, children: [box(5, 5, 20, 20)] })
     const outer = obj("free", { width: 200, height: 120, children: [inner] })

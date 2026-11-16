@@ -146,8 +146,8 @@ export function FreeProperties({
         selectedObject={selectedObject}
         onUpdateObject={onUpdateObject}
         colorDepth={colorDepth}
-        title="Free"
-        note="What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a Box, if you give it a fill or an edge."
+        title="Area"
+        note="What is put into it stays where it is placed, or is docked to an edge, as its Position says. It looks like a Box, if you give it a fill or an edge."
       />
       <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
         <FrameFields

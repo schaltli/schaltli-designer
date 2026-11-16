@@ -34,9 +34,9 @@ Unter <span class="ui">Parts</span> sind die Werkzeuge in Gruppen geordnet:
 | <span class="ui">Operate</span> | <span class="ui">Slider</span>, <span class="ui">Dial</span>, <span class="ui">Switch</span>, <span class="ui">Button Group</span>, <span class="ui">Toggle Button</span>, <span class="ui">Button</span>, <span class="ui">Text field</span>, <span class="ui">Time field</span> | etwas bedienen |
 | <span class="ui">Draw</span> | <span class="ui">Line</span>, <span class="ui">Live Line</span>, <span class="ui">Box</span> | Linien und Flächen |
 | <span class="ui">Arrange</span> | <span class="ui">Switcher</span> | Bereiche umschalten |
-| <span class="ui">Tables</span> | <span class="ui">Free</span>, <span class="ui">Card</span> | eine freie Fläche, eine als [Karte](/objekte/anordnen#card) |
+| <span class="ui">Tables</span> | <span class="ui">Area</span>, <span class="ui">Card</span> | eine freie Fläche, eine als [Karte](/objekte/anordnen#card) |
 
-Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Wie du ein Objekt aus der Palette auf den Screen bringst, steht unter [Ein Objekt setzen](/designer/objekte#ein-objekt-setzen); <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. <span class="ui">Free</span> gibt es immer, weil das Gerät keine freie Fläche sieht, nur was darin steht.
+Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Wie du ein Objekt aus der Palette auf den Screen bringst, steht unter [Ein Objekt setzen](/designer/objekte#ein-objekt-setzen); <kbd>Esc</kbd> legt das Werkzeug wieder weg. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. <span class="ui">Area</span> gibt es immer, weil das Gerät keine freie Fläche sieht, nur was darin steht.
 
 Ein Werkzeug für Tabellen gibt es nicht: Eine Tabelle entsteht, sobald du zwei Objekte zusammensteckst, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken).
 

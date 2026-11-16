@@ -173,8 +173,10 @@ export function objectTypeLabel(type: string): string {
       return "Camera"
     case "group":
       return "Group"
+    // «Area» since 2026-11-16 (docs/2026-11-16-areas.md, decision 15); the
+    // type in a project file stays `free`.
     case "free":
-      return "Free"
+      return "Area"
     case "table":
       return "Table"
     default:

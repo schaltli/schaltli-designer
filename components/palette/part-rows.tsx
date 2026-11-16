@@ -70,7 +70,7 @@ const GROUPS: { label: string; parts: PartDef[] }[] = [
     label: "Tables",
     parts: [
       part("free", "An area where what is put into it stays where it is placed - in a table's cell too - with a background of its own"),
-      { type: "card", icon: SquareStack, label: "Card", description: "A free area that looks like a card: panel, edge, round corners and padding from Settings › Cards" },
+      { type: "card", icon: SquareStack, label: "Card", description: "An area that looks like a card: panel, edge, round corners and padding from Settings › Cards" },
     ],
   },
 ]

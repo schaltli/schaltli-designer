@@ -1532,7 +1532,7 @@ export function Canvas({
       const phrase = (d: SnapDrop | null) =>
         !d ? null : d.kind === "pair" ? "to make a table" : d.merge ? "to merge the tables" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
       const area = into ? findObjectById(screen.objects, into) : null
-      const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Free") : null
+      const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Area") : null
       const where = rowInto ? "Into table" : (word(snap) ?? areaWord)
       const would = held ? null : rowWithAlt ? "Into table" : word(altSnap)
       const now = where ?? (would || held ? "Free" : null)
@@ -1541,7 +1541,7 @@ export function Canvas({
       // Where it lies when nothing takes it: the area under the pointer, or the space open now.
       const spaceId = into !== undefined ? into : drawSpace.id
       const space = spaceId ? findObjectById(screen.objects, spaceId) : null
-      const spaceName = !space ? screen.name || "the screen" : space.type === "free" ? (space.properties?.look ? "Card" : "Free") : "the panel"
+      const spaceName = !space ? screen.name || "the screen" : space.type === "free" ? (space.properties?.look ? "Card" : "Area") : "the panel"
       const drop = `to drop into ${spaceName}`
       const nowPhrase = rowInto ? "to add it to the table" : (phrase(snap) ?? drop)
       const altPhrase = held ? null : rowWithAlt ? "to add it to the table" : phrase(altSnap)

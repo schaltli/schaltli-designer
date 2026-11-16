@@ -693,7 +693,7 @@ test.describe("snap table: panel and tree", () => {
     await loadProject(page, zip)
     const tables = page.getByTestId("palette").locator('[data-group="Tables"]')
     await expect(tables.locator("[data-tool]")).toHaveCount(2)
-    await expect(tables.getByRole("button", { name: "Free", exact: true })).toBeVisible()
+    await expect(tables.getByRole("button", { name: "Area", exact: true })).toBeVisible()
     await expect(tables.getByRole("button", { name: "Card", exact: true })).toBeVisible()
     await expect(page.getByTestId("palette").getByRole("button", { name: "Table", exact: true })).toHaveCount(0)
     await expect(page.getByTestId("palette").getByRole("button", { name: "Row", exact: true })).toHaveCount(0)

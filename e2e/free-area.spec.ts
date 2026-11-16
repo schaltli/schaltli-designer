@@ -79,7 +79,7 @@ async function dragOn(page: Page, from: [number, number], to: [number, number]) 
 
 test("the Free tool places an area where it is clicked, with a box's look in its properties", async ({ page }) => {
   await loadProject(page, await tableProject())
-  await page.getByRole("button", { name: "Free", exact: true }).first().click()
+  await page.getByRole("button", { name: "Area", exact: true }).first().click()
   // Below the table, far from it: free on the screen.
   await clickAt(page, 300, 240)
   const objects = await savedScreen(page)
@@ -203,7 +203,7 @@ test("the Free tool draws an area into a switcher's open panel too", async ({ pa
   fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
   await loadProject(page, file)
   await objectTreeRow(page, "p1").click()
-  await page.getByRole("button", { name: "Free", exact: true }).first().click()
+  await page.getByRole("button", { name: "Area", exact: true }).first().click()
   await dragOn(page, [60, 60], [200, 160])
   await page.getByRole("button", { name: "File" }).click()
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
