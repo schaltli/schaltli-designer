@@ -22,7 +22,7 @@ Each step ends with `npm run test:quick` and a stop for the user.
   - a box or area docked Fill asked for a room as wide as any height tried (minWidthOf): now 1
   - OPEN: Position (Horizontal/Vertical) on a screen on a device change - the size scale is untouched, nothing places anchored objects afterwards yet (the plan's question 2). E8 (knob) has no case of its own: its area is the project's square screen
   - OPEN: `dockedOut` is still set by lib/dock.ts for an area standing alone; cards grow before it shows
-- [ ] T5 «Position» on a screen and in a panel; property-panel-controls.json harvested
+- [x] T5 «Position» on a screen and in a panel; property-panel-controls.json harvested (done with T2 and T4). test:e2e:prod 2026-11-16 at d838c351: 2466 passed, 1 failed - anchor-dock-canvas:97 asserted that an area on the screen has no Position, rewritten
 - [ ] T6 «Free» becomes «Area»; handbook objekte/anordnen.md, designer/index.md; test:quick
 - [ ] Checkpoint 1: test:quick noted here; the user looks at «MaxxFan»
 

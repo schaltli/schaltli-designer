@@ -106,9 +106,12 @@ test("Position in the panel: Horizontal and Vertical for an object in a free are
   await page.locator("#areaHorizontal").selectOption("left")
   await page.locator("#areaVertical").selectOption("top")
   expect((await savedArea(page)).children.find((c: Obj) => c.id === "fest").properties).not.toHaveProperty("anchor")
-  // The area itself, on the screen, has no Position.
+  // The area itself stands on the screen, which is an area too
+  // (docs/2026-11-16-areas.md): it has a Position there. Until 2026-11-16
+  // it had none.
   await objectTreeRow(page, "karte").click()
-  await expect(page.locator("#areaHorizontal")).toHaveCount(0)
+  await expect(page.locator("#areaHorizontal")).toHaveValue("left")
+  await expect(page.locator("#areaDock")).toHaveValue("none")
 })
 
 // Task 3: Dock and Padding.
