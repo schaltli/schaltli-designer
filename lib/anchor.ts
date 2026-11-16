@@ -161,9 +161,16 @@ export function resizePanels(switcher: ScreenObject, width: number, height: numb
  * was never laid out - takes it without anything in it moving: there is no
  * size its objects kept their distance from.
  */
-export function filledPanel(panel: ScreenObject, width: number, height: number): ScreenObject {
-  if (!(panel.width > 0) || !(panel.height > 0)) return { ...panel, x: 0, y: 0, width, height }
-  return resizeFree({ ...panel, x: 0, y: 0 }, width, height)
+export function filledPanel(given: ScreenObject, width: number, height: number): ScreenObject {
+  // A panel's own x and y never placed anything: the canvas drew what it
+  // holds from the switcher's corner (lib/object-groups.ts childOrigin). They
+  // are written as 0, so every rule that adds coordinates up agrees.
+  const panel = given.x === 0 && given.y === 0 ? given : { ...given, x: 0, y: 0 }
+  if (!(panel.width > 0) || !(panel.height > 0)) return { ...panel, width, height }
+  // The size it kept its objects' distances from is the one it was laid out
+  // at; one saved at another size by a designer before areas has no objects
+  // that keep a distance.
+  return resizeFree(panel, width, height)
 }
 
 /**

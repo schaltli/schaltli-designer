@@ -85,10 +85,18 @@ test.describe("layout: what it leaves alone", () => {
     expect(getAbsolutePosition([stack], child.id)).toEqual({ x: origin.x + 12, y: origin.y + 9 })
   })
 
-  test("a switcher outside a container is left as it was saved", () => {
-    const panel = obj("panel", { x: 5, y: 7, width: 1, height: 1, children: [obj("text")] })
+  // A panel is an area (docs/2026-11-16-areas.md): it fills its switcher
+  // wherever the switcher stands. Until 2026-11-16 one outside a container
+  // was left as it was saved.
+  test("a switcher outside a container: its panel fills it too, what the panel holds stays where the canvas drew it", () => {
+    const text = obj("text", { x: 12, y: 9 })
+    const panel = obj("panel", { x: 5, y: 7, width: 1, height: 1, children: [text] })
     const switcher = obj("switcher", { x: 100, y: 50, width: 160, height: 120, children: [panel] })
-    expect(layoutObjects([switcher], SCALE)[0].children![0]).toMatchObject({ x: 5, y: 7, width: 1, height: 1 })
+    const before = childOrigin([switcher], panel.id)
+    const laid = layoutObjects([switcher], SCALE)[0]
+    expect(laid.children![0]).toMatchObject({ x: 0, y: 0, width: 160, height: 120 })
+    expect(laid.children![0].children![0]).toMatchObject({ x: 12, y: 9 })
+    expect(childOrigin([laid], panel.id)).toEqual(before)
   })
 })
 
