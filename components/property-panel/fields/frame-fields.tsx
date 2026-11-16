@@ -52,13 +52,20 @@ const DEFAULT_CAPTIONS: Record<FrameKey, string> = { x: "X", y: "Y", width: "W",
  * (lib/layout.ts): shown locked in every panel's frame, with the reason, on
  * top of whatever that panel locks itself. Given by the property panel.
  */
-export const FrameLockContext = createContext<{ locked: readonly FrameKey[]; hint: string; hidden?: readonly FrameKey[] } | null>(null)
+export const FrameLockContext = createContext<{
+  locked: readonly FrameKey[]
+  hint: string
+  hidden?: readonly FrameKey[]
+  /** Stretched in a table's cell: «Min W», «Min H», and the size they stand for. */
+  captions?: Partial<Record<FrameKey, string>>
+  values?: Partial<Record<FrameKey, number>>
+} | null>(null)
 
 export function FrameFields({ x, y, width, height, onChange, locked: ownLocked = [], lockedHint: ownHint, captions }: FrameFieldsProps) {
   const fromLayout = useContext(FrameLockContext)
   const locked = fromLayout ? [...ownLocked, ...fromLayout.locked] : ownLocked
   const lockedHint = fromLayout ? fromLayout.hint : ownHint
-  const values: Record<FrameKey, number> = { x, y, width, height }
+  const values: Record<FrameKey, number> = { x, y, width, height, ...fromLayout?.values }
   return (
     <div className="flex flex-col gap-1 @[380px]/panel:flex-row @[380px]/panel:gap-1">
       <span className="flex shrink-0 items-center gap-1 text-xs font-medium leading-tight text-muted-foreground @[380px]/panel:w-[124px] @[380px]/panel:pt-[7px]">
@@ -96,7 +103,7 @@ export function FrameFields({ x, y, width, height, onChange, locked: ownLocked =
                   htmlFor={id}
                   className="mt-[3px] flex items-center justify-center gap-[3px] text-[10.5px] font-medium text-muted-foreground"
                 >
-                  {captions?.[key] ?? DEFAULT_CAPTIONS[key]}
+                  {fromLayout?.captions?.[key] ?? captions?.[key] ?? DEFAULT_CAPTIONS[key]}
                   {isLocked ? <Lock className="size-2.5 opacity-50" /> : null}
                 </label>
               </div>

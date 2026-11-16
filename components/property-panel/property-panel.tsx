@@ -162,6 +162,23 @@ function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolea
   return findParentOf(screen.objects ?? [], id)?.parent?.type === "free"
 }
 
+type FrameKey = "x" | "y" | "width" | "height"
+type FrameLock = { locked: readonly FrameKey[]; hint: string; hidden?: readonly FrameKey[]; captions?: Partial<Record<FrameKey, string>>; values?: Partial<Record<FrameKey, number>> }
+
+// What an object stretched in a table's cell asks of its column and row: the
+// size it was drawn at, kept beside the one Stretch gives it. A width that
+// comes from what the object shows is not one to set.
+function stretchedMin(obj: ScreenObject): { width?: number; height?: number } {
+  const cell = obj.properties?.cell
+  if (!cell) return {}
+  const anchor = cellAnchorOf(obj)
+  const byContent = obj.type === "text" || obj.type === "switch" || obj.type === "button-group" || obj.type === "toggle-button" || obj.type === "button"
+  return {
+    ...(!byContent && anchor.x === "stretch" && typeof cell.drawnWidth === "number" ? { width: cell.drawnWidth } : {}),
+    ...(anchor.y === "stretch" && typeof cell.drawnHeight === "number" ? { height: cell.drawnHeight } : {}),
+  }
+}
+
 /**
  * What a table sets for the object being shown (lib/snap-table.ts): its
  * place and its width, when the object stands in a table's cell. Hidden in
@@ -170,7 +187,7 @@ function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolea
 function layoutFrameLock(
   screen: { objects?: any[] } | undefined,
   id: string,
-): { locked: readonly ("x" | "y" | "width" | "height")[]; hint: string; hidden?: readonly ("x" | "y" | "width" | "height")[] } | null {
+): FrameLock | null {
   if (!screen) return null
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
@@ -193,8 +210,19 @@ function layoutFrameLock(
       return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours." }
     }
     const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "toggle-button" || obj?.type === "button"
-    if (byContent || (obj && cellAnchorOf(obj).x === "stretch")) {
-      return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows, or from Stretch: see Cell." }
+    // Stretched, it fills its cell, and what it has of its own is the least
+    // it asks of its column or row (cell.drawnWidth/drawnHeight,
+    // lib/snap-table.ts): shown and typed as «Min W» and «Min H». A card
+    // stretched across its cell kept 266 px nobody could see or change, and
+    // its table stood 62 px over the screen's edge (the user, 2026-11-16).
+    const min = obj ? stretchedMin(obj) : {}
+    const captions = { ...(min.width !== undefined ? { width: "Min W" } : {}), ...(min.height !== undefined ? { height: "Min H" } : {}) }
+    const stretched = { captions, values: min }
+    if (byContent) {
+      return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell. Its width comes from what it shows.", ...stretched }
+    }
+    if (min.width !== undefined || min.height !== undefined) {
+      return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell, and Stretch has it fill the cell: see Cell. Min W and Min H are the least it asks of its column and row.", ...stretched }
     }
     return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its width and height are yours; its column grows with it." }
   }
@@ -207,7 +235,7 @@ function layoutFrameLock(
 export function PropertyPanel({
   selectedObject,
   selectedObjects,
-  onUpdateObject,
+  onUpdateObject: updateObject,
   onDeclareTopics,
   onUpdateObjects,
   currentScreen,
@@ -258,6 +286,20 @@ export function PropertyPanel({
   supportedObjectTypes,
   onUngroup,
 }: PropertyPanelProps) {
+  // A size typed for an object stretched in a table's cell is its «Min W» or
+  // «Min H» (stretchedMin): it goes where the table reads it. Left as a
+  // plain width or height, the next layout pass put the kept size back.
+  const onUpdateObject: typeof updateObject = (id, updates) => {
+    const keys = Object.keys(updates)
+    const min = selectedObject && id === selectedObject.id ? stretchedMin(selectedObject) : {}
+    const sizeOnly = keys.length > 0 && keys.every((key) => key === "width" || key === "height")
+    const drawn = {
+      ...(min.width !== undefined && typeof updates.width === "number" ? { drawnWidth: updates.width } : {}),
+      ...(min.height !== undefined && typeof updates.height === "number" ? { drawnHeight: updates.height } : {}),
+    }
+    if (!selectedObject || !sizeOnly || Object.keys(drawn).length === 0) return updateObject(id, updates)
+    updateObject(id, { ...updates, properties: { ...selectedObject.properties, cell: { ...selectedObject.properties?.cell, ...drawn } } })
+  }
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
     setShowProjectSettings(true)
