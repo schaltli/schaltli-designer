@@ -73,11 +73,15 @@ What this costs:
    all fill columns are as wide as the widest of them and the table is wider
    than its room (today's rule for «Equal columns»).
 
-5. **A table with room left over and no fill column** treats its last
-   column as fill, and shows it as fill. Writing that down on the column
-   happens the moment the table first gets more room than its content
-   (pulled, docked, put into a panel), so that what is seen and what is
-   stored agree.
+5. **Given more room, a table without a fill column gets one.** The edit
+   that gives a table more room than its content - pulled wider at a
+   handle, docked Top, Bottom or Fill, put into a panel, stretched in a
+   cell - sets its last auto column to fill, in the same undo step, where
+   no column is fill yet. From then on it is a state like any other: the
+   line reads «fill», and set back to auto it stays auto, with the room
+   empty at the table's right. The layout itself never changes a state; it
+   only reads them. Without an auto column (all fixed) nothing is set (E2).
+   The same for rows and the table's height.
 
 6. **The state is on the line.** The turquoise line of a column or row
    carries its state as its sign does today for «auto» and mm: «auto»,
@@ -170,22 +174,26 @@ Also to be changed where they write the old properties: `lib/block-card.ts`
 - Top-down sizing as the only direction: the content stays the lower bound
   everywhere.
 
+## Decided (the user, 2026-11-16)
+
+- **A new column is auto**, not fill. A table of a name and its value keeps
+  a narrow name and a value taking the rest; equal columns are one click on
+  each line.
+- **The table's own size is in pixels**, as an area's. No width in mm.
+- **Step 0 is not built ahead of the rest.** It is the first step once the
+  spec is approved.
+- **Decision 5** was left to this spec («mach vorschlag»): the edit that
+  gives the table room sets the last auto column to fill, once, visibly.
+  Why not «the room stays empty»: a table docked across a card would end
+  short of the card's right edge until its author found the sign, and that
+  is the common case. Why not a rule in the layout: a column would read
+  «auto» and be wider than its content, which is the kind of size nobody
+  can explain that this spec removes.
+
 ## Open questions
 
-1. **Default of a new column: auto, or fill?** Proposed: auto. In chat the
-   proposal was «columns share the room equally, no switch». Against it: a
-   table of a name and its value, docked across a card, has a narrow name
-   and a value taking the rest, and with equal halves by default every such
-   table in an existing project would have to be migrated to fixed columns
-   to stay where it is. With auto as default and fill as a state, both are
-   one click on the line.
-2. **Decision 5:** is the last column the right one to become fill by
-   itself, or should the room stay empty until a column is set to fill?
-3. **«Width» in mm:** the table's own size would be in pixels like an
-   area's. Is a table width typed in mm needed (a card grid across a display
-   of known width)?
-4. **Step 0 alone first?** It would have answered the question of
-   2026-11-16 without any other change.
+- E6: whether a table docked Fill stretches down today. To be read before
+  step 1.
 
 ## Tests
 
