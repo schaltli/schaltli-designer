@@ -48,4 +48,7 @@ Built otherwise than planned (2026-11-16, lib/cell-area.ts): a table's children 
 - [ ] OPEN: a text let go in a cell keeps the width it was drawn at (the user's label, 227 px, made its column that wide); in a slot it is as wide as its words
 - [ ] OPEN: e2e/area-maxxfan.spec.ts (the spec's success criterion as a test) not written; tried by hand on a copy of the van's project instead
 - [ ] OPEN: carried from the object list onto an occupied cell goes through the same code (lib/carry.ts) but has no case of its own
-- [ ] Checkpoint 3: test:e2e:prod and test:quick after step 3, then the spec's success criteria with the user
+- [ ] Checkpoint 3: the spec's success criteria with the user. test:quick 2026-11-16 at 45b8158c: Overall FAIL
+  - green: typecheck, e2e 2495 passed (none failed), every host check, 65 checks in all; 4" and PaperS3 lanes all green, 4" conformance included
+  - failed, none on a picture that differs: knob-deploy («restarted by software (was panic)» on check 2b), knob-charts-draw («never held the chart's history», as in step 1's run), 4.3B conformance («never accepted a switch to screen 23 within 180 s of the upload»)
+  - skipped: Android (no phone)
