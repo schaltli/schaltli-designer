@@ -1,7 +1,8 @@
 # Table sizes: one rule for what sets a size
 
-Spec drafted 2026-11-16 from a conversation with the user. **Status: draft,
-not approved. Nothing of it is built.** Follows `docs/2026-11-16-areas.md`.
+Spec drafted 2026-11-16 from a conversation with the user. **Status: approved
+by the user on 2026-11-16 («freigegeben»), with the answers under «Decided».
+Plan: `tasks/table-sizes-plan.md`.** Follows `docs/2026-11-16-areas.md`.
 
 ## Objective
 
@@ -159,8 +160,11 @@ Also to be changed where they write the old properties: `lib/block-card.ts`
   of the last column it spans, as today.
 - **E5. A table too wide for an area that clips:** cut at the edge, as today
   (`lib/dock.ts`).
-- **E6. Rows:** to be read before step 1 - whether a table docked Fill
-  stretches down today. Not checked for this draft.
+- **E6. Rows:** a docked table is stretched across only; its height is its
+  content's, also docked Fill, Left or Right (`lib/dock.ts`, read
+  2026-11-16). That stays: docking gives a table room across, never down.
+  A table is taller than its rows only where its author pulled it at the
+  bottom handle, and only then is a row set to fill (decision 5).
 - **E7. Device change:** the table's own size is in pixels and follows the
   size scale as an area's does; a fixed column stays in mm.
 - **E8. Taken apart and put together:** an object carried out of a table
@@ -192,8 +196,7 @@ Also to be changed where they write the old properties: `lib/block-card.ts`
 
 ## Open questions
 
-- E6: whether a table docked Fill stretches down today. To be read before
-  step 1.
+None.
 
 ## Tests
 
