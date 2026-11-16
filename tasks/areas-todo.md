@@ -8,7 +8,7 @@ Each step ends with `npm run test:quick` and a stop for the user.
 
 ## Step 1 - panel and screen are areas
 - [x] T0 baseline: e2e/areas-nothing-moves.spec.ts, e2e/fixtures/areas-baseline.json from main 784739e8 (2026-11-16: green twice, the baseline written twice the same; uncommitted on branch `areas`)
-- [ ] T1 lib/area.ts: isArea, the screen wrapped; dock, anchor, free-min-size, drop-into-free ask it (no behaviour change)
+- [x] T1 lib/area.ts: isArea; dock, anchor, free-min-size ask it (no behaviour change; 2026-11-16: typecheck, baseline and 11 area specs green - anchor-dock-card:117 timed out once under load, green alone). The screen wrapped moves to T4, drop-into-free to T2: it already treats a panel on its own
 - [ ] T2 a panel is an area: dock, Position, Padding; panel and switcher hold their content (E2); e2e/area-panel.spec.ts
 - [ ] T3 old panels: the one Free area taken over (boxId), controls outside (E2a); e2e/areas-migration.spec.ts
 - [ ] T4 a screen is an area: screen.area, dock, growth (E1), free anywhere (E1a), masters (E7), knob (E8); e2e/area-screen.spec.ts

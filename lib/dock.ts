@@ -21,6 +21,7 @@
  * `properties.ownSize` while it differs, and given back once it is undocked.
  */
 
+import { isArea } from "@/lib/area"
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { textNoTallerThanItsFont } from "@/lib/font-utils"
 import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
@@ -64,7 +65,7 @@ function undocked(child: ScreenObject): ScreenObject {
   if (!("ownSize" in p) && !("dockedOut" in p)) return child
   const size = own(child)
   const { ownSize: _o, dockedOut: _d, ...rest } = p
-  return child.type === "free" ? { ...resizeFree(child, size.width, size.height), properties: rest } : { ...child, ...size, properties: rest }
+  return isArea(child) ? { ...resizeFree(child, size.width, size.height), properties: rest } : { ...child, ...size, properties: rest }
 }
 
 // A child placed at x, y with a size: its own kept beside it where they differ.
@@ -75,7 +76,7 @@ function placed(child: ScreenObject, x: number, y: number, width: number, height
   const ownSize = { ...(width !== size.width ? { width: size.width } : {}), ...(height !== size.height ? { height: size.height } : {}) }
   const properties = Object.keys(ownSize).length > 0 ? { ...rest, ownSize } : rest
   // A free area takes its own objects along, and docks its own.
-  if (child.type === "free") return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
+  if (isArea(child)) return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
   // A line moves whole, with its points.
   if (Array.isArray(child.properties?.points)) return translateObject({ ...child, properties }, x - child.x, y - child.y)
   return { ...child, x, y, width, height, properties }
@@ -105,7 +106,7 @@ const leftOut = (child: ScreenObject): ScreenObject => ({ ...child, properties: 
  * give back comes back as it was.
  */
 export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
-  if (area.type !== "free") return area
+  if (!isArea(area)) return area
   const children = area.children ?? []
   // Fill last, whatever its place in the list: it takes what the others
   // leave - docked first, it left none, and a heading docked Top after it

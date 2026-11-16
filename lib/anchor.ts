@@ -10,6 +10,7 @@
  * it (lib/snap-table.ts).
  */
 
+import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { translateObject } from "@/lib/object-groups"
 
@@ -124,7 +125,7 @@ const hasPoints = (obj: ScreenObject) => Array.isArray(obj.properties?.points) &
  * whose size does not change keeps everything where it is.
  */
 export function resizeFree(area: ScreenObject, width: number, height: number): ScreenObject {
-  if (area.type !== "free" || (width === area.width && height === area.height)) return { ...area, width, height }
+  if (!isArea(area) || (width === area.width && height === area.height)) return { ...area, width, height }
   const dw = width - area.width
   const dh = height - area.height
   const children = (area.children ?? []).map((child) => {
@@ -139,7 +140,7 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
     const moved = { ...child, x: child.x + h.move, y: child.y + v.move }
     const w = Math.max(1, child.width + h.grow)
     const ht = Math.max(1, child.height + v.grow)
-    return child.type === "free" ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
+    return isArea(child) ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
   })
   return { ...area, width, height, children }
 }
@@ -151,7 +152,7 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
  * and Apply size all agree, in one undo step.
  */
 export function withUpdates(obj: ScreenObject, updates: Partial<ScreenObject>): ScreenObject {
-  if (obj.type !== "free" || "children" in updates) return { ...obj, ...updates }
+  if (!isArea(obj) || "children" in updates) return { ...obj, ...updates }
   const width = typeof updates.width === "number" ? updates.width : obj.width
   const height = typeof updates.height === "number" ? updates.height : obj.height
   if (width === obj.width && height === obj.height) return { ...obj, ...updates }

@@ -17,6 +17,7 @@
  * found by halving, as fitting only gets easier with room.
  */
 
+import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { toggleMinHeight } from "@/lib/toggle-button-shape"
 import { areaAnchorOf, resizeFree } from "@/lib/anchor"
@@ -77,7 +78,7 @@ function holds(area: ScreenObject, scale: LayoutScale, axis: Axis = "both"): boo
     const stretchedH = docked === "left" || docked === "right" || docked === "fill" || (!docked && anchor.y === "stretch")
     if (x && stretchedW && !Array.isArray(child.properties?.points) && child.width < minWidthOf(child, scale)) return false
     if (y && stretchedH && child.height < minHeightOf(child, scale)) return false
-    if (child.type === "free" && !holds(child, scale, axis)) return false
+    if (isArea(child) && !holds(child, scale, axis)) return false
   }
   return true
 }
@@ -109,7 +110,7 @@ function smallest(upTo: number, fits: (v: number) => boolean): number {
  * anything but a free area holding something.
  */
 export function freeMinSize(area: ScreenObject, scale: LayoutScale): { width: number; height: number } | undefined {
-  if (area.type !== "free" || !(area.children?.length)) return undefined
+  if (!isArea(area) || !(area.children?.length)) return undefined
   // Each way asked with the other as good as endless; a way in which no size
   // makes it fit sets no bound there (1).
   const width = fitsAt(area, ENDLESS, ENDLESS, scale, "x") ? smallest(ENDLESS, (w) => fitsAt(area, w, ENDLESS, scale, "x")) : 1
@@ -154,7 +155,7 @@ function remembered(area: ScreenObject, width: number, height: number, set = fal
  * reference where nothing moved.
  */
 export function keptInPadding(area: ScreenObject, scale: LayoutScale): ScreenObject {
-  if (area.type !== "free" || !area.children?.length) return area
+  if (!isArea(area) || !area.children?.length) return area
   const pad = Math.round(paddingOf(area) * scale.pixelsPerMm)
   if (pad <= 0) return area
   let moved = false
@@ -179,7 +180,7 @@ export function keptInPadding(area: ScreenObject, scale: LayoutScale): ScreenObj
     if (h.shrink === 0 && v.shrink === 0) return shifted
     const width = Math.max(1, shifted.width - h.shrink)
     const height = Math.max(1, shifted.height - v.shrink)
-    return shifted.type === "free" ? { ...resizeFree(shifted, width, height), x: shifted.x, y: shifted.y } : { ...shifted, width, height }
+    return isArea(shifted) ? { ...resizeFree(shifted, width, height), x: shifted.x, y: shifted.y } : { ...shifted, width, height }
   })
   return moved ? { ...area, children } : area
 }
@@ -189,7 +190,7 @@ function grownIn(objects: ScreenObject[], scale: LayoutScale): ScreenObject[] {
   const out = objects.map((obj) => {
     const children = obj.children ? grownIn(obj.children, scale) : obj.children
     let current = keptInPadding(children === obj.children ? obj : { ...obj, children }, scale)
-    if (current.type === "free" && current.children?.length && !holdsItsContent(current, scale)) {
+    if (isArea(current) && current.children?.length && !holdsItsContent(current, scale)) {
       const min = freeMinSize(current, scale)
       if (min && (min.width > current.width || min.height > current.height)) {
         const width = Math.max(min.width, current.width)
@@ -240,8 +241,9 @@ function followingIn(prev: ScreenObject[] | undefined, next: ScreenObject[], sca
     const children = obj.children ? followingIn(before?.children, obj.children, scale) : obj.children
     let current = children === obj.children ? obj : { ...obj, children }
     if (
-      current.type === "free" &&
-      before?.type === "free" &&
+      isArea(current) &&
+      before &&
+      isArea(before) &&
       before.children !== obj.children &&
       before.width === obj.width &&
       before.height === obj.height
