@@ -22,6 +22,7 @@ import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
 import { dockFree, dockOf, dockedHeight, paddingOf } from "@/lib/dock"
 import { filledPanel } from "@/lib/anchor"
 import { isArea, screenAreaLaid, type ScreenArea } from "@/lib/area"
+import { unwrappedCells } from "@/lib/cell-area"
 import { CARD_DEFAULTS, cardSettingsOf, withButtonRadius, withCardLook, type CardSettings } from "@/lib/card"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
@@ -246,7 +247,10 @@ function layoutOne(given: ScreenObject, scale: LayoutScale): ScreenObject {
   // switcher's panels, a free area's tables), then placed in its cells.
   // A free area in a cell may have been given a new size there: what it
   // docks is placed again (lib/dock.ts).
-  if (isSnapTable(obj)) {
+  if (isSnapTable(given)) {
+    // A cell's area that is no more than a slot is taken away again
+    // (lib/cell-area.ts): its one object stands in the cell itself.
+    const obj = unwrappedCells(given)
     const arranged = arrangeSnapTable({ ...obj, children: layoutObjects(obj.children ?? [], scale) }, scale)
     return { ...arranged, children: (arranged.children ?? []).map((child) => (child.type === "free" ? dockFree(child, scale) : child)) }
   }
