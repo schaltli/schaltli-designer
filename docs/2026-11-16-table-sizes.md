@@ -132,6 +132,12 @@ After:
 - `widthMm` and `equalColumns` are no longer written.
 - `settings.formatVersion` 4.
 
+As built (2026-11-16): the table's own size is `properties.tableSize`, not
+`ownSize` - docking takes `ownSize` away again (lib/dock.ts); one format
+version, 4; and `levelColumns` for an older table whose «Equal columns»
+were not equal (see `tasks/table-sizes-todo.md`, «Decisions taken while
+building»).
+
 ## Old projects
 
 Migration in `lib/area-migration.ts`, on opening, for every table at any

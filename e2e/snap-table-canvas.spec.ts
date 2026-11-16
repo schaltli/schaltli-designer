@@ -787,17 +787,23 @@ test.describe("snap table: selection", () => {
     expect(await editing(page)).toBe("grid")
   })
 
-  test("a selected table offers no resize handle: its size is its content's", async ({ page }) => {
+  // Until 2026-11-16 a table had no handle: its size was its content's.
+  // Since then it has a size of its own (docs/2026-11-16-table-sizes.md,
+  // decision 2; pulled in e2e/table-sizes-canvas.spec.ts).
+  test("a selected table has a resize handle at its corner, where its last column's and row's lines end", async ({ page }) => {
     const { zip, table } = await snapProject()
     await loadProject(page, zip)
     await click(page, middleOf(table, "pumpe"))
     await expect.poll(() => chip(page)).toBe("Table · 2×2")
-    // The table's bottom right corner, where a resize handle would sit: its
-    // last column's and row's lines meet there (Task 8), but no corner
-    // handle resizes the table as a whole.
+    // The table's bottom right corner: the handle is taken there, not the
+    // lines that meet in it (Task 8).
     const corner = await at(page, { x: table.x + table.width, y: table.y + table.height })
     await page.mouse.move(corner.x, corner.y)
-    expect(await (await getMainCanvas(page)).canvas.evaluate((c) => (c as HTMLElement).style.cursor)).not.toMatch(/^(nw|ne|sw|se|nwse|nesw)-resize$/)
+    await expect.poll(async () => (await getMainCanvas(page)).canvas.evaluate((c) => (c as HTMLElement).style.cursor)).toMatch(/^(nw|ne|sw|se|nwse|nesw)-resize$/)
+    // Away from the corner, on the last column's line: that line.
+    const line = await at(page, { x: table.x + table.width, y: table.y + table.height / 2 })
+    await page.mouse.move(line.x, line.y)
+    await expect.poll(async () => (await getMainCanvas(page)).canvas.evaluate((c) => (c as HTMLElement).style.cursor)).toBe("col-resize")
   })
 
   test("Esc goes one level up: object -> table -> nothing; Enter goes into the table", async ({ page }) => {
