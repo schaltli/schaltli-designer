@@ -262,15 +262,6 @@ function measure(table: ScreenObject, scale: LayoutScale, given: { room?: number
   const byHand = (lines: SnapLine[], i: number) => (typeof lines[i]?.mm === "number" ? px(lines[i].mm!, scale) : 0)
   const widths = naturalWidths.map((w, c) => Math.max(w, byHand(snapColumnsOf(table), c)))
   const heights = naturalHeights.map((h, r) => Math.max(h, byHand(snapRowsOf(table), r)))
-  // An older project's «Equal columns» on a table stretched across with no
-  // width of its own (lib/area-migration.ts): its columns not fixed were as
-  // wide as the widest of them, and the last took what was left over. Kept
-  // as it was laid out, so nothing moves; no new table gets it.
-  if (table.properties?.levelColumns === true) {
-    const level = widths.map((_, c) => c).filter((c) => lineStateOf(snapColumnsOf(table)[c]) !== "fixed")
-    const widest = Math.max(0, ...level.map((c) => widths[c]))
-    for (const c of level) widths[c] = widest
-  }
   // What the table has of its own beyond its content goes to its fill lines.
   const size = tableSizeOf(table)
   // Laid out already (`atLeast`), the width it came to says it all: its own

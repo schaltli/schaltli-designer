@@ -134,9 +134,10 @@ After:
 
 As built (2026-11-16): the table's own size is `properties.tableSize`, not
 `ownSize` - docking takes `ownSize` away again (lib/dock.ts); one format
-version, 4; and `levelColumns` for an older table whose «Equal columns»
-were not equal (see `tasks/table-sizes-todo.md`, «Decisions taken while
-building»).
+version, 4. Decision 10 has one exception the user made the same day: an
+older table docked across with «Equal columns» and no «Width», whose
+columns the old layout did not draw equal, is equal after opening («keine
+gnade für alte fehler»; see `tasks/table-sizes-todo.md`).
 
 ## Old projects
 

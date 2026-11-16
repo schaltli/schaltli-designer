@@ -32,16 +32,15 @@ type Update = (id: string, updates: Partial<ScreenObject>) => void
 
 export function SnapTableProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
   const { rows, columns } = dimensions(selectedObject)
-  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => lineStateOf(line) !== "auto") || selectedObject.properties?.levelColumns === true
+  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => lineStateOf(line) !== "auto")
   const set = (key: string, value: unknown) => {
     const { [key]: _old, ...rest } = selectedObject.properties ?? {}
     onUpdateObject(selectedObject.id, { properties: value === undefined ? rest : { ...rest, [key]: value } })
   }
   const automatic = () => {
-    const { levelColumns: _level, ...properties } = selectedObject.properties ?? {}
     onUpdateObject(selectedObject.id, {
       properties: {
-        ...properties,
+        ...selectedObject.properties,
         columns: snapColumnsOf(selectedObject).map(() => ({})),
         rows: snapRowsOf(selectedObject).map(() => ({})),
       },

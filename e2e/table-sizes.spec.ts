@@ -234,11 +234,17 @@ test.describe("an older project: what «Equal columns», «Width» and being str
     expect(equal).toEqual([94, 94, 96])
   })
 
-  test("«Equal columns» on a table stretched across without a «Width» stays as it was drawn: as wide as the widest, the last taking the rest", () => {
+  // The one place an older project is not kept as it was drawn: the old
+  // layout made these columns as wide as the widest and gave the last what
+  // was left - 60, 60 and 164 here, 132 and 280 px in CamperUI's «Wasser».
+  // «Equal columns» said equal (the user, 2026-11-16: «keine gnade für alte
+  // fehler»).
+  test("«Equal columns» on a table stretched across without a «Width»: equal now, as the switch said", () => {
     const area = (child: ScreenObject): ScreenObject => ({ id: "area", type: "free", x: 0, y: 0, width: 300, height: 100, zIndex: 1, properties: {}, children: [child] }) as ScreenObject
     const t = first(opened([area(three([{}, {}, {}], { equalColumns: true, dock: "fill" }))])).children![0]
-    expect(t.properties).toMatchObject({ levelColumns: true, columns: [{}, {}, FILL] })
+    expect(t.properties!.columns).toEqual([FILL, FILL, FILL])
+    expect("equalColumns" in t.properties!).toBe(false)
     const [laid] = layoutObjects([{ ...area(t) }], SCALE)
-    expect(snapTableGeometry(laid.children![0], SCALE).widths).toEqual([60, 60, 300 - 120 - 2 * GAP])
+    expect(snapTableGeometry(laid.children![0], SCALE).widths).toEqual([94, 94, 96])
   })
 })

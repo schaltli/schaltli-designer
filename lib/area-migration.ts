@@ -163,11 +163,12 @@ function withOneKeptSize(obj: Obj): Obj {
 // Format 4 (docs/2026-11-16-table-sizes.md, «Old projects»): what «Equal
 // columns», «Width» and being stretched did to a table's columns is written
 // on the columns, at any depth.
-// - «Equal columns»: every column not sized by hand is fill. Except on a
-//   table stretched across without a «Width»: there the columns were as
-//   wide as the widest of them and the last took the rest - not equal, but
-//   what was drawn. Kept as that (`levelColumns`, lib/snap-table.ts), so
-//   nothing moves.
+// - «Equal columns»: every column not sized by hand is fill. Also on a
+//   table stretched across without a «Width», where the old layout made
+//   the columns as wide as the widest and gave the last what was left -
+//   132 and 280 px in CamperUI's «Wasser». Those are equal now: an old
+//   mistake is not kept (the user, 2026-11-16: «keine gnade für alte
+//   fehler, nach neu behandeln»).
 // - a «Width», or stretched across (docked Top, Bottom or Fill; standing
 //   in a switcher's panel), without «Equal columns»: the last column took
 //   what was left over, whatever it said, so it is fill. A size set on it
@@ -187,18 +188,12 @@ function withLineStates(obj: Obj, pixelsPerMm: number, parent?: Obj): Obj {
   const listed: Array<Record<string, any>> = Array.isArray(rest.columns) ? rest.columns : []
   const count = Math.max(listed.length, reach)
   let columns = Array.from({ length: count }, (_, i) => ({ ...(listed[i] ?? {}) }))
-  const level = equalColumns === true && width === undefined && stretched
-  if (equalColumns === true && !level) columns = columns.map((line) => (typeof line.mm === "number" ? line : { ...line, fill: true }))
+  if (equalColumns === true) columns = columns.map((line) => (typeof line.mm === "number" ? line : { ...line, fill: true }))
   else if (count > 0) {
     const { mm: _byHand, ...last } = columns[count - 1]
     columns[count - 1] = { ...last, fill: true }
   }
-  const properties = {
-    ...rest,
-    columns,
-    ...(level && count > 1 ? { levelColumns: true } : {}),
-    ...(width !== undefined ? { tableSize: { ...(rest.tableSize ?? {}), width: Math.round(width * pixelsPerMm) } } : {}),
-  }
+  const properties = { ...rest, columns, ...(width !== undefined ? { tableSize: { ...(rest.tableSize ?? {}), width: Math.round(width * pixelsPerMm) } } : {}) }
   return { ...current, properties }
 }
 

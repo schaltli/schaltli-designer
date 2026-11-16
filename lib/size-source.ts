@@ -50,7 +50,6 @@ function ofLine(table: ScreenObject, obj: ScreenObject, kind: "column" | "row", 
   const state = lineStateOf(lines[index])
   if (state === "fixed") return `its ${kind}, fixed at ${Number(lines[index]!.mm).toFixed(1)} mm`
   if (state === "fill") return `its ${kind}, filling the table`
-  if (kind === "column" && table.properties?.levelColumns === true) return "its column, as wide as the widest in the table (Equal columns of an older project)"
   // Auto: as large as the largest object standing in it alone.
   const g = snapTableGeometry(table, scale)
   const natural = (kind === "column" ? g.naturalWidths : g.naturalHeights)[index]

@@ -71,6 +71,11 @@ async function exported(page: import("@playwright/test").Page, project: unknown)
   return hashes
 }
 
+// One exception, made on purpose on 2026-11-16 (docs/2026-11-16-table-
+// sizes.md): CamperUI's «Wasser» holds a table docked Fill with «Equal
+// columns» whose columns the old layout drew 132 and 280 px wide. They are
+// 206 and 206 since, and CamperUI's project.json in the baseline is the one
+// with that (the user: «keine gnade für alte fehler, nach neu behandeln»).
 test("every project exports the files it exported before areas, byte for byte", async ({ page }) => {
   test.setTimeout(300_000)
   await page.goto("/test-render")
