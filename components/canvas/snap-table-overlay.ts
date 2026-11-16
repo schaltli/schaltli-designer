@@ -203,6 +203,42 @@ export function drawSizeLines(ctx: CanvasRenderingContext2D, lines: Array<{ x1: 
   ctx.restore()
 }
 
+/**
+ * What sets a column's width or a row's height, on its line
+ * (docs/2026-11-16-table-sizes.md, decision 6): «auto», «fill» or its size
+ * in mm - below each column, right of each row. A click steps through them.
+ * Auto is an outline, the two that are set are filled.
+ */
+export function drawLineSigns(
+  ctx: CanvasRenderingContext2D,
+  signs: Array<{ x: number; y: number; width: number; height: number; text: string; state: string }>,
+  color: string,
+  zoom: number,
+): void {
+  ctx.save()
+  ctx.font = `500 ${10 / zoom}px system-ui, sans-serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  for (const s of signs) {
+    ctx.beginPath()
+    ctx.roundRect(s.x, s.y, s.width, s.height, 3 / zoom)
+    if (s.state === "auto") {
+      ctx.fillStyle = "#ffffff"
+      ctx.fill()
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1 / zoom
+      ctx.stroke()
+      ctx.fillStyle = color
+    } else {
+      ctx.fillStyle = color
+      ctx.fill()
+      ctx.fillStyle = "#ffffff"
+    }
+    ctx.fillText(s.text, s.x + s.width / 2, s.y + s.height / 2 + 0.5 / zoom)
+  }
+  ctx.restore()
+}
+
 /** The chip above a selection's top left corner. */
 export function drawSnapChip(ctx: CanvasRenderingContext2D, at: { x: number; y: number }, text: string, color: string, zoom: number): void {
   const size = 11 / zoom

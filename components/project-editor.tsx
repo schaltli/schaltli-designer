@@ -79,13 +79,14 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { layoutProject, layoutScaleOf } from "@/lib/layout"
+import { layoutProject, layoutScaleOf, type LayoutScale } from "@/lib/layout"
+import { withFillWhereGivenRoom } from "@/lib/table-fill"
 import { FORMAT_VERSION, migrateToAreas } from "@/lib/area-migration"
 import type { ScreenArea } from "@/lib/area"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
-import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop, type SnapSide } from "@/lib/snap-table"
+import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, withTableSize, type SnapDrop, type SnapSide } from "@/lib/snap-table"
 import { canPasteBeside, canPasteReplacing, pasteBeside, pasteReplacing } from "@/lib/paste-beside"
 import type { EditMenuActions } from "@/components/edit-menu-items"
 
@@ -924,6 +925,30 @@ function migrateOpened<P extends Project>(project: P): { project: P; menuGone: b
   return { project: migrateProject(project), menuGone }
 }
 
+// A width or height given to a table - pulled at a handle, typed into
+// Frame - is its own size (lib/snap-table.ts withTableSize).
+function sizedAsTable(objects: ScreenObject[], id: string, updates: Partial<ScreenObject>, scale: LayoutScale): Partial<ScreenObject> {
+  if (!("width" in updates) && !("height" in updates)) return updates
+  const obj = findObjectById(objects, id)
+  return obj && isSnapTable(obj) ? withTableSize(obj, updates, scale) : updates
+}
+
+// `next` with each table the edit gave room a fill column (lib/table-fill.ts),
+// in the edit itself. Not across projects: one just opened is as it was saved.
+function fillGiven(prev: Project, next: Project): Project {
+  if (prev.name !== next.name) return next
+  let changed = false
+  const screens = next.screens.map((screen) => {
+    const before = prev.screens.find((s) => s.id === screen.id)
+    if (!before || before.objects === screen.objects) return screen
+    const objects = withFillWhereGivenRoom(before.objects, screen.objects)
+    if (objects === screen.objects) return screen
+    changed = true
+    return { ...screen, objects }
+  })
+  return changed ? { ...next, screens } : next
+}
+
 // `next` with its cards fitted to their content (lib/free-min-size.ts): one
 // that ended with its content in `prev` follows it, smaller too; one too
 // small for what it holds grows to it.
@@ -964,7 +989,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // screen graph mended (lib/screen-graph.ts): a screen docked on one that
     // left it - deleted, hidden, made a popup or a master - becomes hidden.
     setProjectState((prev) => {
-      const laid = layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+      const laid = layoutProject(fillGiven(prev, normalizeProjectGroups(typeof action === "function" ? action(prev) : action)))
       // And a card too small for what it holds grows to it - after an edit,
       // and a project just opened as well (lib/free-min-size.ts).
       // One that ended with its content follows it, smaller too.
@@ -2131,7 +2156,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ...prev,
         screens: prev.screens.map((screen) =>
           screen.id === currentScreenId
-            ? { ...screen, objects: honest(updateObjectById(screen.objects, objectId, updates), prev.settings.pixelsPerMm) }
+            ? { ...screen, objects: honest(updateObjectById(screen.objects, objectId, sizedAsTable(screen.objects, objectId, updates, layoutScaleOf(prev))), prev.settings.pixelsPerMm) }
             : screen,
         ),
       }))

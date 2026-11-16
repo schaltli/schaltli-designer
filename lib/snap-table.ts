@@ -57,9 +57,15 @@ export function ownSizeOf(obj: ScreenObject): { width?: number; height?: number 
     ...(typeof o?.height === "number" ? { height: o.height } : {}),
   }
 }
-/** A column or row; `mm` is a size set by hand. */
+/**
+ * A column or row, and what sets its size (docs/2026-11-16-table-sizes.md,
+ * decision 3): nothing set - auto, as large as what it holds; `mm` - fixed,
+ * pulled to that size by hand, never below what it holds; `fill` - it takes
+ * a share of what the table has left over, the fill lines ending equal.
+ */
 export interface SnapLine {
   mm?: number
+  fill?: boolean
   // Only while an object is dragged out (heldOut): the line held at the
   // size it had, `mm` being that size and `was` what it was set to before.
   was?: number | null
@@ -97,6 +103,65 @@ export function inReadingOrder(children: ScreenObject[]): ScreenObject[] {
   })
 }
 export const firstInReadingOrder = (children: ScreenObject[]): ScreenObject | undefined => inReadingOrder(children)[0]
+
+export type SnapLineState = "auto" | "fixed" | "fill"
+/** What sets a line's size: fixed where a size is set, whatever else it says. */
+export const lineStateOf = (line: SnapLine | undefined): SnapLineState => (typeof line?.mm === "number" ? "fixed" : line?.fill === true ? "fill" : "auto")
+
+/**
+ * A table's own size (docs/2026-11-16-table-sizes.md, decision 2): what its
+ * author pulled it to at a handle or typed, in pixels. The table is at least
+ * as large as what it holds, whatever this says; absent, it is as large as
+ * that. Not `ownSize`: that is what docking and a cell keep of an object
+ * they stretch, and take away again (lib/dock.ts).
+ */
+export function tableSizeOf(table: ScreenObject): { width?: number; height?: number } {
+  const s = table.properties?.tableSize
+  return {
+    ...(typeof s?.width === "number" && s.width > 0 ? { width: s.width } : {}),
+    ...(typeof s?.height === "number" && s.height > 0 ? { height: s.height } : {}),
+  }
+}
+
+/**
+ * The least a table can be: what its columns and rows add up to with no
+ * size of its own (decision 2 - pulled at a handle, it stops there).
+ */
+export function tableMinSize(table: ScreenObject, scale: LayoutScale): { width: number; height: number } {
+  const { tableSize: _own, ...properties } = table.properties ?? {}
+  const m = measure({ ...table, properties }, scale)
+  return { width: m.width, height: m.height }
+}
+
+/**
+ * `updates` to a table as the editor may apply them: a width or height in
+ * them is the table's own size (decision 2), kept in `tableSize` - on the
+ * axis that changed only, and not at all where it is no more than what the
+ * table holds, which is what a table without a size of its own is.
+ */
+export function withTableSize(table: ScreenObject, updates: Partial<ScreenObject>, scale: LayoutScale): Partial<ScreenObject> {
+  const wide = typeof updates.width === "number" && updates.width !== table.width
+  const high = typeof updates.height === "number" && updates.height !== table.height
+  if (!wide && !high) return updates
+  const properties = { ...(updates.properties ?? table.properties ?? {}) }
+  const min = tableMinSize({ ...table, properties }, scale)
+  // From what the table has, whatever properties the updates bring along.
+  const own = { ...tableSizeOf(table) }
+  if (wide) {
+    if (updates.width! > min.width) own.width = Math.round(updates.width!)
+    else delete own.width
+  }
+  if (high) {
+    if (updates.height! > min.height) own.height = Math.round(updates.height!)
+    else delete own.height
+  }
+  if (Object.keys(own).length > 0) properties.tableSize = own
+  else delete properties.tableSize
+  return { ...updates, properties }
+}
+
+// Docked across, a table has its room's width, not its own.
+const dockedAcross = (table: ScreenObject) => ["top", "bottom", "fill"].includes(table.properties?.dock)
 
 export function snapColumnsOf(table: ScreenObject): SnapLine[] {
   return Array.isArray(table.properties?.columns) ? table.properties!.columns : []
@@ -172,7 +237,10 @@ function natural(child: ScreenObject, scale: LayoutScale): ScreenObject {
   return fit(own, naturalWidth(own, scale), scale)
 }
 
-function measure(table: ScreenObject, scale: LayoutScale) {
+// `room` is a width the table is given from outside (docked across, in a
+// switcher's panel): it stands for the table's own. `atLeast` is the width
+// the table was laid out at last.
+function measure(table: ScreenObject, scale: LayoutScale, given: { room?: number; atLeast?: number } = {}) {
   const { rows, columns } = dimensions(table)
   const gap = px(gapMmOf(table), scale)
   const empty = px(SNAP_EMPTY_MM, scale)
@@ -194,7 +262,22 @@ function measure(table: ScreenObject, scale: LayoutScale) {
   const byHand = (lines: SnapLine[], i: number) => (typeof lines[i]?.mm === "number" ? px(lines[i].mm!, scale) : 0)
   const widths = naturalWidths.map((w, c) => Math.max(w, byHand(snapColumnsOf(table), c)))
   const heights = naturalHeights.map((h, r) => Math.max(h, byHand(snapRowsOf(table), r)))
-  shareWidth(table, widths, gap, scale)
+  // An older project's «Equal columns» on a table stretched across with no
+  // width of its own (lib/area-migration.ts): its columns not fixed were as
+  // wide as the widest of them, and the last took what was left over. Kept
+  // as it was laid out, so nothing moves; no new table gets it.
+  if (table.properties?.levelColumns === true) {
+    const level = widths.map((_, c) => c).filter((c) => lineStateOf(snapColumnsOf(table)[c]) !== "fixed")
+    const widest = Math.max(0, ...level.map((c) => widths[c]))
+    for (const c of level) widths[c] = widest
+  }
+  // What the table has of its own beyond its content goes to its fill lines.
+  const size = tableSizeOf(table)
+  // Laid out already (`atLeast`), the width it came to says it all: its own
+  // is in it, or a room that stood for it.
+  const ownWidth = given.room === undefined && given.atLeast === undefined && !dockedAcross(table) ? size.width : undefined
+  shareFill(widths, snapColumnsOf(table), ownWidth, gap)
+  shareFill(heights, snapRowsOf(table), size.height, gap)
 
   // A span that does not fit makes the last line it covers larger.
   const across = (sizes: number[], from: number, count: number) => sizes.slice(from, from + count).reduce((a, b) => a + b, 0) + (count - 1) * gap
@@ -208,8 +291,19 @@ function measure(table: ScreenObject, scale: LayoutScale) {
       if (size.height > have) heights[cell.row + cell.rowSpan! - 1] += size.height - have
     }
   }
+  // A width given from outside, after the spans: as the last column took
+  // what was left over until 2026-11-16.
   const starts = (sizes: number[]) => sizes.map((_, i) => sizes.slice(0, i).reduce((sum, s) => sum + s + gap, 0))
-  return { gap, widths, heights, lefts: starts(widths), tops: starts(heights), naturalWidths, naturalHeights, sized, across }
+  const total = (sizes: number[]) => (sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap : 0)
+  // Only where it is more than they have: shared once, the fill columns
+  // differ by the pixel rounding left, and sharing again would level them.
+  const outer = Math.max(given.room ?? 0, given.atLeast ?? 0)
+  if (outer > total(widths)) shareFill(widths, snapColumnsOf(table), outer, gap)
+  // With no fill line to take it, room left over stays empty at the right
+  // and below (E2): the table is still as large as it was made.
+  const width = Math.max(total(widths), given.room ?? ownWidth ?? 0)
+  const height = Math.max(total(heights), size.height ?? 0)
+  return { gap, widths, heights, lefts: starts(widths), tops: starts(heights), naturalWidths, naturalHeights, sized, across, width, height }
 }
 
 /** The gap between a table's columns and rows, in mm (docs/2026-11-03-card-grid.md): 1.5 unless set. */
@@ -218,48 +312,30 @@ export function gapMmOf(table: ScreenObject): number {
   return typeof g === "number" && Number.isFinite(g) && g >= 0 ? g : SNAP_GAP_MM
 }
 
-/** A table's width set in mm, or undefined: as wide as its content. */
-export function widthMmOf(table: ScreenObject): number | undefined {
-  const w = table.properties?.widthMm
-  return typeof w === "number" && Number.isFinite(w) && w > 0 ? w : undefined
-}
-
-// Equal columns and a width (docs/2026-11-03-card-grid.md), in place: the
-// columns not sized by hand made equal - as wide as the widest of them, or
-// sharing the width the table is given - and without Equal columns the last
-// column taking what the width leaves. Never narrower than what a column
-// holds: a column that needs more makes the table wider than its width.
-function shareWidth(table: ScreenObject, widths: number[], gap: number, scale: LayoutScale) {
-  if (widths.length === 0) return
-  const lines = snapColumnsOf(table)
-  const free = widths.map((_, c) => typeof lines[c]?.mm !== "number")
-  const widthMm = widthMmOf(table)
-  const target = widthMm !== undefined ? px(widthMm, scale) : undefined
-  const total = () => widths.reduce((a, b) => a + b, 0) + (widths.length - 1) * gap
-  if (table.properties?.equalColumns === true) {
-    const freeIdx = widths.map((_, c) => c).filter((c) => free[c])
-    if (freeIdx.length === 0) return
-    const handSum = widths.reduce((sum, w, c) => (free[c] ? sum : sum + w), 0)
-    const widest = Math.max(...freeIdx.map((c) => widths[c]))
-    // Equal even where a share is too small for one of them: then all are as
-    // wide as the widest, and the table wider than its width.
-    const share = target !== undefined ? Math.max(widest, Math.floor((target - (widths.length - 1) * gap - handSum) / freeIdx.length)) : widest
-    for (const c of freeIdx) widths[c] = Math.max(widths[c], share)
-    // What rounding left goes to the last of them, so the table is its width.
-    if (target !== undefined && total() < target) widths[freeIdx[freeIdx.length - 1]] += target - total()
-    return
-  }
-  if (target !== undefined && total() < target) widths[widths.length - 1] += target - total()
+// The fill lines of a table share what it has left over
+// (docs/2026-11-16-table-sizes.md, decision 4), in place: they end equal -
+// as large as the largest of them, or each a share of `target`, the size the
+// table has. Never smaller than what a line holds: where a share is too
+// small for one of them, all are as large as the largest and the table is
+// larger than `target`. With no fill line nothing changes.
+function shareFill(sizes: number[], lines: SnapLine[], target: number | undefined, gap: number) {
+  const fill = sizes.map((_, i) => i).filter((i) => lineStateOf(lines[i]) === "fill")
+  if (fill.length === 0) return
+  const others = sizes.reduce((sum, s, i) => (fill.includes(i) ? sum : sum + s), 0)
+  const largest = Math.max(...fill.map((i) => sizes[i]))
+  const share = target !== undefined ? Math.max(largest, Math.floor((target - (sizes.length - 1) * gap - others) / fill.length)) : largest
+  for (const i of fill) sizes[i] = Math.max(sizes[i], share)
+  // What rounding left goes to the last of them, so the table is its size.
+  const total = sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap
+  if (target !== undefined && total < target) sizes[fill[fill.length - 1]] += target - total
 }
 
 export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): SnapGeometry {
-  const { gap, lefts, widths, tops, heights, naturalWidths, naturalHeights } = measure(table, scale)
-  // Stretched wider than its columns - docked Fill or Top in a card, in a
-  // switcher's panel - its last column took the rest when it was laid out
-  // (arrangeSnapTable): so here too, or its cells were drawn, and dropped
-  // into, short of what stands in them (the user, 2026-11-06).
-  const natural = widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
-  if (widths.length > 0 && table.width > natural) widths[widths.length - 1] += table.width - natural
+  // At the width it was laid out at: stretched wider than its columns -
+  // docked Fill or Top in a card, in a switcher's panel - its fill columns
+  // took the rest (arrangeSnapTable): so here too, or its cells were drawn,
+  // and dropped into, short of what stands in them (the user, 2026-11-06).
+  const { gap, lefts, widths, tops, heights, naturalWidths, naturalHeights } = measure(table, scale, { atLeast: table.width })
   return { gap, lefts, widths, tops, heights, naturalWidths, naturalHeights }
 }
 
@@ -273,11 +349,9 @@ export function snapTableGeometry(table: ScreenObject, scale: LayoutScale): Snap
  * place and is as large as its content.
  */
 export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretchTo?: number): ScreenObject {
-  const { gap, widths, heights, lefts, tops, sized, across } = measure(table, scale)
-  // Stretched to a width it is given (a switcher's panel, lib/layout.ts
-  // fitSwitcher): its last column takes what is left over.
-  const natural = widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
-  if (stretchTo !== undefined && widths.length > 0 && natural < stretchTo) widths[widths.length - 1] += stretchTo - natural
+  // Stretched to a width it is given (docked across, a switcher's panel,
+  // lib/layout.ts fitSwitcher): its fill columns share what is left over.
+  const { widths, heights, lefts, tops, sized, across, width: tableWidth, height: tableHeight } = measure(table, scale, { room: stretchTo })
   const placed = sized.map(({ child, cell, size }) => {
     const room = across(widths, cell.column, cell.columnSpan!)
     const roomHeight = across(heights, cell.row, cell.rowSpan!)
@@ -313,8 +387,7 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
     const children = child.type === "free" ? resizeFree(child, width, height).children : sizedChild.children
     return { ...sizedChild, width, height, properties, x: left, y: top, ...(children ? { children } : {}) }
   })
-  const total = (sizes: number[]) => (sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) + (sizes.length - 1) * gap : 0)
-  return { ...table, width: total(widths), height: total(heights), children: placed }
+  return { ...table, width: tableWidth, height: tableHeight, children: placed }
 }
 
 // ---------------------------------------------------------------------------
@@ -386,17 +459,41 @@ export function landed(obj: ScreenObject): ScreenObject {
   return { ...obj, properties: { ...obj.properties, cell: { ...cell, anchor: { x: "stretch", y: "stretch" } } } }
 }
 
-/** A column's width or a row's height set by hand, in millimetres; undefined makes it automatic again. */
+/** A column's width or a row's height set by hand, in millimetres - fixed; undefined makes it automatic again. */
 export function setLineSize(table: ScreenObject, kind: "row" | "column", index: number, mm: number | undefined): ScreenObject {
   const t = padded(table)
   const key = kind === "row" ? "rows" : "columns"
   const lines: SnapLine[] = t.properties![key].map((line: SnapLine, i: number) => {
     if (i !== index) return line
-    const { mm: _old, ...rest } = line
+    const { mm: _old, fill: _fill, ...rest } = line
     return mm === undefined ? rest : { ...rest, mm }
   })
   return { ...t, properties: { ...t.properties, [key]: lines } }
 }
+
+/**
+ * A column or row set to what sets its size (decision 3): auto, fill, or
+ * fixed at the size it has in the laid-out `table`.
+ */
+export function setLineState(table: ScreenObject, kind: "row" | "column", index: number, state: SnapLineState, scale: LayoutScale): ScreenObject {
+  if (state === "fixed") {
+    const g = snapTableGeometry(table, scale)
+    const size = (kind === "row" ? g.heights : g.widths)[index] ?? 0
+    return setLineSize(table, kind, index, Math.round((size / scale.pixelsPerMm) * 10) / 10)
+  }
+  const t = setLineSize(table, kind, index, undefined)
+  if (state === "auto") return t
+  const key = kind === "row" ? "rows" : "columns"
+  const lines: SnapLine[] = t.properties![key].map((line: SnapLine, i: number) => (i === index ? { ...line, fill: true } : line))
+  return { ...t, properties: { ...t.properties, [key]: lines } }
+}
+
+/**
+ * The state a click on a line's sign steps to: auto, fixed at the size it
+ * has, fill, and round again - so a column pulled by hand is one click from
+ * sharing the table's room, which is what was looked for on 2026-11-16.
+ */
+export const nextLineState = (state: SnapLineState): SnapLineState => (state === "auto" ? "fixed" : state === "fixed" ? "fill" : "auto")
 
 // Rows and columns that hold nothing, not even part of a span, taken out.
 /**
@@ -492,7 +589,7 @@ function heldOut(table: ScreenObject, id: string, scale: LayoutScale): { table: 
   const taken = (table.children ?? []).find((child) => child.id === id)!
   const g = snapTableGeometry(table, scale)
   const hold = (lines: SnapLine[], sizes: number[]): SnapLine[] =>
-    sizes.map((size, i) => ({ mm: size / scale.pixelsPerMm, was: typeof lines[i]?.mm === "number" ? lines[i].mm! : null }))
+    sizes.map((size, i) => ({ ...(lines[i]?.fill === true ? { fill: true } : {}), mm: size / scale.pixelsPerMm, was: typeof lines[i]?.mm === "number" ? lines[i].mm! : null }))
   const properties = { ...table.properties, columns: hold(snapColumnsOf(table), g.widths), rows: hold(snapRowsOf(table), g.heights) }
   return { table: { ...table, properties, children: (table.children ?? []).filter((child) => child.id !== id) }, taken: freed(table, taken) }
 }
@@ -502,7 +599,12 @@ const holds = (table: ScreenObject) => [...snapColumnsOf(table), ...snapRowsOf(t
 /** A table held by heldOut as it is again: its lines as set before, emptied lines gone, what is in it where it stood. */
 export function released(table: ScreenObject, scale: LayoutScale): ScreenObject {
   if (!isSnapTable(table) || !holds(table)) return table
-  const back = (lines: SnapLine[]): SnapLine[] => lines.map((line) => ("was" in line ? (typeof line.was === "number" ? { mm: line.was } : {}) : line))
+  const back = (lines: SnapLine[]): SnapLine[] =>
+    lines.map((line) => {
+      if (!("was" in line)) return line
+      const { mm: _held, was, ...rest } = line
+      return typeof was === "number" ? { ...rest, mm: was } : rest
+    })
   const t = { ...table, properties: { ...table.properties, columns: back(snapColumnsOf(table)), rows: back(snapRowsOf(table)) } }
   return keepInPlace(arrangeSnapTable(table, scale), tidied(t), scale)
 }

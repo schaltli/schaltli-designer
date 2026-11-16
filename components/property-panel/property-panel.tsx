@@ -33,8 +33,9 @@ import { cellAnchorOf } from "@/lib/anchor"
 import { dockedLeast, dockSets, dockStretches } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
-import { FrameLockContext } from "./fields"
-import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
+import { FrameLockContext, SizeSourceContext } from "./fields"
+import { sizeSourceOf } from "@/lib/size-source"
+import { FALLBACK_SCALE, isContainerType, type LayoutScale } from "@/lib/layout"
 import { isArea } from "@/lib/area"
 import { isCellArea } from "@/lib/cell-area"
 import { isPopup, type ScreenType } from "@/lib/popup"
@@ -254,6 +255,12 @@ function layoutFrameLock(
   }
 }
 
+// What sets the chosen object's width and height, for Frame (lib/size-source.ts).
+function sizeSourceFor(screen: { objects?: any[] } | undefined, obj: ScreenObject, scale: LayoutScale) {
+  const source = screen ? sizeSourceOf(screen.objects ?? [], obj.id, scale) : null
+  return source ? { ...source, widthPx: obj.width, heightPx: obj.height } : null
+}
+
 export function PropertyPanel({
   selectedObject,
   selectedObjects,
@@ -411,6 +418,7 @@ export function PropertyPanel({
               canGroup={canGroup}
             />
           ) : selectedObject ? (
+            <SizeSourceContext.Provider value={sizeSourceFor(currentScreen, selectedObject, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })}>
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === "free" && <FreeProperties title={isCellArea(selectedObject) ? "Cell" : "Area"} selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
@@ -654,6 +662,7 @@ export function PropertyPanel({
                 />
               )}
             </FrameLockContext.Provider>
+            </SizeSourceContext.Provider>
           ) : null}
         </>
       ) : (

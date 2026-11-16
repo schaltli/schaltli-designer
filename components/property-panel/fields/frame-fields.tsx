@@ -61,8 +61,17 @@ export const FrameLockContext = createContext<{
   values?: Partial<Record<FrameKey, number>>
 } | null>(null)
 
+/**
+ * What sets the width and the height of the object being shown
+ * (lib/size-source.ts): two lines under the frame, so a size nobody typed
+ * can be traced (docs/2026-11-16-table-sizes.md, decision 8). Given by the
+ * property panel; null where there is nothing to say.
+ */
+export const SizeSourceContext = createContext<{ width: string; height: string; widthPx: number; heightPx: number } | null>(null)
+
 export function FrameFields({ x, y, width, height, onChange, locked: ownLocked = [], lockedHint: ownHint, captions }: FrameFieldsProps) {
   const fromLayout = useContext(FrameLockContext)
+  const source = useContext(SizeSourceContext)
   const locked = fromLayout ? [...ownLocked, ...fromLayout.locked] : ownLocked
   const lockedHint = fromLayout ? fromLayout.hint : ownHint
   const values: Record<FrameKey, number> = { x, y, width, height, ...fromLayout?.values }
@@ -110,6 +119,16 @@ export function FrameFields({ x, y, width, height, onChange, locked: ownLocked =
             )
           })}
         </div>
+        {source ? (
+          <div className="mt-1.5 space-y-0.5 text-[10.5px] leading-snug text-muted-foreground" data-size-source>
+            <p data-size-source-width>
+              W {Math.round(source.widthPx)} px: {source.width}
+            </p>
+            <p data-size-source-height>
+              H {Math.round(source.heightPx)} px: {source.height}
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   )

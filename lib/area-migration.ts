@@ -28,11 +28,16 @@ import { dockStretches } from "@/lib/dock"
 
 /**
  * The project format this designer writes. 2: a panel and the screen are
- * areas (step 1). 3: one kept size, `ownSize` (step 2).
+ * areas (step 1). 3: one kept size, `ownSize` (step 2). 4: a table's
+ * columns say what sets their width, and a table has a size of its own
+ * (docs/2026-11-16-table-sizes.md).
  */
-export const FORMAT_VERSION = 3
+export const FORMAT_VERSION = 4
 
 type Obj = ScreenObject
+
+// As lib/layout.ts FALLBACK_SCALE: a project without a device's scale.
+const FALLBACK_PIXELS_PER_MM = 4
 
 const STALE = ["dock", "anchor", "ownSize", "dockedOut"] as const
 
@@ -155,6 +160,48 @@ function withOneKeptSize(obj: Obj): Obj {
   return current
 }
 
+// Format 4 (docs/2026-11-16-table-sizes.md, «Old projects»): what «Equal
+// columns», «Width» and being stretched did to a table's columns is written
+// on the columns, at any depth.
+// - «Equal columns»: every column not sized by hand is fill. Except on a
+//   table stretched across without a «Width»: there the columns were as
+//   wide as the widest of them and the last took the rest - not equal, but
+//   what was drawn. Kept as that (`levelColumns`, lib/snap-table.ts), so
+//   nothing moves.
+// - a «Width», or stretched across (docked Top, Bottom or Fill; standing
+//   in a switcher's panel), without «Equal columns»: the last column took
+//   what was left over, whatever it said, so it is fill. A size set on it
+//   by hand goes: it was the least of a column that had more anyway.
+// - «Width» is the table's own size, in pixels.
+function withLineStates(obj: Obj, pixelsPerMm: number, parent?: Obj): Obj {
+  const children = obj.children?.map((child) => withLineStates(child, pixelsPerMm, obj))
+  const current: Obj = children && children.some((c, i) => c !== obj.children![i]) ? { ...obj, children } : obj
+  if (current.type !== "table" || current.properties?.grid !== 1) return current
+  const { equalColumns, widthMm, ...rest } = current.properties as Record<string, any>
+  const width = typeof widthMm === "number" && Number.isFinite(widthMm) && widthMm > 0 ? widthMm : undefined
+  const stretched = ["top", "bottom", "fill"].includes(rest.dock) || (!rest.dock && parent?.type === "panel")
+  if (equalColumns !== true && width === undefined && !stretched) {
+    return "equalColumns" in current.properties || "widthMm" in current.properties ? { ...current, properties: rest } : current
+  }
+  const reach = Math.max(0, ...(current.children ?? []).map((c) => (Number(c.properties?.cell?.column) || 0) + Math.max(1, Number(c.properties?.cell?.columnSpan) || 1)))
+  const listed: Array<Record<string, any>> = Array.isArray(rest.columns) ? rest.columns : []
+  const count = Math.max(listed.length, reach)
+  let columns = Array.from({ length: count }, (_, i) => ({ ...(listed[i] ?? {}) }))
+  const level = equalColumns === true && width === undefined && stretched
+  if (equalColumns === true && !level) columns = columns.map((line) => (typeof line.mm === "number" ? line : { ...line, fill: true }))
+  else if (count > 0) {
+    const { mm: _byHand, ...last } = columns[count - 1]
+    columns[count - 1] = { ...last, fill: true }
+  }
+  const properties = {
+    ...rest,
+    columns,
+    ...(level && count > 1 ? { levelColumns: true } : {}),
+    ...(width !== undefined ? { tableSize: { ...(rest.tableSize ?? {}), width: Math.round(width * pixelsPerMm) } } : {}),
+  }
+  return { ...current, properties }
+}
+
 /**
  * A project brought to areas, in place; one that is there already is left
  * as it is. True if it was changed.
@@ -173,12 +220,15 @@ export function migrateToAreas(project: { screens?: Array<{ objects?: unknown[] 
     throw new Error(`This project was saved by a newer Schaltli designer (format ${version}, this designer reads up to ${FORMAT_VERSION}). Reload the designer to get the current one.`)
   }
   if (version >= FORMAT_VERSION) return false
-  if (version >= 2) {
-    project.settings = { ...(project.settings ?? {}), formatVersion: FORMAT_VERSION }
-    return true
+  if (version < 2) {
+    for (const screen of project.screens ?? []) {
+      if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => migrated(panelsCleared(withoutStale(obj))))
+    }
   }
+  // Format 4, after the panels are what they are from now on.
+  const pixelsPerMm = Number(project.settings?.pixelsPerMm) || FALLBACK_PIXELS_PER_MM
   for (const screen of project.screens ?? []) {
-    if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => migrated(panelsCleared(withoutStale(obj))))
+    if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => withLineStates(obj, pixelsPerMm))
   }
   project.settings = { ...(project.settings ?? {}), formatVersion: FORMAT_VERSION }
   return true

@@ -10,9 +10,9 @@
 
 import { canShareCell } from "@/lib/cell-area"
 import type { ScreenObject } from "../project-editor"
-import { dimensions, gapMmOf, snapColumnsOf, snapRowsOf, widthMmOf } from "@/lib/snap-table"
+import { dimensions, gapMmOf, lineStateOf, snapColumnsOf, snapRowsOf } from "@/lib/snap-table"
 import { cellAnchorOf, cellDefault, STRETCHES_HEIGHT, STRETCHES_WIDTH, type AnchorX, type AnchorY } from "@/lib/anchor"
-import { ButtonGroupRow, FieldNote, NumberField, PropertySection, SelectField, ToggleRow } from "./fields"
+import { ButtonGroupRow, FieldNote, FrameFields, NumberField, PropertySection, SelectField, ToggleRow, frameSummary } from "./fields"
 
 const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
   { value: "left", label: "Left" },
@@ -32,24 +32,39 @@ type Update = (id: string, updates: Partial<ScreenObject>) => void
 
 export function SnapTableProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
   const { rows, columns } = dimensions(selectedObject)
-  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => typeof line?.mm === "number")
+  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => lineStateOf(line) !== "auto") || selectedObject.properties?.levelColumns === true
   const set = (key: string, value: unknown) => {
     const { [key]: _old, ...rest } = selectedObject.properties ?? {}
     onUpdateObject(selectedObject.id, { properties: value === undefined ? rest : { ...rest, [key]: value } })
   }
-  const automatic = () =>
+  const automatic = () => {
+    const { levelColumns: _level, ...properties } = selectedObject.properties ?? {}
     onUpdateObject(selectedObject.id, {
       properties: {
-        ...selectedObject.properties,
+        ...properties,
         columns: snapColumnsOf(selectedObject).map(() => ({})),
         rows: snapRowsOf(selectedObject).map(() => ({})),
       },
     })
+  }
   return (
+    <>
+    {/* A table has a size of its own (docs/2026-11-16-table-sizes.md,
+        decision 2): typed here or pulled at a handle, never below what it
+        holds. Docked, its area places it (FrameLockContext). */}
+    <PropertySection title="Frame" defaultCollapsed summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
+      <FrameFields
+        x={selectedObject.x}
+        y={selectedObject.y}
+        width={selectedObject.width}
+        height={selectedObject.height}
+        onChange={(key, value) => onUpdateObject(selectedObject.id, { [key]: value })}
+      />
+    </PropertySection>
     <PropertySection title="Table" summary={`${columns} × ${rows}`}>
       <FieldNote>
-        Each column is as wide as what it holds, each row as tall, or as set by dragging its line on the canvas. Snap an object beside it to add a
-        column or a row.
+        Each column and row says on the canvas what sets its size: auto (what it holds), a size in mm (its line dragged), or fill (a share of what
+        the table has left over). Click the sign to change it. The table is as large as what it holds, or as you drag it at a handle.
       </FieldNote>
       {byHand ? <ButtonGroupRow label="" buttons={[{ label: "Auto sizes", onClick: automatic }]} /> : null}
       {/* A grid of cards (docs/2026-11-03-card-grid.md). */}
@@ -64,19 +79,8 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
         unit="mm"
         hint="Between its columns and between its rows."
       />
-      <NumberField
-        id="tableWidth"
-        label="Width"
-        value={widthMmOf(selectedObject) ?? 0}
-        onChange={(value) => set("widthMm", value > 0 ? value : undefined)}
-        min={0}
-        max={500}
-        step={1}
-        unit="mm"
-        hint="Zero: as wide as what it holds. Set, the last column takes what is left, or with Equal columns all share it."
-      />
-      <ToggleRow label="" text="Equal columns" checked={selectedObject.properties?.equalColumns === true} onChange={(on) => set("equalColumns", on ? true : undefined)} />
     </PropertySection>
+    </>
   )
 }
 

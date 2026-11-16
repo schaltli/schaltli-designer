@@ -115,13 +115,14 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
       return partTile({ ...piece, width: w }, w, padding, scale)
     })
     const table = blockTable({ ...built, objects: tiled, labelCount: 0 })
-    // Two columns of equal width across the whole width, so the two side
+    // Two fill columns across the whole width, equal, so the two side
     // by side end where the tiles across both do. In a free area without a
     // look of its own - no fill, no edge, no padding - so the block is one
     // object to carry, snap and select, as a card is.
     // Not docked: a table wider than the area - two dials side by side on
     // the knob's 360 px - stands in it, cut at its edge, rather than left out.
-    const tiles = { ...table, x: 0, y: 0, zIndex: 1, properties: { ...table.properties, equalColumns: true, widthMm: whole / scale.pixelsPerMm } }
+    const columns = (table.properties?.columns ?? []).map(() => ({ fill: true }))
+    const tiles = { ...table, x: 0, y: 0, zIndex: 1, properties: { ...table.properties, columns, tableSize: { width: whole } } }
     const area: Piece = {
       type: "free",
       x: 0,

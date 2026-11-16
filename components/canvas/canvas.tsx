@@ -148,9 +148,9 @@ import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects, type 
 import { cellAnchorOf } from "@/lib/anchor"
 import { TREE_OPEN_EVENT } from "@/components/object-tree/object-tree-panel"
 import { TABLE_TYPE } from "@/lib/table"
-import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
+import { drawLineSigns, drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
-import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, withoutEmptyLines, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
+import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, withoutEmptyLines, lineStateOf, nextLineState, setLineState, tableMinSize, type SnapDrop, type SnapLineState, type SnapRect, type SnapSide } from "@/lib/snap-table"
 
 // How near a table or a free object a dragged object snaps
 // (docs/2026-10-09-snap-tables.md, open question 5: proposed).
@@ -200,7 +200,16 @@ function swipeIdOf(axis: "x" | "y", d: number): string {
 }
 
 // A column's or row's line of a table put together by snapping (Task 8).
-type SizeLine = { kind: "column" | "row"; index: number; x1: number; y1: number; x2: number; y2: number; byHand: boolean }
+type SizeLine = { kind: "column" | "row"; index: number; x1: number; y1: number; x2: number; y2: number; byHand: boolean; state: SnapLineState }
+// What sets a line's size, said on it (docs/2026-11-16-table-sizes.md,
+// decision 6): a sign below each column and right of each row.
+type LineSign = { kind: "column" | "row"; index: number; x: number; y: number; width: number; height: number; text: string; state: SnapLineState }
+// A corner of the selected table, where its resize handle is: there the
+// handle is taken, not the column or row line that ends in it.
+type TableBox = { x: number; y: number; width: number; height: number } | null
+const onCorner = (box: TableBox, p: { x: number; y: number }, tolerance: number) =>
+  !!box && [box.x, box.x + box.width].some((x) => Math.abs(p.x - x) <= tolerance) && [box.y, box.y + box.height].some((y) => Math.abs(p.y - y) <= tolerance)
+const signAt = (signs: LineSign[], p: { x: number; y: number }) => signs.find((s) => p.x >= s.x && p.x <= s.x + s.width && p.y >= s.y && p.y <= s.y + s.height)
 const nearSizeLine = (l: SizeLine, p: { x: number; y: number }, tolerance: number) =>
   l.kind === "column"
     ? Math.abs(p.x - l.x1) <= tolerance && p.y >= l.y1 - tolerance && p.y <= l.y2 + tolerance
@@ -1571,16 +1580,18 @@ export function Canvas({
     [screen.objects, screen.name, drawSpace.id],
   )
 
-  // What a table put together by snapping sizes: the table itself (as large
-  // as its content) and each object in it (its cell decides). No resize
-  // handle on them - one would promise a resize the layout undoes
-  // (docs/2026-10-09-snap-tables.md: never a handle that does nothing).
+  // What a table put together by snapping sizes: each object in it (its
+  // cell decides), and the table itself where it is docked (its area
+  // decides). No resize handle on them - one would promise a resize the
+  // layout undoes (docs/2026-10-09-snap-tables.md: never a handle that does
+  // nothing). A table standing free has handles, as an area has
+  // (docs/2026-11-16-table-sizes.md, decision 2).
   const sizedBySnapTable = useMemo(() => {
     const ids = new Set<string>()
     const walk = (list: ScreenObject[]) => {
       for (const obj of list) {
         if (isSnapTable(obj)) {
-          ids.add(obj.id)
+          if (obj.properties?.dock) ids.add(obj.id)
           for (const child of obj.children ?? []) ids.add(child.id)
         }
         if (obj.children) walk(obj.children)
@@ -1652,15 +1663,33 @@ export function Canvas({
     const lines: SizeLine[] = [
       ...g.widths.map((w, i) => {
         const x = origin.x + g.lefts[i] + w + (i < g.widths.length - 1 ? g.gap / 2 : 0)
-        return { kind: "column" as const, index: i, x1: x, y1: origin.y, x2: x, y2: origin.y + table.height, byHand: typeof columns[i]?.mm === "number" }
+        return { kind: "column" as const, index: i, x1: x, y1: origin.y, x2: x, y2: origin.y + table.height, byHand: lineStateOf(columns[i]) !== "auto", state: lineStateOf(columns[i]) }
       }),
       ...g.heights.map((h, i) => {
         const y = origin.y + g.tops[i] + h + (i < g.heights.length - 1 ? g.gap / 2 : 0)
-        return { kind: "row" as const, index: i, x1: origin.x, y1: y, x2: origin.x + table.width, y2: y, byHand: typeof rows[i]?.mm === "number" }
+        return { kind: "row" as const, index: i, x1: origin.x, y1: y, x2: origin.x + table.width, y2: y, byHand: lineStateOf(rows[i]) !== "auto", state: lineStateOf(rows[i]) }
       }),
     ]
-    return { tableId: table.id, lines }
-  }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
+    // The signs: «auto», «fill», or the size set, in mm.
+    const text = (line: { mm?: number } | undefined, state: SnapLineState) => (state === "fixed" ? `${Number(line?.mm).toFixed(1)} mm` : state)
+    const signHeight = 15 / zoom
+    const signWidth = (t: string) => (t.length * 6 + 10) / zoom
+    const signs: LineSign[] = [
+      ...g.widths.map((w, i) => {
+        const state = lineStateOf(columns[i])
+        const t = text(columns[i], state)
+        return { kind: "column" as const, index: i, x: origin.x + g.lefts[i] + w / 2 - signWidth(t) / 2, y: origin.y + table.height + 5 / zoom, width: signWidth(t), height: signHeight, text: t, state }
+      }),
+      ...g.heights.map((h, i) => {
+        const state = lineStateOf(rows[i])
+        const t = text(rows[i], state)
+        return { kind: "row" as const, index: i, x: origin.x + table.width + 8 / zoom, y: origin.y + g.tops[i] + h / 2 - signHeight / 2, width: signWidth(t), height: signHeight, text: t, state }
+      }),
+    ]
+    // Its frame, where it has handles (not docked: lib/dock.ts sizes it).
+    const box: TableBox = table.properties?.dock ? null : { x: origin.x, y: origin.y, width: table.width, height: table.height }
+    return { tableId: table.id, lines, signs, box }
+  }, [previewMode, selectedObjectIds, screen.objects, layoutScale, zoom])
 
   // Where each table put together by snapping stands, in the space new
   // objects go to - drawn, not elements, so a test can carry a row under one.
@@ -2237,6 +2266,7 @@ export function Canvas({
     if (spanHandles && !dragState) drawSpanHandles(ctx, spanHandles.handles, LAYOUT_HINT_COLOR, zoom)
     if (spanHandles?.grow && !dragState) drawCellHeightHandle(ctx, spanHandles.grow, LAYOUT_HINT_COLOR, zoom)
     if (sizeLines && !dragState) drawSizeLines(ctx, sizeLines.lines, LAYOUT_HINT_COLOR, zoom)
+    if (sizeLines && !dragState) drawLineSigns(ctx, sizeLines.signs, LAYOUT_HINT_COLOR, zoom)
     if (lineLabel) drawSnapChip(ctx, { x: lineLabel.x + 10 / zoom, y: lineLabel.y - 4 / zoom }, lineLabel.text, LAYOUT_HINT_COLOR, zoom)
     // An object carried out of a table: its outline at the pointer.
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
@@ -3682,7 +3712,18 @@ export function Canvas({
       }
       // A column or row line of the selected table (Task 8): dragged, it
       // sets that column's width or row's height.
+      // The sign of a column or row clicked: it steps to the next of what
+      // can set its size - auto, fixed at the size it has, fill.
       if (activeTool === "select" && sizeLines) {
+        const sign = signAt(sizeLines.signs, coords)
+        const table = sign ? findObjectById(screen.objects, sizeLines.tableId) : null
+        if (sign && table) {
+          const next = setLineState(table, sign.kind, sign.index, nextLineState(sign.state), layoutScale)
+          onUpdateObject(table.id, { properties: next.properties })
+          return
+        }
+      }
+      if (activeTool === "select" && sizeLines && !onCorner(sizeLines.box, coords, 6 / zoom)) {
         const line = sizeLineAt(sizeLines.lines, coords, SIZE_LINE_HIT / zoom)
         if (line) {
           lineDragRef.current = { tableId: sizeLines.tableId, kind: line.kind, index: line.index }
@@ -4139,7 +4180,9 @@ export function Canvas({
           // Over a span handle: the way it grows.
           const h = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)!
           canvas.style.cursor = h.side === "left" || h.side === "right" ? "ew-resize" : "ns-resize"
-        } else if (sizeLines && sizeLines.lines.some((l) => nearSizeLine(l, coords, SIZE_LINE_HIT / zoom))) {
+        } else if (sizeLines && signAt(sizeLines.signs, coords)) {
+          canvas.style.cursor = "pointer"
+        } else if (sizeLines && !onCorner(sizeLines.box, coords, 6 / zoom) && sizeLines.lines.some((l) => nearSizeLine(l, coords, SIZE_LINE_HIT / zoom))) {
           // Over a column or row line of the selected table.
           const l = sizeLineAt(sizeLines.lines, coords, SIZE_LINE_HIT / zoom)!
           canvas.style.cursor = l.kind === "column" ? "col-resize" : "row-resize"
@@ -4669,15 +4712,19 @@ export function Canvas({
         // the edge dragged stops there, the opposite one stays.
         // A switcher the same way: where every panel still holds what is in
         // it (docs/2026-11-16-areas.md, E2).
-        if (resizingObject?.type === "free" || resizingObject?.type === "switcher") {
+        // And a table where its columns and rows end
+        // (docs/2026-11-16-table-sizes.md, decision 2).
+        if (resizingObject?.type === "free" || resizingObject?.type === "switcher" || isSnapTable(resizingObject)) {
           const cached = freeMinRef.current
-          const sized = { ...resizingObject, ...dragState.startObjectPos }
+          const sized = { ...resizingObject!, ...dragState.startObjectPos }
           const min =
             cached && cached.drag === dragState
               ? cached.min
-              : resizingObject.type === "switcher"
-                ? switcherMinSize(sized, layoutScale)
-                : freeMinSize(sized, layoutScale)
+              : isSnapTable(resizingObject)
+                ? tableMinSize(sized, layoutScale)
+                : resizingObject!.type === "switcher"
+                  ? switcherMinSize(sized, layoutScale)
+                  : freeMinSize(sized, layoutScale)
           if (!cached || cached.drag !== dragState) freeMinRef.current = { drag: dragState, min }
           if (min && newWidth < min.width) {
             if (handle === "nw" || handle === "sw" || handle === "baseline-left") newX = x + width - min.width
@@ -5837,6 +5884,7 @@ export function Canvas({
         // Switcher id -> the panel held open on the canvas, for tests.
         data-pinned-panels={Object.keys(pinnedPanels).length > 0 ? JSON.stringify(pinnedPanels) : undefined}
         data-size-lines={sizeLines ? JSON.stringify(sizeLines.lines) : undefined}
+        data-size-signs={sizeLines ? JSON.stringify(sizeLines.signs) : undefined}
         data-editing-container={editingContainerId ?? undefined}
         // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.
         data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}

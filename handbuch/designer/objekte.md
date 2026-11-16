@@ -38,7 +38,7 @@ Zieh ein Objekt mit der Maus an seinen Platz, die Anfasser an den Ecken und Kant
 
 Beim Verschieben rasten Kanten und Mitte an den Hilfslinien ein, die du unter <span class="ui">Settings</span> › <span class="ui">Snap Grid</span> festlegst.
 
-Genaue Zahlen trägst du in den Eigenschaften unter <span class="ui">Frame</span> ein: X, Y, Breite und Höhe.
+Genaue Zahlen trägst du in den Eigenschaften unter <span class="ui">Frame</span> ein: X, Y, Breite und Höhe. Darunter stehen zwei Zeilen, die sagen, woher Breite und Höhe kommen, etwa «W 310 px: its column, fixed at 45.7 mm» oder «H 78 px: set by hand». Ist ein Objekt anders gross, als du es gezeichnet hast, steht dort der Grund: die Spalte seiner Tabelle, die Area, an der es angedockt ist, oder sein eigener Inhalt.
 
 ## Mehrere Objekte ausrichten
 

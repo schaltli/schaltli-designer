@@ -1483,7 +1483,14 @@ function snapTableOf(children: Piece[]): Piece {
   return {
     ...box,
     type: "table",
-    properties: { grid: SNAP_GRID, columns: Array.from({ length: columns }, () => ({})), rows: Array.from({ length: rows }, () => ({})) },
+    // Its last column fills (docs/2026-11-16-table-sizes.md): a block's
+    // table is docked across its card or stretched in a switcher's panel,
+    // and what is left over there goes to the column of its controls.
+    properties: {
+      grid: SNAP_GRID,
+      columns: Array.from({ length: columns }, (_, i) => (i === columns - 1 ? { fill: true } : {})),
+      rows: Array.from({ length: rows }, () => ({})),
+    },
   }
 }
 

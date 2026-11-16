@@ -7,6 +7,7 @@ import { COMBINED_TEST_PROJECT, getMainCanvas, loadProject, objectTreeRow, openF
 import { freeMinSize, withCardsFollowing, withCardsGrown } from "../lib/free-min-size"
 import { applySnapDrop, moveOutOf, snapTableGeometry } from "../lib/snap-table"
 import { resizeFree } from "../lib/anchor"
+import { migrateToAreas } from "../lib/area-migration"
 import { dockFree } from "../lib/dock"
 import { buildEntry } from "../lib/bausteine"
 import { blockCard } from "../lib/block-card"
@@ -249,7 +250,14 @@ test.describe("a card grows with its content", () => {
   }
   type P = { name: string; screens: Array<{ id: string; objects: ScreenObject[] }> }
   const relayout = (p: P): P => ({ ...p, screens: p.screens.map((sc) => ({ ...sc, objects: layoutObjects(sc.objects, USER_SCALE) })) })
-  const projectOf = (...objects: ScreenObject[]): P => relayout({ name: "CamperUI", screens: [{ id: "screen-dimmer", objects }] })
+  // As the designer opens a project saved in 2026-11-06's format: what its
+  // tables' «Width» and «Equal columns» did written on their columns
+  // (lib/area-migration.ts), then laid out.
+  const projectOf = (...objects: ScreenObject[]): P => {
+    const project = { name: "CamperUI", screens: [{ id: "screen-dimmer", objects }], settings: { pixelsPerMm: USER_SCALE.pixelsPerMm, formatVersion: 3 } }
+    migrateToAreas(project)
+    return relayout({ name: project.name, screens: project.screens })
+  }
   const grown = (p: P) => withCardsGrown(p, USER_SCALE, relayout)
   // A card's name taken out of its cell and docked with Alt above its slider: a new row 0 in that column.
   function nameAboveSlider(card: ScreenObject, nameId: string): ScreenObject {
