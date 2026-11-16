@@ -52,3 +52,8 @@ Built otherwise than planned (2026-11-16, lib/cell-area.ts): a table's children 
   - green: typecheck, e2e 2495 passed (none failed), every host check, 65 checks in all; 4" and PaperS3 lanes all green, 4" conformance included
   - failed, none on a picture that differs: knob-deploy («restarted by software (was panic)» on check 2b), knob-charts-draw («never held the chart's history», as in step 1's run), 4.3B conformance («never accepted a switch to screen 23 within 180 s of the upload»)
   - skipped: Android (no phone)
+
+## In the van (2026-11-16, evening)
+
+- The van's Pekaway runs steps 1 to 3: branch `pre/areas` at e3751b8a (= 30416bea plus the manifest), installed with `pekaway-install.sh --ref pre/areas`.
+- No second release was made: the firmware is unchanged, so the release tool took the tag `fw-2026.11.16.1-pre.areas` again and `gh release create` refused it. In the designer repo that tag and its release still stand at step 1 (b486d641); only the branch is at step 3.
