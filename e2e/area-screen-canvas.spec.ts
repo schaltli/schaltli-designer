@@ -59,7 +59,8 @@ test("an object on a screen has Position: docked Top it spans the panel; the scr
   // A click beside the screen selects nothing: the screen's own properties.
   const { box: canvas } = await getMainCanvas(page)
   await page.mouse.click(canvas.x + 5, canvas.y + 5)
-  await page.getByRole("button", { name: /^Area/ }).click()
+  // The section in the properties, not the tool of the same name in the palette.
+  await page.locator("button[data-twisty]", { hasText: /^Area/ }).click()
   await page.locator("#screenPadding").fill("2")
   await page.locator("#screenPadding").press("Enter")
   now = await saved(page)
