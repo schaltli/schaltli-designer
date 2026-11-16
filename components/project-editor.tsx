@@ -97,6 +97,7 @@ import { useToast, toast as showToast } from "@/hooks/use-toast"
 import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { areaMovedInto, moveIntoArea } from "@/lib/drop-into-free"
+import { cellAreaId, withCellArea } from "@/lib/cell-area"
 import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, inFont, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
@@ -2690,6 +2691,33 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreen.objects, currentScreenId, project.nextId, setProject],
   )
 
+  // A table's cell made an area around the object alone in it
+  // (docs/2026-11-16-areas.md, decisions 12 and 13; lib/cell-area.ts): docked
+  // to an edge of the cell, or the cell given a look. The cell is open
+  // afterwards, the object still chosen.
+  const makeCellArea = useCallback(
+    (id: string, own: { dock?: string; look?: string }) => {
+      setProject((prev) => {
+        const scale = layoutScaleOf(prev)
+        return {
+          ...prev,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            const made = withCellArea(screen.objects, id, scale, own.look ? { look: own.look } : {})
+            if (!made.areaId) return screen
+            const inner = own.dock ? findObjectById(made.objects, id) : null
+            if (!inner) return { ...screen, objects: made.objects }
+            const { anchor: _anchor, ...rest } = inner.properties ?? {}
+            return { ...screen, objects: updateObjectById(made.objects, id, { properties: { ...rest, dock: own.dock } }) }
+          }),
+        }
+      })
+      setEditingContainerId(cellAreaId(id))
+      setSelectedObjectIds([id])
+    },
+    [currentScreenId, setProject],
+  )
+
   // Objects carried from the object tree (docs/2026-11-07-tree-carry-and-
   // merge.md): from wherever they are to `target` - onto the canvas, into a
   // card, a cell or a new row of a table, or merged with one. One undo step.
@@ -5056,6 +5084,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     selectedObject={selectedObject}
                     selectedObjects={selectedObjects}
                     onUpdateObject={updateObject}
+                    onMakeCellArea={makeCellArea}
                     onDeclareTopics={declareTopics}
                     onUpdateObjects={updateObjects}
                     currentScreen={currentScreen}

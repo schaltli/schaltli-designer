@@ -133,12 +133,15 @@ export function FreeProperties({
   onUpdateObject,
   colorDepth,
   scale,
+  title = "Area",
 }: {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
   // For how small it can be made: its fonts and the panel's pixels per mm.
   scale?: LayoutScale
+  // «Cell» where it is a table's cell (lib/cell-area.ts).
+  title?: string
 }) {
   return (
     <PropertySections>
@@ -146,7 +149,7 @@ export function FreeProperties({
         selectedObject={selectedObject}
         onUpdateObject={onUpdateObject}
         colorDepth={colorDepth}
-        title="Area"
+        title={title}
         note="What is put into it stays where it is placed, or is docked to an edge, as its Position says. It looks like a Box, if you give it a fill or an edge."
       />
       <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>

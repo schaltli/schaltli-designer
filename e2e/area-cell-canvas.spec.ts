@@ -127,3 +127,43 @@ test("carried out again, the cell is a slot as before", async ({ page }) => {
   expect(now.find((o) => o.id === "label")).toBeTruthy()
   await expect(objectTreeRow(page, "cell-knopf")).toHaveCount(0)
 })
+
+// «Position» in place of «Cell» (decisions 8, 12, 13): the same fields an
+// object has wherever it stands, and its cell's look.
+test("alone in its cell an object shows Position with Dock Fill; docked Top, its cell is an area and it stands at the top", async ({ page }) => {
+  await loadProject(page, await projectWith(objects()))
+  await objectTreeRow(page, "knopf").click()
+  await expect(page.getByRole("button", { name: /^Position/ })).toBeVisible()
+  await expect(page.locator("#cellDock")).toHaveValue("fill")
+  await expect(page.locator("#cellDock option")).toHaveText(["Fill", "Top", "Bottom", "Left", "Right"])
+  await expect(page.locator("#cellVertical")).toHaveValue("bottom")
+
+  await page.locator("#cellDock").selectOption("top")
+  // In the area now: the Position of an area, docked Top.
+  await expect(page.locator("#areaDock")).toHaveValue("top")
+  const cell = cellOf(await saved(page))
+  expect(cell.children.map((c: Obj) => [c.id, c.properties.dock])).toEqual([["knopf", "top"]])
+  // At the top of its cell, across it: a box stretches.
+  const knopf = cell.children[0]
+  expect([knopf.x, knopf.y, knopf.width, knopf.height]).toEqual([0, 0, 60, 30])
+  await expect(objectTreeRow(page, "cell-knopf")).toContainText("Cell")
+})
+
+test("a look on the cell: the cell is a card around its object, and stays one", async ({ page }) => {
+  await loadProject(page, await projectWith(objects()))
+  await objectTreeRow(page, "knopf").click()
+  await expect(page.locator("#cellLook")).toHaveValue("none")
+  await page.locator("#cellLook").selectOption("card")
+  const cell = cellOf(await saved(page))
+  expect(cell.properties).toMatchObject({ cellArea: true, look: "card" })
+  expect(cell.children.map((c: Obj) => c.id)).toEqual(["knopf"])
+  // The cell's own properties: «Cell», with its Look.
+  await objectTreeRow(page, "cell-knopf").click()
+  await expect(page.getByRole("button", { name: /^Cell/ })).toBeVisible()
+  await expect(page.locator("#freeLook")).toHaveValue("card")
+  // Set back to None, it keeps the fill and edge the look gave it, as an
+  await page.locator("#freeLook").selectOption("none")
+  const now = await saved(page)
+  // area does: still seen, so still an area.
+  expect(cellOf(now).properties.look).toBeUndefined()
+})

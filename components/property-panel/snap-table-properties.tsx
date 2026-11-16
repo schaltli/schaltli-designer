@@ -8,6 +8,7 @@
  * (property-panel.tsx layoutFrameLock).
  */
 
+import { canShareCell } from "@/lib/cell-area"
 import type { ScreenObject } from "../project-editor"
 import { dimensions, gapMmOf, snapColumnsOf, snapRowsOf, widthMmOf } from "@/lib/snap-table"
 import { cellAnchorOf, cellDefault, STRETCHES_HEIGHT, STRETCHES_WIDTH, type AnchorX, type AnchorY } from "@/lib/anchor"
@@ -79,7 +80,36 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
   )
 }
 
-export function SnapCellProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
+const CELL_DOCK = [
+  { value: "fill", label: "Fill" },
+  { value: "top", label: "Top" },
+  { value: "bottom", label: "Bottom" },
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+]
+const CELL_LOOK = [
+  { value: "none", label: "None" },
+  { value: "card", label: "Card" },
+  { value: "card-accent", label: "Card, accent" },
+]
+
+/**
+ * «Position» of an object alone in a table's cell (docs/2026-11-16-areas.md,
+ * decisions 8, 12 and 13): the three fields an object has wherever it stands
+ * - Dock, Horizontal, Vertical - and its cell's Look. Alone in its cell it
+ * fills it, standing in it by Horizontal and Vertical. Docked to an edge, or
+ * its cell given a look, the cell becomes an area around it (`onMakeCell`,
+ * lib/cell-area.ts) and is «Cell» in the object list from then on.
+ */
+export function SnapCellProperties({
+  selectedObject,
+  onUpdateObject,
+  onMakeCell,
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: Update
+  onMakeCell?: (id: string, own: { dock?: string; look?: string }) => void
+}) {
   const cell: Record<string, any> = selectedObject.properties?.cell ?? {}
   const anchor = cellAnchorOf(selectedObject)
   const defaults = cellDefault(selectedObject)
@@ -95,8 +125,13 @@ export function SnapCellProperties({ selectedObject, onUpdateObject }: { selecte
   const offer = <T extends { value: string }>(options: T[], stretches: boolean) => (stretches ? options : options.filter((o) => o.value !== "stretch"))
   // A text spans its cell (lib/snap-table.ts): Horizontal is its own alignment.
   const isText = selectedObject.type === "text"
+  // What can share its cell (not an area, a table or a switcher: those hold their own).
+  const shares = !!onMakeCell && canShareCell(selectedObject)
   return (
-    <PropertySection title="Cell">
+    <PropertySection title="Position">
+      {shares ? (
+        <SelectField id="cellDock" label="Dock" value="fill" options={CELL_DOCK} onChange={(dock) => dock !== "fill" && onMakeCell!(selectedObject.id, { dock })} />
+      ) : null}
       {isText ? (
         <SelectField
           id="cellHorizontal"
@@ -109,7 +144,13 @@ export function SnapCellProperties({ selectedObject, onUpdateObject }: { selecte
         <SelectField id="cellHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, STRETCHES_WIDTH.has(selectedObject.type))} onChange={(x) => set("x", x)} />
       )}
       <SelectField id="cellVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, STRETCHES_HEIGHT.has(selectedObject.type))} onChange={(y) => set("y", y)} />
-      <FieldNote>The table places it in its cell. Drag ⇤ ⇥ ⤒ ⤓ on the canvas to make it span more cells.</FieldNote>
+      {shares ? (
+        <SelectField id="cellLook" label="Cell look" value="none" options={CELL_LOOK} onChange={(look) => look !== "none" && onMakeCell!(selectedObject.id, { look })} />
+      ) : null}
+      <FieldNote>
+        The table places it in its cell. Drag ⇤ ⇥ ⤒ ⤓ on the canvas to make it span more cells.
+        {shares ? " Its cell holds more: let another object go on it, dock this one to an edge of it, or give the cell a look." : ""}
+      </FieldNote>
     </PropertySection>
   )
 }

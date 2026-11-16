@@ -36,6 +36,7 @@ import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
 import { isArea } from "@/lib/area"
+import { isCellArea } from "@/lib/cell-area"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel } from "@/lib/object-types"
@@ -147,6 +148,8 @@ interface PropertyPanelProps {
    * object.ts), with what the device draws to grey the rest.
    */
   onConvertObject?: (id: string, type: ConvertibleType) => void
+  /** A cell made an area around the object alone in it, docked there or with a look (lib/cell-area.ts). */
+  onMakeCellArea?: (id: string, own: { dock?: string; look?: string }) => void
   supportedObjectTypes?: readonly string[]
   onUngroup?: () => void
 }
@@ -302,6 +305,7 @@ export function PropertyPanel({
   onGroup,
   canGroup,
   onConvertObject,
+  onMakeCellArea,
   supportedObjectTypes,
   onUngroup,
 }: PropertyPanelProps) {
@@ -409,8 +413,8 @@ export function PropertyPanel({
           ) : selectedObject ? (
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
-              {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
-              {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {selectedObject.type === "free" && <FreeProperties title={isCellArea(selectedObject) ? "Cell" : "Area"} selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
+              {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} onMakeCell={onMakeCellArea} />}
               {inFreeArea(currentScreen, selectedObject.id) && <FreePositionProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 
