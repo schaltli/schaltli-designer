@@ -80,7 +80,7 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { layoutProject, layoutScaleOf } from "@/lib/layout"
-import { FORMAT_VERSION } from "@/lib/area-migration"
+import { FORMAT_VERSION, migrateToAreas } from "@/lib/area-migration"
 import type { ScreenArea } from "@/lib/area"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
@@ -3559,7 +3559,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       screen.isMaster ? { ...screen, themeId: defaultThemeIdFor(fields.colorDepth) } : screen,
     )
     // Its screens, topics, icons and settings over the device's own.
-    if (template) fresh = withTemplate(fresh, template)
+    // Its screens brought to the current form, as a project's are on load.
+    if (template) {
+      fresh = withTemplate(fresh, template)
+      migrateToAreas(fresh)
+    }
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)
