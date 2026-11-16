@@ -28,6 +28,7 @@ import { stillIconData } from "@/lib/svg-still"
 import { withoutScreenMenu } from "@/lib/screen-menu"
 import { chartNeedsNormalizing, normalizeChart } from "@/lib/chart"
 import { migrateCellAnchor } from "@/lib/anchor"
+import { migrateToAreas } from "@/lib/area-migration"
 
 export const OBJECT_TYPES = [
   "text",
@@ -507,5 +508,8 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
       if (dissolved !== objects) screen.objects = dissolved as typeof screen.objects
     }
   }
+  // Areas (docs/2026-11-16-areas.md): a panel takes over the one area that
+  // filled it, a switcher holds what its panels hold. Once per project.
+  migrateToAreas(project)
   return project
 }

@@ -82,7 +82,10 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
       const pad = Math.round(paddingOf(panel) * scale.pixelsPerMm)
       return (panel.children ?? []).map((child) => (dockOf(child) ? 2 * pad : Math.max(0, child.x)) + naturalWidth(child, scale))
     })
-    return content.length > 0 ? Math.max(1, ...content) : obj.width
+    // And no narrower than the least it asks for (`ownSize`: a card that
+    // its panel took over, lib/area-migration.ts).
+    const least = Number(obj.properties?.ownSize?.width) || 0
+    return content.length > 0 ? Math.max(1, least, ...content) : obj.width
   }
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
@@ -205,6 +208,7 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
   // padding below it.
   const height = Math.max(
     0,
+    Number(switcher.properties?.ownSize?.height) || 0,
     ...panels.flatMap((panel) => {
       const pad = Math.round(paddingOf(panel) * scale.pixelsPerMm)
       const free = (panel.children ?? []).filter((child) => !dockOf(child)).map((child) => child.y + child.height + pad)
@@ -233,7 +237,7 @@ function layoutOne(given: ScreenObject, scale: LayoutScale): ScreenObject {
   // A card's look first (lib/card.ts): its padding is what it docks in.
   // A button's radius the same way (Settings › Cards, lib/card.ts).
   const obj =
-    given.type === "free"
+    isArea(given)
       ? withCardLook(given, scale.cards ?? CARD_DEFAULTS, scale.pixelsPerMm)
       : given.type === "button" || given.type === "toggle-button"
         ? withButtonRadius(given, scale.cards ?? CARD_DEFAULTS, scale.pixelsPerMm)

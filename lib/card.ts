@@ -10,6 +10,7 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { isArea } from "@/lib/area"
 
 export type CardLook = "card" | "card-accent"
 export const CARD_LOOKS: readonly CardLook[] = ["card", "card-accent"]
@@ -86,7 +87,7 @@ export function cardProperties(look: CardLook, cards: CardSettings, pixelsPerMm:
  * leaves an area set back to None with the values it had last, its own.
  */
 export function withCardLook(area: ScreenObject, cards: CardSettings, pixelsPerMm: number): ScreenObject {
-  if (area.type !== "free") return area
+  if (!isArea(area)) return area
   const look = cardLookOf(area)
   if (!look) return area
   const wanted = cardProperties(look, cards, pixelsPerMm)
