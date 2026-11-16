@@ -96,7 +96,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast, toast as showToast } from "@/hooks/use-toast"
 import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { moveIntoArea } from "@/lib/drop-into-free"
+import { areaMovedInto, moveIntoArea } from "@/lib/drop-into-free"
 import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, inFont, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
@@ -2659,6 +2659,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     (ids: string[], into: string | null, drop: SnapDrop | null) => {
       const newTableId = `obj-${project.nextId}`
       const snaps = !!drop && ids.length === 1
+      // Onto an occupied cell: the cell's area, made around what stands in
+      // it (lib/cell-area.ts), is where they end and what is open afterwards.
+      const given = into
+      into = areaMovedInto(currentScreen.objects, given)
       setProject((prev) => {
         const scale = layoutScaleOf(prev)
         return {
@@ -2666,7 +2670,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           nextId: snaps && drop!.kind === "pair" ? prev.nextId + 1 : prev.nextId,
           screens: prev.screens.map((screen) => {
             if (screen.id !== currentScreenId) return screen
-            let objects = moveIntoArea(screen.objects, ids, into)
+            let objects = moveIntoArea(screen.objects, ids, given, scale)
             if (objects === screen.objects) return screen
             if (snaps) {
               // Into a table there, in the space it went into.
@@ -2683,7 +2687,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setEditingContainerId(snaps ? (drop!.kind === "table" ? drop!.tableId : newTableId) : into)
       setSelectedObjectIds(ids)
     },
-    [currentScreenId, project.nextId, setProject],
+    [currentScreen.objects, currentScreenId, project.nextId, setProject],
   )
 
   // Objects carried from the object tree (docs/2026-11-07-tree-carry-and-
@@ -2704,7 +2708,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           ),
         }
       })
-      setEditingContainerId(snap ? (snap.kind === "table" ? snap.tableId : newTableId) : target.into)
+      setEditingContainerId(snap ? (snap.kind === "table" ? snap.tableId : newTableId) : areaMovedInto(currentScreen.objects, target.into))
       // A merged table is gone; its objects stand in the other one.
       setSelectedObjectIds(snap?.kind === "table" && snap.merge ? [] : ids)
     },

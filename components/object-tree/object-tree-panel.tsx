@@ -32,6 +32,7 @@ import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from 
 import { canStandInCell, dimensions, isSnapTable, snapCellOf } from "@/lib/snap-table"
 import type { CarryTarget } from "@/lib/carry"
 import { isContainerType } from "@/lib/layout"
+import { isCellArea } from "@/lib/cell-area"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
 interface ObjectTreePanelProps {
@@ -72,6 +73,10 @@ function getObjectLabel(obj: ScreenObject): string {
   if ((obj.type === "text" || obj.type === "button") && obj.properties?.text) {
     return String(obj.properties.text)
   }
+  // An area is «Area» whatever its type is called in a project file, and a
+  // table's cell that holds more than a slot «Cell» (docs/2026-11-16-areas.md,
+  // decision 15; lib/cell-area.ts).
+  if (obj.type === "free") return isCellArea(obj) ? "Cell" : "Area"
   return obj.type
 }
 

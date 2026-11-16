@@ -104,6 +104,11 @@ import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, panelBackground, panelClip, translateObject } from "@/lib/object-groups"
 import { EditMenuItems } from "@/components/edit-menu-items"
 import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
+import { canShareCell, cellRectIn, isCellArea, tableHolding } from "@/lib/cell-area"
+
+// What the canvas frames as the place a carried object would go into: an
+// area, or an occupied cell that becomes one (lib/cell-area.ts).
+const isDropPlace = (obj: ScreenObject | null | undefined) => obj?.type === "free" || canShareCell(obj)
 import { onGlass, type CarryTarget } from "@/lib/carry"
 import {
   GUARD_HINT,
@@ -1471,13 +1476,13 @@ export function Canvas({
   // else the space open now. `moved`: not the space open now.
   const spaceAtPointer = useCallback(
     (p: { x: number; y: number }, exclude: string[]) => {
-      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p, pinnedPanelOf)
+      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p, pinnedPanelOf, layoutScale)
       if (!drop) return { ...drawSpace, moved: false }
       const origin = childOrigin(screen.objects, drop.into)
       const list = drop.into ? (findObjectById(screen.objects, drop.into)?.children ?? []) : screen.objects
       return { id: drop.into, origin, objects: list.map((c) => translateObject(c, origin.x, origin.y)), moved: true }
     },
-    [screen.objects, drawSpace, pinnedPanelOf],
+    [screen.objects, drawSpace, pinnedPanelOf, layoutScale],
   )
 
   // How something carried snaps in a space: with Alt as tables are built,
@@ -1532,7 +1537,8 @@ export function Canvas({
       const phrase = (d: SnapDrop | null) =>
         !d ? null : d.kind === "pair" ? "to make a table" : d.merge ? "to merge the tables" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
       const area = into ? findObjectById(screen.objects, into) : null
-      const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Area") : null
+      // An occupied cell takes it too: the cell becomes an area (lib/cell-area.ts).
+      const areaWord = area?.type === "free" ? (isCellArea(area) ? "Into Cell" : area.properties?.look ? "Into Card" : "Into Area") : canShareCell(area) ? "Into Cell" : null
       const where = rowInto ? "Into table" : (word(snap) ?? areaWord)
       const would = held ? null : rowWithAlt ? "Into table" : word(altSnap)
       const now = where ?? (would || held ? "Free" : null)
@@ -1541,7 +1547,15 @@ export function Canvas({
       // Where it lies when nothing takes it: the area under the pointer, or the space open now.
       const spaceId = into !== undefined ? into : drawSpace.id
       const space = spaceId ? findObjectById(screen.objects, spaceId) : null
-      const spaceName = !space ? screen.name || "the screen" : space.type === "free" ? (space.properties?.look ? "Card" : "Area") : "the panel"
+      const spaceName = !space
+        ? screen.name || "the screen"
+        : isCellArea(space) || canShareCell(space)
+          ? "the cell"
+          : space.type === "free"
+            ? space.properties?.look
+              ? "Card"
+              : "Area"
+            : "the panel"
       const drop = `to drop into ${spaceName}`
       const nowPhrase = rowInto ? "to add it to the table" : (phrase(snap) ?? drop)
       const altPhrase = held ? null : rowWithAlt ? "to add it to the table" : phrase(altSnap)
@@ -2235,16 +2249,25 @@ export function Canvas({
     // table in it takes the object.
     if (placeArea && (dragState?.mode === "drag" || dragState?.mode === "create" || treeDrag)) {
       const area = findObjectById(screen.objects, placeArea)
-      if (area?.type === "free") {
-        const at = childOrigin(screen.objects, area.id)
+      // An occupied cell it would go into: the whole cell, not only what stands in it.
+      const cellTable = area && canShareCell(area) ? tableHolding(screen.objects, area.id) : null
+      const cell = cellTable ? cellRectIn(cellTable, area!.id, layoutScale) : null
+      const tableAt = cellTable ? childOrigin(screen.objects, findParentOf(screen.objects, cellTable.id)?.parent?.id ?? null) : null
+      const frame =
+        area?.type === "free"
+          ? { ...childOrigin(screen.objects, area.id), width: area.width, height: area.height }
+          : cell && tableAt
+            ? { x: tableAt.x + cell.x, y: tableAt.y + cell.y, width: cell.width, height: cell.height }
+            : null
+      if (frame) {
         ctx.save()
         ctx.strokeStyle = LAYOUT_HINT_COLOR
         ctx.fillStyle = LAYOUT_HINT_COLOR
         ctx.globalAlpha = 0.08
-        ctx.fillRect(at.x, at.y, area.width, area.height)
+        ctx.fillRect(frame.x, frame.y, frame.width, frame.height)
         ctx.globalAlpha = 1
         ctx.lineWidth = 3 / zoom
-        ctx.strokeRect(at.x, at.y, area.width, area.height)
+        ctx.strokeRect(frame.x, frame.y, frame.width, frame.height)
         ctx.restore()
       }
     }
@@ -3429,7 +3452,7 @@ export function Canvas({
       setTreeDrag((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
       setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snap) ? current : snap))
       setSnapSpace(there)
-      setPlaceArea(!snap && target.id && findObjectById(screen.objects, target.id)?.type === "free" ? target.id : null)
+      setPlaceArea(!snap && target.id && isDropPlace(findObjectById(screen.objects, target.id)) ? target.id : null)
       setPlaceHint(placeHintFor(pointer, target.id, snap, altSnap, e.altKey))
     },
     [treeCarry, previewMode, onCarryTo, screen.objects, getCanvasCoordinates, spaceAtPointer, placingSnap, placeHintFor],

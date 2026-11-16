@@ -9,7 +9,7 @@
  * pointer is outside the area.
  */
 
-import { canShareCell } from "@/lib/cell-area"
+import { canShareCell, cellAreaId, withCellArea } from "@/lib/cell-area"
 import { isSnapTable, occupancy, snapTableGeometry } from "@/lib/snap-table"
 import type { LayoutScale } from "@/lib/layout"
 import type { ScreenObject } from "@/components/project-editor"
@@ -178,7 +178,17 @@ export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: str
  * the order they had. In an area an object starts as a new one does: no
  * Position, no Dock.
  */
-export function moveIntoArea(objects: ScreenObject[], ids: string[], into: string | null): ScreenObject[] {
+export function moveIntoArea(objects: ScreenObject[], ids: string[], into: string | null, scale?: LayoutScale): ScreenObject[] {
+  // Into an occupied cell (areaDropAt names the object standing in it): the
+  // cell is made an area around that object first (lib/cell-area.ts), and
+  // what is moved goes into the area. An object that is no place to put
+  // anything into takes nothing.
+  const occupant = into ? findObjectById(objects, into) : null
+  if (occupant && !occupant.children && !isHolder(occupant)) {
+    if (!scale || ids.includes(occupant.id) || !canShareCell(occupant)) return objects
+    const made = withCellArea(objects, occupant.id, scale)
+    return made.areaId ? moveIntoArea(made.objects, ids, made.areaId) : objects
+  }
   const moving = ids
     .map((id) => {
       const obj = findObjectById(objects, id)
@@ -205,6 +215,19 @@ export function moveIntoArea(objects: ScreenObject[], ids: string[], into: strin
   const put = (list: ScreenObject[]): ScreenObject[] =>
     list.map((o) => (o.id === into ? { ...o, children: [...(o.children ?? []), ...placed] } : o.children ? { ...o, children: put(o.children) } : o))
   return put(rest)
+}
+
+// What holds objects of its own: an area, a panel, a group, a table.
+const isHolder = (obj: ScreenObject) => obj.type === "free" || obj.type === "panel" || obj.type === "group" || obj.type === "table"
+
+/**
+ * Where a move into `into` ends: the area of its cell where `into` is an
+ * object standing in a table's cell that it can share (moveIntoArea makes
+ * that area), else `into` itself.
+ */
+export function areaMovedInto(objects: ScreenObject[], into: string | null): string | null {
+  const occupant = into ? findObjectById(objects, into) : null
+  return occupant && !isHolder(occupant) && canShareCell(occupant) ? cellAreaId(occupant.id) : into
 }
 
 /** Whether `id` holds `inner`, at any depth. */

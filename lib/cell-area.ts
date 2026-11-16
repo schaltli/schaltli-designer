@@ -152,6 +152,22 @@ export function unwrappedCells(table: ScreenObject): ScreenObject {
   return { ...table, children }
 }
 
+/**
+ * The cell (or span) the object `occupantId` stands in, in the space its
+ * laid-out table stands in; null where it stands in no table.
+ */
+export function cellRectIn(table: ScreenObject, occupantId: string, scale: LayoutScale): { x: number; y: number; width: number; height: number } | null {
+  const occupant = (table.children ?? []).find((child) => child.id === occupantId)
+  if (!isSnapTable(table) || !occupant) return null
+  const place = snapCellOf(occupant)
+  const g = snapTableGeometry(table, scale)
+  const lastColumn = Math.min(g.widths.length - 1, place.column + (place.columnSpan ?? 1) - 1)
+  const lastRow = Math.min(g.heights.length - 1, place.row + (place.rowSpan ?? 1) - 1)
+  const x = g.lefts[place.column] ?? 0
+  const y = g.tops[place.row] ?? 0
+  return { x: table.x + x, y: table.y + y, width: (g.lefts[lastColumn] ?? 0) + (g.widths[lastColumn] ?? 0) - x, height: (g.tops[lastRow] ?? 0) + (g.heights[lastRow] ?? 0) - y }
+}
+
 /** The table that holds `id` directly, anywhere in `objects`; null where none does. */
 export function tableHolding(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
