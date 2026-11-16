@@ -24,6 +24,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { AREA_KEYS } from "@/lib/area"
 import { objectBounds, translateObject } from "@/lib/object-groups"
+import { dockStretches } from "@/lib/dock"
 
 /**
  * The project format this designer writes. 2: a panel and the screen are
@@ -127,10 +128,20 @@ function migrated(obj: Obj): Obj {
 
 // Step 2 (decision 9): the size an object stretched in a table's cell was
 // drawn at, kept in its `cell` as drawnWidth and drawnHeight, is its
-// `ownSize` - the one place a kept size lives. At any depth.
+// `ownSize` - the one place a kept size lives. And docking keeps no size
+// (decision 14): what a docked object had kept of its own across its dock,
+// where it stretches, was docking's note and nobody's wish - it goes. At
+// any depth.
 function withOneKeptSize(obj: Obj): Obj {
   const children = obj.children?.map(withOneKeptSize)
   let current: Obj = children && children.some((c, i) => c !== obj.children![i]) ? { ...obj, children } : obj
+  const stretches = dockStretches(current)
+  const noted = current.properties?.ownSize
+  if (noted && typeof noted === "object" && stretches.some((axis) => axis in noted)) {
+    const least = Object.fromEntries(Object.entries(noted).filter(([axis]) => !(stretches as string[]).includes(axis)))
+    const { ownSize: _was, ...rest } = current.properties
+    current = { ...current, properties: Object.keys(least).length > 0 ? { ...rest, ownSize: least } : rest }
+  }
   const cell = current.properties?.cell
   if (cell && typeof cell === "object" && ("drawnWidth" in cell || "drawnHeight" in cell)) {
     const { drawnWidth, drawnHeight, ...rest } = cell

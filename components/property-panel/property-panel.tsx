@@ -30,7 +30,7 @@ import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties
 import { ConvertToMenu } from "./convert-to-menu"
 import type { ConvertibleType } from "@/lib/convert-object"
 import { cellAnchorOf } from "@/lib/anchor"
-import { dockSets } from "@/lib/dock"
+import { dockedLeast, dockSets, dockStretches } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
 import { FrameLockContext } from "./fields"
@@ -173,6 +173,10 @@ type FrameLock = { locked: readonly FrameKey[]; hint: string; hidden?: readonly 
 // size it was drawn at, kept beside the one Stretch gives it. A width that
 // comes from what the object shows is not one to set.
 function stretchedMin(obj: ScreenObject): { width?: number; height?: number } {
+  // Docked, across its dock: the least typed for it, 0 where none was.
+  if (obj.properties?.dock && !obj.properties?.cell) {
+    return Object.fromEntries(dockStretches(obj).map((axis) => [axis, dockedLeast(obj, axis) ?? 0]))
+  }
   const cell = obj.properties?.cell
   if (!cell) return {}
   const least = obj.properties?.ownSize
@@ -200,7 +204,17 @@ function layoutFrameLock(
   // Docked in an area (lib/dock.ts): the area places and sizes it.
   const docked = found.parent === null || isArea(found.parent) ? findObjectById(screen.objects ?? [], id) : null
   if (docked && dockSets(docked).length > 0) {
-    return { locked: dockSets(docked), hint: "Docked: the area places it, and sizes it across its edge where it can stretch. See Position." }
+    // Across its dock it takes the room: what Frame shows there is the least
+    // it asks for, «Min W» or «Min H», 0 until one is typed (lib/dock.ts).
+    const stretches = dockStretches(docked)
+    const captions = { ...(stretches.includes("width") ? { width: "Min W" } : {}), ...(stretches.includes("height") ? { height: "Min H" } : {}) }
+    const values = Object.fromEntries(stretches.map((axis) => [axis, dockedLeast(docked, axis) ?? 0]))
+    return {
+      locked: ["x", "y"],
+      hint: "Docked: the area places it, and sizes it across its edge where it can stretch. Min W and Min H are the least it asks for there. See Position.",
+      captions,
+      values,
+    }
   }
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x and y are the table's to
@@ -303,6 +317,13 @@ export function PropertyPanel({
       ...(min.height !== undefined && typeof updates.height === "number" ? { height: updates.height } : {}),
     }
     if (!selectedObject || !sizeOnly || Object.keys(drawn).length === 0) return updateObject(id, updates)
+    // Docked, only the least is typed - the area sets the size itself - and
+    // 0 takes it away again.
+    if (selectedObject.properties?.dock && !selectedObject.properties?.cell) {
+      const least = Object.fromEntries(Object.entries({ ...selectedObject.properties?.ownSize, ...drawn }).filter(([, v]) => typeof v === "number" && v > 0))
+      const { ownSize: _was, ...rest } = selectedObject.properties ?? {}
+      return updateObject(id, { properties: Object.keys(least).length > 0 ? { ...rest, ownSize: least } : rest })
+    }
     updateObject(id, { ...updates, properties: { ...selectedObject.properties, ownSize: { ...selectedObject.properties?.ownSize, ...drawn } } })
   }
   const handleManageTopics = () => {

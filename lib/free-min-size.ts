@@ -21,7 +21,7 @@ import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { toggleMinHeight } from "@/lib/toggle-button-shape"
 import { areaAnchorOf, resizeFree, STRETCHES_HEIGHT_IN_AREA } from "@/lib/anchor"
-import { dockFree, dockOf, paddingOf, resizeSwitcher } from "@/lib/dock"
+import { dockFree, dockOf, dockedLeast, paddingOf, resizeSwitcher } from "@/lib/dock"
 import { naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
 import { isSnapTable } from "@/lib/snap-table"
@@ -82,6 +82,9 @@ function holds(area: ScreenObject, scale: LayoutScale, axis: Axis = "both"): boo
     const stretchedH = docked === "left" || docked === "right" || docked === "fill" || (!docked && anchor.y === "stretch")
     if (x && stretchedW && !Array.isArray(child.properties?.points) && child.width < minWidthOf(child, scale)) return false
     if (y && stretchedH && child.height < minHeightOf(child, scale)) return false
+    // And no smaller than the least typed for it («Min W», «Min H»).
+    if (x && docked && child.width < (dockedLeast(child, "width") ?? 0)) return false
+    if (y && docked && child.height < (dockedLeast(child, "height") ?? 0)) return false
     if (isArea(child) && !holds(child, scale, axis)) return false
     // A switcher holds what each of its panels holds.
     if (child.type === "switcher" && !(child.children ?? []).every((panel) => holds(panel, scale, axis))) return false

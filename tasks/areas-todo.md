@@ -32,7 +32,7 @@ Each step ends with `npm run test:quick` and a stop for the user.
 
 ## Step 2 - one kept size
 - [x] T7 cell.drawnWidth/drawnHeight become ownSize; migration at formatVersion 3 (a project of step 1 gets step 2 only); «Min W»/«Min H» on it. 2026-11-16: baseline green, three cases in areas-migration. Kept as it was: the size is written while stretched and dropped once not - the spec's «dropped where the content needs as much» would need each type's content size and changes no layout
-- [ ] T8 docking keeps no size (decision 14); saved ones go on load; test:quick
+- [x] T8 docking keeps no size (decision 14): across its dock an object keeps a least size only where typed («Min W»/«Min H», 0 until then), and the area is no smaller than it asks; what was kept there goes on load. Along the dock its own length is still kept while the area cuts it - dropping that would let a cut become permanent. Handbook: objekte/anordnen.md («Andocken»). Tests: anchor-dock (2 rewritten, 1 new), areas-migration, area-panel-canvas
 - [ ] Checkpoint 2: test:quick noted here; the user confirms step 3
 
 ## Step 3 - the cell is an area

@@ -232,3 +232,16 @@ test.describe("the size kept in a cell is the object's ownSize", () => {
     expect(find(again.screens[0].objects, wide.id)!.properties).not.toHaveProperty("ownSize")
   })
 })
+
+test("docking keeps no size: what a docked object had kept across its dock goes on load, along it stays", () => {
+  const head = box(0, 0, 184, 20, { dock: "top", ownSize: { width: 60 } })
+  const cut = box(0, 26, 184, 10, { dock: "top", ownSize: { width: 60, height: 80 } })
+  const side = box(0, 0, 30, 100, { dock: "left", ownSize: { height: 40 } })
+  const card = obj("free", { x: 10, y: 10, width: 200, height: 120, properties: { padding: 2 }, children: [head, cut, side] })
+  const p = project([card], { formatVersion: 2 })
+  migrateToAreas(p)
+  const [a, b, c] = p.screens[0].objects[0].children!
+  expect(a.properties).toEqual({ dock: "top" })
+  expect(b.properties).toEqual({ dock: "top", ownSize: { height: 80 } })
+  expect(c.properties).toEqual({ dock: "left" })
+})

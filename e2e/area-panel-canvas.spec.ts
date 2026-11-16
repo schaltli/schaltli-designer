@@ -179,3 +179,25 @@ test("the panel that took its card over is drawn as the card in the panel was", 
   // And the card is in them: without its fill the picture is another.
   expect(await render([cardFilling(undefined)], true)).not.toBe(takenOver)
 })
+
+// Docking keeps no size (decision 14): across its dock an object has a least
+// width only where one is typed, as «Min W» under Frame.
+test("docked Top in a panel, Frame shows «Min W»: 0 until typed, and typed the switcher is no narrower than it asks", async ({ page }) => {
+  await loadProject(page, await projectWith([box("kasten", 40, 50, 60, 30)]))
+  await objectTreeRow(page, "kasten").click()
+  await page.locator("#areaDock").selectOption("top")
+  const frame = page.getByRole("button", { name: /^Frame/ })
+  if ((await frame.getAttribute("aria-expanded")) === "false") await frame.click()
+  await expect(page.locator('label[for="width"]')).toHaveText("Min W")
+  await expect(page.locator("#width")).toHaveValue("0")
+  expect((await saved(page)).panel.children[0].properties).not.toHaveProperty("ownSize")
+
+  await page.locator("#width").fill("340")
+  await page.locator("#width").blur()
+  await expect(page.locator("#width")).toHaveValue("340")
+  const now = await saved(page)
+  expect(now.panel.children[0].properties.ownSize).toEqual({ width: 340 })
+  // The panel was 300 wide: the switcher grew to hold what the box asks for.
+  expect(now.switcher.width).toBe(340)
+  expect(now.panel.children[0].width).toBe(340)
+})

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import { freeMinSize } from "../lib/free-min-size"
 import fs from "fs"
 import path from "path"
 import type { ScreenObject } from "../components/project-editor"
@@ -272,7 +273,9 @@ test.describe("dock: in a free area", () => {
     )
     // The box is cut to what is left; the text after it has no room and is left out.
     expect(kid(a, "big").height).toBe(60 - 2 * PAD - 18 - G)
-    expect(kid(a, "big").properties!.ownSize).toEqual({ width: 50, height: 200 })
+    // Along its dock its own height is kept while it is cut; across, where
+    // it stretches, docking keeps no size (docs/2026-11-16-areas.md, decision 14).
+    expect(kid(a, "big").properties!.ownSize).toEqual({ height: 200 })
     expect(kid(a, "late").properties!.dockedOut).toBe(true)
     expect(kid(a, "head").properties!.dockedOut).toBeUndefined()
     const exported = dissolveGroups([a]).map((o) => o.id)
@@ -281,20 +284,30 @@ test.describe("dock: in a free area", () => {
     // Made larger again, the box has its own height back and the text is in.
     const larger = dockFree({ ...a, height: 400 }, SCALE)
     expect(kid(larger, "big").height).toBe(200)
-    expect(kid(larger, "big").properties!.ownSize).toEqual({ width: 50 })
+    expect(kid(larger, "big").properties).not.toHaveProperty("ownSize")
     expect(kid(larger, "late").properties).not.toHaveProperty("dockedOut")
   })
 
-  test("undocked, an object has its own size back; docking again and laying out twice changes nothing", () => {
+  test("docking keeps no size: undocked, an object stays as wide as its dock made it; laying out twice changes nothing", () => {
     const a = dockFree(card([docked("head", "box", 40, 20, "top", 1)]), SCALE)
-    expect(kid(a, "head").properties!.ownSize).toEqual({ width: 40 })
+    expect(kid(a, "head").properties).not.toHaveProperty("ownSize")
     const { dock: _d, ...rest } = kid(a, "head").properties!
     const freed = dockFree({ ...a, children: [{ ...kid(a, "head"), properties: rest }] }, SCALE)
-    expect([kid(freed, "head").width, kid(freed, "head").height]).toEqual([40, 20])
+    expect([kid(freed, "head").width, kid(freed, "head").height]).toEqual([kid(a, "head").width, 20])
     expect(kid(freed, "head").properties).toEqual({})
     expect(dockFree(a, SCALE)).toEqual(a)
     const once = layoutObjects([card([docked("head", "box", 40, 20, "top", 2), docked("body", "box", 10, 10, "fill", 1)])], SCALE)
     expect(layoutObjects(once, SCALE)).toEqual(once)
+  })
+
+  test("a least width typed for a docked object (Min W) stays, and the area is no narrower than it asks", () => {
+    const head = { ...docked("head", "box", 40, 20, "top", 1), properties: { dock: "top", ownSize: { width: 180 } } }
+    const a = dockFree(card([head]), SCALE)
+    expect(kid(a, "head").properties!.ownSize).toEqual({ width: 180 })
+    expect(freeMinSize(a, SCALE)!.width).toBe(180 + 2 * PAD)
+    // Without one, as narrow as a box goes.
+    const b = dockFree(card([docked("head", "box", 40, 20, "top", 1)]), SCALE)
+    expect(freeMinSize(b, SCALE)!.width).toBeLessThan(40)
   })
 
   test("a resized area docks again; anchors leave docked objects to the dock", () => {

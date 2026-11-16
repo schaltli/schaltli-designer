@@ -17,8 +17,13 @@
  * Except a table docked Fill too wide for an area that clips (a card, Clip
  * on - docs/2026-11-03-card-clip.md): that area cuts it, so it stays.
  *
- * Docking overwrites an object's size; its own is kept in
- * `properties.ownSize` while it differs, and given back once it is undocked.
+ * Docking keeps no size (docs/2026-11-16-areas.md, decision 14). Across its
+ * dock an object that can stretch takes the room, and has a least width or
+ * height there - `properties.ownSize`, «Min W» and «Min H» under Frame -
+ * only where one was typed; the area is then no smaller than that asks
+ * (lib/free-min-size.ts). Along its dock its length is its own; only where
+ * the area cut it to what was left is that kept in `ownSize`, and given back
+ * with the room.
  */
 
 import { isArea } from "@/lib/area"
@@ -68,12 +73,16 @@ function undocked(child: ScreenObject): ScreenObject {
   return isArea(child) ? { ...resizeFree(child, size.width, size.height), properties: rest } : { ...child, ...size, properties: rest }
 }
 
-// A child placed at x, y with a size: its own kept beside it where they differ.
+// A child placed at x, y with a size. Along its dock its own length is kept
+// beside it where the area cut it; across, where it stretches, only a least
+// size that was typed stays (dockStretches).
 function placed(child: ScreenObject, x: number, y: number, width: number, height: number, scale: DockScale): ScreenObject {
   const size = own(child)
-  const { ownSize: _o, dockedOut: _d, ...rest } = child.properties ?? {}
-  // Only what docking overwrote is kept, so the rest stays the author's to set.
-  const ownSize = { ...(width !== size.width ? { width: size.width } : {}), ...(height !== size.height ? { height: size.height } : {}) }
+  const { ownSize: was, dockedOut: _d, ...rest } = child.properties ?? {}
+  const stretches = dockStretches(child)
+  const kept = (axis: "width" | "height", now: number) =>
+    stretches.includes(axis) ? (typeof was?.[axis] === "number" ? { [axis]: was[axis] } : {}) : now !== size[axis] ? { [axis]: size[axis] } : {}
+  const ownSize = { ...kept("width", width), ...kept("height", height) }
   const properties = Object.keys(ownSize).length > 0 ? { ...rest, ownSize } : rest
   // A free area takes its own objects along, and docks its own.
   if (isArea(child)) return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
@@ -89,6 +98,21 @@ function placed(child: ScreenObject, x: number, y: number, width: number, height
  * x and y; along the dock nothing more (its length along it is its own),
  * across it the size it stretches to, both where it fills.
  */
+/** The axes on which a docked object takes its room: across its dock, where it can stretch. */
+export function dockStretches(obj: ScreenObject): Array<"width" | "height"> {
+  return dockSets(obj).filter((key): key is "width" | "height" => key === "width" || key === "height")
+}
+
+/**
+ * The least a docked object asks for on an axis it stretches on, where one
+ * was typed («Min W», «Min H»); undefined where none was.
+ */
+export function dockedLeast(obj: ScreenObject, axis: "width" | "height"): number | undefined {
+  if (!dockStretches(obj).includes(axis)) return undefined
+  const least = obj.properties?.ownSize?.[axis]
+  return typeof least === "number" && least > 0 ? least : undefined
+}
+
 export function dockSets(obj: ScreenObject): Array<"x" | "y" | "width" | "height"> {
   const dock = dockOf(obj)
   if (!dock) return []
