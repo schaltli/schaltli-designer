@@ -523,6 +523,23 @@ function buttonGroupObject(
   }
 }
 
+// What a description says of a choice beyond its options (lib/block-
+// description.ts): guarded; a size step of its own, which the editor gives
+// it when the block is placed (`blockSizeStep`); small - as wide as its
+// options need, not across its tile (`blockCompact`, lib/block-card.ts).
+function described(group: Omit<ScreenObject, "id" | "zIndex">, control: CatalogControl): Omit<ScreenObject, "id" | "zIndex"> {
+  if (!control.guard && !control.size && !control.small) return group
+  return {
+    ...group,
+    properties: {
+      ...group.properties,
+      ...(control.guard ? { guard: true } : {}),
+      ...(control.size ? { blockSizeStep: control.size } : {}),
+      ...(control.small ? { blockCompact: true } : {}),
+    },
+  }
+}
+
 // Switch or buttons, the same states either way.
 function toggleObject(
   look: string,
@@ -1148,7 +1165,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       }))
       return {
         // A choice in the LED form (docs/2026-11-11-led-look.md, decision 8).
-        objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font, "led")],
+        objects: [...label(), described(buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font, "led"), control)],
         topics: [
           ...(control.read ? [readTopicEntry(control.read, "text", reported)] : []),
           { topic: control.write, type: "text", examples: (control.writes ?? control.options).slice(0, 3) },
@@ -1237,7 +1254,16 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     else slots.push(when ? { switcher: when.topic, parts: [part] } : [part])
   }
   const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (slots.length - 1)) / slots.length))
-  const buildPart = (part: (typeof parts)[number], box: { x: number; y: number; width: number; height: number }) => {
+  // A part that stands in a tile: a choice, or a level as a slider.
+  const tiled = (part: (typeof parts)[number]) => {
+    const control = entry.controls[part.control]
+    return control.kind === "choice" || (control.kind === "level" && part.look !== "dial")
+  }
+  // In a switcher whose parts all stand in tiles, the panel is the card
+  // (switcherSlot). One holding a dial, a text or a switch stays as it was:
+  // those have no card of their own to give up (a block's dials).
+  const cardPanels = (slot: (typeof slots)[number]) => tiles && !Array.isArray(slot) && slot.parts.every(tiled)
+  const buildPart = (part: (typeof parts)[number], box: { x: number; y: number; width: number; height: number }, inPanel = false) => {
     const control = entry.controls[part.control]
     const built = buildFromCatalog({
       entry,
@@ -1255,24 +1281,34 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     // height are the block card's to set (lib/block-card.ts partTile).
     const slider = control.kind === "level" && part.look !== "dial"
     if (!tiles || !(control.kind === "choice" || slider) || built.objects.length !== 1) return built
-    const name = labelObject(control.part ?? entry.label, box, palette, font)
+    // No name where the description says so (`title: false`): a choice whose
+    // options name it.
+    const name = control.untitled ? undefined : labelObject(control.part ?? entry.label, box, palette, font)
     const value = slider && control.kind === "level" ? levelValueText(control, box, palette, font) : undefined
     const inner = value ? { ...built.objects[0], properties: { ...built.objects[0].properties, displayValue: "none" } } : built.objects[0]
+    // Shown only in a mode, it stands in its switcher's panel, and the panel
+    // is the card (switcherSlot): a control alone as it is, one with a name
+    // or a value in an area without a look of its own (`blockBare`).
+    if (inPanel && !name && !value) return built
+    // Alone in its tile, it stands at the tile's bottom where the tile is
+    // taller than it - beside a Toggle Button of two lines.
+    const alone = !name && !value ? { ...inner, properties: { ...inner.properties, anchor: { y: "bottom" } } } : inner
     const tile: Omit<ScreenObject, "id" | "zIndex"> = {
       type: "free",
       x: box.x,
       y: box.y,
       width: box.width,
       height: box.height,
-      properties: { look: "card", blockTile: true },
-      children: [name, ...(value ? [value] : []), inner] as ScreenObject[],
+      properties: { ...(inPanel ? { blockBare: true } : { look: "card" }), blockTile: true },
+      children: [...(name ? [name] : []), ...(value ? [value] : []), alone] as ScreenObject[],
     }
     return { ...built, objects: [tile] }
   }
   const built = slots.map((slot, i) => {
     const box = { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight }
     if (Array.isArray(slot)) return buildPart(slot[0], box)
-    return switcherSlot(slot.switcher, slot.parts.map((part) => ({ values: entry.controls[part.control].shownWhen?.values ?? [], built: buildPart(part, box) })), box, reported)
+    const card = cardPanels(slot)
+    return switcherSlot(slot.switcher, slot.parts.map((part) => ({ values: entry.controls[part.control].shownWhen?.values ?? [], built: buildPart(part, box, card) })), box, reported, card)
   })
   // A topic two parts share - a light's JSON state, its power and its
   // brightness read from different fields - is declared once, with the
@@ -1314,16 +1350,22 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
 /**
  * The parts shown only while `topic` holds one of their values, as one
  * switcher on it: a panel per value named (`==`), holding that value's parts
- * one below the other - a one-column table, so the layout lays them out at
- * the switcher's width (lib/layout.ts fitSwitcher). A part named for two
- * values is in both panels. A value no part names has no panel, so the
- * switcher shows nothing then.
+ * one below the other. A part named for two values is in both panels. A
+ * value no part names has no panel, so the switcher shows nothing then.
+ *
+ * In a block of tiles (`card`) the panel is the card - one card for a mode,
+ * not one for each of its parts (the user's fan, 2026-11-16): a part alone
+ * docked at its top, several a one-column table docked there, a part set
+ * small in the middle of its row rather than across it. Otherwise the parts
+ * are a one-column table the layout stretches to the switcher's width
+ * (lib/layout.ts fitSwitcher).
  */
 function switcherSlot(
   topic: string,
   parts: { values: string[]; built: BausteinBuildResult }[],
   box: { x: number; y: number; width: number; height: number },
   reported?: Record<string, string>,
+  card = false,
 ): BausteinBuildResult {
   const values: string[] = []
   for (const part of parts) for (const value of part.values) if (!values.includes(value)) values.push(value)
@@ -1332,7 +1374,12 @@ function switcherSlot(
     // Its parts a table of one column (docs/2026-10-09-snap-tables.md,
     // open question 3), one part too: the switcher stretches it to its
     // width, so each part spans it (lib/layout.ts fitSwitcher).
-    const content = snapTableOf(pieces.map((piece, row) => inCell(piece, { row, column: 0 })))
+    const table = () => snapTableOf(pieces.map((piece, row) => inCell(piece, { row, column: 0 }, !piece.properties?.blockCompact)))
+    const content = card
+      ? pieces.length === 1
+        ? { ...pieces[0], properties: { ...pieces[0].properties, dock: "top" } }
+        : { ...table(), properties: { ...table().properties, dock: "top" } }
+      : table()
     const placed = { ...content, id: "", zIndex: 0, x: 0, y: 0 } as ScreenObject
     return {
       id: "",
@@ -1342,7 +1389,7 @@ function switcherSlot(
       width: Math.max(box.width, placed.width),
       height: Math.max(box.height, placed.height),
       zIndex: 0,
-      properties: { comparisonOperator: "==", comparisonValue: value },
+      properties: { comparisonOperator: "==", comparisonValue: value, ...(card ? { look: "card" } : {}) },
       children: [placed],
     } as ScreenObject
   })
@@ -1465,7 +1512,7 @@ export function blockRow(built: BausteinBuildResult): Omit<ScreenObject, "id" | 
 const FILLS_ITS_CELL = new Set(["button", "button-group", "bar", "slider", "switcher", "text-field", "toggle-button", "free", "chart"])
 
 type Piece = Omit<ScreenObject, "id" | "zIndex">
-type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; y?: "top" | "bottom" }
+type Cell = { row: number; column: number; rowSpan?: number; columnSpan?: number; y?: "top" | "bottom" | "stretch" }
 // `fills` false: a button beside a wider side - «Nullen» by its line - takes
 // only what it needs.
 const inCell = (piece: Piece, cell: Cell, fills = true): Piece => {
@@ -1532,7 +1579,16 @@ export function blockTable(built: BausteinBuildResult): Piece {
     sides.forEach((side, s) =>
       side.forEach((piece, k) => {
         const last = k === side.length - 1
-        const cell = { row: row + k, column: first + s, ...(last && rows - k > 1 ? { rowSpan: rows - k } : {}), ...(last && endsInRing ? ({ y: "bottom" } as const) : {}) }
+        // A tile beside a Toggle Button, one in each column: both as tall as
+        // their row, so the pair ends on one line (the fan's cover beside
+        // «Lüfter», the user 2026-11-16).
+        const paired = rows === 1 && sides.every((other) => other.length === 1) && sides.some((other) => other[0].type === "free") && (piece.type === "free" || piece.type === "toggle-button")
+        const cell = {
+          row: row + k,
+          column: first + s,
+          ...(last && rows - k > 1 ? { rowSpan: rows - k } : {}),
+          ...(last && endsInRing ? ({ y: "bottom" } as const) : paired ? ({ y: "stretch" } as const) : {}),
+        }
         cells.push(inCell(piece, cell, piece.type !== "button"))
       }),
     )

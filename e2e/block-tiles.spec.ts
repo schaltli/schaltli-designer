@@ -94,32 +94,85 @@ test("a dimmer on the 4\": where name, value and icon do not fit, the icon goes 
   expect(all.find((o) => o.type === "slider")?.properties.displayValue).toBe("none")
 })
 
-test("the MaxxFan: «Lüfter» and «Deckel» side by side, then Betrieb, the slider and Luft each in a card - every edge in line", () => {
+// As the user drew the fan's screen in the van on 2026-11-16, which the
+// block now builds: «Lüfter» and beside it a card with Zu | Offen, guarded
+// and without a name; while the fan is on, a card with Hand | Auto; and one
+// card for the mode - its slider with name and value, the airflow small in
+// the middle below. Until then two switches, and a card for each part.
+test("the MaxxFan as the user drew it: «Lüfter» beside the guarded cover, Betrieb while it is on, one card for the mode", () => {
   const { built, laid } = placed(described("maxxfan", MAXXFAN, "maxxfan"))
   expect(built.partTiles).toBe(true)
   expect(built.labelCount).toBe(0)
   const all = walk(laid)
-  const toggles = all.filter((o) => o.type === "toggle-button")
-  expect(toggles.map((t) => t.properties.text)).toEqual(["Lüfter", "Deckel"])
-  expect(toggles[0].y).toBe(toggles[1].y)
   // No card round the block, no heading «MaxxFan»: an area without a look.
   expect(laid).toMatchObject({ type: "free", properties: { blockTiles: true } })
   expect(laid.properties.look).toBeUndefined()
   expect(all.some((o) => o.type === "text" && o.properties.text === "MaxxFan")).toBe(false)
-  // The tiles of the choice, the slider and the airflow: cards with a name.
-  const groups = all.filter((o) => o.type === "button-group")
-  expect(groups.length).toBeGreaterThan(0)
-  for (const g of groups) expect(g.properties.switchStyle).toBe("led")
-  const cards = all.filter((o) => o.type === "free" && o.properties.look === "card")
-  expect(cards.length).toBeGreaterThanOrEqual(3)
-  // Left edges: the first toggle and every card start at the same x; the
-  // second toggle ends where the cards do.
-  const left = toggles[0].x
-  const right = toggles[1].x + toggles[1].width
-  for (const c of cards.filter((c) => c.width > toggles[0].width + 10)) {
-    expect(c.x, "a card's left edge").toBe(left)
-    expect(c.x + c.width, "a card's right edge").toBe(right)
+  for (const o of all) for (const marker of ["blockCompact"]) expect(o.properties?.[marker], `${o.type} still carries ${marker}`).toBeUndefined()
+
+  // As tall as its three rows: a tile measured with its control at the
+  // bottom of the room to spare was 100000 px tall (found 2026-11-16).
+  expect(laid.height).toBeLessThan(320)
+  // Row 1: the one switch, and the cover in a card of its own beside it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table: any = laid.children![0]
+  const [fan, coverCard, betrieb, mode] = table.children
+  expect(fan).toMatchObject({ type: "toggle-button", properties: { text: "Lüfter" } })
+  expect(all.filter((o) => o.type === "toggle-button")).toHaveLength(1)
+  expect(coverCard).toMatchObject({ type: "free", properties: { look: "card" } })
+  // As tall as the switch beside it, the choice at its bottom.
+  expect([coverCard.y, coverCard.height]).toEqual([fan.y, fan.height])
+  expect(coverCard.children).toHaveLength(1)
+  const cover = coverCard.children[0]
+  expect(cover).toMatchObject({ type: "button-group", properties: { topic: "schaltli/state/maxxfan/cover", guard: true, blockSizeStep: "xs", switchStyle: "led", dock: "fill" } })
+  expect(cover.properties.states.map((s: any) => s.label)).toEqual(["Zu", "Offen"])
+  expect(cover.properties.anchor).toEqual({ y: "bottom" })
+  expect(cover.y + cover.height).toBeGreaterThan(coverCard.height / 2)
+  // Two columns of the same width, the pair as wide as the cards below.
+  expect(Math.abs(fan.width - coverCard.width)).toBeLessThanOrEqual(1)
+  expect(coverCard.x + coverCard.width).toBe(betrieb.x + betrieb.width)
+  expect(fan.x).toBe(betrieb.x)
+
+  // Row 2: Hand | Auto while the fan is on - the panel is the card.
+  expect(betrieb).toMatchObject({ type: "switcher", properties: { topic: "schaltli/state/maxxfan/power" } })
+  expect(betrieb.children.map((p: any) => [p.properties.comparisonValue, p.properties.look])).toEqual([["on", "card"]])
+  const hand = betrieb.children[0].children
+  expect(hand).toHaveLength(1)
+  expect(hand[0]).toMatchObject({ type: "button-group", properties: { topic: "schaltli/state/maxxfan/hvac_mode", blockSizeStep: "s", dock: "top" } })
+  expect(hand[0].properties.guard).toBeUndefined()
+
+  // Row 3: one card for the mode it is in.
+  expect(mode).toMatchObject({ type: "switcher", properties: { topic: "schaltli/state/maxxfan/hvac_mode" } })
+  expect(mode.children.map((p: any) => [p.properties.comparisonValue, p.properties.look])).toEqual([
+    ["auto", "card"],
+    ["fan_only", "card"],
+  ])
+  const expected = { auto: ["Temperatur", "schaltli/state/maxxfan/temperature"], fan_only: ["Drehzahl", "schaltli/state/maxxfan/speed"] } as Record<string, string[]>
+  for (const panel of mode.children) {
+    expect(panel.children).toHaveLength(1)
+    const inner = panel.children[0]
+    expect(inner).toMatchObject({ type: "table", properties: { dock: "top" } })
+    // Inside the card's padding, not across it (a table in a panel was
+    // stretched to the switcher's width, docked or not).
+    expect(inner.x).toBeGreaterThan(0)
+    expect(inner.x + inner.width).toBe(panel.width - inner.x)
+    const [level, airflow] = inner.children
+    // The slider's area: no look of its own, its name and value over it.
+    expect(level.type).toBe("free")
+    expect(level.properties.look).toBeUndefined()
+    const within = walk(level)
+    expect(within.find((o) => o.type === "text" && o.properties.textAlign !== "right")?.properties.text).toBe(expected[panel.properties.comparisonValue][0])
+    expect(within.find((o) => o.type === "slider")?.properties.topic).toBe(expected[panel.properties.comparisonValue][1])
+    expect(level.x + level.width).toBe(inner.width)
+    // The airflow: no name, as wide as its two words, in the middle.
+    expect(airflow).toMatchObject({ type: "button-group", properties: { topic: "schaltli/state/maxxfan/airflow" } })
+    expect(airflow.width).toBeLessThan(inner.width / 2)
+    expect(Math.abs(airflow.x + airflow.width / 2 - inner.width / 2)).toBeLessThanOrEqual(1)
+    expect(airflow.y).toBeGreaterThanOrEqual(level.y + level.height)
   }
+  // No name where the words on the buttons say it.
+  const texts = all.filter((o) => o.type === "text").map((o) => o.properties.text)
+  for (const gone of ["Deckel", "Betrieb", "Luft"]) expect(texts).not.toContain(gone)
 })
 
 test("the heater: the switch «Heizung», «Nullen» as a text button, the modes in a card of their own", () => {

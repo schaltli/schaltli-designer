@@ -177,6 +177,9 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
   if (look) control.look = look
   const size = text(part.size)
   if (size === "xs" || size === "s" || size === "m" || size === "l") control.size = size
+  // No name over it; guarded (the fan's block, 2026-11-16).
+  if (part.title === false) control.untitled = true
+  if (part.guard === true) control.guard = true
   return { control }
 }
 

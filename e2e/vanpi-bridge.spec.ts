@@ -1090,8 +1090,9 @@ test.describe("VanPi bridge logic", () => {
       // On the 4.3B the whole block fits its 480 px, with the bigger dials
       // of 2026-10-28 (414 px then), the switch «Heizung» on top of
       // 2026-11-11 (434) and the dials no longer rounded down to their
-      // track's grid since 2026-11-14 (442).
-      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(450)
+      // track's grid since 2026-11-14 (442), and the mode's panel the card
+      // of its choice since 2026-11-16 (460).
+      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(460)
     })
   }
 
@@ -1109,18 +1110,23 @@ test.describe("VanPi bridge logic", () => {
       // Mode and cover, then what the mode shows: the slider, and the
       // airflow by hand and in auto (asked 2026-10-04).
       // Since 2026-11-11 (docs/2026-11-11-bridge-for-starter.md, decision 4):
-      // the switches «Lüfter» and «Deckel» side by side, then while it runs
+      // «Lüfter» and «Deckel» side by side, then while it runs
       // Hand | Auto, the slider of the mode and Rein | Raus.
-      expect(fan.controls.map((c) => [c.part, c.kind, c.column, c.row, c.shownWhen?.values ?? []])).toEqual([
-        ["Lüfter", "switch", 1, "switches", []],
-        ["Deckel", "switch", 2, "switches", []],
-        ["Betrieb", "choice", undefined, undefined, ["fan_only", "auto"]],
-        ["Temperatur", "level", undefined, undefined, ["auto"]],
-        ["Drehzahl", "level", undefined, undefined, ["fan_only"]],
-        ["Luft", "choice", undefined, undefined, ["fan_only", "auto"]],
+      // Since 2026-11-16, as the user drew it in the van: the cover a choice
+      // of Zu | Offen, guarded and in XS, with no name over it; Hand | Auto
+      // while the fan is on, not while a mode is set; the airflow small.
+      expect(fan.controls.map((c) => [c.part, c.kind, c.column, c.row, c.shownWhen?.topic.split("/").pop(), c.shownWhen?.values ?? []])).toEqual([
+        ["Lüfter", "switch", 1, "switches", undefined, []],
+        ["Deckel", "choice", 2, "switches", undefined, []],
+        ["Betrieb", "choice", undefined, undefined, "power", ["on"]],
+        ["Temperatur", "level", undefined, undefined, "hvac_mode", ["auto"]],
+        ["Drehzahl", "level", undefined, undefined, "hvac_mode", ["fan_only"]],
+        ["Luft", "choice", undefined, undefined, "hvac_mode", ["fan_only", "auto"]],
       ])
       expect(fan.controls[0]).toMatchObject({ read: "schaltli/state/maxxfan/power", write: "schaltli/cmnd/maxxfan/power" })
-      expect(fan.controls[2]).toMatchObject({ options: ["fan_only", "auto"], labels: ["Hand", "Auto"] })
+      expect(fan.controls[1]).toMatchObject({ options: ["closed", "open"], labels: ["Zu", "Offen"], untitled: true, guard: true, size: "xs", write: "schaltli/cmnd/maxxfan/cover" })
+      expect(fan.controls[2]).toMatchObject({ options: ["fan_only", "auto"], labels: ["Hand", "Auto"], untitled: true, size: "s" })
+      expect(fan.controls[5]).toMatchObject({ untitled: true, small: true })
       expect(fan.controls[4]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
       expect(fan.controls[5]).toMatchObject({ options: ["in", "out"], labels: ["Rein", "Raus"] })
 

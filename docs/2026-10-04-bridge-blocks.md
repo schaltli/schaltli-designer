@@ -108,6 +108,12 @@ same, so a publisher who knows one knows the other.
   topic's value as it is.
 - **`shown_when`**: `{ topic, values }` - the part is shown while the topic
   holds one of the values.
+- **`title: false`, `guard: true`, `size`, `small`** (added 2026-11-16, for
+  the fan's block as the user drew it in the van): a part without its name
+  over it - a choice whose options say what it is, «Zu» and «Offen»; a
+  choice guarded against a touch by mistake; a choice at a size step of its
+  own (`"xs"`, `"s"`, `"m"`, `"l"`, as a button had); a choice set small -
+  as wide as its options, in the middle of its row, not across it.
 - A part that cannot be used (a missing topic, an unknown kind) is skipped
   with its reason, the others offered - as Home Assistant entities' parts
   are today. A description with no usable part is not supported.
@@ -126,6 +132,10 @@ for Home Assistant entities are the values themselves.
   named anywhere in those conditions (`==`), each holding the parts shown
   for that value, stacked as rows. A part named for two values is placed in
   both panels. The switcher is as tall as its fullest panel.
+- Since 2026-11-16, in a block of tiles: where every part of a switcher is
+  a choice or a slider, the panel is the card - one card for a mode, its
+  parts in it without a card of their own. A switcher holding a dial, a
+  text or a switch is as before (the heater's dials).
 - A value no part names gets no panel: the switcher then shows nothing
   (the MaxxFan off).
 - The topics of the switcher and of every part are declared, as for any

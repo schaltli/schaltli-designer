@@ -2547,10 +2547,25 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // same block appended through a table's «+» came out larger
       // (reported 2026-10-03).
       // A part the description sizes otherwise - «Nullen» in XS - takes its own.
+      // And one inside a tile or a switcher's panel that the description
+      // sizes - a choice in XS - too, in the Label style as the block's
+      // own controls are.
+      type Piece = Omit<ScreenObject, "id" | "zIndex">
+      const within = (piece: Piece): Piece => {
+        if (!piece.children) return piece
+        const children = piece.children.map((child) => {
+          const inner = within(child as Piece)
+          if (!scale || inner.properties?.blockSizeStep === undefined || !stepKindOf(inner.type)) return inner
+          const { blockSizeStep, ...properties } = styled(inner).properties ?? {}
+          const own = { ...inner, properties }
+          return { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep, scale.pixelsPerMm, project.fonts) }
+        })
+        return { ...piece, children: children as ScreenObject[] }
+      }
       const stepped = scale
         ? pieces.map((piece) => {
             const { blockSizeStep, ...properties } = piece.properties ?? {}
-            const own = { ...piece, properties }
+            const own = within({ ...piece, properties })
             return stepKindOf(piece.type) ? { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep ?? "m", scale.pixelsPerMm, project.fonts) } : own
           })
         : pieces

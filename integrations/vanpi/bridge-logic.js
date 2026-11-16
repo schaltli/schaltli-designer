@@ -572,9 +572,13 @@ function createBridgeLogic() {
       // temperature it holds, by hand its speed in its ten steps, and in
       // either the airflow - off, none of these (asked 2026-10-04).
       var hvacMode = PREFIX + "maxxfan/hvac_mode"
-      // Two switches side by side, «Lüfter» and «Deckel»; while it runs, by
-      // hand or auto, then the speed or the temperature, then the airflow
-      // (docs/2026-11-11-bridge-for-starter.md, decision 4).
+      // As the user drew it in the van on 2026-11-16: «Lüfter» and beside it
+      // the cover, «Zu» and «Offen», guarded - a lid opened by a touch by
+      // mistake lets the rain in; while the fan is on, by hand or auto, in a
+      // card of its own; and one card for the mode it is in - its speed or
+      // its temperature, the airflow small below. No names where the words
+      // on the buttons say it. Until then two switches, and a card for each
+      // part (docs/2026-11-11-bridge-for-starter.md, decision 4).
       block("maxxfan", "MaxxFan", "mdi:fan", ["maxxfan", "maxxfan_cover", "maxxfan_airflow"], [
         {
           name: "Lüfter",
@@ -588,11 +592,16 @@ function createBridgeLogic() {
         },
         {
           name: "Deckel",
-          kind: "switch",
+          kind: "choice",
           state_topic: PREFIX + "maxxfan/cover",
           command_topic: COMMAND + "maxxfan/cover",
-          payload_on: { value: "open", label: "Offen" },
-          payload_off: { value: "closed", label: "Zu" },
+          options: [
+            { value: "closed", label: "Zu" },
+            { value: "open", label: "Offen" },
+          ],
+          title: false,
+          guard: true,
+          size: "xs",
           column: 2,
           row: "switches",
         },
@@ -605,7 +614,9 @@ function createBridgeLogic() {
             { value: "fan_only", label: "Hand" },
             { value: "auto", label: "Auto" },
           ],
-          shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
+          title: false,
+          size: "s",
+          shown_when: { topic: PREFIX + "maxxfan/power", values: ["on"] },
         },
         {
           name: "Temperatur",
@@ -638,6 +649,8 @@ function createBridgeLogic() {
             { value: "in", label: "Rein" },
             { value: "out", label: "Raus" },
           ],
+          title: false,
+          small: true,
           shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
       ])

@@ -196,7 +196,8 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
   const panels = (switcher.children ?? []).map((panel) => ({
     ...panel,
     children: (panel.children ?? []).map((child) =>
-      isSnapTable(child)
+      // Not a docked one: its panel places it, inside its padding (lib/dock.ts).
+      isSnapTable(child) && !dockOf(child)
         ? stretched(layoutOne(child, scale))
         : isContainerType(child.type) && child.type !== "free"
           ? { ...fit(child, switcher.width, scale), x: 0, y: 0 }
@@ -220,7 +221,7 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
   // Laid out again as panels, the tables in them are stretched once more.
   return {
     ...filled,
-    children: (filled.children ?? []).map((panel) => ({ ...panel, children: (panel.children ?? []).map((child) => (isSnapTable(child) ? stretched(child) : child)) })),
+    children: (filled.children ?? []).map((panel) => ({ ...panel, children: (panel.children ?? []).map((child) => (isSnapTable(child) && !dockOf(child) ? stretched(child) : child)) })),
   }
 }
 

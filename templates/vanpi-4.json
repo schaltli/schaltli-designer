@@ -326,15 +326,20 @@
      "properties": {
       "grid": 1,
       "columns": [
-       {},
-       {}
+       {
+        "fill": true
+       },
+       {
+        "fill": true
+       }
       ],
       "rows": [
        {},
        {}
       ],
-      "equalColumns": true,
-      "widthMm": 68.4
+      "tableSize": {
+       "width": 464
+      }
      },
      "children": [
       {
@@ -373,12 +378,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-36",
        "zIndex": 1
@@ -419,12 +426,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-37",
        "zIndex": 2
@@ -443,16 +452,18 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 102
+         }
         },
         "fillColor": "panel",
         "strokeColor": "outline",
         "strokeWidth": 1,
         "cornerRadius": 14,
         "padding": 1,
-        "gapMm": 0.5
+        "gapMm": 0.5,
+        "ownSize": {
+         "width": 227,
+         "height": 102
+        }
        },
        "children": [
         {
@@ -472,10 +483,7 @@
           "borderColor": "transparent",
           "textStyle": "standard",
           "textBold": false,
-          "dock": "top",
-          "ownSize": {
-           "width": 211
-          }
+          "dock": "top"
          },
          "zIndex": 2,
          "id": "obj-40"
@@ -492,7 +500,9 @@
            {
             "mm": 16.81422711864407
            },
-           {}
+           {
+            "fill": true
+           }
           ],
           "rows": [
            {}
@@ -568,8 +578,10 @@
              "column": 1,
              "anchor": {
               "x": "stretch"
-             },
-             "drawnWidth": 65
+             }
+            },
+            "ownSize": {
+             "width": 65
             }
            },
            "id": "obj-43",
@@ -597,16 +609,18 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 107
+         }
         },
         "fillColor": "panel",
         "strokeColor": "outline",
         "strokeWidth": 1,
         "cornerRadius": 14,
         "padding": 1,
-        "gapMm": 0.5
+        "gapMm": 0.5,
+        "ownSize": {
+         "width": 227,
+         "height": 107
+        }
        },
        "children": [
         {
@@ -619,7 +633,9 @@
           "grid": 1,
           "columns": [
            {},
-           {}
+           {
+            "fill": true
+           }
           ],
           "rows": [
            {}
@@ -688,7 +704,9 @@
            {
             "mm": 16.81422711864407
            },
-           {}
+           {
+            "fill": true
+           }
           ],
           "rows": [
            {}
@@ -764,8 +782,10 @@
              "column": 1,
              "anchor": {
               "x": "stretch"
-             },
-             "drawnWidth": 65
+             }
+            },
+            "ownSize": {
+             "width": 65
             }
            },
            "id": "obj-50",
@@ -808,7 +828,9 @@
         "columns": [
          {},
          {},
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -915,7 +937,9 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -956,8 +980,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 211
+           }
+          },
+          "ownSize": {
+           "width": 211
           }
          },
          "id": "obj-57",
@@ -998,7 +1024,9 @@
         "columns": [
          {},
          {},
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -1105,7 +1133,9 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -1146,8 +1176,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 211
+           }
+          },
+          "ownSize": {
+           "width": 211
           }
          },
          "id": "obj-64",
@@ -1203,7 +1235,9 @@
          {
           "mm": 7
          },
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {},
@@ -1352,8 +1386,10 @@
            "column": 2,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 100
+           }
+          },
+          "ownSize": {
+           "width": 100
           }
          },
          "id": "obj-71",
@@ -1497,8 +1533,10 @@
            "column": 2,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 100
+           }
+          },
+          "ownSize": {
+           "width": 100
           }
          },
          "id": "obj-204",
@@ -1642,8 +1680,10 @@
            "column": 2,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 100
+           }
+          },
+          "ownSize": {
+           "width": 100
           }
          },
          "id": "obj-211",
@@ -1787,8 +1827,10 @@
            "column": 2,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 100
+           }
+          },
+          "ownSize": {
+           "width": 100
           }
          },
          "id": "obj-217",
@@ -1947,14 +1989,19 @@
      "properties": {
       "grid": 1,
       "columns": [
-       {},
-       {}
+       {
+        "fill": true
+       },
+       {
+        "fill": true
+       }
       ],
       "rows": [
        {}
       ],
-      "equalColumns": true,
-      "widthMm": 68.4
+      "tableSize": {
+       "width": 464
+      }
      },
      "children": [
       {
@@ -1993,12 +2040,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-111",
        "zIndex": 3
@@ -2039,12 +2088,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-112",
        "zIndex": 4
@@ -2078,7 +2129,9 @@
         "columns": [
          {},
          {},
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -2185,7 +2238,9 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -2226,8 +2281,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 213
+           }
+          },
+          "ownSize": {
+           "width": 213
           }
          },
          "id": "obj-103",
@@ -2268,7 +2325,9 @@
         "columns": [
          {},
          {},
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -2375,7 +2434,9 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -2416,8 +2477,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 213
+           }
+          },
+          "ownSize": {
+           "width": 213
           }
          },
          "id": "obj-110",
@@ -2460,8 +2523,12 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {},
-         {}
+         {
+          "fill": true
+         },
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {},
@@ -2470,8 +2537,9 @@
          {},
          {}
         ],
-        "equalColumns": true,
-        "widthMm": 68.43685423728813
+        "tableSize": {
+         "width": 464
+        }
        },
        "children": [
         {
@@ -2510,8 +2578,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 227
+           }
+          },
+          "ownSize": {
+           "width": 227
           }
          },
          "id": "obj-125",
@@ -2568,8 +2638,10 @@
            "columnSpan": 2,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 464
+           }
+          },
+          "ownSize": {
+           "width": 464
           }
          },
          "children": [
@@ -2595,7 +2667,9 @@
              "properties": {
               "grid": 1,
               "columns": [
-               {}
+               {
+                "fill": true
+               }
               ],
               "rows": [
                {}
@@ -2614,15 +2688,17 @@
                  "column": 0,
                  "anchor": {
                   "x": "stretch"
-                 },
-                 "drawnWidth": 464
+                 }
                 },
                 "look": "card",
                 "fillColor": "panel",
                 "strokeColor": "outline",
                 "strokeWidth": 1,
                 "cornerRadius": 14,
-                "padding": 1
+                "padding": 1,
+                "ownSize": {
+                 "width": 464
+                }
                },
                "children": [
                 {
@@ -2640,10 +2716,7 @@
                   "fontWeight": "normal",
                   "backgroundColor": "transparent",
                   "borderColor": "transparent",
-                  "dock": "top",
-                  "ownSize": {
-                   "width": 213
-                  }
+                  "dock": "top"
                  },
                  "zIndex": 2,
                  "id": "obj-131"
@@ -2683,10 +2756,7 @@
                   "textStyle": "standard",
                   "textBold": false,
                   "fontSize": 18,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 444
-                  }
+                  "dock": "fill"
                  },
                  "zIndex": 1,
                  "id": "obj-132"
@@ -2722,8 +2792,10 @@
            "anchor": {
             "x": "stretch",
             "y": "bottom"
-           },
-           "drawnWidth": 227
+           }
+          },
+          "ownSize": {
+           "width": 227
           }
          },
          "children": [
@@ -2749,7 +2821,9 @@
              "properties": {
               "grid": 1,
               "columns": [
-               {}
+               {
+                "fill": true
+               }
               ],
               "rows": [
                {}
@@ -2822,7 +2896,9 @@
              "properties": {
               "grid": 1,
               "columns": [
-               {}
+               {
+                "fill": true
+               }
               ],
               "rows": [
                {}
@@ -2895,7 +2971,9 @@
              "properties": {
               "grid": 1,
               "columns": [
-               {}
+               {
+                "fill": true
+               }
               ],
               "rows": [
                {}
@@ -2967,7 +3045,9 @@
              "properties": {
               "grid": 1,
               "columns": [
-               {}
+               {
+                "fill": true
+               }
               ],
               "rows": [
                {}
@@ -3122,90 +3202,119 @@
    "name": "MaxxFan",
    "objects": [
     {
-     "type": "free",
+     "id": "obj-271",
+     "type": "table",
      "x": 8,
      "y": 52,
      "width": 464,
-     "height": 362,
+     "height": 269,
+     "zIndex": 5,
      "properties": {
-      "blockTiles": true,
-      "strokeWidth": 0,
-      "padding": 0
+      "grid": 1,
+      "columns": [
+       {
+        "fill": true
+       },
+       {
+        "fill": true
+       }
+      ],
+      "rows": [
+       {},
+       {},
+       {}
+      ],
+      "tableSize": {
+       "width": 464
+      }
      },
      "children": [
       {
-       "type": "table",
+       "type": "toggle-button",
        "x": 0,
        "y": 0,
-       "width": 464,
-       "height": 362,
+       "width": 227,
+       "height": 68,
        "properties": {
-        "grid": 1,
-        "columns": [
-         {},
-         {}
+        "topic": "schaltli/state/maxxfan/power",
+        "writeTopic": "schaltli/cmnd/maxxfan/power",
+        "text": "Lüfter",
+        "states": [
+         {
+          "id": "off",
+          "label": "Aus",
+          "readValue": "off",
+          "writeValue": "off"
+         },
+         {
+          "id": "on",
+          "label": "An",
+          "readValue": "on",
+          "writeValue": "on",
+          "showAsOn": true,
+          "iconAssetId": "baustein-icon-mdi-fan"
+         }
         ],
-        "rows": [
-         {},
-         {}
-        ],
-        "equalColumns": true,
-        "widthMm": 68.43685423728813
+        "switchStyle": "led-v",
+        "switchColor": "accent",
+        "fontId": "font-montserrat-c14",
+        "textStyle": "xl",
+        "textBold": false,
+        "cell": {
+         "row": 0,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         }
+        },
+        "ownSize": {
+         "width": 271,
+         "height": 68
+        }
+       },
+       "id": "obj-263",
+       "zIndex": 5
+      },
+      {
+       "id": "obj-268",
+       "type": "free",
+       "x": 237,
+       "y": 0,
+       "width": 227,
+       "height": 68,
+       "zIndex": 6,
+       "properties": {
+        "gapMm": 0,
+        "fillColor": "panel",
+        "strokeColor": "outline",
+        "strokeWidth": 1,
+        "cornerRadius": 14,
+        "padding": 1,
+        "look": "card",
+        "cell": {
+         "row": 0,
+         "column": 1,
+         "anchor": {
+          "x": "stretch",
+          "y": "stretch"
+         }
+        },
+        "ownSize": {
+         "width": 164,
+         "height": 51
+        }
        },
        "children": [
         {
-         "type": "toggle-button",
-         "x": 0,
-         "y": 0,
-         "width": 227,
-         "height": 78,
-         "properties": {
-          "topic": "schaltli/state/maxxfan/power",
-          "writeTopic": "schaltli/cmnd/maxxfan/power",
-          "text": "Lüfter",
-          "states": [
-           {
-            "id": "off",
-            "label": "Aus",
-            "readValue": "off",
-            "writeValue": "off"
-           },
-           {
-            "id": "on",
-            "label": "An",
-            "readValue": "on",
-            "writeValue": "on",
-            "showAsOn": true,
-            "iconAssetId": "baustein-icon-mdi-fan"
-           }
-          ],
-          "switchStyle": "korry",
-          "switchColor": "accent",
-          "fontId": "font-montserrat-c14",
-          "textStyle": "xl",
-          "textBold": false,
-          "cell": {
-           "row": 0,
-           "column": 0,
-           "anchor": {
-            "x": "stretch"
-           },
-           "drawnWidth": 227
-          }
-         },
-         "id": "obj-157",
-         "zIndex": 0
-        },
-        {
-         "type": "toggle-button",
-         "x": 237,
-         "y": 0,
-         "width": 227,
-         "height": 78,
+         "type": "button-group",
+         "x": 7,
+         "y": 27,
+         "width": 213,
+         "height": 34,
          "properties": {
           "topic": "schaltli/state/maxxfan/cover",
           "writeTopic": "schaltli/cmnd/maxxfan/cover",
-          "text": "Deckel",
           "states": [
            {
             "id": "off",
@@ -3221,471 +3330,211 @@
             "showAsOn": true
            }
           ],
-          "switchStyle": "korry",
+          "switchStyle": "led",
           "switchColor": "accent",
           "fontId": "font-montserrat-c14",
           "textStyle": "xl",
           "textBold": false,
-          "cell": {
-           "row": 0,
-           "column": 1,
-           "anchor": {
-            "x": "stretch"
-           },
-           "drawnWidth": 227
-          }
+          "sizeStep": "xs",
+          "anchor": {
+           "y": "bottom"
+          },
+          "dock": "fill",
+          "guard": true
          },
-         "id": "obj-158",
+         "id": "obj-269",
          "zIndex": 1
-        },
+        }
+       ]
+      },
+      {
+       "type": "switcher",
+       "x": 0,
+       "y": 78,
+       "width": 464,
+       "height": 55,
+       "properties": {
+        "topic": "schaltli/state/maxxfan/power",
+        "comparisonOperator": "==",
+        "comparisonValue": "",
+        "cell": {
+         "row": 1,
+         "column": 0,
+         "anchor": {
+          "x": "stretch",
+          "y": "top"
+         },
+         "columnSpan": 2
+        }
+       },
+       "children": [
         {
-         "type": "switcher",
+         "id": "panel-1794857480483",
+         "type": "panel",
          "x": 0,
-         "y": 88,
+         "y": 0,
          "width": 464,
-         "height": 274,
+         "height": 55,
+         "zIndex": 0,
          "properties": {
-          "topic": "schaltli/state/maxxfan/hvac_mode",
           "comparisonOperator": "==",
-          "comparisonValue": "",
-          "cell": {
-           "row": 1,
-           "column": 0,
-           "columnSpan": 2,
-           "anchor": {
-            "x": "stretch"
-           },
-           "drawnWidth": 464
-          }
+          "comparisonValue": "on",
+          "look": "card",
+          "fillColor": "panel",
+          "strokeColor": "outline",
+          "strokeWidth": 1,
+          "cornerRadius": 14,
+          "padding": 1
          },
          "children": [
           {
-           "id": "obj-160",
-           "type": "panel",
-           "x": 0,
-           "y": 0,
-           "width": 464,
-           "height": 274,
-           "zIndex": 0,
+           "type": "button-group",
+           "x": 7,
+           "y": 7,
+           "width": 450,
+           "height": 41,
            "properties": {
-            "comparisonOperator": "==",
-            "comparisonValue": "fan_only"
-           },
-           "children": [
-            {
-             "type": "table",
-             "x": 0,
-             "y": 0,
-             "width": 464,
-             "height": 274,
-             "properties": {
-              "grid": 1,
-              "columns": [
-               {}
-              ],
-              "rows": [
-               {},
-               {},
-               {}
-              ]
+            "topic": "schaltli/state/maxxfan/hvac_mode",
+            "writeTopic": "schaltli/cmnd/maxxfan/mode",
+            "states": [
+             {
+              "id": "option-0",
+              "label": "Hand",
+              "readValue": "fan_only",
+              "writeValue": "fan_only"
              },
-             "children": [
-              {
-               "type": "free",
-               "x": 0,
-               "y": 0,
-               "width": 464,
-               "height": 86,
-               "properties": {
-                "cell": {
-                 "row": 0,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
-               },
-               "children": [
-                {
-                 "type": "text",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
-                 "height": 26,
-                 "properties": {
-                  "text": "Betrieb",
-                  "fontId": "font-montserrat-c14",
-                  "fontSize": 26,
-                  "color": "text",
-                  "textAlign": "left",
-                  "fontWeight": "normal",
-                  "backgroundColor": "transparent",
-                  "borderColor": "transparent",
-                  "dock": "top",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 2,
-                 "id": "obj-163"
-                },
-                {
-                 "type": "button-group",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 28,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/hvac_mode",
-                  "writeTopic": "schaltli/cmnd/maxxfan/mode",
-                  "states": [
-                   {
-                    "id": "option-0",
-                    "label": "Hand",
-                    "readValue": "fan_only",
-                    "writeValue": "fan_only"
-                   },
-                   {
-                    "id": "option-1",
-                    "label": "Auto",
-                    "readValue": "auto",
-                    "writeValue": "auto"
-                   }
-                  ],
-                  "switchStyle": "led",
-                  "switchColor": "accent",
-                  "fontId": "font-montserrat-c10",
-                  "textStyle": "standard",
-                  "textBold": false,
-                  "fontSize": 18,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-164"
-                }
-               ],
-               "id": "obj-162",
-               "zIndex": 0
-              },
-              {
-               "type": "free",
-               "x": 0,
-               "y": 96,
-               "width": 464,
-               "height": 82,
-               "properties": {
-                "cell": {
-                 "row": 1,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
-               },
-               "children": [
-                {
-                 "type": "table",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
-                 "height": 26,
-                 "properties": {
-                  "grid": 1,
-                  "columns": [
-                   {},
-                   {}
-                  ],
-                  "rows": [
-                   {}
-                  ],
-                  "dock": "top"
-                 },
-                 "children": [
-                  {
-                   "type": "text",
-                   "x": 0,
-                   "y": 0,
-                   "width": 93,
-                   "height": 26,
-                   "properties": {
-                    "text": "Drehzahl",
-                    "fontId": "font-montserrat-c14",
-                    "fontSize": 26,
-                    "color": "text",
-                    "textAlign": "left",
-                    "fontWeight": "normal",
-                    "backgroundColor": "transparent",
-                    "borderColor": "transparent",
-                    "cell": {
-                     "row": 0,
-                     "column": 0
-                    }
-                   },
-                   "id": "obj-167",
-                   "zIndex": 0
-                  },
-                  {
-                   "type": "text",
-                   "x": 103,
-                   "y": 0,
-                   "width": 347,
-                   "height": 26,
-                   "properties": {
-                    "text": "{live:lv1}",
-                    "liveValues": [
-                     {
-                      "id": "lv1",
-                      "source": {
-                       "namespace": "topic",
-                       "path": "schaltli/state/maxxfan/speed"
-                      },
-                      "rules": [],
-                      "format": {
-                       "kind": "number",
-                       "decimals": 0,
-                       "grouped": false
-                      },
-                      "otherwise": {
-                       "kind": "text",
-                       "parts": [
-                        {
-                         "value": true
-                        },
-                        " %"
-                       ]
-                      }
-                     }
-                    ],
-                    "fontId": "font-montserrat-c14",
-                    "fontSize": 26,
-                    "color": "text",
-                    "textAlign": "right",
-                    "fontWeight": "normal",
-                    "backgroundColor": "transparent",
-                    "borderColor": "transparent",
-                    "cell": {
-                     "row": 0,
-                     "column": 1
-                    }
-                   },
-                   "id": "obj-168",
-                   "zIndex": 1
-                  }
-                 ],
-                 "zIndex": 2,
-                 "id": "obj-166"
-                },
-                {
-                 "type": "slider",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 24,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/speed",
-                  "direction": "left-to-right",
-                  "calibrationPoints": [
-                   {
-                    "value": 10,
-                    "barSizePercent": 0
-                   },
-                   {
-                    "value": 100,
-                    "barSizePercent": 100
-                   }
-                  ],
-                  "displayValue": "none",
-                  "fillColor": "accent",
-                  "thickness": 16,
-                  "textColor": "text",
-                  "fontId": "font-montserrat-c14",
-                  "fontSize": 26,
-                  "writeTopic": "schaltli/cmnd/maxxfan/speed",
-                  "step": 10,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-169"
-                }
-               ],
-               "id": "obj-165",
-               "zIndex": 0
-              },
-              {
-               "type": "free",
-               "x": 0,
-               "y": 188,
-               "width": 464,
-               "height": 86,
-               "properties": {
-                "cell": {
-                 "row": 2,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
-               },
-               "children": [
-                {
-                 "type": "text",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
-                 "height": 26,
-                 "properties": {
-                  "text": "Luft",
-                  "fontId": "font-montserrat-c14",
-                  "fontSize": 26,
-                  "color": "text",
-                  "textAlign": "left",
-                  "fontWeight": "normal",
-                  "backgroundColor": "transparent",
-                  "borderColor": "transparent",
-                  "dock": "top",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 2,
-                 "id": "obj-171"
-                },
-                {
-                 "type": "button-group",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 28,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/airflow",
-                  "writeTopic": "schaltli/cmnd/maxxfan/airflow",
-                  "states": [
-                   {
-                    "id": "option-0",
-                    "label": "Rein",
-                    "readValue": "in",
-                    "writeValue": "in"
-                   },
-                   {
-                    "id": "option-1",
-                    "label": "Raus",
-                    "readValue": "out",
-                    "writeValue": "out"
-                   }
-                  ],
-                  "switchStyle": "led",
-                  "switchColor": "accent",
-                  "fontId": "font-montserrat-c10",
-                  "textStyle": "standard",
-                  "textBold": false,
-                  "fontSize": 18,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-172"
-                }
-               ],
-               "id": "obj-170",
-               "zIndex": 0
-              }
-             ],
-             "id": "obj-161",
-             "zIndex": 0
-            }
-           ]
-          },
+             {
+              "id": "option-1",
+              "label": "Auto",
+              "readValue": "auto",
+              "writeValue": "auto"
+             }
+            ],
+            "switchStyle": "led",
+            "switchColor": "accent",
+            "fontId": "font-montserrat-c14",
+            "textStyle": "xl",
+            "textBold": false,
+            "fontSize": 26,
+            "dock": "top",
+            "sizeStep": "s"
+           },
+           "zIndex": 1,
+           "id": "obj-255"
+          }
+         ]
+        }
+       ],
+       "id": "obj-273",
+       "zIndex": 7
+      },
+      {
+       "type": "switcher",
+       "x": 0,
+       "y": 143,
+       "width": 464,
+       "height": 126,
+       "properties": {
+        "topic": "schaltli/state/maxxfan/hvac_mode",
+        "comparisonOperator": "==",
+        "comparisonValue": "",
+        "cell": {
+         "row": 2,
+         "column": 0,
+         "columnSpan": 2,
+         "anchor": {
+          "x": "stretch"
+         }
+        }
+       },
+       "children": [
+        {
+         "id": "obj-224",
+         "type": "panel",
+         "x": 0,
+         "y": 0,
+         "width": 464,
+         "height": 126,
+         "zIndex": 0,
+         "properties": {
+          "comparisonOperator": "==",
+          "comparisonValue": "fan_only",
+          "fillColor": "panel",
+          "strokeColor": "outline",
+          "strokeWidth": 1,
+          "cornerRadius": 14,
+          "padding": 1,
+          "look": "card"
+         },
+         "children": [
           {
-           "id": "obj-173",
-           "type": "panel",
-           "x": 0,
-           "y": 0,
-           "width": 464,
-           "height": 274,
+           "id": "obj-278",
+           "type": "table",
+           "x": 7,
+           "y": 7,
+           "width": 450,
+           "height": 112,
            "zIndex": 0,
            "properties": {
-            "comparisonOperator": "==",
-            "comparisonValue": "auto"
+            "grid": 1,
+            "columns": [
+             {
+              "fill": true
+             }
+            ],
+            "rows": [
+             {},
+             {}
+            ],
+            "dock": "top"
            },
            "children": [
             {
-             "type": "table",
-             "x": 0,
+             "type": "free",
+             "x": 14,
              "y": 0,
-             "width": 464,
-             "height": 274,
+             "width": 423,
+             "height": 74,
              "properties": {
-              "grid": 1,
-              "columns": [
-               {}
-              ],
-              "rows": [
-               {},
-               {},
-               {}
-              ]
+              "fillColor": "panel",
+              "strokeColor": "panel",
+              "strokeWidth": 1,
+              "cornerRadius": 14,
+              "padding": 1,
+              "cell": {
+               "row": 0,
+               "column": 0
+              }
              },
              "children": [
               {
-               "type": "free",
-               "x": 0,
-               "y": 0,
-               "width": 464,
-               "height": 86,
+               "type": "table",
+               "x": 7,
+               "y": 7,
+               "width": 409,
+               "height": 26,
                "properties": {
-                "cell": {
-                 "row": 0,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
+                "grid": 1,
+                "columns": [
+                 {},
+                 {
+                  "fill": true
+                 }
+                ],
+                "rows": [
+                 {}
+                ],
+                "dock": "top"
                },
                "children": [
                 {
                  "type": "text",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
+                 "x": 0,
+                 "y": 0,
+                 "width": 93,
                  "height": 26,
                  "properties": {
-                  "text": "Betrieb",
+                  "text": "Drehzahl",
                   "fontId": "font-montserrat-c14",
                   "fontSize": 26,
                   "color": "text",
@@ -3693,313 +3542,377 @@
                   "fontWeight": "normal",
                   "backgroundColor": "transparent",
                   "borderColor": "transparent",
-                  "dock": "top",
-                  "ownSize": {
-                   "width": 213
+                  "cell": {
+                   "row": 0,
+                   "column": 0
                   }
                  },
-                 "zIndex": 2,
-                 "id": "obj-176"
+                 "id": "obj-231",
+                 "zIndex": 0
                 },
-                {
-                 "type": "button-group",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 28,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/hvac_mode",
-                  "writeTopic": "schaltli/cmnd/maxxfan/mode",
-                  "states": [
-                   {
-                    "id": "option-0",
-                    "label": "Hand",
-                    "readValue": "fan_only",
-                    "writeValue": "fan_only"
-                   },
-                   {
-                    "id": "option-1",
-                    "label": "Auto",
-                    "readValue": "auto",
-                    "writeValue": "auto"
-                   }
-                  ],
-                  "switchStyle": "led",
-                  "switchColor": "accent",
-                  "fontId": "font-montserrat-c10",
-                  "textStyle": "standard",
-                  "textBold": false,
-                  "fontSize": 18,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-177"
-                }
-               ],
-               "id": "obj-175",
-               "zIndex": 0
-              },
-              {
-               "type": "free",
-               "x": 0,
-               "y": 96,
-               "width": 464,
-               "height": 82,
-               "properties": {
-                "cell": {
-                 "row": 1,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
-               },
-               "children": [
-                {
-                 "type": "table",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
-                 "height": 26,
-                 "properties": {
-                  "grid": 1,
-                  "columns": [
-                   {},
-                   {}
-                  ],
-                  "rows": [
-                   {}
-                  ],
-                  "dock": "top"
-                 },
-                 "children": [
-                  {
-                   "type": "text",
-                   "x": 0,
-                   "y": 0,
-                   "width": 121,
-                   "height": 26,
-                   "properties": {
-                    "text": "Temperatur",
-                    "fontId": "font-montserrat-c14",
-                    "fontSize": 26,
-                    "color": "text",
-                    "textAlign": "left",
-                    "fontWeight": "normal",
-                    "backgroundColor": "transparent",
-                    "borderColor": "transparent",
-                    "cell": {
-                     "row": 0,
-                     "column": 0
-                    }
-                   },
-                   "id": "obj-180",
-                   "zIndex": 0
-                  },
-                  {
-                   "type": "text",
-                   "x": 131,
-                   "y": 0,
-                   "width": 319,
-                   "height": 26,
-                   "properties": {
-                    "text": "{live:lv1}",
-                    "liveValues": [
-                     {
-                      "id": "lv1",
-                      "source": {
-                       "namespace": "topic",
-                       "path": "schaltli/state/maxxfan/temperature"
-                      },
-                      "rules": [],
-                      "format": {
-                       "kind": "number",
-                       "decimals": 0,
-                       "grouped": false
-                      },
-                      "otherwise": {
-                       "kind": "text",
-                       "parts": [
-                        {
-                         "value": true
-                        },
-                        " °C"
-                       ]
-                      }
-                     }
-                    ],
-                    "fontId": "font-montserrat-c14",
-                    "fontSize": 26,
-                    "color": "text",
-                    "textAlign": "right",
-                    "fontWeight": "normal",
-                    "backgroundColor": "transparent",
-                    "borderColor": "transparent",
-                    "cell": {
-                     "row": 0,
-                     "column": 1
-                    }
-                   },
-                   "id": "obj-181",
-                   "zIndex": 1
-                  }
-                 ],
-                 "zIndex": 2,
-                 "id": "obj-179"
-                },
-                {
-                 "type": "slider",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 24,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/temperature",
-                  "direction": "left-to-right",
-                  "calibrationPoints": [
-                   {
-                    "value": 0,
-                    "barSizePercent": 0
-                   },
-                   {
-                    "value": 37,
-                    "barSizePercent": 100
-                   }
-                  ],
-                  "displayValue": "none",
-                  "fillColor": "accent",
-                  "thickness": 16,
-                  "textColor": "text",
-                  "fontId": "font-montserrat-c14",
-                  "fontSize": 26,
-                  "writeTopic": "schaltli/cmnd/maxxfan/temperature",
-                  "step": 1,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-182"
-                }
-               ],
-               "id": "obj-178",
-               "zIndex": 0
-              },
-              {
-               "type": "free",
-               "x": 0,
-               "y": 188,
-               "width": 464,
-               "height": 86,
-               "properties": {
-                "cell": {
-                 "row": 2,
-                 "column": 0,
-                 "anchor": {
-                  "x": "stretch"
-                 },
-                 "drawnWidth": 464
-                },
-                "look": "card",
-                "fillColor": "panel",
-                "strokeColor": "outline",
-                "strokeWidth": 1,
-                "cornerRadius": 14,
-                "padding": 1
-               },
-               "children": [
                 {
                  "type": "text",
-                 "x": 7,
-                 "y": 7,
-                 "width": 450,
+                 "x": 103,
+                 "y": 0,
+                 "width": 306,
                  "height": 26,
                  "properties": {
-                  "text": "Luft",
+                  "text": "{live:lv1}",
+                  "liveValues": [
+                   {
+                    "id": "lv1",
+                    "source": {
+                     "namespace": "topic",
+                     "path": "schaltli/state/maxxfan/speed"
+                    },
+                    "rules": [],
+                    "format": {
+                     "kind": "number",
+                     "decimals": 0,
+                     "grouped": false
+                    },
+                    "otherwise": {
+                     "kind": "text",
+                     "parts": [
+                      {
+                       "value": true
+                      },
+                      " %"
+                     ]
+                    }
+                   }
+                  ],
                   "fontId": "font-montserrat-c14",
                   "fontSize": 26,
                   "color": "text",
-                  "textAlign": "left",
+                  "textAlign": "right",
                   "fontWeight": "normal",
                   "backgroundColor": "transparent",
                   "borderColor": "transparent",
-                  "dock": "top",
-                  "ownSize": {
-                   "width": 213
+                  "cell": {
+                   "row": 0,
+                   "column": 1
                   }
                  },
-                 "zIndex": 2,
-                 "id": "obj-184"
-                },
-                {
-                 "type": "button-group",
-                 "x": 7,
-                 "y": 43,
-                 "width": 450,
-                 "height": 28,
-                 "properties": {
-                  "topic": "schaltli/state/maxxfan/airflow",
-                  "writeTopic": "schaltli/cmnd/maxxfan/airflow",
-                  "states": [
-                   {
-                    "id": "option-0",
-                    "label": "Rein",
-                    "readValue": "in",
-                    "writeValue": "in"
-                   },
-                   {
-                    "id": "option-1",
-                    "label": "Raus",
-                    "readValue": "out",
-                    "writeValue": "out"
-                   }
-                  ],
-                  "switchStyle": "led",
-                  "switchColor": "accent",
-                  "fontId": "font-montserrat-c10",
-                  "textStyle": "standard",
-                  "textBold": false,
-                  "fontSize": 18,
-                  "dock": "fill",
-                  "ownSize": {
-                   "width": 213
-                  }
-                 },
-                 "zIndex": 1,
-                 "id": "obj-185"
+                 "id": "obj-232",
+                 "zIndex": 1
                 }
                ],
-               "id": "obj-183",
-               "zIndex": 0
+               "zIndex": 2,
+               "id": "obj-230"
+              },
+              {
+               "type": "slider",
+               "x": 7,
+               "y": 43,
+               "width": 409,
+               "height": 24,
+               "properties": {
+                "topic": "schaltli/state/maxxfan/speed",
+                "direction": "left-to-right",
+                "calibrationPoints": [
+                 {
+                  "value": 10,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 100,
+                  "barSizePercent": 100
+                 }
+                ],
+                "displayValue": "none",
+                "fillColor": "accent",
+                "thickness": 16,
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/maxxfan/speed",
+                "step": 10,
+                "dock": "fill"
+               },
+               "zIndex": 1,
+               "id": "obj-233"
               }
              ],
-             "id": "obj-174",
+             "id": "obj-229",
              "zIndex": 0
+            },
+            {
+             "type": "button-group",
+             "x": 176,
+             "y": 84,
+             "width": 98,
+             "height": 28,
+             "properties": {
+              "topic": "schaltli/state/maxxfan/airflow",
+              "writeTopic": "schaltli/cmnd/maxxfan/airflow",
+              "states": [
+               {
+                "id": "option-0",
+                "label": "Rein",
+                "readValue": "in",
+                "writeValue": "in"
+               },
+               {
+                "id": "option-1",
+                "label": "Raus",
+                "readValue": "out",
+                "writeValue": "out"
+               }
+              ],
+              "switchStyle": "led",
+              "switchColor": "accent",
+              "fontId": "font-montserrat-c10",
+              "textStyle": "standard",
+              "textBold": false,
+              "fontSize": 18,
+              "cell": {
+               "row": 1,
+               "column": 0
+              }
+             },
+             "zIndex": 1,
+             "id": "obj-277"
             }
            ]
           }
-         ],
-         "id": "obj-159",
-         "zIndex": 2
+         ]
+        },
+        {
+         "id": "obj-237",
+         "type": "panel",
+         "x": 0,
+         "y": 0,
+         "width": 464,
+         "height": 126,
+         "zIndex": 0,
+         "properties": {
+          "comparisonOperator": "==",
+          "comparisonValue": "auto",
+          "look": "card",
+          "fillColor": "panel",
+          "strokeColor": "outline",
+          "strokeWidth": 1,
+          "cornerRadius": 14,
+          "padding": 1
+         },
+         "children": [
+          {
+           "id": "obj-276",
+           "type": "table",
+           "x": 7,
+           "y": 7,
+           "width": 450,
+           "height": 112,
+           "zIndex": 0,
+           "properties": {
+            "grid": 1,
+            "columns": [
+             {
+              "fill": true
+             }
+            ],
+            "rows": [
+             {},
+             {}
+            ],
+            "dock": "top"
+           },
+           "children": [
+            {
+             "type": "free",
+             "x": 14,
+             "y": 0,
+             "width": 423,
+             "height": 74,
+             "properties": {
+              "fillColor": "panel",
+              "strokeColor": "panel",
+              "strokeWidth": 1,
+              "cornerRadius": 14,
+              "padding": 1,
+              "cell": {
+               "row": 0,
+               "column": 0
+              }
+             },
+             "children": [
+              {
+               "type": "table",
+               "x": 7,
+               "y": 7,
+               "width": 409,
+               "height": 26,
+               "properties": {
+                "grid": 1,
+                "columns": [
+                 {},
+                 {
+                  "fill": true
+                 }
+                ],
+                "rows": [
+                 {}
+                ],
+                "dock": "top"
+               },
+               "children": [
+                {
+                 "type": "text",
+                 "x": 0,
+                 "y": 0,
+                 "width": 121,
+                 "height": 26,
+                 "properties": {
+                  "text": "Temperatur",
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "left",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "cell": {
+                   "row": 0,
+                   "column": 0
+                  }
+                 },
+                 "id": "obj-244",
+                 "zIndex": 0
+                },
+                {
+                 "type": "text",
+                 "x": 131,
+                 "y": 0,
+                 "width": 278,
+                 "height": 26,
+                 "properties": {
+                  "text": "{live:lv1}",
+                  "liveValues": [
+                   {
+                    "id": "lv1",
+                    "source": {
+                     "namespace": "topic",
+                     "path": "schaltli/state/maxxfan/temperature"
+                    },
+                    "rules": [],
+                    "format": {
+                     "kind": "number",
+                     "decimals": 0,
+                     "grouped": false
+                    },
+                    "otherwise": {
+                     "kind": "text",
+                     "parts": [
+                      {
+                       "value": true
+                      },
+                      " °C"
+                     ]
+                    }
+                   }
+                  ],
+                  "fontId": "font-montserrat-c14",
+                  "fontSize": 26,
+                  "color": "text",
+                  "textAlign": "right",
+                  "fontWeight": "normal",
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "cell": {
+                   "row": 0,
+                   "column": 1
+                  }
+                 },
+                 "id": "obj-245",
+                 "zIndex": 1
+                }
+               ],
+               "zIndex": 2,
+               "id": "obj-243"
+              },
+              {
+               "type": "slider",
+               "x": 7,
+               "y": 43,
+               "width": 409,
+               "height": 24,
+               "properties": {
+                "topic": "schaltli/state/maxxfan/temperature",
+                "direction": "left-to-right",
+                "calibrationPoints": [
+                 {
+                  "value": 0,
+                  "barSizePercent": 0
+                 },
+                 {
+                  "value": 37,
+                  "barSizePercent": 100
+                 }
+                ],
+                "displayValue": "none",
+                "fillColor": "accent",
+                "thickness": 16,
+                "textColor": "text",
+                "fontId": "font-montserrat-c14",
+                "fontSize": 26,
+                "writeTopic": "schaltli/cmnd/maxxfan/temperature",
+                "step": 1,
+                "dock": "fill"
+               },
+               "zIndex": 1,
+               "id": "obj-246"
+              }
+             ],
+             "id": "obj-242",
+             "zIndex": 0
+            },
+            {
+             "type": "button-group",
+             "x": 176,
+             "y": 84,
+             "width": 98,
+             "height": 28,
+             "properties": {
+              "topic": "schaltli/state/maxxfan/airflow",
+              "writeTopic": "schaltli/cmnd/maxxfan/airflow",
+              "states": [
+               {
+                "id": "option-0",
+                "label": "Rein",
+                "readValue": "in",
+                "writeValue": "in"
+               },
+               {
+                "id": "option-1",
+                "label": "Raus",
+                "readValue": "out",
+                "writeValue": "out"
+               }
+              ],
+              "switchStyle": "led",
+              "switchColor": "accent",
+              "fontId": "font-montserrat-c10",
+              "textStyle": "standard",
+              "textBold": false,
+              "fontSize": 18,
+              "cell": {
+               "row": 1,
+               "column": 0
+              }
+             },
+             "zIndex": 1,
+             "id": "obj-275"
+            }
+           ]
+          }
+         ]
         }
        ],
-       "zIndex": 1,
-       "id": "obj-156"
+       "id": "obj-223",
+       "zIndex": 7
       }
-     ],
-     "id": "obj-155",
-     "zIndex": 1
+     ]
     }
    ],
    "masterScreenId": "master-1",
@@ -4020,8 +3933,12 @@
      "properties": {
       "grid": 1,
       "columns": [
-       {},
-       {}
+       {
+        "fill": true
+       },
+       {
+        "fill": true
+       }
       ],
       "rows": [
        {},
@@ -4029,8 +3946,9 @@
        {},
        {}
       ],
-      "equalColumns": true,
-      "widthMm": 68.4
+      "tableSize": {
+       "width": 464
+      }
      },
      "children": [
       {
@@ -4069,12 +3987,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw1",
        "zIndex": 1
@@ -4115,12 +4035,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw2",
        "zIndex": 1
@@ -4161,12 +4083,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw3",
        "zIndex": 1
@@ -4207,12 +4131,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw4",
        "zIndex": 1
@@ -4253,12 +4179,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw5",
        "zIndex": 1
@@ -4299,12 +4227,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw6",
        "zIndex": 1
@@ -4345,12 +4275,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw7",
        "zIndex": 1
@@ -4391,12 +4323,14 @@
          "anchor": {
           "x": "stretch",
           "y": "stretch"
-         },
-         "drawnWidth": 227,
-         "drawnHeight": 78
+         }
         },
         "fontSize": 18,
-        "secondFontId": "font-montserrat-c8"
+        "secondFontId": "font-montserrat-c8",
+        "ownSize": {
+         "width": 227,
+         "height": 78
+        }
        },
        "id": "obj-sw8",
        "zIndex": 1
@@ -4485,7 +4419,9 @@
         "columns": [
          {},
          {},
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -4592,7 +4528,9 @@
        "properties": {
         "grid": 1,
         "columns": [
-         {}
+         {
+          "fill": true
+         }
         ],
         "rows": [
          {}
@@ -4633,8 +4571,10 @@
            "column": 0,
            "anchor": {
             "x": "stretch"
-           },
-           "drawnWidth": 213
+           }
+          },
+          "ownSize": {
+           "width": 213
           }
          },
          "id": "obj-121",
@@ -5584,7 +5524,7 @@
    "size": 199
   }
  ],
- "nextId": 221,
+ "nextId": 280,
  "snapGuides": [],
  "settings": {
   "exportFormat": "esp32",
@@ -5598,6 +5538,7 @@
    "edgePx": 1,
    "accentEdgePx": 2,
    "paddingMm": 1
-  }
+  },
+  "formatVersion": 4
  }
 }
