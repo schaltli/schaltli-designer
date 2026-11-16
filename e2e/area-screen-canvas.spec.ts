@@ -3,6 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
+import { FORMAT_VERSION } from "../lib/area-migration"
 import { COMBINED_TEST_PROJECT, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
 
 // The screen is an area (docs/2026-11-16-areas.md, step 1), in the designer:
@@ -53,7 +54,7 @@ test("an object on a screen has Position: docked Top it spans the panel; the scr
   let kasten = now.screen.objects.find((o: Obj) => o.id === "kasten")
   expect([kasten.x, kasten.y, kasten.width, kasten.height]).toEqual([0, 0, screenWidth, 30])
   // A project the designer saved says which form it has.
-  expect(now.project.settings.formatVersion).toBe(2)
+  expect(now.project.settings.formatVersion).toBe(FORMAT_VERSION)
 
   // The screen's own Padding, under «Area» in its properties.
   // A click beside the screen selects nothing: the screen's own properties.

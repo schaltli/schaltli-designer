@@ -31,7 +31,7 @@ Each step ends with `npm run test:quick` and a stop for the user.
   - a first run the same day failed in every device lane for want of the HIL broker on 1883 (`npm run hil:broker`)
 
 ## Step 2 - one kept size
-- [ ] T7 cell.drawnWidth/drawnHeight become ownSize; migration; «Min W»/«Min H» on it
+- [x] T7 cell.drawnWidth/drawnHeight become ownSize; migration at formatVersion 3 (a project of step 1 gets step 2 only); «Min W»/«Min H» on it. 2026-11-16: baseline green, three cases in areas-migration. Kept as it was: the size is written while stretched and dropped once not - the spec's «dropped where the content needs as much» would need each type's content size and changes no layout
 - [ ] T8 docking keeps no size (decision 14); saved ones go on load; test:quick
 - [ ] Checkpoint 2: test:quick noted here; the user confirms step 3
 

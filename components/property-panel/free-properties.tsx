@@ -161,13 +161,13 @@ export function FreeProperties({
             const min = (key === "width" || key === "height") && scale ? freeMinSize(selectedObject, scale) : undefined
             const size = min ? Math.max(value, min[key as "width" | "height"]) : value
             // Stretched in a table's cell, the table sizes its row and column
-            // by the size it was drawn at (cell.drawnWidth/drawnHeight), which
+            // by its own size (ownSize, the size it was drawn at), which
             // only ever grew: a typed height snapped back to it - a card 114 px
             // tall for 77 of content (the user, 2026-11-14). Typed, it is that.
             const cell = selectedObject.properties?.cell
-            const drawnKey = key === "width" ? "drawnWidth" : key === "height" ? "drawnHeight" : null
-            if (drawnKey && cell && typeof cell[drawnKey] === "number") {
-              onUpdateObject(selectedObject.id, { [key]: size, properties: { ...selectedObject.properties, cell: { ...cell, [drawnKey]: size } } })
+            const least = selectedObject.properties?.ownSize
+            if ((key === "width" || key === "height") && cell && typeof least?.[key] === "number") {
+              onUpdateObject(selectedObject.id, { [key]: size, properties: { ...selectedObject.properties, ownSize: { ...least, [key]: size } } })
               return
             }
             onUpdateObject(selectedObject.id, { [key]: size })

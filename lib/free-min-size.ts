@@ -145,21 +145,18 @@ export function holdsItsContent(area: ScreenObject, scale: LayoutScale): boolean
 }
 
 // A grown area keeps its new size where something else sizes it from what
-// it says it has: the size it is drawn at in a table's cell, stretched there
-// (cell.drawnWidth/drawnHeight - a row as high as that, lib/snap-table.ts),
-// and its own size when it is docked in another area (ownSize, lib/dock.ts).
+// it says it has: its own size (ownSize) where it is stretched in a table's
+// cell - a row as high as that, lib/snap-table.ts - or docked in another
+// area (lib/dock.ts).
 // Without, the table stretched it back and its own table was left out again
 // («Deckenlampe», the user 2026-11-06).
 function remembered(area: ScreenObject, width: number, height: number, set = false): ScreenObject {
   const to = (was: number, now: number) => (set ? now : Math.max(was, now))
   const p = area.properties ?? {}
-  const cell = p.cell && typeof p.cell === "object" ? { ...p.cell } : undefined
-  if (cell && typeof cell.drawnWidth === "number") cell.drawnWidth = to(cell.drawnWidth, width)
-  if (cell && typeof cell.drawnHeight === "number") cell.drawnHeight = to(cell.drawnHeight, height)
   const own = p.ownSize && typeof p.ownSize === "object" ? { ...p.ownSize } : undefined
   if (own && typeof own.width === "number") own.width = to(own.width, width)
   if (own && typeof own.height === "number") own.height = to(own.height, height)
-  return { ...area, properties: { ...p, ...(cell ? { cell } : {}), ...(own ? { ownSize: own } : {}) } }
+  return { ...area, properties: { ...p, ...(own ? { ownSize: own } : {}) } }
 }
 
 // `objects` with each free area that does not give what it holds its room

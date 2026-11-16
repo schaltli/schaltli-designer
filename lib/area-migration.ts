@@ -25,8 +25,11 @@ import type { ScreenObject } from "@/components/project-editor"
 import { AREA_KEYS } from "@/lib/area"
 import { objectBounds, translateObject } from "@/lib/object-groups"
 
-/** The project format this designer writes: 2 since areas. */
-export const FORMAT_VERSION = 2
+/**
+ * The project format this designer writes. 2: a panel and the screen are
+ * areas (step 1). 3: one kept size, `ownSize` (step 2).
+ */
+export const FORMAT_VERSION = 3
 
 type Obj = ScreenObject
 
@@ -122,18 +125,47 @@ function migrated(obj: Obj): Obj {
   return current
 }
 
+// Step 2 (decision 9): the size an object stretched in a table's cell was
+// drawn at, kept in its `cell` as drawnWidth and drawnHeight, is its
+// `ownSize` - the one place a kept size lives. At any depth.
+function withOneKeptSize(obj: Obj): Obj {
+  const children = obj.children?.map(withOneKeptSize)
+  let current: Obj = children && children.some((c, i) => c !== obj.children![i]) ? { ...obj, children } : obj
+  const cell = current.properties?.cell
+  if (cell && typeof cell === "object" && ("drawnWidth" in cell || "drawnHeight" in cell)) {
+    const { drawnWidth, drawnHeight, ...rest } = cell
+    const least = {
+      ...(current.properties?.ownSize ?? {}),
+      ...(typeof drawnWidth === "number" ? { width: drawnWidth } : {}),
+      ...(typeof drawnHeight === "number" ? { height: drawnHeight } : {}),
+    }
+    current = { ...current, properties: { ...current.properties, cell: rest, ...(Object.keys(least).length > 0 ? { ownSize: least } : {}) } }
+  }
+  return current
+}
+
 /**
  * A project brought to areas, in place; one that is there already is left
  * as it is. True if it was changed.
  */
 export function migrateToAreas(project: { screens?: Array<{ objects?: unknown[] }>; settings?: Record<string, any> }): boolean {
   const version = Number(project.settings?.formatVersion) || 1
+  // Step 2, whatever the project had of step 1.
+  if (version < 3) {
+    for (const screen of project.screens ?? []) {
+      if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map(withOneKeptSize)
+    }
+  }
   // A project of a designer newer than this one: laid out by rules this one
   // does not know, it would open looking right and be saved wrong.
   if (version > FORMAT_VERSION) {
     throw new Error(`This project was saved by a newer Schaltli designer (format ${version}, this designer reads up to ${FORMAT_VERSION}). Reload the designer to get the current one.`)
   }
   if (version >= FORMAT_VERSION) return false
+  if (version >= 2) {
+    project.settings = { ...(project.settings ?? {}), formatVersion: FORMAT_VERSION }
+    return true
+  }
   for (const screen of project.screens ?? []) {
     if (Array.isArray(screen.objects)) screen.objects = (screen.objects as Obj[]).map((obj) => migrated(panelsCleared(withoutStale(obj))))
   }

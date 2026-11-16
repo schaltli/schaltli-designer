@@ -41,9 +41,21 @@ export interface SnapCell {
   columnSpan?: number
   /** How it stands in its cell (lib/anchor.ts); absent axes take the defaults. */
   anchor?: Anchor
-  /** The drawn size, kept while Stretch overwrites it. */
-  drawnWidth?: number
-  drawnHeight?: number
+}
+
+/**
+ * The one kept size (docs/2026-11-16-areas.md, decision 9): where a table or
+ * an area gives an object more room than its own - Stretch in a cell, across
+ * a dock - its own width and height are kept in `properties.ownSize`, the
+ * least it asks for, and Frame shows them as «Min W» and «Min H». Until
+ * 2026-11-16 a cell kept them in `cell.drawnWidth/drawnHeight`.
+ */
+export function ownSizeOf(obj: ScreenObject): { width?: number; height?: number } {
+  const o = obj.properties?.ownSize
+  return {
+    ...(typeof o?.width === "number" ? { width: o.width } : {}),
+    ...(typeof o?.height === "number" ? { height: o.height } : {}),
+  }
 }
 /** A column or row; `mm` is a size set by hand. */
 export interface SnapLine {
@@ -136,12 +148,11 @@ const px = (mm: number, scale: LayoutScale) => Math.round(mm * scale.pixelsPerMm
 // pass would take the filled size for the natural one and the column would
 // grow on every change.
 function drawn(child: ScreenObject): ScreenObject {
-  const cell = snapCellOf(child)
-  return {
-    ...child,
-    width: typeof cell.drawnWidth === "number" ? cell.drawnWidth : child.width,
-    height: typeof cell.drawnHeight === "number" ? cell.drawnHeight : child.height,
-  }
+  // A switcher's is the least it asks for beside what its panels hold
+  // (lib/layout.ts naturalWidth), not a size Stretch overwrote.
+  if (child.type === "switcher") return child
+  const own = ownSizeOf(child)
+  return { ...child, width: own.width ?? child.width, height: own.height ?? child.height }
 }
 
 // A line keeps its points beside its x and y (properties.points, in the
@@ -282,18 +293,20 @@ export function arrangeSnapTable(table: ScreenObject, scale: LayoutScale, stretc
     const height = anchor.y === "stretch" ? roomHeight : sizedChild.height
     const dx = isText ? 0 : offsetIn(room, width, anchor.x)
     const dy = offsetIn(roomHeight, height, anchor.y)
-    // The drawn size kept while stretched, dropped once it is not.
-    const { drawnWidth: _w, drawnHeight: _h, ...kept } = child.properties?.cell ?? {}
-    const placedCell: Record<string, any> = { ...kept }
-    if (anchor.x === "stretch") placedCell.drawnWidth = own.width
-    if (anchor.y === "stretch") placedCell.drawnHeight = own.height
-    const properties = { ...sizedChild.properties, cell: placedCell }
+    // Its own size kept while stretched (ownSize), dropped once it is not.
+    const placedCell: Record<string, any> = { ...(child.properties?.cell ?? {}) }
+    const { ownSize: _was, ...rest } = sizedChild.properties ?? {}
+    const least =
+      child.type === "switcher"
+        ? ownSizeOf(child)
+        : { ...(anchor.x === "stretch" ? { width: own.width } : {}), ...(anchor.y === "stretch" ? { height: own.height } : {}) }
+    const properties = { ...rest, cell: placedCell, ...(Object.keys(least).length > 0 ? { ownSize: least } : {}) }
     const left = lefts[cell.column] + dx
     const top = tops[cell.row] + dy
     // A line moved there whole, its points with it (translateObject).
     if (hasPoints(child)) {
       const b = objectBounds(child)
-      return translateObject({ ...child, properties: { ...child.properties, cell: placedCell } }, left - b.minX, top - b.minY)
+      return translateObject({ ...child, properties }, left - b.minX, top - b.minY)
     }
     // A free area at a new size takes its objects along by their anchors,
     // from the size it was laid out at last (lib/anchor.ts).
@@ -444,7 +457,7 @@ function inPlaceOf(from: ScreenObject, obj: ScreenObject): ScreenObject {
 }
 
 function freed(table: ScreenObject, child: ScreenObject): ScreenObject {
-  const { cell: _cell, ...properties } = child.properties ?? {}
+  const { cell: _cell, ownSize: _least, ...properties } = child.properties ?? {}
   const own = drawn(child)
   // Back at its drawn size, a free area taking its objects along.
   const sized = child.type === "free" ? { ...resizeFree(child, own.width, own.height), properties } : { ...child, width: own.width, height: own.height, properties }

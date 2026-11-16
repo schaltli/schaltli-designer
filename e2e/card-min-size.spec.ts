@@ -288,7 +288,7 @@ test.describe("a card grows with its content", () => {
     expect(leftOut(after)).toBe(false)
     expect(card.height).toBeGreaterThan(lamp.height)
     // Its row as high as it now is - not stretched back to what it was.
-    expect(card.properties.cell.drawnHeight).toBe(card.height)
+    expect(card.properties.ownSize.height).toBe(card.height)
     expect(after.children![1].y).toBeGreaterThanOrEqual(card.y + card.height)
     // Laid out once more, it stays as it is.
     expect(grown(relayout(grown(edited)))).toEqual(grown(edited))
@@ -332,7 +332,7 @@ test.describe("a card grows with its content", () => {
     expect(inner.children!.map((c) => c.properties.cell.row)).toEqual([0, 0, 0])
     expect(card.height).toBeLessThan(tall.height)
     expect(card.height).toBe(inner.y + inner.height + pad)
-    expect(card.properties.cell.drawnHeight).toBe(card.height)
+    expect(card.properties.ownSize.height).toBe(card.height)
     expect(outer2.children![1].y).toBeLessThan(outer1.children![1].y)
   })
 

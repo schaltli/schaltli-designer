@@ -175,11 +175,12 @@ type FrameLock = { locked: readonly FrameKey[]; hint: string; hidden?: readonly 
 function stretchedMin(obj: ScreenObject): { width?: number; height?: number } {
   const cell = obj.properties?.cell
   if (!cell) return {}
+  const least = obj.properties?.ownSize
   const anchor = cellAnchorOf(obj)
   const byContent = obj.type === "text" || obj.type === "switch" || obj.type === "button-group" || obj.type === "toggle-button" || obj.type === "button"
   return {
-    ...(!byContent && anchor.x === "stretch" && typeof cell.drawnWidth === "number" ? { width: cell.drawnWidth } : {}),
-    ...(anchor.y === "stretch" && typeof cell.drawnHeight === "number" ? { height: cell.drawnHeight } : {}),
+    ...(!byContent && anchor.x === "stretch" && typeof least?.width === "number" ? { width: least.width } : {}),
+    ...(anchor.y === "stretch" && typeof least?.height === "number" ? { height: least.height } : {}),
   }
 }
 
@@ -215,7 +216,7 @@ function layoutFrameLock(
     }
     const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "toggle-button" || obj?.type === "button"
     // Stretched, it fills its cell, and what it has of its own is the least
-    // it asks of its column or row (cell.drawnWidth/drawnHeight,
+    // it asks of its column or row (ownSize,
     // lib/snap-table.ts): shown and typed as «Min W» and «Min H». A card
     // stretched across its cell kept 266 px nobody could see or change, and
     // its table stood 62 px over the screen's edge (the user, 2026-11-16).
@@ -298,11 +299,11 @@ export function PropertyPanel({
     const min = selectedObject && id === selectedObject.id ? stretchedMin(selectedObject) : {}
     const sizeOnly = keys.length > 0 && keys.every((key) => key === "width" || key === "height")
     const drawn = {
-      ...(min.width !== undefined && typeof updates.width === "number" ? { drawnWidth: updates.width } : {}),
-      ...(min.height !== undefined && typeof updates.height === "number" ? { drawnHeight: updates.height } : {}),
+      ...(min.width !== undefined && typeof updates.width === "number" ? { width: updates.width } : {}),
+      ...(min.height !== undefined && typeof updates.height === "number" ? { height: updates.height } : {}),
     }
     if (!selectedObject || !sizeOnly || Object.keys(drawn).length === 0) return updateObject(id, updates)
-    updateObject(id, { ...updates, properties: { ...selectedObject.properties, cell: { ...selectedObject.properties?.cell, ...drawn } } })
+    updateObject(id, { ...updates, properties: { ...selectedObject.properties, ownSize: { ...selectedObject.properties?.ownSize, ...drawn } } })
   }
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")

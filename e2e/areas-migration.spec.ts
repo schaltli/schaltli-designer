@@ -190,3 +190,45 @@ test.describe("once per project", () => {
     expect(once.screens[0].objects[0].children![0].children!.map((c) => c.type)).toEqual(["free"])
   })
 })
+
+// Step 2 (decision 9): one kept size.
+test.describe("the size kept in a cell is the object's ownSize", () => {
+  const inTable = (children: ScreenObject[]) => obj("table", { x: 10, y: 10, properties: { grid: 1, columns: [{}, {}], rows: [{}] }, children })
+
+  test("drawnWidth and drawnHeight leave the cell; the table lays out as it did", () => {
+    const wide = box(0, 0, 150, 40, { cell: { row: 0, column: 0, anchor: { x: "stretch", y: "stretch" }, drawnWidth: 150, drawnHeight: 40 } })
+    const tall = box(0, 0, 60, 90, { cell: { row: 0, column: 1 } })
+    const before = project([inTable([wide, tall])])
+    const after = migratedCopy(before)
+    const moved = find(after.screens[0].objects, wide.id)!
+    expect(moved.properties.cell).toEqual({ row: 0, column: 0, anchor: { x: "stretch", y: "stretch" } })
+    expect(moved.properties.ownSize).toEqual({ width: 150, height: 40 })
+    // Stretched to its row's height, it still asks for no more than its own.
+    const laid = find(opened(after).screens[0].objects, wide.id)!
+    expect([laid.width, laid.height]).toEqual([150, 90])
+    expect(laid.properties.ownSize).toEqual({ width: 150, height: 40 })
+    const once = opened(after)
+    expect(opened(once)).toBe(once)
+  })
+
+  test("a project of step 1 gets step 2 and nothing of step 1 again", () => {
+    const docked = box(0, 0, 40, 20, { dock: "top" })
+    const wide = box(0, 0, 150, 40, { cell: { row: 0, column: 0, anchor: { x: "stretch" }, drawnWidth: 150 } })
+    const p = project([docked, inTable([wide])], { formatVersion: 2 })
+    expect(migrateToAreas(p)).toBe(true)
+    expect(p.settings.formatVersion).toBe(FORMAT_VERSION)
+    // What is docked on its screen is meant, and stays.
+    expect(p.screens[0].objects[0].properties).toEqual({ dock: "top" })
+    expect(find(p.screens[0].objects, wide.id)!.properties.ownSize).toEqual({ width: 150 })
+  })
+
+  test("no longer stretched, the kept size goes", () => {
+    const wide = box(0, 0, 150, 40, { cell: { row: 0, column: 0, anchor: { x: "stretch" } }, ownSize: { width: 150 } })
+    const p = project([inTable([wide, box(0, 0, 60, 90, { cell: { row: 0, column: 1 } })])], { formatVersion: FORMAT_VERSION })
+    const laid = opened(p)
+    const table = laid.screens[0].objects[0]
+    const freed = { ...table, children: table.children!.map((c) => (c.id === wide.id ? { ...c, properties: { ...c.properties, cell: { row: 0, column: 0 } } } : c)) }
+    const again = opened({ ...laid, screens: [{ ...laid.screens[0], objects: [freed] }] })
+    expect(find(again.screens[0].objects, wide.id)!.properties).not.toHaveProperty("ownSize")
+  })
+})

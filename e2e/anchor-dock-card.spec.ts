@@ -188,7 +188,7 @@ test("a card stretched in a table's cell: a height typed under Frame is its row'
   const card1 = kid(after, "karte")
   const content = Math.max(...card1.children.map((c: Obj) => c.y + c.height))
   // Its own height the typed one, as small as its content allows - below the 150 it remembered.
-  const own = card1.properties.cell.drawnHeight
+  const own = card1.properties.ownSize.height
   expect(own).toBeLessThan(90)
   expect(own).toBeGreaterThanOrEqual(content)
   // The row now as high as the neighbour's 90, both cards stretched to it.

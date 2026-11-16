@@ -1619,7 +1619,7 @@ export function Canvas({
     // Its own height, at its bottom right corner, where it has one of its
     // own: in a cell the four handles span, so it could only be typed
     // under Frame (the user, 2026-11-14: a Toggle Button 78 px tall).
-    const tall = CELL_HEIGHT_TYPES.has(obj.type) && (cellAnchorOf(obj).y !== "stretch" || typeof obj.properties?.cell?.drawnHeight === "number")
+    const tall = CELL_HEIGHT_TYPES.has(obj.type) && (cellAnchorOf(obj).y !== "stretch" || typeof obj.properties?.ownSize?.height === "number")
     const grow = tall ? { x: origin.x + obj.x + obj.width, y: origin.y + obj.y + obj.height } : null
     return { tableId: parent.id, id, handles, grow }
   }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
@@ -4033,7 +4033,8 @@ export function Canvas({
           const height = Math.max(growing.min, Math.round(growing.startHeight + coords.y - growing.startY))
           const cell = obj.properties?.cell
           // Stretched in its cell, its row follows the height it was drawn at.
-          const drawn = cell && typeof cell.drawnHeight === "number" ? { properties: { ...obj.properties, cell: { ...cell, drawnHeight: height } } } : {}
+          const least = obj.properties?.ownSize
+          const drawn = cell && typeof least?.height === "number" ? { properties: { ...obj.properties, ownSize: { ...least, height } } } : {}
           // A ring is round: its diameter is the height dragged.
           if (height !== obj.height) onUpdateObject(obj.id, isRing(obj) ? { width: height, height } : { height, ...drawn })
         }
