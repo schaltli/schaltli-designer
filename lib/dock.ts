@@ -24,7 +24,7 @@
 import { isArea } from "@/lib/area"
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { textNoTallerThanItsFont } from "@/lib/font-utils"
-import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
+import { areaAnchorOf, offsetIn, resizeFree, resizePanels, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
 import { arrangeSnapTable, gapMmOf, isSnapTable } from "@/lib/snap-table"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { translateObject } from "@/lib/object-groups"
@@ -77,6 +77,8 @@ function placed(child: ScreenObject, x: number, y: number, width: number, height
   const properties = Object.keys(ownSize).length > 0 ? { ...rest, ownSize } : rest
   // A free area takes its own objects along, and docks its own.
   if (isArea(child)) return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
+  // A switcher's panels fill it, and dock their own.
+  if (child.type === "switcher") return { ...resizeSwitcher({ ...child, properties }, width, height, scale), x, y }
   // A line moves whole, with its points.
   if (Array.isArray(child.properties?.points)) return translateObject({ ...child, properties }, x - child.x, y - child.y)
   return { ...child, x, y, width, height, properties }
@@ -96,6 +98,32 @@ export function dockSets(obj: ScreenObject): Array<"x" | "y" | "width" | "height
   if ((dock === "top" || dock === "bottom" || dock === "fill") && canW) sets.push("width")
   if ((dock === "left" || dock === "right" || dock === "fill") && canH) sets.push("height")
   return sets
+}
+
+/**
+ * A switcher at a size, each panel filling it with its objects moved by
+ * their anchors (lib/anchor.ts resizePanels) and what is docked in it placed.
+ */
+export function resizeSwitcher(switcher: ScreenObject, width: number, height: number, scale: DockScale): ScreenObject {
+  const sized = resizePanels(switcher, width, height)
+  return { ...sized, children: (sized.children ?? []).map((panel) => dockFree(panel, scale)) }
+}
+
+/**
+ * How tall an area has to be for what is docked in it, each at its own
+ * height: those docked Top, Bottom and Fill one below the other with the
+ * gap between, those docked Left and Right beside them, inside the padding.
+ * 0 with nothing docked. What a switcher in a table asks of its row for a
+ * panel that docks (lib/layout.ts).
+ */
+export function dockedHeight(area: ScreenObject, scale: DockScale): number {
+  const docked = (area.children ?? []).filter((c) => dockOf(c) !== undefined).map((c) => textNoTallerThanItsFont(c, scale.fonts))
+  if (docked.length === 0) return 0
+  const px = (mm: number) => Math.round(mm * scale.pixelsPerMm)
+  const stacked = docked.filter((c) => dockOf(c) === "top" || dockOf(c) === "bottom" || dockOf(c) === "fill")
+  const beside = docked.filter((c) => dockOf(c) === "left" || dockOf(c) === "right")
+  const down = stacked.reduce((sum, c) => sum + own(c).height, 0) + Math.max(0, stacked.length - 1) * px(gapMmOf(area))
+  return 2 * px(paddingOf(area)) + Math.max(down, ...beside.map((c) => own(c).height))
 }
 
 const leftOut = (child: ScreenObject): ScreenObject => ({ ...child, properties: { ...child.properties, dockedOut: true } })

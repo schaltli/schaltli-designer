@@ -9,10 +9,13 @@
  * instead of for a type by name, so that a switcher's panel, a table's cell
  * and the screen become areas by being named here and nowhere else.
  *
- * Today: the area standing alone, `free` in a project file.
+ * Today: the area standing alone, `free` in a project file, and a
+ * switcher's panel. A panel has the size of its switcher, which is as large
+ * as the largest of its panels needs (lib/dock.ts resizeSwitcher,
+ * lib/free-min-size.ts switcherMinSize).
  */
 
 /** Whether `obj` holds and places its children as an area does. */
 export function isArea(obj: { type?: string } | null | undefined): boolean {
-  return obj?.type === "free"
+  return obj?.type === "free" || obj?.type === "panel"
 }

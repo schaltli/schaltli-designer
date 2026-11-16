@@ -21,7 +21,7 @@ import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { toggleMinHeight } from "@/lib/toggle-button-shape"
 import { areaAnchorOf, resizeFree } from "@/lib/anchor"
-import { dockFree, dockOf, paddingOf } from "@/lib/dock"
+import { dockFree, dockOf, paddingOf, resizeSwitcher } from "@/lib/dock"
 import { naturalWidth, type LayoutScale } from "@/lib/layout"
 import { objectBounds, translateObject } from "@/lib/object-groups"
 import { isSnapTable } from "@/lib/snap-table"
@@ -79,6 +79,8 @@ function holds(area: ScreenObject, scale: LayoutScale, axis: Axis = "both"): boo
     if (x && stretchedW && !Array.isArray(child.properties?.points) && child.width < minWidthOf(child, scale)) return false
     if (y && stretchedH && child.height < minHeightOf(child, scale)) return false
     if (isArea(child) && !holds(child, scale, axis)) return false
+    // A switcher holds what each of its panels holds.
+    if (child.type === "switcher" && !(child.children ?? []).every((panel) => holds(panel, scale, axis))) return false
   }
   return true
 }
@@ -119,6 +121,20 @@ export function freeMinSize(area: ScreenObject, scale: LayoutScale): { width: nu
   return { width, height }
 }
 
+/**
+ * The smallest a switcher can be: as large as the largest of its panels
+ * needs (docs/2026-11-16-areas.md, E2). Undefined where no panel holds
+ * anything.
+ */
+export function switcherMinSize(switcher: ScreenObject, scale: LayoutScale): { width: number; height: number } | undefined {
+  if (switcher.type !== "switcher") return undefined
+  const needs = (switcher.children ?? [])
+    .map((panel) => freeMinSize({ ...panel, x: 0, y: 0, width: switcher.width, height: switcher.height }, scale))
+    .filter((n): n is { width: number; height: number } => n !== undefined)
+  if (needs.length === 0) return undefined
+  return { width: Math.max(...needs.map((n) => n.width)), height: Math.max(...needs.map((n) => n.height)) }
+}
+
 /** Whether `area`, at its own size, gives everything in it its room. */
 export function holdsItsContent(area: ScreenObject, scale: LayoutScale): boolean {
   return fitsAt(area, area.width, area.height, scale)
@@ -157,7 +173,9 @@ function remembered(area: ScreenObject, width: number, height: number, set = fal
 export function keptInPadding(area: ScreenObject, scale: LayoutScale): ScreenObject {
   if (!isArea(area) || !area.children?.length) return area
   const pad = Math.round(paddingOf(area) * scale.pixelsPerMm)
-  if (pad <= 0) return area
+  // A panel keeps what stands in it inside its left and top edge without a
+  // padding too: there it cannot grow (docs/2026-11-16-areas.md, E2).
+  if (pad <= 0 && area.type !== "panel") return area
   let moved = false
   const children = area.children.map((child) => {
     if (dockOf(child)) return child
@@ -190,7 +208,17 @@ function grownIn(objects: ScreenObject[], scale: LayoutScale): ScreenObject[] {
   const out = objects.map((obj) => {
     const children = obj.children ? grownIn(obj.children, scale) : obj.children
     let current = keptInPadding(children === obj.children ? obj : { ...obj, children }, scale)
-    if (isArea(current) && current.children?.length && !holdsItsContent(current, scale)) {
+    // A switcher grows to what its largest panel needs; a panel is never
+    // grown alone, it has its switcher's size.
+    if (current.type === "switcher" && !(current.children ?? []).every((panel) => !panel.children?.length || holdsItsContent(panel, scale))) {
+      const min = switcherMinSize(current, scale)
+      if (min && (min.width > current.width || min.height > current.height)) {
+        const width = Math.max(min.width, current.width)
+        const height = Math.max(min.height, current.height)
+        current = remembered(resizeSwitcher(current, width, height, scale), width, height)
+      }
+    }
+    if (current.type !== "panel" && isArea(current) && current.children?.length && !holdsItsContent(current, scale)) {
       const min = freeMinSize(current, scale)
       if (min && (min.width > current.width || min.height > current.height)) {
         const width = Math.max(min.width, current.width)
@@ -243,6 +271,7 @@ function followingIn(prev: ScreenObject[] | undefined, next: ScreenObject[], sca
     if (
       isArea(current) &&
       before &&
+      current.type !== "panel" &&
       isArea(before) &&
       before.children !== obj.children &&
       before.width === obj.width &&

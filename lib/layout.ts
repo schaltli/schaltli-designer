@@ -19,7 +19,9 @@ import { formatValue, liveTextSegments, type LiveValue, type Result } from "@/li
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
 import { arrangeSnapTable, isSnapTable } from "@/lib/snap-table"
-import { dockFree } from "@/lib/dock"
+import { dockFree, dockOf, dockedHeight, paddingOf } from "@/lib/dock"
+import { filledPanel } from "@/lib/anchor"
+import { isArea } from "@/lib/area"
 import { CARD_DEFAULTS, cardSettingsOf, withButtonRadius, withCardLook, type CardSettings } from "@/lib/card"
 
 // A table put together by snapping (lib/snap-table.ts) and a free area. The
@@ -74,7 +76,12 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
   // a table put together by snapping no wider than what it shows; one with
   // nothing in its panels as wide as it is.
   if (obj.type === "switcher") {
-    const content = (obj.children ?? []).flatMap((panel) => (panel.children ?? []).map((child) => Math.max(0, child.x) + naturalWidth(child, scale)))
+    // What a panel docks stands where the panel puts it: it counts with
+    // what it needs inside the panel's padding, not with where it stands.
+    const content = (obj.children ?? []).flatMap((panel) => {
+      const pad = Math.round(paddingOf(panel) * scale.pixelsPerMm)
+      return (panel.children ?? []).map((child) => (dockOf(child) ? 2 * pad : Math.max(0, child.x)) + naturalWidth(child, scale))
+    })
     return content.length > 0 ? Math.max(1, ...content) : obj.width
   }
   const fonts = scale.fonts ?? []
@@ -192,7 +199,18 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
           : child,
     ),
   }))
-  const height = Math.max(0, ...panels.flatMap((panel) => (panel.children ?? []).map((child) => child.y + child.height)))
+  // What a panel docks ends where the switcher's height puts it, which is
+  // what is asked for here: it counts with its own height (lib/dock.ts
+  // dockedHeight). What stands free ends where it stands, the panel's
+  // padding below it.
+  const height = Math.max(
+    0,
+    ...panels.flatMap((panel) => {
+      const pad = Math.round(paddingOf(panel) * scale.pixelsPerMm)
+      const free = (panel.children ?? []).filter((child) => !dockOf(child)).map((child) => child.y + child.height + pad)
+      return [...free, dockedHeight(panel, scale)]
+    }),
+  )
   const filled = withFilledPanels({ ...switcher, height: height || switcher.height, children: panels }, scale)
   // Laid out again as panels, the tables in them are stretched once more.
   return {
@@ -229,21 +247,24 @@ function layoutOne(given: ScreenObject, scale: LayoutScale): ScreenObject {
     return { ...arranged, children: (arranged.children ?? []).map((child) => (child.type === "free" ? dockFree(child, scale) : child)) }
   }
   if (!obj.children || obj.children.length === 0) return obj
-  // A free area places what is docked in it once what it holds is laid out.
-  if (obj.type === "free") return dockFree({ ...obj, children: layoutObjects(obj.children, scale) }, scale)
+  // A switcher's panels fill it, wherever it stands.
+  if (obj.type === "switcher") return withFilledPanels(obj, scale)
+  // An area places what is docked in it once what it holds is laid out.
+  if (isArea(obj)) return dockFree({ ...obj, children: layoutObjects(obj.children, scale) }, scale)
   return { ...obj, children: layoutObjects(obj.children, scale) }
 }
 
-// A switcher a container places: each panel filling it (docs/device-
-// contract.md), at its origin and its size, written as 0 and its size so
-// that every rule that adds coordinates up - childOrigin,
-// getAbsolutePosition, the firmware's - agrees on where the children are.
-// A switcher outside a container is left as it was saved.
+// A switcher's panels: each filling it (docs/device-contract.md), at its
+// origin and its size, written as 0 and its size so that every rule that
+// adds coordinates up - childOrigin, getAbsolutePosition, the firmware's -
+// agrees on where the children are. A panel is an area
+// (docs/2026-11-16-areas.md): what stands in it follows its edges from the
+// size it had (lib/anchor.ts), what is docked in it is placed (layoutOne).
 function withFilledPanels(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
   return {
     ...switcher,
     children: (switcher.children ?? []).map((panel) =>
-      layoutOne({ ...panel, x: 0, y: 0, width: switcher.width, height: switcher.height }, scale),
+      layoutOne(filledPanel(panel, switcher.width, switcher.height), scale),
     ),
   }
 }

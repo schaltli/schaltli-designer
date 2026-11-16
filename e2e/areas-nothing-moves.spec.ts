@@ -32,11 +32,10 @@ const PROJECTS: Record<string, (ddf: Uint8Array) => Promise<unknown>> = {
 type Hashes = Record<string, string>
 
 async function exported(page: import("@playwright/test").Page, project: unknown): Promise<Hashes> {
-  // As the designer opens it: migrated, then laid out.
+  // As the designer has it once opened: migrated, laid out, its areas grown.
   const base64: string = await page.evaluate(async (p) => {
     const w = window as any
-    const laid = w.__layoutProjectForTest(w.__migrateProjectForTest(p))
-    return w.__buildDeviceZipForTest(laid)
+    return w.__buildDeviceZipForTest(w.__openProjectForTest(p))
   }, project)
   const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
   const hashes: Hashes = {}

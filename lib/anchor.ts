@@ -140,9 +140,30 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
     const moved = { ...child, x: child.x + h.move, y: child.y + v.move }
     const w = Math.max(1, child.width + h.grow)
     const ht = Math.max(1, child.height + v.grow)
+    if (child.type === "switcher") return { ...resizePanels(child, w, ht), x: moved.x, y: moved.y }
     return isArea(child) ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
   })
   return { ...area, width, height, children }
+}
+
+/**
+ * A switcher at a new size, each of its panels filling it: at its origin,
+ * as large as it is, what stands in the panel moved and stretched by its
+ * anchors from the size the panel had. What is docked in a panel is placed
+ * by lib/dock.ts (resizeSwitcher).
+ */
+export function resizePanels(switcher: ScreenObject, width: number, height: number): ScreenObject {
+  return { ...switcher, width, height, children: (switcher.children ?? []).map((panel) => filledPanel(panel, width, height)) }
+}
+
+/**
+ * A panel filling a switcher of this size. One that has no size yet - it
+ * was never laid out - takes it without anything in it moving: there is no
+ * size its objects kept their distance from.
+ */
+export function filledPanel(panel: ScreenObject, width: number, height: number): ScreenObject {
+  if (!(panel.width > 0) || !(panel.height > 0)) return { ...panel, x: 0, y: 0, width, height }
+  return resizeFree({ ...panel, x: 0, y: 0 }, width, height)
 }
 
 /**
