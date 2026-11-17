@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test"
+import crypto from "crypto"
 import fs from "fs"
 import os from "os"
 import path from "path"
 import {
   APP_OFFSET,
+  appElfSha256,
   FACTORY_PARTS,
   findDeviceMarkers,
   mergeFactoryImage,
@@ -142,6 +144,29 @@ test.describe("factory image", () => {
       // A board here has 16 MB of flash; an image over a quarter of it means
       // the app has outgrown its slot or a part is being written twice.
       expect(image.length).toBeLessThan(4 * 1024 * 1024)
+      // The ELF the release keeps beside the image is the one it names - the
+      // "ELF file SHA256" a panic prints (release-firmware.js checks the same).
+      const elf = path.join(dir, "firmware.elf")
+      if (fs.existsSync(elf)) {
+        const sha = crypto.createHash("sha256").update(fs.readFileSync(elf)).digest("hex")
+        expect(appElfSha256(app), `${dir}: firmware.elf is the one firmware.bin names`).toBe(sha)
+      }
     }
+  })
+
+  // A backtrace from the field names its ELF by this hash (2026-11-17, a
+  // Guru Meditation on a 7" Rev 1.2 printed "ELF file SHA256: 6a02219d5").
+  test("the ELF hash an app carries is read from its app description, and only there", () => {
+    const app = appImage()
+    const desc = 0x20
+    app.set([0x32, 0x54, 0xcd, 0xab], desc)
+    const sha = Array.from({ length: 32 }, (_, i) => (i * 7 + 3) & 0xff)
+    app.set(sha, desc + 0x90)
+    expect(appElfSha256(app)).toBe(sha.map((b) => b.toString(16).padStart(2, "0")).join(""))
+
+    // No app description (magic missing), or an app too short to hold one: nothing.
+    const plain = appImage()
+    expect(appElfSha256(plain)).toBeNull()
+    expect(appElfSha256(app.subarray(0, desc + 0x90 + 31))).toBeNull()
   })
 })
