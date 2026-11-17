@@ -514,6 +514,11 @@ export type CatalogControl = (
   untitled?: boolean
   /** Guarded against a touch by mistake (a description's `guard: true`; lib/guard.ts). */
   guard?: boolean
+  /**
+   * Its own icon, an Iconify name (a description's `icon` on a part): before
+   * its name in its tile, and what its colour is read from (meaningRole).
+   */
+  icon?: string
 }
 
 /** An entity the Block menu lists but cannot place, and why. */

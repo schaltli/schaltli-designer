@@ -175,6 +175,61 @@ test("the MaxxFan as the user drew it: «Lüfter» beside the guarded cover, Bet
   for (const gone of ["Deckel", "Betrieb", "Luft"]) expect(texts).not.toContain(gone)
 })
 
+// The energy block (the user, 2026-11-17): each value a card of its own,
+// its icon and name small, the number big in the colour of its meaning -
+// the battery's charge a bar - two to a row.
+test("the energy block: a value card for each source, its icon and colour, two to a row", () => {
+  const vars = { battery_soc: "97", battery_power: "-12", mppt_pv_watts: "250", shore_power: 0, booster_power: 0 }
+  const out = createBridgeLogic().things("producers", vars) as Record<string, object>
+  const d = readDescription("schaltli/blocks/energy/config", JSON.stringify(out["schaltli/blocks/energy/config"]))
+  if (!d || !("entry" in d)) throw new Error("not an entry")
+  const entry = d.entry
+  const icon = (name: string) => ({ name, data: "<svg/>", size: 24 })
+  const stateIcons = Object.fromEntries(["bxs:car-battery", "mdi:white-balance-sunny", "mdi:transmission-tower", "mdi:engine"].map((n) => [n, icon(n)]))
+  const parts = entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
+  const built = buildEntry({ entry, rect: { x: 0, y: 0, width: 200, height: 60 }, palette: controlPalette("24bit"), font, options: { label: entry.label, look: "", icon: null, parts, stateIcons } })
+  expect(built.partTiles).toBe(true)
+  // Each part's icon brought along.
+  expect((built.assets ?? []).map((a: any) => a.name).sort()).toEqual(["bxs:car-battery", "mdi:engine", "mdi:transmission-tower", "mdi:white-balance-sunny"])
+  let n = 0
+  const withIds = (o: any): any => ({ ...o, id: o.id || `e${n++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+  const [laid] = layoutObjects([withIds(fittedBlockCard(built, SCALE, SCREEN))], SCALE)
+  const cards = walk(laid).filter((o) => o.type === "free" && o.properties.look === "card")
+  expect(cards).toHaveLength(5)
+  const card = (name: string) => cards.find((c) => walk(c).some((o) => o.type === "text" && o.properties.text === name))!
+  const expected: Record<string, [string, string]> = {
+    Batterie: ["good", "{live:lv1} %"],
+    Leistung: ["good", "{live:lv1} W"],
+    Solar: ["energySun", "{live:lv1} W"],
+    Landstrom: ["energyGrid", "{live:lv1} W"],
+    Ladebooster: ["energyEngine", "{live:lv1} W"],
+  }
+  for (const [name, [colour, text]] of Object.entries(expected)) {
+    const c = card(name)
+    expect(c, name).toBeTruthy()
+    const inside = walk(c)
+    const label = inside.find((o) => o.type === "text" && o.properties.text === name)
+    expect(label.properties).toMatchObject({ color: "textMuted", blockTextStyle: "standard" })
+    expect(inside.find((o) => o.type === "icon")?.properties.iconColor, name).toBe(colour)
+    const value = inside.find((o) => o.type === "text" && o.properties.text === text)
+    expect(value?.properties.color, name).toBe(colour)
+  }
+  // The charge a bar across its card, its number on the right of the name.
+  const soc = walk(card("Batterie"))
+  expect(soc.find((o) => o.type === "bar")?.properties).toMatchObject({ topic: "schaltli/state/battery/soc", fillColor: "good", displayValue: "none" })
+  expect(soc.find((o) => o.type === "text" && o.properties.text === "{live:lv1} %")?.properties).toMatchObject({ textAlign: "right", blockTextStyle: "xl" })
+  // The watts big.
+  expect(walk(card("Solar")).find((o) => o.type === "text" && o.properties.text === "{live:lv1} W")?.properties.blockTextStyle).toBe("xxl")
+  // Two to a row: the battery's two side by side, solar beside shore power, the booster below.
+  const [b, l, s, g, e] = ["Batterie", "Leistung", "Solar", "Landstrom", "Ladebooster"].map(card)
+  expect(b.y).toBe(l.y)
+  expect(s.y).toBe(g.y)
+  expect(s.y).toBeGreaterThanOrEqual(b.y + b.height)
+  expect(e.y).toBeGreaterThanOrEqual(s.y + s.height)
+  expect(e.x).toBe(s.x)
+  expect(laid.x + laid.width).toBeLessThanOrEqual(SCREEN)
+})
+
 test("the heater: the switch «Heizung», «Nullen» as a text button, the modes in a card of their own", () => {
   const { laid } = placed(described("heater", HEATER, "heater"))
   const all = walk(laid)

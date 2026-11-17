@@ -114,6 +114,12 @@ same, so a publisher who knows one knows the other.
   choice guarded against a touch by mistake; a choice at a size step of its
   own (`"xs"`, `"s"`, `"m"`, `"l"`, as a button had); a choice set small -
   as wide as its options, in the middle of its row, not across it.
+- **`icon` on a part** (added 2026-11-17, for the energy block): an Iconify
+  name before the part's name, and what its colour is read from. In a block
+  of tiles a `value` part with an icon is a value card of its own (one
+  without stays a text in its row): icon and name
+  small, the number big in the colour of its meaning, a fill's number on
+  the right with a thin bar below.
 - A part that cannot be used (a missing topic, an unknown kind) is skipped
   with its reason, the others offered - as Home Assistant entities' parts
   are today. A description with no usable part is not supported.

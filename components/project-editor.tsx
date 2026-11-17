@@ -2554,7 +2554,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const within = (piece: Piece): Piece => {
         if (!piece.children) return piece
         const children = piece.children.map((child) => {
-          const inner = within(child as Piece)
+          // A text set in a size of its own - a value card's name and number
+          // in a tile (lib/bausteine.ts valueTile) - in that size.
+          const given = within(child as Piece)
+          const inner = given.properties?.blockTextStyle !== undefined ? styled(given) : given
           if (!scale || inner.properties?.blockSizeStep === undefined || !stepKindOf(inner.type)) return inner
           const { blockSizeStep, ...properties } = styled(inner).properties ?? {}
           const own = { ...inner, properties }

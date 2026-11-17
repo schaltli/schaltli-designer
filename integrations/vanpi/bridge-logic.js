@@ -670,6 +670,24 @@ function createBridgeLogic() {
       if (present(data.shore_power)) power("shore_power", "Landstrom", "shore/power", "mdi:power-plug")
       if (present(data.booster_power)) power("booster_power", "Lichtmaschine", "booster/power", "mdi:engine")
       if (present(data.solar_power) || present(data.mppt_pv_watts)) power("solar_power", "Solar", "solar/power", "mdi:solar-power")
+      // The energy block (the user, 2026-11-17): what Pekaway gives and the
+      // bridge knows, in one prebuilt - the battery's charge and its watts,
+      // solar, and shore power and the booster once a flow sets their
+      // globals. Each part with the icon the starter's energy diagram gives
+      // it. Beside the things, not in place of them: it covers none.
+      var energy = []
+      function source(name, topic, icon, unit, column, row) {
+        energy.push({ name: name, kind: "value", state_topic: PREFIX + topic, unit_of_measurement: unit, icon: icon, column: column, row: row })
+      }
+      if (present(data.battery_soc)) source("Batterie", "battery/soc", "bxs:car-battery", "%", 1, "battery")
+      if (present(data.battery_power)) source("Leistung", "battery/power", "bxs:car-battery", "W", 2, "battery")
+      var sources = []
+      if (present(data.solar_power) || present(data.mppt_pv_watts)) sources.push(["Solar", "solar/power", "mdi:white-balance-sunny"])
+      if (present(data.shore_power)) sources.push(["Landstrom", "shore/power", "mdi:transmission-tower"])
+      if (present(data.booster_power)) sources.push(["Ladebooster", "booster/power", "mdi:engine"])
+      // Two to a row, side by side as the battery's two.
+      for (var p = 0; p < sources.length; p++) source(sources[p][0], sources[p][1], sources[p][2], "W", (p % 2) + 1, "sources" + Math.floor(p / 2))
+      if (energy.length > 0) block("energy", "Energie", "bxs:car-battery", [], energy)
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {

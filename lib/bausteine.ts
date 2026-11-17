@@ -85,6 +85,7 @@ export interface BlockIcon {
 export function stateIconNames(entry: { controls: CatalogControl[] }): string[] {
   const names = new Set<string>()
   for (const control of entry.controls) {
+    if (control.icon) names.add(control.icon)
     if (control.kind === "switch") for (const s of [control.on, control.off]) if (s.icon) names.add(s.icon)
     if (control.kind === "choice") for (const icon of control.icons ?? []) if (icon) names.add(icon)
   }
@@ -523,6 +524,55 @@ function buttonGroupObject(
   }
 }
 
+// A value part of a block of tiles as a value card (lib/block-card.ts
+// partTile makes the tile a card): its heading - its own icon where it has
+// one, its name small and muted, and a fill's number on the right - docked
+// at the top, the number big below, or a fill's thin bar. In the colour of
+// its meaning, the icon too, as the energy diagram colours its sources.
+function valueTile(
+  entry: CatalogEntry,
+  control: Extract<CatalogControl, { kind: "value" }>,
+  look: string | undefined,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font: BausteinFont | undefined,
+  options: Partial<BausteinOptions> | undefined,
+  built: BausteinBuildResult,
+): BausteinBuildResult {
+  const colour = meaningRole(entry, control)
+  const unit = control.unit ? ` ${control.unit}` : ""
+  const icon = stateIcon(control.icon, options)
+  const size = iconSize(font)
+  const iconPiece: Omit<ScreenObject, "id" | "zIndex"> | undefined = icon
+    ? {
+        type: "icon",
+        x: box.x,
+        y: box.y,
+        width: size,
+        height: size,
+        properties: { assetId: icon.assetId, iconName: "default", iconColor: colour, backgroundColor: "transparent" },
+      }
+    : undefined
+  const name = labelObject(control.part ?? entry.label, box, palette, font)
+  const quiet = { ...name, properties: { ...name.properties, color: "textMuted", blockTextStyle: "standard" } }
+  const bar = look === "bar" && control.level
+  const decimals = control.decimals ?? control.scale?.decimals
+  const number = labelObject(`{topic:${control.read}:F${bar ? 0 : (decimals ?? 0)}}${unit}`, { ...box, width: Math.max(MIN_PART, measureBlockText(`-1000${unit}`, font)) }, palette, font)
+  const heads = [...(iconPiece ? [iconPiece] : []), quiet]
+  const tile = (children: Omit<ScreenObject, "id" | "zIndex">[]): BausteinBuildResult => ({
+    ...built,
+    objects: [{ type: "free", x: box.x, y: box.y, width: box.width, height: box.height, properties: { look: "card", blockTile: true }, children: children as ScreenObject[] }],
+    assets: [...(built.assets ?? []), ...(icon ? [icon.asset] : [])],
+  })
+  if (bar) {
+    const shown = { ...number, properties: { ...number.properties, color: colour, textAlign: "right", blockTextStyle: "xl" } }
+    const fill = levelObject("bar", control.read, box, palette, font)
+    return tile([...heads, shown, { ...fill, properties: { ...fill.properties, fillColor: colour, displayValue: "none", blockSizeStep: "xs" } }])
+  }
+  const big = { ...number, properties: { ...number.properties, color: colour, blockTextStyle: "xxl" } }
+  return tile([...heads, big])
+}
+
 // What a description says of a choice beyond its options (lib/block-
 // description.ts): guarded; a size step of its own, which the editor gives
 // it when the block is placed (`blockSizeStep`); small - as wide as its
@@ -785,9 +835,13 @@ function sparkline(topic: string, name: string, color: string, unit: string | un
  * colour. (The VanPi bridge gives grey water the murky icon.)
  */
 export function meaningRole(entry: CatalogEntry, control: CatalogControl): string {
-  if (entry.deviceClass === "battery" || /battery/.test(entry.icon ?? "")) return "good" // the device class battery
-  const icon = entry.icon ?? ""
+  // A part's own icon first (a description's), then the entry's.
+  const icon = control.icon ?? entry.icon ?? ""
+  if ((!control.icon && entry.deviceClass === "battery") || /battery/.test(icon)) return "good" // the device class battery
   if (/solar|sunny/.test(icon)) return "energySun"
+  // The energy diagram's roles for the grid and the engine (lib/themes.ts).
+  if (/transmission-tower|power-plug/.test(icon)) return "energyGrid"
+  if (/engine/.test(icon)) return "energyEngine"
   if (/water-opacity/.test(icon)) return "accent3"
   if (/water/.test(icon)) return "accent"
   if (/gas|fuel/.test(icon)) return "warning"
@@ -1279,6 +1333,12 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     // a slider's value on the right - the control below
     // (docs/2026-11-11-led-look.md, decision 9). The card's padding and
     // height are the block card's to set (lib/block-card.ts partTile).
+    // A value with an icon of its own in a block of tiles (the energy block,
+    // 2026-11-17): a value card of its own - its icon and name small and
+    // muted, the number big in the colour of its meaning; a fill's number on
+    // the right of the name, a thin bar below (docs/2026-11-11-value-cards.md).
+    // One without stays a text in its row, «Voltage 13.3 V».
+    if (tiles && control.kind === "value" && control.icon) return valueTile(entry, control, part.look, box, palette, font, options, built)
     const slider = control.kind === "level" && part.look !== "dial"
     if (!tiles || !(control.kind === "choice" || slider) || built.objects.length !== 1) return built
     // No name where the description says so (`title: false`): a choice whose

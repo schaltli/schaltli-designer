@@ -167,6 +167,42 @@ test.describe("VanPi bridge logic", () => {
     expect(logic.things("producers", {})).toEqual({})
   })
 
+  // The energy block (the user, 2026-11-17): the battery's charge and watts,
+  // solar, shore power and the booster - each only when it is there - with
+  // the icons of the starter's energy diagram.
+  test("the energy block: the battery, then solar, shore power and the booster as they are there, two to a row, beside their things", () => {
+    const describe = (vars: Record<string, unknown>) => {
+      const out = logic.things("producers", vars) as Record<string, object>
+      const config = out["schaltli/blocks/energy/config"]
+      return { out, config: config as any, read: config ? readDescription("schaltli/blocks/energy/config", JSON.stringify(config)) : undefined }
+    }
+    const all = describe({ battery_soc: "97", battery_power: "-12", mppt_pv_watts: "250", shore_power: 0, booster_power: 0 })
+    expect(all.config).toMatchObject({ name: "Energie", icon: "bxs:car-battery", covers: [] })
+    if (!all.read || !("entry" in all.read)) throw new Error("not an entry")
+    expect(all.read.entry.skipped).toBeUndefined()
+    expect(all.read.entry.controls.map((c: any) => [c.part, c.kind, c.read, c.unit, c.icon, c.column, c.row])).toEqual([
+      ["Batterie", "value", "schaltli/state/battery/soc", "%", "bxs:car-battery", 1, "battery"],
+      ["Leistung", "value", "schaltli/state/battery/power", "W", "bxs:car-battery", 2, "battery"],
+      ["Solar", "value", "schaltli/state/solar/power", "W", "mdi:white-balance-sunny", 1, "sources0"],
+      ["Landstrom", "value", "schaltli/state/shore/power", "W", "mdi:transmission-tower", 2, "sources0"],
+      ["Ladebooster", "value", "schaltli/state/booster/power", "W", "mdi:engine", 1, "sources1"],
+    ])
+    // Beside the things, not in place of them: the Block menu keeps «Solar» and the others.
+    const messages = Object.fromEntries(Object.entries(all.out).map(([topic, config]) => [topic, JSON.stringify(config)]))
+    expect(readCatalog(messages).entries.map((e) => e.label)).toEqual(expect.arrayContaining(["Energie", "Solar", "Landstrom", "Lichtmaschine"]))
+
+    // Without a flow for shore power and the booster: the battery and Pekaway's MPPT.
+    const plain = describe({ battery_soc: "80", battery_power: "5", mppt_pv_watts: "0", shore_power: undefined, booster_power: null })
+    expect(plain.config.parts.map((p: any) => p.name)).toEqual(["Batterie", "Leistung", "Solar"])
+    // Nothing at all: no block.
+    expect(describe({}).config).toBeUndefined()
+  })
+
+  test("the flow hands the battery's charge and watts to the producers' announcement", () => {
+    const flow = JSON.stringify(buildBridgeFlow())
+    expect(flow).toContain('battery_soc: result.last[logic.PREFIX + \\"battery/soc\\"]')
+  })
+
   test("odd messages give nothing instead of stopping the bridge", () => {
     expect(logic.flatten("batt", "not json")).toEqual([])
     expect(logic.flatten("doorman", '{"locked":true}')).toEqual([])
