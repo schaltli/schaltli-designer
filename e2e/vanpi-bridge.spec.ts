@@ -184,7 +184,7 @@ test.describe("VanPi bridge logic", () => {
       ["Batterie", "value", "schaltli/state/battery/soc", "%", "bxs:car-battery", 1, "battery"],
       ["Leistung", "value", "schaltli/state/battery/power", "W", "bxs:car-battery", 2, "battery"],
       ["Solar", "value", "schaltli/state/solar/power", "W", "mdi:white-balance-sunny", 1, "sources0"],
-      ["Landstrom", "value", "schaltli/state/shore/power", "W", "mdi:transmission-tower", 2, "sources0"],
+      ["Batterie-Ladegerät", "value", "schaltli/state/shore/power", "W", "mdi:transmission-tower", 2, "sources0"],
       ["Ladebooster", "value", "schaltli/state/booster/power", "W", "mdi:engine", 1, "sources1"],
     ])
     // Beside the things, not in place of them: the Block menu keeps «Solar» and the others.

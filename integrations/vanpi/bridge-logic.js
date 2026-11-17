@@ -683,7 +683,7 @@ function createBridgeLogic() {
       if (present(data.battery_power)) source("Leistung", "battery/power", "bxs:car-battery", "W", 2, "battery")
       var sources = []
       if (present(data.solar_power) || present(data.mppt_pv_watts)) sources.push(["Solar", "solar/power", "mdi:white-balance-sunny"])
-      if (present(data.shore_power)) sources.push(["Landstrom", "shore/power", "mdi:transmission-tower"])
+      if (present(data.shore_power)) sources.push(["Batterie-Ladegerät", "shore/power", "mdi:transmission-tower"])
       if (present(data.booster_power)) sources.push(["Ladebooster", "booster/power", "mdi:engine"])
       // Two to a row, side by side as the battery's two.
       for (var p = 0; p < sources.length; p++) source(sources[p][0], sources[p][1], sources[p][2], "W", (p % 2) + 1, "sources" + Math.floor(p / 2))

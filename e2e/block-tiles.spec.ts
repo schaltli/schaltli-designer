@@ -201,7 +201,7 @@ test("the energy block: a value card for each source, its icon and colour, two t
     Batterie: ["good", "{live:lv1} %"],
     Leistung: ["good", "{live:lv1} W"],
     Solar: ["energySun", "{live:lv1} W"],
-    Landstrom: ["energyGrid", "{live:lv1} W"],
+    "Batterie-Ladegerät": ["energyGrid", "{live:lv1} W"],
     Ladebooster: ["energyEngine", "{live:lv1} W"],
   }
   for (const [name, [colour, text]] of Object.entries(expected)) {
@@ -221,7 +221,7 @@ test("the energy block: a value card for each source, its icon and colour, two t
   // The watts big.
   expect(walk(card("Solar")).find((o) => o.type === "text" && o.properties.text === "{live:lv1} W")?.properties.blockTextStyle).toBe("xxl")
   // Two to a row: the battery's two side by side, solar beside shore power, the booster below.
-  const [b, l, s, g, e] = ["Batterie", "Leistung", "Solar", "Landstrom", "Ladebooster"].map(card)
+  const [b, l, s, g, e] = ["Batterie", "Leistung", "Solar", "Batterie-Ladegerät", "Ladebooster"].map(card)
   expect(b.y).toBe(l.y)
   expect(s.y).toBe(g.y)
   expect(s.y).toBeGreaterThanOrEqual(b.y + b.height)
