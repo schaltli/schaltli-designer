@@ -11,7 +11,7 @@ import type { ScreenObject } from "@/components/project-editor"
 import type { LayoutScale } from "@/lib/layout"
 import { childOrigin, translateObject } from "@/lib/object-groups"
 import { findObjectById, findParentOf, updateObjectById } from "@/lib/object-tree"
-import { moveIntoArea } from "@/lib/drop-into-free"
+import { moveIntoArea, areaMovedInto } from "@/lib/drop-into-free"
 import { applySnapDrop, isSnapTable, liftOut, type SnapDrop } from "@/lib/snap-table"
 
 /** The objects of the space `spaceId` (null: the screen) run through `change`. */
@@ -68,10 +68,12 @@ export function carryObjects(objects: ScreenObject[], ids: string[], target: Car
       if (obj) list = updateObjectById(list, id, translateObject(obj, Math.round(shift.x), Math.round(shift.y)))
     }
   }
-  list = moveIntoArea(list, ids, target.into)
+  // Into an occupied cell, the cell's area is where it ends (lib/cell-area.ts).
+  const into = areaMovedInto(list, target.into)
+  list = moveIntoArea(list, ids, target.into, scale)
   if (target.snap && ids.length === 1) {
     const snap = target.snap
-    list = inSpace(list, target.into, (children) => applySnapDrop(children, ids[0], snap, scale, newTableId))
+    list = inSpace(list, into, (children) => applySnapDrop(children, ids[0], snap, scale, newTableId))
   }
   return list
 }

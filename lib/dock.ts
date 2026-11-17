@@ -17,13 +17,19 @@
  * Except a table docked Fill too wide for an area that clips (a card, Clip
  * on - docs/2026-11-03-card-clip.md): that area cuts it, so it stays.
  *
- * Docking overwrites an object's size; its own is kept in
- * `properties.ownSize` while it differs, and given back once it is undocked.
+ * Docking keeps no size (docs/2026-11-16-areas.md, decision 14). Across its
+ * dock an object that can stretch takes the room, and has a least width or
+ * height there - `properties.ownSize`, «Min W» and «Min H» under Frame -
+ * only where one was typed; the area is then no smaller than that asks
+ * (lib/free-min-size.ts). Along its dock its length is its own; only where
+ * the area cut it to what was left is that kept in `ownSize`, and given back
+ * with the room.
  */
 
+import { isArea } from "@/lib/area"
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { textNoTallerThanItsFont } from "@/lib/font-utils"
-import { areaAnchorOf, offsetIn, resizeFree, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
+import { areaAnchorOf, offsetIn, resizeFree, resizePanels, STRETCHES_HEIGHT_IN_AREA, STRETCHES_WIDTH_IN_AREA } from "@/lib/anchor"
 import { arrangeSnapTable, gapMmOf, isSnapTable } from "@/lib/snap-table"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { translateObject } from "@/lib/object-groups"
@@ -64,18 +70,24 @@ function undocked(child: ScreenObject): ScreenObject {
   if (!("ownSize" in p) && !("dockedOut" in p)) return child
   const size = own(child)
   const { ownSize: _o, dockedOut: _d, ...rest } = p
-  return child.type === "free" ? { ...resizeFree(child, size.width, size.height), properties: rest } : { ...child, ...size, properties: rest }
+  return isArea(child) ? { ...resizeFree(child, size.width, size.height), properties: rest } : { ...child, ...size, properties: rest }
 }
 
-// A child placed at x, y with a size: its own kept beside it where they differ.
+// A child placed at x, y with a size. Along its dock its own length is kept
+// beside it where the area cut it; across, where it stretches, only a least
+// size that was typed stays (dockStretches).
 function placed(child: ScreenObject, x: number, y: number, width: number, height: number, scale: DockScale): ScreenObject {
   const size = own(child)
-  const { ownSize: _o, dockedOut: _d, ...rest } = child.properties ?? {}
-  // Only what docking overwrote is kept, so the rest stays the author's to set.
-  const ownSize = { ...(width !== size.width ? { width: size.width } : {}), ...(height !== size.height ? { height: size.height } : {}) }
+  const { ownSize: was, dockedOut: _d, ...rest } = child.properties ?? {}
+  const stretches = dockStretches(child)
+  const kept = (axis: "width" | "height", now: number) =>
+    stretches.includes(axis) ? (typeof was?.[axis] === "number" ? { [axis]: was[axis] } : {}) : now !== size[axis] ? { [axis]: size[axis] } : {}
+  const ownSize = { ...kept("width", width), ...kept("height", height) }
   const properties = Object.keys(ownSize).length > 0 ? { ...rest, ownSize } : rest
   // A free area takes its own objects along, and docks its own.
-  if (child.type === "free") return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
+  if (isArea(child)) return { ...dockFree({ ...resizeFree(child, width, height), properties }, scale), x, y }
+  // A switcher's panels fill it, and dock their own.
+  if (child.type === "switcher") return { ...resizeSwitcher({ ...child, properties }, width, height, scale), x, y }
   // A line moves whole, with its points.
   if (Array.isArray(child.properties?.points)) return translateObject({ ...child, properties }, x - child.x, y - child.y)
   return { ...child, x, y, width, height, properties }
@@ -86,6 +98,21 @@ function placed(child: ScreenObject, x: number, y: number, width: number, height
  * x and y; along the dock nothing more (its length along it is its own),
  * across it the size it stretches to, both where it fills.
  */
+/** The axes on which a docked object takes its room: across its dock, where it can stretch. */
+export function dockStretches(obj: ScreenObject): Array<"width" | "height"> {
+  return dockSets(obj).filter((key): key is "width" | "height" => key === "width" || key === "height")
+}
+
+/**
+ * The least a docked object asks for on an axis it stretches on, where one
+ * was typed («Min W», «Min H»); undefined where none was.
+ */
+export function dockedLeast(obj: ScreenObject, axis: "width" | "height"): number | undefined {
+  if (!dockStretches(obj).includes(axis)) return undefined
+  const least = obj.properties?.ownSize?.[axis]
+  return typeof least === "number" && least > 0 ? least : undefined
+}
+
 export function dockSets(obj: ScreenObject): Array<"x" | "y" | "width" | "height"> {
   const dock = dockOf(obj)
   if (!dock) return []
@@ -97,6 +124,32 @@ export function dockSets(obj: ScreenObject): Array<"x" | "y" | "width" | "height
   return sets
 }
 
+/**
+ * A switcher at a size, each panel filling it with its objects moved by
+ * their anchors (lib/anchor.ts resizePanels) and what is docked in it placed.
+ */
+export function resizeSwitcher(switcher: ScreenObject, width: number, height: number, scale: DockScale): ScreenObject {
+  const sized = resizePanels(switcher, width, height)
+  return { ...sized, children: (sized.children ?? []).map((panel) => dockFree(panel, scale)) }
+}
+
+/**
+ * How tall an area has to be for what is docked in it, each at its own
+ * height: those docked Top, Bottom and Fill one below the other with the
+ * gap between, those docked Left and Right beside them, inside the padding.
+ * 0 with nothing docked. What a switcher in a table asks of its row for a
+ * panel that docks (lib/layout.ts).
+ */
+export function dockedHeight(area: ScreenObject, scale: DockScale): number {
+  const docked = (area.children ?? []).filter((c) => dockOf(c) !== undefined).map((c) => textNoTallerThanItsFont(c, scale.fonts))
+  if (docked.length === 0) return 0
+  const px = (mm: number) => Math.round(mm * scale.pixelsPerMm)
+  const stacked = docked.filter((c) => dockOf(c) === "top" || dockOf(c) === "bottom" || dockOf(c) === "fill")
+  const beside = docked.filter((c) => dockOf(c) === "left" || dockOf(c) === "right")
+  const down = stacked.reduce((sum, c) => sum + own(c).height, 0) + Math.max(0, stacked.length - 1) * px(gapMmOf(area))
+  return 2 * px(paddingOf(area)) + Math.max(down, ...beside.map((c) => own(c).height))
+}
+
 const leftOut = (child: ScreenObject): ScreenObject => ({ ...child, properties: { ...child.properties, dockedOut: true } })
 
 /**
@@ -105,7 +158,7 @@ const leftOut = (child: ScreenObject): ScreenObject => ({ ...child, properties: 
  * give back comes back as it was.
  */
 export function dockFree(area: ScreenObject, scale: DockScale): ScreenObject {
-  if (area.type !== "free") return area
+  if (!isArea(area)) return area
   const children = area.children ?? []
   // Fill last, whatever its place in the list: it takes what the others
   // leave - docked first, it left none, and a heading docked Top after it

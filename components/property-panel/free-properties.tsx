@@ -20,18 +20,24 @@ const LOOK = [
   { value: "card-accent", label: "Card, accent" },
 ]
 
-/** A free area: only its frame - what is in it stays where it is placed. */
-export function FreeProperties({
+/**
+ * What every area has, wherever it appears (docs/2026-11-16-areas.md): its
+ * look, its padding and gap, and - without a look - the shape and colours of
+ * the box a device draws for it. The area standing alone and a switcher's
+ * panel show the same sections.
+ */
+export function AreaSections({
   selectedObject,
   onUpdateObject,
   colorDepth,
-  scale,
+  title,
+  note,
 }: {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
-  // For how small it can be made: its fonts and the panel's pixels per mm.
-  scale?: LayoutScale
+  title: string
+  note: string
 }) {
   const set = (key: string, value: unknown) =>
     onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, [key]: value } })
@@ -47,12 +53,9 @@ export function FreeProperties({
     onUpdateObject(selectedObject.id, { properties: value === "none" ? rest : { ...rest, look: value } })
   }
   return (
-    <PropertySections>
-      <PropertySection title="Free">
-        <FieldNote>
-          What is put into it stays where it is placed, as on a free screen, and follows its edges when it is resized as its Position says. It looks like a
-          Box, if you give it a fill or an edge.
-        </FieldNote>
+    <>
+      <PropertySection title={title}>
+        <FieldNote>{note}</FieldNote>
         <SelectField id="freeLook" label="Look" value={look ?? "none"} options={LOOK} onChange={setLook} />
         {look ? (
           <FieldNote>
@@ -120,6 +123,35 @@ export function FreeProperties({
           allowTransparent={false}
         />
       </PropertySection>}
+    </>
+  )
+}
+
+/** A free area: only its frame - what is in it stays where it is placed. */
+export function FreeProperties({
+  selectedObject,
+  onUpdateObject,
+  colorDepth,
+  scale,
+  title = "Area",
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
+  // For how small it can be made: its fonts and the panel's pixels per mm.
+  scale?: LayoutScale
+  // «Cell» where it is a table's cell (lib/cell-area.ts).
+  title?: string
+}) {
+  return (
+    <PropertySections>
+      <AreaSections
+        selectedObject={selectedObject}
+        onUpdateObject={onUpdateObject}
+        colorDepth={colorDepth}
+        title={title}
+        note="What is put into it stays where it is placed, or is docked to an edge, as its Position says. It looks like a Box, if you give it a fill or an edge."
+      />
       <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
         <FrameFields
           x={selectedObject.x}
@@ -132,13 +164,13 @@ export function FreeProperties({
             const min = (key === "width" || key === "height") && scale ? freeMinSize(selectedObject, scale) : undefined
             const size = min ? Math.max(value, min[key as "width" | "height"]) : value
             // Stretched in a table's cell, the table sizes its row and column
-            // by the size it was drawn at (cell.drawnWidth/drawnHeight), which
+            // by its own size (ownSize, the size it was drawn at), which
             // only ever grew: a typed height snapped back to it - a card 114 px
             // tall for 77 of content (the user, 2026-11-14). Typed, it is that.
             const cell = selectedObject.properties?.cell
-            const drawnKey = key === "width" ? "drawnWidth" : key === "height" ? "drawnHeight" : null
-            if (drawnKey && cell && typeof cell[drawnKey] === "number") {
-              onUpdateObject(selectedObject.id, { [key]: size, properties: { ...selectedObject.properties, cell: { ...cell, [drawnKey]: size } } })
+            const least = selectedObject.properties?.ownSize
+            if ((key === "width" || key === "height") && cell && typeof least?.[key] === "number") {
+              onUpdateObject(selectedObject.id, { [key]: size, properties: { ...selectedObject.properties, ownSize: { ...least, [key]: size } } })
               return
             }
             onUpdateObject(selectedObject.id, { [key]: size })
@@ -214,7 +246,7 @@ export function FreePositionProperties({
       <FieldNote>
         {dock
           ? "The area places it along its edge, inside its padding, in the order of the object list."
-          : "When the free area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both."}
+          : "When the area is resized, it keeps its distance to these edges; Center and Middle keep it to the middle, Stretch to both."}
       </FieldNote>
     </PropertySection>
   )

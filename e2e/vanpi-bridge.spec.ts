@@ -161,10 +161,46 @@ test.describe("VanPi bridge logic", () => {
 
     // Announced as power sensors, each only when it is there.
     const things = logic.things("producers", { shore_power: 412, mppt_pv_watts: "0" })
-    expect(things["homeassistant/sensor/schaltli-vanpi/shore_power/config"]).toMatchObject({ name: "Landstrom", state_topic: "schaltli/state/shore/power", unit_of_measurement: "W", device_class: "power" })
+    expect(things["homeassistant/sensor/schaltli-vanpi/shore_power/config"]).toMatchObject({ name: "Batterie-Ladegerät", state_topic: "schaltli/state/shore/power", unit_of_measurement: "W", device_class: "power" })
     expect(things["homeassistant/sensor/schaltli-vanpi/solar_power/config"]).toMatchObject({ name: "Solar", state_topic: "schaltli/state/solar/power" })
     expect(things["homeassistant/sensor/schaltli-vanpi/booster_power/config"]).toBeUndefined()
     expect(logic.things("producers", {})).toEqual({})
+  })
+
+  // The energy block (the user, 2026-11-17): the battery's charge and watts,
+  // solar, shore power and the booster - each only when it is there - with
+  // the icons of the starter's energy diagram.
+  test("the energy block: the battery, then solar, shore power and the booster as they are there, two to a row, beside their things", () => {
+    const describe = (vars: Record<string, unknown>) => {
+      const out = logic.things("producers", vars) as Record<string, object>
+      const config = out["schaltli/blocks/energy/config"]
+      return { out, config: config as any, read: config ? readDescription("schaltli/blocks/energy/config", JSON.stringify(config)) : undefined }
+    }
+    const all = describe({ battery_soc: "97", battery_power: "-12", mppt_pv_watts: "250", shore_power: 0, booster_power: 0 })
+    expect(all.config).toMatchObject({ name: "Energie", icon: "bxs:car-battery", covers: [] })
+    if (!all.read || !("entry" in all.read)) throw new Error("not an entry")
+    expect(all.read.entry.skipped).toBeUndefined()
+    expect(all.read.entry.controls.map((c: any) => [c.part, c.kind, c.read, c.unit, c.icon, c.column, c.row])).toEqual([
+      ["Batterie", "value", "schaltli/state/battery/soc", "%", "bxs:car-battery", 1, "battery"],
+      ["Leistung", "value", "schaltli/state/battery/power", "W", "bxs:car-battery", 2, "battery"],
+      ["Solar", "value", "schaltli/state/solar/power", "W", "mdi:white-balance-sunny", 1, "sources0"],
+      ["Batterie-Ladegerät", "value", "schaltli/state/shore/power", "W", "mdi:transmission-tower", 2, "sources0"],
+      ["Ladebooster", "value", "schaltli/state/booster/power", "W", "mdi:engine", 1, "sources1"],
+    ])
+    // Beside the things, not in place of them: the Block menu keeps «Solar» and the others.
+    const messages = Object.fromEntries(Object.entries(all.out).map(([topic, config]) => [topic, JSON.stringify(config)]))
+    expect(readCatalog(messages).entries.map((e) => e.label)).toEqual(expect.arrayContaining(["Energie", "Solar", "Batterie-Ladegerät", "Lichtmaschine"]))
+
+    // Without a flow for shore power and the booster: the battery and Pekaway's MPPT.
+    const plain = describe({ battery_soc: "80", battery_power: "5", mppt_pv_watts: "0", shore_power: undefined, booster_power: null })
+    expect(plain.config.parts.map((p: any) => p.name)).toEqual(["Batterie", "Leistung", "Solar"])
+    // Nothing at all: no block.
+    expect(describe({}).config).toBeUndefined()
+  })
+
+  test("the flow hands the battery's charge and watts to the producers' announcement", () => {
+    const flow = JSON.stringify(buildBridgeFlow())
+    expect(flow).toContain('battery_soc: result.last[logic.PREFIX + \\"battery/soc\\"]')
   })
 
   test("odd messages give nothing instead of stopping the bridge", () => {
@@ -1090,8 +1126,9 @@ test.describe("VanPi bridge logic", () => {
       // On the 4.3B the whole block fits its 480 px, with the bigger dials
       // of 2026-10-28 (414 px then), the switch «Heizung» on top of
       // 2026-11-11 (434) and the dials no longer rounded down to their
-      // track's grid since 2026-11-14 (442).
-      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(450)
+      // track's grid since 2026-11-14 (442), and the mode's panel the card
+      // of its choice since 2026-11-16 (460).
+      if (pixelsPerMm === 8.66) expect(laid.height).toBeLessThanOrEqual(460)
     })
   }
 
@@ -1109,18 +1146,23 @@ test.describe("VanPi bridge logic", () => {
       // Mode and cover, then what the mode shows: the slider, and the
       // airflow by hand and in auto (asked 2026-10-04).
       // Since 2026-11-11 (docs/2026-11-11-bridge-for-starter.md, decision 4):
-      // the switches «Lüfter» and «Deckel» side by side, then while it runs
+      // «Lüfter» and «Deckel» side by side, then while it runs
       // Hand | Auto, the slider of the mode and Rein | Raus.
-      expect(fan.controls.map((c) => [c.part, c.kind, c.column, c.row, c.shownWhen?.values ?? []])).toEqual([
-        ["Lüfter", "switch", 1, "switches", []],
-        ["Deckel", "switch", 2, "switches", []],
-        ["Betrieb", "choice", undefined, undefined, ["fan_only", "auto"]],
-        ["Temperatur", "level", undefined, undefined, ["auto"]],
-        ["Drehzahl", "level", undefined, undefined, ["fan_only"]],
-        ["Luft", "choice", undefined, undefined, ["fan_only", "auto"]],
+      // Since 2026-11-16, as the user drew it in the van: the cover a choice
+      // of Zu | Offen, guarded and in XS, with no name over it; Hand | Auto
+      // while the fan is on, not while a mode is set; the airflow small.
+      expect(fan.controls.map((c) => [c.part, c.kind, c.column, c.row, c.shownWhen?.topic.split("/").pop(), c.shownWhen?.values ?? []])).toEqual([
+        ["Lüfter", "switch", 1, "switches", undefined, []],
+        ["Deckel", "choice", 2, "switches", undefined, []],
+        ["Betrieb", "choice", undefined, undefined, "power", ["on"]],
+        ["Temperatur", "level", undefined, undefined, "hvac_mode", ["auto"]],
+        ["Drehzahl", "level", undefined, undefined, "hvac_mode", ["fan_only"]],
+        ["Luft", "choice", undefined, undefined, "hvac_mode", ["fan_only", "auto"]],
       ])
       expect(fan.controls[0]).toMatchObject({ read: "schaltli/state/maxxfan/power", write: "schaltli/cmnd/maxxfan/power" })
-      expect(fan.controls[2]).toMatchObject({ options: ["fan_only", "auto"], labels: ["Hand", "Auto"] })
+      expect(fan.controls[1]).toMatchObject({ options: ["closed", "open"], labels: ["Zu", "Offen"], untitled: true, guard: true, size: "xs", write: "schaltli/cmnd/maxxfan/cover" })
+      expect(fan.controls[2]).toMatchObject({ options: ["fan_only", "auto"], labels: ["Hand", "Auto"], untitled: true, size: "s" })
+      expect(fan.controls[5]).toMatchObject({ untitled: true, small: true })
       expect(fan.controls[4]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
       expect(fan.controls[5]).toMatchObject({ options: ["in", "out"], labels: ["Rein", "Raus"] })
 

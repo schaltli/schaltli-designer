@@ -214,7 +214,8 @@ for (const k of [kind, "theme"]) {
 if (kind === "batt") {
   // The producers that are there, Pekaway's MPPT counting for solar.
   const pv = result.last[logic.PREFIX + "mppt/pv_watts"];
-  const a = logic.announce("producers", Object.assign({}, producerVars, { mppt_pv_watts: pv }), announced);
+  // And the battery's charge and watts, for the energy block.
+  const a = logic.announce("producers", Object.assign({}, producerVars, { mppt_pv_watts: pv, battery_soc: result.last[logic.PREFIX + "battery/soc"], battery_power: result.last[logic.PREFIX + "battery/power"] }), announced);
   announced = a.announced;
   configs.push(...a.publish);
 }

@@ -40,9 +40,23 @@ function withIds(piece: Piece, prefix: string): ScreenObject {
 function partTile(piece: Piece, width: number, padding: number, scale: LayoutScale): Piece {
   if (piece.type === "switcher" || piece.type === "panel" || (piece.type === "table" && !piece.properties?.blockTile)) {
     if (!piece.children) return piece
-    return { ...piece, ...(piece.type === "switcher" ? { width } : {}), children: piece.children.map((c) => partTile(c as Piece, width, padding, scale) as ScreenObject) }
+    // A panel that is the card (lib/bausteine.ts switcherSlot) holds its
+    // parts inside its padding: built at the full width they asked the
+    // switcher for more than it has, and its column grew by that.
+    const room = piece.type === "panel" && piece.properties?.look === "card" ? Math.max(1, width - 2 * padding) : width
+    return { ...piece, ...(piece.type === "switcher" ? { width } : {}), children: piece.children.map((c) => partTile(c as Piece, room, padding, scale) as ScreenObject) }
   }
-  if (!piece.properties?.blockTile) return piece.type === "toggle-button" || piece.type === "button-group" || piece.type === "slider" ? { ...piece, width } : piece
+  if (!piece.properties?.blockTile) {
+    // A choice set small is as wide as its options need (lib/bausteine.ts `described`).
+    if (piece.properties?.blockCompact) {
+      const { blockCompact: _compact, ...properties } = piece.properties
+      return { ...piece, properties }
+    }
+    return piece.type === "toggle-button" || piece.type === "button-group" || piece.type === "slider" ? { ...piece, width } : piece
+  }
+  // In a switcher's panel the panel is the card: the tile is an area
+  // without a look, as tall as what it holds (`blockBare`).
+  const bare = piece.properties.blockBare === true
   const kids = (piece.children ?? []) as Piece[]
   const control = kids[kids.length - 1]
   const heads = kids.slice(0, -1)
@@ -58,13 +72,25 @@ function partTile(piece: Piece, width: number, padding: number, scale: LayoutSca
     y: piece.y,
     width,
     height: 0,
-    // Its place in a switcher panel's table, kept.
-    properties: { ...(piece.properties?.cell ? { cell: piece.properties.cell } : {}), look: "card" },
+    // Its place in a switcher's panel - its cell, or docked there - kept.
+    properties: {
+      ...(piece.properties?.cell ? { cell: piece.properties.cell } : {}),
+      ...(piece.properties?.dock ? { dock: piece.properties.dock } : {}),
+      ...(bare ? {} : { look: "card" }),
+    },
     children: [...(heading ? [heading] : []), docked(control, "fill", 1)] as ScreenObject[],
   }
-  const [laid] = layoutObjects([withIds({ ...card, height: 100000 }, "tile")], scale)
+  // Measured with what it holds at the top: a control kept to the bottom
+  // of its tile (lib/bausteine.ts) would stand at the bottom of the room to
+  // spare, and the tile be as tall as that.
+  const atTop = (c: ScreenObject): ScreenObject => {
+    if (!c.properties?.anchor) return c
+    const { anchor: _anchor, ...properties } = c.properties
+    return { ...c, properties }
+  }
+  const [laid] = layoutObjects([withIds({ ...card, children: (card.children ?? []).map(atTop), height: 100000 }, "tile")], scale)
   const bottom = Math.max(0, ...(laid.children ?? []).map((c) => c.y + c.height))
-  return { ...card, height: bottom + padding }
+  return { ...card, height: bottom + (bare ? 0 : padding) }
 }
 
 /** Between a value card's name and its value (the user, 2026-11-14): Free › Gap. */
@@ -115,13 +141,14 @@ export function blockCard(built: BausteinBuildResult, width: number, scale: Layo
       return partTile({ ...piece, width: w }, w, padding, scale)
     })
     const table = blockTable({ ...built, objects: tiled, labelCount: 0 })
-    // Two columns of equal width across the whole width, so the two side
+    // Two fill columns across the whole width, equal, so the two side
     // by side end where the tiles across both do. In a free area without a
     // look of its own - no fill, no edge, no padding - so the block is one
     // object to carry, snap and select, as a card is.
     // Not docked: a table wider than the area - two dials side by side on
     // the knob's 360 px - stands in it, cut at its edge, rather than left out.
-    const tiles = { ...table, x: 0, y: 0, zIndex: 1, properties: { ...table.properties, equalColumns: true, widthMm: whole / scale.pixelsPerMm } }
+    const columns = (table.properties?.columns ?? []).map(() => ({ fill: true }))
+    const tiles = { ...table, x: 0, y: 0, zIndex: 1, properties: { ...table.properties, columns, tableSize: { width: whole } } }
     const area: Piece = {
       type: "free",
       x: 0,
@@ -237,8 +264,10 @@ export function fittedBlockCard(built: BausteinBuildResult, scale: LayoutScale, 
   // led-look.md) - inside the tiles and the switcher's panels too.
   if (built.partTiles && smaller) {
     const font = smaller("standard")
+    // Not one the description gave a size of its own: it keeps the text of that size.
+    const sized = (o: Piece) => o.properties?.sizeStep !== undefined || o.properties?.blockSizeStep !== undefined
     const deep = (o: Piece): Piece =>
-      o.type === "button-group" && font ? { ...o, properties: { ...o.properties, ...font } } : o.children ? { ...o, children: o.children.map((c) => deep(c as Piece) as ScreenObject) } : o
+      o.type === "button-group" && font && !sized(o) ? { ...o, properties: { ...o.properties, ...font } } : o.children ? { ...o, children: o.children.map((c) => deep(c as Piece) as ScreenObject) } : o
     return blockCard({ ...built, objects: objects.map(deep) }, width, scale, room)
   }
   for (const style of ["large", "standard"] as const) {

@@ -9,7 +9,9 @@ import { textWidthIn } from "@/lib/size-scale"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, resolveDeviceForProject, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
-import { layoutProject } from "@/lib/layout"
+import { layoutProject, layoutScaleOf } from "@/lib/layout"
+import { withCardsGrown } from "@/lib/free-min-size"
+import { normalizeProjectGroups } from "@/lib/object-groups"
 import { useEffect, useRef } from "react"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
@@ -1130,6 +1132,15 @@ export default function TestRenderPage() {
     // itself.
     ;(window as any).__layoutProjectForTest = (project: any) => layoutProject(project)
 
+    // A project as the designer has it once opened (components/project-
+    // editor.tsx setProject): migrated, its groups' boxes set, laid out, and
+    // every area too small for what it holds grown to it
+    // (lib/free-min-size.ts). What e2e/areas-nothing-moves.spec.ts exports.
+    ;(window as any).__openProjectForTest = (project: any) => {
+      const laid = layoutProject(normalizeProjectGroups(migrateProject(structuredClone(project))))
+      return withCardsGrown(laid, layoutScaleOf(laid), layoutProject)
+    }
+
     ;(window as any).__testRenderReady = true
 
     return () => {
@@ -1149,6 +1160,7 @@ export default function TestRenderPage() {
       delete (window as any).__migrateProjectForTest
       delete (window as any).__migrateObjectTypesForTest
       delete (window as any).__layoutProjectForTest
+      delete (window as any).__openProjectForTest
       delete (window as any).__testRenderReady
     }
   }, [])

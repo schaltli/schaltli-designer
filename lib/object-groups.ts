@@ -21,6 +21,7 @@ import { sortChildrenByZIndex } from "@/lib/object-order"
 import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { areaShape, clipsContents, clipsOf, type ClipShape } from "@/lib/clip"
+import { AREA_KEYS } from "@/lib/area"
 
 export const GROUP_TYPE = "group" as const
 
@@ -189,6 +190,43 @@ export function freeBackground(obj: ScreenObject): ScreenObject | undefined {
   }
 }
 
+/**
+ * A panel's look as the box a device draws, in the panel's own space
+ * (docs/2026-11-16-areas.md): a panel is an area, and one with a fill or an
+ * edge shows it as an area standing alone does. Under the id the box had
+ * where the panel took an area over (`areaBox`, lib/area-migration.ts):
+ * an export keys its baked pictures by object id.
+ */
+export function panelBackground(panel: ScreenObject): ScreenObject | undefined {
+  const background = freeBackground({ ...panel, x: 0, y: 0 })
+  if (!background) return undefined
+  const id = panel.properties?.areaBox?.id
+  return typeof id === "string" && id !== "" ? { ...background, id } : background
+}
+
+/** The shape a panel clips what it holds to, in its own space; undefined where it clips nothing. */
+export function panelClip(panel: ScreenObject): ClipShape | undefined {
+  return clipsContents(panel) ? areaShape({ ...panel, x: 0, y: 0 }) : undefined
+}
+
+// A panel as a device gets it: its look a box below what it holds, what it
+// holds clipped to its shape, and none of an area's own properties - exactly
+// what an area standing alone in the panel was dissolved into. The same
+// panel where it has none of them.
+function panelExported(panel: ScreenObject): ScreenObject {
+  const p = panel.properties ?? {}
+  if (!AREA_KEYS.some((key) => key in p)) return panel
+  const properties = Object.fromEntries(Object.entries(p).filter(([key]) => !(AREA_KEYS as readonly string[]).includes(key)))
+  const background = panelBackground(panel)
+  const shape = panelClip(panel)
+  const kept = (panel.children ?? []).filter((child) => !child.properties?.dockedOut)
+  const held = shape ? kept.map((child) => withClip(child, [...clipsOf(child), shape])) : kept
+  if (!background) return { ...panel, properties, children: held }
+  const noted = Number(p.areaBox?.zIndex)
+  const lowest = Math.min(Number.isFinite(noted) ? noted : Infinity, ...dissolvedStack(kept))
+  return { ...panel, properties, children: [{ ...background, zIndex: (Number.isFinite(lowest) ? lowest : 1) - 1 }, ...held] }
+}
+
 // The stacking numbers of what a container's children turn into once
 // dissolved: each child's own, and through a layout container its children's.
 function dissolvedStack(children: ScreenObject[]): number[] {
@@ -274,7 +312,9 @@ export function dissolveGroups(objects: ScreenObject[]): ScreenObject[] {
   // Layout containers first: they hold groups as often as groups hold them.
   const flat = dissolveList(dissolveContainerList(objects ?? []))
   let changed = flat !== objects
-  const out = flat.map((obj) => {
+  const out = flat.map((given) => {
+    const obj = given.type === "panel" ? panelExported(given) : given
+    if (obj !== given) changed = true
     if (!obj.children || obj.children.length === 0) return obj
     const children = dissolveGroups(obj.children)
     if (children === obj.children) return obj

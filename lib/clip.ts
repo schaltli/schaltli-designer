@@ -11,6 +11,7 @@
  */
 
 import type { ScreenObject } from "@/components/project-editor"
+import { isArea } from "@/lib/area"
 
 /** The device feature (DDF `supportedFeatures`) that draws `clip`. */
 export const CLIP_FEATURE = "clip"
@@ -106,7 +107,7 @@ export function insideShape(shape: ClipShape, px: number, py: number, spans = ro
  * is not read.
  */
 export function clipsContents(area: ScreenObject): boolean {
-  if (area.type !== "free") return false
+  if (!isArea(area)) return false
   const p = area.properties ?? {}
   if (p.look === "card" || p.look === "card-accent") return true
   const fill = typeof p.fillColor === "string" && p.fillColor !== "" ? p.fillColor : "transparent"

@@ -72,7 +72,7 @@ Die Namen für Landstrom und Booster sind dieselben, die CamperUI liest. Wer sie
 
 Was nicht gesetzt ist, legt die Brücke nicht ab. Ein Van ohne Landstrom-Messung hat also kein Topic `…/shore/…`, und ein Diagramm zeigt dort keinen Wert statt eines falschen.
 
-Leistung von Landstrom, Booster und Solar kündigt die Brücke als Messwert in Watt an, mit den Namen «Landstrom», «Lichtmaschine» und «Solar», jeweils nur, wenn es den Wert gibt.
+Leistung von Landstrom, Booster und Solar kündigt die Brücke als Messwert in Watt an, mit den Namen «Batterie-Ladegerät», «Lichtmaschine» und «Solar», jeweils nur, wenn es den Wert gibt.
 
 Pekaways eigene Variablen liest die Brücke sonst nicht, nur Pekaways dokumentierte Schnittstelle. Ausnahmen sind die Restlaufzeit der Batterie und diese Variablen hier, die nicht von Pekaway stammen, sondern von den Flows im Van.
 
@@ -148,7 +148,7 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Die Baugruppe «MaxxFan» bringt alles mit. Oben stehen nebeneinander die Schalter «Lüfter» und «Deckel». «Lüfter» schaltet ihn im Betrieb ein, in dem er zuletzt lief. Dann kommt, was nur bei laufendem Lüfter zählt: die Knöpfe «Hand» und «Auto», im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luft, «Rein» oder «Raus». Ist der Lüfter aus, fällt dieser Teil weg. Was dort steht, wählt ein Switcher in der Baugruppe, siehe [Teile je nach Betrieb](/designer/baugruppen#je-nach-betrieb).
+Die Baugruppe «MaxxFan» bringt alles mit. Oben steht links der Schalter «Lüfter», der ihn im Betrieb einschaltet, in dem er zuletzt lief. Rechts daneben öffnest und schliesst du den Deckel mit «Zu» und «Offen». Diese beiden Knöpfe sind geschützt: Ein Antippen aus Versehen öffnet den Deckel nicht. Darunter kommt, was nur bei laufendem Lüfter zählt. Zuerst die Knöpfe «Hand» und «Auto», dann eine Karte für den gewählten Betrieb: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen klein darunter die Luft, «Rein» oder «Raus». Ist der Lüfter aus, fällt dieser Teil weg. Was dort steht, wählt ein Switcher in der Baugruppe, siehe [Teile je nach Betrieb](/designer/baugruppen#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #47: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
@@ -159,11 +159,12 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 
 Damit der Designer die Werte als [Baugruppen](/designer/baugruppen) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
 
-Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Unter <span class="ui">Prebuilt</span> stehen dann «MaxxFan», die Heizung und «Theme» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
+Den Dachlüfter, die Heizung, das Theme und die Energiewerte beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config`, `schaltli/blocks/theme/config` und `schaltli/blocks/energy/config`. Unter <span class="ui">Prebuilt</span> stehen dann «MaxxFan», die Heizung, «Theme» und «Energie» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag. «Energie» ersetzt nichts: «Batterie», «Solar», «Batterie-Ladegerät» und «Lichtmaschine» stehen weiter einzeln da.
 
 | Baugruppe | Teile |
 |---|---|
-| «MaxxFan» | nebeneinander die Schalter «Lüfter» und «Deckel» (Offen, Zu); solange er läuft die Betriebsart (Hand, Auto), im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luft (Rein, Raus) |
+| «MaxxFan» | nebeneinander der Schalter «Lüfter» und der Deckel (Zu, Offen, geschützt); solange er läuft die Betriebsart (Hand, Auto), im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden klein die Luft (Rein, Raus) |
+| «Energie» | je eine Karte, zwei nebeneinander: die Batterie mit ihrem Ladestand in Prozent und einem Balken, daneben ihre Leistung in Watt, dann Solar, das Batterie-Ladegerät am Landstrom und der Ladebooster in Watt. Solar kommt vom MPPT von Pekaway oder aus der Variable `solar_power`, Ladegerät und Ladebooster nur, wenn ein eigener Flow `shore_power` und `booster_power` setzt, siehe [Landstrom, Booster und Solar](#eigene-quellen). Jede Karte hat das Icon und die Farbe, die der Starter im Energiefluss verwendet: Autobatterie, Sonne, Strommast und Motor |
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
 | die Heizung, eine Autoterm | zuoberst der Schalter «Heizung», der sie in der Betriebsart startet, in der sie zuletzt lief, daneben klein der Zustand, bei einer Störung die Störung; solange sie läuft die Betriebsart (Temperatur, Leistung, Lüften) über die ganze Breite. Darunter [nebeneinander](/designer/baugruppen#zwei-spalten) links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, bei ausgeschalteter Heizung die Solltemperatur, rechts der Timer, ein Schalter mit einer Sanduhr statt Wörtern, und solange er an ist, die Laufzeit wie bei einer Eieruhr: Der Griff steht auf der Restzeit und läuft gegen null, in der Mitte steht sie als Stunden, Minuten und Sekunden (<span class="ui">Duration</span>). Alle Regler kommen als Dial, eine Stufe grösser als sonst. Zuunterst klein der Verbrauch mit «Nullen» daneben, einem Knopf ohne Rahmen |
 
@@ -183,7 +184,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
-| Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Landstrom», «Lichtmaschine», «Solar» |
+| Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Batterie-Ladegerät», «Lichtmaschine», «Solar» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt, mit einer Out-X-In Pro alle sechzehn. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 

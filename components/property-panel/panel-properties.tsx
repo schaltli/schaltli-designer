@@ -18,12 +18,14 @@
 import type { ScreenObject } from "../project-editor"
 import type { ComparisonOperator } from "@/lib/comparison-operators"
 import { ConditionRow, FieldNote, PropertySection, PropertySections } from "./fields"
+import { AreaSections } from "./free-properties"
 
 interface PanelPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   parentTabControl: ScreenObject | null
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
 }
 
 export function PanelProperties({
@@ -31,6 +33,7 @@ export function PanelProperties({
   onUpdateObject,
   parentTabControl,
   onSelectObject,
+  colorDepth,
 }: PanelPropertiesProps) {
   const updateProperty = (key: string, value: unknown) => {
     onUpdateObject(selectedObject.id, {
@@ -75,10 +78,21 @@ export function PanelProperties({
         ) : null}
       </PropertySection>
 
+      {/* A panel is an area (docs/2026-11-16-areas.md): the sections an
+          area standing alone has - what stands in it docks inside its
+          padding, and it can look like a card. */}
+      <AreaSections
+        selectedObject={selectedObject}
+        onUpdateObject={onUpdateObject}
+        colorDepth={colorDepth}
+        title="Area"
+        note="What is put into it stays where it is placed, or is docked to an edge, as its Position says. It looks like a Box, if you give it a fill or an edge."
+      />
+
       <PropertySection title="Frame" defaultCollapsed summary="Follows the switcher">
         <FieldNote>
           A panel fills its switcher's box exactly, so it has no position or size of its own. Move or resize the
-          switcher instead.
+          switcher instead. The switcher is never smaller than what its panels hold.
         </FieldNote>
       </PropertySection>
     </PropertySections>

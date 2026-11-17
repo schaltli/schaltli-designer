@@ -28,6 +28,7 @@ import { stillIconData } from "@/lib/svg-still"
 import { withoutScreenMenu } from "@/lib/screen-menu"
 import { chartNeedsNormalizing, normalizeChart } from "@/lib/chart"
 import { migrateCellAnchor } from "@/lib/anchor"
+import { migrateToAreas } from "@/lib/area-migration"
 
 export const OBJECT_TYPES = [
   "text",
@@ -172,8 +173,10 @@ export function objectTypeLabel(type: string): string {
       return "Camera"
     case "group":
       return "Group"
+    // «Area» since 2026-11-16 (docs/2026-11-16-areas.md, decision 15); the
+    // type in a project file stays `free`.
     case "free":
-      return "Free"
+      return "Area"
     case "table":
       return "Table"
     default:
@@ -507,5 +510,8 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
       if (dissolved !== objects) screen.objects = dissolved as typeof screen.objects
     }
   }
+  // Areas (docs/2026-11-16-areas.md): a panel takes over the one area that
+  // filled it, a switcher holds what its panels hold. Once per project.
+  migrateToAreas(project)
   return project
 }

@@ -79,11 +79,14 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { layoutProject, layoutScaleOf } from "@/lib/layout"
+import { layoutProject, layoutScaleOf, type LayoutScale } from "@/lib/layout"
+import { withFillWhereGivenRoom } from "@/lib/table-fill"
+import { FORMAT_VERSION, migrateToAreas } from "@/lib/area-migration"
+import type { ScreenArea } from "@/lib/area"
 import { withThemeSwitchAssets } from "@/lib/navigator-entries"
 import { SCREEN_MENU_GONE, usesScreenMenu } from "@/lib/screen-menu"
 import { TTF_FONT_LOADED_EVENT } from "@/lib/size-scale"
-import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, type SnapDrop, type SnapSide } from "@/lib/snap-table"
+import { applySnapDrop, deleteObjects, firstInReadingOrder, isSnapTable, moveOutOf, withTableSize, type SnapDrop, type SnapSide } from "@/lib/snap-table"
 import { canPasteBeside, canPasteReplacing, pasteBeside, pasteReplacing } from "@/lib/paste-beside"
 import type { EditMenuActions } from "@/components/edit-menu-items"
 
@@ -94,7 +97,8 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast, toast as showToast } from "@/hooks/use-toast"
 import { projectOnCurrentFonts } from "@/lib/project-device"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { moveIntoArea } from "@/lib/drop-into-free"
+import { areaMovedInto, moveIntoArea } from "@/lib/drop-into-free"
+import { cellAreaId, withCellArea } from "@/lib/cell-area"
 import { carryObjects, type CarryTarget } from "@/lib/carry"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, inFont, styledFont, TEXT_STYLES, withHonestSteps, type TextStyle } from "@/lib/size-scale"
@@ -245,6 +249,12 @@ export interface ProjectScreen {
   id: string
   name: string
   objects: ScreenObject[]
+  // The screen is an area (docs/2026-11-16-areas.md, lib/area.ts): its
+  // Padding and Gap for what is docked on it. `areaSize` is written by the
+  // layout while what is docked needs more than the panel: how far the
+  // area has grown past it, for the editor to draw. No device reads either.
+  area?: ScreenArea
+  areaSize?: { width: number; height: number }
   // Screen background color - inherited from the master when unset, and
   // needs no override-none flag: undefined
   // already unambiguously means "inherit, or fall back to white"
@@ -396,6 +406,10 @@ export interface PropertyPanelProps {
 }
 
 export interface ProjectSettings {
+  // The form the project has (lib/area-migration.ts FORMAT_VERSION): absent
+  // in one saved before areas (docs/2026-11-16-areas.md), which is brought
+  // to them on load, once.
+  formatVersion?: number
   exportFormat: "esp32" | "arduino" | "json"
   gridSize: number
   snapTolerance: number
@@ -878,6 +892,9 @@ function createDefaultProject(): Project {
     hardwareButtons: [],
     snapGuides: [],
     settings: {
+      // A project made here has the current form (lib/area-migration.ts):
+      // what is docked on its screens is meant.
+      formatVersion: FORMAT_VERSION,
       exportFormat: "esp32",
       gridSize: 20,
       snapTolerance: 8,
@@ -906,6 +923,30 @@ function createDefaultProject(): Project {
 function migrateOpened<P extends Project>(project: P): { project: P; menuGone: boolean } {
   const menuGone = usesScreenMenu(project)
   return { project: migrateProject(project), menuGone }
+}
+
+// A width or height given to a table - pulled at a handle, typed into
+// Frame - is its own size (lib/snap-table.ts withTableSize).
+function sizedAsTable(objects: ScreenObject[], id: string, updates: Partial<ScreenObject>, scale: LayoutScale): Partial<ScreenObject> {
+  if (!("width" in updates) && !("height" in updates)) return updates
+  const obj = findObjectById(objects, id)
+  return obj && isSnapTable(obj) ? withTableSize(obj, updates, scale) : updates
+}
+
+// `next` with each table the edit gave room a fill column (lib/table-fill.ts),
+// in the edit itself. Not across projects: one just opened is as it was saved.
+function fillGiven(prev: Project, next: Project): Project {
+  if (prev.name !== next.name) return next
+  let changed = false
+  const screens = next.screens.map((screen) => {
+    const before = prev.screens.find((s) => s.id === screen.id)
+    if (!before || before.objects === screen.objects) return screen
+    const objects = withFillWhereGivenRoom(before.objects, screen.objects)
+    if (objects === screen.objects) return screen
+    changed = true
+    return { ...screen, objects }
+  })
+  return changed ? { ...next, screens } : next
 }
 
 // `next` with its cards fitted to their content (lib/free-min-size.ts): one
@@ -948,7 +989,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // screen graph mended (lib/screen-graph.ts): a screen docked on one that
     // left it - deleted, hidden, made a popup or a master - becomes hidden.
     setProjectState((prev) => {
-      const laid = layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+      const laid = layoutProject(fillGiven(prev, normalizeProjectGroups(typeof action === "function" ? action(prev) : action)))
       // And a card too small for what it holds grows to it - after an edit,
       // and a project just opened as well (lib/free-min-size.ts).
       // One that ended with its content follows it, smaller too.
@@ -2115,7 +2156,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ...prev,
         screens: prev.screens.map((screen) =>
           screen.id === currentScreenId
-            ? { ...screen, objects: honest(updateObjectById(screen.objects, objectId, updates), prev.settings.pixelsPerMm) }
+            ? { ...screen, objects: honest(updateObjectById(screen.objects, objectId, sizedAsTable(screen.objects, objectId, updates, layoutScaleOf(prev))), prev.settings.pixelsPerMm) }
             : screen,
         ),
       }))
@@ -2506,10 +2547,28 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // same block appended through a table's «+» came out larger
       // (reported 2026-10-03).
       // A part the description sizes otherwise - «Nullen» in XS - takes its own.
+      // And one inside a tile or a switcher's panel that the description
+      // sizes - a choice in XS - too, in the Label style as the block's
+      // own controls are.
+      type Piece = Omit<ScreenObject, "id" | "zIndex">
+      const within = (piece: Piece): Piece => {
+        if (!piece.children) return piece
+        const children = piece.children.map((child) => {
+          // A text set in a size of its own - a value card's name and number
+          // in a tile (lib/bausteine.ts valueTile) - in that size.
+          const given = within(child as Piece)
+          const inner = given.properties?.blockTextStyle !== undefined ? styled(given) : given
+          if (!scale || inner.properties?.blockSizeStep === undefined || !stepKindOf(inner.type)) return inner
+          const { blockSizeStep, ...properties } = styled(inner).properties ?? {}
+          const own = { ...inner, properties }
+          return { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep, scale.pixelsPerMm, project.fonts) }
+        })
+        return { ...piece, children: children as ScreenObject[] }
+      }
       const stepped = scale
         ? pieces.map((piece) => {
             const { blockSizeStep, ...properties } = piece.properties ?? {}
-            const own = { ...piece, properties }
+            const own = within({ ...piece, properties })
             return stepKindOf(piece.type) ? { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep ?? "m", scale.pixelsPerMm, project.fonts) } : own
           })
         : pieces
@@ -2644,6 +2703,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     (ids: string[], into: string | null, drop: SnapDrop | null) => {
       const newTableId = `obj-${project.nextId}`
       const snaps = !!drop && ids.length === 1
+      // Onto an occupied cell: the cell's area, made around what stands in
+      // it (lib/cell-area.ts), is where they end and what is open afterwards.
+      const given = into
+      into = areaMovedInto(currentScreen.objects, given)
       setProject((prev) => {
         const scale = layoutScaleOf(prev)
         return {
@@ -2651,7 +2714,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           nextId: snaps && drop!.kind === "pair" ? prev.nextId + 1 : prev.nextId,
           screens: prev.screens.map((screen) => {
             if (screen.id !== currentScreenId) return screen
-            let objects = moveIntoArea(screen.objects, ids, into)
+            let objects = moveIntoArea(screen.objects, ids, given, scale)
             if (objects === screen.objects) return screen
             if (snaps) {
               // Into a table there, in the space it went into.
@@ -2668,7 +2731,34 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setEditingContainerId(snaps ? (drop!.kind === "table" ? drop!.tableId : newTableId) : into)
       setSelectedObjectIds(ids)
     },
-    [currentScreenId, project.nextId, setProject],
+    [currentScreen.objects, currentScreenId, project.nextId, setProject],
+  )
+
+  // A table's cell made an area around the object alone in it
+  // (docs/2026-11-16-areas.md, decisions 12 and 13; lib/cell-area.ts): docked
+  // to an edge of the cell, or the cell given a look. The cell is open
+  // afterwards, the object still chosen.
+  const makeCellArea = useCallback(
+    (id: string, own: { dock?: string; look?: string }) => {
+      setProject((prev) => {
+        const scale = layoutScaleOf(prev)
+        return {
+          ...prev,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            const made = withCellArea(screen.objects, id, scale, own.look ? { look: own.look } : {})
+            if (!made.areaId) return screen
+            const inner = own.dock ? findObjectById(made.objects, id) : null
+            if (!inner) return { ...screen, objects: made.objects }
+            const { anchor: _anchor, ...rest } = inner.properties ?? {}
+            return { ...screen, objects: updateObjectById(made.objects, id, { properties: { ...rest, dock: own.dock } }) }
+          }),
+        }
+      })
+      setEditingContainerId(cellAreaId(id))
+      setSelectedObjectIds([id])
+    },
+    [currentScreenId, setProject],
   )
 
   // Objects carried from the object tree (docs/2026-11-07-tree-carry-and-
@@ -2689,7 +2779,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           ),
         }
       })
-      setEditingContainerId(snap ? (snap.kind === "table" ? snap.tableId : newTableId) : target.into)
+      setEditingContainerId(snap ? (snap.kind === "table" ? snap.tableId : newTableId) : areaMovedInto(currentScreen.objects, target.into))
       // A merged table is gone; its objects stand in the other one.
       setSelectedObjectIds(snap?.kind === "table" && snap.merge ? [] : ids)
     },
@@ -3544,7 +3634,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       screen.isMaster ? { ...screen, themeId: defaultThemeIdFor(fields.colorDepth) } : screen,
     )
     // Its screens, topics, icons and settings over the device's own.
-    if (template) fresh = withTemplate(fresh, template)
+    // Its screens brought to the current form, as a project's are on load.
+    if (template) {
+      fresh = withTemplate(fresh, template)
+      migrateToAreas(fresh)
+    }
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)
@@ -5033,6 +5127,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     selectedObject={selectedObject}
                     selectedObjects={selectedObjects}
                     onUpdateObject={updateObject}
+                    onMakeCellArea={makeCellArea}
                     onDeclareTopics={declareTopics}
                     onUpdateObjects={updateObjects}
                     currentScreen={currentScreen}

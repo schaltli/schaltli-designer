@@ -98,6 +98,8 @@ Mit <span class="ui">Screen type</span> in den Eigenschaften machst du aus einem
 
 Was du auf einen Screen setzt, bleibt dort, wo du es hinsetzt. Willst du Namen und Bedienelemente bündig untereinander, steckst du sie zu einer [Tabelle](/objekte/anordnen#zusammenstecken) zusammen: Ziehst du ein Objekt mit gedrückter <kbd>Alt</kbd> an ein anderes heran, rasten die beiden ein. Eine [Baugruppe](/designer/baugruppen) kommt als Karte, die nächste trägst du mit <kbd>Alt</kbd> darunter, und die beiden rasten zu einer Tabelle zusammen.
 
+An einer Kante festmachen kannst du ein Objekt trotzdem. Unter <span class="ui">Position</span> dockst du es mit <span class="ui">Dock</span> an den Rand des Screens, etwa eine Kopfzeile mit <span class="ui">Top</span> und den Inhalt darunter mit <span class="ui">Fill</span>. Wie das geht, steht unter [Area](/objekte/anordnen#free).
+
 Projekte, in denen ein Screen noch selbst eine Tabelle war oder ein Master einen Inhaltsbereich hatte, öffnet der Designer so, dass alles bleibt, wo es war. Was die Tabelle des Screens anordnete, liegt danach frei an derselben Stelle. Den Inhaltsbereich gibt es nicht mehr.
 
 ## Die Eigenschaften eines Screens
@@ -118,6 +120,7 @@ Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. D
 - **<span class="ui">Time range</span>:** welche Zeitspanne die Diagramme des Screens zeigen, siehe [Chart](/objekte/anzeigen#chart). Erscheint nur auf einem Screen mit Diagramm.
 - **<span class="ui">Hardware buttons</span>:** was die Tasten des Geräts auslösen, jede mit ihrer Auswahl, siehe [Hardware-Tasten und Gesten](/designer/tasten). Nur bei Geräten mit Tasten, etwa dem Knob.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch. Auf einem Popup steht hier nur <span class="ui">A swipe closes a popup.</span>
+- **<span class="ui">Area</span>:** <span class="ui">Padding</span> und <span class="ui">Gap</span> für das, was am Screen [angedockt](/objekte/anordnen#free) ist: wie viel Platz am Rand frei bleibt und wie viel zwischen den angedockten Objekten, beides in Millimetern.
 - **<span class="ui">Look</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters, siehe [Themes und Farben](/designer/themes). <span class="ui">Typography</span> legt fest, welche Schriften die [Schriftgrössen](/designer/schriftgroessen) bekommen; ohne eigene Wahl gilt auch hier die des Masters. Das Feld erscheint nur, wenn das Gerät mehr als eine Typografie hat. Wählst du eine andere, bekommen alle Texte mit einer Schriftgrösse auf dem Screen deren Schriften, auf einem Master auch die Texte der Screens, die seine übernehmen. Fehlt dem Gerät die gewählte, etwa nach einem Gerätewechsel, gilt «Standard», die Typografie, die jedes Gerät hat. <span class="ui">Background</span> ist die Rolle des Hintergrunds, ohne eigene Wahl die des Masters.
 
 <Screenshot narrow name="feld-typography" alt="Unter Look die Felder Theme, Typography und Background" caption="Look: Theme und Typography nebeneinander." />

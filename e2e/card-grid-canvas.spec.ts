@@ -6,8 +6,9 @@ import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
 
 // A grid of cards in the designer (docs/2026-11-03-card-grid.md): four cards
-// dragged together into a 2 × 2 table, each filling its cell; then Gap,
-// Width and Equal columns in the Table section.
+// dragged together into a 2 × 2 table, each filling its cell; then Gap in
+// the Table section and both columns set to fill at their signs, which is
+// what «Equal columns» was until 2026-11-16 (docs/2026-11-16-table-sizes.md).
 
 type Obj = Record<string, any>
 
@@ -59,7 +60,7 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.keyboard.up("Alt")
 }
 
-test("four cards dragged together make a 2 × 2 grid, each filling its cell; Gap, Width and Equal columns in the Table section", async ({ page }) => {
+test("four cards dragged together make a 2 × 2 grid, each filling its cell; Gap in the Table section, both columns fill", async ({ page }) => {
   await loadProject(page, await project())
   // «b» (held at its middle) let go with its left edge 3 px right of «a»'s.
   await drag(page, { x: 280, y: 40 }, { x: 133, y: 40 })
@@ -88,16 +89,23 @@ test("four cards dragged together make a 2 × 2 grid, each filling its cell; Gap
   await expect(page.locator("#tableGap")).toBeVisible()
   await page.locator("#tableGap").fill("4")
   await page.locator("#tableGap").blur()
-  await page.getByText("Equal columns", { exact: true }).click()
-  await page.locator("#tableWidth").fill("70")
-  await page.locator("#tableWidth").blur()
+  // «Width» and «Equal columns» are gone: a column says itself what sets its width.
+  await expect(page.locator("#tableWidth")).toHaveCount(0)
+  await expect(page.getByText("Equal columns", { exact: true })).toHaveCount(0)
+  // Each column's sign clicked twice: auto, fixed, fill.
+  const { canvas } = await getMainCanvas(page)
+  for (const index of [0, 1]) {
+    for (let click = 0; click < 2; click++) {
+      const signs = JSON.parse((await canvas.getAttribute("data-size-signs"))!) as Array<Obj>
+      const sign = signs.find((s) => s.kind === "column" && s.index === index)!
+      const at = devicePoint(box, sign.x + sign.width / 2, sign.y + sign.height / 2)
+      await page.mouse.click(at.x, at.y)
+    }
+  }
   objects = await saved(page)
   const g = objects.find((o) => o.type === "table")!
-  expect(g.properties).toMatchObject({ gapMm: 4, equalColumns: true, widthMm: 70 })
+  expect(g.properties).toMatchObject({ gapMm: 4, columns: [{ fill: true }, { fill: true }] })
   const w = (id: string) => g.children.find((o: Obj) => o.id === id).width
-  expect(Math.abs(w("a") - w("b"))).toBeLessThanOrEqual(1)
+  expect(w("a")).toBe(w("b"))
   expect(w("a")).toBe(w("c"))
-  // One Ctrl+Z takes the width back.
-  await page.keyboard.press("ControlOrMeta+z")
-  expect((await saved(page)).find((o) => o.type === "table")!.properties.widthMm).toBeUndefined()
 })

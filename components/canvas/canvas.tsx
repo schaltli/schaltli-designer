@@ -1,7 +1,7 @@
 "use client"
 
 import { barLayout, clampScroll, entryAt, MARKER_SETTLE_MS, markerGlides, markerOffset, markerSettle, navigatorScreens, navigatorStrip, scrollToShow, staysPut, type NavigatorBar, type NavigatorLayout } from "@/lib/navigator"
-import { freeMinSize } from "@/lib/free-min-size"
+import { freeMinSize, switcherMinSize } from "@/lib/free-min-size"
 import { FLOW_BUS_R, FLOW_NODE_R, defaultDiagram, type EnergyNode } from "@/lib/energy-diagram"
 
 // The node or bus of a Flow diagram under a point, if any: its circle, and a
@@ -101,9 +101,14 @@ import {
 } from "@/lib/popup"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
-import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
+import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, panelBackground, panelClip, translateObject } from "@/lib/object-groups"
 import { EditMenuItems } from "@/components/edit-menu-items"
 import { areaDropAt, heldPanels, middleOf, type AreaDrop } from "@/lib/drop-into-free"
+import { canShareCell, cellRectIn, isCellArea, tableHolding } from "@/lib/cell-area"
+
+// What the canvas frames as the place a carried object would go into: an
+// area, or an occupied cell that becomes one (lib/cell-area.ts).
+const isDropPlace = (obj: ScreenObject | null | undefined) => obj?.type === "free" || canShareCell(obj)
 import { onGlass, type CarryTarget } from "@/lib/carry"
 import {
   GUARD_HINT,
@@ -143,9 +148,9 @@ import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType, layoutObjects, type 
 import { cellAnchorOf } from "@/lib/anchor"
 import { TREE_OPEN_EVENT } from "@/components/object-tree/object-tree-panel"
 import { TABLE_TYPE } from "@/lib/table"
-import { drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
+import { drawLineSigns, drawPlaceHint, drawSizeLines, drawSnapChip, drawSnapDrop, drawSnapTableCells, drawSpanHandles, drawCellHeightHandle, snapChipText } from "./snap-table-overlay"
 import { heldAt, placedSize } from "@/lib/placing"
-import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, withoutEmptyLines, type SnapDrop, type SnapRect, type SnapSide } from "@/lib/snap-table"
+import { dimensions, isSnapTable, liftOut, resizeSpan, setLineSize, snapCellOf, snapColumnsOf, snapDropAt, snapRowsOf, snapTableGeometry, spanIndexAt, withoutEmptyLines, lineStateOf, nextLineState, setLineState, tableMinSize, type SnapDrop, type SnapLineState, type SnapRect, type SnapSide } from "@/lib/snap-table"
 
 // How near a table or a free object a dragged object snaps
 // (docs/2026-10-09-snap-tables.md, open question 5: proposed).
@@ -195,7 +200,16 @@ function swipeIdOf(axis: "x" | "y", d: number): string {
 }
 
 // A column's or row's line of a table put together by snapping (Task 8).
-type SizeLine = { kind: "column" | "row"; index: number; x1: number; y1: number; x2: number; y2: number; byHand: boolean }
+type SizeLine = { kind: "column" | "row"; index: number; x1: number; y1: number; x2: number; y2: number; byHand: boolean; state: SnapLineState }
+// What sets a line's size, said on it (docs/2026-11-16-table-sizes.md,
+// decision 6): a sign below each column and right of each row.
+type LineSign = { kind: "column" | "row"; index: number; x: number; y: number; width: number; height: number; text: string; state: SnapLineState }
+// A corner of the selected table, where its resize handle is: there the
+// handle is taken, not the column or row line that ends in it.
+type TableBox = { x: number; y: number; width: number; height: number } | null
+const onCorner = (box: TableBox, p: { x: number; y: number }, tolerance: number) =>
+  !!box && [box.x, box.x + box.width].some((x) => Math.abs(p.x - x) <= tolerance) && [box.y, box.y + box.height].some((y) => Math.abs(p.y - y) <= tolerance)
+const signAt = (signs: LineSign[], p: { x: number; y: number }) => signs.find((s) => p.x >= s.x && p.x <= s.x + s.width && p.y >= s.y && p.y <= s.y + s.height)
 const nearSizeLine = (l: SizeLine, p: { x: number; y: number }, tolerance: number) =>
   l.kind === "column"
     ? Math.abs(p.x - l.x1) <= tolerance && p.y >= l.y1 - tolerance && p.y <= l.y2 + tolerance
@@ -1471,13 +1485,13 @@ export function Canvas({
   // else the space open now. `moved`: not the space open now.
   const spaceAtPointer = useCallback(
     (p: { x: number; y: number }, exclude: string[]) => {
-      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p, pinnedPanelOf)
+      const drop = areaDropAt(screen.objects, exclude, drawSpace.id, p, pinnedPanelOf, layoutScale)
       if (!drop) return { ...drawSpace, moved: false }
       const origin = childOrigin(screen.objects, drop.into)
       const list = drop.into ? (findObjectById(screen.objects, drop.into)?.children ?? []) : screen.objects
       return { id: drop.into, origin, objects: list.map((c) => translateObject(c, origin.x, origin.y)), moved: true }
     },
-    [screen.objects, drawSpace, pinnedPanelOf],
+    [screen.objects, drawSpace, pinnedPanelOf, layoutScale],
   )
 
   // How something carried snaps in a space: with Alt as tables are built,
@@ -1532,7 +1546,8 @@ export function Canvas({
       const phrase = (d: SnapDrop | null) =>
         !d ? null : d.kind === "pair" ? "to make a table" : d.merge ? "to merge the tables" : d.target.kind === "cell" ? "to drop into the cell" : d.target.kind === "column" ? "to add a new column" : "to add a new row"
       const area = into ? findObjectById(screen.objects, into) : null
-      const areaWord = area?.type === "free" ? (area.properties?.look ? "Into Card" : "Into Free") : null
+      // An occupied cell takes it too: the cell becomes an area (lib/cell-area.ts).
+      const areaWord = area?.type === "free" ? (isCellArea(area) ? "Into Cell" : area.properties?.look ? "Into Card" : "Into Area") : canShareCell(area) ? "Into Cell" : null
       const where = rowInto ? "Into table" : (word(snap) ?? areaWord)
       const would = held ? null : rowWithAlt ? "Into table" : word(altSnap)
       const now = where ?? (would || held ? "Free" : null)
@@ -1541,7 +1556,15 @@ export function Canvas({
       // Where it lies when nothing takes it: the area under the pointer, or the space open now.
       const spaceId = into !== undefined ? into : drawSpace.id
       const space = spaceId ? findObjectById(screen.objects, spaceId) : null
-      const spaceName = !space ? screen.name || "the screen" : space.type === "free" ? (space.properties?.look ? "Card" : "Free") : "the panel"
+      const spaceName = !space
+        ? screen.name || "the screen"
+        : isCellArea(space) || canShareCell(space)
+          ? "the cell"
+          : space.type === "free"
+            ? space.properties?.look
+              ? "Card"
+              : "Area"
+            : "the panel"
       const drop = `to drop into ${spaceName}`
       const nowPhrase = rowInto ? "to add it to the table" : (phrase(snap) ?? drop)
       const altPhrase = held ? null : rowWithAlt ? "to add it to the table" : phrase(altSnap)
@@ -1557,16 +1580,18 @@ export function Canvas({
     [screen.objects, screen.name, drawSpace.id],
   )
 
-  // What a table put together by snapping sizes: the table itself (as large
-  // as its content) and each object in it (its cell decides). No resize
-  // handle on them - one would promise a resize the layout undoes
-  // (docs/2026-10-09-snap-tables.md: never a handle that does nothing).
+  // What a table put together by snapping sizes: each object in it (its
+  // cell decides), and the table itself where it is docked (its area
+  // decides). No resize handle on them - one would promise a resize the
+  // layout undoes (docs/2026-10-09-snap-tables.md: never a handle that does
+  // nothing). A table standing free has handles, as an area has
+  // (docs/2026-11-16-table-sizes.md, decision 2).
   const sizedBySnapTable = useMemo(() => {
     const ids = new Set<string>()
     const walk = (list: ScreenObject[]) => {
       for (const obj of list) {
         if (isSnapTable(obj)) {
-          ids.add(obj.id)
+          if (obj.properties?.dock) ids.add(obj.id)
           for (const child of obj.children ?? []) ids.add(child.id)
         }
         if (obj.children) walk(obj.children)
@@ -1619,7 +1644,7 @@ export function Canvas({
     // Its own height, at its bottom right corner, where it has one of its
     // own: in a cell the four handles span, so it could only be typed
     // under Frame (the user, 2026-11-14: a Toggle Button 78 px tall).
-    const tall = CELL_HEIGHT_TYPES.has(obj.type) && (cellAnchorOf(obj).y !== "stretch" || typeof obj.properties?.cell?.drawnHeight === "number")
+    const tall = CELL_HEIGHT_TYPES.has(obj.type) && (cellAnchorOf(obj).y !== "stretch" || typeof obj.properties?.ownSize?.height === "number")
     const grow = tall ? { x: origin.x + obj.x + obj.width, y: origin.y + obj.y + obj.height } : null
     return { tableId: parent.id, id, handles, grow }
   }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
@@ -1638,15 +1663,33 @@ export function Canvas({
     const lines: SizeLine[] = [
       ...g.widths.map((w, i) => {
         const x = origin.x + g.lefts[i] + w + (i < g.widths.length - 1 ? g.gap / 2 : 0)
-        return { kind: "column" as const, index: i, x1: x, y1: origin.y, x2: x, y2: origin.y + table.height, byHand: typeof columns[i]?.mm === "number" }
+        return { kind: "column" as const, index: i, x1: x, y1: origin.y, x2: x, y2: origin.y + table.height, byHand: lineStateOf(columns[i]) !== "auto", state: lineStateOf(columns[i]) }
       }),
       ...g.heights.map((h, i) => {
         const y = origin.y + g.tops[i] + h + (i < g.heights.length - 1 ? g.gap / 2 : 0)
-        return { kind: "row" as const, index: i, x1: origin.x, y1: y, x2: origin.x + table.width, y2: y, byHand: typeof rows[i]?.mm === "number" }
+        return { kind: "row" as const, index: i, x1: origin.x, y1: y, x2: origin.x + table.width, y2: y, byHand: lineStateOf(rows[i]) !== "auto", state: lineStateOf(rows[i]) }
       }),
     ]
-    return { tableId: table.id, lines }
-  }, [previewMode, selectedObjectIds, screen.objects, layoutScale])
+    // The signs: «auto», «fill», or the size set, in mm.
+    const text = (line: { mm?: number } | undefined, state: SnapLineState) => (state === "fixed" ? `${Number(line?.mm).toFixed(1)} mm` : state)
+    const signHeight = 15 / zoom
+    const signWidth = (t: string) => (t.length * 6 + 10) / zoom
+    const signs: LineSign[] = [
+      ...g.widths.map((w, i) => {
+        const state = lineStateOf(columns[i])
+        const t = text(columns[i], state)
+        return { kind: "column" as const, index: i, x: origin.x + g.lefts[i] + w / 2 - signWidth(t) / 2, y: origin.y + table.height + 5 / zoom, width: signWidth(t), height: signHeight, text: t, state }
+      }),
+      ...g.heights.map((h, i) => {
+        const state = lineStateOf(rows[i])
+        const t = text(rows[i], state)
+        return { kind: "row" as const, index: i, x: origin.x + table.width + 8 / zoom, y: origin.y + g.tops[i] + h / 2 - signHeight / 2, width: signWidth(t), height: signHeight, text: t, state }
+      }),
+    ]
+    // Its frame, where it has handles (not docked: lib/dock.ts sizes it).
+    const box: TableBox = table.properties?.dock ? null : { x: origin.x, y: origin.y, width: table.width, height: table.height }
+    return { tableId: table.id, lines, signs, box }
+  }, [previewMode, selectedObjectIds, screen.objects, layoutScale, zoom])
 
   // Where each table put together by snapping stands, in the space new
   // objects go to - drawn, not elements, so a test can carry a row under one.
@@ -1863,6 +1906,15 @@ export function Canvas({
     ctx.strokeStyle = "#999999"
     ctx.lineWidth = 1 / zoom
     ctx.strokeRect(0, 0, screenWidth, screenHeight)
+    // The screen's area where what is docked on it needs more than the
+    // panel (docs/2026-11-16-areas.md, E1): how far it has grown, dashed.
+    // The device shows what lies on its panel.
+    if (!previewMode && screen.areaSize) {
+      ctx.save()
+      ctx.setLineDash([4 / zoom, 4 / zoom])
+      ctx.strokeRect(0, 0, screen.areaSize.width, screen.areaSize.height)
+      ctx.restore()
+    }
 
     // Grid color stays purely local/auto - it doesn't inherit (2026-08-16
     // grilling decision) - but its auto-derivation now follows whichever
@@ -2214,6 +2266,7 @@ export function Canvas({
     if (spanHandles && !dragState) drawSpanHandles(ctx, spanHandles.handles, LAYOUT_HINT_COLOR, zoom)
     if (spanHandles?.grow && !dragState) drawCellHeightHandle(ctx, spanHandles.grow, LAYOUT_HINT_COLOR, zoom)
     if (sizeLines && !dragState) drawSizeLines(ctx, sizeLines.lines, LAYOUT_HINT_COLOR, zoom)
+    if (sizeLines && !dragState) drawLineSigns(ctx, sizeLines.signs, LAYOUT_HINT_COLOR, zoom)
     if (lineLabel) drawSnapChip(ctx, { x: lineLabel.x + 10 / zoom, y: lineLabel.y - 4 / zoom }, lineLabel.text, LAYOUT_HINT_COLOR, zoom)
     // An object carried out of a table: its outline at the pointer.
     if (outDrag && dragState?.mode === "drag") drawCreationPreviewRect(ctx, outDrag.rect.x, outDrag.rect.y, outDrag.rect.width, outDrag.rect.height, zoom)
@@ -2226,16 +2279,25 @@ export function Canvas({
     // table in it takes the object.
     if (placeArea && (dragState?.mode === "drag" || dragState?.mode === "create" || treeDrag)) {
       const area = findObjectById(screen.objects, placeArea)
-      if (area?.type === "free") {
-        const at = childOrigin(screen.objects, area.id)
+      // An occupied cell it would go into: the whole cell, not only what stands in it.
+      const cellTable = area && canShareCell(area) ? tableHolding(screen.objects, area.id) : null
+      const cell = cellTable ? cellRectIn(cellTable, area!.id, layoutScale) : null
+      const tableAt = cellTable ? childOrigin(screen.objects, findParentOf(screen.objects, cellTable.id)?.parent?.id ?? null) : null
+      const frame =
+        area?.type === "free"
+          ? { ...childOrigin(screen.objects, area.id), width: area.width, height: area.height }
+          : cell && tableAt
+            ? { x: tableAt.x + cell.x, y: tableAt.y + cell.y, width: cell.width, height: cell.height }
+            : null
+      if (frame) {
         ctx.save()
         ctx.strokeStyle = LAYOUT_HINT_COLOR
         ctx.fillStyle = LAYOUT_HINT_COLOR
         ctx.globalAlpha = 0.08
-        ctx.fillRect(at.x, at.y, area.width, area.height)
+        ctx.fillRect(frame.x, frame.y, frame.width, frame.height)
         ctx.globalAlpha = 1
         ctx.lineWidth = 3 / zoom
-        ctx.strokeRect(at.x, at.y, area.width, area.height)
+        ctx.strokeRect(frame.x, frame.y, frame.width, frame.height)
         ctx.restore()
       }
     }
@@ -2933,6 +2995,14 @@ export function Canvas({
         const children = sortChildrenByZIndex(activePanel.children ?? [])
         ctx.save()
         ctx.translate(obj.x, obj.y)
+        // A panel is an area (docs/2026-11-16-areas.md): its look a box
+        // below what it holds, which it clips to its shape - as an area
+        // standing alone. In the preview the export has made that box an
+        // object of the panel already (lib/object-groups.ts).
+        const panelBox = panelBackground(activePanel)
+        if (panelBox) drawObject(ctx, panelBox, false, false, zoom, placeholders)
+        const panelShape = panelClip(activePanel)
+        if (panelShape) clipCanvasTo(ctx, panelShape)
         for (const child of children) {
           const childSelected = selectedObjectIds.includes(child.id)
           const childHovered = child.id === hoveredObjectId && !childSelected
@@ -3412,7 +3482,7 @@ export function Canvas({
       setTreeDrag((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
       setSnapDrop((current) => (JSON.stringify(current) === JSON.stringify(snap) ? current : snap))
       setSnapSpace(there)
-      setPlaceArea(!snap && target.id && findObjectById(screen.objects, target.id)?.type === "free" ? target.id : null)
+      setPlaceArea(!snap && target.id && isDropPlace(findObjectById(screen.objects, target.id)) ? target.id : null)
       setPlaceHint(placeHintFor(pointer, target.id, snap, altSnap, e.altKey))
     },
     [treeCarry, previewMode, onCarryTo, screen.objects, getCanvasCoordinates, spaceAtPointer, placingSnap, placeHintFor],
@@ -3642,7 +3712,18 @@ export function Canvas({
       }
       // A column or row line of the selected table (Task 8): dragged, it
       // sets that column's width or row's height.
+      // The sign of a column or row clicked: it steps to the next of what
+      // can set its size - auto, fixed at the size it has, fill.
       if (activeTool === "select" && sizeLines) {
+        const sign = signAt(sizeLines.signs, coords)
+        const table = sign ? findObjectById(screen.objects, sizeLines.tableId) : null
+        if (sign && table) {
+          const next = setLineState(table, sign.kind, sign.index, nextLineState(sign.state), layoutScale)
+          onUpdateObject(table.id, { properties: next.properties })
+          return
+        }
+      }
+      if (activeTool === "select" && sizeLines && !onCorner(sizeLines.box, coords, 6 / zoom)) {
         const line = sizeLineAt(sizeLines.lines, coords, SIZE_LINE_HIT / zoom)
         if (line) {
           lineDragRef.current = { tableId: sizeLines.tableId, kind: line.kind, index: line.index }
@@ -4016,7 +4097,8 @@ export function Canvas({
           const height = Math.max(growing.min, Math.round(growing.startHeight + coords.y - growing.startY))
           const cell = obj.properties?.cell
           // Stretched in its cell, its row follows the height it was drawn at.
-          const drawn = cell && typeof cell.drawnHeight === "number" ? { properties: { ...obj.properties, cell: { ...cell, drawnHeight: height } } } : {}
+          const least = obj.properties?.ownSize
+          const drawn = cell && typeof least?.height === "number" ? { properties: { ...obj.properties, ownSize: { ...least, height } } } : {}
           // A ring is round: its diameter is the height dragged.
           if (height !== obj.height) onUpdateObject(obj.id, isRing(obj) ? { width: height, height } : { height, ...drawn })
         }
@@ -4098,7 +4180,9 @@ export function Canvas({
           // Over a span handle: the way it grows.
           const h = spanHandles.handles.find((h) => Math.hypot(coords.x - h.x, coords.y - h.y) <= SPAN_HANDLE_HIT / zoom)!
           canvas.style.cursor = h.side === "left" || h.side === "right" ? "ew-resize" : "ns-resize"
-        } else if (sizeLines && sizeLines.lines.some((l) => nearSizeLine(l, coords, SIZE_LINE_HIT / zoom))) {
+        } else if (sizeLines && signAt(sizeLines.signs, coords)) {
+          canvas.style.cursor = "pointer"
+        } else if (sizeLines && !onCorner(sizeLines.box, coords, 6 / zoom) && sizeLines.lines.some((l) => nearSizeLine(l, coords, SIZE_LINE_HIT / zoom))) {
           // Over a column or row line of the selected table.
           const l = sizeLineAt(sizeLines.lines, coords, SIZE_LINE_HIT / zoom)!
           canvas.style.cursor = l.kind === "column" ? "col-resize" : "row-resize"
@@ -4626,12 +4710,21 @@ export function Canvas({
         // A card - any free area holding something - only so small that all
         // it holds keeps its room (the user, 2026-11-06; lib/free-min-size.ts):
         // the edge dragged stops there, the opposite one stays.
-        if (resizingObject?.type === "free") {
+        // A switcher the same way: where every panel still holds what is in
+        // it (docs/2026-11-16-areas.md, E2).
+        // And a table where its columns and rows end
+        // (docs/2026-11-16-table-sizes.md, decision 2).
+        if (resizingObject?.type === "free" || resizingObject?.type === "switcher" || isSnapTable(resizingObject)) {
           const cached = freeMinRef.current
+          const sized = { ...resizingObject!, ...dragState.startObjectPos }
           const min =
             cached && cached.drag === dragState
               ? cached.min
-              : freeMinSize({ ...resizingObject, ...dragState.startObjectPos }, layoutScale)
+              : isSnapTable(resizingObject)
+                ? tableMinSize(sized, layoutScale)
+                : resizingObject!.type === "switcher"
+                  ? switcherMinSize(sized, layoutScale)
+                  : freeMinSize(sized, layoutScale)
           if (!cached || cached.drag !== dragState) freeMinRef.current = { drag: dragState, min }
           if (min && newWidth < min.width) {
             if (handle === "nw" || handle === "sw" || handle === "baseline-left") newX = x + width - min.width
@@ -5791,6 +5884,7 @@ export function Canvas({
         // Switcher id -> the panel held open on the canvas, for tests.
         data-pinned-panels={Object.keys(pinnedPanels).length > 0 ? JSON.stringify(pinnedPanels) : undefined}
         data-size-lines={sizeLines ? JSON.stringify(sizeLines.lines) : undefined}
+        data-size-signs={sizeLines ? JSON.stringify(sizeLines.signs) : undefined}
         data-editing-container={editingContainerId ?? undefined}
         // What the place hint at the pointer says (docs/2026-11-03-placing.md), for tests.
         data-place-hint={placeHint ? JSON.stringify({ now: placeHint.now, alt: placeHint.alt, held: placeHint.held }) : undefined}

@@ -1760,10 +1760,15 @@ test.describe("a block whose parts come and go with a mode", () => {
       ["panel", "==", "auto"],
       ["panel", "==", "fan_only"],
     ])
-    // Each panel's slider in a tile of its own.
-    const slidersIn = (panel: any) => panel.children.flatMap((t: any) => t.children.map((tile: any) => [tile.properties.look, controlOf(tile).type, controlOf(tile).properties.topic]))
-    expect(slidersIn(switcher.children[0])).toEqual([["card", "slider", "schaltli/state/maxxfan/temperature"]])
-    expect(slidersIn(switcher.children[1])).toEqual([["card", "slider", "schaltli/state/maxxfan/speed"]])
+    // The panel is the card (the user's fan, 2026-11-16): its slider with
+    // its name and value in an area without a look, docked at the panel's top.
+    const sliderIn = (panel: any) => {
+      const tile = panel.children[0]
+      const slider = tile.children.find((c: any) => c.properties?.dock === "fill")
+      return [panel.properties.look, panel.children.length, tile.type, tile.properties.look, tile.properties.dock, slider.type, slider.properties.topic]
+    }
+    expect(sliderIn(switcher.children[0])).toEqual(["card", 1, "free", undefined, "top", "slider", "schaltli/state/maxxfan/temperature"])
+    expect(sliderIn(switcher.children[1])).toEqual(["card", 1, "free", undefined, "top", "slider", "schaltli/state/maxxfan/speed"])
   })
 
   test("the description's words are on the buttons", () => {
@@ -1802,10 +1807,11 @@ test.describe("a block whose parts come and go with a mode", () => {
       const laid = placed(pixelsPerMm)
       const rights = new Set<number>(pieces(laid).map((c: any) => c.x + c.width))
       expect(rights.size).toBe(1)
-      // Inside the switcher's panels too, at the switcher's right edge.
+      // Inside the switcher's panels, each a card: its padding from both edges.
       const switcher = pieces(laid).find((c: any) => c.type === "switcher")
       for (const panel of switcher.children) for (const t of panel.children) {
-        expect(new Set(t.children.map((c: any) => c.x + c.width))).toEqual(new Set([switcher.width]))
+        expect(t.x).toBeGreaterThan(0)
+        expect(t.x + t.width).toBe(switcher.width - t.x)
       }
     })
   }
@@ -1816,10 +1822,13 @@ test.describe("a block whose parts come and go with a mode", () => {
       for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height).toBeLessThanOrEqual(rows[i + 1].y)
       const switcher = rows.find((c: any) => c.type === "switcher")
       for (const panel of switcher.children) {
-        const table = panel.children[0]
-        expect(table.width).toBe(switcher.width)
-        expect(controlOf(table.children[0]).height).toBeGreaterThan(0)
-        expect(table.y + table.height).toBeLessThanOrEqual(switcher.height)
+        // Across the panel's card, inside its padding.
+        const tile = panel.children[0]
+        expect(tile.x + tile.width).toBe(switcher.width - tile.x)
+        const slider = tile.children.find((c: any) => c.properties?.dock === "fill")
+        expect(slider.width).toBe(tile.width)
+        expect(slider.height).toBeGreaterThan(0)
+        expect(tile.y + tile.height).toBeLessThanOrEqual(switcher.height)
       }
     })
   }

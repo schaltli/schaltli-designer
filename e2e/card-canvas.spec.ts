@@ -40,7 +40,7 @@ const plainArea = { id: "flaeche", type: "free", x: 40, y: 40, width: 150, heigh
 test("the Card tool beside Free places a card: Panel, an Outline edge, the radius and padding of Settings › Cards", async ({ page }) => {
   await loadProject(page, await project())
   const tables = page.getByRole("button", { name: "Card", exact: true })
-  await expect(page.getByRole("button", { name: "Free", exact: true }).first()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Area", exact: true }).first()).toBeVisible()
   await tables.first().click()
   await clickAt(page, 200, 150)
   const { objects, settings } = await saved(page)

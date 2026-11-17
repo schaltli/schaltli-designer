@@ -106,7 +106,7 @@ export function pasteReplacing(objects: ScreenObject[], targetId: string, pasted
   const t = target.properties ?? {}
   // In a table its cell, spans too; how the old one stood in it and the
   // size it was drawn at were the old one's.
-  const cell = t.cell ? (({ drawnWidth: _w, drawnHeight: _h, anchor: _a, ...c }) => c)(t.cell) : undefined
+  const cell = t.cell ? (({ anchor: _a, ...c }) => c)(t.cell) : undefined
   const place = isSnapTable(parent) ? { ...(cell ? { cell } : {}) } : { ...(t.dock ? { dock: t.dock } : {}), ...(t.anchor ? { anchor: t.anchor } : {}) }
   const moved = translateObject(pasted, target.x - pasted.x, target.y - pasted.y)
   const replacement: ScreenObject = { ...moved, x: target.x, y: target.y, zIndex: target.zIndex, properties: { ...own, ...place } }

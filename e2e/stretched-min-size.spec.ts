@@ -88,7 +88,7 @@ test("a smaller «Min W» typed: the column, the table and the object are that n
   const breit = saved.children.find((c: Obj) => c.id === "breit")
   expect(saved.width).toBe(80)
   expect(breit.width).toBe(80)
-  expect(breit.properties.cell.drawnWidth).toBe(80)
+  expect(breit.properties.ownSize.width).toBe(80)
 })
 
 test("«Min W» below what the column holds: the object still fills the column, and asks for less", async ({ page }) => {
@@ -103,7 +103,7 @@ test("«Min W» below what the column holds: the object still fills the column, 
   // «schmal» holds the column at 60.
   expect(saved.width).toBe(60)
   expect(breit.width).toBe(60)
-  expect(breit.properties.cell.drawnWidth).toBe(30)
+  expect(breit.properties.ownSize.width).toBe(30)
 })
 
 test("a «Min H» typed is the row's height", async ({ page }) => {
@@ -116,5 +116,5 @@ test("a «Min H» typed is the row's height", async ({ page }) => {
   const saved = await savedTable(page)
   const breit = saved.children.find((c: Obj) => c.id === "breit")
   expect(breit.height).toBe(28)
-  expect(breit.properties.cell.drawnHeight).toBe(28)
+  expect(breit.properties.ownSize.height).toBe(28)
 })

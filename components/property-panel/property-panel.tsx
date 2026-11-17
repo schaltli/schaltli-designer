@@ -30,11 +30,14 @@ import { SnapCellProperties, SnapTableProperties } from "./snap-table-properties
 import { ConvertToMenu } from "./convert-to-menu"
 import type { ConvertibleType } from "@/lib/convert-object"
 import { cellAnchorOf } from "@/lib/anchor"
-import { dockSets } from "@/lib/dock"
+import { dockedLeast, dockSets, dockStretches } from "@/lib/dock"
 import { isSnapTable } from "@/lib/snap-table"
 import { TABLE_TYPE } from "@/lib/table"
-import { FrameLockContext } from "./fields"
-import { FALLBACK_SCALE, isContainerType } from "@/lib/layout"
+import { FrameLockContext, SizeSourceContext } from "./fields"
+import { sizeSourceOf } from "@/lib/size-source"
+import { FALLBACK_SCALE, isContainerType, type LayoutScale } from "@/lib/layout"
+import { isArea } from "@/lib/area"
+import { isCellArea } from "@/lib/cell-area"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, hasSwitchStates, objectTypeLabel } from "@/lib/object-types"
@@ -146,6 +149,8 @@ interface PropertyPanelProps {
    * object.ts), with what the device draws to grey the rest.
    */
   onConvertObject?: (id: string, type: ConvertibleType) => void
+  /** A cell made an area around the object alone in it, docked there or with a look (lib/cell-area.ts). */
+  onMakeCellArea?: (id: string, own: { dock?: string; look?: string }) => void
   supportedObjectTypes?: readonly string[]
   onUngroup?: () => void
 }
@@ -156,10 +161,13 @@ function inSnapTable(screen: { objects?: any[] } | undefined, id: string): boole
   return isSnapTable(findParentOf(screen.objects ?? [], id)?.parent)
 }
 
-// Whether it stands directly in a free area (docs/2026-11-03-anchor-dock.md).
+// Whether it stands directly in an area - one standing alone, a switcher's
+// panel, or the screen itself (docs/2026-11-03-anchor-dock.md,
+// docs/2026-11-16-areas.md).
 function inFreeArea(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
-  return findParentOf(screen.objects ?? [], id)?.parent?.type === "free"
+  const found = findParentOf(screen.objects ?? [], id)
+  return !!found && (found.parent === null || isArea(found.parent))
 }
 
 type FrameKey = "x" | "y" | "width" | "height"
@@ -169,13 +177,18 @@ type FrameLock = { locked: readonly FrameKey[]; hint: string; hidden?: readonly 
 // size it was drawn at, kept beside the one Stretch gives it. A width that
 // comes from what the object shows is not one to set.
 function stretchedMin(obj: ScreenObject): { width?: number; height?: number } {
+  // Docked, across its dock: the least typed for it, 0 where none was.
+  if (obj.properties?.dock && !obj.properties?.cell) {
+    return Object.fromEntries(dockStretches(obj).map((axis) => [axis, dockedLeast(obj, axis) ?? 0]))
+  }
   const cell = obj.properties?.cell
   if (!cell) return {}
+  const least = obj.properties?.ownSize
   const anchor = cellAnchorOf(obj)
   const byContent = obj.type === "text" || obj.type === "switch" || obj.type === "button-group" || obj.type === "toggle-button" || obj.type === "button"
   return {
-    ...(!byContent && anchor.x === "stretch" && typeof cell.drawnWidth === "number" ? { width: cell.drawnWidth } : {}),
-    ...(anchor.y === "stretch" && typeof cell.drawnHeight === "number" ? { height: cell.drawnHeight } : {}),
+    ...(!byContent && anchor.x === "stretch" && typeof least?.width === "number" ? { width: least.width } : {}),
+    ...(anchor.y === "stretch" && typeof least?.height === "number" ? { height: least.height } : {}),
   }
 }
 
@@ -192,10 +205,20 @@ function layoutFrameLock(
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
   const placedBy = found.parent?.type
-  // Docked in a free area (lib/dock.ts): the area places and sizes it.
-  const docked = placedBy === "free" ? findObjectById(screen.objects ?? [], id) : null
+  // Docked in an area (lib/dock.ts): the area places and sizes it.
+  const docked = found.parent === null || isArea(found.parent) ? findObjectById(screen.objects ?? [], id) : null
   if (docked && dockSets(docked).length > 0) {
-    return { locked: dockSets(docked), hint: "Docked: the free area places it, and sizes it across its edge where it can stretch. See Position." }
+    // Across its dock it takes the room: what Frame shows there is the least
+    // it asks for, «Min W» or «Min H», 0 until one is typed (lib/dock.ts).
+    const stretches = dockStretches(docked)
+    const captions = { ...(stretches.includes("width") ? { width: "Min W" } : {}), ...(stretches.includes("height") ? { height: "Min H" } : {}) }
+    const values = Object.fromEntries(stretches.map((axis) => [axis, dockedLeast(docked, axis) ?? 0]))
+    return {
+      locked: ["x", "y"],
+      hint: "Docked: the area places it, and sizes it across its edge where it can stretch. Min W and Min H are the least it asks for there. See Position.",
+      captions,
+      values,
+    }
   }
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x and y are the table's to
@@ -211,7 +234,7 @@ function layoutFrameLock(
     }
     const byContent = obj?.type === "text" || obj?.type === "switch" || obj?.type === "button-group" || obj?.type === "toggle-button" || obj?.type === "button"
     // Stretched, it fills its cell, and what it has of its own is the least
-    // it asks of its column or row (cell.drawnWidth/drawnHeight,
+    // it asks of its column or row (ownSize,
     // lib/snap-table.ts): shown and typed as «Min W» and «Min H». A card
     // stretched across its cell kept 266 px nobody could see or change, and
     // its table stood 62 px over the screen's edge (the user, 2026-11-16).
@@ -230,6 +253,12 @@ function layoutFrameLock(
     locked: ["x", "y", "width"],
     hint: "The container it is in places it and gives it its width. Move it within the container, or into a Free one to place it by hand.",
   }
+}
+
+// What sets the chosen object's width and height, for Frame (lib/size-source.ts).
+function sizeSourceFor(screen: { objects?: any[] } | undefined, obj: ScreenObject, scale: LayoutScale) {
+  const source = screen ? sizeSourceOf(screen.objects ?? [], obj.id, scale) : null
+  return source ? { ...source, widthPx: obj.width, heightPx: obj.height } : null
 }
 
 export function PropertyPanel({
@@ -283,6 +312,7 @@ export function PropertyPanel({
   onGroup,
   canGroup,
   onConvertObject,
+  onMakeCellArea,
   supportedObjectTypes,
   onUngroup,
 }: PropertyPanelProps) {
@@ -294,11 +324,18 @@ export function PropertyPanel({
     const min = selectedObject && id === selectedObject.id ? stretchedMin(selectedObject) : {}
     const sizeOnly = keys.length > 0 && keys.every((key) => key === "width" || key === "height")
     const drawn = {
-      ...(min.width !== undefined && typeof updates.width === "number" ? { drawnWidth: updates.width } : {}),
-      ...(min.height !== undefined && typeof updates.height === "number" ? { drawnHeight: updates.height } : {}),
+      ...(min.width !== undefined && typeof updates.width === "number" ? { width: updates.width } : {}),
+      ...(min.height !== undefined && typeof updates.height === "number" ? { height: updates.height } : {}),
     }
     if (!selectedObject || !sizeOnly || Object.keys(drawn).length === 0) return updateObject(id, updates)
-    updateObject(id, { ...updates, properties: { ...selectedObject.properties, cell: { ...selectedObject.properties?.cell, ...drawn } } })
+    // Docked, only the least is typed - the area sets the size itself - and
+    // 0 takes it away again.
+    if (selectedObject.properties?.dock && !selectedObject.properties?.cell) {
+      const least = Object.fromEntries(Object.entries({ ...selectedObject.properties?.ownSize, ...drawn }).filter(([, v]) => typeof v === "number" && v > 0))
+      const { ownSize: _was, ...rest } = selectedObject.properties ?? {}
+      return updateObject(id, { properties: Object.keys(least).length > 0 ? { ...rest, ownSize: least } : rest })
+    }
+    updateObject(id, { ...updates, properties: { ...selectedObject.properties, ownSize: { ...selectedObject.properties?.ownSize, ...drawn } } })
   }
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
@@ -381,10 +418,11 @@ export function PropertyPanel({
               canGroup={canGroup}
             />
           ) : selectedObject ? (
+            <SizeSourceContext.Provider value={sizeSourceFor(currentScreen, selectedObject, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })}>
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isSnapTable(selectedObject) && <SnapTableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
-              {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
-              {inSnapTable(currentScreen, selectedObject.id) && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {selectedObject.type === "free" && <FreeProperties title={isCellArea(selectedObject) ? "Cell" : "Area"} selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} scale={{ pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }} />}
+              {inSnapTable(currentScreen, selectedObject.id) && selectedObject.properties?.cellArea !== true && <SnapCellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} onMakeCell={onMakeCellArea} />}
               {inFreeArea(currentScreen, selectedObject.id) && <FreePositionProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
 
@@ -620,9 +658,11 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   parentTabControl={findParentTabControl(currentScreen.objects, selectedObject.id)}
                   onSelectObject={onSelectObject}
+                  colorDepth={colorDepth}
                 />
               )}
             </FrameLockContext.Provider>
+            </SizeSourceContext.Provider>
           ) : null}
         </>
       ) : (

@@ -507,6 +507,18 @@ export type CatalogControl = (
   display?: "duration"
   /** Its size step where not M (a description's `size`: "xs" for a button seldom pressed, "l" for a bigger dial). */
   size?: "xs" | "s" | "m" | "l"
+  /**
+   * No name over it (a description's `title: false`): a choice whose
+   * options say what it is - «Zu», «Offen» - stands in its tile alone.
+   */
+  untitled?: boolean
+  /** Guarded against a touch by mistake (a description's `guard: true`; lib/guard.ts). */
+  guard?: boolean
+  /**
+   * Its own icon, an Iconify name (a description's `icon` on a part): before
+   * its name in its tile, and what its colour is read from (meaningRole).
+   */
+  icon?: string
 }
 
 /** An entity the Block menu lists but cannot place, and why. */

@@ -126,7 +126,7 @@ test("Alt pressed at the end without moving builds the table; held and let go ag
   expect((await saved(page)).some((o) => o.type === "table")).toBe(false)
 })
 
-test("no key: the pointer over an empty cell puts it there; over an occupied one it lies free", async ({ page }) => {
+test("no key: the pointer over an empty cell puts it there; over an occupied one it goes into that cell beside what stands in it", async ({ page }) => {
   await loadProject(page, await project([table, text("moving", 20, 260)]))
   // The table is laid out to its texts: the empty cell, row 1 column 1, is
   // below «b» and beside «c».
@@ -138,10 +138,14 @@ test("no key: the pointer over an empty cell puts it there; over an occupied one
   expect(parentOf(objects, "moving")?.id).toBe("grid")
   expect(find(objects, "moving")!.properties.cell).toMatchObject({ row: 1, column: 1 })
   await loadProject(page, await project([table, text("moving", 20, 260)]))
-  // Over «a».
-  expect((await carry(page, { x: 50, y: 270 }, { x: grid.x + 5, y: grid.y + 5 }))?.now).not.toBe("Into cell")
+  // Over «a»: its cell takes it and becomes an area holding both
+  // (docs/2026-11-16-areas.md, E6; lib/cell-area.ts). Until 2026-11-16 it
+  // lay free on the screen, over the table.
+  expect((await carry(page, { x: 50, y: 270 }, { x: grid.x + 5, y: grid.y + 5 }))?.now).toBe("Into Cell")
   objects = await saved(page)
-  expect(parentOf(objects, "moving")).toBeNull()
+  expect(parentOf(objects, "moving")?.id).toBe("cell-a")
+  expect(parentOf(objects, "a")?.id).toBe("cell-a")
+  expect(parentOf(objects, "cell-a")?.id).toBe("grid")
 })
 
 test("no key: over a card it goes into the card, outlined; Alt changes nothing there but offers nothing either", async ({ page }) => {

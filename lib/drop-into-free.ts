@@ -9,6 +9,9 @@
  * pointer is outside the area.
  */
 
+import { canShareCell, cellAreaId, withCellArea } from "@/lib/cell-area"
+import { isSnapTable, occupancy, snapTableGeometry } from "@/lib/snap-table"
+import type { LayoutScale } from "@/lib/layout"
 import type { ScreenObject } from "@/components/project-editor"
 import { childOrigin, translateObject } from "@/lib/object-groups"
 import { deleteObjectsById, findObjectById, findParentOf } from "@/lib/object-tree"
@@ -41,7 +44,7 @@ const inside = (p: Point, x: number, y: number, w: number, h: number) => p.x >= 
  * areas overlap. Excluded objects are neither taken nor looked into: a free
  * area never goes into itself or what it holds.
  */
-function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, pinned?: PinnedPanel): ScreenObject | null {
+function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<string>, pinned?: PinnedPanel, scale?: LayoutScale): ScreenObject | null {
   const topmostFirst = [...list].sort((a, b) => b.zIndex - a.zIndex)
   for (const obj of topmostFirst) {
     const x = origin.x + obj.x
@@ -59,20 +62,40 @@ function areaIn(list: ScreenObject[], origin: Point, point: Point, exclude: Set<
     }
     if (obj.type === "free") {
       if (!inside(point, x, y, obj.width, obj.height)) continue
-      return areaIn(obj.children ?? [], { x, y }, point, exclude, pinned) ?? obj
+      return areaIn(obj.children ?? [], { x, y }, point, exclude, pinned, scale) ?? obj
     }
     if ((obj.type === "table" || obj.type === "group") && inside(point, x, y, obj.width, obj.height)) {
-      const found = areaIn(obj.children ?? [], { x, y }, point, exclude, pinned)
+      const found = areaIn(obj.children ?? [], { x, y }, point, exclude, pinned, scale)
       if (found) return found
+      // An occupied cell takes what is dropped onto it, its empty part too
+      // (docs/2026-11-16-areas.md, E6): the object standing in it is named,
+      // and whoever moves something there makes the cell an area around it
+      // (lib/cell-area.ts). Only where the table's lines can be measured.
+      if (scale && isSnapTable(obj)) {
+        const occupant = occupantAt(obj, { x: point.x - x, y: point.y - y }, scale)
+        if (occupant && !exclude.has(occupant.id) && canShareCell(occupant)) return occupant
+      }
     }
     // A switcher whose panel is held open on the canvas (the user,
     // 2026-11-14): that panel is a place to drop into, as a free area is.
     if (obj.type === "switcher" && pinned && inside(point, x, y, obj.width, obj.height)) {
       const panel = pinned(obj)
-      if (panel && !exclude.has(panel.id)) return areaIn(panel.children ?? [], { x, y }, point, exclude, pinned) ?? panel
+      if (panel && !exclude.has(panel.id)) return areaIn(panel.children ?? [], { x, y }, point, exclude, pinned, scale) ?? panel
     }
   }
   return null
+}
+
+// The object whose cell (or span) of the laid-out `table` holds `point`, in
+// the table's own space; undefined in a gap, in an empty cell and outside.
+function occupantAt(table: ScreenObject, point: Point, scale: LayoutScale): ScreenObject | undefined {
+  const g = snapTableGeometry(table, scale)
+  const lineOf = (starts: number[], sizes: number[], v: number) => starts.findIndex((start, i) => v >= start && v < start + sizes[i])
+  const column = lineOf(g.lefts, g.widths, point.x)
+  const row = lineOf(g.tops, g.heights, point.y)
+  if (column < 0 || row < 0) return undefined
+  const id = occupancy(table)[row]?.[column]
+  return id ? (table.children ?? []).find((child) => child.id === id) : undefined
 }
 
 /** The panel of a switcher held open on the canvas, if one is. */
@@ -136,10 +159,10 @@ function panelOf(objects: ScreenObject[], id: string | null): string | null {
  * stands in. Null: it stays with its parent. Looked for only in the screen or
  * panel the objects are in.
  */
-export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point, pinned?: PinnedPanel): AreaDrop | null {
+export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: string | null, point: Point, pinned?: PinnedPanel, scale?: LayoutScale): AreaDrop | null {
   const root = panelOf(objects, parentId)
   const rootList = root ? (findObjectById(objects, root)?.children ?? []) : objects
-  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids), pinned)
+  const area = areaIn(rootList, childOrigin(objects, root), point, new Set(ids), pinned, scale)
   if (area) return area.id === parentId ? null : { into: area.id }
   const parent = parentId ? findObjectById(objects, parentId) : null
   if (parent?.type !== "free") return null
@@ -155,7 +178,17 @@ export function areaDropAt(objects: ScreenObject[], ids: string[], parentId: str
  * the order they had. In an area an object starts as a new one does: no
  * Position, no Dock.
  */
-export function moveIntoArea(objects: ScreenObject[], ids: string[], into: string | null): ScreenObject[] {
+export function moveIntoArea(objects: ScreenObject[], ids: string[], into: string | null, scale?: LayoutScale): ScreenObject[] {
+  // Into an occupied cell (areaDropAt names the object standing in it): the
+  // cell is made an area around that object first (lib/cell-area.ts), and
+  // what is moved goes into the area. An object that is no place to put
+  // anything into takes nothing.
+  const occupant = into ? findObjectById(objects, into) : null
+  if (occupant && !occupant.children && !isHolder(occupant)) {
+    if (!scale || ids.includes(occupant.id) || !canShareCell(occupant)) return objects
+    const made = withCellArea(objects, occupant.id, scale)
+    return made.areaId ? moveIntoArea(made.objects, ids, made.areaId) : objects
+  }
   const moving = ids
     .map((id) => {
       const obj = findObjectById(objects, id)
@@ -182,6 +215,19 @@ export function moveIntoArea(objects: ScreenObject[], ids: string[], into: strin
   const put = (list: ScreenObject[]): ScreenObject[] =>
     list.map((o) => (o.id === into ? { ...o, children: [...(o.children ?? []), ...placed] } : o.children ? { ...o, children: put(o.children) } : o))
   return put(rest)
+}
+
+// What holds objects of its own: an area, a panel, a group, a table.
+const isHolder = (obj: ScreenObject) => obj.type === "free" || obj.type === "panel" || obj.type === "group" || obj.type === "table"
+
+/**
+ * Where a move into `into` ends: the area of its cell where `into` is an
+ * object standing in a table's cell that it can share (moveIntoArea makes
+ * that area), else `into` itself.
+ */
+export function areaMovedInto(objects: ScreenObject[], into: string | null): string | null {
+  const occupant = into ? findObjectById(objects, into) : null
+  return occupant && !isHolder(occupant) && canShareCell(occupant) ? cellAreaId(occupant.id) : into
 }
 
 /** Whether `id` holds `inner`, at any depth. */

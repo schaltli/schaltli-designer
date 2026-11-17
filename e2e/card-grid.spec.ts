@@ -2,8 +2,10 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { arrangeSnapTable, landed, placeInCell, snapPair, snapTableGeometry, SNAP_GAP_MM } from "../lib/snap-table"
 
-// A grid of cards (docs/2026-11-03-card-grid.md): the table's Gap, Width and
-// Equal columns; a card filling the cell it lands in.
+// A grid of cards (docs/2026-11-03-card-grid.md): the table's Gap; its own
+// size and fill columns, which «Width» and «Equal columns» were until
+// 2026-11-16 (docs/2026-11-16-table-sizes.md, e2e/table-sizes.spec.ts); a
+// card filling the cell it lands in.
 
 const SCALE = { pixelsPerMm: 5 }
 const GAP = Math.round(SNAP_GAP_MM * SCALE.pixelsPerMm)
@@ -11,11 +13,12 @@ const GAP = Math.round(SNAP_GAP_MM * SCALE.pixelsPerMm)
 let ids = 0
 const box = (width: number, height: number, row: number, column: number): ScreenObject =>
   ({ id: `b${++ids}`, type: "box", x: 0, y: 0, width, height, zIndex: ids, properties: { cell: { row, column } } }) as ScreenObject
-const table = (children: ScreenObject[], columns: Array<{ mm?: number }>, rows: Array<{ mm?: number }>, extra: Record<string, any> = {}): ScreenObject =>
+const table = (children: ScreenObject[], columns: Array<{ mm?: number; fill?: boolean }>, rows: Array<{ mm?: number }>, extra: Record<string, any> = {}): ScreenObject =>
   ({ id: `t${++ids}`, type: "table", x: 0, y: 0, width: 1, height: 1, zIndex: ids, properties: { grid: 1, columns, rows, ...extra }, children }) as ScreenObject
 const geom = (t: ScreenObject) => snapTableGeometry(arrangeSnapTable(t, SCALE), SCALE)
-const twoByTwo = (extra: Record<string, any> = {}) =>
-  table([box(40, 20, 0, 0), box(60, 30, 0, 1), box(30, 20, 1, 0), box(50, 25, 1, 1)], [{}, {}], [{}, {}], extra)
+const twoByTwo = (extra: Record<string, any> = {}, columns: Array<{ mm?: number; fill?: boolean }> = [{}, {}]) =>
+  table([box(40, 20, 0, 0), box(60, 30, 0, 1), box(30, 20, 1, 0), box(50, 25, 1, 1)], columns, [{}, {}], extra)
+const FILL = { fill: true }
 
 test.describe("card grid: the table", () => {
   test("without the new properties a table is today's; 1.5 mm set is the same", () => {
@@ -32,28 +35,28 @@ test.describe("card grid: the table", () => {
     expect(geom(twoByTwo({ gapMm: 0 })).lefts).toEqual([0, 40])
   })
 
-  test("Width: the last column takes what is left; a table wider than it stays as wide as its content", () => {
-    expect(geom(twoByTwo({ widthMm: 40 })).widths).toEqual([40, 200 - 40 - GAP])
-    expect(geom(twoByTwo({ widthMm: 10 })).widths).toEqual([40, 60])
+  test("a size of its own: the fill column takes what is left; a table no wider than its content stays as wide as that", () => {
+    expect(geom(twoByTwo({ tableSize: { width: 200 } }, [{}, FILL])).widths).toEqual([40, 200 - 40 - GAP])
+    expect(geom(twoByTwo({ tableSize: { width: 50 } }, [{}, FILL])).widths).toEqual([40, 60])
   })
 
-  test("Equal columns: as wide as the widest, or sharing the width; a hand-sized column kept; content never squeezed", () => {
-    expect(geom(twoByTwo({ equalColumns: true })).widths).toEqual([60, 60])
-    const shared = geom(twoByTwo({ equalColumns: true, widthMm: 41 })).widths
+  test("fill columns: as wide as the widest, or sharing the table's width; a fixed column kept; content never squeezed", () => {
+    expect(geom(twoByTwo({}, [FILL, FILL])).widths).toEqual([60, 60])
+    const shared = geom(twoByTwo({ tableSize: { width: 205 } }, [FILL, FILL])).widths
     expect(shared[0] + shared[1] + GAP).toBe(205)
     expect(Math.abs(shared[0] - shared[1])).toBeLessThanOrEqual(1)
-    // A first column dragged to 20 mm keeps it; the other takes the rest.
-    const hand = table([box(40, 20, 0, 0), box(60, 30, 0, 1), box(30, 20, 0, 2)], [{ mm: 20 }, {}, {}], [{}], { equalColumns: true, widthMm: 60 })
+    // A first column dragged to 20 mm keeps it; the others share the rest.
+    const hand = table([box(40, 20, 0, 0), box(60, 30, 0, 1), box(30, 20, 0, 2)], [{ mm: 20 }, FILL, FILL], [{}], { tableSize: { width: 300 } })
     const w = geom(hand).widths
     expect(w[0]).toBe(100)
     expect(Math.abs(w[1] - w[2])).toBeLessThanOrEqual(1)
     expect(w.reduce((a, b) => a + b, 0) + 2 * GAP).toBe(300)
-    // A share smaller than what a column holds: all as wide as the widest, the table wider than its width.
-    expect(geom(twoByTwo({ equalColumns: true, widthMm: 16 })).widths).toEqual([60, 60])
+    // A share smaller than what a column holds: all as wide as the widest, the table wider than its size.
+    expect(geom(twoByTwo({ tableSize: { width: 80 } }, [FILL, FILL])).widths).toEqual([60, 60])
   })
 
   test("laying out twice changes nothing", () => {
-    const once = arrangeSnapTable(twoByTwo({ equalColumns: true, widthMm: 50, gapMm: 3 }), SCALE)
+    const once = arrangeSnapTable(twoByTwo({ tableSize: { width: 250 }, gapMm: 3 }, [FILL, FILL]), SCALE)
     expect(arrangeSnapTable(once, SCALE)).toEqual(once)
   })
 })

@@ -8,10 +8,11 @@
  * (property-panel.tsx layoutFrameLock).
  */
 
+import { canShareCell } from "@/lib/cell-area"
 import type { ScreenObject } from "../project-editor"
-import { dimensions, gapMmOf, snapColumnsOf, snapRowsOf, widthMmOf } from "@/lib/snap-table"
+import { dimensions, gapMmOf, lineStateOf, snapColumnsOf, snapRowsOf } from "@/lib/snap-table"
 import { cellAnchorOf, cellDefault, STRETCHES_HEIGHT, STRETCHES_WIDTH, type AnchorX, type AnchorY } from "@/lib/anchor"
-import { ButtonGroupRow, FieldNote, NumberField, PropertySection, SelectField, ToggleRow } from "./fields"
+import { ButtonGroupRow, FieldNote, FrameFields, NumberField, PropertySection, SelectField, ToggleRow, frameSummary } from "./fields"
 
 const HORIZONTAL: Array<{ value: AnchorX; label: string }> = [
   { value: "left", label: "Left" },
@@ -31,12 +32,12 @@ type Update = (id: string, updates: Partial<ScreenObject>) => void
 
 export function SnapTableProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
   const { rows, columns } = dimensions(selectedObject)
-  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => typeof line?.mm === "number")
+  const byHand = [...snapColumnsOf(selectedObject), ...snapRowsOf(selectedObject)].some((line) => lineStateOf(line) !== "auto")
   const set = (key: string, value: unknown) => {
     const { [key]: _old, ...rest } = selectedObject.properties ?? {}
     onUpdateObject(selectedObject.id, { properties: value === undefined ? rest : { ...rest, [key]: value } })
   }
-  const automatic = () =>
+  const automatic = () => {
     onUpdateObject(selectedObject.id, {
       properties: {
         ...selectedObject.properties,
@@ -44,11 +45,25 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
         rows: snapRowsOf(selectedObject).map(() => ({})),
       },
     })
+  }
   return (
+    <>
+    {/* A table has a size of its own (docs/2026-11-16-table-sizes.md,
+        decision 2): typed here or pulled at a handle, never below what it
+        holds. Docked, its area places it (FrameLockContext). */}
+    <PropertySection title="Frame" defaultCollapsed summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
+      <FrameFields
+        x={selectedObject.x}
+        y={selectedObject.y}
+        width={selectedObject.width}
+        height={selectedObject.height}
+        onChange={(key, value) => onUpdateObject(selectedObject.id, { [key]: value })}
+      />
+    </PropertySection>
     <PropertySection title="Table" summary={`${columns} × ${rows}`}>
       <FieldNote>
-        Each column is as wide as what it holds, each row as tall, or as set by dragging its line on the canvas. Snap an object beside it to add a
-        column or a row.
+        Each column and row says on the canvas what sets its size: auto (what it holds), a size in mm (its line dragged), or fill (a share of what
+        the table has left over). Click the sign to change it. The table is as large as what it holds, or as you drag it at a handle.
       </FieldNote>
       {byHand ? <ButtonGroupRow label="" buttons={[{ label: "Auto sizes", onClick: automatic }]} /> : null}
       {/* A grid of cards (docs/2026-11-03-card-grid.md). */}
@@ -63,23 +78,41 @@ export function SnapTableProperties({ selectedObject, onUpdateObject }: { select
         unit="mm"
         hint="Between its columns and between its rows."
       />
-      <NumberField
-        id="tableWidth"
-        label="Width"
-        value={widthMmOf(selectedObject) ?? 0}
-        onChange={(value) => set("widthMm", value > 0 ? value : undefined)}
-        min={0}
-        max={500}
-        step={1}
-        unit="mm"
-        hint="Zero: as wide as what it holds. Set, the last column takes what is left, or with Equal columns all share it."
-      />
-      <ToggleRow label="" text="Equal columns" checked={selectedObject.properties?.equalColumns === true} onChange={(on) => set("equalColumns", on ? true : undefined)} />
     </PropertySection>
+    </>
   )
 }
 
-export function SnapCellProperties({ selectedObject, onUpdateObject }: { selectedObject: ScreenObject; onUpdateObject: Update }) {
+const CELL_DOCK = [
+  { value: "fill", label: "Fill" },
+  { value: "top", label: "Top" },
+  { value: "bottom", label: "Bottom" },
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+]
+const CELL_LOOK = [
+  { value: "none", label: "None" },
+  { value: "card", label: "Card" },
+  { value: "card-accent", label: "Card, accent" },
+]
+
+/**
+ * «Position» of an object alone in a table's cell (docs/2026-11-16-areas.md,
+ * decisions 8, 12 and 13): the three fields an object has wherever it stands
+ * - Dock, Horizontal, Vertical - and its cell's Look. Alone in its cell it
+ * fills it, standing in it by Horizontal and Vertical. Docked to an edge, or
+ * its cell given a look, the cell becomes an area around it (`onMakeCell`,
+ * lib/cell-area.ts) and is «Cell» in the object list from then on.
+ */
+export function SnapCellProperties({
+  selectedObject,
+  onUpdateObject,
+  onMakeCell,
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: Update
+  onMakeCell?: (id: string, own: { dock?: string; look?: string }) => void
+}) {
   const cell: Record<string, any> = selectedObject.properties?.cell ?? {}
   const anchor = cellAnchorOf(selectedObject)
   const defaults = cellDefault(selectedObject)
@@ -95,8 +128,13 @@ export function SnapCellProperties({ selectedObject, onUpdateObject }: { selecte
   const offer = <T extends { value: string }>(options: T[], stretches: boolean) => (stretches ? options : options.filter((o) => o.value !== "stretch"))
   // A text spans its cell (lib/snap-table.ts): Horizontal is its own alignment.
   const isText = selectedObject.type === "text"
+  // What can share its cell (not an area, a table or a switcher: those hold their own).
+  const shares = !!onMakeCell && canShareCell(selectedObject)
   return (
-    <PropertySection title="Cell">
+    <PropertySection title="Position">
+      {shares ? (
+        <SelectField id="cellDock" label="Dock" value="fill" options={CELL_DOCK} onChange={(dock) => dock !== "fill" && onMakeCell!(selectedObject.id, { dock })} />
+      ) : null}
       {isText ? (
         <SelectField
           id="cellHorizontal"
@@ -109,7 +147,13 @@ export function SnapCellProperties({ selectedObject, onUpdateObject }: { selecte
         <SelectField id="cellHorizontal" label="Horizontal" value={anchor.x} options={offer(HORIZONTAL, STRETCHES_WIDTH.has(selectedObject.type))} onChange={(x) => set("x", x)} />
       )}
       <SelectField id="cellVertical" label="Vertical" value={anchor.y} options={offer(VERTICAL, STRETCHES_HEIGHT.has(selectedObject.type))} onChange={(y) => set("y", y)} />
-      <FieldNote>The table places it in its cell. Drag ⇤ ⇥ ⤒ ⤓ on the canvas to make it span more cells.</FieldNote>
+      {shares ? (
+        <SelectField id="cellLook" label="Cell look" value="none" options={CELL_LOOK} onChange={(look) => look !== "none" && onMakeCell!(selectedObject.id, { look })} />
+      ) : null}
+      <FieldNote>
+        The table places it in its cell. Drag ⇤ ⇥ ⤒ ⤓ on the canvas to make it span more cells.
+        {shares ? " Its cell holds more: let another object go on it, dock this one to an edge of it, or give the cell a look." : ""}
+      </FieldNote>
     </PropertySection>
   )
 }

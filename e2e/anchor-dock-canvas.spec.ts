@@ -106,9 +106,12 @@ test("Position in the panel: Horizontal and Vertical for an object in a free are
   await page.locator("#areaHorizontal").selectOption("left")
   await page.locator("#areaVertical").selectOption("top")
   expect((await savedArea(page)).children.find((c: Obj) => c.id === "fest").properties).not.toHaveProperty("anchor")
-  // The area itself, on the screen, has no Position.
+  // The area itself stands on the screen, which is an area too
+  // (docs/2026-11-16-areas.md): it has a Position there. Until 2026-11-16
+  // it had none.
   await objectTreeRow(page, "karte").click()
-  await expect(page.locator("#areaHorizontal")).toHaveCount(0)
+  await expect(page.locator("#areaHorizontal")).toHaveValue("left")
+  await expect(page.locator("#areaDock")).toHaveValue("none")
 })
 
 // Task 3: Dock and Padding.
@@ -124,7 +127,13 @@ test("Dock in Position places it along the area's edge, marks its row and locks 
   await expect(page.locator("#areaVertical")).toHaveCount(0)
   await expect(page.locator("#areaHorizontal")).toHaveCount(0)
   await openFrameSection(page)
-  await expect(page.locator("#width")).toHaveAttribute("readonly", "")
+  // Where it stands is the area's and locked. Across its dock the area
+  // gives it its width: Frame shows the least it asks for there, «Min W», 0
+  // until one is typed (docs/2026-11-16-areas.md, decision 14). Until
+  // 2026-11-16 the width was shown locked.
+  await expect(page.locator("#x")).toHaveAttribute("readonly", "")
+  await expect(page.locator('label[for="width"]')).toHaveText("Min W")
+  await expect(page.locator("#width")).toHaveValue("0")
   await expect(page.locator("#height")).not.toHaveAttribute("readonly", "")
   let area = await savedArea(page)
   expect(geom(area, "kopf")).toEqual([0, 0, 200, 20])
@@ -138,9 +147,10 @@ test("Dock in Position places it along the area's edge, marks its row and locks 
   expect(kopf.x).toBeGreaterThan(0)
   expect(kopf.x).toBe(kopf.y)
   expect(kopf.width).toBe(200 - 2 * kopf.x)
-  // Undocked, it has its own width back.
+  // Undocked, it stays as wide as its dock made it: docking keeps no size
+  // (decision 14). Until 2026-11-16 it had its own 180 back.
   await objectTreeRow(page, "kopf").click()
   await page.locator("#areaDock").selectOption("none")
   area = await savedArea(page)
-  expect(area.children.find((c: Obj) => c.id === "kopf").width).toBe(180)
+  expect(area.children.find((c: Obj) => c.id === "kopf").width).toBe(200 - 2 * kopf.x)
 })

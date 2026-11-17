@@ -10,6 +10,7 @@
  * it (lib/snap-table.ts).
  */
 
+import { isArea } from "@/lib/area"
 import type { ScreenObject } from "@/components/project-editor"
 import { translateObject } from "@/lib/object-groups"
 
@@ -124,7 +125,7 @@ const hasPoints = (obj: ScreenObject) => Array.isArray(obj.properties?.points) &
  * whose size does not change keeps everything where it is.
  */
 export function resizeFree(area: ScreenObject, width: number, height: number): ScreenObject {
-  if (area.type !== "free" || (width === area.width && height === area.height)) return { ...area, width, height }
+  if (!isArea(area) || (width === area.width && height === area.height)) return { ...area, width, height }
   const dw = width - area.width
   const dh = height - area.height
   const children = (area.children ?? []).map((child) => {
@@ -139,9 +140,37 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
     const moved = { ...child, x: child.x + h.move, y: child.y + v.move }
     const w = Math.max(1, child.width + h.grow)
     const ht = Math.max(1, child.height + v.grow)
-    return child.type === "free" ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
+    if (child.type === "switcher") return { ...resizePanels(child, w, ht), x: moved.x, y: moved.y }
+    return isArea(child) ? { ...resizeFree(child, w, ht), x: moved.x, y: moved.y } : { ...moved, width: w, height: ht }
   })
   return { ...area, width, height, children }
+}
+
+/**
+ * A switcher at a new size, each of its panels filling it: at its origin,
+ * as large as it is, what stands in the panel moved and stretched by its
+ * anchors from the size the panel had. What is docked in a panel is placed
+ * by lib/dock.ts (resizeSwitcher).
+ */
+export function resizePanels(switcher: ScreenObject, width: number, height: number): ScreenObject {
+  return { ...switcher, width, height, children: (switcher.children ?? []).map((panel) => filledPanel(panel, width, height)) }
+}
+
+/**
+ * A panel filling a switcher of this size. One that has no size yet - it
+ * was never laid out - takes it without anything in it moving: there is no
+ * size its objects kept their distance from.
+ */
+export function filledPanel(given: ScreenObject, width: number, height: number): ScreenObject {
+  // A panel's own x and y never placed anything: the canvas drew what it
+  // holds from the switcher's corner (lib/object-groups.ts childOrigin). They
+  // are written as 0, so every rule that adds coordinates up agrees.
+  const panel = given.x === 0 && given.y === 0 ? given : { ...given, x: 0, y: 0 }
+  if (!(panel.width > 0) || !(panel.height > 0)) return { ...panel, width, height }
+  // The size it kept its objects' distances from is the one it was laid out
+  // at; one saved at another size by a designer before areas has no objects
+  // that keep a distance.
+  return resizeFree(panel, width, height)
 }
 
 /**
@@ -151,7 +180,7 @@ export function resizeFree(area: ScreenObject, width: number, height: number): S
  * and Apply size all agree, in one undo step.
  */
 export function withUpdates(obj: ScreenObject, updates: Partial<ScreenObject>): ScreenObject {
-  if (obj.type !== "free" || "children" in updates) return { ...obj, ...updates }
+  if (!isArea(obj) || "children" in updates) return { ...obj, ...updates }
   const width = typeof updates.width === "number" ? updates.width : obj.width
   const height = typeof updates.height === "number" ? updates.height : obj.height
   if (width === obj.width && height === obj.height) return { ...obj, ...updates }

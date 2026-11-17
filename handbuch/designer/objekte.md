@@ -13,7 +13,7 @@ Neben dem Mauszeiger steht, was beim Loslassen oder beim Klick passiert, etwa «
 
 Willst du es doch nicht, drückst du <kbd>Esc</kbd>, klickst noch einmal auf dasselbe Werkzeug oder lässt es neben dem Screen los, etwa über der Palette. Dann entsteht nichts, und das Werkzeug ist wieder weggelegt. Ein Klick auf ein anderes Werkzeug nimmt stattdessen dessen Objekt.
 
-Die Grundgrösse: Bedienelemente beginnen in der Grösse <span class="ui">M</span>, ein Bar oder Slider ist 30 mm lang, eine Box 20 × 10 mm, eine Free-Fläche 30 × 20 mm, ein Gauge oder Dial 20 mm gross. Eine Box, eine Free-Fläche, einen Bar oder Slider machst du danach an ihren Anfassern grösser oder kleiner. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
+Die Grundgrösse: Bedienelemente beginnen in der Grösse <span class="ui">M</span>, ein Bar oder Slider ist 30 mm lang, eine Box 20 × 10 mm, eine Area 30 × 20 mm, ein Gauge oder Dial 20 mm gross. Eine Box, eine Area, einen Bar oder Slider machst du danach an ihren Anfassern grösser oder kleiner. Bei einem Text oder Button steht der Cursor danach schon im Feld <span class="ui">Text</span>, und der Inhalt ist markiert: Du tippst gleich los, und <kbd>Enter</kbd> oder <kbd>Esc</kbd> schliesst die Eingabe ab. Der Text bleibt, wie du ihn getippt hast, und das Objekt bleibt ausgewählt. Ein zweites <kbd>Esc</kbd> hebt die Auswahl auf.
 
 Einige Werkzeuge verhalten sich anders:
 
@@ -38,7 +38,7 @@ Zieh ein Objekt mit der Maus an seinen Platz, die Anfasser an den Ecken und Kant
 
 Beim Verschieben rasten Kanten und Mitte an den Hilfslinien ein, die du unter <span class="ui">Settings</span> › <span class="ui">Snap Grid</span> festlegst.
 
-Genaue Zahlen trägst du in den Eigenschaften unter <span class="ui">Frame</span> ein: X, Y, Breite und Höhe.
+Genaue Zahlen trägst du in den Eigenschaften unter <span class="ui">Frame</span> ein: X, Y, Breite und Höhe. Darunter stehen zwei Zeilen, die sagen, woher Breite und Höhe kommen, etwa «W 310 px: its column, fixed at 45.7 mm» oder «H 78 px: set by hand». Ist ein Objekt anders gross, als du es gezeichnet hast, steht dort der Grund: die Spalte seiner Tabelle, die Area, an der es angedockt ist, oder sein eigener Inhalt.
 
 ## Mehrere Objekte ausrichten
 
@@ -52,7 +52,7 @@ Sind mehrere Objekte ausgewählt, bietet die rechte Spalte an:
 
 <span class="ui">Objects</span> zeigt alle Objekte des Screens, das vorderste oben. Ein Klick wählt ein Objekt. Durch Ziehen änderst du die Reihenfolge, also was vor was liegt. Ziehst du ein Objekt auf die Mitte eines Panels, landet es in diesem Panel.
 
-Aus der Liste kannst du ein Objekt auch auf den Screen ziehen. So kommst du an alles heran, auch an ein Objekt tief in einer Card oder Tabelle, das du auf dem Screen erst mit mehreren Doppelklicks erreichst. Über dem Screen hängt es mit seiner Mitte am Mauszeiger, als Umriss, und landet beim Loslassen wie beim Verschieben: frei auf dem Screen, in der Card oder Free-Fläche unter dem Mauszeiger oder mit <kbd>Alt</kbd> in einer Tabelle, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). Lässt du es in der Liste auf der Mitte einer Tabellenzeile los, kommt es als neue letzte Zeile in diese Tabelle. Ist es selbst eine Tabelle, werden die beiden eine, siehe [Zwei Tabellen zusammenführen](/objekte/anordnen#zusammenstecken).
+Aus der Liste kannst du ein Objekt auch auf den Screen ziehen. So kommst du an alles heran, auch an ein Objekt tief in einer Card oder Tabelle, das du auf dem Screen erst mit mehreren Doppelklicks erreichst. Über dem Screen hängt es mit seiner Mitte am Mauszeiger, als Umriss, und landet beim Loslassen wie beim Verschieben: frei auf dem Screen, in der Card oder Area unter dem Mauszeiger oder mit <kbd>Alt</kbd> in einer Tabelle, siehe [Zusammenstecken](/objekte/anordnen#zusammenstecken). Lässt du es in der Liste auf der Mitte einer Tabellenzeile los, kommt es als neue letzte Zeile in diese Tabelle. Ist es selbst eine Tabelle, werden die beiden eine, siehe [Zwei Tabellen zusammenführen](/objekte/anordnen#zusammenstecken).
 
 Mit dem Schloss am Ende einer Zeile sperrst du ein Objekt auf dem Screen. Ein Klick geht dann durch es hindurch, und verschieben oder in der Grösse ändern lässt es sich dort nicht mehr. In <span class="ui">Objects</span> wählst und bearbeitest du es weiterhin. Das Schloss erscheint, wenn du mit der Maus über die Zeile fährst; bei einem gesperrten Objekt steht es immer da.
 

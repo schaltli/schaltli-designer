@@ -572,9 +572,13 @@ function createBridgeLogic() {
       // temperature it holds, by hand its speed in its ten steps, and in
       // either the airflow - off, none of these (asked 2026-10-04).
       var hvacMode = PREFIX + "maxxfan/hvac_mode"
-      // Two switches side by side, «Lüfter» and «Deckel»; while it runs, by
-      // hand or auto, then the speed or the temperature, then the airflow
-      // (docs/2026-11-11-bridge-for-starter.md, decision 4).
+      // As the user drew it in the van on 2026-11-16: «Lüfter» and beside it
+      // the cover, «Zu» and «Offen», guarded - a lid opened by a touch by
+      // mistake lets the rain in; while the fan is on, by hand or auto, in a
+      // card of its own; and one card for the mode it is in - its speed or
+      // its temperature, the airflow small below. No names where the words
+      // on the buttons say it. Until then two switches, and a card for each
+      // part (docs/2026-11-11-bridge-for-starter.md, decision 4).
       block("maxxfan", "MaxxFan", "mdi:fan", ["maxxfan", "maxxfan_cover", "maxxfan_airflow"], [
         {
           name: "Lüfter",
@@ -588,11 +592,16 @@ function createBridgeLogic() {
         },
         {
           name: "Deckel",
-          kind: "switch",
+          kind: "choice",
           state_topic: PREFIX + "maxxfan/cover",
           command_topic: COMMAND + "maxxfan/cover",
-          payload_on: { value: "open", label: "Offen" },
-          payload_off: { value: "closed", label: "Zu" },
+          options: [
+            { value: "closed", label: "Zu" },
+            { value: "open", label: "Offen" },
+          ],
+          title: false,
+          guard: true,
+          size: "xs",
           column: 2,
           row: "switches",
         },
@@ -605,7 +614,9 @@ function createBridgeLogic() {
             { value: "fan_only", label: "Hand" },
             { value: "auto", label: "Auto" },
           ],
-          shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
+          title: false,
+          size: "s",
+          shown_when: { topic: PREFIX + "maxxfan/power", values: ["on"] },
         },
         {
           name: "Temperatur",
@@ -638,6 +649,8 @@ function createBridgeLogic() {
             { value: "in", label: "Rein" },
             { value: "out", label: "Raus" },
           ],
+          title: false,
+          small: true,
           shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
       ])
@@ -654,9 +667,27 @@ function createBridgeLogic() {
           icon: icon,
         })
       }
-      if (present(data.shore_power)) power("shore_power", "Landstrom", "shore/power", "mdi:power-plug")
+      if (present(data.shore_power)) power("shore_power", "Batterie-Ladegerät", "shore/power", "mdi:power-plug")
       if (present(data.booster_power)) power("booster_power", "Lichtmaschine", "booster/power", "mdi:engine")
       if (present(data.solar_power) || present(data.mppt_pv_watts)) power("solar_power", "Solar", "solar/power", "mdi:solar-power")
+      // The energy block (the user, 2026-11-17): what Pekaway gives and the
+      // bridge knows, in one prebuilt - the battery's charge and its watts,
+      // solar, and shore power and the booster once a flow sets their
+      // globals. Each part with the icon the starter's energy diagram gives
+      // it. Beside the things, not in place of them: it covers none.
+      var energy = []
+      function source(name, topic, icon, unit, column, row) {
+        energy.push({ name: name, kind: "value", state_topic: PREFIX + topic, unit_of_measurement: unit, icon: icon, column: column, row: row })
+      }
+      if (present(data.battery_soc)) source("Batterie", "battery/soc", "bxs:car-battery", "%", 1, "battery")
+      if (present(data.battery_power)) source("Leistung", "battery/power", "bxs:car-battery", "W", 2, "battery")
+      var sources = []
+      if (present(data.solar_power) || present(data.mppt_pv_watts)) sources.push(["Solar", "solar/power", "mdi:white-balance-sunny"])
+      if (present(data.shore_power)) sources.push(["Batterie-Ladegerät", "shore/power", "mdi:transmission-tower"])
+      if (present(data.booster_power)) sources.push(["Ladebooster", "booster/power", "mdi:engine"])
+      // Two to a row, side by side as the battery's two.
+      for (var p = 0; p < sources.length; p++) source(sources[p][0], sources[p][1], sources[p][2], "W", (p % 2) + 1, "sources" + Math.floor(p / 2))
+      if (energy.length > 0) block("energy", "Energie", "bxs:car-battery", [], energy)
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {

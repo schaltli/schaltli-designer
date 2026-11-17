@@ -113,6 +113,11 @@ export function withTemplate<P extends { screens: unknown[]; topics: unknown[]; 
     assets: c.assets,
     nextId: Math.max(fresh.nextId, c.nextId),
     ...(c.snapGuides ? { snapGuides: c.snapGuides } : {}),
-    settings: { ...fresh.settings, ...settings },
-  }
+    // The form its screens have is the template's to say (formatVersion,
+    // lib/area-migration.ts), never the fresh project's: a template from
+    // before areas has none, and whoever applies it brings the project to
+    // them as one opened is (2026-11-16: the starter, taken for current,
+    // opened with unsaved changes - its tables laid out again).
+    settings: (({ formatVersion: _fresh, ...own }: Record<string, unknown>) => ({ ...own, ...settings }))(fresh.settings as Record<string, unknown>),
+  } as P
 }

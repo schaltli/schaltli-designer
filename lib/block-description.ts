@@ -177,6 +177,11 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
   if (look) control.look = look
   const size = text(part.size)
   if (size === "xs" || size === "s" || size === "m" || size === "l") control.size = size
+  // No name over it; guarded (the fan's block, 2026-11-16).
+  if (part.title === false) control.untitled = true
+  if (part.guard === true) control.guard = true
+  // Its own icon before its name (the energy block's sources, 2026-11-17).
+  if (typeof part.icon === "string" && /^[a-z0-9-]+:[a-z0-9-]+$/i.test(part.icon)) control.icon = part.icon
   return { control }
 }
 
