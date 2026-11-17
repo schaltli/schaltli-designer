@@ -68,3 +68,11 @@ Built otherwise than planned (2026-11-16, lib/cell-area.ts): a table's children 
 - `test:e2e:prod` on e8923485: 2535 passed, 0 failed. `test:quick` before it: the e2e lane did not run (the dev server on 3000, up since the morning, no longer answered in time; restarted). Device lanes of that run: 45 checks passed; failed knob-screen-graph, knob-charts-draw, 4v3b-screen-graph, 4v3b-charts-draw, papers3-screen-graph, and 4v3b conformance 82/84 («live-icon» and «live-line», each «before any value»; the 4" 84/84). Not run again, not looked into.
 - In the van: designer 06acd97 on the Pekaway, the bridge's tab updated by the install (flows saved first), the new description retained on `schaltli/blocks/maxxfan/config`.
 - `next dev` started from this session stops after a notice that Next.js 16.4.2 has a known security advisory; started without the session's agent variables it runs. The advisory itself not looked into.
+
+## The energy block (2026-11-17): commit d15b7ee1
+
+- Asked by the user: a prebuilt with what Pekaway gives and the bridge knows - battery power and SoC, solar, shore power and booster once a flow sets them; icons as the starter's.
+- Built: the bridge's `schaltli/blocks/energy/config` «Energie» (from the producers' announcement, which now also gets the battery's two values from the flow); a part's own `icon`; a value part with an icon in a block of tiles is a value card. Covers nothing: «Batterie», «Solar», «Landstrom», «Lichtmaschine» stay single entries.
+- Names: «Batterie» (%), «Leistung» (W), «Solar», «Landstrom», «Ladebooster» - the energy diagram says «Lichtmaschine", the user's request «Ladebooster». Block icon bxs:car-battery as the starter's Power screen.
+- Tests: `e2e/vanpi-bridge.spec.ts` (the description, the flow handing the battery's values), `e2e/block-tiles.spec.ts` (the placed block). `test:e2e:prod`: 2538 passed, 1 failed (demo-van «a light switched on the broker lights its window», green alone).
+- Not in the van: the push to `pre/areas` and the install were refused by the session's permission check; waiting for the user.
