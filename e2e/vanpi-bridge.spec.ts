@@ -161,7 +161,7 @@ test.describe("VanPi bridge logic", () => {
 
     // Announced as power sensors, each only when it is there.
     const things = logic.things("producers", { shore_power: 412, mppt_pv_watts: "0" })
-    expect(things["homeassistant/sensor/schaltli-vanpi/shore_power/config"]).toMatchObject({ name: "Landstrom", state_topic: "schaltli/state/shore/power", unit_of_measurement: "W", device_class: "power" })
+    expect(things["homeassistant/sensor/schaltli-vanpi/shore_power/config"]).toMatchObject({ name: "Batterie-Ladegerät", state_topic: "schaltli/state/shore/power", unit_of_measurement: "W", device_class: "power" })
     expect(things["homeassistant/sensor/schaltli-vanpi/solar_power/config"]).toMatchObject({ name: "Solar", state_topic: "schaltli/state/solar/power" })
     expect(things["homeassistant/sensor/schaltli-vanpi/booster_power/config"]).toBeUndefined()
     expect(logic.things("producers", {})).toEqual({})
@@ -189,7 +189,7 @@ test.describe("VanPi bridge logic", () => {
     ])
     // Beside the things, not in place of them: the Block menu keeps «Solar» and the others.
     const messages = Object.fromEntries(Object.entries(all.out).map(([topic, config]) => [topic, JSON.stringify(config)]))
-    expect(readCatalog(messages).entries.map((e) => e.label)).toEqual(expect.arrayContaining(["Energie", "Solar", "Landstrom", "Lichtmaschine"]))
+    expect(readCatalog(messages).entries.map((e) => e.label)).toEqual(expect.arrayContaining(["Energie", "Solar", "Batterie-Ladegerät", "Lichtmaschine"]))
 
     // Without a flow for shore power and the booster: the battery and Pekaway's MPPT.
     const plain = describe({ battery_soc: "80", battery_power: "5", mppt_pv_watts: "0", shore_power: undefined, booster_power: null })

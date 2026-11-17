@@ -72,7 +72,7 @@ Die Namen für Landstrom und Booster sind dieselben, die CamperUI liest. Wer sie
 
 Was nicht gesetzt ist, legt die Brücke nicht ab. Ein Van ohne Landstrom-Messung hat also kein Topic `…/shore/…`, und ein Diagramm zeigt dort keinen Wert statt eines falschen.
 
-Leistung von Landstrom, Booster und Solar kündigt die Brücke als Messwert in Watt an, mit den Namen «Landstrom», «Lichtmaschine» und «Solar», jeweils nur, wenn es den Wert gibt.
+Leistung von Landstrom, Booster und Solar kündigt die Brücke als Messwert in Watt an, mit den Namen «Batterie-Ladegerät», «Lichtmaschine» und «Solar», jeweils nur, wenn es den Wert gibt.
 
 Pekaways eigene Variablen liest die Brücke sonst nicht, nur Pekaways dokumentierte Schnittstelle. Ausnahmen sind die Restlaufzeit der Batterie und diese Variablen hier, die nicht von Pekaway stammen, sondern von den Flows im Van.
 
@@ -159,7 +159,7 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 
 Damit der Designer die Werte als [Baugruppen](/designer/baugruppen) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
 
-Den Dachlüfter, die Heizung, das Theme und die Energiewerte beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config`, `schaltli/blocks/theme/config` und `schaltli/blocks/energy/config`. Unter <span class="ui">Prebuilt</span> stehen dann «MaxxFan», die Heizung, «Theme» und «Energie» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag. «Energie» ersetzt nichts: «Batterie», «Solar», «Landstrom» und «Lichtmaschine» stehen weiter einzeln da.
+Den Dachlüfter, die Heizung, das Theme und die Energiewerte beschreibt sie zusätzlich als ganze Baugruppen, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config`, `schaltli/blocks/theme/config` und `schaltli/blocks/energy/config`. Unter <span class="ui">Prebuilt</span> stehen dann «MaxxFan», die Heizung, «Theme» und «Energie» als je eine Baugruppe. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag. «Energie» ersetzt nichts: «Batterie», «Solar», «Batterie-Ladegerät» und «Lichtmaschine» stehen weiter einzeln da.
 
 | Baugruppe | Teile |
 |---|---|
@@ -184,7 +184,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. B
 | sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
-| Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Landstrom», «Lichtmaschine», «Solar» |
+| Landstrom, Booster, Solar | Messwert in Watt, nur wenn es den Wert gibt | «Batterie-Ladegerät», «Lichtmaschine», «Solar» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks, alle vier Temperaturfühler und alle acht Relais, auch die, an denen nichts hängt, mit einer Out-X-In Pro alle sechzehn. Die stehen mit Pekaways Standardnamen unter <span class="ui">Prebuilt</span>, etwa «Level 3», «Temp3» oder «Relay 7». Ein Fühler, der nicht angeschlossen ist, zeigt 0 °C. Gib ihnen in Pekaway einen Namen, oder lass sie dort einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 

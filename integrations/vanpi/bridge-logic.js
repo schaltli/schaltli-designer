@@ -667,7 +667,7 @@ function createBridgeLogic() {
           icon: icon,
         })
       }
-      if (present(data.shore_power)) power("shore_power", "Landstrom", "shore/power", "mdi:power-plug")
+      if (present(data.shore_power)) power("shore_power", "Batterie-Ladegerät", "shore/power", "mdi:power-plug")
       if (present(data.booster_power)) power("booster_power", "Lichtmaschine", "booster/power", "mdi:engine")
       if (present(data.solar_power) || present(data.mppt_pv_watts)) power("solar_power", "Solar", "solar/power", "mdi:solar-power")
       // The energy block (the user, 2026-11-17): what Pekaway gives and the
