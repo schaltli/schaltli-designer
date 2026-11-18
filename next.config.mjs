@@ -64,6 +64,14 @@ const nextConfig = {
   // instructions are CLAUDE.md, and a file that appears on every start
   // would leave the tree dirty.
   agentRules: false,
+  experimental: {
+    // Next.js 16.4 stops `next dev`, `next build` and `next start` once when
+    // it detects a coding agent, to recommend a security upgrade. Under
+    // test:all that stopped the e2e production build (2026-11-18): no server
+    // on 3100, e2e red and every HIL lane rendering against the dev server.
+    // An upgrade is decided by a person, not by a stopped build.
+    agentUpgrade: false,
+  },
   // The dev server's file watcher keeps out of .data/ (projects, DDFs,
   // seeded fixtures), as Next keeps it out of node_modules, .git and .next.
   // Watched, every saved project recompiled the app, and on Windows the
