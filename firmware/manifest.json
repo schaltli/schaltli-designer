@@ -1,62 +1,62 @@
 {
-  "release": "fw-2026.11.18.1",
+  "release": "fw-2026.11.19.2-pre.docker",
   "commit": "8d297c20bb823575d5c9b786e918fe882d9c6ec5",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.11.18.1",
-      "file": "waveshare-knob-1v8-fw-2026.11.18.1.bin",
-      "size": 2905760,
-      "sha256": "8fccf95766b4484e674fca74bf2f082d0bb69769ebd6714e5daf83faa9233e0b",
+      "build": "fw-2026.11.19.2-pre.docker",
+      "file": "waveshare-knob-1v8-fw-2026.11.19.2-pre.docker.bin",
+      "size": 2905776,
+      "sha256": "af15b045ff5ed887ceec155d09ddee764409751bf8659cf32d44ca9eee5bbd99",
       "systemGeneration": "1.4",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-knob-1v8-fw-2026.11.18.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-knob-1v8-fw-2026.11.19.2-pre.docker.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.11.18.1.bin",
-        "size": 2971296,
-        "sha256": "c54c6a04d4b6af07150834f1be9d3bfcbb4782b8960aa1ce416ccb0fd1be46ef",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-knob-1v8-factory-fw-2026.11.18.1.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.11.19.2-pre.docker.bin",
+        "size": 2971312,
+        "sha256": "4a3bb701f71a3b9c6af9ae0394bab9a332a800e866ec9224197ec3661adec796",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-knob-1v8-factory-fw-2026.11.19.2-pre.docker.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.11.18.1",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.18.1.bin",
-      "size": 2850224,
-      "sha256": "376b158c8141fec8dba76553875c026602c3d6a4bcf83ff7b0fede5b4cf158f5",
+      "build": "fw-2026.11.19.2-pre.docker",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.11.19.2-pre.docker.bin",
+      "size": 2850240,
+      "sha256": "46229cfc23a0e7a347a04ee622284edf7a3e4dae900751651b3b4c09562c06f6",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-touch-lcd-4v3b-fw-2026.11.18.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-touch-lcd-4v3b-fw-2026.11.19.2-pre.docker.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.18.1.bin",
-        "size": 2915760,
-        "sha256": "63e2a4d8646053998ffd184d30b93e14b42e27a0ab14b9051e8dd262cf34e02b",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-touch-lcd-4v3b-factory-fw-2026.11.18.1.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.11.19.2-pre.docker.bin",
+        "size": 2915776,
+        "sha256": "93bf1fd96a9eb16bff477d4ba237c40c60224fc1dd1472dfc3daa28f51b540e2",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-touch-lcd-4v3b-factory-fw-2026.11.19.2-pre.docker.bin"
       }
     },
     "waveshare-touch-lcd-4": {
-      "build": "fw-2026.11.18.1",
-      "file": "waveshare-touch-lcd-4-fw-2026.11.18.1.bin",
+      "build": "fw-2026.11.19.2-pre.docker",
+      "file": "waveshare-touch-lcd-4-fw-2026.11.19.2-pre.docker.bin",
       "size": 2641376,
-      "sha256": "a574a2637215efc7ff63caba9e4d6a482c7f4234f244a1fc10a06e3cc0948ce1",
+      "sha256": "0b13cca9aca2a6325fff4a7a9d5d6a8e22da717fa9be558f0d8a73c0b2fa0299",
       "systemGeneration": "1.9",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-touch-lcd-4-fw-2026.11.18.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-touch-lcd-4-fw-2026.11.19.2-pre.docker.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.18.1.bin",
+        "file": "waveshare-touch-lcd-4-factory-fw-2026.11.19.2-pre.docker.bin",
         "size": 2706912,
-        "sha256": "d673b1eec9149786266dcb5612f26ffa6fe9b6a3d92ee2b5a096dff52b85552b",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/waveshare-touch-lcd-4-factory-fw-2026.11.18.1.bin"
+        "sha256": "7999a325b173aecbfcdd93430f8f33dcfddc950a7a9ca2597e4037d8fa89db5b",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/waveshare-touch-lcd-4-factory-fw-2026.11.19.2-pre.docker.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.11.18.1",
-      "file": "m5stack-papers3-fw-2026.11.18.1.bin",
-      "size": 2320512,
-      "sha256": "634c896062c2df28f6ea186c4f0df5341debbabf59b93c7ca6d1794034f02b5c",
+      "build": "fw-2026.11.19.2-pre.docker",
+      "file": "m5stack-papers3-fw-2026.11.19.2-pre.docker.bin",
+      "size": 2320560,
+      "sha256": "b553614767f485f793e5e1f62e0b2d2049850a1774de5a368f1239afcf592c22",
       "systemGeneration": "1.6",
-      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/m5stack-papers3-fw-2026.11.18.1.bin",
+      "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/m5stack-papers3-fw-2026.11.19.2-pre.docker.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.11.18.1.bin",
-        "size": 2386048,
-        "sha256": "4f5c103016eaa5e77eece0474c6d0d542fdbfdcab83786c8f5e4e151846678f7",
-        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.18.1/m5stack-papers3-factory-fw-2026.11.18.1.bin"
+        "file": "m5stack-papers3-factory-fw-2026.11.19.2-pre.docker.bin",
+        "size": 2386096,
+        "sha256": "e40f031b8e9492757cfede4035486b6616b3f79dd1c2d7329798265d461ff597",
+        "url": "https://github.com/schaltli/schaltli-designer/releases/download/fw-2026.11.19.2-pre.docker/m5stack-papers3-factory-fw-2026.11.19.2-pre.docker.bin"
       }
     }
   }
