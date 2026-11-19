@@ -181,6 +181,31 @@ test.describe("Listen to Broker", () => {
     await expect(viewer(page)).toHaveCount(0)
   }
 
+  // #82: each new try of the listener (every 5 s) was «connecting» for a
+  // moment, and the fields went away under someone typing an address.
+  test("with no broker answering, the fields stay through the listener's retries until it connects", async ({ page }) => {
+    await chooseBroker(page, "ws://127.0.0.1:9")
+    await openViewer(page)
+    const field = viewer(page).locator("#websocketUrl")
+    await expect(field).toBeVisible({ timeout: 10_000 })
+    await expect(viewer(page).getByTestId("listen-failure")).toBeVisible()
+    await field.fill("ws://127.0.0.1:9")
+    await field.pressSequentially("00")
+    // Two retries and more: the field never leaves, what was typed stays.
+    const until = Date.now() + 12_000
+    while (Date.now() < until) {
+      await expect(field).toBeVisible({ timeout: 100 })
+      await expect(viewer(page).getByTestId("listen-failure")).toBeVisible({ timeout: 100 })
+      await page.waitForTimeout(150)
+    }
+    await expect(field).toHaveValue("ws://127.0.0.1:900")
+    // Once a broker answers, the tree is back.
+    await field.fill(own.url)
+    await viewer(page).getByRole("button", { name: "Connect", exact: true }).click()
+    await expect(field).toHaveCount(0, { timeout: 10_000 })
+    await expect(row(page, "pkw")).toBeVisible()
+  })
+
   test("a live preview follows a broker chosen in the connection settings", async ({ page }) => {
     const other = await ownBroker()
     try {

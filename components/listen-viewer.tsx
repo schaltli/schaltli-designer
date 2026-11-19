@@ -171,7 +171,21 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
 
   // No broker and nothing heard: the fields to set one, with what the broker
   // said (a refused login, #67) - not in the demo, whose broker is its own.
-  const showSettings = !demo && (settings || (heard.state === "no broker" && heard.topics.size === 0 && !!heard.error))
+  // Held until a connection comes about (#82): each new try of the listener
+  // is «connecting» for a moment, and the fields must not go away under
+  // someone typing an address into them.
+  // A Connect that worked makes the failure still in the store stale until
+  // the listener has started over.
+  const [stale, setStale] = useState(false)
+  const failedNow = !stale && heard.state === "no broker" && heard.topics.size === 0 && !!heard.error
+  const [failure, setFailure] = useState<string | null>(null)
+  useEffect(() => {
+    if (heard.state !== "no broker") setStale(false)
+    if (failedNow) setFailure(heard.error ?? null)
+    else if (heard.state === "listening" || heard.topics.size > 0) setFailure(null)
+  }, [failedNow, heard.state, heard.error, heard.topics.size])
+  const shownFailure = failedNow ? heard.error : failure
+  const showSettings = !demo && (settings || failedNow || failure !== null)
   const collisions = [...heard.topics.keys()].filter((t) => local.has(t))
   const focused = focus ? heard.topics.get(focus) : undefined
   const now = Date.now()
@@ -261,6 +275,8 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
       client.end(true)
       await keepBrokerLogin(login)
       setSettings(false)
+      setFailure(null)
+      setStale(heard.state === "no broker")
       restartListening()
     } catch {
       // The error is shown under the fields.
@@ -325,7 +341,7 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
 
         {showSettings ? (
           <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-xl">
-            {heard.state === "no broker" && heard.error && <p className="text-sm text-destructive">{heard.error}</p>}
+            {shownFailure && <p className="text-sm text-destructive" data-testid="listen-failure">{shownFailure}</p>}
             <div>
               <Label htmlFor="websocketUrl">WebSocket URL</Label>
               <Input id="websocketUrl" value={connection.config.websocketUrl} onChange={(e) => connection.setConfig({ ...connection.config, websocketUrl: e.target.value })} placeholder="ws://localhost:9001" className="mt-1" />
@@ -345,7 +361,7 @@ export function ListenViewer({ isOpen, onClose, projectTopics, onUseAsExamples }
               <Input id="password" type="password" value={connection.config.password} onChange={(e) => connection.setConfig({ ...connection.config, password: e.target.value })} placeholder="Enter password" className="mt-1" />
               <p className="text-xs text-muted-foreground mt-1">Kept by the designer once it connects, for every browser and everything that talks to the broker. Empty forgets it.</p>
             </div>
-            {connection.error && connection.error !== heard.error && <p className="text-sm text-destructive">{connection.error}</p>}
+            {connection.error && connection.error !== shownFailure && <p className="text-sm text-destructive">{connection.error}</p>}
             <Button onClick={connectWith} disabled={connection.isConnecting || !connection.config.websocketUrl}>
               {connection.isConnecting ? "Connecting..." : "Connect"}
             </Button>

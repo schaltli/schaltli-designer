@@ -43,7 +43,7 @@ Das Feld <span class="ui">Filter topic or payload</span> sucht im Namen und im l
 
 Kündigen Geräte sich für Home Assistant an, sagt ein Hinweis über dem Baum, wie viele es sind. <span class="ui">Open Prebuilt ›</span> öffnet die Palette auf dem Reiter mit den [Baugruppen](/designer/baugruppen), die aus diesen Ankündigungen entstehen. Der Baum zeigt Topics, wie sie auf dem Broker liegen, auch die Ankündigungen selbst unter `homeassistant`; die Geräte und ihre Dinge findest du unter <span class="ui">Prebuilt</span>.
 
-Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. <span class="ui">Connect</span> verbindet, merkt sich beides im Browser und hört von da an diesen Broker ab.
+Der Designer verbindet sich selbst mit dem Broker auf dem Rechner, auf dem er läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. <span class="ui">Connect</span> verbindet, merkt sich beides im Browser und hört von da an diesen Broker ab. Antwortet kein Broker, stehen die Felder mit der Fehlermeldung von selbst da. Sie bleiben stehen, bis eine Verbindung zustande kommt, auch wenn der Designer es im Hintergrund alle paar Sekunden neu versucht.
 
 ## Ein Topic an ein Objekt binden
 
