@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input"
 export function DeviceAddressLine() {
   const [detected, setDetected] = useState<string | null>(null)
   const [configured, setConfigured] = useState("")
+  // Set by SCHALTLI_DEVICE_ADDRESS on the server (#82): shown, not changed.
+  const [fixed, setFixed] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +27,7 @@ export function DeviceAddressLine() {
         if (!body) return
         setDetected(body.detected ?? null)
         setConfigured(body.configured ?? "")
+        setFixed(body.fixed === true)
       })
       .catch(() => {})
   }, [])
@@ -74,6 +77,8 @@ export function DeviceAddressLine() {
           </p>
           {error && <p className="text-destructive">{error}</p>}
         </>
+      ) : fixed ? (
+        <p>{`Devices download from ${shown}, set on the server by SCHALTLI_DEVICE_ADDRESS.`}</p>
       ) : (
         <p>
           {`Devices download from ${shown}${configured ? " (set by hand)" : ""}. `}

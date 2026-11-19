@@ -17,7 +17,7 @@ Ein Projekt ist für ein bestimmtes Gerät gemacht, mit dessen Bildschirmgrösse
 
 Wählst du ein Gerät mit <span class="ui">Other device</span>, sagt der Dialog, für welches Gerät das Projekt gemacht ist. Mit <span class="ui">Switch this project to</span> stellst du das Projekt auf das gewählte Gerät um, wie unter <span class="ui">Settings</span> › <span class="ui">Device</span>. Bildschirmgrösse, Schriften und Tasten kommen dann vom neuen Gerät, deine Objekte bleiben, wo sie sind. Hat sich die Grösse geändert, sagt der Dialog das: Prüf deine Screens, bevor du überträgst, denn Objekte können jetzt ausserhalb liegen. <kbd>Strg</kbd>+<kbd>Z</kbd> nimmt das Umstellen zurück.
 
-Unter der Liste steht, von welcher Adresse die Geräte Projekt und Firmware herunterladen. Normalerweise findet der Designer sie selbst. Läuft er in einer VM mit NAT, trägst du mit <span class="ui">Change address</span> die richtige ein, siehe [Designer in einer VM](/betrieb/verbindungen#vm).
+Unter der Liste steht, von welcher Adresse die Geräte Projekt und Firmware herunterladen. Normalerweise findet der Designer sie selbst. Läuft er in einer VM mit NAT, trägst du mit <span class="ui">Change address</span> die richtige ein, siehe [Designer in einer VM](/betrieb/verbindungen#vm). Gibt der Server die Adresse mit `SCHALTLI_DEVICE_ADDRESS` vor, steht das dort, und ändern lässt sie sich nur auf dem Server, siehe [Designer in Docker](/betrieb/verbindungen#docker).
 
 ## Übertragen
 

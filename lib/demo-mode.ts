@@ -39,6 +39,8 @@ const ALLOWED: { method: string; path: RegExp }[] = [
   { method: "GET", path: /^\/api\/ddf\/data\/[^/]+$/ },
   { method: "GET", path: /^\/api\/fonts\/list$/ },
   { method: "GET", path: /^\/api\/version$/ },
+  // Loaded by every page (app/layout.tsx); empty in the demo.
+  { method: "GET", path: /^\/api\/broker-default$/ },
   // What a visitor does, counted without cookie or address
   // (lib/demo-events.ts).
   { method: "POST", path: /^\/api\/demo\/event$/ },

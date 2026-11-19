@@ -10,17 +10,30 @@ import { join } from "path"
  * to the VM - it works without a bridged adapter.
  *
  * `.data/device-address.json`, written from the Deploy dialog
- * (app/api/device-address). SCHALTLI_DEVICE_ADDRESS is the default before
- * anything is written there. `host` or `host:port`; empty means found.
+ * (app/api/device-address). SCHALTLI_DEVICE_ADDRESS, when set, comes first
+ * and the dialog cannot change it (#82): in a Docker container without the
+ * host's network the address found is the container's own, and the file is
+ * gone with the container unless `.data` is a volume - the environment is
+ * what a container keeps. Until 2026-11-19 the file came first. `host` or
+ * `host:port`; empty means found.
  */
-const FILE = join(process.cwd(), ".data", "device-address.json")
+function file(): string {
+  return join(process.cwd(), ".data", "device-address.json")
+}
+
+/** The address SCHALTLI_DEVICE_ADDRESS names, or empty. */
+export function environmentDeviceAddress(): string {
+  return (process.env.SCHALTLI_DEVICE_ADDRESS ?? "").trim()
+}
 
 export function configuredDeviceAddress(): string {
+  const fromEnvironment = environmentDeviceAddress()
+  if (fromEnvironment) return fromEnvironment
   try {
-    const stored = JSON.parse(readFileSync(FILE, "utf8"))
+    const stored = JSON.parse(readFileSync(file(), "utf8"))
     return typeof stored.address === "string" ? stored.address.trim() : ""
   } catch {
-    return (process.env.SCHALTLI_DEVICE_ADDRESS ?? "").trim()
+    return ""
   }
 }
 
@@ -31,7 +44,7 @@ export function isDeviceAddress(value: string): boolean {
 
 export function writeDeviceAddress(address: string): void {
   mkdirSync(join(process.cwd(), ".data"), { recursive: true })
-  const incoming = `${FILE}.incoming`
+  const incoming = `${file()}.incoming`
   writeFileSync(incoming, JSON.stringify({ address: address.trim() }))
-  renameSync(incoming, FILE)
+  renameSync(incoming, file())
 }

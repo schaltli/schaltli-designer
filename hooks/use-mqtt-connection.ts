@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import mqtt from "mqtt"
 import { defaultBrokerUrl } from "@/lib/broker-url"
+import { BROKER_DEFAULT_GLOBAL } from "@/lib/broker-default"
 import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 import { BLOCKS_PREFIX } from "@/lib/block-description"
 import { restartListening, useListenGeneration } from "@/lib/broker-store"
@@ -70,12 +71,15 @@ function storeConfig(config: MqttConnectionConfig) {
   if (websocketUrl !== before) restartListening()
 }
 
-// The page's own host decides (lib/broker-url.ts): ws://<host>:9001 over
+// The broker the server names (SCHALTLI_BROKER_URL, lib/broker-default.ts,
+// #82), else the page's own host (lib/broker-url.ts): ws://<host>:9001 over
 // http, wss://<host>/mqtt over https. A previously-stored override (below)
-// still takes precedence, for the rare case app and broker really are on
-// different hosts.
+// still takes precedence over both.
 function defaultWebsocketUrl(): string {
-  return defaultBrokerUrl(typeof window === "undefined" ? undefined : window.location)
+  if (typeof window === "undefined") return defaultBrokerUrl(undefined)
+  const fromServer = (window as unknown as Record<string, unknown>)[BROKER_DEFAULT_GLOBAL]
+  if (typeof fromServer === "string" && fromServer) return fromServer
+  return defaultBrokerUrl(window.location)
 }
 
 /** The broker the designer talks to: the one chosen, else the page's own. */

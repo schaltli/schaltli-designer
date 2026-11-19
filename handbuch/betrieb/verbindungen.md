@@ -88,6 +88,23 @@ Projekte und Firmware lädt ein Gerät aber von der Adresse, die der Designer se
 
 Steht eine Firewall dazwischen, müssen auf dem Rechner mit Designer und Broker die Ports 3000 (oder 80), 1883 und 9001 offen sein. Auf den Geräten muss kein Port offen sein.
 
+## Designer in Docker {#docker}
+
+Ein fertiges Image gibt es nicht. Baust du dir eines nach [Designer ohne Pekaway](/installieren/ohne-pekaway), ist es im Container wie in einer VM: Der Designer kennt nur seine Adresse im Container, und was er sich merkt, geht mit dem Container verloren.
+
+Am einfachsten ist `network_mode: host`. Dann sieht der Designer das Netz des Rechners und findet die Adresse für die Geräte selbst. Ohne Host-Netz gibst du ihm mit Umgebungsvariablen vor, was er im Container nicht herausfindet:
+
+| Variable | wofür |
+|---|---|
+| `SCHALTLI_DEVICE_ADDRESS` | Die Adresse, von der die Geräte Projekt und Firmware laden: der Rechner und der Port, den du auf den Container weiterleitest, etwa `192.168.1.20:3000`. Ist sie gesetzt, gilt sie, und im Dialog <span class="ui">Deploy to Device</span> fehlt <span class="ui">Change address</span>. |
+| `SCHALTLI_BROKER_URL` | Die WebSocket-Adresse des Brokers, etwa `ws://192.168.1.20:9001`. Ein Browser, in dem noch niemand einen Broker eingetragen hat, nimmt diese statt Port 9001 auf dem Rechner des Designers. Wer unter <span class="ui">Connection settings</span> einen anderen eingetragen hat, behält ihn. |
+| `SCHALTLI_PUBLIC_PORT` | Der Port, unter dem du den Designer von aussen öffnest, wenn er nicht derselbe ist wie im Container. |
+| `SCHALTLI_BROKER_USERNAME`, `SCHALTLI_BROKER_PASSWORD` | Die Anmeldung am Broker, bis jemand im Designer eine andere einträgt, siehe [Anmeldung am Broker](#anmeldung). |
+
+Leg das Verzeichnis `.data` im Arbeitsverzeichnis des Designers auf ein Volume. Darin liegen deine Projekte, eigene Vorlagen, die Beschreibungen der Geräte und die Anmeldung am Broker. Ohne Volume sind sie nach einem Neustart des Containers weg.
+
+`NEXT_PUBLIC_DEPLOY_ENABLED=true` gehört in den Build des Images, nicht in die Umgebung des Containers, denn der Build liest es ein.
+
 ## Anmeldung am Broker {#anmeldung}
 
 Der Broker auf einem Pekaway-System verlangt keine Anmeldung, siehe [MQTT-Broker und Topics](/betrieb/mqtt). Schütze das WLAN des Vans deshalb mit einem Passwort.
