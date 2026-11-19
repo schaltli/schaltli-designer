@@ -54,10 +54,10 @@ test.describe("Firmware in the Deploy dialog", () => {
     await rm(join(__dirname, "..", ".data", "ddf", `${deviceId}.ddf.zip`), { force: true })
   })
 
-  const announce = (firmwareBuild: string | undefined, online = true) => {
+  const announce = (firmwareBuild: string | undefined, online = true, systemGeneration = "1.0") => {
     deviceClient.publish(
       `${TOPIC_PREFIX}/${instanceId}/hello`,
-      JSON.stringify({ deviceId, name: `Van Panel ${instanceId}`, firmwareBuild, systemGeneration: "1.0" }),
+      JSON.stringify({ deviceId, name: `Van Panel ${instanceId}`, firmwareBuild, systemGeneration }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, online ? "online" : "offline", { retain: true })
@@ -218,6 +218,41 @@ test.describe("Firmware in the Deploy dialog", () => {
     // Again no «rebooting»: its hello after the restart.
     announce("fw-2026.09.15.2")
     await expect(page.getByText(`Van Panel ${instanceId}: Deploy successful`)).toBeVisible({ timeout: 15_000 })
+    deviceClient.publish(deployTopic, "", { retain: true })
+  })
+
+  // #83: a tester's board on a build of his own was replaced by Deploy without
+  // a word, and lost the panel settings he had made. Now he chooses.
+  test("a board on its own build: Deploy keeps it and sends the project only; Update & Deploy is offered beside it", async ({ page }) => {
+    await stubRelease(page, "fw-2026.09.15.2", true, "1.5")
+    // A generation that shows the project: the update is a choice, not a need.
+    announce("fw-2026.09.15.1-4-gabc1234def-dirty", true, "1.5")
+    await openDialog(page)
+    await row(page).click()
+    await expect(page.getByTestId("firmware-line")).toHaveText(
+      "Firmware fw-2026.09.15.1-4-gabc1234def-dirty (own build) · this designer's is fw-2026.09.15.2",
+    )
+    await expect(page.getByRole("button", { name: "Deploy", exact: true })).toBeEnabled()
+    await expect(page.getByRole("button", { name: "Update & Deploy", exact: true })).toBeEnabled()
+
+    const deployTopic = `${TOPIC_PREFIX}/${instanceId}/deploy`
+    const firmwareTopic = `${TOPIC_PREFIX}/${instanceId}/firmware`
+    const projectTriggers: string[] = []
+    const firmwareTriggers: string[] = []
+    await new Promise<void>((resolve) => deviceClient.subscribe([deployTopic, firmwareTopic], () => resolve()))
+    deviceClient.on("message", (t, message) => {
+      if (message.length === 0) return
+      if (t === deployTopic) projectTriggers.push(message.toString())
+      if (t === firmwareTopic) firmwareTriggers.push(message.toString())
+    })
+    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    if (await page.getByRole("heading", { name: "Save Project" }).isVisible().catch(() => false)) {
+      await page.locator("#save-project-name").fill(`e2e own build ${Date.now().toString(36)}`)
+      await page.getByRole("button", { name: "Save", exact: true }).click()
+    }
+    await expect.poll(() => projectTriggers.length, { timeout: 30_000 }).toBe(1)
+    expect(JSON.parse(projectTriggers[0]).url).toContain(`/api/deploy/${instanceId}`)
+    expect(firmwareTriggers).toEqual([])
     deviceClient.publish(deployTopic, "", { retain: true })
   })
 

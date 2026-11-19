@@ -168,3 +168,29 @@ test("a chart asks charts of the device", () => {
     reason: '"Knob" cannot show charts (Wasser · Verlauf, Leer, Energie heute). Remove it from the project, or choose another device.',
   })
 })
+
+// #83: a board on its own build - commits on a release, uncommitted changes,
+// a name that is no release - is not replaced unasked; it may carry settings
+// its panel needs. A board on an older official release still is (#66).
+test("a board on its own older build: the person chooses, unless only the release shows the project", () => {
+  for (const firmwareBuild of ["fw-2026.10.04.2-5-gabc1234", "fw-2026.10.04.2-dirty", "a1b2c3d4e5"]) {
+    expect(planDeploy({ device: board({ firmwareBuild }), release, needs: [] })).toEqual({
+      kind: "choose",
+      line: `Firmware ${firmwareBuild} (own build) · this designer's is fw-2026.10.09.1`,
+    })
+  }
+  // The project needs the release: replacing the build is the one way, and said so.
+  expect(planDeploy({ device: board({ firmwareBuild: "fw-2026.10.04.2-dirty" }), release, needs: [navigator] })).toEqual({
+    kind: "update-and-deploy",
+    line: "Firmware fw-2026.10.04.2-dirty (own build) · this project needs fw-2026.10.09.1, which replaces it",
+  })
+  // No release downloaded: deployed onto the build, named as own.
+  expect(planDeploy({ device: board({ firmwareBuild: "fw-2026.10.04.2-dirty" }), release: { ...release, available: false }, needs: [] })).toEqual({
+    kind: "deploy",
+    line: "Firmware fw-2026.10.04.2-dirty (own build)",
+  })
+  // An older official release or pre-release, or nothing announced: updated as before.
+  for (const firmwareBuild of ["fw-2026.10.04.2", "fw-2026.10.04.3-pre.knob_crash", undefined]) {
+    expect(planDeploy({ device: board({ firmwareBuild }), release, needs: [] }).kind).toBe("update-and-deploy")
+  }
+})

@@ -23,6 +23,8 @@ Unter der Liste steht, von welcher Adresse die Geräte Projekt und Firmware heru
 
 Wähle das Gerät. Unter der Liste steht in einer Zeile, welche Firmware es hat und was <span class="ui">Deploy</span> tun wird, etwa «Firmware fw-2026.10.04.2 · Deploy installs fw-2026.10.09.1 first». Bringt der Designer eine neuere Firmware mit, als das Board hat, spielt er sie zuerst auf, wartet, bis das Board mit ihr zurück ist, und überträgt dann das Projekt. Der Knopf heisst dann <span class="ui">Update & Deploy</span>. Eine neuere Firmware, etwa eine Testversion, ersetzt er dabei nie durch eine ältere. Mehr dazu unter [Firmware-Updates](/geraete/firmware-updates).
 
+Eine selbst gebaute Firmware ersetzt der Designer nicht ungefragt. Als selbst gebaut gilt sie, wenn sie Commits oder nicht eingecheckte Änderungen über einer Version trägt oder gar keinen Versionsnamen hat. Die Zeile sagt dann <span class="ui">own build</span>, und neben <span class="ui">Deploy</span> steht <span class="ui">Update & Deploy</span>. Mit <span class="ui">Deploy</span> geht nur das Projekt aufs Board, und deine Firmware bleibt. Mit <span class="ui">Update & Deploy</span> spielt der Designer zuerst seine eigene auf, und was du an deiner geändert hast, ist weg. Braucht das Projekt die Firmware des Designers, bleibt nur <span class="ui">Update & Deploy</span>, und die Zeile sagt, dass sie deine ersetzt.
+
 Klick auf <span class="ui">Deploy</span>. Vorher speichert der Designer das Projekt, denn was auf einem Gerät läuft, soll auch im Designer liegen. Hat das Projekt noch keinen Namen, fragt er zuerst danach, wie beim ersten [Speichern](/designer/projekte#speichern). Brichst du dort ab, wird nichts übertragen.
 
 Danach zeigt der Dialog jeden Schritt:

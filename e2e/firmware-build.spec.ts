@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { firmwareStanding, imageDeviceId, parseFirmwareBuild } from "../lib/firmware-build"
+import { firmwareStanding, imageDeviceId, isOwnBuild, parseFirmwareBuild } from "../lib/firmware-build"
 import { readFirmwareRelease, releaseImagePath } from "../lib/firmware-release"
 
 // Pure functions and the manifest reader - no page, no server
@@ -53,6 +53,19 @@ test.describe("firmware builds", () => {
     // A designer shipping the pre-release itself: that is up to date, the official one before it is behind.
     expect(firmwareStanding("fw-2026.09.15.3-pre.knob_crash", "fw-2026.09.15.3-pre.knob_crash")).toBe("up-to-date")
     expect(firmwareStanding("fw-2026.09.15.2", "fw-2026.09.15.3-pre.knob_crash")).toBe("update-available")
+  })
+
+  // #83: what Deploy does not replace unasked.
+  test("which builds are someone's own", () => {
+    expect(isOwnBuild("fw-2026.09.15.1-12-gabcdef0123")).toBe(true)
+    expect(isOwnBuild("fw-2026.09.15.1-dirty")).toBe(true)
+    expect(isOwnBuild("fw-2026.09.15.1-pre.knob_crash-2-gabcdef0123")).toBe(true)
+    expect(isOwnBuild("b560433896-dirty")).toBe(true)
+    expect(isOwnBuild("0.1.0")).toBe(true)
+    expect(isOwnBuild("fw-2026.09.15.1")).toBe(false)
+    expect(isOwnBuild("fw-2026.09.15.1-pre.knob_crash")).toBe(false)
+    expect(isOwnBuild(undefined)).toBe(false)
+    expect(isOwnBuild("")).toBe(false)
   })
 
   test("the device an image names, from its marker", () => {

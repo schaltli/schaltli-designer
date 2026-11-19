@@ -394,9 +394,15 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
     return false
   }
 
-  const handleDeploy = async () => {
+  // Whether the board's firmware is updated first: always for
+  // update-and-deploy, never for deploy, and as chosen for a board on its own
+  // build (#83) - kept for «Try again».
+  const updateFirstRef = useRef(false)
+  const handleDeploy = async (choice?: "keep" | "update") => {
     if (!selectedInstanceId || !clientRef.current || !plan) return
-    if (plan.kind !== "deploy" && plan.kind !== "update-and-deploy") return
+    if (plan.kind !== "deploy" && plan.kind !== "update-and-deploy" && plan.kind !== "choose") return
+    if (choice) updateFirstRef.current = choice === "update"
+    const updateFirst = plan.kind === "update-and-deploy" || (plan.kind === "choose" && updateFirstRef.current)
     const instanceId = selectedInstanceId
     const device = selectedDevice
     setIsDeploying(true)
@@ -418,7 +424,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // definition (see lib/system-generation.ts). A board about to be
       // updated is judged by the release it gets.
       const release = device ? firmwareRelease[device.deviceId] : undefined
-      const deviceGeneration = plan.kind === "update-and-deploy" ? release?.systemGeneration : device?.systemGeneration
+      const deviceGeneration = updateFirst ? release?.systemGeneration : device?.systemGeneration
       if (deviceGeneration !== undefined && parseGeneration(deviceGeneration).major < SYSTEM_GENERATION.major) {
         throw new Error(
           `"${device?.name || device?.deviceId}" runs system generation ` +
@@ -430,7 +436,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // The board up to this designer's release first (#66): the update,
       // then the board back announcing that build, then the project. Any
       // step that fails ends here, and the project is not sent.
-      if (plan.kind === "update-and-deploy" && device && release) {
+      if (updateFirst && device && release) {
         const updateId = generateUuid()
         activeDeployIdRef.current = updateId
         activeKindRef.current = "firmware"
@@ -954,7 +960,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   )}
                 </div>
               )}
-              {(plan?.kind === "deploy" || plan?.kind === "update-and-deploy") && (
+              {(plan?.kind === "deploy" || plan?.kind === "update-and-deploy" || plan?.kind === "choose") && (
                 <p className="text-sm text-muted-foreground" data-testid="firmware-line">
                   {plan.line}
                 </p>
@@ -989,13 +995,15 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
 
               {deployError && <p className="text-sm text-destructive">{deployError}</p>}
 
+              {/* A board on its own build (#83): Deploy keeps it, Update &
+                  Deploy below replaces it with this designer's release. */}
               <Button
-                onClick={handleDeploy}
+                onClick={() => void handleDeploy(plan?.kind === "update-and-deploy" ? "update" : "keep")}
                 disabled={
                   !selectedInstanceId ||
                   isDeploying ||
                   !project.settings.deviceId ||
-                  (plan?.kind !== "deploy" && plan?.kind !== "update-and-deploy")
+                  (plan?.kind !== "deploy" && plan?.kind !== "update-and-deploy" && plan?.kind !== "choose")
                 }
                 className="w-full"
               >
@@ -1010,6 +1018,16 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   "Deploy"
                 )}
               </Button>
+              {plan?.kind === "choose" && !isDeploying && (
+                <Button
+                  variant="outline"
+                  onClick={() => void handleDeploy("update")}
+                  disabled={!selectedInstanceId || !project.settings.deviceId}
+                  className="w-full"
+                >
+                  Update & Deploy
+                </Button>
+              )}
             </div>
           )}
 

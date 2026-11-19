@@ -70,6 +70,17 @@ export function firmwareStanding(deviceBuild: string | null | undefined, release
   return device.distance > 0 || device.dirty ? "device-ahead" : "up-to-date"
 }
 
+// A build someone made themselves (#83): commits on top of a release,
+// uncommitted changes, or a name that is no release at all (a fork without
+// the tags). Deploy does not replace one unasked: it may carry settings its
+// panel needs. Nothing announced is no build of anyone's - firmware from
+// before builds were announced.
+export function isOwnBuild(build: string | null | undefined): boolean {
+  if (!build) return false
+  const parsed = parseFirmwareBuild(build)
+  return !parsed || parsed.distance > 0 || parsed.dirty
+}
+
 // The DEVICE_ID an image was built for. Every image carries
 // "<<schaltli-image device=DEVICE_ID>>" (the firmware's FirmwareImage.h), and
 // a device refuses an image without its own - this lets the designer say so

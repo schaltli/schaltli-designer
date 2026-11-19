@@ -1,4 +1,4 @@
-import { firmwareStanding } from "@/lib/firmware-build"
+import { firmwareStanding, isOwnBuild } from "@/lib/firmware-build"
 import { formatGeneration, generationBelow, type Generation } from "@/lib/system-generation"
 
 // What Deploy does with the chosen device (docs/2026-10-10-deploy-simple.md,
@@ -35,6 +35,10 @@ export type DeployPlan =
   | { kind: "blocked"; reason: string; link?: { label: string; url: string } }
   | { kind: "deploy"; line: string }
   | { kind: "update-and-deploy"; line: string }
+  // A board on its own build, older than the release (#83): the project fits
+  // either, so the person chooses - Deploy keeps the build, Update & Deploy
+  // replaces it.
+  | { kind: "choose"; line: string }
 
 export const FLASHER = "https://schaltli.com/flasher/"
 export const APP_RELEASES = "https://github.com/schaltli/schaltli-android/releases/latest"
@@ -118,6 +122,7 @@ export function planDeploy(input: {
 
   const running = device.firmwareBuild || "unknown"
   const standing = firmwareStanding(device.firmwareBuild, release?.build)
+  const own = standing === "update-available" && isOwnBuild(device.firmwareBuild)
 
   // The designer brings this board up to its release before the project.
   if (standing === "update-available" && release?.available) {
@@ -131,15 +136,28 @@ export function planDeploy(input: {
         link: { label: "Open the flasher", url: FLASHER },
       }
     }
+    if (own) {
+      // Only the release shows this project: replacing the build is the one
+      // way, and the line says so.
+      if (unsupported.length > 0 || short(needs, device.systemGeneration)) {
+        return {
+          kind: "update-and-deploy",
+          line: `Firmware ${running} (own build) · this project needs ${release.build}, which replaces it`,
+        }
+      }
+      return { kind: "choose", line: `Firmware ${running} (own build) · this designer's is ${release.build}` }
+    }
     return { kind: "update-and-deploy", line: `Firmware ${running} · Deploy installs ${release.build} first` }
   }
 
   const line =
     standing === "device-ahead"
       ? `Firmware ${running} (newer than this designer's)`
-      : standing === "update-available"
-        ? `Firmware ${running} · a newer one is not downloaded to this designer`
-        : `Firmware ${running}`
+      : own
+        ? `Firmware ${running} (own build)`
+        : standing === "update-available"
+          ? `Firmware ${running} · a newer one is not downloaded to this designer`
+          : `Firmware ${running}`
   const gap = short(needs, device.systemGeneration)
   if (gap) {
     return {
