@@ -35,6 +35,16 @@ export const BOARDS = [
     note: "Only the board revision with «Rev 4.0» on the back. An older V3 looks the same from the front but stays dark with this firmware.",
   },
   {
+    id: "waveshare-touch-lcd-7",
+    name: 'Waveshare ESP32-S3 Touch LCD 7"',
+    hint: "800 × 480 capacitive touch, two USB-C sockets marked UART and USB. Not the 7B (1024 × 600).",
+    expect: "a setup screen with a QR code, and a WiFi network of its own the QR code leads to",
+    // Not on the bench: tested by forum users on Rev 1.2 (tasks/waveshare-7-plan.md).
+    // Images before this board had its own firmware switched the USB socket
+    // off (USB_SEL), and the UART socket works either way.
+    note: "Plug the cable into the USB-C socket marked UART. The 7B looks similar but has another screen and does not work with this firmware.",
+  },
+  {
     id: "m5stack-papers3",
     name: "M5Stack PaperS3",
     hint: '4.7" e-paper, 960 × 540.',

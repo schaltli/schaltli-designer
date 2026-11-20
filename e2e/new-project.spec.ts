@@ -120,6 +120,8 @@ test.describe("New Project", () => {
     // Both boards with such a comment are among the curated cards.
     await expect(page.locator('[data-device-id="waveshare-touch-lcd-4"] svg').first()).toBeAttached()
     await expect(page.locator('[data-device-id="waveshare-touch-lcd-4v3b"] svg').first()).toBeAttached()
+    // The 7" (tasks/waveshare-7-todo.md, T3) is offered with its own frame.
+    await expect(page.locator('[data-device-id="waveshare-touch-lcd-7"] svg').first()).toBeAttached()
   })
 
   test("Cancel creates nothing", async ({ page }, testInfo) => {

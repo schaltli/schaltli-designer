@@ -1346,6 +1346,28 @@ async function main() {
       })
     }
 
+    // The 7" (tasks/waveshare-7-plan.md): the 4.3B's firmware on a larger
+    // glass, curated like the 4". No board on the bench, so this check is
+    // all test:all has of it.
+    console.log("\n=== waveshare 7\" DDF freshness ===")
+    const ws7DdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-touch-lcd-7.ddf.zip")
+    if (!fs.existsSync(ddfGenerator)) {
+      summary.push({ name: "waveshare7-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
+    } else {
+      const exitCode = await run("node", [ddfGenerator, "ddf-source-waveshare7", "--check", "--zip", ws7DdfZip], {
+        cwd: FIRMWARE_REPO,
+      })
+      summary.push({
+        name: "waveshare7-ddf",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail:
+          exitCode === 0
+            ? "public/ddf zip matches ddf-source-waveshare7"
+            : "stale - see the regenerate command printed above",
+        report: "",
+      })
+    }
+
     // The knob, curated here since 2026-09-12. It announces itself over MQTT,
     // so the designer could always discover it - but only while it is powered
     // on and on the same broker, which makes "does this instance know the

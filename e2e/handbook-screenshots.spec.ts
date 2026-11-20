@@ -476,6 +476,7 @@ test.describe("handbook: the boards side by side", () => {
     { id: "waveshare-knob-1v8", screen: { width: 360, height: 360 }, tank: [[50, 100], [310, 170]], light: [[70, 210], [290, 260]] },
     { id: "waveshare-touch-lcd-4v3b", screen: { width: 800, height: 480 }, tank: [[60, 60], [740, 170]], light: [[60, 280], [500, 360]] },
     { id: "waveshare-touch-lcd-4", screen: { width: 480, height: 480 }, tank: [[60, 60], [420, 170]], light: [[60, 280], [420, 360]] },
+    { id: "waveshare-touch-lcd-7", screen: { width: 800, height: 480 }, tank: [[60, 60], [740, 170]], light: [[60, 280], [500, 360]] },
     { id: "m5stack-papers3", screen: { width: 960, height: 540 }, tank: [[60, 60], [900, 190]], light: [[60, 320], [600, 410]] },
   ]
 
@@ -659,6 +660,12 @@ test.describe("handbook: the homepage showcase", () => {
       text(f, 60, 300, 140, 36, "Licht", 24),
       { type: "switch", x: 200, y: 286, width: 170, height: 64, properties: onOff(f, "relay/1/power", 24) },
     ],
+    // The 4.3B's pixels, on the 7"'s larger glass.
+    "waveshare-touch-lcd-7": (f) => [
+      ...named(f, "bar", 60, 70, 680, 64, "tank/1/level", "Frischwasser", 24, 20),
+      text(f, 60, 300, 140, 36, "Licht", 24),
+      { type: "switch", x: 200, y: 286, width: 170, height: 64, properties: onOff(f, "relay/1/power", 24) },
+    ],
     "m5stack-papers3": (f) => [
       ...named(f, "bar", 60, 70, 840, 80, "tank/1/level", "Frischwasser", 35, 24),
       text(f, 60, 340, 160, 44, "Licht", 35),
@@ -675,6 +682,10 @@ test.describe("handbook: the homepage showcase", () => {
     // Not on the homepage (HomeShowcase.vue shows three boards): only its
     // device page's picture.
     { id: "waveshare-touch-lcd-4", slug: "ws4", screen: { width: 480, height: 480 }, build: compare["waveshare-touch-lcd-4"], width: 700, hero: null, themes: false, round: false },
+    { id: "waveshare-touch-lcd-7", slug: "ws7", screen: { width: 800, height: 480 }, build: compare["waveshare-touch-lcd-7"], width: 1100, hero: null, themes: false, round: false,
+      // Its glass, to scale, is a little wider than the canvas leaves at the
+      // others' viewport, which would cut its edges off.
+      viewport: { width: 2600, height: 1400 } },
   ]
 
   // Cuts the frame out of the canvas's grey and saves it as WebP, in the page.
@@ -755,6 +766,7 @@ test.describe("handbook: the homepage showcase", () => {
     test(`the homepage's ${board.slug}`, async ({ page }, testInfo) => {
       test.setTimeout(600_000)
       const dir = shotsDir(testInfo)
+      if ("viewport" in board && board.viewport) await page.setViewportSize(board.viewport)
 
       // A project the designer makes for this board: its fonts, frame and DDF.
       await page.goto("/")

@@ -94,6 +94,15 @@ test.describe("firmware builds", () => {
     test.skip(!fs.existsSync(bin), "the 4\" env not built in a schaltli-firmware checkout alongside this repo")
     expect(imageDeviceId(new Uint8Array(fs.readFileSync(bin)))).toBe("waveshare-touch-lcd-4")
   })
+
+  // The 7" (tasks/waveshare-7-todo.md, T4): the 4.3B's firmware with the 7"'s
+  // own directory, so its image must name the 7" and not the 4.3B it
+  // borrows the profile from.
+  test("the 7\"'s build names the 7\"", () => {
+    const bin = path.join(__dirname, "..", "..", "schaltli-firmware", ".pio", "build", "waveshare-touch-lcd-7", "firmware.bin")
+    test.skip(!fs.existsSync(bin), "the 7\" env not built in a schaltli-firmware checkout alongside this repo")
+    expect(imageDeviceId(new Uint8Array(fs.readFileSync(bin)))).toBe("waveshare-touch-lcd-7")
+  })
 })
 
 test.describe("the firmware release manifest", () => {
