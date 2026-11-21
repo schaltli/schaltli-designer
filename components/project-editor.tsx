@@ -91,11 +91,12 @@ import { canPasteBeside, canPasteReplacing, pasteBeside, pasteReplacing } from "
 import type { EditMenuActions } from "@/components/edit-menu-items"
 
 import { cn } from "@/lib/utils"
-import { FilePlus2, LayoutTemplate, PackageCheck, Upload, Download, AlertTriangle, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
+import { FilePlus2, LayoutTemplate, PackageCheck, Upload, Download, AlertTriangle, Sparkles, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast, toast as showToast } from "@/hooks/use-toast"
-import { projectOnCurrentFonts } from "@/lib/project-device"
+import { projectOnCurrentFonts, projectOnDevice } from "@/lib/project-device"
+import { findDeviceUpgrade, type DeviceUpgrade } from "@/lib/device-upgrade"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { areaMovedInto, moveIntoArea } from "@/lib/drop-into-free"
 import { cellAreaId, withCellArea } from "@/lib/cell-area"
@@ -122,6 +123,7 @@ import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft }
 import { sameProjectName } from "@/lib/project-name"
 import { couldNotOpen, readSavedProject, type SavedProjectRead } from "@/lib/saved-project-read"
 import {
+  listDeviceDescriptionFiles,
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
   resolveDeviceFromEmbeddedDdf,
@@ -130,7 +132,7 @@ import {
 } from "@/lib/device-description"
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
-import { declaresTouch, migrateProject } from "@/lib/object-types"
+import { declaresTouch, migrateProject, objectTypeLabel } from "@/lib/object-types"
 import { DEFAULT_THEME_ID, defaultThemeIdFor, THEME_COMMAND_TOPIC, THEME_STATE_TOPIC, themeFor, variantFromTopic, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
@@ -1207,6 +1209,62 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // but was opened anyway using the data embedded in the project file.
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // A newer description of the project's device than the one it was made
+  // with - after an update of the designer, the firmware or the app: offered
+  // in a bar above the canvas for as long as the project has the older one,
+  // with what it brings (lib/device-upgrade.ts, 2026-11-21). Looked for again
+  // when the project's device changes, when Settings closes (its scan may
+  // have brought one in), when the window gets the focus back and once a
+  // minute (a deploy may have).
+  const [deviceUpgrade, setDeviceUpgrade] = useState<DeviceUpgrade | null>(null)
+  const [deviceUpgrading, setDeviceUpgrading] = useState(false)
+  const upgradeSettingsRef = useRef(project.settings)
+  upgradeSettingsRef.current = project.settings
+  useEffect(() => {
+    let cancelled = false
+    const look = () => {
+      listDeviceDescriptionFiles()
+        .then((entries) => {
+          if (!cancelled) setDeviceUpgrade(findDeviceUpgrade(upgradeSettingsRef.current, entries))
+        })
+        .catch(() => {
+          // No list (the demo, a server gone for a moment): nothing offered.
+        })
+    }
+    look()
+    window.addEventListener("focus", look)
+    const timer = setInterval(look, 60_000)
+    return () => {
+      cancelled = true
+      window.removeEventListener("focus", look)
+      clearInterval(timer)
+    }
+  }, [project.settings.deviceId, project.settings.ddfHash, showProjectSettings])
+
+  // The bar's Update device: the move Settings › Device makes. Undoable,
+  // and the project shows as changed until saved.
+  const applyDeviceUpgrade = async (upgrade: DeviceUpgrade) => {
+    setDeviceUpgrading(true)
+    try {
+      const fields = await loadDeviceDescriptionByPath(upgrade.path)
+      const moved = projectOnDevice(project, fields)
+      setProject(moved.project)
+      setDeviceUpgrade(null)
+      toast({
+        title: "Device updated",
+        description: `"${fields.deviceName}" is up to date. Save to keep the change.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Could not update the device",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      })
+    } finally {
+      setDeviceUpgrading(false)
+    }
+  }
 
   // Said once, after the change that cut them off (setProject above).
   useEffect(() => {
@@ -4857,6 +4915,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <p className="text-sm text-amber-800 dark:text-amber-400">{deviceStaleWarning}</p>
+          </div>
+        )}
+        {deviceUpgrade && !isPreviewMode && (
+          <div
+            data-testid="device-upgrade-bar"
+            className="shrink-0 border-b border-primary/30 bg-primary/10 px-4 py-2 flex items-center gap-3"
+          >
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm flex-1">
+              {`"${deviceUpgrade.deviceName}" can do more than this project knows. `}
+              {deviceUpgrade.newTypes.length > 0
+                ? `New: ${deviceUpgrade.newTypes.map(objectTypeLabel).join(", ")}.`
+                : "New functions for the objects you have."}
+            </p>
+            <Button size="sm" onClick={() => void applyDeviceUpgrade(deviceUpgrade)} disabled={deviceUpgrading}>
+              Update device
+            </Button>
           </div>
         )}
 

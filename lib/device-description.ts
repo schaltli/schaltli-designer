@@ -552,6 +552,10 @@ export interface DeviceDescriptionListEntry {
   // A device no longer made for: a project on it still opens, but no picker
   // offers it for a new one (device.json `device.retired`).
   retired?: boolean
+  // What it offers, already in today's type names (migrateDeclaredTypes) -
+  // see lib/device-upgrade.ts. Null when the zip could not be read.
+  supportedObjectTypes?: string[] | null
+  supportedFeatures?: string[] | null
 }
 
 /**

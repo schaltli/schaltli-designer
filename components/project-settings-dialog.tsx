@@ -47,6 +47,7 @@ import { projectOnDevice } from "@/lib/project-device"
 import { DeviceScanSection } from "@/components/device-scan-section"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
+import { findDeviceUpgrade } from "@/lib/device-upgrade"
 import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
@@ -582,15 +583,10 @@ export function ProjectSettingsDialog({
 
                       {/* The project's own device announces a description it
                           was not made with: offered, with what is new (#64). */}
+                      {/* The same offer as the editor's bar (lib/device-upgrade.ts):
+                          only a description that brings more, never a step back. */}
                       {(() => {
-                        const current = availableDdfs.find(
-                          (d) =>
-                            d.source === "auto-discovered" &&
-                            d.deviceId === project.settings.deviceId &&
-                            hereNow?.has(d.deviceId) &&
-                            d.ddfHash &&
-                            d.ddfHash !== project.settings.ddfHash,
-                        )
+                        const current = findDeviceUpgrade(project.settings, availableDdfs)
                         if (!current) return null
                         return (
                           <div className="rounded-md border border-primary/40 p-3 space-y-2" data-testid="device-update">

@@ -20,6 +20,16 @@ Jede Version des Designers bringt die Firmware mit, die zu ihr passt. Nach einem
 
 Die Android-App aktualisierst du wie beim ersten Mal über ihre [Releases-Seite](/geraete/android#installieren).
 
+## Neue Funktionen in älteren Projekten {#neue-funktionen}
+
+Ein Projekt merkt sich, was sein Gerät konnte, als du es angelegt hast. Kann das Gerät nach einem Update mehr, etwa einen neuen Objekttyp, weiss ein älteres Projekt davon nichts. Der Designer sagt es dir, sobald du das Projekt öffnest: Über dem Screen steht ein Balken, zum Beispiel «"Waveshare ESP32-S3-Touch-LCD-4" can do more than this project knows. New: Navigator.» Ein Klick auf <span class="ui">Update device</span> gibt dem Projekt die neue Beschreibung des Geräts, und die neuen Objekttypen stehen in der [Palette](/designer/#palette). Speichere das Projekt, damit es dabei bleibt. Rückgängig nimmt den Schritt zurück.
+
+Der Balken bleibt, solange das Projekt die ältere Beschreibung hat. Wegklicken lässt er sich nicht.
+
+Die neue Beschreibung bringt entweder der Designer selbst mit, oder das Gerät meldet sie am Broker, wenn seine Firmware oder App neuer ist. Der Balken bietet sie nur an, wenn sie alles kann, was das Projekt schon kennt, und mehr. Läuft auf dem Gerät noch eine ältere Firmware, bietet er also keinen Schritt zurück an.
+
+Damit das Gerät die neuen Objekte auch zeichnet, braucht es die passende Firmware. <span class="ui">Deploy to Device</span> spielt sie beim nächsten Übertragen mit auf, wie oben beschrieben.
+
 ## Eine Vorabversion ausprobieren
 
 Meldest du ein Problem, bekommst du vielleicht eine Vorabversion, die es beheben soll: eine Version zum Ausprobieren, bevor sie für alle erscheint. Sie hat einen Namen wie `fw-2026.09.27.2-pre.knob_crash`, und du installierst genau diese:

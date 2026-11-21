@@ -4,6 +4,7 @@ import { join } from "path"
 import JSZip from "jszip"
 import { computeDdfHash } from "@/lib/ddf-name"
 import { refuseInDemo } from "@/lib/demo-mode"
+import { migrateDeclaredTypes } from "@/lib/object-types"
 
 // This route reads its DDF directories from disk on every request. Without
 // this, Next.js may treat a GET route handler with no dynamic APIs as
@@ -21,6 +22,10 @@ interface DdfListEntry {
   source: "curated" | "auto-discovered"
   adornmentSvg: string | null
   retired: boolean
+  // What the description offers, for the editor's offer of a newer one
+  // (lib/device-upgrade.ts). Null when the zip could not be read.
+  supportedObjectTypes: string[] | null
+  supportedFeatures: string[] | null
 }
 
 async function scanDdfDir(
@@ -74,10 +79,12 @@ async function scanDdfDir(
           // projects still open, but no picker offers it (2026-10-12, the
           // XIAO e-paper).
           retired: manifest?.device?.retired === true,
+          supportedObjectTypes: Array.isArray(manifest?.supportedObjectTypes) ? migrateDeclaredTypes(manifest.supportedObjectTypes) : null,
+          supportedFeatures: Array.isArray(manifest?.supportedFeatures) ? manifest.supportedFeatures : [],
         }
       } catch (error) {
         console.error(`[v0] Error parsing DDF "${file}":`, error)
-        return { name: file, path, deviceId: null, deviceName: file, ddfHash: null, source, adornmentSvg: null, retired: false }
+        return { name: file, path, deviceId: null, deviceName: file, ddfHash: null, source, adornmentSvg: null, retired: false, supportedObjectTypes: null, supportedFeatures: null }
       }
     }),
   )
