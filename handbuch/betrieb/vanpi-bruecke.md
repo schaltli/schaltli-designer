@@ -211,3 +211,7 @@ node scripts/install-vanpi-bridge.js --uninstall  # wieder entfernen
 ```
 
 Bevor es etwas ändert, sichert das Skript alle Node-RED-Flows nach `~/.node-red/flows.pre_schaltli_bridge_<Zeitstempel>.json`. Pekaways eigene Flows fasst es nicht an, es fügt nur seinen einen Tab hinzu oder ersetzt ihn.
+
+## Wenn Node-RED nicht mehr deployt {#payload-too-large}
+
+Meldet Node-RED bei jedem <span class="ui fw">Deploy</span> `PayloadTooLargeError: request entity too large`, ist wahrscheinlich eine ältere Brücke schuld. Ihr Tab war rund 0.5 MB gross. Beim Deploy schickt der Node-RED-Editor alle Flows auf einmal, und mehr als 5 MB nimmt Node-RED nicht an. Mit vielen eigenen Flows kam man so darüber. Die heutige Brücke ist rund 65 KB gross. Führe das Installationsskript noch einmal aus, wie bei einem [Update](/installieren/pekaway), dann ersetzt es den Tab, und der Deploy geht wieder.

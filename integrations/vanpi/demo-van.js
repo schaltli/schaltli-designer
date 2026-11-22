@@ -403,9 +403,11 @@ function startDemoVan({
       error: (e) => log(`[${n.id}] ${e}`),
       send: (out) => route(n.id, out),
     }
-    if (n.initialize) new Function("context", "flow", "node", "global", n.initialize)(context, flowApi, nodeApi, globalApi)
-    const body = new Function("msg", "context", "flow", "node", "global", n.func)
-    functions[n.id] = (msg) => body(msg, context, flowApi, nodeApi, globalApi)
+    // The tab's environment variables, as env.get reads them.
+    const envApi = { get: (k) => flow.env?.find((e) => e.name === k)?.value }
+    if (n.initialize) new Function("context", "flow", "node", "global", "env", n.initialize)(context, flowApi, nodeApi, globalApi, envApi)
+    const body = new Function("msg", "context", "flow", "node", "global", "env", n.func)
+    functions[n.id] = (msg) => body(msg, context, flowApi, nodeApi, globalApi, envApi)
   }
 
   // A node's output to the nodes its wires lead to. An output is a message,

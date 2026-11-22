@@ -21,8 +21,15 @@
 // command takes Pekaway's HTTP API, its levels too, so there is one way for
 // it; Pekaway's own app API calls the same /autoterm/... URLs.
 //
-// Every function node carries the whole of bridge-logic.js in its On Start
-// code - the same text the e2e spec tests. The last published values live in
+// bridge-logic.js goes into the tab once, as its environment variable
+// SCHALTLI_BRIDGE_LOGIC, and each function node's On Start builds the logic
+// from it - the same function the e2e spec tests. Until 2026-11-22 every
+// function node carried the whole text in its On Start, six copies, 524 KB:
+// Node-RED's editor sends all flows at once on Deploy, limited to
+// apiMaxLength (5 MB by default), and on a van with many flows of its own
+// that limit was passed - every Deploy failed with PayloadTooLargeError
+// (#85). A tab's env needs no start order and no context store, which a
+// van may keep on disk, where a function would not survive. The last published values live in
 // flow context, shared by "values" (which writes them) and "commands" (which
 // needs them for toggle and the heater target). The broker connection is a
 // config node inside the tab, so removing the tab removes it too.
@@ -33,8 +40,20 @@ const TAB_ID = "schaltli-vanpi-bridge"
 const BROKER_ID = "schaltli-vanpi-bridge-broker"
 const BRIDGE_LABEL = "Schaltli VanPi Bridge userflow"
 
-const LOGIC_INIT = `${createBridgeLogic.toString()}
-context.set("logic", createBridgeLogic());`
+const LOGIC_ENV = "SCHALTLI_BRIDGE_LOGIC"
+
+// The source as it goes to the van: without its comment lines and
+// indentation, 79 KB down to about 46 KB. Line by line, so the code itself is
+// untouched - the source has no string or template spanning lines, which
+// would lose its indentation here.
+const LOGIC_SOURCE = createBridgeLogic
+  .toString()
+  .split("\n")
+  .map((line) => line.trim())
+  .filter((line) => line !== "" && !line.startsWith("//"))
+  .join("\n")
+
+const LOGIC_INIT = `context.set("logic", new Function("return " + env.get("${LOGIC_ENV}"))()());`
 
 // tabId: the id Node-RED gave an installed tab, for an update. Node-RED
 // ignores the id sent with POST /flow and assigns its own, so only a first
@@ -547,9 +566,10 @@ return null;`,
     // installed bridge under its old name is renamed in place.
     label: BRIDGE_LABEL,
     info: "Installed and updated by the Schaltli designer's install script (scripts/install-vanpi-bridge.js).",
+    env: [{ name: LOGIC_ENV, value: LOGIC_SOURCE, type: "str" }],
     nodes,
     configs,
   }
 }
 
-module.exports = { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL }
+module.exports = { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL, LOGIC_ENV }

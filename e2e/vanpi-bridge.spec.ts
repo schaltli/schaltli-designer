@@ -18,7 +18,7 @@ import os from "node:os"
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL } = require("../integrations/vanpi/build-flow")
+const { buildBridgeFlow, TAB_ID, BROKER_ID, BRIDGE_LABEL, LOGIC_ENV } = require("../integrations/vanpi/build-flow")
 import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
 import { blockTable, buildEntry, catalogLooks } from "../lib/bausteine"
@@ -1248,6 +1248,26 @@ test.describe("VanPi bridge logic", () => {
 test.describe("VanPi bridge flow", () => {
   const flow = buildBridgeFlow({ intervalSeconds: 2 })
 
+  test("stays small: the logic once, in the tab's env, not in every function node (#85)", () => {
+    // Node-RED's editor sends every flow at once on Deploy, limited to
+    // apiMaxLength, 5 MB by default. Six copies of the logic made the tab
+    // 524 KB, and on a van with many flows of its own every Deploy failed.
+    const bytes = JSON.stringify(flow).length
+    expect(bytes, `${bytes} bytes`).toBeLessThan(100_000)
+    const source = flow.env.find((e: { name: string }) => e.name === LOGIC_ENV)
+    expect(source.type).toBe("str")
+    // Each function node builds it from there and carries no copy.
+    for (const node of flow.nodes.filter((n: { type: string }) => n.type === "function")) {
+      expect(node.initialize, node.id).toContain(`env.get("${LOGIC_ENV}")`)
+      expect(node.initialize.length, node.id).toBeLessThan(200)
+    }
+    // What runs on the van is the tested logic: built from the env, it
+    // answers as createBridgeLogic() does.
+    const built = new Function(`return ${source.value}`)()()
+    expect(Object.keys(built).sort()).toEqual(Object.keys(createBridgeLogic()).sort())
+    expect(built.flatten("batt", RECORDED.batt)).toEqual(createBridgeLogic().flatten("batt", RECORDED.batt))
+  })
+
   test("is one self-contained tab: every wire, broker and node inside it", () => {
     expect(flow.id).toBe(TAB_ID)
     const ids = new Set([...flow.nodes, ...flow.configs].map((n: { id: string }) => n.id))
@@ -1278,9 +1298,11 @@ test.describe("VanPi bridge flow", () => {
     // What the node sends later, from a timer, rather than returns.
     const sent: unknown[] = []
     const nodeApi = { status: (s: unknown) => status.push(s), send: (m: unknown) => sent.push(m), warn: () => {}, error: () => {} }
-    new Function("context", "flow", "node", "global", node.initialize)(context, flowApi, nodeApi, globalApi)
-    const body = new Function("msg", "context", "flow", "node", "global", node.func)
-    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi, globalApi), status, sent }
+    // The tab's environment variables, as env.get reads them.
+    const envApi = { get: (k: string) => flow.env?.find((e: { name: string }) => e.name === k)?.value }
+    new Function("context", "flow", "node", "global", "env", node.initialize)(context, flowApi, nodeApi, globalApi, envApi)
+    const body = new Function("msg", "context", "flow", "node", "global", "env", node.func)
+    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi, globalApi, envApi), status, sent }
   }
 
   test("the clock: time and date retained for a screen's header, each only when it changes", () => {
