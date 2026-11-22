@@ -91,7 +91,7 @@ Eine Baugruppe kann mehrere Switcher haben, je einen für jedes Topic, nach dem 
 
 Meldet der Absender zu einem Regler auch den gemessenen Wert, zeigt die Füllung diesen Istwert und der Griff den Sollwert. Bei der Heizung füllt sich der Bogen bis zur Raumtemperatur, und der Griff steht auf der Zieltemperatur. Im Eigenschaften-Panel ist der Istwert das <span class="ui">Topic</span> und der Sollwert das <span class="ui">Setpoint topic</span>.
 
-In der [Vorschau](/designer/vorschau) wechselt der Regler mit der Betriebsart, und du kannst ihn dort auch ziehen. Am [Knob](/geraete/knob) legst du den Drehring auf den Switcher, dann stellt er immer den Regler, der gerade zu sehen ist, siehe [Einen Regler stellen](/designer/tasten#regler).
+In der [Vorschau](/designer/vorschau) wechselt der Regler mit der Betriebsart, und du kannst ihn dort auch ziehen. Am [Knob](/geraete/knob) und am [T-Encoder Pro](/geraete/lilygo-t-encoder-pro) legst du den Drehring auf den Switcher, dann stellt er immer den Regler, der gerade zu sehen ist, siehe [Einen Regler stellen](/designer/tasten#regler).
 
 ## Abschnitte {#abschnitte}
 

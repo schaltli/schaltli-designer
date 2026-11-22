@@ -103,6 +103,15 @@ test.describe("firmware builds", () => {
     test.skip(!fs.existsSync(bin), "the 7\" env not built in a schaltli-firmware checkout alongside this repo")
     expect(imageDeviceId(new Uint8Array(fs.readFileSync(bin)))).toBe("waveshare-touch-lcd-7")
   })
+
+  // The T-Encoder Pro (tasks/lilygo-t-encoder-pro-plan.md): the knob's
+  // firmware with its own board directory, so its image must name itself and
+  // not the knob it shares main.cpp with.
+  test("the T-Encoder Pro's build names the T-Encoder Pro", () => {
+    const bin = path.join(__dirname, "..", "..", "schaltli-firmware", ".pio", "build", "lilygo-t-encoder-pro", "firmware.bin")
+    test.skip(!fs.existsSync(bin), "the T-Encoder Pro env not built in a schaltli-firmware checkout alongside this repo")
+    expect(imageDeviceId(new Uint8Array(fs.readFileSync(bin)))).toBe("lilygo-t-encoder-pro")
+  })
 })
 
 test.describe("the firmware release manifest", () => {

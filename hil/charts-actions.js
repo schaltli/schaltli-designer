@@ -130,9 +130,13 @@ async function main() {
   }
   console.log(`\n=== a screen's time range changed on the board (device: ${device}) ===`)
   const ddf = await loadDdf(device)
-  const ring = /knob/i.test(ddf.deviceId || "")
+  // The round boards are the ones with a ring - the knob and, since
+  // 2026-11-22, the T-Encoder Pro, which runs its firmware. Read off the
+  // shape, not a name: the id test (/knob/) took the T-Encoder Pro for a board
+  // without a ring and asked it for chart drags.
+  const ring = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const pinch = (ddf.supportedFeatures || []).includes("pinch")
-  // The knob follows no drag on a chart (yet): its ring moves the range.
+  // The round firmware follows no drag on a chart (yet): its ring moves the range.
   const drags = !ring
   const eink = (ddf.screen.colorDepth || "").toString().includes("gray") || /paper/i.test(ddf.deviceId || "")
   const stamp = `${RUN}-${device.replace(/\./g, "-")}`

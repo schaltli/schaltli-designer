@@ -162,8 +162,9 @@ async function main() {
   // The knob's ring and its swipe up, beside the swipe every touch board has:
   // on the screen the ring's left turn publishes and a swipe up opens the
   // screen menu; on the popup only a right turn is bound, to its slider. A
-  // board without them never reports those ids.
-  const ringBoard = /knob/i.test(ddf.deviceId || "")
+  // board without them never reports those ids. The round boards have the
+  // ring (the knob, the T-Encoder Pro since 2026-11-22), told by the shape.
+  const ringBoard = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const RING_LEFT_TOPIC = `${PREFIX}/ring-left`
   project.hardwareButtons = [
     { id: "swipe-left", name: "Swipe Left" },

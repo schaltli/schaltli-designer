@@ -77,6 +77,15 @@ const RGB_BOARDS = [
   ["ws4", WAVESHARE_4_DEVICE, '4"', ["--compare", "12000000"]],
 ]
 const PAPERS3_DEVICE = process.env.HIL_PAPERS3_DEVICE || "192.168.1.118"
+// The LilyGO T-Encoder Pro (tasks/lilygo-t-encoder-pro-plan.md, 2026-11-22):
+// the knob's firmware on a 390 px AMOLED, in a lane of its own ("tenc"). It
+// runs the suites that build their project from the board's own DDF; the
+// knob's smoke fixture and layout screens are the knob's. Its inputs are
+// checked by hand (hil/tencoder/input-check.js), nobody turns a ring here.
+const TENCODER_DEVICE = process.env.HIL_TENCODER_DEVICE || "192.168.1.58"
+// The boards on the round firmware (schaltli-firmware src/main.cpp), which
+// leaves out the checks that firmware does not report on.
+const ROUND_FIRMWARE = new Set(["knob", "tenc"])
 // The Android app repo, checked out alongside this one. Its arc-rasterizer
 // unit test is the only step here that needs no device at all - see the
 // android-unit block below for why it runs from this suite anyway.
@@ -553,6 +562,7 @@ async function main() {
   // the output. Skips loudly on its own when the device is unreachable.
   for (const board of [
     { name: "knob", device: WAVESHARE_DEVICE },
+    { name: "tenc", device: TENCODER_DEVICE },
     { name: "4v3b", device: WAVESHARE_4V3B_DEVICE },
     { name: "ws4", device: WAVESHARE_4_DEVICE },
     { name: "papers3", device: PAPERS3_DEVICE },
@@ -700,7 +710,7 @@ async function main() {
   // a text beside an object bound to the same topic kept its old value until
   // 2026-10-05, because only the bound object's rectangle was redrawn.
   // Installs its own project.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} placeholder redraw (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/placeholder-redraw.js", "--device", device], { cwd: REPO_ROOT })
@@ -722,7 +732,7 @@ async function main() {
   // change of only a combined topic's input - every picture 0 px, drawn as
   // regions on the boards that redraw parts. The PaperS3 always draws the
   // whole screen (--full). Installs its own project.
-  for (const [name, device, extra] of [["knob", WAVESHARE_DEVICE, []], ["4v3b", WAVESHARE_4V3B_DEVICE, []], ["ws4", WAVESHARE_4_DEVICE, []], ["papers3", PAPERS3_DEVICE, ["--full"]]]) step(name, async () => {
+  for (const [name, device, extra] of [["knob", WAVESHARE_DEVICE, []], ["tenc", TENCODER_DEVICE, []], ["4v3b", WAVESHARE_4V3B_DEVICE, []], ["ws4", WAVESHARE_4_DEVICE, []], ["papers3", PAPERS3_DEVICE, ["--full"]]]) step(name, async () => {
     console.log(`
 === ${name} live values (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/live-value-redraw.js", "--device", device, ...extra], { cwd: REPO_ROOT })
@@ -768,7 +778,7 @@ async function main() {
   // refused before /PROJECT is touched, as one for another device is. Until
   // then "could not read" passed as "names no device", and the 4.3B under
   // load installed a project for another device.
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} install gate (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/install-gate.js", "--device", device], { cwd: REPO_ROOT })
@@ -789,7 +799,7 @@ async function main() {
   // it, a swipe and its own button - each time back to the screen exactly.
   // A board joins this list once it announces generation 1.3 (tasks/
   // popup-screens-todo.md, Tasks 12-14).
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} popups (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/popup.js", "--device", device], { cwd: REPO_ROOT })
@@ -810,7 +820,7 @@ async function main() {
   // and a swipe down return, next goes on in the row past a hidden screen,
   // an own swipe cuts its neighbour off - pull tabs and all at 0 px. Skipped
   // where the board does not declare screen-graph yet. Installs its own project.
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} screen graph (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/screen-graph.js", "--device", device], { cwd: REPO_ROOT })
@@ -846,7 +856,7 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => localTopics(name, device, null), { quick: true })
   }
   // The charts' history (tasks/charts-firmware-plan.md F3): a board holds
@@ -906,7 +916,7 @@ async function main() {
   // All three lay and clear the recorder's retained topics on the one
   // broker, so one lane at a time: in parallel, one lane's clearing took
   // another's clock away and its presence made the others skip (2026-10-29).
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => exclusively("history-broker", () => chartsHistory(name, device)), { quick: true })
     step(name, () => exclusively("history-broker", () => chartsDraw(name, device)), { quick: true })
     step(name, () => exclusively("history-broker", () => chartsActions(name, device)), { quick: true })
@@ -918,7 +928,7 @@ async function main() {
   // F3): de-CH and de-DE, max, min, Cancel - each key pressed where
   // /api/keyboard says it lies. Installs its own project; skipped on a
   // firmware without the keyboard.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} text field (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/text-field.js", "--device", device], { cwd: REPO_ROOT })
@@ -938,7 +948,7 @@ async function main() {
   // wheels dragged and flicked on the 4.3B and the knob, buttons on the
   // PaperS3, 06:45:00 sent, Cancel sending nothing - each part worked where
   // /api/picker says it lies. Installs its own project.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) step(name, async () => {
     console.log(`
 === ${name} time field (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/time-field.js", "--device", device], { cwd: REPO_ROOT })
@@ -972,7 +982,7 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, () => scaledValues(name, device), { quick: true })
   }
 
@@ -1001,7 +1011,7 @@ async function main() {
 
   // The test interface wants its password (contract §6, #70): refused
   // without it and with a wrong one, answered with HIL_PASSWORD.
-  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE], ["papers3", PAPERS3_DEVICE]]) {
     step(name, async () => {
       console.log(`
 === ${name} test interface password (device: ${device}) ===`)
@@ -1368,6 +1378,27 @@ async function main() {
       })
     }
 
+    // The T-Encoder Pro (tasks/lilygo-t-encoder-pro-plan.md), curated like
+    // the 7".
+    console.log("\n=== T-Encoder Pro DDF freshness ===")
+    const tencDdfZip = path.join(REPO_ROOT, "public", "ddf", "lilygo-t-encoder-pro.ddf.zip")
+    if (!fs.existsSync(ddfGenerator)) {
+      summary.push({ name: "tencoder-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
+    } else {
+      const exitCode = await run("node", [ddfGenerator, "ddf-source-lilygotencoderpro", "--check", "--zip", tencDdfZip], {
+        cwd: FIRMWARE_REPO,
+      })
+      summary.push({
+        name: "tencoder-ddf",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail:
+          exitCode === 0
+            ? "public/ddf zip matches ddf-source-lilygotencoderpro"
+            : "stale - see the regenerate command printed above",
+        report: "",
+      })
+    }
+
     // The knob, curated here since 2026-09-12. It announces itself over MQTT,
     // so the designer could always discover it - but only while it is powered
     // on and on the same broker, which makes "does this instance know the
@@ -1494,6 +1525,7 @@ async function main() {
     { name: "ws4", device: WAVESHARE_4_DEVICE },
     { name: "papers3", device: PAPERS3_DEVICE },
     { name: "knob", device: WAVESHARE_DEVICE },
+    { name: "tenc", device: TENCODER_DEVICE },
   ]
   for (const board of readerBoards) step(board.name, async () => {
     console.log(`\n=== stalled snapshot reader (${board.name}, device: ${board.device}) ===`)
@@ -1551,7 +1583,7 @@ async function main() {
   // leaving a board that answered ping and refused port 80 until its next
   // restart - how a 4.3B conformance run ended on 2026-09-14. Restarts the
   // board, which is why it runs after the checks that want it undisturbed.
-  for (const board of readerBoards.filter((b) => b.name !== "knob")) step(board.name, async () => {
+  for (const board of readerBoards.filter((b) => !ROUND_FIRMWARE.has(b.name))) step(board.name, async () => {
     console.log(`\n=== late WiFi at boot (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/late-wifi.js", "--device", board.device], { cwd: REPO_ROOT })
     summary.push({
@@ -1572,8 +1604,8 @@ async function main() {
   // a restart that was not by software. Restarts the board, like the one
   // above. Each board is also sent the other's build first, which it must
   // refuse (docs/2026-09-15-firmware-ota.md, decision 5).
-  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", ws4: "waveshare-touch-lcd-4", papers3: "m5stack-papers3", knob: "waveshare-knob-touch-lcd-1v8" }
-  const foreignEnvs = { "4v3b": "m5stack-papers3", ws4: "waveshare-touch-lcd-4v3b", papers3: "waveshare-touch-lcd-4v3b", knob: "waveshare-touch-lcd-4v3b" }
+  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", ws4: "waveshare-touch-lcd-4", papers3: "m5stack-papers3", knob: "waveshare-knob-touch-lcd-1v8", tenc: "lilygo-t-encoder-pro" }
+  const foreignEnvs = { "4v3b": "m5stack-papers3", ws4: "waveshare-touch-lcd-4v3b", papers3: "waveshare-touch-lcd-4v3b", knob: "waveshare-touch-lcd-4v3b", tenc: "waveshare-knob-touch-lcd-1v8" }
   for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) step(board.name, async () => {
     console.log(`\n=== firmware upload lands (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run(
@@ -1644,7 +1676,7 @@ async function main() {
               : `exit code ${exitCode} - see output above`,
     })
   }))
-  for (const board of readerBoards.filter((b) => b.name !== "knob")) step(board.name, async () => {
+  for (const board of readerBoards.filter((b) => !ROUND_FIRMWARE.has(b.name))) step(board.name, async () => {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })
     summary.push({

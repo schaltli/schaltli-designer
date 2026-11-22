@@ -207,6 +207,9 @@ test.describe("the firmware devices' scale", () => {
     // 800 × 480 over 154.21 × 85.92 mm, the usual 7" glass (Waveshare states
     // no active area): 5.19 across and 5.59 down, the mean what the scale uses.
     { source: "ddf-source-waveshare7", pxPerMm: 5.39, text: "Roboto", display: "Roboto" },
+    // 390 px over a 1.2" round AMOLED, 30.48 mm (LilyGO states only the
+    // diagonal).
+    { source: "ddf-source-lilygotencoderpro", pxPerMm: 12.8, text: "Roboto", display: "Roboto" },
     // 960 × 540 over 103.68 × 58.32 mm, the ED047TC1's 0.108 mm pitch.
     { source: "ddf-source-papers3", pxPerMm: 9.26, text: "Helvetica", display: "FreeUniversal" },
   ]
@@ -376,7 +379,7 @@ test.describe("the scale", () => {
 
   // On every firmware device, every style finds a font and every step a
   // size (Task 4's second criterion), read from the firmware repo.
-  for (const source of ["ddf-source", "ddf-source-waveshare4v3b", "ddf-source-waveshare4", "ddf-source-waveshare7", "ddf-source-papers3"]) {
+  for (const source of ["ddf-source", "ddf-source-waveshare4v3b", "ddf-source-waveshare4", "ddf-source-waveshare7", "ddf-source-lilygotencoderpro", "ddf-source-papers3"]) {
     test(`${source}: every style has a font, every step a size`, async () => {
       const dir = path.join(__dirname, "..", "..", "schaltli-firmware", source)
       test.skip(!fs.existsSync(path.join(dir, "device.json")), "schaltli-firmware not checked out alongside this repo")
@@ -1153,7 +1156,7 @@ test.describe("4-bit typographies", () => {
     return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), "")
   }
 
-  for (const board of ["waveshare-touch-lcd-4", "waveshare-touch-lcd-4v3b", "waveshare-touch-lcd-7", "waveshare-knob-1v8"]) {
+  for (const board of ["waveshare-touch-lcd-4", "waveshare-touch-lcd-4v3b", "waveshare-touch-lcd-7", "waveshare-knob-1v8", "lilygo-t-encoder-pro"]) {
     test(`${board}: each style a 4-bit face at its capital height, bold at the same`, async () => {
       const fields = await boardFields(board)
       const ppmm = fields.pixelsPerMm!

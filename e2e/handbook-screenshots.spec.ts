@@ -477,6 +477,7 @@ test.describe("handbook: the boards side by side", () => {
     { id: "waveshare-touch-lcd-4v3b", screen: { width: 800, height: 480 }, tank: [[60, 60], [740, 170]], light: [[60, 280], [500, 360]] },
     { id: "waveshare-touch-lcd-4", screen: { width: 480, height: 480 }, tank: [[60, 60], [420, 170]], light: [[60, 280], [420, 360]] },
     { id: "waveshare-touch-lcd-7", screen: { width: 800, height: 480 }, tank: [[60, 60], [740, 170]], light: [[60, 280], [500, 360]] },
+    { id: "lilygo-t-encoder-pro", screen: { width: 390, height: 390 }, tank: [[55, 110], [335, 185]], light: [[75, 225], [315, 285]] },
     { id: "m5stack-papers3", screen: { width: 960, height: 540 }, tank: [[60, 60], [900, 190]], light: [[60, 320], [600, 410]] },
   ]
 
@@ -666,6 +667,13 @@ test.describe("handbook: the homepage showcase", () => {
       text(f, 60, 300, 140, 36, "Licht", 24),
       { type: "switch", x: 200, y: 286, width: 170, height: 64, properties: onOff(f, "relay/1/power", 24) },
     ],
+    // The knob's, on a smaller glass with more pixels per millimetre: the
+    // same picture at the same size in millimetres.
+    "lilygo-t-encoder-pro": (f) => [
+      ...named(f, "bar", 54, 112, 282, 62, "tank/1/level", "Frischwasser", 27, 22),
+      text(f, 70, 232, 110, 40, "Licht", 27),
+      { type: "switch", x: 180, y: 220, width: 140, height: 62, properties: onOff(f, "relay/1/power", 27) },
+    ],
     "m5stack-papers3": (f) => [
       ...named(f, "bar", 60, 70, 840, 80, "tank/1/level", "Frischwasser", 35, 24),
       text(f, 60, 340, 160, 44, "Licht", 35),
@@ -686,6 +694,7 @@ test.describe("handbook: the homepage showcase", () => {
       // Its glass, to scale, is a little wider than the canvas leaves at the
       // others' viewport, which would cut its edges off.
       viewport: { width: 2600, height: 1400 } },
+    { id: "lilygo-t-encoder-pro", slug: "tenc", screen: { width: 390, height: 390 }, build: compare["lilygo-t-encoder-pro"], width: 640, hero: null, themes: false, round: true },
   ]
 
   // Cuts the frame out of the canvas's grey and saves it as WebP, in the page.

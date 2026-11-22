@@ -173,6 +173,21 @@ and conformance's `--report`). Its pixel-clock check compares with 12 MHz,
 not 16, at which its WiFi drops altogether. Left out: the internal-heap check
 under a large project of its own, which leaves a board without WiFi until its
 LittleFS is erased over USB.
+The LilyGO T-Encoder Pro (`tenc`, since 2026-11-22,
+`tasks/lilygo-t-encoder-pro-plan.md`) runs the knob's firmware on a 390 px
+AMOLED, at `HIL_TENCODER_DEVICE` (192.168.1.58, COM9). Its lane has the suites
+that build their project from the board's own DDF - deploy, placeholders, live
+values, popups, the screen graph, local topics, the charts, the text and time
+fields, scaled values, the install gate, firmware upload and OTA; the knob's
+smoke fixture and layout screens are the knob's. The scripts tell the round
+firmware by the DDF's round screen, never by an id: `/knob/` once took the
+T-Encoder Pro for a board without a ring. Its ring and push key need a hand on
+it, so they are checked by `node -r ./hil/device-auth.js
+hil/tencoder/input-check.js --device <ip>` and not in test:all: the board
+shows each step itself (turn right, turn left, press, tap, swipe up, go dark
+and wake) with «OBEN» marking the top of the round screen, and the script
+moves on once the input reached the project as its MQTT action; `--only
+s-dark` repeats one step. Run it after any change to the board's input path.
 Each lane writes `hil/test-all-logs/<lane>.log`, the console shows every line
 marked with its lane, and the summary lists the steps by lane with their
 seconds. One after another the run took 50 min. Before the lanes it builds

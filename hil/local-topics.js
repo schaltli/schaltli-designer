@@ -237,9 +237,11 @@ async function board(device) {
     const m = /uptime (\d+) s/.exec(body)
     return m ? Number(m[1]) : NaN
   }
-  // The knob restarts on set=restart; the 4.3B and the PaperS3 on
-  // set=latewifi=1, with WiFi held back a second (hil/late-wifi.js).
-  const knob = /knob/i.test(ddf.deviceId || "")
+  // The round firmware (the knob, the T-Encoder Pro) restarts on
+  // set=restart; the 4.3B and the PaperS3 on set=latewifi=1, with WiFi held
+  // back a second (hil/late-wifi.js). Told by the round screen: an id test
+  // (/knob/) sent the T-Encoder Pro a latewifi it does not know (2026-11-22).
+  const knob = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const restart = async () => {
     const before = await uptime()
     await get(`${base}/api/debug?set=${knob ? "restart" : "latewifi=1"}`).catch(() => {})

@@ -81,6 +81,7 @@ export default defineConfig({
           { text: "Waveshare 4.3B", link: "/geraete/waveshare-4-3b" },
           { text: "Waveshare 4\"", link: "/geraete/waveshare-4" },
           { text: "Waveshare 7\"", link: "/geraete/waveshare-7" },
+          { text: "LilyGO T-Encoder Pro", link: "/geraete/lilygo-t-encoder-pro" },
           { text: "M5Stack PaperS3", link: "/geraete/papers3" },
           { text: "Android-App", link: "/geraete/android" },
           { text: "Firmware flashen", link: "/geraete/flashen" },

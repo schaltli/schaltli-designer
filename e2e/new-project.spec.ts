@@ -122,6 +122,8 @@ test.describe("New Project", () => {
     await expect(page.locator('[data-device-id="waveshare-touch-lcd-4v3b"] svg').first()).toBeAttached()
     // The 7" (tasks/waveshare-7-todo.md, T3) is offered with its own frame.
     await expect(page.locator('[data-device-id="waveshare-touch-lcd-7"] svg').first()).toBeAttached()
+    // So is the T-Encoder Pro (tasks/lilygo-t-encoder-pro-todo.md, T3).
+    await expect(page.locator('[data-device-id="lilygo-t-encoder-pro"] svg').first()).toBeAttached()
   })
 
   test("Cancel creates nothing", async ({ page }, testInfo) => {

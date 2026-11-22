@@ -28,6 +28,7 @@ const WAVESHARE_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source")
 const WAVESHARE_4V3B_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4v3b")
 const WAVESHARE_4_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare4")
 const WAVESHARE_7_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-waveshare7")
+const TENCODER_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-lilygotencoderpro")
 export const PAPERS3_DDF_SOURCE = path.join(FIRMWARE_REPO, "ddf-source-papers3")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
@@ -208,6 +209,13 @@ export async function seedWaveshare4Ddf(deviceId: string, mutateDeviceJson?: (ma
 // Same for the 7", the 4.3B's firmware on a larger glass.
 export async function seedWaveshare7Ddf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
   return seedDdfFrom(WAVESHARE_7_DDF_SOURCE, deviceId, mutateDeviceJson)
+}
+
+// Same for the LilyGO T-Encoder Pro, the knob's firmware on a 390 px AMOLED
+// (tasks/lilygo-t-encoder-pro-plan.md). Under a fixture id: the board on the
+// bench announces itself, like the knob.
+export async function seedTencoderDdf(deviceId: string, mutateDeviceJson?: (manifest: any) => void): Promise<boolean> {
+  return seedDdfFrom(TENCODER_DDF_SOURCE, deviceId, mutateDeviceJson)
 }
 
 // Same for the PaperS3, which announces itself just the same.

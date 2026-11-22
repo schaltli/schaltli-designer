@@ -4,7 +4,7 @@ Was eine Taste am Gerät, ein Dreh am Ring oder eine Wischgeste auslöst, legst 
 
 ## Eine Taste belegen
 
-Die Tasten belegst du in den Eigenschaften des Screens, die rechts stehen, solange nichts ausgewählt ist. Unter <span class="ui">Hardware buttons</span> hat jede Taste des Geräts ihre eigene Auswahl, beim [Knob](/geraete/knob) die beiden Richtungen des Drehrings. Braucht eine Aktion noch etwas, etwa einen Screen oder einen Regler, erscheint das Feld gleich darunter.
+Die Tasten belegst du in den Eigenschaften des Screens, die rechts stehen, solange nichts ausgewählt ist. Unter <span class="ui">Hardware buttons</span> hat jede Taste des Geräts ihre eigene Auswahl, beim [Knob](/geraete/knob) die beiden Richtungen des Drehrings, beim [T-Encoder Pro](/geraete/lilygo-t-encoder-pro) dazu der Druck auf den Ring. Braucht eine Aktion noch etwas, etwa einen Screen oder einen Regler, erscheint das Feld gleich darunter.
 
 <Screenshot narrow name="tasten-screen" alt="Unter Hardware buttons die Tasten Rotate Right und Rotate Left mit ihren Aktionen" caption="Der Drehring blättert durch die Screens." />
 
@@ -34,7 +34,7 @@ Ein farbiger Punkt vor der Auswahl und an den Tasten im Rahmen sagt, woher die B
 
 ## Einen Regler stellen {#regler}
 
-Mit <span class="ui">Adjust a slider or dial</span> stellt eine Taste einen Slider oder Dial auf dem Screen. Beim Knob ist das der Drehring: Jede Raste verschiebt den Regler um eine Stufe, und das Gerät schickt den neuen Wert auf dessen Write Topic. Die Anlage bekommt einen fertigen Wert wie `60` und muss kein «eins höher» verstehen.
+Mit <span class="ui">Adjust a slider or dial</span> stellt eine Taste einen Slider oder Dial auf dem Screen. Beim Knob und beim T-Encoder Pro ist das der Drehring: Jede Raste verschiebt den Regler um eine Stufe, und das Gerät schickt den neuen Wert auf dessen Write Topic. Die Anlage bekommt einen fertigen Wert wie `60` und muss kein «eins höher» verstehen.
 
 - <span class="ui">Control</span>: welcher Regler. Zur Wahl stehen die Slider, Dials und Switcher des Screens, jeweils mit ihrem Topic. Auf einem Master sind es nur die Objekte des Masters.
 - <span class="ui">Direction</span>: <span class="ui">One step up</span> oder <span class="ui">One step down</span>. Der Designer schlägt die Richtung nach dem Namen der Taste vor, beim Knob dreht <span class="ui fw">Rotate Left</span> hinunter.
@@ -56,7 +56,7 @@ Ein Screen mit [Diagrammen](/objekte/anzeigen#chart) zeigt eine Zeitspanne, und 
 
 Nach einem Neustart öffnet der Screen wieder mit seiner <span class="ui">Time range</span>.
 
-Eine Seite, die du mit <span class="ui">Add history below</span> anlegst, hat die Gesten schon belegt. Erkennt das Gerät zwei Finger, macht <span class="ui">Pinch in</span> die Spanne länger und <span class="ui">Pinch out</span> kürzer. Beim Knob schiebt der Drehring den Zeitbereich, nach rechts später, nach links früher.
+Eine Seite, die du mit <span class="ui">Add history below</span> anlegst, hat die Gesten schon belegt. Erkennt das Gerät zwei Finger, macht <span class="ui">Pinch in</span> die Spanne länger und <span class="ui">Pinch out</span> kürzer. Beim Knob und beim T-Encoder Pro schiebt der Drehring den Zeitbereich, nach rechts später, nach links früher.
 
 ## Wischgesten
 

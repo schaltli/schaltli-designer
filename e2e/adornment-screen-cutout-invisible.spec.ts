@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import { defaultThemeIdFor, themeById } from "../lib/themes"
 import { createProject, chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
-import { seedPapers3Ddf, seedWaveshare4Ddf, seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
+import { seedPapers3Ddf, seedTencoderDdf, seedWaveshare4Ddf, seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
 // extractScreenRect) is a pure position marker - DEVICE_GUIDE.md's own
@@ -68,6 +68,9 @@ const CUTOUT_PAPERS3_DEVICE_ID = "e2e-cutout-papers3"
 // The 4" joined on 2026-10-30 with its first DDF: the 4.3B's case, rim and
 // glass border around a square hole.
 const CUTOUT_WAVESHARE_4_DEVICE_ID = "e2e-cutout-waveshare-4"
+// The LilyGO T-Encoder Pro joined on 2026-11-22 with its first DDF: a turning
+// ring with knurl marks and a bezel around a round hole.
+const CUTOUT_TENCODER_DEVICE_ID = "e2e-cutout-tencoder"
 const DEVICES = [
   {
     name: "Waveshare Knob 1.8",
@@ -86,6 +89,12 @@ const DEVICES = [
     deviceId: CUTOUT_WAVESHARE_4_DEVICE_ID,
     screen: { width: 480, height: 480 },
     seed: () => seedWaveshare4Ddf(CUTOUT_WAVESHARE_4_DEVICE_ID),
+  },
+  {
+    name: "LilyGO T-Encoder Pro",
+    deviceId: CUTOUT_TENCODER_DEVICE_ID,
+    screen: { width: 390, height: 390 },
+    seed: () => seedTencoderDdf(CUTOUT_TENCODER_DEVICE_ID),
   },
   {
     name: "M5Stack PaperS3",

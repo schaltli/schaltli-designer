@@ -33,6 +33,7 @@ const path = require("path")
 const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
 const { chromium } = require("playwright")
+const { Jimp } = require("jimp")
 const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
 const { deviceTag } = require("./device-tag")
@@ -261,6 +262,22 @@ async function main() {
   const snapshot = async (name) => {
     const buf = Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer())
     fs.writeFileSync(path.join(OUT_DIR, `${name}.bmp`), buf)
+    return buf
+  }
+  // Keys that show nothing: every key but the space bar carries a label or a
+  // shape, so a key whose rectangle is one colour lost it. «Cancel» did on
+  // the T-Encoder Pro, where no font fits its key (2026-11-22).
+  const blankKeys = async (bmp, kb) => {
+    const img = await Jimp.read(bmp)
+    const blank = []
+    for (const k of kb.keys.filter((key) => key.kind !== "space")) {
+      const colours = new Set()
+      for (let y = k.y + 3; y < k.y + k.h - 3; y++) {
+        for (let x = k.x + 3; x < k.x + k.w - 3; x++) colours.add(img.getPixelColor(x, y))
+      }
+      if (colours.size < 2) blank.push(k.label || k.kind)
+    }
+    return blank
   }
   const waitSent = async (count, ms = 5000) => {
     const deadline = Date.now() + ms
@@ -295,7 +312,9 @@ async function main() {
     await tapField()
     let kb = await keyboard()
     check("1. a tap on the field opens the keyboard on what it shows", kb.open && kb.text === "Hallo", JSON.stringify({ open: kb.open, text: kb.text }))
-    await snapshot("1-open")
+    const openShot = await snapshot("1-open")
+    const blank = await blankKeys(openShot, kb)
+    check("1b. every key shows its label or shape", blank.length === 0, blank.length ? `blank: ${blank.join(", ")}` : `${kb.keys.length} keys`)
 
     await clear()
     await typeText("Grüezi 1")

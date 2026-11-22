@@ -45,6 +45,16 @@ export const BOARDS = [
     note: "Plug the cable into the USB-C socket marked UART. The 7B looks similar but has another screen and does not work with this firmware.",
   },
   {
+    id: "lilygo-t-encoder-pro",
+    name: "LilyGO T-Encoder Pro",
+    hint: "Round 1.2\" AMOLED, 390 × 390, in a ring you can turn and press.",
+    expect: "a setup screen with a QR code, and a WiFi network of its own the QR code leads to",
+    // Only the bench revision, SH8601 panel and CHSC5816 touch; LilyGO's
+    // newer one (CO5300, CST816) stays dark (tasks/lilygo-t-encoder-pro-plan.md,
+    // decision 5). GPIO 0, the boot strap, is the ring's push key.
+    note: "Tested on the revision with the SH8601 screen. Do not press the ring while plugging the board in: it then waits for a flasher instead of starting.",
+  },
+  {
     id: "m5stack-papers3",
     name: "M5Stack PaperS3",
     hint: '4.7" e-paper, 960 × 540.',
