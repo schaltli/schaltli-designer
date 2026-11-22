@@ -17,5 +17,6 @@ test added and the handbook page changed when reporting.
   - The knob hung once after a test:quick (ping yes, HTTP no); not again in two more runs with COM4 logged. Its WiFi is weak (-76 dBm).
 - [x] T5 Flasher entry, handbook page `geraete/lilygo-t-encoder-pro.md` (revision, top, ring and press, burn-in, boot key), geraete/index, einrichten, einfuehrung/index, designer/tasten, designer/baugruppen, objekte/bedienen, sidebar; humanizer.
   - The newer revision's `handbuch-macke`: issue #84.
-- [ ] Checkpoint A: the user deploys a designer project, turns and presses.
-- [ ] T6 Release (the user's decision).
+- [x] Checkpoint A: the user deploys a designer project, turns and presses.
+  - 2026-11-22: deploy works (the user).
+- [x] T6 Release: fw-2026.11.22.1 (2026-11-22).
