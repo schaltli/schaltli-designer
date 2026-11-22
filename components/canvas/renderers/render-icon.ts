@@ -4,6 +4,7 @@
 
 import type { ScreenObject, ProjectAsset } from "@/components/project-editor"
 import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
+import { isLiveIcon } from "@/lib/object-text"
 
 interface RenderIconOptions {
   ctx: CanvasRenderingContext2D
@@ -80,7 +81,14 @@ export function renderIcon(options: RenderIconOptions): void {
           // panel cases, found by the generated type-coverage run
           // (2026-09-10). Switch and button icons take the separate-bitmap
           // route unconditionally and have always used rasterisedIcon().
-          const raster = nested ? rasterisedIcon(img, obj.width, obj.height, cacheKey) : null
+          //
+          // A live icon takes it too, at any level: it stays out of the
+          // background (its icon changes with its value) and each of its
+          // icons is baked at the origin. Two pixels on the thermometer's
+          // edge, one RGB565 step, on the T-Encoder Pro's 55 px icon
+          // (hil/live-value-redraw.js, 2026-11-22).
+          const separate = nested || isLiveIcon(obj)
+          const raster = separate ? rasterisedIcon(img, obj.width, obj.height, cacheKey) : null
           if (raster) ctx.drawImage(raster, obj.x, obj.y)
           else ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
         } catch (error) {
