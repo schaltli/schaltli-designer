@@ -654,6 +654,43 @@ const SPECIMENS = {
     },
   },
 
+  // Not a type: the gauge and the bar as a styled instrument
+  // (docs/2026-11-23-instrument-styles.md, device contract §2.15), run where
+  // the board declares the feature `instrument-styles` (build-project.js).
+  // The fuel gauge first, the style that proves the chain: a baked face in
+  // the gauge's square, the needle turned to the value with its shadow; and
+  // its bar along the wide slot, the pointer moved along the scale. One
+  // topic for both, so each value is one comparison of both.
+  "instrument-fuel": {
+    build: (c) => {
+      const topic = c.topic("fuel", "numeric", LEVELS);
+      // The square split: the gauge on top, the bar below it - the two
+      // centred slots would lie on each other.
+      const side = Math.round(c.square.height * 0.62);
+      const gap = Math.round(c.square.height * 0.06);
+      const gaugeBox = { x: c.square.x + Math.round((c.square.width - side) / 2), y: c.square.y, width: side, height: side };
+      const barBox = { x: c.square.x, y: c.square.y + side + gap, width: c.square.width, height: c.square.height - side - gap };
+      const fuel = {
+        topic,
+        calibrationPoints: LINEAR,
+        style: "fuel",
+        scale: { labels: [{ value: 0, text: "E" }, { value: 50, text: "½" }, { value: 100, text: "F" }] },
+        zones: [
+          { from: 0, to: 12, kind: "danger" },
+          { from: 12, to: 25, kind: "warning" },
+        ],
+        // At rest is what a snapshot compares; the swing is I9's.
+        motion: "direct",
+      };
+      return {
+        objects: [
+          { id: c.id("gauge"), type: "gauge", zIndex: 1, ...gaugeBox, properties: { ...fuel } },
+          { id: c.id("bar"), type: "bar", zIndex: 1, ...barBox, properties: { ...fuel, direction: "left-to-right" } },
+        ],
+      };
+    },
+  },
+
   dial: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
