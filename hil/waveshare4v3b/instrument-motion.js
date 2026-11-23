@@ -186,14 +186,19 @@ async function main() {
     await publish("100")
     // While it swings, only the cheap topic endpoint, twice a second: does
     // the board still answer?
-    let worstAnswer = 0
+    // One slow answer is the 4"'s WiFi, which drops a packet now and then
+    // whatever the board does (its lane, 2026-11-23: 2.9 s once, the 4.3B on
+    // the same firmware under 0.3 s): the second slowest of sixteen counts.
+    const answers = []
     const t0 = Date.now()
     while (Date.now() - t0 < 8000) {
       const a0 = Date.now()
       await get(`${base}/api/topic-values?topics=${encodeURIComponent(TOPIC)}`, 5000).catch(() => null)
-      worstAnswer = Math.max(worstAnswer, Date.now() - a0)
+      answers.push(Date.now() - a0)
       await sleep(500)
     }
+    answers.sort((a, b) => b - a)
+    const worstAnswer = answers.length > 1 ? answers[1] : answers[0]
     let after = framesOf((await get(`${base}/api/debug`)).body)
     for (let i = 0; i < 10 && after.swinging; i++) {
       await sleep(1000)
@@ -201,7 +206,7 @@ async function main() {
     }
     const fps = after.swingMs > 0 ? (after.swingFrames * 1000) / after.swingMs : 0
     check(`1. the swing is drawn at ${MIN_FPS} fps or more`, !after.swinging && after.swingFrames > 10 && fps >= MIN_FPS, `${after.swingFrames} frames in ${after.swingMs} ms = ${fps.toFixed(1)} fps, worst frame ${after.worst} ms`)
-    check("2. the board answers while the needle swings", worstAnswer < 1500, `slowest answer ${worstAnswer} ms`)
+    check("2. the board answers while the needle swings", worstAnswer < 1500, `second slowest answer ${worstAnswer} ms, slowest ${answers[0]} ms`)
     await sleep(1000)
     const swung = await snapshot(base)
 
