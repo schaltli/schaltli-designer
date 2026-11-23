@@ -116,7 +116,7 @@ local preview DDF announces the feature.
 **Dependencies:** I5. **Files:** `docs/device-contract.md`, `lib/project-zip.ts`, `lib/asset-export.ts`, `components/deploy-dialog.tsx`, `public/ddf/*preview*`. **Scope:** M.
 **Done 2026-11-23:** the face is an `.s565` file (RGB565 + a mask bit per pixel, named by FNV-1a of its bytes) - BMP24 would have lost the mask. **Deviation from plan decision 4, to confirm:** a device without the feature is refused like Guard (Deploy blocks, or offers the firmware that declares it) instead of getting the flat look with a warning - the deploy plan has no «warn and go on», and every other feature works this way. There is no local preview DDF in the designer any more; the boards' DDFs announce the feature in I8. `test:quick` runs after I8 (the export reaches no device before).
 
-### I8 - Firmware: the styled object at rest
+### I8 - Firmware: the styled object at rest ✓
 **Description:** `NeedleRaster` port with native tests on the shared
 vectors; `ColorScreenRenderer` draws a styled gauge/bar: face from the
 asset into PSRAM (loaded once per screen, freed on leaving), then the
@@ -124,11 +124,12 @@ dynamic layers. A face that does not fit is logged and drawn flat. All
 board DDFs announce `instrument-styles`. A conformance specimen per
 primitive used so far.
 **Acceptance:**
-- [ ] native tests pass on every vector
-- [ ] the 4.3B's snapshot of the fuel gauge gauge and bar equals the export within the HIL tolerance
-- [ ] builds for every board env
+- [x] native tests pass on every vector
+- [x] the 4.3B's snapshot of the fuel gauge gauge and bar equals the export within the HIL tolerance
+- [x] builds for every board env
 **Verification:** `pio test -e native`; `pio run` for all envs; `hil/conformance/specimens.js` extended; `npm run test:quick`
 **Dependencies:** I7. **Files:** `src/project/NeedleRaster.{h,cpp}`, `test/test_needle/`, `src/project/ColorScreenRenderer.cpp`, `src/project/ProjectLoader.cpp`, `ddf-source*/`, `hil/conformance/specimens.js`. **Scope:** L - port and renderer in two commits.
+**Done 2026-11-23:** NeedleRaster byte-identical to the vectors; `test:quick` (with the HIL broker up): conformance 88/88 on the 4.3B and the 4", «instrument-fuel» included. e2e there: 9 red, the known save/place timeouts under load, unrelated. Faces as `.s565` read into PSRAM (InstrumentFace).
 
 ### I9 - Firmware: motion
 **Description:** the spring per styled object in the boards' loops: on a
@@ -142,6 +143,14 @@ falls back to `direct`, recorded in its DDF.
 - [ ] the knob's and T-Encoder's result recorded, with their fallback if needed
 **Verification:** new HIL check `hil/waveshare4v3b/instrument-motion.js` (frame count and final snapshot); `npm run test:quick`
 **Dependencies:** I8. **Files:** `src/boards/rgbpanel/main.cpp`, `src/main.cpp` (knob), `src/boards/lilygotencoderpro/`, `src/project/InstrumentMotion.h` (new). **Scope:** M.
+**Status 2026-11-23 - halted, a decision for the user:** motion works on every board and comes to rest pixel-identical to motion direct (`hil/waveshare4v3b/instrument-motion.js`). Measured, 400 px fuel gauge, 0 -> 100:
+| board | fps | worst frame | answers | at rest |
+|---|---|---|---|---|
+| knob | 33.4 | 22.9 ms | 115 ms | identical |
+| T-Encoder | 30.2 | 25.5 ms | 131 ms | identical |
+| 4.3B | 13.9 | 96.9 ms | 82 ms | identical |
+| 4" | 15.2 | 63.2 ms | 2423 ms once | identical |
+On the RGB-panel boards the canvas lives in PSRAM the panel scans from: blending costs ~4 us a pixel (the spike ~1.7), the shadow's ~5000 pixels ~21 ms, plus a loop turn of 21-35 ms of its own. The raster got every exact speed-up there was (int32, spans in float once per shape, thresholds per row, circle fast path, clip-bound loops): knob and T-Encoder went from ~20 to 30+ fps, the 4.3B from 10 to 14. 25 fps at 400 px on the 4.3B/4" needs a change of approach - ask.
 
 ### I10 - Android
 **Description:** `PolygonRaster.kt` and `NeedleRaster.kt` ports with unit
