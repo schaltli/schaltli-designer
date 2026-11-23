@@ -26,7 +26,7 @@ spring, minimum tick spacing, which slots it has (readout, caption).
 **Verification:** vectors in `lib/instrument/vectors.json`, checked by `e2e/instrument-core.spec.ts`; `npm run typecheck`
 **Dependencies:** none. **Files:** `lib/instrument.ts`, `lib/instrument/vectors.json`, `e2e/instrument-core.spec.ts`, `components/project-editor.tsx` (normalizer hook). **Scope:** M.
 
-### I2 - The needle raster, integer
+### I2 - The needle raster, integer ✓
 **Description:** `lib/needle-raster.ts`: draws a dynamic description into
 an RGB565 buffer - polygons through `polygon-raster.ts`, circles and rings
 on the same 1/8-pixel, 4×4 rule, soft edges by an alpha table over whole
@@ -34,8 +34,8 @@ pixels of distance (as `level-glow.ts`), a shadow offset, row spans only.
 The description's format is written down here (it becomes contract §2.15
 in I7).
 **Acceptance:**
-- [ ] vectors: a polygon, a ring, a glow and a shadow at three angles, as exact RGB565 buffers
-- [ ] the fuel gauge's needle at 45° matches its vector byte for byte
+- [x] vectors: a polygon, a ring, a glow and a shadow at three angles, as exact RGB565 buffers
+- [x] the fuel gauge's needle at 45° matches its vector byte for byte
 **Verification:** `e2e/needle-raster.spec.ts` against `lib/needle-raster/vectors.json`
 **Dependencies:** none. **Files:** `lib/needle-raster.ts`, `lib/needle-raster/vectors.json`, `e2e/needle-raster.spec.ts`. **Scope:** M.
 
