@@ -152,16 +152,17 @@ falls back to `direct`, recorded in its DDF.
 | 4" | 15.2 | 63.2 ms | 2423 ms once | identical |
 On the RGB-panel boards the canvas lives in PSRAM the panel scans from: blending costs ~4 us a pixel (the spike ~1.7), the shadow's ~5000 pixels ~21 ms, plus a loop turn of 21-35 ms of its own. The raster got every exact speed-up there was (int32, spans in float once per shape, thresholds per row, circle fast path, clip-bound loops): knob and T-Encoder went from ~20 to 30+ fps, the 4.3B from 10 to 14. The check runs in every lane but the PaperS3 (`hil/test-all.js`, quick).
 
-### I10 - Android
+### I10 - Android ✓ (phone check open)
 **Description:** `PolygonRaster.kt` and `NeedleRaster.kt` ports with unit
 tests on the shared vectors; the bundle carries the styled object
 (`android-export.ts`, PNG face); the view draws face + needle and runs the
 spring; the app's DDF announces the feature.
 **Acceptance:**
-- [ ] unit tests pass on every vector
+- [x] unit tests pass on every vector
 - [ ] the phone's snapshot equals the export within tolerance, at rest
 **Verification:** `gradle testDebugUnitTest`; `hil/android/` specimen; `npm run test:quick`
 **Dependencies:** I7. **Files:** `render/PolygonRaster.kt`, `render/NeedleRaster.kt`, `ui/objects/InstrumentView.kt`, `lib/android-export.ts`, Android DDF builder. **Scope:** L - rasters and view in two commits.
+**Done 2026-11-23, but for the phone:** `NeedleRasterGoldenTest` byte-identical, all app unit tests green, the bundle carries the PNG face (`e2e/instrument-export.spec.ts`). The phone was not on adb, so the snapshot against the export is not yet taken; the conformance specimen «instrument-fuel» runs in the Android HIL once the phone's test interface is on (the app now declares the feature).
 
 ### Checkpoint B - the fuel gauge everywhere
 - [ ] `npm run test:quick` green
