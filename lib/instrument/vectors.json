@@ -55,7 +55,14 @@
       "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 200, "barSizePercent": 100 }],
       "props": { "style": "fuel", "scale": { "labels": [{ "value": 0, "text": "E" }, { "value": 100, "text": "½" }, { "value": 200, "text": "F" }, { "value": 300, "text": "X" }] } },
       "lengthPx": 160,
-      "expected": { "labels": ["E", "½", "F"], "labelsAt": [0, 0.5, 1] }
+      "expected": { "majorStep": 100, "labels": ["E", "½", "F"], "labelsAt": [0, 0.5, 1] }
+    },
+    {
+      "name": "E ½ F at even steps: the major ticks stand under the labels",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 100, "barSizePercent": 100 }],
+      "props": { "style": "fuel", "scale": { "labels": [{ "value": 0, "text": "E" }, { "value": 50, "text": "½" }, { "value": 100, "text": "F" }] } },
+      "lengthPx": 165,
+      "expected": { "majorStep": 50, "minorPerMajor": 5, "tickCount": 11, "majors": [0, 50, 100], "labels": ["E", "½", "F"], "dense": false }
     }
   ],
   "zones": [

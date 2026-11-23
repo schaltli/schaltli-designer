@@ -1,5 +1,7 @@
 "use client"
 
+import { whenInstrumentFontsReady } from "@/lib/instrument-fonts"
+import { bakeCount } from "@/lib/instrument-bake"
 import { everyEnergyIcon } from "@/components/canvas/renderers/render-energy-diagram"
 import type { TimeRange } from "@/lib/chart"
 import { layoutOf as chartLayoutOf, renderChart } from "@/components/canvas/renderers/render-chart"
@@ -1141,7 +1143,15 @@ export default function TestRenderPage() {
       return withCardsGrown(laid, layoutScaleOf(laid), layoutProject)
     }
 
-    ;(window as any).__testRenderReady = true
+    // How many styled faces were baked so far (lib/instrument-bake.ts): a
+    // value change must not rebake, a range change must.
+    ;(window as any).__instrumentBakeCountForTest = () => bakeCount()
+
+    // Styled faces are baked in the style typefaces; a render before they
+    // load would bake (and cache) a fallback (lib/instrument-fonts.ts).
+    whenInstrumentFontsReady().then(() => {
+      ;(window as any).__testRenderReady = true
+    })
 
     return () => {
       delete (window as any).__renderScreenForTest

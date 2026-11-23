@@ -253,6 +253,16 @@ export function presetLabels(preset: LabelPreset, min: number, max: number): Ins
   return undefined
 }
 
+/** The spacing of hand-set labels if they stand at even steps, else undefined. */
+function evenLabelStep(labels: InstrumentLabel[] | undefined): number | undefined {
+  if (!labels || labels.length < 2) return undefined
+  const v = labels.map((l) => l.value).sort((a, b) => a - b)
+  const step = v[1] - v[0]
+  if (!(step > 0)) return undefined
+  for (let i = 2; i < v.length; i++) if (Math.abs(v[i] - v[i - 1] - step) > step * 1e-9) return undefined
+  return round(step)
+}
+
 export interface ScaleTick {
   value: number
   at: number
@@ -283,8 +293,9 @@ export interface InstrumentScale {
 /**
  * Ticks, labels and zones for a scale `lengthPx` pixels long.
  *
- * Automatic: a 1/2/5 step with at most eight majors, none closer than the
- * style's label spacing; then as many subdivisions as fit the style's tick
+ * Automatic: under hand-set labels at even steps, those steps; otherwise a
+ * 1/2/5 step with at most eight majors, none closer than the style's label
+ * spacing; then as many subdivisions as fit the style's tick
  * spacing (1 → 5 or 2, 2 → 4 or 2, 5 → 5). Set by hand, the user's numbers
  * win and `dense` says when they are tighter than the style allows.
  */
@@ -301,9 +312,13 @@ export function instrumentScale(
 
   let majorStep: number
   let dense = false
+  const labelStep = evenLabelStep(s.labels)
   if (s.majorStep) {
     majorStep = s.majorStep
     if ((lengthPx * majorStep) / range < m.minLabelPx) dense = true
+  } else if (labelStep) {
+    // Labels set by hand at even steps (E ½ F): the major ticks stand under them.
+    majorStep = labelStep
   } else {
     const maxMajors = Math.max(2, Math.min(8, Math.floor(lengthPx / m.minLabelPx)))
     majorStep = niceStep(range / maxMajors)

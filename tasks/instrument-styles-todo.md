@@ -39,7 +39,7 @@ in I7).
 **Verification:** `e2e/needle-raster.spec.ts` against `lib/needle-raster/vectors.json`
 **Dependencies:** none. **Files:** `lib/needle-raster.ts`, `lib/needle-raster/vectors.json`, `e2e/needle-raster.spec.ts`. **Scope:** M.
 
-### I3 - The fuel gauge, drawn and baked
+### I3 - The fuel gauge, drawn and baked ✓
 **Description:** the face painter for the fuel gauge (`components/canvas/
 instrument-faces/fuel.ts`) with the shared helpers (bezel, ticks, labels,
 glass), the bake cache keyed by a hash of what shows on the face, and
@@ -47,11 +47,12 @@ glass), the bake cache keyed by a hash of what shows on the face, and
 `render-arc-level.ts` hands over when `style` is set. Style fonts under
 `public/fonts/` with licences, loaded before a bake.
 **Acceptance:**
-- [ ] a gauge with `style: "fuel"` shows the fuel gauge at its value in the editor
-- [ ] changing range, zones or caption rebakes; moving the value does not
-- [ ] gauges without a style render exactly as before (existing render tests)
+- [x] a gauge with `style: "fuel"` shows the fuel gauge at its value in the editor
+- [x] changing range, zones or caption rebakes; moving the value does not
+- [x] gauges without a style render exactly as before (existing render tests)
 **Verification:** `e2e/instrument-render.spec.ts` (screenshot at 200 and 400 px, pixel check of needle and zone); `npm run test:e2e:prod`
 **Dependencies:** I1, I2. **Files:** `components/canvas/instrument-faces/{fuel,common}.ts`, `components/canvas/renderers/render-instrument.ts`, `render-arc-level.ts`, `lib/instrument-bake.ts`, `public/fonts/*`. **Scope:** L - split the font bundling into its own commit.
+**Done 2026-11-23:** the glass crescent is baked into the face (under the needle) for now, not a top layer of the needle; hand-set labels at even steps now set the major ticks (vector added). Unrelated: `arc-level.spec.ts` «dragged on the ring» flaked once under 4 workers, green alone.
 
 ### I4 - The property panel for a styled gauge
 **Description:** in `arc-level-properties.tsx`: **Style** (with «Flat» for

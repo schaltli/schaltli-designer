@@ -45,6 +45,7 @@ import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registr
 import { calculateLevelIndicatorFill, levelValueFromFill, shownLevelValue, snapToStep } from "./render-level-indicator"
 import { ARC_CLOCK_STEP_DEGREES } from "@/lib/arc-raster"
 import { hasNoValue } from "@/lib/render-screen"
+import { renderInstrumentGauge } from "@/components/canvas/renderers/render-instrument"
 import {
   ARC_ANGLE_SCALE,
   ARC_COVERAGE_MAX,
@@ -697,6 +698,9 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // even what the calibration makes of 0 - no marker, no number.
   // The report, or on a level a finger sets the finger (shownLevelValue).
   const rawValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
+  // A styled gauge is a picture of an instrument, not a ring
+  // (docs/2026-11-23-instrument-styles.md).
+  if (renderInstrumentGauge({ ctx, obj, rawValue, colorDepth, screenBackgroundColor, requestRedraw })) return
   const noValue = hasNoValue(rawValue)
   const numericValue = Number.parseFloat(rawValue) || 0
   const calibrationPoints = obj.properties.calibrationPoints || [
