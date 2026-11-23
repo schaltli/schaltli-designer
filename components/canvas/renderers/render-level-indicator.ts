@@ -2,6 +2,7 @@
  * Level Indicator renderer - handles level indicator bars with calibration points
  */
 
+import { renderInstrumentBar } from "@/components/canvas/renderers/render-instrument"
 import type { ScreenObject, ProjectFont, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
@@ -126,6 +127,18 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // an empty level, which is the rule from docs/2026-09-15-live-data.md and
   // still holds.
   const rawLevelValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
+  // A styled bar is a picture of an instrument (docs/2026-11-23-instrument-styles.md).
+  if (
+    renderInstrumentBar({
+      ctx,
+      obj,
+      rawValue: rawLevelValue,
+      colorDepth,
+      screenBackgroundColor: options.screenBackgroundColor,
+      requestRedraw,
+    })
+  )
+    return
   if (hasNoValue(rawLevelValue)) {
     drawLevelShape(ctx, obj, null, null, fillColor, textColor, look, fonts, background, colorDepth)
     return

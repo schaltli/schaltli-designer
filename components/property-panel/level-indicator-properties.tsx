@@ -29,6 +29,8 @@
  * screen. The header line they made above the bar went with them.
  */
 
+import { InstrumentSections, InstrumentStyleField } from "@/components/property-panel/fields/instrument-fields"
+import { normalizeInstrument } from "@/lib/instrument"
 import type { CombinedTopic } from "@/lib/combined-topics"
 import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
@@ -116,6 +118,11 @@ export function LevelIndicatorProperties({
   }
 
   const settable = isSettableLevel(selectedObject.type)
+  // A read-only bar can be a styled instrument; with a style set, what the
+  // style fixes (thickness, colours, the value's text) is not offered
+  // (docs/2026-11-23-instrument-styles.md). The direction stays: every style
+  // has a bar each way.
+  const styled = !settable && Boolean(normalizeInstrument(selectedObject.properties).style)
   const points: CalibrationPoint[] = selectedObject.properties.calibrationPoints || []
 
   const setPoints = (next: CalibrationPoint[]) => updateProperty("calibrationPoints", next)
@@ -132,15 +139,17 @@ export function LevelIndicatorProperties({
 
   return (
     <PropertySections>
-      <PropertySection title="Content">
-        <SelectField
-          id="displayValue"
-          label="Show value"
-          value={selectedObject.properties.displayValue || "value"}
-          options={SHOW_VALUE}
-          onChange={(value) => updateProperty("displayValue", value)}
-        />
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Content">
+          <SelectField
+            id="displayValue"
+            label="Show value"
+            value={selectedObject.properties.displayValue || "value"}
+            options={SHOW_VALUE}
+            onChange={(value) => updateProperty("displayValue", value)}
+          />
+        </PropertySection>
+      ) : null}
 
       <PropertySection title="Data">
         <TopicField
@@ -222,6 +231,7 @@ export function LevelIndicatorProperties({
             onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
           />
         ) : null}
+        {!settable ? <InstrumentStyleField properties={selectedObject.properties} onChange={updateProperties} /> : null}
         <SelectField
           id="direction"
           label="Direction"
@@ -229,21 +239,25 @@ export function LevelIndicatorProperties({
           options={DIRECTIONS}
           onChange={(value) => updateProperty("direction", value)}
         />
-        {/* The track's own width, in pixels. Set rather than derived from the
-            object: a vertical bar made wide enough for its name came out with
-            a track as wide as the name (docs/2026-09-19-slider-look.md,
-            decision 14). The handle's length follows from it. */}
-        <NumberField
-          id="thickness"
-          label="Thickness"
-          value={levelThickness(selectedObject)}
-          onChange={(value) =>
-            updateProperty("thickness", value > 0 ? Math.trunc(value) : LEVEL_DEFAULT_THICKNESS)
-          }
-          min={1}
-          unit="px"
-          hint="The track's own width. The object's box can be bigger; the bar sits in the middle of it."
-        />
+        {!styled ? (
+          <>
+            {/* The track's own width, in pixels. Set rather than derived from the
+                object: a vertical bar made wide enough for its name came out with
+                a track as wide as the name (docs/2026-09-19-slider-look.md,
+                decision 14). The handle's length follows from it. */}
+            <NumberField
+              id="thickness"
+              label="Thickness"
+              value={levelThickness(selectedObject)}
+              onChange={(value) =>
+                updateProperty("thickness", value > 0 ? Math.trunc(value) : LEVEL_DEFAULT_THICKNESS)
+              }
+              min={1}
+              unit="px"
+              hint="The track's own width. The object's box can be bigger; the bar sits in the middle of it."
+            />
+          </>
+        ) : null}
         {/* What was asked for, beside what is measured. The same second
             binding the arc has had all along - a tap puts the marker where the
             finger went, and the two coincide once the command has landed. */}
@@ -256,6 +270,8 @@ export function LevelIndicatorProperties({
           hint="What the installation reports was asked for. Without one, a settable bar rests its marker on the value it reads."
         />
       </PropertySection>
+
+      {styled ? <InstrumentSections properties={selectedObject.properties} onChange={updateProperties} /> : null}
 
       <PropertySection
         title="Calibration"
@@ -289,64 +305,68 @@ export function LevelIndicatorProperties({
         {points.length === 0 ? <FieldNote>Each point maps a value to how full the bar is.</FieldNote> : null}
       </PropertySection>
 
-      <PropertySection title="Text">
-        {textScale ? (
-          // On a device with a scale the value is set in a style, like text
-          // (docs/2026-09-30-size-scale.md).
-          <TextStyleField
-            textStyle={selectedObject.properties.textStyle}
-            textBold={selectedObject.properties.textBold === true}
-            fontId={selectedObject.properties.fontId}
-            fontSize={selectedObject.properties.fontSize}
-            fonts={fonts}
-            scale={textScale}
-            onChange={(styled) => updateProperties(styled)}
-          />
-        ) : (
-          <FontField
-            value={selectedObject.properties.fontId}
-            fonts={fonts}
-            onChange={(value) => updateProperty("fontId", value)}
-            onManageFonts={onManageFonts}
-          />
-        )}
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Text">
+          {textScale ? (
+            // On a device with a scale the value is set in a style, like text
+            // (docs/2026-09-30-size-scale.md).
+            <TextStyleField
+              textStyle={selectedObject.properties.textStyle}
+              textBold={selectedObject.properties.textBold === true}
+              fontId={selectedObject.properties.fontId}
+              fontSize={selectedObject.properties.fontSize}
+              fonts={fonts}
+              scale={textScale}
+              onChange={(styled) => updateProperties(styled)}
+            />
+          ) : (
+            <FontField
+              value={selectedObject.properties.fontId}
+              fonts={fonts}
+              onChange={(value) => updateProperty("fontId", value)}
+              onManageFonts={onManageFonts}
+            />
+          )}
+        </PropertySection>
+      ) : null}
 
       {/* One colour for the bar; the track is mixed from it and the screen's
           background (docs/2026-09-19-slider-look.md, decision 12), and the
           object has no background or border of its own to set. */}
-      <PropertySection title="Colour">
-        <ColorField
-          label="Fill"
-          value={selectedObject.properties.fillColor || "accent"}
-          onChange={(value) => updateProperty("fillColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-        {/* The empty track and an edge round it: roles of the theme since
-            2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
-        <ColorField
-          label="Track"
-          value={selectedObject.properties.trackColor || "track"}
-          onChange={(value) => updateProperty("trackColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-        <ColorField
-          label="Track edge"
-          value={selectedObject.properties.trackEdgeColor || "trackEdge"}
-          onChange={(value) => updateProperty("trackEdgeColor", value)}
-          colorDepth={colorDepth}
-          transparentLabel="None"
-        />
-        <ColorField
-          label="Text"
-          value={selectedObject.properties.textColor || "text"}
-          onChange={(value) => updateProperty("textColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Colour">
+          <ColorField
+            label="Fill"
+            value={selectedObject.properties.fillColor || "accent"}
+            onChange={(value) => updateProperty("fillColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+          {/* The empty track and an edge round it: roles of the theme since
+              2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
+          <ColorField
+            label="Track"
+            value={selectedObject.properties.trackColor || "track"}
+            onChange={(value) => updateProperty("trackColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+          <ColorField
+            label="Track edge"
+            value={selectedObject.properties.trackEdgeColor || "trackEdge"}
+            onChange={(value) => updateProperty("trackEdgeColor", value)}
+            colorDepth={colorDepth}
+            transparentLabel="None"
+          />
+          <ColorField
+            label="Text"
+            value={selectedObject.properties.textColor || "text"}
+            onChange={(value) => updateProperty("textColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+        </PropertySection>
+      ) : null}
 
       <PropertySection
         title="Frame"

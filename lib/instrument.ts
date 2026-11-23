@@ -7,7 +7,7 @@
  * spring, how dense its ticks may get), the new properties and their
  * normalizer, and the scale - ticks, labels and zones as positions 0..1
  * along the scale, every one of them through `calibrationPoints`, so a
- * non-linear tank gets unevenly spaced ticks as a real fuel gauge has.
+ * non-linear calibration gets unevenly spaced ticks as a real fuel gauge has.
  *
  * Written to be ported like lib/energy-diagram.ts: no canvas, no React, no
  * theme. Its cases are in lib/instrument/vectors.json.
@@ -357,4 +357,47 @@ export function instrumentScale(
     .filter((z) => z.to > z.from)
 
   return { min, max, majorStep, minorPerMajor, ticks, labels, zones, dense }
+}
+
+/**
+ * A bar's geometry, whichever way it runs: its length and thickness, and
+ * where a position 0..1 and a depth 0..1 across it lie on the object.
+ * Text stays upright in every direction; only positions turn.
+ */
+export interface BarFrame {
+  vertical: boolean
+  length: number
+  thickness: number
+  /** The track's start and end along the length, in pixels from the start edge. */
+  from: number
+  to: number
+  /** The point at position `at` (0..1 along the scale) and depth `d` (0..1 across). */
+  point(at: number, d: number): [number, number]
+}
+
+export type BarDirection = "left-to-right" | "right-to-left" | "bottom-to-top" | "top-to-bottom"
+
+export function barFrame(width: number, height: number, direction: BarDirection | undefined, track: number): BarFrame {
+  const dir: BarDirection = direction ?? "left-to-right"
+  const vertical = dir === "bottom-to-top" || dir === "top-to-bottom"
+  const length = vertical ? height : width
+  const thickness = vertical ? width : height
+  const margin = (length * (1 - track)) / 2
+  const from = margin
+  const to = length - margin
+  const point = (at: number, d: number): [number, number] => {
+    const along = from + (to - from) * at
+    switch (dir) {
+      case "left-to-right":
+        return [along, d * thickness]
+      case "right-to-left":
+        return [length - along, d * thickness]
+      case "top-to-bottom":
+        return [d * thickness, along]
+      case "bottom-to-top":
+      default:
+        return [d * thickness, length - along]
+    }
+  }
+  return { vertical, length, thickness, from, to, point }
 }

@@ -132,3 +132,89 @@ test("the face as a picture, for a look (attached to the report)", async ({ page
   const png = await page.locator("canvas").first().screenshot()
   await info.attach("fuel-gauge-400.png", { body: png, contentType: "image/png" })
 })
+
+// The bar (I5): the pointer moves along the scale in each of the four
+// directions. Its triangle lies between depth 0.35 and 0.47 across the bar,
+// the scale between 10 % and 90 % of the length (STYLE_META.barTrack 0.8).
+const BAR_CASES = [
+  { direction: "left-to-right", w: 300, h: 100 },
+  { direction: "right-to-left", w: 300, h: 100 },
+  { direction: "bottom-to-top", w: 100, h: 300 },
+  { direction: "top-to-bottom", w: 100, h: 300 },
+] as const
+
+async function renderBar(page: Page, c: (typeof BAR_CASES)[number], value: string) {
+  const obj = {
+    id: "b",
+    type: "bar",
+    zIndex: 1,
+    x: 20,
+    y: 20,
+    width: c.w,
+    height: c.h,
+    properties: {
+      topic: "t/level",
+      direction: c.direction,
+      calibrationPoints: [
+        { value: 0, barSizePercent: 0 },
+        { value: 100, barSizePercent: 100 },
+      ],
+      style: "fuel",
+    },
+  }
+  const p = project(0, {})
+  p.screenWidth = 360
+  p.screenHeight = 360
+  p.screens[0].objects = [obj as any]
+  await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: p, screenIndex: 0, topicOverrides: { "t/level": value } })
+}
+
+/** The object pixel at position `at` along the bar's scale and depth `d` across it. */
+function barPoint(c: (typeof BAR_CASES)[number], at: number, d: number): [number, number] {
+  const vertical = c.direction === "bottom-to-top" || c.direction === "top-to-bottom"
+  const length = vertical ? c.h : c.w
+  const thickness = vertical ? c.w : c.h
+  const along = length * 0.1 + length * 0.8 * at
+  switch (c.direction) {
+    case "left-to-right":
+      return [along, d * thickness]
+    case "right-to-left":
+      return [length - along, d * thickness]
+    case "top-to-bottom":
+      return [d * thickness, along]
+    default:
+      return [d * thickness, length - along]
+  }
+}
+
+async function barRgb(page: Page, c: (typeof BAR_CASES)[number], at: number, d: number) {
+  const [x, y] = barPoint(c, at, d)
+  return page.evaluate(
+    ([x, y]) => {
+      const ctx = (document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!
+      return Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
+    },
+    [Math.floor(20 + x), Math.floor(20 + y)],
+  )
+}
+
+for (const c of BAR_CASES) {
+  test(`the fuel bar's pointer runs ${c.direction}`, async ({ page }) => {
+    await renderBar(page, c, "0")
+    expect(white(await barRgb(page, c, 0, 0.4)), "at 0 the pointer stands at the scale's start").toBe(true)
+    expect(white(await barRgb(page, c, 1, 0.4)), "and not at its end").toBe(false)
+    await renderBar(page, c, "100")
+    expect(white(await barRgb(page, c, 1, 0.4)), "at 100 at its end").toBe(true)
+    expect(white(await barRgb(page, c, 0, 0.4)), "and has left the start").toBe(false)
+  })
+}
+
+test("the bar's face is baked once per direction", async ({ page }) => {
+  const count = () => page.evaluate(() => (window as any).__instrumentBakeCountForTest())
+  await renderBar(page, BAR_CASES[0], "10")
+  const first = await count()
+  await renderBar(page, BAR_CASES[0], "80")
+  expect(await count()).toBe(first)
+  await renderBar(page, BAR_CASES[1], "80")
+  expect(await count()).toBe(first + 1)
+})

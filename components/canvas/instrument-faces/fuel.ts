@@ -5,7 +5,7 @@
  * box. The needle is not drawn here - it is lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, type Ctx } from "./common"
+import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const FUEL_PIVOT = { x: 100, y: 150 }
 
@@ -62,4 +62,62 @@ export function paintFuelGauge(ctx: Ctx, scale: InstrumentScale, props: Instrume
   // a real gauge, but over the face only here - over the needle it would
   // have to be redrawn each frame (spec, «Spike results»).
   glassCrescent(ctx, 100, 100, 89, 0.7)
+}
+
+/**
+ * The fuel gauge as a bar (the proposal's truckB): the same black case,
+ * labels on one side of the scale, ticks and the reserve strip on the
+ * other; the pointer (lib/instrument-needles.ts) runs between them. Drawn
+ * at the object's own pixels, not in a 200-unit box: a bar's length is the
+ * author's.
+ */
+export function paintFuelBar(ctx: Ctx, scale: InstrumentScale, props: InstrumentProps, f: BarFrame, width: number, height: number) {
+  const T = f.thickness
+  ctx.fillStyle = linear(ctx, 0, 0, width, height, [[0, "#4a4a4a"], [0.4, "#0a0a0a"], [1, "#222222"]])
+  roundRect(ctx, 0, 0, width, height, T * 0.14)
+  ctx.fill()
+  const inset = T * 0.09
+  ctx.fillStyle = "#0e0f10"
+  roundRect(ctx, inset, inset, width - 2 * inset, height - 2 * inset, T * 0.07)
+  ctx.fill()
+
+  // Reserve strip, then ticks, across the far side of the scale.
+  for (const z of scale.zones) {
+    const [x0, y0] = f.point(z.from, 0.64)
+    const [x1, y1] = f.point(z.to, 0.71)
+    ctx.fillStyle = ZONE_COLOURS[z.kind]
+    ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0) || 1, Math.abs(y1 - y0) || 1)
+  }
+  ctx.strokeStyle = WHITE
+  for (const t of scale.ticks) {
+    const [x0, y0] = f.point(t.at, t.major ? 0.44 : 0.5)
+    const [x1, y1] = f.point(t.at, 0.62)
+    ctx.lineWidth = Math.max(1, T * (t.major ? 0.04 : 0.022))
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.lineTo(x1, y1)
+    ctx.stroke()
+  }
+  const size = Math.max(7, T * (scale.labels.length <= 3 ? 0.19 : 0.13))
+  ctx.font = `700 ${size}px "Schaltli Oswald", sans-serif`
+  ctx.fillStyle = WHITE
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  for (const l of scale.labels) {
+    const [x, y] = f.point(l.at, 0.27)
+    ctx.fillText(l.text, x, y)
+  }
+  const words = [props.caption?.toUpperCase(), props.unit].filter(Boolean).join("  ")
+  if (words) {
+    const [x, y] = f.point(0.5, 0.85)
+    ctx.save()
+    ctx.translate(x, y)
+    if (f.vertical) ctx.rotate(-Math.PI / 2)
+    ctx.font = `500 ${Math.max(6, T * 0.08)}px "Schaltli Oswald", sans-serif`
+    ctx.fillStyle = "#c8ccd0"
+    ;(ctx as any).letterSpacing = "1px"
+    ctx.fillText(words, 0, 0)
+    ;(ctx as any).letterSpacing = "0px"
+    ctx.restore()
+  }
 }

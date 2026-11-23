@@ -68,23 +68,24 @@ style ignores are hidden.
 **Dependencies:** I3. **Files:** `components/property-panel/arc-level-properties.tsx`, `components/property-panel/instrument-scale-editor.tsx` (new), `components/property-panel/instrument-zones-editor.tsx` (new). **Scope:** M.
 **Done 2026-11-23:** the shared fields live in `components/property-panel/fields/instrument-fields.tsx` (one file, not three); a number field set to 0 means «automatic» (an emptied field cannot be typed back). Only a read-only gauge offers a style.
 
-### Checkpoint A - one styled gauge
-- [ ] `npm run test:e2e:prod` green
-- [ ] the user looks at the fuel gauge in the designer (look, panel) before the bar and the devices
+### Checkpoint A - one styled gauge ✓
+- [x] `npm run test:e2e:prod` green (2605 passed; the red ones fixed or flaky, see I5)
+- [x] the user looks at the fuel gauge in the designer (look, panel) before the bar and the devices («sieht gut aus», 2026-11-23)
 
 ## Phase 2 - the bar and motion in the designer
 
-### I5 - The fuel gauge as a bar
+### I5 - The fuel gauge as a bar ✓
 **Description:** face painters for the bar, horizontal and vertical (from
 `direction`), the *translate* primitive in `needle-raster.ts`;
 `render-level-indicator.ts` hands over when `style` is set;
 `level-indicator-properties.tsx` gets the same style controls (shared
 components from I4).
 **Acceptance:**
-- [ ] all four directions draw, the pointer moves along the scale
-- [ ] the bar's length follows the object, the face is rebaked at its size
+- [x] all four directions draw, the pointer moves along the scale
+- [x] the bar's length follows the object, the face is rebaked at its size
 **Verification:** `e2e/instrument-render.spec.ts` extended with bars; vectors for *translate*; `npm run test:e2e:prod`
 **Dependencies:** I4. **Files:** `instrument-faces/fuel.ts`, `render-level-indicator.ts`, `level-indicator-properties.tsx`, `lib/needle-raster.ts`, vectors. **Scope:** M.
+**Done 2026-11-23:** the bar's geometry (`barFrame`) lives in `lib/instrument.ts`, the pointer in `lib/instrument-needles.ts` `barNeedle()` with its travel in eighths (`shift = at × travel`, for the contract). Checkpoint A's `test:e2e:prod`: 2605 passed; of 7 red, `no-van-words` («tank» in a comment) and `property-panel` controls («Style», re-harvested) were this work and are fixed, the other five were timeouts under load, green on a rerun.
 
 ### I6 - Motion in the designer's preview
 **Description:** in «Preview» and the live view, a value change moves the

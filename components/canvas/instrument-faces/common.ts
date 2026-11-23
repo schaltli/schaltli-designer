@@ -175,3 +175,15 @@ export function settle565(ctx: Ctx, width: number, height: number, ground: { r: 
   }
   ctx.putImageData(img, 0, 0)
 }
+
+export { barFrame, type BarFrame, type BarDirection } from "@/lib/instrument"
+
+export function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}

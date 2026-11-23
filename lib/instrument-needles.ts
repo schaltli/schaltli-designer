@@ -6,7 +6,7 @@
  * and never needs this file.
  */
 import type { NeedleDescription, NeedleLayer } from "@/lib/needle-raster"
-import type { InstrumentStyle } from "@/lib/instrument"
+import { barFrame, STYLE_META, type BarDirection, type InstrumentStyle } from "@/lib/instrument"
 
 /** RGB565 from "#rrggbb", bits dropped as the framebuffers drop them. */
 export function hex565(hex: string): number {
@@ -62,5 +62,42 @@ export function gaugeNeedle(style: InstrumentStyle, size: number): NeedleDescrip
     case "fuel":
     default:
       return fuelGauge(size)
+  }
+}
+
+export interface BarNeedle {
+  desc: NeedleDescription
+  /** Where the pointer moves at full scale, in eighths: shift = at × travel. */
+  travelX: number
+  travelY: number
+}
+
+/**
+ * A styled bar's pointer, `width` × `height` running `direction`: given at
+ * position 0, moved along the scale by the needle raster's translate.
+ */
+export function barNeedle(style: InstrumentStyle, width: number, height: number, direction: BarDirection | undefined): BarNeedle {
+  const f = barFrame(width, height, direction, STYLE_META[style].barTrack)
+  const T = f.thickness
+  const q = (at: number, d: number, alongPx = 0): [number, number] => {
+    // `alongPx` nudges along the scale (for the triangle's base), whichever way it runs.
+    const [x, y] = f.point(at, d)
+    const [x1, y1] = f.point(at + 0.001, d)
+    const len = Math.hypot(x1 - x, y1 - y) || 1
+    return [Math.round((x + ((x1 - x) / len) * alongPx) * 8), Math.round((y + ((y1 - y) / len) * alongPx) * 8)]
+  }
+  const half = T * 0.07
+  const triangle: [number, number][] = [q(0, 0.47), q(0, 0.35, -half), q(0, 0.35, half)]
+  const [x0, y0] = f.point(0, 0)
+  const [x1, y1] = f.point(1, 0)
+  const shadowPx = Math.max(1, Math.round(T * 0.015))
+  const layers: NeedleLayer[] = [
+    { motion: "translate", shapes: [{ poly: triangle }], color: 0, alpha: 256, soft: softTable(170, shadowPx), dy: Math.max(8, Math.round(T * 0.02 * 8)) },
+    { motion: "translate", shapes: [{ poly: triangle }], color: hex565("#f4f4f4"), alpha: 256 },
+  ]
+  return {
+    desc: { pivot: { x: 0, y: 0 }, layers },
+    travelX: Math.round((x1 - x0) * 8),
+    travelY: Math.round((y1 - y0) * 8),
   }
 }

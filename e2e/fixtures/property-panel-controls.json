@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-11-16",
+  "harvestedAt": "2026-11-23",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -193,6 +193,7 @@
         "button: Shape",
         "select: Size",
         "button: Snap to M",
+        "select: Style",
         "select: Direction",
         "input:number: Thickness",
         "combobox: Setpoint topic",
@@ -284,6 +285,7 @@
         "combobox: Setpoint topic",
         "button: Shape",
         "select: Size",
+        "select: Style",
         "input:number: Min",
         "input:number: Max",
         "select: Direction",
