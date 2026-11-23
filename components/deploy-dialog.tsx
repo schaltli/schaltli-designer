@@ -64,6 +64,7 @@ import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 import { DeviceAddressLine } from "./device-address-line"
 import { clipFeature } from "@/lib/clip"
 import { guardFeature } from "@/lib/guard"
+import { instrumentFeature } from "@/lib/instrument-export"
 
 interface DeployDialogProps {
   project: Project
@@ -752,11 +753,14 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const clip = clipFeature(project as any)
   // And a guarded control: a device that ignores `guard` would switch on a tap (docs/2026-11-15-guard.md).
   const guard = guardFeature(project as any)
+  // And a styled gauge or bar: a device without it would draw the flat look
+  // in its place (docs/2026-11-23-instrument-styles.md, device contract §2.15).
+  const instrument = instrumentFeature(project as any)
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
   const staticFeature = deployTarget?.platform === "android" ? staticObjectsFeature(project as any) : null
-  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, clip, guard, staticFeature].filter(
+  const unsupportedFeatures = [localFeature, graphFeature, scaledFeature, buttonFeature, durationFeature, chartFeature, pinch, clip, guard, instrument, staticFeature].filter(
     (f): f is { feature: string; label: string } => f !== null && deviceFeatures !== null && !deviceFeatures.includes(f.feature),
   )
   const needs: ProjectNeed[] = [

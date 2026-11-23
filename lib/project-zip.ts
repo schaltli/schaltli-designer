@@ -8,6 +8,8 @@
 
 import { dedupAssets, withMovedAssets } from "@/lib/asset-dedup"
 import { withExportedGuard } from "@/lib/guard"
+import { exportedInstrument, instrumentFeature } from "@/lib/instrument-export"
+import { whenInstrumentFontsReady } from "@/lib/instrument-fonts"
 import { slimFontData } from "@/lib/project-font-data"
 import { assertCombinedExportable } from "@/lib/combined-topics"
 import { applyColorDepth } from "@/lib/color-depth"
@@ -292,6 +294,9 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // A circular reference among combined topics is refused, naming it
   // (lib/combined-topics.ts).
   assertCombinedExportable(rawProject)
+  // A styled face is baked in the style typefaces: never in a fallback
+  // (lib/instrument-fonts.ts).
+  if (instrumentFeature(rawProject as any)) await whenInstrumentFontsReady()
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
   // withIntegerProjectGeometry.
@@ -494,8 +499,22 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // screen (or navigator entry, lib/navigator-entries.ts entryKey) its
   // bakes were made for.
   // A guarded control carries its geometry (lib/guard.ts, device contract §2.14).
+  // A styled gauge or bar its baked face and its needle (lib/instrument-export.ts, §2.15).
   const deviceObject = (original: any, keyId: string): any =>
-    withExportedGuard(deviceObjectOf(original, keyId), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined)
+    withInstrument(
+      withExportedGuard(deviceObjectOf(original, keyId), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined),
+      keyId,
+    )
+  // What a styled face's edge pixels are mixed into: the screen's own
+  // colour, light (a styled face looks the same in dark, plan decision 1).
+  const groundByScreen = new Map(projectWithResolvedBackgrounds.screens.map((s) => [s.id, String(s.backgroundColor || "#ffffff")]))
+  const withInstrument = (obj: any, keyId: string): any => {
+    const exported = exportedInstrument(obj, groundByScreen.get(keyId) ?? "#ffffff")
+    if (!exported) return obj
+    // Named by content: a second identical face writes the same file again.
+    assetsFolder.file(exported.file.name.replace(/^assets\//, ""), exported.file.data)
+    return { ...obj, instrument: exported.instrument }
+  }
   const deviceObjectOf = (original: any, keyId: string): any => {
     // A Bar or Slider has no name or icon of its own any more
     // (2026-09-29). Loading a project drops them (migrateObjects); this

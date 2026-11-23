@@ -1514,6 +1514,74 @@ A value over MQTT changes the control as always. A device that moves nothing
   refuses it, or offers the firmware that declares it - one that ignored
   `guard` would switch on a tap.
 
+### 2.15 Instrument styles - feature `instrument-styles` (designer side 2026-11-23)
+
+docs/2026-11-23-instrument-styles.md. A read-only `gauge` or `bar` with
+`properties.style` is drawn as a physical instrument. It keeps every property
+its flat look has; beside them the export writes `instrument`
+(lib/instrument-export.ts `exportedInstrument`):
+
+```jsonc
+"instrument": {
+  "style": "fuel",
+  "face": "assets/face-1a2b3c4d.s565",      // the static layer, baked
+  "needle": {                                // the moving part (lib/needle-raster.ts)
+    "pivot": { "x": 800, "y": 1200 },        // eighths of a pixel, in the object's box
+    "layers": [
+      { "motion": "rotate" | "translate" | "static",
+        "shapes": [ { "poly": [[x, y], …] } | { "circle": [cx, cy, r, rInner?] } ],  // eighths
+        "color": 63422,                      // RGB565, packed
+        "alpha": 256,                        // out of 256, a body's opacity
+        "soft": [180, 120, 60],              // optional: a glow/shadow field, alpha by whole pixels outside
+        "dx": 0, "dy": 24 }                  // optional, eighths, added after turning
+    ]
+  },
+  "sweep":  { "from": -55, "to": 55 },       // gauge: degrees at position 0 and 1, 0 = up, clockwise
+  "travel": { "x": 1920, "y": 0 },           // bar: eighths the pointer moves at position 1
+  "spring": { "frequency": 0.45, "damping": 1 }  // absent: motion direct
+}
+```
+
+**The face** (`.s565`): `"S565"`, version byte `1`, width and height as
+little-endian u16, then width × height RGB565 pixels (little-endian u16, row
+by row), then one mask bit per pixel (row by row, lowest bit first): 1 where
+the face is drawn, 0 where what lies beneath shows (a round face's corners).
+Named by content: identical faces are one file. Same in light and dark.
+
+**Drawing at a value:** the position `at` (0..1) is the value through
+`calibrationPoints`, as for the flat look (no value: 0, the needle rests on
+its stop). A gauge's angle is `floor((from + (to - from) × at) × 64 + 0.5)`
+in 1/64 degree; a bar's shift is `round(at × travel.x)`, `round(at × travel.y)`.
+Draw the face, then each layer back to front:
+
+- A `rotate` layer's corners turn about `pivot` by the sine table
+  (`arcDirection`, §3): `S = d.x`, `C = -d.y`,
+  `x' = px + ((rx·C − ry·S + 8192) >> 14)`, `y'` alike with `rx·S + ry·C`.
+  A `translate` layer moves by the shift; a `static` one stays. `dx`/`dy`
+  are added after.
+- A body is filled with 4 × 4 sub-samples at eighths 1, 3, 5, 7: polygons by
+  `PolygonRaster`, circles and rings sampled the same way. Its alpha is
+  `alpha`, or `(alpha × coverage + 8) >> 4` on an edge.
+- A `soft` layer is a field: a pixel whose centre (`8x + 4`, `8y + 4`) lies
+  inside a shape takes `soft[0]`, one whose squared distance is below
+  `(8k)²` takes `soft[k]`, beyond the table nothing. A polygon's distance is
+  to its nearest edge (`floor(cross² / len²)` between the ends, int64); a
+  circle's `isqrt(d²) − r`. Polygons of a soft layer are convex.
+- Every pixel is mixed into what is there with `blend565` (§2.1, level glow).
+
+`lib/needle-raster/vectors.json` holds the reference pictures.
+
+**Motion:** a new value swings the needle with `spring` - a damped spring of
+that frequency (Hz) and damping ratio, stopped past either end at 0.025 (a
+needle hitting the pin keeps 30 % of its speed, reversed) - and comes to rest
+exactly at the new position. Its transient need not match the designer's
+frame for frame; the picture at rest must. Without `spring`, or on a device
+that moves nothing (the PaperS3), it jumps.
+
+- **Declare** `"instrument-styles"` in `supportedFeatures` (§1) once the device
+  does all of the above. A device without it never receives a project with a
+  styled instrument: Deploy refuses it, or offers the firmware that declares it.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008

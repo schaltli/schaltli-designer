@@ -1,0 +1,132 @@
+/**
+ * A styled gauge or bar as a device receives it - device contract §2.15,
+ * feature `instrument-styles` (docs/2026-11-23-instrument-styles.md, «Two
+ * layers»; tasks/instrument-styles-todo.md I7).
+ *
+ * The object keeps every property a flat gauge or bar has; beside them it
+ * carries `instrument`: the face, baked here, as a file of its own named by
+ * its content (two identical gauges share one), the needle as a description
+ * for lib/needle-raster.ts's ports, how a value turns or moves it, and the
+ * spring it swings with.
+ */
+import { isSettableLevel } from "@/lib/object-types"
+import { normalizeInstrument, STYLE_META } from "@/lib/instrument"
+import { bakedBarFace, bakedGaugeFace } from "@/lib/instrument-bake"
+import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
+import type { NeedleDescription } from "@/lib/needle-raster"
+
+export const INSTRUMENT_FEATURE = "instrument-styles"
+
+type Obj = { id?: string; type?: string; width?: number; height?: number; properties?: Record<string, any>; children?: Obj[] }
+
+/** Whether an object is drawn as a styled instrument: a read-only gauge or bar with a style. */
+export function isStyledInstrument(obj: Obj | null | undefined): boolean {
+  if (!obj || (obj.type !== "gauge" && obj.type !== "bar")) return false
+  if (isSettableLevel(obj.type)) return false
+  return Boolean(normalizeInstrument(obj.properties).style)
+}
+
+/** What a project needs of a device for its styled instruments, or null where it has none. */
+export function instrumentFeature(project: { screens?: Array<{ objects?: Obj[] }> }): { feature: string; label: string } | null {
+  let count = 0
+  const walk = (objects: Obj[] | undefined) => {
+    for (const o of objects ?? []) {
+      if (isStyledInstrument(o)) count++
+      walk(o.children)
+    }
+  }
+  for (const s of project.screens ?? []) walk(s.objects)
+  return count > 0 ? { feature: INSTRUMENT_FEATURE, label: `styled gauges and bars (${count})` } : null
+}
+
+/**
+ * A baked face as bytes (§2.15): "S565", version 1, width and height
+ * (little-endian u16), then width × height RGB565 pixels (little-endian
+ * u16, row by row), then a mask of one bit per pixel, row by row, the
+ * lowest bit first, 1 where the face is drawn - 0 leaves what lies beneath
+ * (a background image in a round face's corners).
+ */
+export function encodeFace565(canvas: HTMLCanvasElement): Uint8Array {
+  const w = canvas.width
+  const h = canvas.height
+  const data = canvas.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, w, h).data
+  const n = w * h
+  const out = new Uint8Array(9 + n * 2 + Math.ceil(n / 8))
+  out.set([0x53, 0x35, 0x36, 0x35, 1], 0) // "S565", version 1
+  out[5] = w & 255
+  out[6] = w >> 8
+  out[7] = h & 255
+  out[8] = h >> 8
+  const maskAt = 9 + n * 2
+  for (let i = 0; i < n; i++) {
+    const r = data[i * 4]
+    const g = data[i * 4 + 1]
+    const b = data[i * 4 + 2]
+    const drawn = data[i * 4 + 3] !== 0
+    const c = drawn ? ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3) : 0
+    out[9 + i * 2] = c & 255
+    out[10 + i * 2] = c >> 8
+    if (drawn) out[maskAt + (i >> 3)] |= 1 << (i & 7)
+  }
+  return out
+}
+
+/** FNV-1a over the bytes, as eight hex digits: the face file's name. */
+export function contentHash(bytes: Uint8Array): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i]
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(16).padStart(8, "0")
+}
+
+export interface ExportedInstrument {
+  style: string
+  /** Asset path of the baked face (§2.15 «S565»). */
+  face: string
+  /** The moving part (lib/needle-raster.ts). */
+  needle: NeedleDescription
+  /** Gauge: the needle's angle at position 0 and 1, degrees, 0 = up, clockwise. */
+  sweep?: { from: number; to: number }
+  /** Bar: how far the pointer moves at position 1, eighths of a pixel. */
+  travel?: { x: number; y: number }
+  /** The spring a value change swings with; absent when the motion is direct. */
+  spring?: { frequency: number; damping: number }
+}
+
+/**
+ * The `instrument` block and the face file for one styled object on a
+ * screen whose colour is `ground` (resolved, light). Null for anything
+ * else, or when the style typefaces are not loaded (the caller awaits them
+ * first: lib/instrument-fonts.ts whenInstrumentFontsReady).
+ */
+export function exportedInstrument(
+  obj: Obj,
+  ground: string,
+): { instrument: ExportedInstrument; file: { name: string; data: Uint8Array } } | null {
+  if (!isStyledInstrument(obj)) return null
+  const props = normalizeInstrument(obj.properties)
+  const style = props.style!
+  const w = Math.max(1, Math.round(obj.width ?? 1))
+  const h = Math.max(1, Math.round(obj.height ?? 1))
+  const gauge = obj.type === "gauge"
+  const size = Math.min(w, h)
+  const face = gauge ? bakedGaugeFace(obj.properties!, size, ground) : bakedBarFace(obj.properties!, w, h, ground)
+  if (!face) return null
+  const data = encodeFace565(face.canvas)
+  const name = `assets/face-${contentHash(data)}.s565`
+  const meta = STYLE_META[style]
+  const spring = props.motion === "direct" ? undefined : { ...meta.spring }
+  if (gauge) {
+    return {
+      instrument: { style, face: name, needle: gaugeNeedle(style, size), sweep: { from: meta.sweepFrom, to: meta.sweepTo }, ...(spring ? { spring } : {}) },
+      file: { name, data },
+    }
+  }
+  const bar = barNeedle(style, w, h, obj.properties?.direction)
+  return {
+    instrument: { style, face: name, needle: bar.desc, travel: { x: bar.travelX, y: bar.travelY }, ...(spring ? { spring } : {}) },
+    file: { name, data },
+  }
+}

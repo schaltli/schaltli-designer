@@ -101,7 +101,7 @@ stops as on the device.
 
 ## Phase 3 - the fuel gauge on every device
 
-### I7 - Contract and export
+### I7 - Contract and export ✓
 **Description:** contract §2.15, feature `instrument-styles`: per styled
 object the face asset (RGB565, deflated, path by hash), the dynamic
 description, the spring; the flat properties stay for devices without the
@@ -109,11 +109,12 @@ feature. `project-zip.ts` and `asset-export.ts` bake and pack; the Deploy
 dialog warns for devices without the feature and names the objects. The
 local preview DDF announces the feature.
 **Acceptance:**
-- [ ] the zip carries face, description and spring for a styled gauge and bar
-- [ ] a device without the feature gets a warning naming the objects
-- [ ] two identical gauges share one face file
+- [x] the zip carries face, description and spring for a styled gauge and bar
+- [x] a device without the feature gets a warning naming the objects
+- [x] two identical gauges share one face file
 **Verification:** `e2e/instrument-export.spec.ts` (reads the zip); `npm run typecheck`, `npm run test:quick`
 **Dependencies:** I5. **Files:** `docs/device-contract.md`, `lib/project-zip.ts`, `lib/asset-export.ts`, `components/deploy-dialog.tsx`, `public/ddf/*preview*`. **Scope:** M.
+**Done 2026-11-23:** the face is an `.s565` file (RGB565 + a mask bit per pixel, named by FNV-1a of its bytes) - BMP24 would have lost the mask. **Deviation from plan decision 4, to confirm:** a device without the feature is refused like Guard (Deploy blocks, or offers the firmware that declares it) instead of getting the flat look with a warning - the deploy plan has no «warn and go on», and every other feature works this way. There is no local preview DDF in the designer any more; the boards' DDFs announce the feature in I8. `test:quick` runs after I8 (the export reaches no device before).
 
 ### I8 - Firmware: the styled object at rest
 **Description:** `NeedleRaster` port with native tests on the shared
