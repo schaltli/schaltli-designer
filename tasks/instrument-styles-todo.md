@@ -10,7 +10,7 @@ permanent test it adds.
 
 ## Phase 1 - one styled gauge in the designer
 
-### I1 - The core: properties, scale, defaults
+### I1 - The core: properties, scale, defaults ✓
 **Description:** `lib/instrument.ts`: the `InstrumentStyle` id list, the
 new properties (`style`, `caption`, `unit`, `scale`, `zones`, `motion`,
 `readout`) with their normalizer and defaults, and the scale: ticks from
@@ -20,9 +20,9 @@ VOLL», numbers) filled from the range, zones, every position through
 `calibrationPoints` and the style's sweep. Style metadata per id: sweep,
 spring, minimum tick spacing, which slots it has (readout, caption).
 **Acceptance:**
-- [ ] ticks, labels and zones land unevenly on a non-linear calibration
-- [ ] automatic ticks thin out from 400 px to 100 px
-- [ ] a project without `style` normalizes exactly as before
+- [x] ticks, labels and zones land unevenly on a non-linear calibration
+- [x] automatic ticks thin out from 400 px to 100 px
+- [x] a project without `style` normalizes exactly as before
 **Verification:** vectors in `lib/instrument/vectors.json`, checked by `e2e/instrument-core.spec.ts`; `npm run typecheck`
 **Dependencies:** none. **Files:** `lib/instrument.ts`, `lib/instrument/vectors.json`, `e2e/instrument-core.spec.ts`, `components/project-editor.tsx` (normalizer hook). **Scope:** M.
 

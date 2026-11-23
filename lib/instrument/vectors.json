@@ -1,0 +1,90 @@
+{
+  "_comment": "lib/instrument.ts - cases every port runs (designer e2e/instrument-core.spec.ts). Expected values worked out by hand from the rules in instrument.ts, not copied from its output.",
+  "scale": [
+    {
+      "name": "linear 0-100 at 300 px: step 20, four subdivisions",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 100, "barSizePercent": 100 }],
+      "props": { "style": "fuel" },
+      "lengthPx": 300,
+      "expected": { "majorStep": 20, "minorPerMajor": 4, "tickCount": 21, "majors": [0, 20, 40, 60, 80, 100], "labels": ["0", "20", "40", "60", "80", "100"], "dense": false }
+    },
+    {
+      "name": "the same at 100 px thins out: step 50, five subdivisions",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 100, "barSizePercent": 100 }],
+      "props": { "style": "fuel" },
+      "lengthPx": 100,
+      "expected": { "majorStep": 50, "minorPerMajor": 5, "tickCount": 11, "majors": [0, 50, 100], "labels": ["0", "50", "100"], "dense": false }
+    },
+    {
+      "name": "non-linear calibration spaces the ticks unevenly",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 50, "barSizePercent": 80 }, { "value": 100, "barSizePercent": 100 }],
+      "props": { "style": "fuel", "scale": { "majorStep": 25, "minorPerMajor": 1 } },
+      "lengthPx": 300,
+      "expected": { "majorStep": 25, "minorPerMajor": 1, "tickCount": 5, "majors": [0, 25, 50, 75, 100], "ticksAt": [0, 0.4, 0.8, 0.9, 1], "labels": ["0", "25", "50", "75", "100"], "dense": false }
+    },
+    {
+      "name": "a factor divides the labels (W × 100)",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 400, "barSizePercent": 100 }],
+      "props": { "style": "cockpit", "scale": { "majorStep": 100, "factor": 100 } },
+      "lengthPx": 300,
+      "expected": { "majorStep": 100, "minorPerMajor": 5, "tickCount": 21, "majors": [0, 100, 200, 300, 400], "labels": ["0", "1", "2", "3", "4"], "dense": false }
+    },
+    {
+      "name": "volts 10-16: step 1, five subdivisions of 0.2",
+      "calibration": [{ "value": 10, "barSizePercent": 0 }, { "value": 16, "barSizePercent": 100 }],
+      "props": { "style": "roadster" },
+      "lengthPx": 300,
+      "expected": { "majorStep": 1, "minorPerMajor": 5, "tickCount": 31, "majors": [10, 11, 12, 13, 14, 15, 16], "labels": ["10", "11", "12", "13", "14", "15", "16"], "dense": false }
+    },
+    {
+      "name": "a fractional step gets a decimal",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 1.5, "barSizePercent": 100 }],
+      "props": { "style": "coil" },
+      "lengthPx": 150,
+      "expected": { "majorStep": 0.5, "minorPerMajor": 5, "tickCount": 16, "majors": [0, 0.5, 1, 1.5], "labels": ["0.0", "0.5", "1.0", "1.5"], "dense": false }
+    },
+    {
+      "name": "a hand-set scale too dense for the size is flagged",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 100, "barSizePercent": 100 }],
+      "props": { "style": "fuel", "scale": { "majorStep": 5, "minorPerMajor": 5 } },
+      "lengthPx": 300,
+      "expected": { "majorStep": 5, "minorPerMajor": 5, "tickCount": 101, "dense": true }
+    },
+    {
+      "name": "labels set by hand keep their text, inside the range only",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 200, "barSizePercent": 100 }],
+      "props": { "style": "fuel", "scale": { "labels": [{ "value": 0, "text": "E" }, { "value": 100, "text": "½" }, { "value": 200, "text": "F" }, { "value": 300, "text": "X" }] } },
+      "lengthPx": 160,
+      "expected": { "labels": ["E", "½", "F"], "labelsAt": [0, 0.5, 1] }
+    }
+  ],
+  "zones": [
+    {
+      "name": "zones map to positions and are clipped to the range",
+      "calibration": [{ "value": 0, "barSizePercent": 0 }, { "value": 100, "barSizePercent": 100 }],
+      "zones": [{ "from": 0, "to": 12, "kind": "danger" }, { "from": 12, "to": 25, "kind": "warning" }, { "from": 90, "to": 150, "kind": "ok" }, { "from": 120, "to": 140, "kind": "ok" }],
+      "expected": [{ "from": 0, "to": 0.12, "kind": "danger" }, { "from": 0.12, "to": 0.25, "kind": "warning" }, { "from": 0.9, "to": 1, "kind": "ok" }]
+    }
+  ],
+  "presets": [
+    { "preset": "fuel", "min": 0, "max": 200, "expected": [{ "value": 0, "text": "E" }, { "value": 100, "text": "½" }, { "value": 200, "text": "F" }] },
+    { "preset": "words", "min": 10, "max": 20, "expected": [{ "value": 10, "text": "LEER" }, { "value": 15, "text": "HALB" }, { "value": 20, "text": "VOLL" }] },
+    { "preset": "numbers", "min": 0, "max": 100, "expected": null }
+  ],
+  "angles": [
+    { "style": "fuel", "at": 0, "expected": -55 },
+    { "style": "fuel", "at": 0.5, "expected": 0 },
+    { "style": "pressure", "at": 1, "expected": 135 },
+    { "style": "coil", "at": 0.25, "expected": -20 }
+  ],
+  "normalize": [
+    { "name": "no style: nothing, drawn as before", "props": { "fillColor": "#fff", "caption": "X" }, "expected": {} },
+    { "name": "unknown style: nothing", "props": { "style": "chrome" }, "expected": {} },
+    {
+      "name": "junk dropped, zones ordered, readout only where the style has one",
+      "props": { "style": "fuel", "caption": "FRESH WATER", "unit": "", "motion": "bounce", "readout": true, "scale": { "majorStep": -5, "minorPerMajor": 2.6, "labels": [{ "value": 0, "text": "E" }, { "text": "?" }] }, "zones": [{ "from": 12, "to": 0, "kind": "danger" }, { "from": 5, "to": 5, "kind": "ok" }, { "from": 0, "to": 9, "kind": "red" }] },
+      "expected": { "style": "fuel", "caption": "FRESH WATER", "motion": "style", "readout": false, "scale": { "minorPerMajor": 3, "labels": [{ "value": 0, "text": "E" }] }, "zones": [{ "from": 0, "to": 12, "kind": "danger" }] }
+    },
+    { "name": "a style with a readout shows it unless switched off", "props": { "style": "vfd", "motion": "direct" }, "expected": { "style": "vfd", "motion": "direct", "readout": true } }
+  ]
+}
