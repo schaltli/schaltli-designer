@@ -28,6 +28,8 @@ import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { isSettableLevel } from "@/lib/object-types"
 import { WriteFormatField } from "@/components/property-panel/fields/write-format-field"
+import { InstrumentSections, InstrumentStyleField } from "@/components/property-panel/fields/instrument-fields"
+import { normalizeInstrument } from "@/lib/instrument"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import { formatClock } from "@/lib/arc-raster"
@@ -95,6 +97,15 @@ export function ArcLevelProperties({
   }
 
   const props = selectedObject.properties
+  // A read-only gauge can be a styled instrument; with a style set, what the
+  // style fixes (sweep, thickness, colours, the value's text) is not offered
+  // (docs/2026-11-23-instrument-styles.md, decision 1).
+  const styled = !isSettableLevel(selectedObject.type) && Boolean(normalizeInstrument(props).style)
+  const updateProperties = (patch: Record<string, any>) => {
+    const next: Record<string, any> = { ...selectedObject.properties, ...patch }
+    for (const k of Object.keys(patch)) if (patch[k] === undefined) delete next[k]
+    onUpdateObject(selectedObject.id, { properties: next })
+  }
   const minAngle = props.minAngle ?? 225
   const maxAngle = props.maxAngle ?? 135
   const settable = isSettableLevel(selectedObject.type)
@@ -132,15 +143,17 @@ export function ArcLevelProperties({
 
   return (
     <PropertySections>
-      <PropertySection title="Content">
-        <SelectField
-          id="arcDisplayValue"
-          label="Show value"
-          value={props.displayValue || "value"}
-          options={SHOW_VALUE}
-          onChange={(value) => updateProperty("displayValue", value)}
-        />
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Content">
+          <SelectField
+            id="arcDisplayValue"
+            label="Show value"
+            value={props.displayValue || "value"}
+            options={SHOW_VALUE}
+            onChange={(value) => updateProperty("displayValue", value)}
+          />
+        </PropertySection>
+      ) : null}
 
       <PropertySection title="Data">
         <TopicField
@@ -226,54 +239,61 @@ export function ArcLevelProperties({
             onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
           />
         ) : null}
-        {/* The ends are dragged on the ring itself; these are for the
-            angle a drag cannot land on, since it moves in half hours
-            (docs/2026-09-21-arc-handles.md). */}
-        <NumberPair
-          label="Angles"
-          names={["Min", "Max"]}
-          values={[minAngle, maxAngle]}
-          onChange={(index, value) =>
-            updateProperty(index === 0 ? "minAngle" : "maxAngle", (((value || 0) % 360) + 360) % 360)
-          }
-          unit="°"
-          min={0}
-          max={359}
-          hint="Degrees, zero at twelve o'clock. The clock snaps to half hours because a quarter hour is 7.5 degrees and cannot be stored whole."
-        />
-        <FieldNote>
-          Min ({formatClock(minAngle)}) to Max ({formatClock(maxAngle)}).
-        </FieldNote>
+        {!settable ? <InstrumentStyleField properties={props} onChange={updateProperties} /> : null}
+        {!styled ? (
+          <>
+            {/* The ends are dragged on the ring itself; these are for the
+                angle a drag cannot land on, since it moves in half hours
+                (docs/2026-09-21-arc-handles.md). */}
+            <NumberPair
+              label="Angles"
+              names={["Min", "Max"]}
+              values={[minAngle, maxAngle]}
+              onChange={(index, value) =>
+                updateProperty(index === 0 ? "minAngle" : "maxAngle", (((value || 0) % 360) + 360) % 360)
+              }
+              unit="°"
+              min={0}
+              max={359}
+              hint="Degrees, zero at twelve o'clock. The clock snaps to half hours because a quarter hour is 7.5 degrees and cannot be stored whole."
+            />
+            <FieldNote>
+              Min ({formatClock(minAngle)}) to Max ({formatClock(maxAngle)}).
+            </FieldNote>
 
-        <SelectField
-          id="arcDirection"
-          label="Direction"
-          value={props.direction || "cw"}
-          options={DIRECTIONS}
-          onChange={(value) => updateProperty("direction", value)}
-          hint="Which way round the dial the scale runs from min to max - so the other way between the same two positions is the complementary arc, not a mirrored one. For a mirrored dial, name the ends in the order the scale runs."
-        />
-        {/* A ring thicker than half the object has no hole left: its inner
-            edge would be at or past the centre. The renderer has always
-            clamped it there (buildGeometry), which meant a number could be
-            typed in and silently ignored - so the field stops at the same
-            place instead. */}
-        <NumberField
-          id="arcThickness"
-          label="Thickness"
-          value={props.thickness ?? LEVEL_DEFAULT_THICKNESS}
-          onChange={(value) => updateProperty("thickness", Math.min(maxThickness, Math.max(1, value)))}
-          min={1}
-          max={maxThickness}
-          unit="px"
-          hint={`At most half the object, which is ${maxThickness} px here - a thicker ring would have no hole.`}
-        />
-        {(props.thickness ?? LEVEL_DEFAULT_THICKNESS) > maxThickness ? (
-          <FieldNote>
-            Stored as {props.thickness}, drawn at {maxThickness} - the object was made smaller after this was set.
-          </FieldNote>
+            <SelectField
+              id="arcDirection"
+              label="Direction"
+              value={props.direction || "cw"}
+              options={DIRECTIONS}
+              onChange={(value) => updateProperty("direction", value)}
+              hint="Which way round the dial the scale runs from min to max - so the other way between the same two positions is the complementary arc, not a mirrored one. For a mirrored dial, name the ends in the order the scale runs."
+            />
+            {/* A ring thicker than half the object has no hole left: its inner
+                edge would be at or past the centre. The renderer has always
+                clamped it there (buildGeometry), which meant a number could be
+                typed in and silently ignored - so the field stops at the same
+                place instead. */}
+            <NumberField
+              id="arcThickness"
+              label="Thickness"
+              value={props.thickness ?? LEVEL_DEFAULT_THICKNESS}
+              onChange={(value) => updateProperty("thickness", Math.min(maxThickness, Math.max(1, value)))}
+              min={1}
+              max={maxThickness}
+              unit="px"
+              hint={`At most half the object, which is ${maxThickness} px here - a thicker ring would have no hole.`}
+            />
+            {(props.thickness ?? LEVEL_DEFAULT_THICKNESS) > maxThickness ? (
+              <FieldNote>
+                Stored as {props.thickness}, drawn at {maxThickness} - the object was made smaller after this was set.
+              </FieldNote>
+            ) : null}
+          </>
         ) : null}
       </PropertySection>
+
+      {styled ? <InstrumentSections properties={props} onChange={updateProperties} /> : null}
 
       {/* The same piecewise-linear table the bar uses, and the same shared
           interpolation, so the two cannot drift. */}
@@ -305,69 +325,73 @@ export function ArcLevelProperties({
         {points.length === 0 ? <FieldNote>Each point maps a value to how far round the ring is filled.</FieldNote> : null}
       </PropertySection>
 
-      <PropertySection title="Text">
-        {textScale ? (
-          // On a device with a scale the value is set in a style, like text
-          // (docs/2026-09-30-size-scale.md).
-          <TextStyleField
-            textStyle={props.textStyle}
-            textBold={props.textBold === true}
-            fontId={props.fontId}
-            fontSize={props.fontSize}
-            fonts={fonts}
-            scale={textScale}
-            onChange={(styled) =>
-              onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
-            }
-          />
-        ) : (
-          <FontField
-            value={props.fontId}
-            fonts={fonts}
-            onChange={(value) => updateProperty("fontId", value)}
-            onManageFonts={onManageFonts}
-          />
-        )}
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Text">
+          {textScale ? (
+            // On a device with a scale the value is set in a style, like text
+            // (docs/2026-09-30-size-scale.md).
+            <TextStyleField
+              textStyle={props.textStyle}
+              textBold={props.textBold === true}
+              fontId={props.fontId}
+              fontSize={props.fontSize}
+              fonts={fonts}
+              scale={textScale}
+              onChange={(styled) =>
+                onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
+              }
+            />
+          ) : (
+            <FontField
+              value={props.fontId}
+              fonts={fonts}
+              onChange={(value) => updateProperty("fontId", value)}
+              onManageFonts={onManageFonts}
+            />
+          )}
+        </PropertySection>
+      ) : null}
 
-      <PropertySection title="Colour">
-        <ColorField
-          label="Fill"
-          value={props.fillColor || "accent"}
-          onChange={(value) => updateProperty("fillColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-        {/* The empty track and an edge round it: roles of the theme since
-            2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
-        <ColorField
-          label="Track"
-          value={selectedObject.properties.trackColor || "track"}
-          onChange={(value) => updateProperty("trackColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-        <ColorField
-          label="Track edge"
-          value={selectedObject.properties.trackEdgeColor || "trackEdge"}
-          onChange={(value) => updateProperty("trackEdgeColor", value)}
-          colorDepth={colorDepth}
-          transparentLabel="None"
-        />
-        {/* The track and the handle are not colours any more: the unfilled
-            part is this colour mixed halfway into what the ring stands on,
-            and the handle is this colour itself - exactly the bar's rule
-            since 2026-09-22 (docs/2026-09-22-arc-look.md). A ring on a panel
-            that cannot show the mixture draws the track as an outline
-            instead. */}
-        <ColorField
-          label="Text"
-          value={props.textColor || props.color || "text"}
-          onChange={(value) => updateProperty("textColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-      </PropertySection>
+      {!styled ? (
+        <PropertySection title="Colour">
+          <ColorField
+            label="Fill"
+            value={props.fillColor || "accent"}
+            onChange={(value) => updateProperty("fillColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+          {/* The empty track and an edge round it: roles of the theme since
+              2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
+          <ColorField
+            label="Track"
+            value={selectedObject.properties.trackColor || "track"}
+            onChange={(value) => updateProperty("trackColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+          <ColorField
+            label="Track edge"
+            value={selectedObject.properties.trackEdgeColor || "trackEdge"}
+            onChange={(value) => updateProperty("trackEdgeColor", value)}
+            colorDepth={colorDepth}
+            transparentLabel="None"
+          />
+          {/* The track and the handle are not colours any more: the unfilled
+              part is this colour mixed halfway into what the ring stands on,
+              and the handle is this colour itself - exactly the bar's rule
+              since 2026-09-22 (docs/2026-09-22-arc-look.md). A ring on a panel
+              that cannot show the mixture draws the track as an outline
+              instead. */}
+          <ColorField
+            label="Text"
+            value={props.textColor || props.color || "text"}
+            onChange={(value) => updateProperty("textColor", value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+        </PropertySection>
+      ) : null}
 
       <PropertySection
         title="Frame"

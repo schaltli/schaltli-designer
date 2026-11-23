@@ -54,18 +54,19 @@ glass), the bake cache keyed by a hash of what shows on the face, and
 **Dependencies:** I1, I2. **Files:** `components/canvas/instrument-faces/{fuel,common}.ts`, `components/canvas/renderers/render-instrument.ts`, `render-arc-level.ts`, `lib/instrument-bake.ts`, `public/fonts/*`. **Scope:** L - split the font bundling into its own commit.
 **Done 2026-11-23:** the glass crescent is baked into the face (under the needle) for now, not a top layer of the needle; hand-set labels at even steps now set the major ticks (vector added). Unrelated: `arc-level.spec.ts` «dragged on the ring» flaked once under 4 workers, green alone.
 
-### I4 - The property panel for a styled gauge
+### I4 - The property panel for a styled gauge ✓
 **Description:** in `arc-level-properties.tsx`: **Style** (with «Flat» for
 today's look), **Caption**, **Unit**, **Scale** (major step, subdivisions,
 decimals, factor, label preset and the editable label list), **Zones**
 (from, to, Danger/Warning/OK), **Motion** (Style / Direct). Properties the
 style ignores are hidden.
 **Acceptance:**
-- [ ] every new property can be set and undone
-- [ ] the label preset fills from the range, each label can then be edited (decision 3)
-- [ ] with «Flat» the panel is unchanged
+- [x] every new property can be set and undone
+- [x] the label preset fills from the range, each label can then be edited (decision 3)
+- [x] with «Flat» the panel is unchanged
 **Verification:** `e2e/instrument-panel.spec.ts`; `npm run test:e2e:prod`
 **Dependencies:** I3. **Files:** `components/property-panel/arc-level-properties.tsx`, `components/property-panel/instrument-scale-editor.tsx` (new), `components/property-panel/instrument-zones-editor.tsx` (new). **Scope:** M.
+**Done 2026-11-23:** the shared fields live in `components/property-panel/fields/instrument-fields.tsx` (one file, not three); a number field set to 0 means «automatic» (an emptied field cannot be typed back). Only a read-only gauge offers a style.
 
 ### Checkpoint A - one styled gauge
 - [ ] `npm run test:e2e:prod` green
