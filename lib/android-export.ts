@@ -1,5 +1,7 @@
 import JSZip from "jszip"
 import { withExportedGuard } from "@/lib/guard"
+import { exportedInstrumentPng, instrumentFeature, isStyledInstrument } from "@/lib/instrument-export"
+import { whenInstrumentFontsReady } from "@/lib/instrument-fonts"
 import { assertCombinedExportable } from "./combined-topics"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
@@ -700,6 +702,32 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     }
   })
 
+  // Styled gauges and bars (device contract §2.15): each face baked as a
+  // PNG against its screen's colour, light - a styled face looks the same in
+  // dark (docs/2026-11-23-instrument-styles.md). Worked out here, before the
+  // JSON, because baking a PNG waits.
+  if (instrumentFeature(project as any)) await whenInstrumentFontsReady()
+  const instruments = new Map<string, any>()
+  for (const { screen, jsonObjects, backgroundColor } of resolvedScreens) {
+    const walk = async (objects: any[]) => {
+      for (const o of objects ?? []) {
+        if (isStyledInstrument(o)) {
+          const exported = await exportedInstrumentPng(o, backgroundColor || "#ffffff")
+          if (exported) {
+            assets.file(exported.file.name.replace(/^assets\//, ""), exported.file.data)
+            instruments.set(`${screen.id}:${o.id}`, exported.instrument)
+          }
+        }
+        if (o.children) await walk(o.children)
+      }
+    }
+    await walk(jsonObjects)
+  }
+  const withInstrument = (obj: any, screenId: string) => {
+    const instrument = instruments.get(`${screenId}:${obj.id}`)
+    return instrument ? { ...obj, instrument } : obj
+  }
+
   const exportProject = {
     platform: "android",
     // Which phone it is made for, so the app can say so when a project made
@@ -784,7 +812,8 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         // The navigator goes once, in navigators[]; a screen names it.
         objects: mapObjectsDeep(
           jsonObjects.filter((o: any) => o.type !== "navigator"),
-          (original: any) => withExportedGuard(appObject(original, screen.id), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined),
+          (original: any) =>
+            withInstrument(withExportedGuard(appObject(original, screen.id), project.fonts ?? [], Number(project.settings?.pixelsPerMm) || undefined), screen.id),
         ),
       }
     }),

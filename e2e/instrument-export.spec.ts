@@ -145,3 +145,23 @@ test("a device without the feature is told which objects it cannot show", () => 
   expect((plan as any).reason).toContain("styled gauges and bars (4)")
   expect(instrumentFeature({ screens: [{ objects: [{ type: "gauge", properties: {} }] }] })).toBeNull()
 })
+
+test("the Android bundle carries the same instrument, its face as a PNG", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  const zipBase64: string = await page.evaluate((p) => (window as any).__buildAndroidZipForTest(p), project())
+  const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
+  const json = JSON.parse(await zip.file("project.json")!.async("string"))
+  const objects: any[] = json.screens.find((s: any) => s.id === "s1").objects
+  const g1 = objects.find((o) => o.id === "g1")
+  expect(g1.instrument.face).toMatch(/^assets\/faces\/[0-9a-f]{8}\.png$/)
+  expect(g1.instrument.sweep).toEqual({ from: -55, to: 55 })
+  expect(objects.find((o) => o.id === "g2").instrument.face).toBe(g1.instrument.face)
+  expect(objects.find((o) => o.id === "b1").instrument.travel).toEqual({ x: 1920, y: 0 })
+  expect(objects.find((o) => o.id === "flat").instrument).toBeUndefined()
+  const png = await zip.file(g1.instrument.face)!.async("uint8array")
+  // PNG signature, then IHDR's width and height (big-endian).
+  expect(Array.from(png.slice(1, 4))).toEqual([0x50, 0x4e, 0x47])
+  const be = (i: number) => (png[i] << 24) | (png[i + 1] << 16) | (png[i + 2] << 8) | png[i + 3]
+  expect([be(16), be(20)]).toEqual([160, 160])
+})

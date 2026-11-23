@@ -130,3 +130,28 @@ export function exportedInstrument(
     file: { name, data },
   }
 }
+
+/**
+ * The same for the Android bundle: the face as a PNG (`assets/faces/`, named
+ * by its content), every other field as for a board. The app decodes it
+ * with BitmapFactory; transparent pixels are what the face does not cover.
+ */
+export async function exportedInstrumentPng(
+  obj: Obj,
+  ground: string,
+): Promise<{ instrument: ExportedInstrument; file: { name: string; data: Uint8Array } } | null> {
+  const board = exportedInstrument(obj, ground)
+  if (!board) return null
+  const props = normalizeInstrument(obj.properties)
+  const w = Math.max(1, Math.round(obj.width ?? 1))
+  const h = Math.max(1, Math.round(obj.height ?? 1))
+  const face = obj.type === "gauge" ? bakedGaugeFace(obj.properties!, Math.min(w, h), ground) : bakedBarFace(obj.properties!, w, h, ground)
+  if (!face || !props.style) return null
+  const blob: Blob = await new Promise((resolve, reject) =>
+    face.canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("the face did not encode as PNG"))), "image/png"),
+  )
+  const data = new Uint8Array(await blob.arrayBuffer())
+  // Named by the board's file's content: the same face, the same name.
+  const name = board.instrument.face.replace(/^assets\/face-/, "assets/faces/").replace(/\.s565$/, ".png")
+  return { instrument: { ...board.instrument, face: name }, file: { name, data } }
+}
