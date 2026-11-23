@@ -2,8 +2,8 @@
 // styles.md «Motion», device contract §2.15, tasks/instrument-styles-todo.md
 // I9): a 400 px fuel gauge goes from 0 to 100 with its spring, and
 //
-//   1. the swing is drawn at 25 frames a second or more (the spike measured
-//      35 for a needle with a shadow),
+//   1. the swing is drawn at the board's frame rate or more (minFpsFor:
+//      25, the RGB-panel boards 12),
 //   2. the board answers its web interface all the while (a value or a tap
 //      must not wait for the needle),
 //   3. it comes to rest on exactly the picture the same gauge draws at 100
@@ -24,7 +24,11 @@ const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const RUN = `${require("../device-tag").deviceTag()}-${Date.now().toString(36)}`
 const TOPIC = `hil-instrument-${RUN}/fuel`
-const MIN_FPS = 25
+// The frame rate a board must reach (the user, 2026-11-23): 25 where the
+// canvas lives in internal memory's reach (knob, T-Encoder: 30+ measured);
+// 12 on the RGB-panel boards, whose canvas is PSRAM the panel scans from
+// (4.3B 13.9, 4" 15.2 measured) - accepted as it is.
+const minFpsFor = (ddf) => (/waveshare-touch-lcd-(4|4v3b|7)\b/.test(ddf.deviceId || "") ? 12 : 25)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function arg(name) {
@@ -148,6 +152,7 @@ async function main() {
     process.exit(2)
   }
   const ddf = await loadDdf(device)
+  const MIN_FPS = minFpsFor(ddf)
   if (!(ddf.raw?.supportedFeatures ?? []).includes("instrument-styles")) {
     console.warn(`SKIPPED - ${device} does not declare instrument-styles`)
     process.exit(2)

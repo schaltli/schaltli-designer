@@ -131,26 +131,26 @@ primitive used so far.
 **Dependencies:** I7. **Files:** `src/project/NeedleRaster.{h,cpp}`, `test/test_needle/`, `src/project/ColorScreenRenderer.cpp`, `src/project/ProjectLoader.cpp`, `ddf-source*/`, `hil/conformance/specimens.js`. **Scope:** L - port and renderer in two commits.
 **Done 2026-11-23:** NeedleRaster byte-identical to the vectors; `test:quick` (with the HIL broker up): conformance 88/88 on the 4.3B and the 4", «instrument-fuel» included. e2e there: 9 red, the known save/place timeouts under load, unrelated. Faces as `.s565` read into PSRAM (InstrumentFace).
 
-### I9 - Firmware: motion
+### I9 - Firmware: motion ✓
 **Description:** the spring per styled object in the boards' loops: on a
 value change, dirty-rectangle redraws until it rests (rgbpanel via
 `blitRegion`, knob and T-Encoder through their presenter, PaperS3
 `direct`). Measured per board with the spike's method; a board too slow
 falls back to `direct`, recorded in its DDF.
 **Acceptance:**
-- [ ] on the 4.3B a swing of a 400 px fuel gauge runs at ≥ 25 fps and ends on the static picture
-- [ ] touch and MQTT stay responsive during a swing (existing latency check)
-- [ ] the knob's and T-Encoder's result recorded, with their fallback if needed
+- [x] ~~on the 4.3B a swing of a 400 px fuel gauge runs at ≥ 25 fps~~ 14 fps on the 4.3B, 15 on the 4" - accepted by the user (2026-11-23), threshold 12 there, 25 elsewhere; ends on the static picture everywhere
+- [x] touch and MQTT stay responsive during a swing (existing latency check)
+- [x] the knob's and T-Encoder's result recorded, with their fallback if needed
 **Verification:** new HIL check `hil/waveshare4v3b/instrument-motion.js` (frame count and final snapshot); `npm run test:quick`
 **Dependencies:** I8. **Files:** `src/boards/rgbpanel/main.cpp`, `src/main.cpp` (knob), `src/boards/lilygotencoderpro/`, `src/project/InstrumentMotion.h` (new). **Scope:** M.
-**Status 2026-11-23 - halted, a decision for the user:** motion works on every board and comes to rest pixel-identical to motion direct (`hil/waveshare4v3b/instrument-motion.js`). Measured, 400 px fuel gauge, 0 -> 100:
+**Done 2026-11-23** (after a halt; the user: «so annehmen, weiter»): motion works on every board and comes to rest pixel-identical to motion direct (`hil/waveshare4v3b/instrument-motion.js`). Measured, 400 px fuel gauge, 0 -> 100:
 | board | fps | worst frame | answers | at rest |
 |---|---|---|---|---|
 | knob | 33.4 | 22.9 ms | 115 ms | identical |
 | T-Encoder | 30.2 | 25.5 ms | 131 ms | identical |
 | 4.3B | 13.9 | 96.9 ms | 82 ms | identical |
 | 4" | 15.2 | 63.2 ms | 2423 ms once | identical |
-On the RGB-panel boards the canvas lives in PSRAM the panel scans from: blending costs ~4 us a pixel (the spike ~1.7), the shadow's ~5000 pixels ~21 ms, plus a loop turn of 21-35 ms of its own. The raster got every exact speed-up there was (int32, spans in float once per shape, thresholds per row, circle fast path, clip-bound loops): knob and T-Encoder went from ~20 to 30+ fps, the 4.3B from 10 to 14. 25 fps at 400 px on the 4.3B/4" needs a change of approach - ask.
+On the RGB-panel boards the canvas lives in PSRAM the panel scans from: blending costs ~4 us a pixel (the spike ~1.7), the shadow's ~5000 pixels ~21 ms, plus a loop turn of 21-35 ms of its own. The raster got every exact speed-up there was (int32, spans in float once per shape, thresholds per row, circle fast path, clip-bound loops): knob and T-Encoder went from ~20 to 30+ fps, the 4.3B from 10 to 14. The check runs in every lane but the PaperS3 (`hil/test-all.js`, quick).
 
 ### I10 - Android
 **Description:** `PolygonRaster.kt` and `NeedleRaster.kt` ports with unit

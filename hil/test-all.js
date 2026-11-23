@@ -986,6 +986,29 @@ async function main() {
     step(name, () => scaledValues(name, device), { quick: true })
   }
 
+  // A styled needle swinging (designer docs/2026-11-23-instrument-styles.md,
+  // tasks/instrument-styles-todo.md I9): frames per second, an answering
+  // board meanwhile, and a rest pixel-identical to motion direct. Not on the
+  // PaperS3, which moves nothing. Installs its own project.
+  const instrumentMotion = async (name, device) => {
+    console.log(`
+=== ${name} instrument motion (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/waveshare4v3b/instrument-motion.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-instrument-motion`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}, or no instrument motion yet`
+          : exitCode === 0
+            ? "a 400 px fuel gauge swings 0 to 100 at the board's frame rate, the board answers, and rests on the motion-direct picture"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["tenc", TENCODER_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE], ["ws4", WAVESHARE_4_DEVICE]]) {
+    step(name, () => instrumentMotion(name, device), { quick: true })
+  }
+
   // The app's test interface wants its password too (port 8080), found by
   // its retained test-interface topic (hil/android/phone.js).
   step("android", async () => {
