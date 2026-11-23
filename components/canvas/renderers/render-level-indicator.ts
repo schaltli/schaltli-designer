@@ -60,6 +60,8 @@ interface RenderLevelIndicatorOptions {
    */
   screenBackgroundColor?: string
   requestRedraw?: () => void
+  /** A styled bar's pointer swings to a new value (Preview, live view). */
+  animate?: boolean
 }
 
 /**
@@ -136,6 +138,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
       colorDepth,
       screenBackgroundColor: options.screenBackgroundColor,
       requestRedraw,
+      animate: options.animate,
     })
   )
     return

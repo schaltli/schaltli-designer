@@ -2837,6 +2837,7 @@ export function Canvas({
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: redraw,
+          animate: previewMode,
         })
         break
 
@@ -2855,6 +2856,7 @@ export function Canvas({
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: redraw,
+          animate: previewMode,
         })
         break
 

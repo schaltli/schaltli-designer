@@ -103,6 +103,8 @@ interface RenderArcLevelOptions {
    */
   screenBackgroundColor?: string
   requestRedraw?: () => void
+  /** A styled gauge swings to a new value (Preview, live view). */
+  animate?: boolean
 }
 
 export const ARC_DEFAULT_MIN_ANGLE = 225
@@ -700,7 +702,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   const rawValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   // A styled gauge is a picture of an instrument, not a ring
   // (docs/2026-11-23-instrument-styles.md).
-  if (renderInstrumentGauge({ ctx, obj, rawValue, colorDepth, screenBackgroundColor, requestRedraw })) return
+  if (renderInstrumentGauge({ ctx, obj, rawValue, colorDepth, screenBackgroundColor, requestRedraw, animate: options.animate })) return
   const noValue = hasNoValue(rawValue)
   const numericValue = Number.parseFloat(rawValue) || 0
   const calibrationPoints = obj.properties.calibrationPoints || [

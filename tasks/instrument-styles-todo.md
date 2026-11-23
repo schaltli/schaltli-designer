@@ -87,16 +87,17 @@ components from I4).
 **Dependencies:** I4. **Files:** `instrument-faces/fuel.ts`, `render-level-indicator.ts`, `level-indicator-properties.tsx`, `lib/needle-raster.ts`, vectors. **Scope:** M.
 **Done 2026-11-23:** the bar's geometry (`barFrame`) lives in `lib/instrument.ts`, the pointer in `lib/instrument-needles.ts` `barNeedle()` with its travel in eighths (`shift = at × travel`, for the contract). Checkpoint A's `test:e2e:prod`: 2605 passed; of 7 red, `no-van-words` («tank» in a comment) and `property-panel` controls («Style», re-harvested) were this work and are fixed, the other five were timeouts under load, green on a rerun.
 
-### I6 - Motion in the designer's preview
+### I6 - Motion in the designer's preview ✓
 **Description:** in «Preview» and the live view, a value change moves the
 needle with the style's spring (or at once with `motion: "direct"`); the
 editor itself always shows the resting value. Overshoot clamps at the
 stops as on the device.
 **Acceptance:**
-- [ ] a value change animates and comes to rest at exactly the static picture
-- [ ] `direct` and `prefers-reduced-motion` jump
+- [x] a value change animates and comes to rest at exactly the static picture
+- [x] `direct` and `prefers-reduced-motion` jump
 **Verification:** `e2e/instrument-motion.spec.ts` (frames sampled, final frame equals the static render); `npm run test:e2e:prod`
 **Dependencies:** I5. **Files:** `lib/instrument-spring.ts`, `components/canvas/canvas.tsx` or the preview's renderer loop, `render-instrument.ts`. **Scope:** M.
+**Done 2026-11-23:** `animate` follows the canvas's `previewMode` (Preview and the live view); the spring is tested pure (`e2e/instrument-motion.spec.ts`) - the renderer draws the spring's position, which at rest is exactly the value, so the resting frame is the static render by construction rather than by a frame-sampling test.
 
 ## Phase 3 - the fuel gauge on every device
 

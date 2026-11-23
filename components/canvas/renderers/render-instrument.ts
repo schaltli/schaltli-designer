@@ -17,6 +17,8 @@ import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
 import { angle64Of, drawNeedle, type NeedleDescription, type NeedlePose, type Rgb565Target } from "@/lib/needle-raster"
 import { hasNoValue } from "@/lib/render-screen"
 import { isSettableLevel } from "@/lib/object-types"
+import { restingAt, stepSpring, type SpringState } from "@/lib/instrument-spring"
+import { STYLE_META, type InstrumentProps } from "@/lib/instrument"
 
 export interface RenderInstrumentOptions {
   ctx: CanvasRenderingContext2D
@@ -26,8 +28,42 @@ export interface RenderInstrumentOptions {
   colorDepth?: string
   screenBackgroundColor?: string
   requestRedraw?: () => void
-  /** Overrides the value's position 0..1 - for the preview's swinging needle (I6). */
+  /** Overrides the value's position 0..1 (tests). */
   at?: number
+  /**
+   * Swing the needle to a new value with the style's spring, as the device
+   * does - in Preview and the live view. The editor shows the value at rest.
+   */
+  animate?: boolean
+}
+
+/** Where each styled needle stands while it swings, by object id. */
+const motion = new Map<string, SpringState>()
+
+function reducedMotion(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+/** The position to draw: the value's, or on the way there when animating. */
+function swungAt(o: RenderInstrumentOptions, props: InstrumentProps, target: number): number {
+  if (!o.animate || props.motion === "direct" || reducedMotion()) {
+    motion.delete(o.obj.id)
+    return target
+  }
+  let s = motion.get(o.obj.id)
+  if (!s) {
+    s = restingAt(target)
+    motion.set(o.obj.id, s)
+    return target
+  }
+  if (s.target === target && s.velocity === 0 && s.at === target) return target
+  const moving = stepSpring(s, target, performance.now(), STYLE_META[props.style!].spring)
+  if (moving && o.requestRedraw) {
+    const redraw = o.requestRedraw
+    requestAnimationFrame(() => redraw())
+  }
+  if (!moving) s.last = Number.NaN
+  return s.at
 }
 
 const LINEAR = [
@@ -98,7 +134,7 @@ export function renderInstrumentGauge(o: RenderInstrumentOptions): boolean {
   const face = bakedGaugeFace(o.obj.properties, size, ground, o.requestRedraw)
   if (!face) return true // fonts still loading: drawn on the redraw
   compose(o, face.canvas, ground, gaugeNeedle(props.style, size), {
-    angle64: angle64Of(gaugeAngle(props.style, positionOf(o))),
+    angle64: angle64Of(gaugeAngle(props.style, swungAt(o, props, positionOf(o)))),
     shiftX: 0,
     shiftY: 0,
   })
@@ -116,7 +152,7 @@ export function renderInstrumentBar(o: RenderInstrumentOptions): boolean {
   const face = bakedBarFace(o.obj.properties, w, h, ground, o.requestRedraw)
   if (!face) return true
   const needle = barNeedle(props.style, w, h, o.obj.properties.direction)
-  const at = positionOf(o)
+  const at = swungAt(o, props, positionOf(o))
   compose(o, face.canvas, ground, needle.desc, {
     angle64: 0,
     shiftX: Math.round(at * needle.travelX),
