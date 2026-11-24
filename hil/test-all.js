@@ -1197,6 +1197,30 @@ async function main() {
     }
   }, { quick: true })
 
+  // The PaperS3 against the styled instruments in grey (docs/2026-11-23-
+  // instrument-styles.md, decision 6): gauge and bar, flat and every style,
+  // each face dithered to sixteen greys, the needle grey. Not every type -
+  // e-paper is slow, and the rest of its drawing has its own steps.
+  step("papers3", async () => {
+    console.log(`\n=== PaperS3 instruments in grey (device: ${PAPERS3_DEVICE}) ===`)
+    const report = "conformance/report-papers3"
+    const reachable = (await httpGetStatus(`http://${PAPERS3_DEVICE}/snapshot.bmp`)) === 200
+    if (!reachable) {
+      summary.push({ name: "papers3-instruments", status: "SKIPPED", detail: `device unreachable at ${PAPERS3_DEVICE}`, report: `hil/${report}/index.html` })
+      return
+    }
+    clearResults(path.join(__dirname, report))
+    const exitCode = await run("node", ["hil/conformance/run.js", "--device", PAPERS3_DEVICE, "--report", path.join(__dirname, report), "--only", "gauge,bar"], { cwd: REPO_ROOT })
+    const results = readResults(path.join(__dirname, report))
+    const passed = results ? results.filter((r) => r.pass).length : 0
+    summary.push({
+      name: "papers3-instruments",
+      status: results && passed === results.length && exitCode === 0 ? "PASS" : "FAIL",
+      detail: results ? `gauge, bar and every style in grey, ${passed}/${results.length} cases` : `crashed (exit code ${exitCode}) - see output above`,
+      report: `hil/${report}/index.html`,
+    })
+  })
+
   for (const [lane, device, label] of RGB_BOARDS) step(lane, async () => {
     console.log(`\n=== Waveshare ${label} pixel parity (device: ${device}) ===`)
     const report = lane === "ws4" ? "waveshare4/report" : "waveshare4v3b/report"
