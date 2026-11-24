@@ -56,6 +56,10 @@
  * `t` (out of 4096) and is drawn only while the pose's `level` - the
  * position, floor(clamp(at, 0, 1) × 4096 + 0.5) - has reached it (a VFD's
  * bars). A shape without `t` is always drawn.
+ *
+ * A layer with a `clip` - x0, y0, x1, y1 in whole pixels, x1 and y1 left
+ * out - touches no pixel outside it, body and soft field alike (a moving-
+ * coil meter's needle, whose pivot lies below the window).
  */
 import { arcDirection } from "@/lib/arc-raster"
 import { blend565, gradient565 } from "@/lib/level-glow"
@@ -93,6 +97,8 @@ export interface NeedleLayer {
   grow?: FillGrow
   /** Colour per pixel from `color` to `to`, step by step along x or y from `start` over `length` pixels. */
   gradient?: { to: number; axis: "x" | "y"; start: number; length: number }
+  /** Whole pixels, x1/y1 excluded: the only pixels the layer may touch. */
+  clip?: [number, number, number, number]
 }
 
 export interface NeedleDescription {
@@ -437,8 +443,19 @@ function drawBody(t: Rgb565Target, p: NonNullable<Placed>, layer: NeedleLayer) {
 }
 
 /** Draws every layer of `desc` in `pose` into `t`, back to front. */
-export function drawNeedle(t: Rgb565Target, desc: NeedleDescription, pose: NeedlePose): void {
+export function drawNeedle(target: Rgb565Target, desc: NeedleDescription, pose: NeedlePose): void {
   for (const layer of desc.layers) {
+    const c = layer.clip
+    const t: Rgb565Target = c
+      ? {
+          width: target.width,
+          height: target.height,
+          get: (x, y) => target.get(x, y),
+          set: (x, y, v) => {
+            if (x >= c[0] && y >= c[1] && x < c[2] && y < c[3]) target.set(x, y, v)
+          },
+        }
+      : target
     for (const shape of layer.shapes) {
       if (layer.motion === "segments" && shape.t !== undefined && (pose.level ?? 0) < shape.t) continue
       const p = place(shape, layer, desc, pose)

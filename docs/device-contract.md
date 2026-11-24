@@ -1538,7 +1538,8 @@ its flat look has; beside them the export writes `instrument`
         "soft": [180, 120, 60],              // optional: a glow/shadow field, alpha by whole pixels outside
         "dx": 0, "dy": 24,                   // optional, eighths, added after turning
         "grow": "right" | "left" | "down" | "up",   // fill layer: the way its rects grow (default right)
-        "gradient": { "to": 64480, "axis": "x" | "y", "start": 12, "length": 180 } }  // optional
+        "gradient": { "to": 64480, "axis": "x" | "y", "start": 12, "length": 180 },  // optional
+        "clip": [x0, y0, x1, y1] }           // optional, whole pixels, x1/y1 excluded
     ]
   },
   "sweep":  { "from": -55, "to": 55 },       // gauge: degrees at position 0 and 1, 0 = up, clockwise
@@ -1598,6 +1599,9 @@ Draw the face, then each layer back to front:
 - A layer with a `gradient` takes its colour per pixel:
   `gradient565(color, to, (x or y) − start, length)` (§2.1, the bar's
   gradient), the same for body and soft field.
+- A layer with a `clip` touches no pixel outside `x0 ≤ x < x1`,
+  `y0 ≤ y < y1`, body and soft field alike (2026-11-24, the moving-coil
+  meter, whose pivot lies below its window).
 - A `segments` layer holds still. Each shape with a `t` is drawn only while
   the pose's level, `floor(clamp(at, 0, 1) × 4096 + 0.5)`, is at least `t`;
   a shape without one always (2026-11-24, the VFD).

@@ -717,6 +717,11 @@ const SPECIMENS = {
   // Segments and the readout (I12): the VFD's ring and its rising bars, with
   // the value in digits from the baked strip.
   "instrument-vfd": { build: (c) => instrumentPair(c, "vfd", "left-to-right", { caption: "Charge", unit: "A" }) },
+  // The faces after the primitives (I13): the pressure gauge's needle with
+  // its ring and shadow and the sight glass's water and meniscus; the
+  // moving-coil meter's needle clipped to its window and the profile meter.
+  "instrument-pressure": { build: (c) => instrumentPair(c, "pressure", "left-to-right", { caption: "Water pressure", unit: "bar" }) },
+  "instrument-coil": { build: (c) => instrumentPair(c, "coil", "right-to-left", { caption: "Battery", unit: "V" }) },
 
   dial: {
     build: (c) => {

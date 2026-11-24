@@ -10,6 +10,7 @@ export interface InstrumentFont {
   /** The name a face's ctx.font asks for. */
   family: string
   weight: number
+  style?: "normal" | "italic"
   url: string
 }
 
@@ -19,6 +20,8 @@ export const INSTRUMENT_FONTS: InstrumentFont[] = [
   { family: "Schaltli Saira", weight: 300, url: "/fonts/instrument/saira-latin-300-normal.woff2" },
   { family: "Schaltli Saira", weight: 400, url: "/fonts/instrument/saira-latin-400-normal.woff2" },
   { family: "Schaltli Share Tech Mono", weight: 400, url: "/fonts/instrument/share-tech-mono-latin-400-normal.woff2" },
+  { family: "Schaltli IM Fell English", weight: 400, url: "/fonts/instrument/im-fell-english-latin-400-normal.woff2" },
+  { family: "Schaltli IM Fell English", weight: 400, style: "italic", url: "/fonts/instrument/im-fell-english-latin-400-italic.woff2" },
 ]
 
 let state: "idle" | "loading" | "ready" | "failed" = "idle"
@@ -37,7 +40,7 @@ export function instrumentFontsReady(onReady?: () => void): boolean {
     state = "loading"
     Promise.all(
       INSTRUMENT_FONTS.map((f) =>
-        new FontFace(f.family, `url(${f.url})`, { weight: String(f.weight) }).load().then((face) => {
+        new FontFace(f.family, `url(${f.url})`, { weight: String(f.weight), style: f.style ?? "normal" }).load().then((face) => {
           document.fonts.add(face)
         }),
       ),

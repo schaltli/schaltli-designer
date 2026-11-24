@@ -78,6 +78,14 @@ const bars: NeedleDescription = {
   ],
 }
 
+const clipped: NeedleDescription = {
+  pivot: { x: 96, y: 176 },
+  layers: [
+    { motion: "rotate", shapes: [{ poly: [[90, 176], [102, 176], [97, 24]] }], color: 0, alpha: 256, soft: softTable(120, 2), dy: 8, clip: [3, 4, 21, 15] },
+    { motion: "rotate", shapes: [{ poly: [[90, 176], [102, 176], [97, 24]] }], color: hex565("#111111"), alpha: 256, clip: [3, 4, 21, 15] },
+  ],
+}
+
 const pose = (deg: number, shiftX = 0, shiftY = 0, level = 0): NeedlePose => ({ angle64: angle64Of(deg), shiftX, shiftY, level })
 
 function render(desc: NeedleDescription, p: NeedlePose, w: number, h: number): string {
@@ -107,6 +115,17 @@ const cases = [
   { name: "a whole ring, translucent", desc: ringStatic, pose: pose(0), width: 25, height: 25 },
   { name: "the rally gauge's needle at 100 degrees, 64 px", desc: gaugeNeedle("rally", 64), pose: pose(100), width: 64, height: 64 },
   { name: "the night cluster at 37 degrees, 64 px", desc: gaugeNeedle("night", 64), pose: pose(37), width: 64, height: 64 },
+  { name: "a needle and its shadow clipped to a window", desc: clipped, pose: pose(25), width: 24, height: 24 },
+  { name: "the pressure gauge's needle at -100 degrees, 64 px", desc: gaugeNeedle("pressure", 64), pose: pose(-100), width: 64, height: 64 },
+  { name: "the moving-coil needle at 33 degrees, clipped, 64 px", desc: gaugeNeedle("coil", 64), pose: pose(33), width: 64, height: 64 },
+  ...(() => {
+    const w = barNeedle("pressure", 26, 72, "bottom-to-top")
+    const c = barNeedle("coil", 70, 24, "right-to-left")
+    return [
+      { name: "the sight glass at 0.55, 26 x 72", desc: w.desc, pose: pose(0, 0, Math.floor(0.55 * w.travelY + 0.5)), width: 26, height: 72 },
+      { name: "the profile meter at 0.3, right to left, 70 x 24", desc: c.desc, pose: pose(0, Math.floor(0.3 * c.travelX + 0.5), 0), width: 70, height: 24 },
+    ]
+  })(),
   { name: "segments at level 2047: one lit, the next not yet", desc: bars, pose: pose(0, 0, 0, 2047), width: 24, height: 12 },
   { name: "segments at level 2048: the second lights", desc: bars, pose: pose(0, 0, 0, 2048), width: 24, height: 12 },
   { name: "the VFD ring at 0.6, 64 px", desc: gaugeNeedle("vfd", 64, { zones: [{ from: 0, to: 0.2, kind: "danger" }] }), pose: pose(0, 0, 0, levelOf(0.6)), width: 64, height: 64 },
