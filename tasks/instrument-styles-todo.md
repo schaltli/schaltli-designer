@@ -164,9 +164,10 @@ spring; the app's DDF announces the feature.
 **Dependencies:** I7. **Files:** `render/PolygonRaster.kt`, `render/NeedleRaster.kt`, `ui/objects/InstrumentView.kt`, `lib/android-export.ts`, Android DDF builder. **Scope:** L - rasters and view in two commits.
 **Done 2026-11-23, but for the phone:** `NeedleRasterGoldenTest` byte-identical, all app unit tests green, the bundle carries the PNG face (`e2e/instrument-export.spec.ts`). The phone was not on adb, so the snapshot against the export is not yet taken; the conformance specimen «instrument-fuel» runs in the Android HIL once the phone's test interface is on (the app now declares the feature).
 
-### Checkpoint B - the fuel gauge everywhere
-- [ ] `npm run test:quick` green
-- [ ] the user sees it on the 4.3B, the knob and the phone, resting and swinging
+### Checkpoint B - the fuel gauge everywhere ✓ (phone open)
+- [x] `npm run test:quick` green (the 4" once red on a 2.9 s WiFi answer; the check now takes the second slowest, rerun green)
+- [x] the user sees it on the 4.3B and the knob, resting and swinging (2026-11-24: «passt, weiter») - [ ] the phone, once it is on adb
+Open with the user: Deploy refuses a device without `instrument-styles` (like Guard) instead of plan decision 4's flat look with a warning.
 
 ## Phase 4 - the remaining primitives
 
