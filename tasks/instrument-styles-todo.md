@@ -264,4 +264,4 @@ labels, zones, motion, memory), `objekte.md` linked; labels in
 ### Checkpoint E - release
 - [ ] all acceptance criteria met, `npm run test:all` green, the user approves the release
 
-**Status 2026-11-24:** `npm run test:all` (49 min, the 4" off the bench, its lane skipped): e2e 2730 passed, 2 red (project-save, templates - green alone, 18/18); knob smoke (a /api/touch timeout), knob and PaperS3 firmware-through-the-designer (the page not up within 60 s), 4.3B energy motion (a tap missed its popup) - all four PASS rerun alone. Everything else PASS, papers3-instruments included. Release: waiting for the user.
+**Status 2026-11-24:** `npm run test:all` (49 min, the 4" off the bench, its lane skipped): e2e 2730 passed, 2 red (project-save, templates - green alone, 18/18); knob smoke (a /api/touch timeout), knob and PaperS3 firmware-through-the-designer (the page not up within 60 s), 4.3B energy motion (a tap missed its popup) - all four PASS rerun alone. Everything else PASS, papers3-instruments included. Released on the user's word: firmware fw-2026.11.24.1, app v0.19.0.
