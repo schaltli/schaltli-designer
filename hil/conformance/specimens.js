@@ -730,6 +730,8 @@ const SPECIMENS = {
   // cockpit's luminous needle and its pointer.
   "instrument-roadster": { build: (c) => instrumentPair(c, "roadster", "right-to-left", { caption: "Volts", unit: "12 V system" }) },
   "instrument-cockpit": { build: (c) => instrumentPair(c, "cockpit", "left-to-right", { caption: "Solar", unit: "W × 100" }) },
+  // I16: the blue backlit scale and the glowing red needle.
+  "instrument-bluered": { build: (c) => instrumentPair(c, "bluered", "left-to-right", { caption: "Boiler", unit: "°C" }) },
 
   dial: {
     build: (c) => {

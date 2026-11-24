@@ -125,6 +125,16 @@ for (const size of [400, 150]) {
   })
 }
 
+const glowRed = ([r, g, b]: number[]) => r > 200 && g < 110 && b < 100
+
+for (const size of [400, 150]) {
+  test(`the blue-and-red needle follows the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("bluered", size)], "100")
+    expect(glowRed(await brightestNear(page, size, 100, 100, 55, 120)), "at full it lies at 120°").toBe(true)
+    expect(glowRed(await brightestNear(page, size, 100, 100, 55, -120)), "and not at -120°").toBe(false)
+  })
+}
+
 const BARS = [
   { direction: "left-to-right", w: 300, h: 100 },
   { direction: "bottom-to-top", w: 100, h: 300 },

@@ -146,6 +146,11 @@ const cases = [
       { name: "the cockpit bar's pointer at 0.35, top to bottom, 26 x 72", desc: k.desc, pose: pose(0, 0, Math.floor(0.35 * k.travelY + 0.5)), width: 26, height: 72 },
     ]
   })(),
+  { name: "the blue-and-red needle at 60 degrees, 64 px", desc: gaugeNeedle("bluered", 64), pose: pose(60), width: 64, height: 64 },
+  ...(() => {
+    const b = barNeedle("bluered", 72, 26, "left-to-right")
+    return [{ name: "the blue-and-red bar's needle at 0.2, 72 x 26", desc: b.desc, pose: pose(0, Math.floor(0.2 * b.travelX + 0.5), 0), width: 72, height: 26 }]
+  })(),
   { name: "segments at level 2047: one lit, the next not yet", desc: bars, pose: pose(0, 0, 0, 2047), width: 24, height: 12 },
   { name: "segments at level 2048: the second lights", desc: bars, pose: pose(0, 0, 0, 2048), width: 24, height: 12 },
   { name: "the VFD ring at 0.6, 64 px", desc: gaugeNeedle("vfd", 64, { zones: [{ from: 0, to: 0.2, kind: "danger" }] }), pose: pose(0, 0, 0, levelOf(0.6)), width: 64, height: 64 },

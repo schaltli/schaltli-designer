@@ -31,6 +31,7 @@ import { paintCoilBar, paintCoilGauge } from "@/components/canvas/instrument-fac
 import { paintDecoBar, paintDecoGauge } from "@/components/canvas/instrument-faces/deco"
 import { paintRoadsterBar, paintRoadsterGauge } from "@/components/canvas/instrument-faces/roadster"
 import { paintCockpitBar, paintCockpitGauge } from "@/components/canvas/instrument-faces/cockpit"
+import { paintBlueredBar, paintBlueredGauge } from "@/components/canvas/instrument-faces/bluered"
 import { paintEngravingBar, paintEngravingGauge } from "@/components/canvas/instrument-faces/engraving"
 import { bakeReadoutStrip, drawReadout, unlitPattern, type ReadoutDescription, type ReadoutStrip } from "@/lib/instrument-readout"
 import type { Rgb565Target } from "@/lib/needle-raster"
@@ -148,6 +149,7 @@ const GAUGE_PAINTERS: Partial<Record<InstrumentStyle, Painter>> = {
   engraving: paintEngravingGauge,
   roadster: paintRoadsterGauge,
   cockpit: paintCockpitGauge,
+  bluered: paintBlueredGauge,
 }
 
 type BarPainter = (
@@ -171,6 +173,7 @@ const BAR_PAINTERS: Partial<Record<InstrumentStyle, BarPainter>> = {
   engraving: paintEngravingBar,
   roadster: paintRoadsterBar,
   cockpit: paintCockpitBar,
+  bluered: paintBlueredBar,
 }
 
 const cache = new Map<string, BakedFace>()
