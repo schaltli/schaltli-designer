@@ -3,7 +3,7 @@
 // I9): a 400 px fuel gauge (on a round display one that fills it) goes from 0 to 100 with its spring, and
 //
 //   1. the swing is drawn at the board's frame rate or more (minFpsFor:
-//      25, the RGB-panel boards 12),
+//      25, the RGB-panel boards 12, the LiliGo 20),
 //   2. the board answers its web interface all the while (a value or a tap
 //      must not wait for the needle),
 //   3. it comes to rest on exactly the picture the same gauge draws at 100
@@ -27,8 +27,15 @@ const TOPIC = `hil-instrument-${RUN}/fuel`
 // The frame rate a board must reach (the user, 2026-11-23): 25 where the
 // canvas lives in internal memory's reach (knob, T-Encoder: 30+ measured);
 // 12 on the RGB-panel boards, whose canvas is PSRAM the panel scans from
-// (4.3B 13.9, 4" 15.2 measured) - accepted as it is.
-const minFpsFor = (ddf) => (/waveshare-touch-lcd-(4|4v3b|7)\b/.test(ddf.deviceId || "") ? 12 : 25)
+// (4.3B 13.9, 4" 15.2 measured) - accepted as it is. The LiliGo (T-Encoder
+// Pro) 20: its whole 390 px screen swinging, 24.3 fps measured three times
+// (2026-11-24, accepted by the user).
+const minFpsFor = (ddf) => {
+  const id = ddf.deviceId || ""
+  if (/waveshare-touch-lcd-(4|4v3b|7)\b/.test(id)) return 12
+  if (/lilygo-t-encoder-pro/.test(id)) return 20
+  return 25
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function arg(name) {

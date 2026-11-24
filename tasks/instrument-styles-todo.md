@@ -248,7 +248,7 @@ screen.
 - [ ] the face memory per screen shown before deploying
 **Verification:** specimens on round boards and PaperS3; `npm run test:quick`
 **Dependencies:** Checkpoint D. **Files:** `render-instrument.ts`, `deploy-dialog.tsx`, specimens. **Scope:** M.
-**Status 2026-11-24:** 6a9ee641, fc6a4d97. 4-bit: faces dithered to sixteen greys, needle and readout grey, no spring; PaperS3 conformance 52/52 (gauge, bar, all eleven styles), now a test:all step `papers3-instruments`. Round: the motion check fills a round display - knob 360 px at 28.9 fps, at rest identical. Deploy dialog: «Styled gauges and bars hold …» per screen (e2e/instrument-deploy.spec.ts). Open: the T-Encoder's full-screen run - it hangs (ping, no HTTP, not on USB) and still has the I12 firmware.
+**Status 2026-11-24:** 6a9ee641, fc6a4d97. 4-bit: faces dithered to sixteen greys, needle and readout grey, no spring; PaperS3 conformance 52/52 (gauge, bar, all eleven styles), now a test:all step `papers3-instruments`. Round: the motion check fills a round display - knob 360 px at 28.9 fps, at rest identical. Deploy dialog: «Styled gauges and bars hold …» per screen (e2e/instrument-deploy.spec.ts). The LiliGo (T-Encoder Pro, back on USB COM9 in the 4"'s place, flashed over USB): full screen 390 px at 24.3 fps, threshold 20 accepted by the user (2026-11-24), at rest identical.
 
 ### I18 - Handbook and release
 **Description:** a handbook page on styled gauges and bars (styles, scale,
