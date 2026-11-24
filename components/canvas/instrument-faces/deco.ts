@@ -6,7 +6,7 @@
  * lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, polar, radial, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, polar, radial, type BarFrame, type Ctx } from "./common"
 
 export const DECO_BLUE = "#1f2f5c"
 export const DECO_GOLD = "#c9a24a"
@@ -51,20 +51,18 @@ export function paintDecoGauge(ctx: Ctx, scale: InstrumentScale, props: Instrume
     minor: { len: 6, width: 0.6 },
     colour: INK,
   })
-  gaugeLabels(ctx, "deco", scale, 100, 100, 60, PLAYFAIR(scale.labels.length <= 6 ? 15 : 12, true, 600), INK)
+  const labelFont = PLAYFAIR(scale.labels.length <= 6 ? 15 : 12, true, 600)
+  gaugeLabels(ctx, "deco", scale, 100, 100, 60, labelFont, INK)
+  const room = { style: "deco" as const, scale, labelR: 60, labelFont, faceR: 78 }
 
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   ctx.fillStyle = INK
   if (props.caption) {
-    ctx.font = PLAYFAIR(8.5)
-    ;(ctx as any).letterSpacing = "4px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 128)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.caption.toUpperCase(), 128, (px) => PLAYFAIR(px), 8.5, 4, room)
   }
   if (props.unit) {
-    ctx.font = PLAYFAIR(12, true)
-    ctx.fillText(props.unit, 100, 142)
+    fitFaceLine(ctx, props.unit, 142, (px) => PLAYFAIR(px, true), 12, 0, room)
   }
   glassCrescent(ctx, 100, 100, 86, 1)
 }

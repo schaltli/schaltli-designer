@@ -107,6 +107,108 @@ export function gaugeLabels(
   }
 }
 
+/** Half the width of a circle of radius `r` about y = 100 at the line `y` ± `halfHeight`, less `margin`. */
+export function chordHalf(r: number, y: number, halfHeight: number, margin = 4): number {
+  const dy = Math.abs(y - 100) + halfHeight
+  return dy >= r ? 0 : Math.sqrt(r * r - dy * dy) - margin
+}
+
+/**
+ * Half the width a line centred on `cx` at height `y` (± `halfHeight`) has
+ * between the scale's labels, as gaugeLabels draws them with `font` at `r`,
+ * and no more than `maxHalf`. Labels whose box stays more than `near` above
+ * or below the line do not count.
+ */
+export function roomBetweenLabels(
+  ctx: Ctx,
+  style: InstrumentStyle,
+  scale: InstrumentScale,
+  cx: number,
+  cy: number,
+  r: number,
+  font: string,
+  y: number,
+  halfHeight: number,
+  maxHalf: number,
+  pad = 5,
+  near = 4,
+): number {
+  ctx.save()
+  ctx.font = font
+  ;(ctx as any).letterSpacing = "0px"
+  let half = maxHalf
+  for (const l of scale.labels) {
+    const [lx, ly] = polar(cx, cy, r, gaugeAngle(style, l.at))
+    const m = ctx.measureText(l.text)
+    const up = m.actualBoundingBoxAscent || 0
+    const down = m.actualBoundingBoxDescent || 0
+    // textBaseline "middle": the box's middle sits near ly.
+    const mid = ly + (down - up) / 2
+    const h = (up + down) / 2
+    // A label just above or below still crowds the line: it counts within `near` too.
+    if (Math.abs(mid - y) >= h + halfHeight + near) continue
+    const w = m.width / 2
+    const gap = lx < cx ? cx - (lx + w) : lx - w - cx
+    half = Math.min(half, Math.max(0, gap - pad))
+  }
+  ctx.restore()
+  return half
+}
+
+/**
+ * Writes one centred line of face text (a caption, a unit) no wider than
+ * `maxWidth`: the letter spacing gives way first, then the size, down to
+ * 60 %; what is still too wide is squeezed by fillText's maxWidth. Leaves
+ * letter spacing at 0.
+ */
+export function fitLine(
+  ctx: Ctx,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  font: (px: number) => string,
+  px: number,
+  spacing = 0,
+) {
+  const fits = (p: number, sp: number) => {
+    ctx.font = font(p)
+    ;(ctx as any).letterSpacing = `${sp}px`
+    return ctx.measureText(text).width <= maxWidth
+  }
+  let p = px
+  let sp = spacing
+  while (sp > 0 && !fits(p, sp)) sp = Math.max(0, sp - spacing / 6)
+  while (p > px * 0.6 && !fits(p, sp)) p = Math.max(px * 0.6, p - px * 0.05)
+  fits(p, sp)
+  ctx.fillText(text, x, y, Math.max(1, maxWidth))
+  ;(ctx as any).letterSpacing = "0px"
+}
+
+/** Where a face's caption or unit may run: between which labels, inside which circle. */
+export interface LineRoom {
+  style: InstrumentStyle
+  scale: InstrumentScale
+  /** The labels' radius and font, as passed to gaugeLabels. */
+  labelR: number
+  labelFont: string
+  /** The circle (about the face's middle) the line has to stay inside. */
+  faceR?: number
+  /** Or a fixed half width, for a face whose room is not round. */
+  maxHalf?: number
+  /** The labels' centre, when it is not the face's middle. */
+  cx?: number
+  cy?: number
+}
+
+/** fitLine, centred at x = 100, in the room the labels and the face leave at `y`. */
+export function fitFaceLine(ctx: Ctx, text: string, y: number, font: (px: number) => string, px: number, spacing: number, room: LineRoom) {
+  const halfHeight = px * 0.4
+  const maxHalf = room.maxHalf ?? chordHalf(room.faceR ?? 90, y, halfHeight)
+  const half = roomBetweenLabels(ctx, room.style, room.scale, room.cx ?? 100, room.cy ?? 100, room.labelR, room.labelFont, y, halfHeight, maxHalf)
+  fitLine(ctx, text, 100, y, 2 * half, font, px, spacing)
+}
+
 /** Zones as arcs of width `width` centred on radius `r`, in the style's colours for each kind. */
 export function gaugeZones(
   ctx: Ctx,

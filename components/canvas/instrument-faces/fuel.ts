@@ -5,7 +5,7 @@
  * box. The needle is not drawn here - it is lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, roundRect, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const FUEL_PIVOT = { x: 100, y: 150 }
 
@@ -38,7 +38,8 @@ export function paintFuelGauge(ctx: Ctx, scale: InstrumentScale, props: Instrume
   })
   // Three letters stand large; a row of numbers has to be smaller to fit.
   const size = scale.labels.length <= 3 ? 20 : scale.labels.length <= 5 ? 15 : 12
-  gaugeLabels(ctx, "fuel", scale, cx, cy, 61, `700 ${size}px "Schaltli Oswald", sans-serif`, WHITE)
+  const labelFont = `700 ${size}px "Schaltli Oswald", sans-serif`
+  gaugeLabels(ctx, "fuel", scale, cx, cy, 61, labelFont, WHITE)
 
   if (props.unit) {
     ctx.font = `500 9px "Schaltli Oswald", sans-serif`
@@ -52,9 +53,15 @@ export function paintFuelGauge(ctx: Ctx, scale: InstrumentScale, props: Instrume
     ctx.fillStyle = "#c8ccd0"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
-    ;(ctx as any).letterSpacing = "1.5px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 178)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.caption.toUpperCase(), 178, (px) => `500 ${px}px "Schaltli Oswald", sans-serif`, 8, 1.5, {
+      style: "fuel",
+      scale,
+      labelR: 61,
+      labelFont,
+      faceR: 89,
+      cx,
+      cy,
+    })
   } else {
     drop(ctx, 100, 180, 1.1)
   }

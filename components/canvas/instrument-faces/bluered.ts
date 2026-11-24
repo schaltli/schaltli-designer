@@ -6,7 +6,7 @@
  * lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const BACKLIGHT = "#6fb4ff"
 export const NEEDLE_RED = "#ff2a14"
@@ -28,26 +28,21 @@ export function paintBlueredGauge(ctx: Ctx, scale: InstrumentScale, props: Instr
   disc(ctx, 100, 100, 94, "#000000")
   disc(ctx, 100, 100, 92, radial(ctx, 100, 91.6, 110, [[0, "#111620"], [1, "#030406"]]))
   lit(ctx, "#ff3322", 3, () => gaugeZones(ctx, "bluered", scale, 100, 100, 80, 3, ZONE_COLOURS))
+  const labelFont = SAIRA(scale.labels.length <= 6 ? 16 : 13)
+  // Inside the major ticks (r 86, 11 long).
+  const room = { style: "bluered" as const, scale, labelR: 64, labelFont, faceR: 75 }
   lit(ctx, BACKLIGHT, 2.4, () => {
     gaugeTicks(ctx, "bluered", scale, 100, 100, 86, {
       major: { len: 11, width: 2.6 },
       minor: { len: 4, width: 0.9 },
       colour: BACKLIGHT,
     })
-    gaugeLabels(ctx, "bluered", scale, 100, 100, 64, SAIRA(scale.labels.length <= 6 ? 16 : 13), BACKLIGHT)
+    gaugeLabels(ctx, "bluered", scale, 100, 100, 64, labelFont, BACKLIGHT)
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     ctx.fillStyle = BACKLIGHT
-    if (props.caption) {
-      ctx.font = SAIRA(8)
-      ;(ctx as any).letterSpacing = "2.5px"
-      ctx.fillText(props.caption.toUpperCase(), 100, 133)
-      ;(ctx as any).letterSpacing = "0px"
-    }
-    if (props.unit) {
-      ctx.font = SAIRA(9)
-      ctx.fillText(props.unit, 100, 147)
-    }
+    if (props.caption) fitFaceLine(ctx, props.caption.toUpperCase(), 133, SAIRA, 8, 2.5, room)
+    if (props.unit) fitFaceLine(ctx, props.unit, 147, SAIRA, 9, 0, room)
   })
   glassCrescent(ctx, 100, 100, 92, 0.55)
 }

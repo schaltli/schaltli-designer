@@ -30,7 +30,7 @@ Dafür kommen drei Abschnitte dazu.
 
 ### Face {#face}
 
-- <span class="ui">Caption</span>: ein Wort auf dem Zifferblatt, etwa «Frischwasser» oder «Batterie».
+- <span class="ui">Caption</span>: ein Wort auf dem Zifferblatt, etwa «Frischwasser» oder «Batterie». Ist es zu lang für den Platz zwischen den Zahlen der Skala, rückt der Designer die Buchstaben enger zusammen und schreibt es nötigenfalls kleiner. Ein kurzes Wort bleibt auf einem kleinen Instrument besser lesbar.
 - <span class="ui">Unit</span>: die Einheit, etwa «bar», «V» oder «°C».
 - <span class="ui">Readout</span>: der Wert zusätzlich als Zahl. Nur beim <span class="ui">VFD</span> und bei <span class="ui">Night drive</span>, und dort von Anfang an eingeschaltet. Die Zahl zeigt den Wert sofort, auch wenn die Nadel noch unterwegs ist. Sie steht in der Schrift des Stils, nicht in einer Schrift des Projekts.
 - <span class="ui">Motion</span>: <span class="ui">As the style</span> lässt die Nadel nachschwingen, wie es zum Vorbild passt, siehe die Tabelle oben. <span class="ui">Direct</span> lässt sie ohne Bewegung auf den neuen Wert springen.

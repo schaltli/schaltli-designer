@@ -5,7 +5,7 @@
  * «Instrumentenkabinett»). The needles are lib/instrument-needles.ts's.
  */
 import { gaugeAngle, type InstrumentProps, type InstrumentScale, type ZoneKind } from "@/lib/instrument"
-import { arcPath, gaugeLabels, gaugeTicks, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
+import { arcPath, fitFaceLine, gaugeLabels, gaugeTicks, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const LUME = "#e3f4d2"
 export const LUME_NEEDLE = "#eef7e6"
@@ -66,22 +66,24 @@ export function paintCockpitGauge(ctx: Ctx, scale: InstrumentScale, props: Instr
     arcPath(ctx, 100, 100, 84, gaugeAngle("cockpit", z.from), gaugeAngle("cockpit", z.to))
     ctx.stroke()
   }
+  const labelFont = OSWALD(700, scale.labels.length <= 6 ? 21 : 16)
+  // Inside the major ticks (r 82, 13 long).
+  const room = { style: "cockpit" as const, scale, labelR: 57, labelFont, faceR: 69 }
   glowing(ctx, 1.4, () => {
     gaugeTicks(ctx, "cockpit", scale, 100, 100, 82, {
       major: { len: 13, width: 3.4 },
       minor: { len: 5, width: 0.9 },
       colour: LUME,
     })
-    gaugeLabels(ctx, "cockpit", scale, 100, 100, 57, OSWALD(700, scale.labels.length <= 6 ? 21 : 16), LUME)
+    gaugeLabels(ctx, "cockpit", scale, 100, 100, 57, labelFont, LUME)
   })
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   ctx.fillStyle = GREY
-  ctx.font = OSWALD(500, 8)
   if (props.caption) {
-    ;(ctx as any).letterSpacing = "3px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 68)
+    fitFaceLine(ctx, props.caption.toUpperCase(), 68, (px) => OSWALD(500, px), 8, 3, room)
   }
+  ctx.font = OSWALD(500, 8)
   if (props.unit) {
     ;(ctx as any).letterSpacing = "1.5px"
     ctx.fillText(props.unit, 100, 158)

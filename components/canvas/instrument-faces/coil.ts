@@ -6,7 +6,7 @@
  * «Instrumentenkabinett»). The needles are lib/instrument-needles.ts's.
  */
 import { gaugeAngle, type InstrumentProps, type InstrumentScale, type ZoneKind } from "@/lib/instrument"
-import { arcPath, disc, gaugeLabels, gaugeTicks, linear, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
+import { arcPath, disc, fitLine, gaugeLabels, gaugeTicks, linear, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
 
 /** The pivot, below the window (200-unit box), and the window the needle shows through. */
 export const COIL_PIVOT = { x: 100, y: 182 }
@@ -81,10 +81,8 @@ export function paintCoilGauge(ctx: Ctx, scale: InstrumentScale, props: Instrume
     ctx.fillText(props.unit, 100, 128)
   }
   if (props.caption) {
-    ctx.font = SAIRA(400, 7)
-    ;(ctx as any).letterSpacing = "1.5px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 146)
-    ;(ctx as any).letterSpacing = "0px"
+    // Between the magnet symbol (to x 38) and the class mark (from about x 139).
+    fitLine(ctx, props.caption.toUpperCase(), 100, 146, 70, (px) => SAIRA(400, px), 7, 1.5)
   }
   // The magnet symbol and the class mark.
   ctx.strokeStyle = SCALE_INK

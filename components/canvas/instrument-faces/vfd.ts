@@ -6,7 +6,7 @@
  * the digits lib/instrument-readout.ts's; the face holds what never changes.
  */
 import { gaugeAngle, type InstrumentProps, type InstrumentScale, type ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, linear, polar, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, linear, polar, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
 
 export const VFD_CYAN = "#3df5d0"
 /** Segments inside a zone light in its colour. */
@@ -87,21 +87,20 @@ export function paintVfdGauge(ctx: Ctx, scale: InstrumentScale, props: Instrumen
   ctx.beginPath()
   ctx.arc(100, 100, 60, 0, Math.PI * 2)
   ctx.stroke()
-  gaugeLabels(ctx, "vfd", scale, 100, 100, 52, MONO(scale.labels.length <= 6 ? 8 : 7), withAlpha(VFD_CYAN, 0.7))
+  const labelFont = MONO(scale.labels.length <= 6 ? 8 : 7)
+  gaugeLabels(ctx, "vfd", scale, 100, 100, 52, labelFont, withAlpha(VFD_CYAN, 0.7))
+  // Inside the ring at r 60.
+  const room = { style: "vfd" as const, scale, labelR: 52, labelFont, faceR: 60 }
 
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   if (props.caption) {
-    ctx.font = MONO(8)
     ctx.fillStyle = withAlpha(VFD_CYAN, 0.85)
-    ;(ctx as any).letterSpacing = "3px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 75)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.caption.toUpperCase(), 75, MONO, 8, 3, room)
   }
   if (props.unit) {
-    ctx.font = MONO(12)
     ctx.fillStyle = VFD_CYAN
-    ctx.fillText(props.unit, 100, 127)
+    fitFaceLine(ctx, props.unit, 127, MONO, 12, 0, room)
   }
   mesh(ctx, 11, 11, 178, 178, 3, 0.5)
   ctx.fillStyle = linear(ctx, 11, 11, 189, 189, [

@@ -5,7 +5,7 @@
  * the bar's hatched fill are lib/instrument-needles.ts's.
  */
 import { gaugeAngle, type InstrumentProps, type InstrumentScale } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, polar, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, polar, type BarFrame, type Ctx } from "./common"
 
 export const PAPER = "#f3f1ea"
 export const INK = "#111111"
@@ -76,19 +76,17 @@ export function paintEngravingGauge(ctx: Ctx, scale: InstrumentScale, props: Ins
     minor: { len: 4, width: 0.8 },
     colour: INK,
   })
-  gaugeLabels(ctx, "engraving", scale, 100, 100, 60, FELL(scale.labels.length <= 6 ? 17 : 13), INK)
+  const labelFont = FELL(scale.labels.length <= 6 ? 17 : 13)
+  gaugeLabels(ctx, "engraving", scale, 100, 100, 60, labelFont, INK)
+  const room = { style: "engraving" as const, scale, labelR: 60, labelFont, faceR: 88 }
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   ctx.fillStyle = INK
   if (props.unit) {
-    ctx.font = FELL(14)
-    ;(ctx as any).letterSpacing = "2px"
-    ctx.fillText(props.unit, 100, 129)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.unit, 129, (px) => FELL(px), 14, 2, room)
   }
   if (props.caption) {
-    ctx.font = FELL(7.5, true)
-    ctx.fillText(props.caption, 100, 143)
+    fitFaceLine(ctx, props.caption, 143, (px) => FELL(px, true), 7.5, 0, room)
   }
 }
 

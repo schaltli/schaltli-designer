@@ -7,7 +7,7 @@
  * lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, polar, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, polar, radial, roundRect, withAlpha, type BarFrame, type Ctx } from "./common"
 
 export const PRESSURE_INK = "#1b120a"
 export const BRASS = "#c9a050"
@@ -55,7 +55,9 @@ export function paintPressureGauge(ctx: Ctx, scale: InstrumentScale, props: Inst
     colour: "#3a2614",
   })
   const size = scale.labels.length <= 6 ? 20 : scale.labels.length <= 8 ? 16 : 13
-  gaugeLabels(ctx, "pressure", scale, 100, 100, 59, FELL(size), "#3a2614")
+  const labelFont = FELL(size)
+  gaugeLabels(ctx, "pressure", scale, 100, 100, 59, labelFont, "#3a2614")
+  const room = { style: "pressure" as const, scale, labelR: 59, labelFont, faceR: 84 }
 
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
@@ -64,16 +66,13 @@ export function paintPressureGauge(ctx: Ctx, scale: InstrumentScale, props: Inst
   ;(ctx as any).letterSpacing = "0.6px"
   ctx.fillText("PATENT No 1887", 100, 71)
   if (props.unit) {
-    ctx.font = FELL(13)
+    // Below the counterweight's circle (r 24 about the pivot, its shadow 3 lower).
     ctx.fillStyle = "#3a2614"
-    ;(ctx as any).letterSpacing = "2px"
-    ctx.fillText(props.unit.toUpperCase(), 100, 127)
+    fitFaceLine(ctx, props.unit.toUpperCase(), 135, (px) => FELL(px), 12, 2, room)
   }
   if (props.caption) {
-    ctx.font = FELL(6.2)
     ctx.fillStyle = "#5a3d20"
-    ;(ctx as any).letterSpacing = "1.4px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 151)
+    fitFaceLine(ctx, props.caption.toUpperCase(), 151, (px) => FELL(px), 6.2, 1.4, room)
   }
   ;(ctx as any).letterSpacing = "0px"
   glassCrescent(ctx, 100, 100, 84, 1)

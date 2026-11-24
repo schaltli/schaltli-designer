@@ -6,7 +6,7 @@
  * digits come with the readout (tasks/instrument-styles-todo.md I12).
  */
 import { gaugeAngle, type InstrumentProps, type InstrumentScale, type ZoneKind } from "@/lib/instrument"
-import { arcPath, disc, gaugeLabels, gaugeTicks, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
+import { arcPath, disc, fitFaceLine, gaugeLabels, gaugeTicks, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
 
 /** The light's colours, from the start of the scale to its end. */
 export const NIGHT_LIGHT = { from: "#ff2a12", to: "#ff9a4a" }
@@ -49,7 +49,10 @@ export function paintNightGauge(ctx: Ctx, scale: InstrumentScale, props: Instrum
     colour: "#f2f4f7",
   })
   const size = scale.labels.length <= 7 ? 11.5 : 9.5
-  gaugeLabels(ctx, "night", scale, 100, 100, 63, SAIRA(300, size), "#e8eaee")
+  const labelFont = SAIRA(300, size)
+  gaugeLabels(ctx, "night", scale, 100, 100, 63, labelFont, "#e8eaee")
+  // Inside the ring the light runs in.
+  const room = { style: "night" as const, scale, labelR: 63, labelFont, faceR: NIGHT_RING.r - NIGHT_RING.width }
 
   // The hub the digits sit in.
   disc(ctx, 100, 100, 31, radial(ctx, 100, 87.6, 43.4, [[0, "#1f2228"], [1, "#0a0b0d"]]))
@@ -67,10 +70,7 @@ export function paintNightGauge(ctx: Ctx, scale: InstrumentScale, props: Instrum
     ctx.fillText(props.unit, 100, 114)
   }
   if (props.caption) {
-    ctx.font = SAIRA(400, 7)
-    ;(ctx as any).letterSpacing = "2.5px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 146)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.caption.toUpperCase(), 146, (px) => SAIRA(400, px), 7, 2.5, room)
   }
   glassCrescent(ctx, 100, 100, 93, 0.45)
 }

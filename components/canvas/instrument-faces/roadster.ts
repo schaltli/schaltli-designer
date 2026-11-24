@@ -5,7 +5,7 @@
  * «Instrumentenkabinett»). The needles are lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, radial, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const CREAM = "#efe8d2"
 export const NEEDLE_CREAM = "#f2efe6"
@@ -32,20 +32,18 @@ export function paintRoadsterGauge(ctx: Ctx, scale: InstrumentScale, props: Inst
     minor: { len: 5, width: 1 },
     colour: CREAM,
   })
-  gaugeLabels(ctx, "roadster", scale, 100, 100, 61, OSWALD(500, scale.labels.length <= 7 ? 15 : 12), CREAM)
+  const labelFont = OSWALD(500, scale.labels.length <= 7 ? 15 : 12)
+  gaugeLabels(ctx, "roadster", scale, 100, 100, 61, labelFont, CREAM)
+  const room = { style: "roadster" as const, scale, labelR: 61, labelFont, faceR: 85 }
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   if (props.caption) {
-    ctx.font = OSWALD(500, 9)
     ctx.fillStyle = CREAM
-    ;(ctx as any).letterSpacing = "2.5px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 133)
+    fitFaceLine(ctx, props.caption.toUpperCase(), 133, (px) => OSWALD(500, px), 9, 2.5, room)
   }
   if (props.unit) {
-    ctx.font = OSWALD(400, 6)
     ctx.fillStyle = "#8d8a80"
-    ;(ctx as any).letterSpacing = "1.5px"
-    ctx.fillText(props.unit.toUpperCase(), 100, 145)
+    fitFaceLine(ctx, props.unit.toUpperCase(), 145, (px) => OSWALD(400, px), 6, 1.5, room)
   }
   ;(ctx as any).letterSpacing = "0px"
   glassCrescent(ctx, 100, 100, 85, 1)

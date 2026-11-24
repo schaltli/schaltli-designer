@@ -6,7 +6,7 @@
  * black stripes, are lib/instrument-needles.ts's.
  */
 import type { InstrumentProps, InstrumentScale, ZoneKind } from "@/lib/instrument"
-import { disc, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, roundRect, type BarFrame, type Ctx } from "./common"
+import { disc, fitFaceLine, gaugeLabels, gaugeTicks, gaugeZones, glassCrescent, linear, roundRect, type BarFrame, type Ctx } from "./common"
 
 export const RALLY_ORANGE = "#ff6a13"
 const ZONE_COLOURS: Record<ZoneKind, string> = { danger: "#e8361b", warning: "#f2a705", ok: "#3fae49" }
@@ -25,21 +25,19 @@ export function paintRallyGauge(ctx: Ctx, scale: InstrumentScale, props: Instrum
     colour: WHITE,
   })
   const size = scale.labels.length <= 6 ? 21 : scale.labels.length <= 8 ? 17 : 14
-  gaugeLabels(ctx, "rally", scale, 100, 100, 61, `700 ${size}px "Schaltli Oswald", sans-serif`, WHITE)
+  const labelFont = `700 ${size}px "Schaltli Oswald", sans-serif`
+  gaugeLabels(ctx, "rally", scale, 100, 100, 61, labelFont, WHITE)
+  const room = { style: "rally" as const, scale, labelR: 61, labelFont, faceR: 90 }
 
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
   if (props.caption) {
-    ctx.font = `700 12px "Schaltli Oswald", sans-serif`
     ctx.fillStyle = RALLY_ORANGE
-    ;(ctx as any).letterSpacing = "3px"
-    ctx.fillText(props.caption.toUpperCase(), 100, 136)
-    ;(ctx as any).letterSpacing = "0px"
+    fitFaceLine(ctx, props.caption.toUpperCase(), 136, (px) => `700 ${px}px "Schaltli Oswald", sans-serif`, 12, 3, room)
   }
   if (props.unit) {
-    ctx.font = `500 10px "Schaltli Oswald", sans-serif`
     ctx.fillStyle = "#9a9a9a"
-    ctx.fillText(props.unit, 100, 151)
+    fitFaceLine(ctx, props.unit, 151, (px) => `500 ${px}px "Schaltli Oswald", sans-serif`, 10, 0, room)
   }
   glassCrescent(ctx, 100, 100, 90, 0.8)
 }
