@@ -212,18 +212,22 @@ Devices need nothing new. Verification each: `npm run test:quick`
 ### I13 - Pressure gauge and moving-coil meter
 **Acceptance:** [ ] both faces as in the proposal [ ] the moving-coil's 80° sweep and its clipped needle [ ] the pressure gauge's shadow on the device
 **Dependencies:** Checkpoint C. **Files:** `instrument-faces/{pressure,coil}.ts`, specimens, e2e. **Scope:** M.
+**Status 2026-11-24:** 5c168dcd. The moving-coil needle needed one addition: a layer `clip` in whole pixels (contract §2.15) - firmware f940e4e, app 8a5173b. IM Fell English bundled.
 
 ### I14 - Art deco and engraving
 **Acceptance:** [ ] the engraving draws zones as hatching, no colour [ ] art deco's Breguet needle (ring) [ ] both on the PaperS3 in grey
 **Dependencies:** Checkpoint C. **Files:** `instrument-faces/{deco,engraving}.ts`, specimens, e2e. **Scope:** M.
+**Status 2026-11-24:** c551ccdf. Playfair Display bundled; deco's bar scale 0.7 of the length (its tower). The engraving's hatched fill: ink rising under standing paper lines, clipped.
 
 ### I15 - Roadster and cockpit
 **Acceptance:** [ ] the cockpit's square case fills its box [ ] the roadster's chrome bezel [ ] the cockpit's lume glow
 **Dependencies:** Checkpoint C. **Files:** `instrument-faces/{roadster,cockpit}.ts`, specimens, e2e. **Scope:** M.
+**Status 2026-11-24:** 66353477.
 
 ### I16 - Blue/red
 **Acceptance:** [ ] blue lit scale, red glowing needle, red zone glows [ ] gauge and bar
 **Dependencies:** Checkpoint C. **Files:** `instrument-faces/bluered.ts`, specimens, e2e. **Scope:** S.
+**Status 2026-11-24:** 688e5d34. 41 needle vectors byte-identical in firmware (3728b20) and app (3855b23); the Android fixture shows all eleven.
 
 ### Checkpoint D - all eleven styles
 - [ ] `npm run test:quick` green
