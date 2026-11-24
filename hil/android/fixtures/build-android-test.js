@@ -55,7 +55,12 @@
 //             {topic:…}, Only when and Then clear; the code typed on the
 //             phone's number pad, Disarm sending only the right one
 //             (orchestrator.js checkAlarm)
-//   (screen-7 to -13 stand before screen-6: the run ends on the navigator)
+//   screen-14 styled instruments (docs/2026-11-23-instrument-styles.md,
+//             device contract 2.15): the fuel gauge, rally, night cluster
+//             and VFD as gauges, motion direct, the night and VFD with
+//             their readout - face PNG, needle raster, fill, segments, the
+//             glyph strip
+//   (screen-7 to -14 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
 // exercised at all; the master also carries the swipe bindings, so a run
@@ -219,6 +224,9 @@ function buildProject(fonts) {
       // screen-13: the code kept on the phone, and the panel's command.
       { id: "t-code", topic: "local/hil/alarm/code", type: "text", examples: [], local: true, initial: "" },
       { id: "t-alarm-set", topic: "hil/alarm/set", type: "text", examples: ["DISARM"] },
+      // screen-14: the styled instruments - a needle with its shadow, a fill,
+      // a ring of light and segments with the readout.
+      { id: "t-instrument", topic: "hil/instrument", type: "numeric", examples: ["0", "37.5", "88"] },
     ],
     combinedTopics: [
       {
@@ -1360,6 +1368,34 @@ function buildProject(fonts) {
             },
           },
         ],
+      },
+      {
+        id: "screen-14",
+        name: "Instrumente",
+        masterScreenId: "master-1",
+        iconAssetId: "icon-circle",
+        objects: ["fuel", "rally", "night", "vfd"].map((style, i) => {
+          const side = Math.floor((SCREEN_W - 30) / 2);
+          return {
+            id: `i-${style}`,
+            type: "gauge",
+            zIndex: 1,
+            x: 10 + (i % 2) * (side + 10),
+            y: 90 + Math.floor(i / 2) * (side + 10),
+            width: side,
+            height: side,
+            properties: {
+              topic: "hil/instrument",
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+              style,
+              zones: [{ from: 0, to: 15, kind: "danger" }],
+              motion: "direct",
+            },
+          };
+        }),
       },
       {
         id: "screen-6",
