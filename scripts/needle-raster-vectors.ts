@@ -136,6 +136,16 @@ const cases = [
       { name: "the engraving's hatched fill at 0.45, 72 x 26", desc: e.desc, pose: pose(0, Math.floor(0.45 * e.travelX + 0.5), 0), width: 72, height: 26 },
     ]
   })(),
+  { name: "the roadster needle at 110 degrees, 64 px", desc: gaugeNeedle("roadster", 64), pose: pose(110), width: 64, height: 64 },
+  { name: "the cockpit needle at -140 degrees, 64 px", desc: gaugeNeedle("cockpit", 64), pose: pose(-140), width: 64, height: 64 },
+  ...(() => {
+    const r = barNeedle("roadster", 72, 26, "left-to-right")
+    const k = barNeedle("cockpit", 26, 72, "top-to-bottom")
+    return [
+      { name: "the roadster bar's needle at 0.8, 72 x 26", desc: r.desc, pose: pose(0, Math.floor(0.8 * r.travelX + 0.5), 0), width: 72, height: 26 },
+      { name: "the cockpit bar's pointer at 0.35, top to bottom, 26 x 72", desc: k.desc, pose: pose(0, 0, Math.floor(0.35 * k.travelY + 0.5)), width: 26, height: 72 },
+    ]
+  })(),
   { name: "segments at level 2047: one lit, the next not yet", desc: bars, pose: pose(0, 0, 0, 2047), width: 24, height: 12 },
   { name: "segments at level 2048: the second lights", desc: bars, pose: pose(0, 0, 0, 2048), width: 24, height: 12 },
   { name: "the VFD ring at 0.6, 64 px", desc: gaugeNeedle("vfd", 64, { zones: [{ from: 0, to: 0.2, kind: "danger" }] }), pose: pose(0, 0, 0, levelOf(0.6)), width: 64, height: 64 },

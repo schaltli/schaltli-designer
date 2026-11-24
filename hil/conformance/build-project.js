@@ -175,7 +175,7 @@ function buildProject(ddf, { topicPrefix = conformancePrefix(ddf), typesOnly = f
   // Styled gauges and bars, where the board says it draws them
   // (docs/2026-11-23-instrument-styles.md, device contract §2.15).
   if (!typesOnly && (ddf.supportedFeatures || []).includes("instrument-styles") && ["gauge", "bar"].every((t) => supportedObjectTypes.includes(t))) {
-    for (const type of ["instrument-fuel", "instrument-rally", "instrument-night", "instrument-vfd", "instrument-pressure", "instrument-coil", "instrument-deco", "instrument-engraving"]) runs.push({ type, specimen: SPECIMENS[type], picker });
+    for (const type of ["instrument-fuel", "instrument-rally", "instrument-night", "instrument-vfd", "instrument-pressure", "instrument-coil", "instrument-deco", "instrument-engraving", "instrument-roadster", "instrument-cockpit"]) runs.push({ type, specimen: SPECIMENS[type], picker });
   }
 
   for (const { type, specimen, picker: { font, fontSize } } of runs) {

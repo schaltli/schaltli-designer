@@ -14,6 +14,8 @@ import type { InstrumentScale } from "@/lib/instrument"
 import { BRASS, PRESSURE_INK, SIGHT_GLASS, WATER } from "@/components/canvas/instrument-faces/pressure"
 import { COIL_INK, COIL_PIVOT, COIL_WINDOW, PROFILE_FACE } from "@/components/canvas/instrument-faces/coil"
 import { DECO_BLUE, DECO_GOLD } from "@/components/canvas/instrument-faces/deco"
+import { CHROME, NEEDLE_CREAM } from "@/components/canvas/instrument-faces/roadster"
+import { LUME, LUME_GREEN, LUME_NEEDLE } from "@/components/canvas/instrument-faces/cockpit"
 import { ENGRAVING_TRACK, INK as ENGRAVING_INK, PAPER } from "@/components/canvas/instrument-faces/engraving"
 import type { NeedleShape } from "@/lib/needle-raster"
 
@@ -281,6 +283,89 @@ function engravingGauge(size: number): NeedleDescription {
   return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
 }
 
+/** The roadster: a slim cream needle with a short tail, its shadow, a chrome cap. */
+function roadsterGauge(size: number): NeedleDescription {
+  const shapes = [
+    poly(
+      [
+        [98.5, 112],
+        [101.5, 112],
+        [100.5, 22],
+        [99.5, 22],
+      ],
+      size,
+    ),
+    poly(
+      [
+        [98.5, 100],
+        [101.5, 100],
+        [101.5, 116],
+        [98.5, 116],
+      ],
+      size,
+    ),
+  ]
+  const layers: NeedleLayer[] = [
+    { motion: "rotate", shapes, color: 0, alpha: 256, soft: softTable(155, Math.max(1, Math.round((2.2 * size) / 200))), dy: e8(2.5, size) },
+    { motion: "rotate", shapes, color: hex565(NEEDLE_CREAM), alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 9, size)], color: hex565(CHROME), alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 3, size)], color: hex565("#1a1a1a"), alpha: 256 },
+  ]
+  return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
+}
+
+/** The cockpit instrument: a broad luminous needle with a green lume strip, a dark counterweight, a hard shadow. */
+function cockpitGauge(size: number): NeedleDescription {
+  const body = poly(
+    [
+      [100, 22],
+      [104, 38],
+      [104, 100],
+      [96, 100],
+      [96, 38],
+    ],
+    size,
+  )
+  const tail = poly(
+    [
+      [97.2, 99.7],
+      [102.8, 99.7],
+      [102.8, 126.3],
+      [97.2, 126.3],
+    ],
+    size,
+  )
+  const tailInner = poly(
+    [
+      [97.8, 100.3],
+      [102.2, 100.3],
+      [102.2, 125.7],
+      [97.8, 125.7],
+    ],
+    size,
+  )
+  const lume = poly(
+    [
+      [100, 30],
+      [102, 40],
+      [102, 90],
+      [98, 90],
+      [98, 40],
+    ],
+    size,
+  )
+  const layers: NeedleLayer[] = [
+    { motion: "rotate", shapes: [tail, body], color: 0, alpha: 256, soft: softTable(180, Math.max(1, Math.round((2.4 * size) / 200))), dy: e8(3, size) },
+    { motion: "rotate", shapes: [tail], color: hex565("#4a4c50"), alpha: 256 },
+    { motion: "rotate", shapes: [tailInner], color: hex565("#202124"), alpha: 256 },
+    { motion: "rotate", shapes: [body], color: hex565(LUME_NEEDLE), alpha: 256 },
+    { motion: "rotate", shapes: [lume], color: hex565(LUME_GREEN), alpha: 191 },
+    { motion: "static", shapes: [circle(100, 100, 7.5, size)], color: hex565("#55575c"), alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 6.5, size)], color: hex565("#1b1c1e"), alpha: 256 },
+  ]
+  return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
+}
+
 /** A segment's threshold: lit once the position reaches its middle. */
 const threshold = (i: number, n: number) => Math.floor(((i + 0.5) / n) * 4096 + 0.5)
 
@@ -321,6 +406,10 @@ export function gaugeNeedle(style: InstrumentStyle, size: number, scale: Pick<In
       return coilGauge(size)
     case "deco":
       return decoGauge(size)
+    case "roadster":
+      return roadsterGauge(size)
+    case "cockpit":
+      return cockpitGauge(size)
     case "engraving":
       return engravingGauge(size)
     case "rally":
@@ -487,6 +576,54 @@ function engravingBar(f: BarFrame, direction: BarDirection | undefined): BarNeed
   return { desc: { pivot: { x: 0, y: 0 }, layers }, travelX: fill.travelX, travelY: fill.travelY }
 }
 
+/** A pointer at position 0 from its points given as (depth, along px) across a bar - moved by translate. */
+function pointer(f: BarFrame, pts: [number, number][]): [number, number][] {
+  return pts.map(([d, alongPx]) => {
+    const [x, y] = f.point(0, d)
+    const [x1, y1] = f.point(0.001, d)
+    const len = Math.hypot(x1 - x, y1 - y) || 1
+    return [Math.round((x + ((x1 - x) / len) * alongPx) * 8), Math.round((y + ((y1 - y) / len) * alongPx) * 8)]
+  })
+}
+
+function travelOf(f: BarFrame) {
+  const [x0, y0] = f.point(0, 0)
+  const [x1, y1] = f.point(1, 0)
+  return { travelX: Math.round((x1 - x0) * 8), travelY: Math.round((y1 - y0) * 8) }
+}
+
+/** The roadster's bar: a slim cream needle standing across the scale, with its shadow. */
+function roadsterBar(f: BarFrame): BarNeedle {
+  const T = f.thickness
+  const w = Math.max(0.6, T * 0.0127)
+  const needle = pointer(f, [
+    [0.327, -T * 0.0045],
+    [0.836, -w],
+    [0.836, w],
+    [0.327, T * 0.0045],
+  ])
+  const layers: NeedleLayer[] = [
+    { motion: "translate", shapes: [{ poly: needle }], color: 0, alpha: 256, soft: softTable(150, Math.max(1, Math.round(T * 0.016))), dy: Math.max(8, Math.round(T * 0.018 * 8)) },
+    { motion: "translate", shapes: [{ poly: needle }], color: hex565(NEEDLE_CREAM), alpha: 256 },
+  ]
+  return { desc: { pivot: { x: 0, y: 0 }, layers }, ...travelOf(f) }
+}
+
+/** The cockpit's bar: a luminous triangle pointing at the scale. */
+function cockpitBar(f: BarFrame): BarNeedle {
+  const T = f.thickness
+  const tri = pointer(f, [
+    [0.41, 0],
+    [0.52, -T * 0.06],
+    [0.52, T * 0.06],
+  ])
+  const layers: NeedleLayer[] = [
+    { motion: "translate", shapes: [{ poly: tri }], color: hex565(LUME), alpha: 256, soft: softTable(70, Math.max(1, Math.round(T * 0.012))) },
+    { motion: "translate", shapes: [{ poly: tri }], color: hex565(LUME_NEEDLE), alpha: 256 },
+  ]
+  return { desc: { pivot: { x: 0, y: 0 }, layers }, ...travelOf(f) }
+}
+
 /** The night strip: a thin light, red to orange along the scale, glowing. */
 function nightBar(f: BarFrame, direction: BarDirection | undefined): BarNeedle {
   const fill = fillRect(f, direction, NIGHT_BAR_LIGHT.from, NIGHT_BAR_LIGHT.to)
@@ -534,6 +671,8 @@ export function barNeedle(
   if (style === "pressure") return pressureBar(f, direction)
   if (style === "coil") return coilBar(f)
   if (style === "deco") return decoBar(f, direction)
+  if (style === "roadster") return roadsterBar(f)
+  if (style === "cockpit") return cockpitBar(f)
   if (style === "engraving") return engravingBar(f, direction)
   if (style === "night") return nightBar(f, direction)
   const T = f.thickness

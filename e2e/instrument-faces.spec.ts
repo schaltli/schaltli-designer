@@ -49,6 +49,13 @@ async function rgb(page: Page, x: number, y: number) {
 /** A gauge pixel at `r` units from (px, py) at `deg`, for a gauge of `size` at (20, 20). */
 const at = (page: Page, size: number, px: number, py: number, r: number, deg: number) =>
   rgb(page, 20 + ((px + r * Math.sin((deg * Math.PI) / 180)) * size) / 200, 20 + ((py - r * Math.cos((deg * Math.PI) / 180)) * size) / 200)
+/** The brightest of the pixel and its two neighbours in the row. */
+async function brightestNear(page: Page, size: number, px: number, py: number, r: number, deg: number) {
+  const x = 20 + ((px + r * Math.sin((deg * Math.PI) / 180)) * size) / 200
+  const y = 20 + ((py - r * Math.cos((deg * Math.PI) / 180)) * size) / 200
+  const all = await Promise.all([-1, 0, 1].map((d) => rgb(page, x + d, y)))
+  return all.reduce((a, b) => (a[0] + a[1] + a[2] >= b[0] + b[1] + b[2] ? a : b))
+}
 /** The darkest of the pixel and its two neighbours in the row: a thin needle hits one of them. */
 async function darkestNear(page: Page, size: number, px: number, py: number, r: number, deg: number) {
   const x = 20 + ((px + r * Math.sin((deg * Math.PI) / 180)) * size) / 200
@@ -101,6 +108,23 @@ for (const size of [400, 150]) {
   })
 }
 
+const cream = (c: number[]) => c.every((v) => v > 190)
+const lume = ([r, g, b]: number[]) => g > 200 && r > 150 && b > 120
+
+for (const size of [400, 150]) {
+  test(`the roadster needle follows the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("roadster", size)], "100")
+    expect(cream(await brightestNear(page, size, 100, 100, 50, 125)), "at full it lies at 125°").toBe(true)
+    expect(cream(await brightestNear(page, size, 100, 100, 50, -125)), "and not at -125°").toBe(false)
+  })
+
+  test(`the cockpit needle follows the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("cockpit", size)], "0")
+    expect(lume(await brightestNear(page, size, 100, 100, 45, -150)), "at nought it lies at -150°").toBe(true)
+    expect(lume(await brightestNear(page, size, 100, 100, 45, 30)), "nothing at 30°").toBe(false)
+  })
+}
+
 const BARS = [
   { direction: "left-to-right", w: 300, h: 100 },
   { direction: "bottom-to-top", w: 100, h: 300 },
@@ -139,6 +163,13 @@ for (const c of BARS) {
     expect(await inkAt(0.25), "hatching below the value").toBeGreaterThan(0)
     expect(await inkAt(0.25), "and paper between its lines").toBeLessThan(7)
     expect(await inkAt(0.75), "paper above it").toBe(0)
+  })
+
+  test(`the cockpit bar's pointer runs ${c.direction}`, async ({ page }) => {
+    await render(page, [bar("cockpit")], "50")
+    expect(lume(await rgb(page, ...barXY(c, 0.5, 0.48))), "the pointer at the value").toBe(true)
+    await render(page, [bar("cockpit")], "0")
+    expect(lume(await rgb(page, ...barXY(c, 0.5, 0.48))), "gone from there at 0").toBe(false)
   })
 
   test(`the profile meter's pointer runs ${c.direction}`, async ({ page }) => {

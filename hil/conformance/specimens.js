@@ -726,6 +726,10 @@ const SPECIMENS = {
   // half-inked needle and its fill hatched by standing paper lines.
   "instrument-deco": { build: (c) => instrumentPair(c, "deco", "left-to-right", { caption: "Cabin", unit: "°C" }) },
   "instrument-engraving": { build: (c) => instrumentPair(c, "engraving", "left-to-right", { caption: "per centum", unit: "LPG" }) },
+  // I15: the roadster's cream needle in chrome and its edgewise needle; the
+  // cockpit's luminous needle and its pointer.
+  "instrument-roadster": { build: (c) => instrumentPair(c, "roadster", "right-to-left", { caption: "Volts", unit: "12 V system" }) },
+  "instrument-cockpit": { build: (c) => instrumentPair(c, "cockpit", "left-to-right", { caption: "Solar", unit: "W × 100" }) },
 
   dial: {
     build: (c) => {
