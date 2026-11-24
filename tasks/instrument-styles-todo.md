@@ -181,6 +181,7 @@ until then without the digital field).
 - [ ] rally and night cluster match the export on the 4.3B and the phone
 **Verification:** vectors in designer/native/Android tests; specimens; `npm run test:quick`
 **Dependencies:** Checkpoint B. **Files:** `needle-raster.ts` + ports, `instrument-faces/{rally,night}.ts`, specimens. **Scope:** L - one commit per platform.
+**Status 2026-11-24:** designer 304a45cc (fill: `rect` growing with the shift, `arc` band with round ends to the angle, per-pixel `gradient`; rally and night faces and needles; Saira bundled; `e2e/instrument-fill.spec.ts`; specimens instrument-rally/-night), firmware 470ae61, app 890bf01 - 22 vectors byte-identical on all three. 4.3B conformance: fuel and rally identical; night identical but for its digits (I12). Phone still open.
 
 ### I12 - *Segments* and *text*: the VFD
 **Description:** *segments* (shapes with a threshold) and the digital
@@ -193,6 +194,7 @@ VFD gauge and bar; the night cluster gets its readout.
 - [ ] the readout shows the style's typeface on the device, from the baked glyph strip
 **Verification:** vectors; specimens; `npm run test:quick`
 **Dependencies:** I11. **Files:** `needle-raster.ts` + ports, `instrument-faces/vfd.ts`, `night.ts`, specimens. **Scope:** L - one commit per platform.
+**Status 2026-11-24:** designer 3910a3b9 (segments with thresholds out of 4096 and the pose's `level`; the readout from a baked `.a8`/PNG strip, one integer format rule; VFD faces and segments; Share Tech Mono bundled; `e2e/instrument-readout.spec.ts`; specimen instrument-vfd). Firmware and app ports running.
 
 ### Checkpoint C - all primitives everywhere
 - [ ] `npm run test:quick` green; the user sees the VFD swing on the 4.3B
