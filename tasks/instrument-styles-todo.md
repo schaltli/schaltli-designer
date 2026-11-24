@@ -248,6 +248,7 @@ screen.
 - [ ] the face memory per screen shown before deploying
 **Verification:** specimens on round boards and PaperS3; `npm run test:quick`
 **Dependencies:** Checkpoint D. **Files:** `render-instrument.ts`, `deploy-dialog.tsx`, specimens. **Scope:** M.
+**Status 2026-11-24:** 6a9ee641, fc6a4d97. 4-bit: faces dithered to sixteen greys, needle and readout grey, no spring; PaperS3 conformance 52/52 (gauge, bar, all eleven styles), now a test:all step `papers3-instruments`. Round: the motion check fills a round display - knob 360 px at 28.9 fps, at rest identical. Deploy dialog: «Styled gauges and bars hold …» per screen (e2e/instrument-deploy.spec.ts). Open: the T-Encoder's full-screen run - it hangs (ping, no HTTP, not on USB) and still has the I12 firmware.
 
 ### I18 - Handbook and release
 **Description:** a handbook page on styled gauges and bars (styles, scale,
@@ -258,6 +259,7 @@ labels, zones, motion, memory), `objekte.md` linked; labels in
 - [ ] `npm run test:all` green
 **Verification:** `npm run test:all`; `npm run dev --prefix handbuch` read through
 **Dependencies:** I17. **Files:** `handbuch/designer/instrumente.md` (new), `handbuch/designer/objekte.md`, `handbuch/.vitepress/config.mjs`. **Scope:** S.
+**Status 2026-11-24:** 56a57015 - `handbuch/objekte/instrumente.md` (the object pages live under objekte/, not designer/), linked from Bar and Gauge in anzeigen.md, in the sidebar (the line went into 6a9ee641; the user's own change in config.mjs left unstaged). Through maettel-humanizer; handbook-labels green. Open: `npm run test:all` and the release - the release waits for the user.
 
 ### Checkpoint E - release
 - [ ] all acceptance criteria met, `npm run test:all` green, the user approves the release
