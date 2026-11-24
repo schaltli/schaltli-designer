@@ -21,6 +21,8 @@ import {
 import { instrumentFontsReady } from "@/lib/instrument-fonts"
 import { settle565 } from "@/components/canvas/instrument-faces/common"
 import { paintFuelBar, paintFuelGauge } from "@/components/canvas/instrument-faces/fuel"
+import { paintNightBar, paintNightGauge } from "@/components/canvas/instrument-faces/night"
+import { paintRallyBar, paintRallyGauge } from "@/components/canvas/instrument-faces/rally"
 import { barFrame, STYLE_META, type BarDirection, type BarFrame } from "@/lib/instrument"
 
 export type InstrumentKind = "gauge" | "bar"
@@ -36,6 +38,8 @@ type Painter = (ctx: CanvasRenderingContext2D, scale: InstrumentScale, props: In
 /** Gauge painters by style. A style without its own yet is drawn as the fuel gauge until its task. */
 const GAUGE_PAINTERS: Partial<Record<InstrumentStyle, Painter>> = {
   fuel: paintFuelGauge,
+  rally: paintRallyGauge,
+  night: paintNightGauge,
 }
 
 type BarPainter = (
@@ -50,6 +54,8 @@ type BarPainter = (
 /** Bar painters by style; as with gauges, the fuel gauge's until a style has its own. */
 const BAR_PAINTERS: Partial<Record<InstrumentStyle, BarPainter>> = {
   fuel: paintFuelBar,
+  rally: paintRallyBar,
+  night: paintNightBar,
 }
 
 const cache = new Map<string, BakedFace>()

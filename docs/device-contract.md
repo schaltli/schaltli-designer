@@ -1528,12 +1528,16 @@ its flat look has; beside them the export writes `instrument`
   "needle": {                                // the moving part (lib/needle-raster.ts)
     "pivot": { "x": 800, "y": 1200 },        // eighths of a pixel, in the object's box
     "layers": [
-      { "motion": "rotate" | "translate" | "static",
-        "shapes": [ { "poly": [[x, y], …] } | { "circle": [cx, cy, r, rInner?] } ],  // eighths
+      { "motion": "rotate" | "translate" | "static" | "fill",
+        "shapes": [ { "poly": [[x, y], …] } | { "circle": [cx, cy, r, rInner?] }
+                  | { "rect": [x0, y0, x1, y1] }               // eighths
+                  | { "arc": [r, hw, from64, to64] } ],         // eighths, 1/64 degree, about the pivot
         "color": 63422,                      // RGB565, packed
         "alpha": 256,                        // out of 256, a body's opacity
         "soft": [180, 120, 60],              // optional: a glow/shadow field, alpha by whole pixels outside
-        "dx": 0, "dy": 24 }                  // optional, eighths, added after turning
+        "dx": 0, "dy": 24,                   // optional, eighths, added after turning
+        "grow": "right" | "left" | "down" | "up",   // fill layer: the way its rects grow (default right)
+        "gradient": { "to": 64480, "axis": "x" | "y", "start": 12, "length": 180 } }  // optional
     ]
   },
   "sweep":  { "from": -55, "to": 55 },       // gauge: degrees at position 0 and 1, 0 = up, clockwise
@@ -1559,6 +1563,30 @@ Draw the face, then each layer back to front:
   `x' = px + ((rx·C − ry·S + 8192) >> 14)`, `y'` alike with `rx·S + ry·C`.
   A `translate` layer moves by the shift; a `static` one stays. `dx`/`dy`
   are added after.
+- A `fill` layer grows to the value (2026-11-24, the rally and night
+  styles). Its `rect` grows from the start edge `grow` names: right
+  `x1 = clamp(x0 + shiftX, x0, x1)`, left `x0 = clamp(x1 + shiftX, x0, x1)`,
+  down and up alike with `shiftY`; then it is the polygon of its four
+  corners. Empty (no width or height left) it draws nothing. A `rect` in
+  any other layer is that polygon as given (moved by the shift in a
+  `translate` layer).
+- An `arc` is a band of half width `hw` about the circle of radius `r`
+  around `pivot` (+ `dx`/`dy`), with round ends, from `from64` to the end:
+  in a `fill` layer `clamp(angle64, from64, to64)`, otherwise `to64`. A
+  span of 0 or less draws nothing. With `u0`, `u1` the ends' directions
+  (`arcDirection`) and `cross(a, b) = a.x·b.y − a.y·b.x`, a point `p`
+  (relative to the centre) is in the sector when the span is 360° or more;
+  up to 180°, when `cross(u0, p) ≥ 0` and `cross(p, u1) ≥ 0`; otherwise
+  unless `cross(u1, p) > 0` and `cross(p, u0) > 0`. The end points are
+  `e = ((r·u.x + 8192) >> 14, (r·u.y + 8192) >> 14)`. A sub-sample is in
+  the band when it is in the sector and `(r − hw)² ≤ |p|² ≤ (r + hw)²`, or
+  else when `|p − e|² ≤ hw²` for either end. For a soft field the
+  distance from the band is, in the sector, `|isqrt(|p|²) − r| − hw`,
+  outside it `isqrt(min |p − e|²) − hw`, taken at the pixel centre; 0 or
+  less is inside.
+- A layer with a `gradient` takes its colour per pixel:
+  `gradient565(color, to, (x or y) − start, length)` (§2.1, the bar's
+  gradient), the same for body and soft field.
 - A body is filled with 4 × 4 sub-samples at eighths 1, 3, 5, 7: polygons by
   `PolygonRaster`, circles and rings sampled the same way. Its alpha is
   `alpha`, or `(alpha × coverage + 8) >> 4` on an edge.

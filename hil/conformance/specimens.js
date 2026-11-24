@@ -87,6 +87,23 @@ function underlay(c, id, rect) {
 // retired by the split (label, MqttDataField, MQTTIconField, MqttDataLine,
 // SoftwareButton, Switch) sat here until 2026-09-22 looking like coverage, and
 // the run's "uncovered declared type(s)" line was the only thing that knew.
+// A styled gauge on top of the square and its bar below, on one topic: the
+// split instrument-fuel uses, for the styles after it.
+function instrumentPair(c, style, direction, words) {
+  const topic = c.topic(style, "numeric", LEVELS);
+  const side = Math.round(c.square.height * 0.62);
+  const gap = Math.round(c.square.height * 0.06);
+  const gaugeBox = { x: c.square.x + Math.round((c.square.width - side) / 2), y: c.square.y, width: side, height: side };
+  const barBox = { x: c.square.x, y: c.square.y + side + gap, width: c.square.width, height: c.square.height - side - gap };
+  const props = { topic, calibrationPoints: LINEAR, style, zones: [{ from: 0, to: 15, kind: "danger" }], motion: "direct", ...words };
+  return {
+    objects: [
+      { id: c.id("gauge"), type: "gauge", zIndex: 1, ...gaugeBox, properties: { ...props } },
+      { id: c.id("bar"), type: "bar", zIndex: 1, ...barBox, properties: { ...props, direction } },
+    ],
+  };
+}
+
 const SPECIMENS = {
   // The plain text, and below it texts the device resolves itself
   // (docs/2026-10-05-placeholder-devices.md): a topic at F1 and one at N2 in
@@ -690,6 +707,13 @@ const SPECIMENS = {
       };
     },
   },
+
+  // The fill primitive (I11): the rally gauge's needle with its hard shadow
+  // and its bar's orange fill under standing stripes; the night cluster's
+  // ring of light, red to orange and glowing, and its light strip growing
+  // right to left.
+  "instrument-rally": { build: (c) => instrumentPair(c, "rally", "left-to-right", { caption: "Batt", unit: "%" }) },
+  "instrument-night": { build: (c) => instrumentPair(c, "night", "right-to-left", { caption: "Outside", unit: "°C" }) },
 
   dial: {
     build: (c) => {

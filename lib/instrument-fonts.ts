@@ -16,6 +16,8 @@ export interface InstrumentFont {
 export const INSTRUMENT_FONTS: InstrumentFont[] = [
   { family: "Schaltli Oswald", weight: 500, url: "/fonts/instrument/oswald-latin-500-normal.woff2" },
   { family: "Schaltli Oswald", weight: 700, url: "/fonts/instrument/oswald-latin-700-normal.woff2" },
+  { family: "Schaltli Saira", weight: 300, url: "/fonts/instrument/saira-latin-300-normal.woff2" },
+  { family: "Schaltli Saira", weight: 400, url: "/fonts/instrument/saira-latin-400-normal.woff2" },
 ]
 
 let state: "idle" | "loading" | "ready" | "failed" = "idle"

@@ -9,7 +9,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { angle64Of, drawNeedle, rgb565Picture, type NeedleDescription, type NeedlePose } from "../lib/needle-raster"
-import { gaugeNeedle, hex565, softTable } from "../lib/instrument-needles"
+import { barNeedle, gaugeNeedle, hex565, softTable } from "../lib/instrument-needles"
 
 const GROUND = hex565("#203040")
 
@@ -40,6 +40,36 @@ const pointer: NeedleDescription = {
   layers: [{ motion: "translate", shapes: [{ poly: [[16, 40], [40, 28], [40, 52]] }], color: hex565("#f4f4f4"), alpha: 256, soft: undefined }],
 }
 
+const fillRight: NeedleDescription = {
+  pivot: { x: 0, y: 0 },
+  layers: [
+    { motion: "fill", grow: "right", shapes: [{ rect: [20, 36, 172, 60] }], color: hex565("#ff2a12"), alpha: 256, soft: softTable(130, 2), gradient: { to: hex565("#ff9a4a"), axis: "x", start: 2, length: 20 } },
+    { motion: "fill", grow: "right", shapes: [{ rect: [20, 36, 172, 60] }], color: hex565("#ff2a12"), alpha: 256, gradient: { to: hex565("#ff9a4a"), axis: "x", start: 2, length: 20 } },
+  ],
+}
+const fillUp: NeedleDescription = {
+  pivot: { x: 0, y: 0 },
+  layers: [
+    { motion: "fill", grow: "up", shapes: [{ rect: [36, 12, 60, 180] }], color: hex565("#ff9a4a"), alpha: 220, gradient: { to: hex565("#ff2a12"), axis: "y", start: 1, length: 22 } },
+    { motion: "static", shapes: [{ rect: [36, 90, 60, 98] }], color: hex565("#0d0d0d"), alpha: 256 },
+  ],
+}
+const fillLeft: NeedleDescription = {
+  pivot: { x: 0, y: 0 },
+  layers: [{ motion: "fill", grow: "left", shapes: [{ rect: [13, 30, 170, 61] }], color: hex565("#ff6a13"), alpha: 256 }],
+}
+const arc = (from: number, to: number, soft?: number[]): NeedleDescription => ({
+  pivot: { x: 100, y: 100 },
+  layers: [
+    ...(soft ? [{ motion: "fill" as const, shapes: [{ arc: [70, 10, angle64Of(from), angle64Of(to)] as [number, number, number, number] }], color: hex565("#ff2a12"), alpha: 256, soft, gradient: { to: hex565("#ff9a4a"), axis: "x" as const, start: 2, length: 21 } }] : []),
+    { motion: "fill", shapes: [{ arc: [70, 10, angle64Of(from), angle64Of(to)] }], color: hex565("#ff2a12"), alpha: 256, gradient: { to: hex565("#ff9a4a"), axis: "x", start: 2, length: 21 } },
+  ],
+})
+const ringStatic: NeedleDescription = {
+  pivot: { x: 100, y: 100 },
+  layers: [{ motion: "static", shapes: [{ arc: [66, 7, angle64Of(-90), angle64Of(270)] }], color: hex565("#d0e0f0"), alpha: 180, soft: undefined }],
+}
+
 const pose = (deg: number, shiftX = 0, shiftY = 0): NeedlePose => ({ angle64: angle64Of(deg), shiftX, shiftY })
 
 function render(desc: NeedleDescription, p: NeedlePose, w: number, h: number): string {
@@ -58,6 +88,25 @@ const cases = [
   { name: "a pointer shifted along the scale", desc: pointer, pose: pose(0, 61, 0), width: 24, height: 12 },
   { name: "the fuel gauge's needle at 45 degrees, 64 px", desc: gaugeNeedle("fuel", 64), pose: pose(45), width: 64, height: 64 },
   { name: "the fuel gauge's needle at -55 degrees, 64 px", desc: gaugeNeedle("fuel", 64), pose: pose(-55), width: 64, height: 64 },
+  { name: "a fill growing right, glowing, red to orange", desc: fillRight, pose: pose(0, 97, 0), width: 25, height: 12 },
+  { name: "a fill growing up, translucent, a stripe over it", desc: fillUp, pose: pose(0, 0, -101), width: 12, height: 25 },
+  { name: "a fill growing left, overshooting its end", desc: fillLeft, pose: pose(0, -200, 0), width: 24, height: 10 },
+  { name: "a fill growing left, nothing yet", desc: fillLeft, pose: pose(0, 0, 0), width: 24, height: 10 },
+  { name: "an arc filled from -60 to 50 degrees", desc: arc(-60, 120), pose: pose(50), width: 25, height: 25 },
+  { name: "an arc filled from -130 to 110 degrees, glowing", desc: arc(-130, 130, softTable(130, 3)), pose: pose(110), width: 25, height: 25 },
+  { name: "an arc held at its end when the needle overshoots", desc: arc(-130, 130, softTable(130, 2)), pose: pose(133.2), width: 25, height: 25 },
+  { name: "an arc below its start draws nothing", desc: arc(-130, 130), pose: pose(-131), width: 25, height: 25 },
+  { name: "a whole ring, translucent", desc: ringStatic, pose: pose(0), width: 25, height: 25 },
+  { name: "the rally gauge's needle at 100 degrees, 64 px", desc: gaugeNeedle("rally", 64), pose: pose(100), width: 64, height: 64 },
+  { name: "the night cluster at 37 degrees, 64 px", desc: gaugeNeedle("night", 64), pose: pose(37), width: 64, height: 64 },
+  ...(() => {
+    const b = barNeedle("rally", 72, 26, "left-to-right")
+    const n = barNeedle("night", 24, 70, "bottom-to-top")
+    return [
+      { name: "the rally bar at 0.63, 72 x 26", desc: b.desc, pose: pose(0, Math.floor(0.63 * b.travelX + 0.5), 0), width: 72, height: 26 },
+      { name: "the night strip at 0.4, standing, 24 x 70", desc: n.desc, pose: pose(0, 0, Math.floor(0.4 * n.travelY + 0.5)), width: 24, height: 70 },
+    ]
+  })(),
 ].map((c) => ({ ...c, ground: GROUND, expected: render(c.desc, c.pose, c.width, c.height) }))
 
 const out = {
