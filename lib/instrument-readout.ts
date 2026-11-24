@@ -13,6 +13,8 @@
 import { blend565 } from "@/lib/level-glow"
 import type { Rgb565Target } from "@/lib/needle-raster"
 
+const DECIMAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
+
 /** What a readout can show, in the strip's order. */
 export const READOUT_CHARS = "0123456789.-"
 
@@ -46,7 +48,8 @@ export interface ReadoutDescription {
 export function formatReadout(raw: string | number | null | undefined, decimals: number): string {
   if (raw === null || raw === undefined) return ""
   const s = typeof raw === "number" ? String(raw) : raw.trim()
-  if (s === "") return ""
+  // A plain decimal number only - no hex, binary or a type letter, so every platform agrees.
+  if (!DECIMAL.test(s)) return ""
   const v = Number(s)
   if (!Number.isFinite(v)) return ""
   let p = 1

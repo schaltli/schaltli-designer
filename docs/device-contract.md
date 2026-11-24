@@ -1604,8 +1604,9 @@ Draw the face, then each layer back to front:
 
 **The readout** is drawn after the needle, and shows the value itself at
 once (not the needle's position on its way). Its text: the raw value as a
-decimal number (surrounding spaces allowed, anything else after it makes it
-no number); none, or not finite, writes nothing. Otherwise
+plain decimal number, `[+-]?(digits[.digits?] | .digits)([eE][+-]?digits)?`
+with surrounding spaces allowed (no hex, binary or type letter); anything
+else, none, or not finite writes nothing. Otherwise
 `m = floor(|v| × 10^decimals + 0.5)` in double precision without fused
 multiply-add, written as `m / 10^d`, a point and the remainder padded to
 `decimals` digits, with a minus only when `v < 0` and `m ≠ 0`. The pen

@@ -27,6 +27,13 @@ const formats: { raw: string; decimals: number; expected?: string }[] = [
   { raw: "999999.96", decimals: 1 },
   { raw: "12abc", decimals: 0 },
   { raw: "+5", decimals: 1 },
+  { raw: "0x10", decimals: 0 },
+  { raw: "-0x10", decimals: 0 },
+  { raw: "0b101", decimals: 0 },
+  { raw: "1f", decimals: 0 },
+  { raw: "Infinity", decimals: 0 },
+  { raw: ".5", decimals: 1 },
+  { raw: "5.", decimals: 1 },
 ]
 for (const f of formats) f.expected = formatReadout(f.raw, f.decimals)
 
