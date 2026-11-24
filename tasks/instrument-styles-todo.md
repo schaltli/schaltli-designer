@@ -159,14 +159,14 @@ tests on the shared vectors; the bundle carries the styled object
 spring; the app's DDF announces the feature.
 **Acceptance:**
 - [x] unit tests pass on every vector
-- [ ] the phone's snapshot equals the export within tolerance, at rest
+- [x] the phone's snapshot equals the export within tolerance, at rest (2026-11-24, Android HIL screen-14, all four styles, 0.06 %)
 **Verification:** `gradle testDebugUnitTest`; `hil/android/` specimen; `npm run test:quick`
 **Dependencies:** I7. **Files:** `render/PolygonRaster.kt`, `render/NeedleRaster.kt`, `ui/objects/InstrumentView.kt`, `lib/android-export.ts`, Android DDF builder. **Scope:** L - rasters and view in two commits.
 **Done 2026-11-23, but for the phone:** `NeedleRasterGoldenTest` byte-identical, all app unit tests green, the bundle carries the PNG face (`e2e/instrument-export.spec.ts`). The phone was not on adb, so the snapshot against the export is not yet taken; the conformance specimen «instrument-fuel» runs in the Android HIL once the phone's test interface is on (the app now declares the feature).
 
 ### Checkpoint B - the fuel gauge everywhere ✓ (phone open)
 - [x] `npm run test:quick` green (the 4" once red on a 2.9 s WiFi answer; the check now takes the second slowest, rerun green)
-- [x] the user sees it on the 4.3B and the knob, resting and swinging (2026-11-24: «passt, weiter») - [ ] the phone, once it is on adb
+- [x] the user sees it on the 4.3B and the knob, resting and swinging (2026-11-24: «passt, weiter») - [x] the phone (2026-11-24, Android HIL)
 Open with the user: Deploy refuses a device without `instrument-styles` (like Guard) instead of plan decision 4's flat look with a warning.
 
 ## Phase 4 - the remaining primitives
@@ -199,7 +199,7 @@ VFD gauge and bar; the night cluster gets its readout.
 ### Checkpoint C - all primitives everywhere
 - [x] `npm run test:quick` (2026-11-24): red on the VFD's unlit segments (the missing level, fixed), a 4.3B install lost to curl's 25 s (conformance now waits 120 s), two chart lanes (WiFi, 8 px on the PaperS3) and three e2e (willReadFrequently fixed; new-project load-flaky, green alone). Reruns: 4.3B conformance 100/100, 4" 24/24 instrument cases, both chart lanes 0 px.
 - [ ] the user sees the VFD swing on the 4.3B (demo deployed there, night cluster on the knob)
-- [ ] the phone - not on adb
+- [x] the phone (2026-11-24): Android HIL 35/35, fuel, rally, night and VFD at 0.06 %
 Noted for I17: with every face of 28 screens held, the 4.3B keeps 1.07 MB PSRAM free.
 
 ## Phase 5 - the remaining faces (designer only)
