@@ -152,7 +152,7 @@ async function stripPng(strip: ReadoutStrip): Promise<Uint8Array> {
   const canvas = document.createElement("canvas")
   canvas.width = strip.width
   canvas.height = strip.height
-  const ctx = canvas.getContext("2d")!
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!
   const img = ctx.createImageData(strip.width, strip.height)
   for (let i = 0; i < strip.alpha.length; i++) {
     img.data[i * 4] = 255

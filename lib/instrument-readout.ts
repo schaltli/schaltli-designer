@@ -84,7 +84,7 @@ export interface ReadoutStrip {
 export function bakeReadoutStrip(font: string, px: number, glowPx: number): ReadoutStrip {
   const pad = Math.ceil(glowPx * 2) + 1
   const height = Math.ceil(px * 1.25) + 2 * pad
-  const probe = document.createElement("canvas").getContext("2d")!
+  const probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!
   probe.font = font
   const cells: [number, number, number][] = []
   let x = 0

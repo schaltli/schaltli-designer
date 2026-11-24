@@ -158,8 +158,11 @@ async function uploadProject(
     execFileSync("curl", [
       "-s",
       "--show-error",
+      // Long enough for the board to write a project's baked instrument
+      // faces to flash and answer (2026-11-24: four styled pairs on the
+      // 4.3B took 37 s; at 25 s curl hung up and the install was lost).
       "-m",
-      "25",
+      "120",
       "-F",
       `file=@${tmp}`,
       testInterface.uploadUrl,
