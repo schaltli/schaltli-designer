@@ -11,8 +11,8 @@
  */
 import { isSettableLevel } from "@/lib/object-types"
 import { normalizeInstrument, STYLE_META } from "@/lib/instrument"
-import { bakedBarFace, bakedGaugeFace } from "@/lib/instrument-bake"
-import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
+import { bakedBarFace, bakedGaugeFace, isGreyDepth } from "@/lib/instrument-bake"
+import { barNeedle, gaugeNeedle, greyNeedle } from "@/lib/instrument-needles"
 import type { NeedleDescription } from "@/lib/needle-raster"
 import { encodeStrip, type ReadoutDescription, type ReadoutStrip } from "@/lib/instrument-readout"
 
@@ -109,6 +109,7 @@ type ExportFile = { name: string; data: Uint8Array }
 export function exportedInstrument(
   obj: Obj,
   ground: string,
+  colorDepth = "24bit",
 ): { instrument: ExportedInstrument; file: ExportFile; extraFiles: ExportFile[] } | null {
   if (!isStyledInstrument(obj)) return null
   const props = normalizeInstrument(obj.properties)
@@ -117,12 +118,15 @@ export function exportedInstrument(
   const h = Math.max(1, Math.round(obj.height ?? 1))
   const gauge = obj.type === "gauge"
   const size = Math.min(w, h)
-  const face = gauge ? bakedGaugeFace(obj.properties!, size, ground) : bakedBarFace(obj.properties!, w, h, ground)
+  const face = gauge ? bakedGaugeFace(obj.properties!, size, ground, undefined, colorDepth) : bakedBarFace(obj.properties!, w, h, ground, undefined, colorDepth)
   if (!face) return null
+  const grey = isGreyDepth(colorDepth)
+  // A grey panel is e-paper: no motion there (spec, «Motion»), its colours grey.
+  const asShown = (d: NeedleDescription) => (grey ? greyNeedle(d) : d)
   const data = encodeFace565(face.canvas)
   const name = `assets/face-${contentHash(data)}.s565`
   const meta = STYLE_META[style]
-  const spring = props.motion === "direct" ? undefined : { ...meta.spring }
+  const spring = props.motion === "direct" || grey ? undefined : { ...meta.spring }
   const extraFiles: ExportFile[] = []
   let readout: ReadoutDescription | undefined
   if (face.readout) {
@@ -134,14 +138,14 @@ export function exportedInstrument(
   const common = { style, face: name, ...(spring ? { spring } : {}), ...(readout ? { readout } : {}) }
   if (gauge) {
     return {
-      instrument: { ...common, needle: gaugeNeedle(style, size, face.scale), sweep: { from: meta.sweepFrom, to: meta.sweepTo } },
+      instrument: { ...common, needle: asShown(gaugeNeedle(style, size, face.scale)), sweep: { from: meta.sweepFrom, to: meta.sweepTo } },
       file: { name, data },
       extraFiles,
     }
   }
   const bar = barNeedle(style, w, h, obj.properties?.direction, face.scale)
   return {
-    instrument: { ...common, needle: bar.desc, travel: { x: bar.travelX, y: bar.travelY } },
+    instrument: { ...common, needle: asShown(bar.desc), travel: { x: bar.travelX, y: bar.travelY } },
     file: { name, data },
     extraFiles,
   }
@@ -196,4 +200,49 @@ export async function exportedInstrumentPng(
     readout = { ...readout, glyphs }
   }
   return { instrument: { ...board.instrument, face: name, ...(readout ? { readout } : {}) }, file: { name, data }, extraFiles }
+}
+
+/**
+ * What the styled faces of a project hold in a board's memory, per screen
+ * (tasks/instrument-styles-todo.md I17; decision 2: a style may exceed a
+ * device's limits, so the Deploy dialog says what it costs). A board keeps
+ * every face it has shown since the project was loaded (InstrumentFace), so
+ * the total is what matters; identical faces count once. Bytes as the face
+ * file is: RGB565 pixels and a mask bit each.
+ */
+export function faceMemory(project: { screens?: Array<{ name?: string; objects?: Obj[]; isMaster?: boolean }> }): {
+  total: number
+  screens: { name: string; bytes: number }[]
+} {
+  const seen = new Set<string>()
+  const screens: { name: string; bytes: number }[] = []
+  let total = 0
+  for (const s of project.screens ?? []) {
+    let bytes = 0
+    const walk = (objects: Obj[] | undefined) => {
+      for (const o of objects ?? []) {
+        if (isStyledInstrument(o)) {
+          const w = Math.max(1, Math.round(o.width ?? 1))
+          const h = Math.max(1, Math.round(o.height ?? 1))
+          const [fw, fh] = o.type === "gauge" ? [Math.min(w, h), Math.min(w, h)] : [w, h]
+          const size = fw * fh * 2 + Math.ceil((fw * fh) / 8)
+          bytes += size
+          const key = JSON.stringify([o.type, fw, fh, o.properties])
+          if (!seen.has(key)) {
+            seen.add(key)
+            total += size
+          }
+        }
+        walk(o.children)
+      }
+    }
+    walk(s.objects)
+    if (bytes > 0) screens.push({ name: s.name || "Screen", bytes })
+  }
+  return { total, screens }
+}
+
+/** Bytes as a reader says them: KB below a megabyte, MB with one decimal above. */
+export function formatBytes(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }

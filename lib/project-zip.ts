@@ -509,7 +509,7 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
   // colour, light (a styled face looks the same in dark, plan decision 1).
   const groundByScreen = new Map(projectWithResolvedBackgrounds.screens.map((s) => [s.id, String(s.backgroundColor || "#ffffff")]))
   const withInstrument = (obj: any, keyId: string): any => {
-    const exported = exportedInstrument(obj, groundByScreen.get(keyId) ?? "#ffffff")
+    const exported = exportedInstrument(obj, groundByScreen.get(keyId) ?? "#ffffff", project.settings?.colorDepth || "24bit")
     if (!exported) return obj
     // Named by content: a second identical face writes the same file again.
     assetsFolder.file(exported.file.name.replace(/^assets\//, ""), exported.file.data)

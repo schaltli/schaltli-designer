@@ -64,7 +64,7 @@ import { loadAnnouncedDdf } from "@/lib/announced-ddf"
 import { DeviceAddressLine } from "./device-address-line"
 import { clipFeature } from "@/lib/clip"
 import { guardFeature } from "@/lib/guard"
-import { instrumentFeature } from "@/lib/instrument-export"
+import { faceMemory, formatBytes, instrumentFeature } from "@/lib/instrument-export"
 
 interface DeployDialogProps {
   project: Project
@@ -756,6 +756,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   // And a styled gauge or bar: a device without it would draw the flat look
   // in its place (docs/2026-11-23-instrument-styles.md, device contract §2.15).
   const instrument = instrumentFeature(project as any)
+  // What its faces cost a board (decision 2: a style may exceed the limits).
+  const faces = instrument ? faceMemory(project as any) : null
   // A phone draws box, line and fixed icon itself only from the app that
   // says so; the bundle carries no baked picture of them any more
   // (lib/static-objects.ts). Boards always have.
@@ -967,6 +969,14 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
               {(plan?.kind === "deploy" || plan?.kind === "update-and-deploy" || plan?.kind === "choose") && (
                 <p className="text-sm text-muted-foreground" data-testid="firmware-line">
                   {plan.line}
+                </p>
+              )}
+
+              {faces && faces.total > 0 && selectedDevice?.platform !== "android" && (
+                <p className="text-xs text-muted-foreground" data-testid="instrument-memory">
+                  {`Styled gauges and bars hold ${formatBytes(faces.total)} of the device's memory (${faces.screens
+                    .map((s) => `${s.name} ${formatBytes(s.bytes)}`)
+                    .join(", ")}).`}
                 </p>
               )}
 

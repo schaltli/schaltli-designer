@@ -114,6 +114,7 @@ export default defineConfig({
         items: [
           { text: "Übersicht", link: "/objekte/" },
           { text: "Anzeigen", link: "/objekte/anzeigen" },
+          { text: "Instrumente", link: "/objekte/instrumente" },
           { text: "Bedienen", link: "/objekte/bedienen" },
           { text: "Zeichnen", link: "/objekte/zeichnen" },
           { text: "Anordnen", link: "/objekte/anordnen" },

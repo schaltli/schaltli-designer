@@ -1,6 +1,6 @@
 // A styled needle swinging on the board (designer docs/2026-11-23-instrument-
 // styles.md «Motion», device contract §2.15, tasks/instrument-styles-todo.md
-// I9): a 400 px fuel gauge goes from 0 to 100 with its spring, and
+// I9): a 400 px fuel gauge (on a round display one that fills it) goes from 0 to 100 with its spring, and
 //
 //   1. the swing is drawn at the board's frame rate or more (minFpsFor:
 //      25, the RGB-panel boards 12),
@@ -43,7 +43,10 @@ async function get(url, timeoutMs = 10000) {
 
 function project(ddf, stamp, motion) {
   const { project } = buildProject(ddf, { topicPrefix: `hil-instrument-${RUN}` })
-  const side = Math.min(400, ddf.screen.height - 40, ddf.screen.width - 40)
+  // On a round display the gauge fills it, its case the display's edge
+  // (decision 5) - the knob's and the T-Encoder's whole screen swinging.
+  const round = ddf.screen.width === ddf.screen.height && ddf.screen.width < 500
+  const side = round ? ddf.screen.width : Math.min(400, ddf.screen.height - 40, ddf.screen.width - 40)
   project.name = "HIL instrument motion"
   project.fonts = ddf.fonts
   project.topics = [{ id: "fuel", topic: TOPIC, type: "numeric", examples: ["0"] }]

@@ -25,7 +25,7 @@ import { paintNightBar, paintNightGauge } from "@/components/canvas/instrument-f
 import { paintRallyBar, paintRallyGauge } from "@/components/canvas/instrument-faces/rally"
 import { NIGHT_FONT, NIGHT_GAUGE_READOUT, nightBarReadout } from "@/components/canvas/instrument-faces/night"
 import { paintVfdBar, paintVfdGauge, VFD_CYAN, VFD_FONT, VFD_GAUGE_READOUT, vfdBarReadout } from "@/components/canvas/instrument-faces/vfd"
-import { hex565 } from "@/lib/instrument-needles"
+import { grey565, hex565 } from "@/lib/instrument-needles"
 import { paintPressureBar, paintPressureGauge } from "@/components/canvas/instrument-faces/pressure"
 import { paintCoilBar, paintCoilGauge } from "@/components/canvas/instrument-faces/coil"
 import { paintDecoBar, paintDecoGauge } from "@/components/canvas/instrument-faces/deco"
@@ -84,6 +84,7 @@ function bakeReadout(
   layout: ReadoutLayout,
   props: InstrumentProps,
   calibrationPoints: CalibrationPoint[],
+  colorDepth: string,
 ): BakedFace["readout"] {
   const px = Math.max(6, Math.round(layout.px))
   const font = layout.font(px)
@@ -103,7 +104,7 @@ function bakeReadout(
     x: Math.round(layout.x),
     y: Math.round(layout.y - strip.height / 2),
     align: layout.align,
-    color: hex565(layout.color),
+    color: isGreyDepth(colorDepth) ? grey565(hex565(layout.color)) : hex565(layout.color),
     decimals,
   }
   if (layout.unlit) {
@@ -191,8 +192,51 @@ export function faceKey(
   calibrationPoints: CalibrationPoint[],
   ground: string,
   direction = "",
+  colorDepth = "24bit",
 ): string {
-  return JSON.stringify([style, kind, width, height, direction, props.scale ?? null, props.zones ?? null, props.caption ?? "", props.unit ?? "", props.readout ?? false, calibrationPoints, ground])
+  return JSON.stringify([style, kind, width, height, direction, props.scale ?? null, props.zones ?? null, props.caption ?? "", props.unit ?? "", props.readout ?? false, calibrationPoints, ground, colorDepth])
+}
+
+/** Whether a colour depth is a grey panel's (the PaperS3's sixteen greys). */
+export const isGreyDepth = (colorDepth: string | undefined) => colorDepth === "4bit"
+
+/**
+ * A face for a panel of sixteen greys (decision 6: every style on e-paper,
+ * converted): each drawn pixel's luminance - the weights
+ * quantizeColorFor4Bit() uses - to the nearest of the sixteen, with
+ * Floyd-Steinberg error diffusion as every other bitmap gets for a 4-bit
+ * device (lib/asset-converter.ts), so a gradient keeps its shape. Pixels
+ * the face leaves transparent stay so and take no error.
+ */
+function greyFace(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const img = ctx.getImageData(0, 0, width, height)
+  const d = img.data
+  const work = new Float32Array(width * height)
+  for (let i = 0; i < work.length; i++) work[i] = (77 * d[i * 4] + 150 * d[i * 4 + 1] + 29 * d[i * 4 + 2] + 128) >> 8
+  const drawn = (i: number) => d[i * 4 + 3] !== 0
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      if (!drawn(i)) continue
+      const old = Math.max(0, Math.min(255, work[i]))
+      const level = Math.round((old * 15) / 255)
+      const grey = level * 17
+      const err = old - grey
+      if (x + 1 < width && drawn(i + 1)) work[i + 1] += (err * 7) / 16
+      if (y + 1 < height) {
+        if (x > 0 && drawn(i + width - 1)) work[i + width - 1] += (err * 3) / 16
+        if (drawn(i + width)) work[i + width] += (err * 5) / 16
+        if (x + 1 < width && drawn(i + width + 1)) work[i + width + 1] += err / 16
+      }
+      // As an RGB565 framebuffer holds that grey, and back to 8 bits.
+      const r = grey >> 3
+      const g = grey >> 2
+      d[i * 4] = (r << 3) | (r >> 2)
+      d[i * 4 + 1] = (g << 2) | (g >> 4)
+      d[i * 4 + 2] = (r << 3) | (r >> 2)
+    }
+  }
+  ctx.putImageData(img, 0, 0)
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -209,6 +253,7 @@ export function bakedGaugeFace(
   size: number,
   ground: string,
   onReady?: () => void,
+  colorDepth = "24bit",
 ): BakedFace | null {
   const props = normalizeInstrument(properties)
   if (!props.style) return null
@@ -217,7 +262,7 @@ export function bakedGaugeFace(
     { value: 0, barSizePercent: 0 },
     { value: 100, barSizePercent: 100 },
   ]
-  const key = faceKey(props.style, "gauge", size, size, props, calibrationPoints, ground)
+  const key = faceKey(props.style, "gauge", size, size, props, calibrationPoints, ground, "", colorDepth)
   const hit = cache.get(key)
   if (hit) {
     cache.delete(key)
@@ -235,8 +280,9 @@ export function bakedGaugeFace(
   ;(GAUGE_PAINTERS[props.style] ?? paintFuelGauge)(ctx, scale, props)
   ctx.restore()
   settle565(ctx, size, size, hexToRgb(ground))
+  if (isGreyDepth(colorDepth)) greyFace(ctx, size, size)
   const layout = props.readout ? readoutLayout(props.style, "gauge", size, null, size) : null
-  const readout = layout ? bakeReadout(ctx, size, size, layout, props, calibrationPoints) : undefined
+  const readout = layout ? bakeReadout(ctx, size, size, layout, props, calibrationPoints, colorDepth) : undefined
   bakes++
   const face: BakedFace = { canvas, scale, key, readout }
   cache.set(key, face)
@@ -254,6 +300,7 @@ export function bakedBarFace(
   height: number,
   ground: string,
   onReady?: () => void,
+  colorDepth = "24bit",
 ): BakedFace | null {
   const props = normalizeInstrument(properties)
   if (!props.style) return null
@@ -263,7 +310,7 @@ export function bakedBarFace(
     { value: 100, barSizePercent: 100 },
   ]
   const direction = (properties.direction as BarDirection | undefined) ?? "left-to-right"
-  const key = faceKey(props.style, "bar", width, height, props, calibrationPoints, ground, direction)
+  const key = faceKey(props.style, "bar", width, height, props, calibrationPoints, ground, direction, colorDepth)
   const hit = cache.get(key)
   if (hit) {
     cache.delete(key)
@@ -279,8 +326,9 @@ export function bakedBarFace(
   if (!ctx) return null
   ;(BAR_PAINTERS[props.style] ?? paintFuelBar)(ctx, scale, props, frame, width, height)
   settle565(ctx, width, height, hexToRgb(ground))
+  if (isGreyDepth(colorDepth)) greyFace(ctx, width, height)
   const layout = props.readout ? readoutLayout(props.style, "bar", 200, frame, width) : null
-  const readout = layout ? bakeReadout(ctx, width, height, layout, props, calibrationPoints) : undefined
+  const readout = layout ? bakeReadout(ctx, width, height, layout, props, calibrationPoints, colorDepth) : undefined
   bakes++
   const face: BakedFace = { canvas, scale, key, readout }
   cache.set(key, face)

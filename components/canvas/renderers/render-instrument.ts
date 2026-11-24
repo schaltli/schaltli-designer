@@ -12,8 +12,8 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 import { calibratedAt, gaugeAngle, normalizeInstrument } from "@/lib/instrument"
-import { bakedBarFace, bakedGaugeFace } from "@/lib/instrument-bake"
-import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
+import { bakedBarFace, bakedGaugeFace, isGreyDepth } from "@/lib/instrument-bake"
+import { barNeedle, gaugeNeedle, greyNeedle } from "@/lib/instrument-needles"
 import { angle64Of, drawNeedle, levelOf, type NeedleDescription, type NeedlePose, type Rgb565Target } from "@/lib/needle-raster"
 import { drawReadout, formatReadout } from "@/lib/instrument-readout"
 import type { BakedFace } from "@/lib/instrument-bake"
@@ -48,7 +48,8 @@ function reducedMotion(): boolean {
 
 /** The position to draw: the value's, or on the way there when animating. */
 function swungAt(o: RenderInstrumentOptions, props: InstrumentProps, target: number): number {
-  if (!o.animate || props.motion === "direct" || reducedMotion()) {
+  // E-paper jumps: no motion on a grey panel (spec, «Motion»).
+  if (!o.animate || props.motion === "direct" || isGreyDepth(o.colorDepth) || reducedMotion()) {
     motion.delete(o.obj.id)
     return target
   }
@@ -138,10 +139,11 @@ export function renderInstrumentGauge(o: RenderInstrumentOptions): boolean {
   if (!props.style) return false
   const size = Math.max(1, Math.round(Math.min(o.obj.width, o.obj.height)))
   const ground = applyColorDepth(o.screenBackgroundColor || "#ffffff", o.colorDepth)
-  const face = bakedGaugeFace(o.obj.properties, size, ground, o.requestRedraw)
+  const face = bakedGaugeFace(o.obj.properties, size, ground, o.requestRedraw, o.colorDepth)
   if (!face) return true // fonts still loading: drawn on the redraw
   const at = swungAt(o, props, positionOf(o))
-  compose(o, face, ground, gaugeNeedle(props.style, size, face.scale), {
+  const needle = gaugeNeedle(props.style, size, face.scale)
+  compose(o, face, ground, isGreyDepth(o.colorDepth) ? greyNeedle(needle) : needle, {
     angle64: angle64Of(gaugeAngle(props.style, at)),
     shiftX: 0,
     shiftY: 0,
@@ -158,11 +160,11 @@ export function renderInstrumentBar(o: RenderInstrumentOptions): boolean {
   const w = Math.max(1, Math.round(o.obj.width))
   const h = Math.max(1, Math.round(o.obj.height))
   const ground = applyColorDepth(o.screenBackgroundColor || "#ffffff", o.colorDepth)
-  const face = bakedBarFace(o.obj.properties, w, h, ground, o.requestRedraw)
+  const face = bakedBarFace(o.obj.properties, w, h, ground, o.requestRedraw, o.colorDepth)
   if (!face) return true
   const needle = barNeedle(props.style, w, h, o.obj.properties.direction, face.scale)
   const at = swungAt(o, props, positionOf(o))
-  compose(o, face, ground, needle.desc, {
+  compose(o, face, ground, isGreyDepth(o.colorDepth) ? greyNeedle(needle.desc) : needle.desc, {
     angle64: 0,
     shiftX: Math.round(at * needle.travelX),
     shiftY: Math.round(at * needle.travelY),

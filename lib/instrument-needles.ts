@@ -29,6 +29,34 @@ export function hex565(hex: string): number {
   return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
 }
 
+/**
+ * A packed RGB565 colour as a panel of sixteen greys shows it: its
+ * luminance to the nearest grey, quantizeColorFor4Bit()'s rule, packed again.
+ */
+export function grey565(c: number): number {
+  const r5 = (c >> 11) & 31
+  const g6 = (c >> 5) & 63
+  const b5 = c & 31
+  const r = (r5 << 3) | (r5 >> 2)
+  const g = (g6 << 2) | (g6 >> 4)
+  const b = (b5 << 3) | (b5 >> 2)
+  const luma = (77 * r + 150 * g + 29 * b + 128) >> 8
+  const grey = Math.floor((luma * 15 + 127) / 255) * 17
+  return ((grey >> 3) << 11) | ((grey >> 2) << 5) | (grey >> 3)
+}
+
+/** A needle for a grey panel: every colour in it, and its gradient's, to grey. */
+export function greyNeedle(desc: NeedleDescription): NeedleDescription {
+  return {
+    ...desc,
+    layers: desc.layers.map((l) => ({
+      ...l,
+      color: grey565(l.color),
+      ...(l.gradient ? { gradient: { ...l.gradient, to: grey565(l.gradient.to) } } : {}),
+    })),
+  }
+}
+
 /** A 200-unit length on an object `size` pixels across, in eighths of a pixel. */
 const e8 = (units: number, size: number) => Math.round((units * size * 8) / 200)
 
