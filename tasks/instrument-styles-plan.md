@@ -54,9 +54,10 @@ draws every primitive.
 4. **Contract as a feature, not a generation:** `instrument-styles`,
    announced in the DDF like `guard` and `charts`. The export carries per
    styled object the face asset path, the dynamic description and the
-   spring; a device without the feature gets the object's flat look (the
-   properties a flat gauge needs stay in the export), and the Deploy dialog
-   names the styled objects it will show flat.
+   spring; the properties a flat gauge needs stay in the export. A device
+   without the feature is refused, like Guard: Deploy names the styled
+   objects and offers the firmware that declares it (changed from «the flat
+   look with a warning» by the user, 2026-11-24).
 5. **Faces as RGB565 in the zip** (deflated), not BMP24: 312 KB unpacked on
    a device's file system instead of 470 KB for a 400 px face, and loaded
    into PSRAM without conversion. Android gets 24 bit PNG as its other

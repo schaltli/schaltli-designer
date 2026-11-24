@@ -114,7 +114,7 @@ local preview DDF announces the feature.
 - [x] two identical gauges share one face file
 **Verification:** `e2e/instrument-export.spec.ts` (reads the zip); `npm run typecheck`, `npm run test:quick`
 **Dependencies:** I5. **Files:** `docs/device-contract.md`, `lib/project-zip.ts`, `lib/asset-export.ts`, `components/deploy-dialog.tsx`, `public/ddf/*preview*`. **Scope:** M.
-**Done 2026-11-23:** the face is an `.s565` file (RGB565 + a mask bit per pixel, named by FNV-1a of its bytes) - BMP24 would have lost the mask. **Deviation from plan decision 4, to confirm:** a device without the feature is refused like Guard (Deploy blocks, or offers the firmware that declares it) instead of getting the flat look with a warning - the deploy plan has no «warn and go on», and every other feature works this way. There is no local preview DDF in the designer any more; the boards' DDFs announce the feature in I8. `test:quick` runs after I8 (the export reaches no device before).
+**Done 2026-11-23:** the face is an `.s565` file (RGB565 + a mask bit per pixel, named by FNV-1a of its bytes) - BMP24 would have lost the mask. **Deviation from plan decision 4, confirmed by the user 2026-11-24:** a device without the feature is refused like Guard (Deploy blocks, or offers the firmware that declares it) instead of getting the flat look with a warning - the deploy plan has no «warn and go on», and every other feature works this way. There is no local preview DDF in the designer any more; the boards' DDFs announce the feature in I8. `test:quick` runs after I8 (the export reaches no device before).
 
 ### I8 - Firmware: the styled object at rest ✓
 **Description:** `NeedleRaster` port with native tests on the shared
@@ -167,7 +167,7 @@ spring; the app's DDF announces the feature.
 ### Checkpoint B - the fuel gauge everywhere ✓ (phone open)
 - [x] `npm run test:quick` green (the 4" once red on a 2.9 s WiFi answer; the check now takes the second slowest, rerun green)
 - [x] the user sees it on the 4.3B and the knob, resting and swinging (2026-11-24: «passt, weiter») - [x] the phone (2026-11-24, Android HIL)
-Open with the user: Deploy refuses a device without `instrument-styles` (like Guard) instead of plan decision 4's flat look with a warning.
+Deploy refuses a device without `instrument-styles` (like Guard) instead of plan decision 4's flat look with a warning - the user, 2026-11-24: «Abweisen, wie gebaut».
 
 ## Phase 4 - the remaining primitives
 
