@@ -56,10 +56,9 @@
 //             phone's number pad, Disarm sending only the right one
 //             (orchestrator.js checkAlarm)
 //   screen-14 styled instruments (docs/2026-11-23-instrument-styles.md,
-//             device contract 2.15): the fuel gauge, rally, night cluster
-//             and VFD as gauges, motion direct, the night and VFD with
-//             their readout - face PNG, needle raster, fill, segments, the
-//             glyph strip
+//             device contract 2.15): all eleven styles as gauges, three a
+//             row, motion direct, the night and VFD with their readout -
+//             face PNG, needle raster, fill, segments, clip, glyph strip
 //   (screen-7 to -14 stand before screen-6: the run ends on the navigator)
 //
 // Every screen inherits a master, which is the only way the master path gets
@@ -1374,14 +1373,14 @@ function buildProject(fonts) {
         name: "Instrumente",
         masterScreenId: "master-1",
         iconAssetId: "icon-circle",
-        objects: ["fuel", "rally", "night", "vfd"].map((style, i) => {
-          const side = Math.floor((SCREEN_W - 30) / 2);
+        objects: ["fuel", "rally", "night", "vfd", "pressure", "coil", "deco", "engraving", "roadster", "cockpit", "bluered"].map((style, i) => {
+          const side = Math.floor((SCREEN_W - 40) / 3);
           return {
             id: `i-${style}`,
             type: "gauge",
             zIndex: 1,
-            x: 10 + (i % 2) * (side + 10),
-            y: 90 + Math.floor(i / 2) * (side + 10),
+            x: 10 + (i % 3) * (side + 10),
+            y: 90 + Math.floor(i / 3) * (side + 10),
             width: side,
             height: side,
             properties: {
