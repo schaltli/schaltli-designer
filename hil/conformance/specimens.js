@@ -714,6 +714,9 @@ const SPECIMENS = {
   // right to left.
   "instrument-rally": { build: (c) => instrumentPair(c, "rally", "left-to-right", { caption: "Batt", unit: "%" }) },
   "instrument-night": { build: (c) => instrumentPair(c, "night", "right-to-left", { caption: "Outside", unit: "°C" }) },
+  // Segments and the readout (I12): the VFD's ring and its rising bars, with
+  // the value in digits from the baked strip.
+  "instrument-vfd": { build: (c) => instrumentPair(c, "vfd", "left-to-right", { caption: "Charge", unit: "A" }) },
 
   dial: {
     build: (c) => {

@@ -8,7 +8,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
-import { angle64Of, drawNeedle, rgb565Picture, type NeedleDescription, type NeedlePose } from "../lib/needle-raster"
+import { angle64Of, drawNeedle, levelOf, rgb565Picture, type NeedleDescription, type NeedlePose } from "../lib/needle-raster"
 import { barNeedle, gaugeNeedle, hex565, softTable } from "../lib/instrument-needles"
 
 const GROUND = hex565("#203040")
@@ -70,7 +70,15 @@ const ringStatic: NeedleDescription = {
   layers: [{ motion: "static", shapes: [{ arc: [66, 7, angle64Of(-90), angle64Of(270)] }], color: hex565("#d0e0f0"), alpha: 180, soft: undefined }],
 }
 
-const pose = (deg: number, shiftX = 0, shiftY = 0): NeedlePose => ({ angle64: angle64Of(deg), shiftX, shiftY })
+const bars: NeedleDescription = {
+  pivot: { x: 0, y: 0 },
+  layers: [
+    { motion: "segments", shapes: [{ rect: [8, 40, 40, 80], t: 1024 }, { rect: [56, 32, 88, 80], t: 2048 }, { rect: [104, 24, 136, 80], t: 3072 }, { rect: [152, 16, 184, 80] }], color: hex565("#3df5d0"), alpha: 256, soft: softTable(110, 2) },
+    { motion: "segments", shapes: [{ rect: [8, 40, 40, 80], t: 1024 }, { rect: [56, 32, 88, 80], t: 2048 }, { rect: [104, 24, 136, 80], t: 3072 }, { rect: [152, 16, 184, 80] }], color: hex565("#3df5d0"), alpha: 256 },
+  ],
+}
+
+const pose = (deg: number, shiftX = 0, shiftY = 0, level = 0): NeedlePose => ({ angle64: angle64Of(deg), shiftX, shiftY, level })
 
 function render(desc: NeedleDescription, p: NeedlePose, w: number, h: number): string {
   const pic = rgb565Picture(w, h, GROUND)
@@ -99,6 +107,10 @@ const cases = [
   { name: "a whole ring, translucent", desc: ringStatic, pose: pose(0), width: 25, height: 25 },
   { name: "the rally gauge's needle at 100 degrees, 64 px", desc: gaugeNeedle("rally", 64), pose: pose(100), width: 64, height: 64 },
   { name: "the night cluster at 37 degrees, 64 px", desc: gaugeNeedle("night", 64), pose: pose(37), width: 64, height: 64 },
+  { name: "segments at level 2047: one lit, the next not yet", desc: bars, pose: pose(0, 0, 0, 2047), width: 24, height: 12 },
+  { name: "segments at level 2048: the second lights", desc: bars, pose: pose(0, 0, 0, 2048), width: 24, height: 12 },
+  { name: "the VFD ring at 0.6, 64 px", desc: gaugeNeedle("vfd", 64, { zones: [{ from: 0, to: 0.2, kind: "danger" }] }), pose: pose(0, 0, 0, levelOf(0.6)), width: 64, height: 64 },
+  { name: "the VFD bar at 0.37, 80 x 30", desc: barNeedle("vfd", 80, 30, "left-to-right").desc, pose: pose(0, 0, 0, levelOf(0.37)), width: 80, height: 30 },
   ...(() => {
     const b = barNeedle("rally", 72, 26, "left-to-right")
     const n = barNeedle("night", 24, 70, "bottom-to-top")

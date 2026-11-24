@@ -135,3 +135,14 @@ export function paintNightBar(ctx: Ctx, scale: InstrumentScale, props: Instrumen
     ctx.restore()
   }
 }
+
+/** The gauge's readout (200-unit box): the middle of the hub, font size, no glow. */
+export const NIGHT_GAUGE_READOUT = { x: 100, y: 97, px: 20, glow: 0 }
+export const NIGHT_FONT = (px: number) => SAIRA(300, px)
+
+/** The bar's readout box in pixels: right edge (or middle, standing), the text's middle line, font size. */
+export function nightBarReadout(f: BarFrame, width: number): { x: number; y: number; px: number; align: "right" | "center"; glow: number } {
+  const T = f.thickness
+  if (f.vertical) return { x: width / 2, y: f.length * 0.065, px: T * 0.2, align: "center", glow: 0 }
+  return { x: T * 0.873, y: T * 0.364, px: T * 0.255, align: "right", glow: 0 }
+}

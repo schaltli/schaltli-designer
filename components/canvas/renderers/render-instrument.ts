@@ -14,7 +14,9 @@ import { applyColorDepth } from "@/lib/color-depth"
 import { calibratedAt, gaugeAngle, normalizeInstrument } from "@/lib/instrument"
 import { bakedBarFace, bakedGaugeFace } from "@/lib/instrument-bake"
 import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
-import { angle64Of, drawNeedle, type NeedleDescription, type NeedlePose, type Rgb565Target } from "@/lib/needle-raster"
+import { angle64Of, drawNeedle, levelOf, type NeedleDescription, type NeedlePose, type Rgb565Target } from "@/lib/needle-raster"
+import { drawReadout, formatReadout } from "@/lib/instrument-readout"
+import type { BakedFace } from "@/lib/instrument-bake"
 import { hasNoValue } from "@/lib/render-screen"
 import { isSettableLevel } from "@/lib/object-types"
 import { restingAt, stepSpring, type SpringState } from "@/lib/instrument-spring"
@@ -80,11 +82,12 @@ function positionOf(o: RenderInstrumentOptions): number {
 /** The face with the needle drawn into it at 1:1, put on `ctx` at the object's place. */
 function compose(
   o: RenderInstrumentOptions,
-  face: HTMLCanvasElement,
+  baked: BakedFace,
   ground: string,
   desc: NeedleDescription,
   pose: NeedlePose,
 ) {
+  const face = baked.canvas
   const w = face.width
   const h = face.height
   const buffer = document.createElement("canvas")
@@ -117,6 +120,10 @@ function compose(
     },
   }
   drawNeedle(target, desc, pose)
+  // The digits show the value itself, at once - not the needle on its way.
+  if (baked.readout && !hasNoValue(o.rawValue)) {
+    drawReadout(target, baked.readout.desc, baked.readout.strip, formatReadout(o.rawValue, baked.readout.desc.decimals))
+  }
   bctx.putImageData(img, 0, 0)
   const smoothing = o.ctx.imageSmoothingEnabled
   o.ctx.imageSmoothingEnabled = false
@@ -133,10 +140,12 @@ export function renderInstrumentGauge(o: RenderInstrumentOptions): boolean {
   const ground = applyColorDepth(o.screenBackgroundColor || "#ffffff", o.colorDepth)
   const face = bakedGaugeFace(o.obj.properties, size, ground, o.requestRedraw)
   if (!face) return true // fonts still loading: drawn on the redraw
-  compose(o, face.canvas, ground, gaugeNeedle(props.style, size), {
-    angle64: angle64Of(gaugeAngle(props.style, swungAt(o, props, positionOf(o)))),
+  const at = swungAt(o, props, positionOf(o))
+  compose(o, face, ground, gaugeNeedle(props.style, size, face.scale), {
+    angle64: angle64Of(gaugeAngle(props.style, at)),
     shiftX: 0,
     shiftY: 0,
+    level: levelOf(at),
   })
   return true
 }
@@ -151,12 +160,13 @@ export function renderInstrumentBar(o: RenderInstrumentOptions): boolean {
   const ground = applyColorDepth(o.screenBackgroundColor || "#ffffff", o.colorDepth)
   const face = bakedBarFace(o.obj.properties, w, h, ground, o.requestRedraw)
   if (!face) return true
-  const needle = barNeedle(props.style, w, h, o.obj.properties.direction)
+  const needle = barNeedle(props.style, w, h, o.obj.properties.direction, face.scale)
   const at = swungAt(o, props, positionOf(o))
-  compose(o, face.canvas, ground, needle.desc, {
+  compose(o, face, ground, needle.desc, {
     angle64: 0,
     shiftX: Math.round(at * needle.travelX),
     shiftY: Math.round(at * needle.travelY),
+    level: levelOf(at),
   })
   return true
 }

@@ -715,6 +715,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
           const exported = await exportedInstrumentPng(o, backgroundColor || "#ffffff")
           if (exported) {
             assets.file(exported.file.name.replace(/^assets\//, ""), exported.file.data)
+            for (const extra of exported.extraFiles) assets.file(extra.name.replace(/^assets\//, ""), extra.data)
             instruments.set(`${screen.id}:${o.id}`, exported.instrument)
           }
         }

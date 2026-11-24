@@ -51,25 +51,34 @@
  *
  * A layer with a `gradient` takes its colour per pixel: gradient565() from
  * `color` to `gradient.to`, step (x or y) - start of `length` pixels.
+ *
+ * A *segments* layer holds still; each of its shapes carries a threshold
+ * `t` (out of 4096) and is drawn only while the pose's `level` - the
+ * position, floor(clamp(at, 0, 1) × 4096 + 0.5) - has reached it (a VFD's
+ * bars). A shape without `t` is always drawn.
  */
 import { arcDirection } from "@/lib/arc-raster"
 import { blend565, gradient565 } from "@/lib/level-glow"
 import { fillPolygon, type Point8 } from "@/lib/polygon-raster"
 
-export type NeedleShape =
+export type NeedleShape = (
   | { poly: [number, number][] }
   | { circle: [number, number, number] | [number, number, number, number] }
   /** x0, y0, x1, y1 (eighths): a rectangle; in a fill layer, at full scale. */
   | { rect: [number, number, number, number] }
   /** r, hw (eighths), from, to (1/64 degree, from < to): a band about the pivot with round ends. */
   | { arc: [number, number, number, number] }
+) & {
+  /** Segments layer: the level (out of 4096) from which the shape lights. */
+  t?: number
+}
 
 /** The way a fill layer's rectangle grows from its start edge. */
 export type FillGrow = "right" | "left" | "down" | "up"
 
 export interface NeedleLayer {
   /** How the layer follows the value: turned about the pivot, shifted along the scale, or not at all. */
-  motion: "rotate" | "translate" | "static" | "fill"
+  motion: "rotate" | "translate" | "static" | "fill" | "segments"
   shapes: NeedleShape[]
   /** RGB565, packed (r << 11 | g << 5 | b). */
   color: number
@@ -98,6 +107,13 @@ export interface NeedlePose {
   /** Eighths (translating layers). */
   shiftX: number
   shiftY: number
+  /** The position out of 4096 (segments layers); 0 when not given. */
+  level?: number
+}
+
+/** A position 0..1 as a pose's level: floor(clamp(at, 0, 1) × 4096 + 0.5). */
+export function levelOf(at: number): number {
+  return Math.floor(Math.max(0, Math.min(1, at)) * 4096 + 0.5)
 }
 
 /** An RGB565 picture to draw into. */
@@ -424,6 +440,7 @@ function drawBody(t: Rgb565Target, p: NonNullable<Placed>, layer: NeedleLayer) {
 export function drawNeedle(t: Rgb565Target, desc: NeedleDescription, pose: NeedlePose): void {
   for (const layer of desc.layers) {
     for (const shape of layer.shapes) {
+      if (layer.motion === "segments" && shape.t !== undefined && (pose.level ?? 0) < shape.t) continue
       const p = place(shape, layer, desc, pose)
       if (!p) continue
       if (layer.soft && layer.soft.length) drawSoft(t, p, layer)

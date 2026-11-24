@@ -9,6 +9,9 @@ import { angle64Of, type FillGrow, type NeedleDescription, type NeedleLayer } fr
 import { barFrame, STYLE_META, type BarDirection, type BarFrame, type InstrumentStyle } from "@/lib/instrument"
 import { NIGHT_BAR_LIGHT, NIGHT_LIGHT, NIGHT_NEEDLE, NIGHT_RING } from "@/components/canvas/instrument-faces/night"
 import { RALLY_BAR_FILL, RALLY_ORANGE } from "@/components/canvas/instrument-faces/rally"
+import { VFD_BAR_SEGMENTS, VFD_GAUGE_SEGMENTS, vfdBarSegment, vfdGaugeSegment, vfdSegmentColour } from "@/components/canvas/instrument-faces/vfd"
+import type { InstrumentScale } from "@/lib/instrument"
+import type { NeedleShape } from "@/lib/needle-raster"
 
 /** RGB565 from "#rrggbb", bits dropped as the framebuffers drop them. */
 export function hex565(hex: string): number {
@@ -102,13 +105,40 @@ function nightGauge(size: number): NeedleDescription {
   return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
 }
 
+/** A segment's threshold: lit once the position reaches its middle. */
+const threshold = (i: number, n: number) => Math.floor(((i + 0.5) / n) * 4096 + 0.5)
+
+/** Segments grouped by colour, each colour a glow and a body layer. */
+function segmentLayers(shapes: { shape: NeedleShape; colour: string }[], glowPx: number): NeedleLayer[] {
+  const byColour = new Map<string, NeedleShape[]>()
+  for (const { shape, colour } of shapes) byColour.set(colour, [...(byColour.get(colour) ?? []), shape])
+  const layers: NeedleLayer[] = []
+  for (const [colour, list] of byColour) {
+    layers.push({ motion: "segments", shapes: list, color: hex565(colour), alpha: 256, soft: softTable(110, glowPx) })
+    layers.push({ motion: "segments", shapes: list, color: hex565(colour), alpha: 256 })
+  }
+  return layers
+}
+
+/** The VFD's ring: 32 segments that light up to the value, in the zones' colours. */
+function vfdGauge(size: number, scale: Pick<InstrumentScale, "zones">): NeedleDescription {
+  const n = VFD_GAUGE_SEGMENTS.n
+  const shapes = Array.from({ length: n }, (_, i) => ({
+    shape: { ...poly(vfdGaugeSegment(i), size), t: threshold(i, n) },
+    colour: vfdSegmentColour(scale, (i + 0.5) / n),
+  }))
+  return { pivot: { x: e8(100, size), y: e8(100, size) }, layers: segmentLayers(shapes, Math.max(1, Math.round((3 * size) / 200))) }
+}
+
 /**
  * The gauge needle of a style on a square object `size` pixels across.
  * Styles without their own needle yet fall back to the fuel gauge's - until
  * their task draws them (tasks/instrument-styles-todo.md).
  */
-export function gaugeNeedle(style: InstrumentStyle, size: number): NeedleDescription {
+export function gaugeNeedle(style: InstrumentStyle, size: number, scale: Pick<InstrumentScale, "zones"> = { zones: [] }): NeedleDescription {
   switch (style) {
+    case "vfd":
+      return vfdGauge(size, scale)
     case "rally":
       return rallyGauge(size)
     case "night":
@@ -187,8 +217,25 @@ function nightBar(f: BarFrame, direction: BarDirection | undefined): BarNeedle {
  * pointer given at position 0 and moved along the scale by the needle
  * raster's translate, or a fill that grows to the value.
  */
-export function barNeedle(style: InstrumentStyle, width: number, height: number, direction: BarDirection | undefined): BarNeedle {
+export function barNeedle(
+  style: InstrumentStyle,
+  width: number,
+  height: number,
+  direction: BarDirection | undefined,
+  scale: Pick<InstrumentScale, "zones"> = { zones: [] },
+): BarNeedle {
   const f = barFrame(width, height, direction, STYLE_META[style].barTrack)
+  if (style === "vfd") {
+    const n = VFD_BAR_SEGMENTS.n
+    const shapes = Array.from({ length: n }, (_, i) => {
+      const [x0, y0, x1, y1] = vfdBarSegment(f, i)
+      return {
+        shape: { rect: [Math.round(x0 * 8), Math.round(y0 * 8), Math.round(x1 * 8), Math.round(y1 * 8)] as [number, number, number, number], t: threshold(i, n) },
+        colour: vfdSegmentColour(scale, (i + 0.5) / n),
+      }
+    })
+    return { desc: { pivot: { x: 0, y: 0 }, layers: segmentLayers(shapes, Math.max(1, Math.round(f.thickness * 0.025))) }, travelX: 0, travelY: 0 }
+  }
   if (style === "rally") return rallyBar(f, direction)
   if (style === "night") return nightBar(f, direction)
   const T = f.thickness

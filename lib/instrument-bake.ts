@@ -23,6 +23,11 @@ import { settle565 } from "@/components/canvas/instrument-faces/common"
 import { paintFuelBar, paintFuelGauge } from "@/components/canvas/instrument-faces/fuel"
 import { paintNightBar, paintNightGauge } from "@/components/canvas/instrument-faces/night"
 import { paintRallyBar, paintRallyGauge } from "@/components/canvas/instrument-faces/rally"
+import { NIGHT_FONT, NIGHT_GAUGE_READOUT, nightBarReadout } from "@/components/canvas/instrument-faces/night"
+import { paintVfdBar, paintVfdGauge, VFD_CYAN, VFD_FONT, VFD_GAUGE_READOUT, vfdBarReadout } from "@/components/canvas/instrument-faces/vfd"
+import { hex565 } from "@/lib/instrument-needles"
+import { bakeReadoutStrip, drawReadout, unlitPattern, type ReadoutDescription, type ReadoutStrip } from "@/lib/instrument-readout"
+import type { Rgb565Target } from "@/lib/needle-raster"
 import { barFrame, STYLE_META, type BarDirection, type BarFrame } from "@/lib/instrument"
 
 export type InstrumentKind = "gauge" | "bar"
@@ -31,6 +36,96 @@ export interface BakedFace {
   canvas: HTMLCanvasElement
   scale: InstrumentScale
   key: string
+  /** The digital readout, where the style has one and it is on: where it goes, and its baked characters. */
+  readout?: { desc: Omit<ReadoutDescription, "glyphs">; strip: ReadoutStrip }
+}
+
+/** Where a style's readout goes and how it looks, in the object's pixels; null for a style without one. */
+interface ReadoutLayout {
+  x: number
+  /** The text's middle line. */
+  y: number
+  px: number
+  align: "right" | "center"
+  glow: number
+  font: (px: number) => string
+  color: string
+  /** The unlit segments behind it, as a VFD has them. */
+  unlit: boolean
+}
+
+function readoutLayout(style: InstrumentStyle, kind: InstrumentKind, size: number, frame: BarFrame | null, width: number): ReadoutLayout | null {
+  const k = size / 200
+  if (style === "vfd") {
+    const r = kind === "gauge" ? { ...VFD_GAUGE_READOUT, x: VFD_GAUGE_READOUT.x * k, y: VFD_GAUGE_READOUT.y * k, px: VFD_GAUGE_READOUT.px * k, glow: VFD_GAUGE_READOUT.glow * k, align: "right" as const } : vfdBarReadout(frame!, width)
+    return { ...r, font: VFD_FONT, color: VFD_CYAN, unlit: true }
+  }
+  if (style === "night") {
+    const r = kind === "gauge" ? { x: NIGHT_GAUGE_READOUT.x * k, y: NIGHT_GAUGE_READOUT.y * k, px: NIGHT_GAUGE_READOUT.px * k, glow: 0, align: "center" as const } : nightBarReadout(frame!, width)
+    return { ...r, font: NIGHT_FONT, color: "#f2f4f7", unlit: false }
+  }
+  return null
+}
+
+const strips = new Map<string, ReadoutStrip>()
+
+/** The readout of a face being baked, with its unlit pattern laid into the face's pixels. */
+function bakeReadout(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  layout: ReadoutLayout,
+  props: InstrumentProps,
+  calibrationPoints: CalibrationPoint[],
+): BakedFace["readout"] {
+  const px = Math.max(6, Math.round(layout.px))
+  const font = layout.font(px)
+  const glow = Math.round(layout.glow * 10) / 10
+  const key = `${font}|${glow}`
+  let strip = strips.get(key)
+  if (!strip) {
+    strip = bakeReadoutStrip(font, px, glow)
+    strips.set(key, strip)
+  }
+  const decimals = props.scale?.decimals ?? 1
+  const desc: Omit<ReadoutDescription, "glyphs"> = {
+    chars: "0123456789.-",
+    cells: strip.cells,
+    pad: strip.pad,
+    height: strip.height,
+    x: Math.round(layout.x),
+    y: Math.round(layout.y - strip.height / 2),
+    align: layout.align,
+    color: hex565(layout.color),
+    decimals,
+  }
+  if (layout.unlit) {
+    const values = calibrationPoints.map((p) => p.value)
+    const pattern = unlitPattern(Math.min(...values), Math.max(...values), decimals)
+    const img = ctx.getImageData(0, 0, width, height)
+    const d = img.data
+    const target: Rgb565Target = {
+      width,
+      height,
+      get: (x, y) => {
+        const i = (y * width + x) * 4
+        return ((d[i] >> 3) << 11) | ((d[i + 1] >> 2) << 5) | (d[i + 2] >> 3)
+      },
+      set: (x, y, c) => {
+        const i = (y * width + x) * 4
+        if (d[i + 3] === 0) return // nothing to light outside the face
+        const r = (c >> 11) & 31
+        const g = (c >> 5) & 63
+        const b = c & 31
+        d[i] = (r << 3) | (r >> 2)
+        d[i + 1] = (g << 2) | (g >> 4)
+        d[i + 2] = (b << 3) | (b >> 2)
+      },
+    }
+    drawReadout(target, desc, strip, pattern, 20)
+    ctx.putImageData(img, 0, 0)
+  }
+  return { desc, strip }
 }
 
 type Painter = (ctx: CanvasRenderingContext2D, scale: InstrumentScale, props: InstrumentProps) => void
@@ -40,6 +135,7 @@ const GAUGE_PAINTERS: Partial<Record<InstrumentStyle, Painter>> = {
   fuel: paintFuelGauge,
   rally: paintRallyGauge,
   night: paintNightGauge,
+  vfd: paintVfdGauge,
 }
 
 type BarPainter = (
@@ -56,6 +152,7 @@ const BAR_PAINTERS: Partial<Record<InstrumentStyle, BarPainter>> = {
   fuel: paintFuelBar,
   rally: paintRallyBar,
   night: paintNightBar,
+  vfd: paintVfdBar,
 }
 
 const cache = new Map<string, BakedFace>()
@@ -74,7 +171,7 @@ export function faceKey(
   ground: string,
   direction = "",
 ): string {
-  return JSON.stringify([style, kind, width, height, direction, props.scale ?? null, props.zones ?? null, props.caption ?? "", props.unit ?? "", calibrationPoints, ground])
+  return JSON.stringify([style, kind, width, height, direction, props.scale ?? null, props.zones ?? null, props.caption ?? "", props.unit ?? "", props.readout ?? false, calibrationPoints, ground])
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -117,8 +214,10 @@ export function bakedGaugeFace(
   ;(GAUGE_PAINTERS[props.style] ?? paintFuelGauge)(ctx, scale, props)
   ctx.restore()
   settle565(ctx, size, size, hexToRgb(ground))
+  const layout = props.readout ? readoutLayout(props.style, "gauge", size, null, size) : null
+  const readout = layout ? bakeReadout(ctx, size, size, layout, props, calibrationPoints) : undefined
   bakes++
-  const face = { canvas, scale, key }
+  const face: BakedFace = { canvas, scale, key, readout }
   cache.set(key, face)
   if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
   return face
@@ -159,8 +258,10 @@ export function bakedBarFace(
   if (!ctx) return null
   ;(BAR_PAINTERS[props.style] ?? paintFuelBar)(ctx, scale, props, frame, width, height)
   settle565(ctx, width, height, hexToRgb(ground))
+  const layout = props.readout ? readoutLayout(props.style, "bar", 200, frame, width) : null
+  const readout = layout ? bakeReadout(ctx, width, height, layout, props, calibrationPoints) : undefined
   bakes++
-  const face = { canvas, scale, key }
+  const face: BakedFace = { canvas, scale, key, readout }
   cache.set(key, face)
   if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
   return face

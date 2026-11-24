@@ -1528,10 +1528,11 @@ its flat look has; beside them the export writes `instrument`
   "needle": {                                // the moving part (lib/needle-raster.ts)
     "pivot": { "x": 800, "y": 1200 },        // eighths of a pixel, in the object's box
     "layers": [
-      { "motion": "rotate" | "translate" | "static" | "fill",
+      { "motion": "rotate" | "translate" | "static" | "fill" | "segments",
         "shapes": [ { "poly": [[x, y], …] } | { "circle": [cx, cy, r, rInner?] }
                   | { "rect": [x0, y0, x1, y1] }               // eighths
                   | { "arc": [r, hw, from64, to64] } ],         // eighths, 1/64 degree, about the pivot
+                                             // any shape may carry "t": 0..4096 (segments layer)
         "color": 63422,                      // RGB565, packed
         "alpha": 256,                        // out of 256, a body's opacity
         "soft": [180, 120, 60],              // optional: a glow/shadow field, alpha by whole pixels outside
@@ -1542,7 +1543,17 @@ its flat look has; beside them the export writes `instrument`
   },
   "sweep":  { "from": -55, "to": 55 },       // gauge: degrees at position 0 and 1, 0 = up, clockwise
   "travel": { "x": 1920, "y": 0 },           // bar: eighths the pointer moves at position 1
-  "spring": { "frequency": 0.45, "damping": 1 }  // absent: motion direct
+  "spring": { "frequency": 0.45, "damping": 1 },  // absent: motion direct
+  "readout": {                               // optional: the value in digits (vfd, night)
+    "glyphs": "assets/glyphs-5e6f7a8b.a8",   // the characters, baked in the style's typeface
+    "chars": "0123456789.-",
+    "cells": [[0, 17, 11], …],               // per char: x in the strip, cell width, advance (pixels)
+    "pad": 3, "height": 31,                  // a cell starts pad left of the pen; its height
+    "x": 266, "y": 186,                      // pixels in the object's box: right edge or middle, and top
+    "align": "right" | "center",
+    "color": 16378,                          // RGB565
+    "decimals": 1
+  }
 }
 ```
 
@@ -1587,6 +1598,25 @@ Draw the face, then each layer back to front:
 - A layer with a `gradient` takes its colour per pixel:
   `gradient565(color, to, (x or y) − start, length)` (§2.1, the bar's
   gradient), the same for body and soft field.
+- A `segments` layer holds still. Each shape with a `t` is drawn only while
+  the pose's level, `floor(clamp(at, 0, 1) × 4096 + 0.5)`, is at least `t`;
+  a shape without one always (2026-11-24, the VFD).
+
+**The readout** is drawn after the needle, and shows the value itself at
+once (not the needle's position on its way). Its text: the raw value as a
+decimal number (surrounding spaces allowed, anything else after it makes it
+no number); none, or not finite, writes nothing. Otherwise
+`m = floor(|v| × 10^decimals + 0.5)` in double precision without fused
+multiply-add, written as `m / 10^d`, a point and the remainder padded to
+`decimals` digits, with a minus only when `v < 0` and `m ≠ 0`. The pen
+starts at `x − total` (right) or `x − (total >> 1)` (centre), `total` the
+sum of the characters' advances; a character not in `chars` is skipped. Each
+character's cell is laid at `(pen − pad, y)`: every pixel of it mixes
+`color` into what is there with `blend565`, weight `a + (a >> 7)` for the
+strip's alpha `a`; then the pen moves by the advance. The strip (`.a8`):
+`"SA08"`, version byte `1`, width and height as little-endian u16, then one
+alpha byte a pixel, row by row. The unlit «88.8» behind a VFD's digits is in
+the face. `lib/instrument-readout/vectors.json` holds formats and pictures.
 - A body is filled with 4 × 4 sub-samples at eighths 1, 3, 5, 7: polygons by
   `PolygonRaster`, circles and rings sampled the same way. Its alpha is
   `alpha`, or `(alpha × coverage + 8) >> 4` on an edge.

@@ -513,6 +513,7 @@ export async function buildDeviceProjectZip(rawProject: Project, options: { devi
     if (!exported) return obj
     // Named by content: a second identical face writes the same file again.
     assetsFolder.file(exported.file.name.replace(/^assets\//, ""), exported.file.data)
+    for (const extra of exported.extraFiles) assetsFolder.file(extra.name.replace(/^assets\//, ""), extra.data)
     return { ...obj, instrument: exported.instrument }
   }
   const deviceObjectOf = (original: any, keyId: string): any => {

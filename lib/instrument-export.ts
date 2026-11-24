@@ -14,6 +14,7 @@ import { normalizeInstrument, STYLE_META } from "@/lib/instrument"
 import { bakedBarFace, bakedGaugeFace } from "@/lib/instrument-bake"
 import { barNeedle, gaugeNeedle } from "@/lib/instrument-needles"
 import type { NeedleDescription } from "@/lib/needle-raster"
+import { encodeStrip, type ReadoutDescription, type ReadoutStrip } from "@/lib/instrument-readout"
 
 export const INSTRUMENT_FEATURE = "instrument-styles"
 
@@ -93,7 +94,11 @@ export interface ExportedInstrument {
   travel?: { x: number; y: number }
   /** The spring a value change swings with; absent when the motion is direct. */
   spring?: { frequency: number; damping: number }
+  /** The digital readout, where the style has one and it is on (lib/instrument-readout.ts). */
+  readout?: ReadoutDescription
 }
+
+type ExportFile = { name: string; data: Uint8Array }
 
 /**
  * The `instrument` block and the face file for one styled object on a
@@ -104,7 +109,7 @@ export interface ExportedInstrument {
 export function exportedInstrument(
   obj: Obj,
   ground: string,
-): { instrument: ExportedInstrument; file: { name: string; data: Uint8Array } } | null {
+): { instrument: ExportedInstrument; file: ExportFile; extraFiles: ExportFile[] } | null {
   if (!isStyledInstrument(obj)) return null
   const props = normalizeInstrument(obj.properties)
   const style = props.style!
@@ -118,17 +123,46 @@ export function exportedInstrument(
   const name = `assets/face-${contentHash(data)}.s565`
   const meta = STYLE_META[style]
   const spring = props.motion === "direct" ? undefined : { ...meta.spring }
+  const extraFiles: ExportFile[] = []
+  let readout: ReadoutDescription | undefined
+  if (face.readout) {
+    const strip = encodeStrip(face.readout.strip)
+    const glyphs = `assets/glyphs-${contentHash(strip)}.a8`
+    extraFiles.push({ name: glyphs, data: strip })
+    readout = { glyphs, ...face.readout.desc }
+  }
+  const common = { style, face: name, ...(spring ? { spring } : {}), ...(readout ? { readout } : {}) }
   if (gauge) {
     return {
-      instrument: { style, face: name, needle: gaugeNeedle(style, size), sweep: { from: meta.sweepFrom, to: meta.sweepTo }, ...(spring ? { spring } : {}) },
+      instrument: { ...common, needle: gaugeNeedle(style, size, face.scale), sweep: { from: meta.sweepFrom, to: meta.sweepTo } },
       file: { name, data },
+      extraFiles,
     }
   }
-  const bar = barNeedle(style, w, h, obj.properties?.direction)
+  const bar = barNeedle(style, w, h, obj.properties?.direction, face.scale)
   return {
-    instrument: { style, face: name, needle: bar.desc, travel: { x: bar.travelX, y: bar.travelY }, ...(spring ? { spring } : {}) },
+    instrument: { ...common, needle: bar.desc, travel: { x: bar.travelX, y: bar.travelY } },
     file: { name, data },
+    extraFiles,
   }
+}
+
+/** A readout strip as a PNG for the app: white, its alpha the strip's. */
+async function stripPng(strip: ReadoutStrip): Promise<Uint8Array> {
+  const canvas = document.createElement("canvas")
+  canvas.width = strip.width
+  canvas.height = strip.height
+  const ctx = canvas.getContext("2d")!
+  const img = ctx.createImageData(strip.width, strip.height)
+  for (let i = 0; i < strip.alpha.length; i++) {
+    img.data[i * 4] = 255
+    img.data[i * 4 + 1] = 255
+    img.data[i * 4 + 2] = 255
+    img.data[i * 4 + 3] = strip.alpha[i]
+  }
+  ctx.putImageData(img, 0, 0)
+  const blob: Blob = await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("the strip did not encode as PNG"))), "image/png"))
+  return new Uint8Array(await blob.arrayBuffer())
 }
 
 /**
@@ -139,7 +173,7 @@ export function exportedInstrument(
 export async function exportedInstrumentPng(
   obj: Obj,
   ground: string,
-): Promise<{ instrument: ExportedInstrument; file: { name: string; data: Uint8Array } } | null> {
+): Promise<{ instrument: ExportedInstrument; file: ExportFile; extraFiles: ExportFile[] } | null> {
   const board = exportedInstrument(obj, ground)
   if (!board) return null
   const props = normalizeInstrument(obj.properties)
@@ -153,5 +187,13 @@ export async function exportedInstrumentPng(
   const data = new Uint8Array(await blob.arrayBuffer())
   // Named by the board's file's content: the same face, the same name.
   const name = board.instrument.face.replace(/^assets\/face-/, "assets/faces/").replace(/\.s565$/, ".png")
-  return { instrument: { ...board.instrument, face: name }, file: { name, data } }
+  const extraFiles: ExportFile[] = []
+  let readout = board.instrument.readout
+  if (readout && face.readout) {
+    // Not premultiplied in a PNG: the alpha survives as it was baked.
+    const glyphs = readout.glyphs.replace(/^assets\/glyphs-/, "assets/faces/glyphs-").replace(/\.a8$/, ".png")
+    extraFiles.push({ name: glyphs, data: await stripPng(face.readout.strip) })
+    readout = { ...readout, glyphs }
+  }
+  return { instrument: { ...board.instrument, face: name, ...(readout ? { readout } : {}) }, file: { name, data }, extraFiles }
 }

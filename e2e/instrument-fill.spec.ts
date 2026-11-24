@@ -123,3 +123,14 @@ for (const c of BARS) {
     expect(dark(await rgb(page, ...barXY(c, 0.75, 0.6))), "dark after it").toBe(true)
   })
 }
+
+// The VFD's segments (I12): lit up to the value, faint beyond it.
+const cyanLit = ([r, g, b]: number[]) => g > 200 && b > 160 && r < 120
+for (const size of [400, 150]) {
+  test(`the VFD ring lights its segments up to the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("vfd", size)], "50")
+    // Segment middles at radius 75: the one around a quarter, and three quarters.
+    expect(cyanLit(await gaugeRgb(page, size, 75, -135 + 270 * (7.5 / 32)))).toBe(true)
+    expect(cyanLit(await gaugeRgb(page, size, 75, -135 + 270 * (24.5 / 32)))).toBe(false)
+  })
+}
