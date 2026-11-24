@@ -194,10 +194,13 @@ VFD gauge and bar; the night cluster gets its readout.
 - [ ] the readout shows the style's typeface on the device, from the baked glyph strip
 **Verification:** vectors; specimens; `npm run test:quick`
 **Dependencies:** I11. **Files:** `needle-raster.ts` + ports, `instrument-faces/vfd.ts`, `night.ts`, specimens. **Scope:** L - one commit per platform.
-**Status 2026-11-24:** designer 3910a3b9 (segments with thresholds out of 4096 and the pose's `level`; the readout from a baked `.a8`/PNG strip, one integer format rule; VFD faces and segments; Share Tech Mono bundled; `e2e/instrument-readout.spec.ts`; specimen instrument-vfd). Firmware and app ports running.
+**Status 2026-11-24:** designer 3910a3b9 (segments with thresholds out of 4096 and the pose's `level`; the readout from a baked `.a8`/PNG strip, one integer format rule; VFD faces and segments; Share Tech Mono bundled; `e2e/instrument-readout.spec.ts`; specimen instrument-vfd). Firmware 4dcf36c, 14b76bb, af06608 (the pose's level), app 452f798; readout format made plain-decimal-only on all three (59e938ef, fw 25a888a, app 47f9af1). 26 needle vectors, 23 formats and 4 readout pictures byte-identical everywhere.
 
 ### Checkpoint C - all primitives everywhere
-- [ ] `npm run test:quick` green; the user sees the VFD swing on the 4.3B
+- [x] `npm run test:quick` (2026-11-24): red on the VFD's unlit segments (the missing level, fixed), a 4.3B install lost to curl's 25 s (conformance now waits 120 s), two chart lanes (WiFi, 8 px on the PaperS3) and three e2e (willReadFrequently fixed; new-project load-flaky, green alone). Reruns: 4.3B conformance 100/100, 4" 24/24 instrument cases, both chart lanes 0 px.
+- [ ] the user sees the VFD swing on the 4.3B (demo deployed there, night cluster on the knob)
+- [ ] the phone - not on adb
+Noted for I17: with every face of 28 screens held, the 4.3B keeps 1.07 MB PSRAM free.
 
 ## Phase 5 - the remaining faces (designer only)
 
