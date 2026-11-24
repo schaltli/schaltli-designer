@@ -235,6 +235,8 @@ Devices need nothing new. Verification each: `npm run test:quick`
 
 ## Phase 6 - finish
 
+**Status 2026-11-24:** `test:quick` - conformance 128/128 on the 4.3B and the 4" with all eleven styles, Android HIL 35/35 with all eleven on the phone; e2e 2725 passed, 5 red on DELETE /api/projects hanging under load (new-project, a handbook screenshot), all green alone. The T-Encoder hung (ping yes, HTTP no, not on USB) - its lane skipped, it still runs the I12 firmware. All eleven are on the 4.3B to look at (topic demo/instrument/all). Waiting for the user.
+
 ### I17 - Round displays and e-paper
 **Description:** on a round display a styled gauge may fill the display,
 its case as the edge (decision 5); on the PaperS3 every style in grey with
