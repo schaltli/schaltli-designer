@@ -126,6 +126,16 @@ const cases = [
       { name: "the profile meter at 0.3, right to left, 70 x 24", desc: c.desc, pose: pose(0, Math.floor(0.3 * c.travelX + 0.5), 0), width: 70, height: 24 },
     ]
   })(),
+  { name: "the art deco needle at 70 degrees, 64 px", desc: gaugeNeedle("deco", 64), pose: pose(70), width: 64, height: 64 },
+  { name: "the engraving needle at -20 degrees, 64 px", desc: gaugeNeedle("engraving", 64), pose: pose(-20), width: 64, height: 64 },
+  ...(() => {
+    const d = barNeedle("deco", 24, 72, "top-to-bottom")
+    const e = barNeedle("engraving", 72, 26, "left-to-right")
+    return [
+      { name: "the art deco band at 0.7, top to bottom, 24 x 72", desc: d.desc, pose: pose(0, 0, Math.floor(0.7 * d.travelY + 0.5)), width: 24, height: 72 },
+      { name: "the engraving's hatched fill at 0.45, 72 x 26", desc: e.desc, pose: pose(0, Math.floor(0.45 * e.travelX + 0.5), 0), width: 72, height: 26 },
+    ]
+  })(),
   { name: "segments at level 2047: one lit, the next not yet", desc: bars, pose: pose(0, 0, 0, 2047), width: 24, height: 12 },
   { name: "segments at level 2048: the second lights", desc: bars, pose: pose(0, 0, 0, 2048), width: 24, height: 12 },
   { name: "the VFD ring at 0.6, 64 px", desc: gaugeNeedle("vfd", 64, { zones: [{ from: 0, to: 0.2, kind: "danger" }] }), pose: pose(0, 0, 0, levelOf(0.6)), width: 64, height: 64 },

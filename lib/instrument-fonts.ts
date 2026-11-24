@@ -22,6 +22,9 @@ export const INSTRUMENT_FONTS: InstrumentFont[] = [
   { family: "Schaltli Share Tech Mono", weight: 400, url: "/fonts/instrument/share-tech-mono-latin-400-normal.woff2" },
   { family: "Schaltli IM Fell English", weight: 400, url: "/fonts/instrument/im-fell-english-latin-400-normal.woff2" },
   { family: "Schaltli IM Fell English", weight: 400, style: "italic", url: "/fonts/instrument/im-fell-english-latin-400-italic.woff2" },
+  { family: "Schaltli Playfair Display", weight: 400, url: "/fonts/instrument/playfair-display-latin-400-normal.woff2" },
+  { family: "Schaltli Playfair Display", weight: 400, style: "italic", url: "/fonts/instrument/playfair-display-latin-400-italic.woff2" },
+  { family: "Schaltli Playfair Display", weight: 600, style: "italic", url: "/fonts/instrument/playfair-display-latin-600-italic.woff2" },
 ]
 
 let state: "idle" | "loading" | "ready" | "failed" = "idle"

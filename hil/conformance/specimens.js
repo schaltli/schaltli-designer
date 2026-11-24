@@ -722,6 +722,10 @@ const SPECIMENS = {
   // moving-coil meter's needle clipped to its window and the profile meter.
   "instrument-pressure": { build: (c) => instrumentPair(c, "pressure", "left-to-right", { caption: "Water pressure", unit: "bar" }) },
   "instrument-coil": { build: (c) => instrumentPair(c, "coil", "right-to-left", { caption: "Battery", unit: "V" }) },
+  // I14: the blued Breguet needle and the band thermometer; the engraving's
+  // half-inked needle and its fill hatched by standing paper lines.
+  "instrument-deco": { build: (c) => instrumentPair(c, "deco", "left-to-right", { caption: "Cabin", unit: "°C" }) },
+  "instrument-engraving": { build: (c) => instrumentPair(c, "engraving", "left-to-right", { caption: "per centum", unit: "LPG" }) },
 
   dial: {
     build: (c) => {

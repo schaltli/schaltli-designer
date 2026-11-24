@@ -13,6 +13,8 @@ import { VFD_BAR_SEGMENTS, VFD_GAUGE_SEGMENTS, vfdBarSegment, vfdGaugeSegment, v
 import type { InstrumentScale } from "@/lib/instrument"
 import { BRASS, PRESSURE_INK, SIGHT_GLASS, WATER } from "@/components/canvas/instrument-faces/pressure"
 import { COIL_INK, COIL_PIVOT, COIL_WINDOW, PROFILE_FACE } from "@/components/canvas/instrument-faces/coil"
+import { DECO_BLUE, DECO_GOLD } from "@/components/canvas/instrument-faces/deco"
+import { ENGRAVING_TRACK, INK as ENGRAVING_INK, PAPER } from "@/components/canvas/instrument-faces/engraving"
 import type { NeedleShape } from "@/lib/needle-raster"
 
 /** RGB565 from "#rrggbb", bits dropped as the framebuffers drop them. */
@@ -193,6 +195,92 @@ function coilGauge(size: number): NeedleDescription {
   return { pivot: { x: e8(x, size), y: e8(y, size) }, layers }
 }
 
+/** Art deco: a blued Breguet needle - shaft, arrow tip, open ring, tail and its weight - its soft shadow, a gold cap. */
+function decoGauge(size: number): NeedleDescription {
+  const shapes = [
+    poly(
+      [
+        [99.3, 100],
+        [100.7, 100],
+        [100.35, 28],
+        [99.65, 28],
+      ],
+      size,
+    ),
+    poly(
+      [
+        [100, 17],
+        [101.7, 28],
+        [98.3, 28],
+      ],
+      size,
+    ),
+    poly(
+      [
+        [99, 100],
+        [101, 100],
+        [101, 118],
+        [99, 118],
+      ],
+      size,
+    ),
+    circle(100, 121, 4, size),
+    circle(100, 46, 5.4, size, 3.8),
+  ]
+  const layers: NeedleLayer[] = [
+    { motion: "rotate", shapes, color: 0, alpha: 256, soft: softTable(90, Math.max(1, Math.round((2.1 * size) / 200))), dy: e8(2.5, size) },
+    { motion: "rotate", shapes, color: hex565(DECO_BLUE), alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 6.5, size)], color: hex565(DECO_GOLD), alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 2, size)], color: hex565(DECO_BLUE), alpha: 256 },
+  ]
+  return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
+}
+
+/** The engraving: a needle outlined in ink, its right half inked in - an engraver's shading - and an open cap. */
+function engravingGauge(size: number): NeedleDescription {
+  const ink = hex565(ENGRAVING_INK)
+  const paper = hex565(PAPER)
+  const layers: NeedleLayer[] = [
+    {
+      motion: "rotate",
+      shapes: [
+        poly(
+          [
+            [100, 20],
+            [104, 44],
+            [101.6, 114],
+            [98.4, 114],
+            [96, 44],
+          ],
+          size,
+        ),
+      ],
+      color: ink,
+      alpha: 256,
+    },
+    {
+      motion: "rotate",
+      shapes: [
+        poly(
+          [
+            [99.55, 24],
+            [99.55, 113.1],
+            [99.1, 113.1],
+            [96.95, 44.2],
+          ],
+          size,
+        ),
+      ],
+      color: paper,
+      alpha: 256,
+    },
+    { motion: "static", shapes: [circle(100, 100, 7.7, size)], color: ink, alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 6.3, size)], color: paper, alpha: 256 },
+    { motion: "static", shapes: [circle(100, 100, 2, size)], color: ink, alpha: 256 },
+  ]
+  return { pivot: { x: e8(100, size), y: e8(100, size) }, layers }
+}
+
 /** A segment's threshold: lit once the position reaches its middle. */
 const threshold = (i: number, n: number) => Math.floor(((i + 0.5) / n) * 4096 + 0.5)
 
@@ -231,6 +319,10 @@ export function gaugeNeedle(style: InstrumentStyle, size: number, scale: Pick<In
       return pressureGauge(size)
     case "coil":
       return coilGauge(size)
+    case "deco":
+      return decoGauge(size)
+    case "engraving":
+      return engravingGauge(size)
     case "rally":
       return rallyGauge(size)
     case "night":
@@ -349,6 +441,52 @@ function coilBar(f: BarFrame): BarNeedle {
   return { desc: { pivot: { x: 0, y: 0 }, layers }, travelX: Math.round((x1 - x0) * 8), travelY: Math.round((y1 - y0) * 8) }
 }
 
+/** Art deco's band thermometer: the red rising in its tube, dark at the walls. */
+function decoBar(f: BarFrame, direction: BarDirection | undefined): BarNeedle {
+  const [b0, b1] = [0.4545, 0.5455]
+  const mid = (b0 + b1) / 2
+  const left = fillRect(f, direction, b0, mid)
+  const right = fillRect(f, direction, mid, b1)
+  const axis = f.vertical ? ("x" as const) : ("y" as const)
+  const across = (r: [number, number, number, number]) =>
+    f.vertical ? { start: Math.floor(r[0] / 8), length: Math.max(1, Math.ceil(r[2] / 8) - Math.floor(r[0] / 8)) } : { start: Math.floor(r[1] / 8), length: Math.max(1, Math.ceil(r[3] / 8) - Math.floor(r[1] / 8)) }
+  const layers: NeedleLayer[] = [
+    { motion: "fill", grow: left.grow, shapes: [{ rect: left.rect }], color: hex565("#5c1414"), alpha: 256, gradient: { to: hex565("#a33a2a"), axis, ...across(left.rect) } },
+    { motion: "fill", grow: right.grow, shapes: [{ rect: right.rect }], color: hex565("#a33a2a"), alpha: 256, gradient: { to: hex565("#5c1414"), axis, ...across(right.rect) } },
+  ]
+  return { desc: { pivot: { x: 0, y: 0 }, layers }, travelX: left.travelX, travelY: left.travelY }
+}
+
+/**
+ * The engraving's bar: ink rising in the track, cut into hatching by paper
+ * lines at 45° that stand over the whole track (over paper they vanish).
+ */
+function engravingBar(f: BarFrame, direction: BarDirection | undefined): BarNeedle {
+  const fill = fillRect(f, direction, ENGRAVING_TRACK[0], ENGRAVING_TRACK[1])
+  const [X0, Y0, X1, Y1] = fill.rect
+  const period = Math.max(16, Math.round(f.thickness * 0.029 * 8))
+  const inkLine = Math.max(5, Math.round(f.thickness * 0.009 * 8))
+  const h = Y1 - Y0
+  const stripes: { poly: [number, number][] }[] = []
+  for (let x = X0 - h - period; x < X1 + period; x += period) {
+    // A paper band from the track's bottom edge up and to the right.
+    stripes.push({
+      poly: [
+        [x + inkLine, Y1],
+        [x + period, Y1],
+        [x + period + h, Y0],
+        [x + inkLine + h, Y0],
+      ],
+    })
+  }
+  const clip: [number, number, number, number] = [Math.ceil(X0 / 8), Math.ceil(Y0 / 8), Math.floor(X1 / 8), Math.floor(Y1 / 8)]
+  const layers: NeedleLayer[] = [
+    { motion: "fill", grow: fill.grow, shapes: [{ rect: fill.rect }], color: hex565(ENGRAVING_INK), alpha: 256 },
+    { motion: "static", shapes: stripes, color: hex565(PAPER), alpha: 256, clip },
+  ]
+  return { desc: { pivot: { x: 0, y: 0 }, layers }, travelX: fill.travelX, travelY: fill.travelY }
+}
+
 /** The night strip: a thin light, red to orange along the scale, glowing. */
 function nightBar(f: BarFrame, direction: BarDirection | undefined): BarNeedle {
   const fill = fillRect(f, direction, NIGHT_BAR_LIGHT.from, NIGHT_BAR_LIGHT.to)
@@ -395,6 +533,8 @@ export function barNeedle(
   if (style === "rally") return rallyBar(f, direction)
   if (style === "pressure") return pressureBar(f, direction)
   if (style === "coil") return coilBar(f)
+  if (style === "deco") return decoBar(f, direction)
+  if (style === "engraving") return engravingBar(f, direction)
   if (style === "night") return nightBar(f, direction)
   const T = f.thickness
   const q = (at: number, d: number, alongPx = 0): [number, number] => {

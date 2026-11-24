@@ -28,6 +28,8 @@ import { paintVfdBar, paintVfdGauge, VFD_CYAN, VFD_FONT, VFD_GAUGE_READOUT, vfdB
 import { hex565 } from "@/lib/instrument-needles"
 import { paintPressureBar, paintPressureGauge } from "@/components/canvas/instrument-faces/pressure"
 import { paintCoilBar, paintCoilGauge } from "@/components/canvas/instrument-faces/coil"
+import { paintDecoBar, paintDecoGauge } from "@/components/canvas/instrument-faces/deco"
+import { paintEngravingBar, paintEngravingGauge } from "@/components/canvas/instrument-faces/engraving"
 import { bakeReadoutStrip, drawReadout, unlitPattern, type ReadoutDescription, type ReadoutStrip } from "@/lib/instrument-readout"
 import type { Rgb565Target } from "@/lib/needle-raster"
 import { barFrame, STYLE_META, type BarDirection, type BarFrame } from "@/lib/instrument"
@@ -140,6 +142,8 @@ const GAUGE_PAINTERS: Partial<Record<InstrumentStyle, Painter>> = {
   vfd: paintVfdGauge,
   pressure: paintPressureGauge,
   coil: paintCoilGauge,
+  deco: paintDecoGauge,
+  engraving: paintEngravingGauge,
 }
 
 type BarPainter = (
@@ -159,6 +163,8 @@ const BAR_PAINTERS: Partial<Record<InstrumentStyle, BarPainter>> = {
   vfd: paintVfdBar,
   pressure: paintPressureBar,
   coil: paintCoilBar,
+  deco: paintDecoBar,
+  engraving: paintEngravingBar,
 }
 
 const cache = new Map<string, BakedFace>()

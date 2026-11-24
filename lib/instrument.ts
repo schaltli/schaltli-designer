@@ -115,7 +115,8 @@ const meta = (
 // they were watched on the 4.3B (2026-11-23).
 export const STYLE_META: Record<InstrumentStyle, StyleMeta> = {
   pressure: meta("pressure", -135, 135, 0.4, 1, 0.32),
-  deco: meta("deco", -135, 135, 0.4, 1, 0.7),
+  // The bar's tower needs room above its tube: a shorter scale.
+  deco: { ...meta("deco", -135, 135, 0.4, 1, 0.7), barTrack: 0.7 },
   coil: meta("coil", -40, 40, 0.59, 1.1, 0.85),
   roadster: meta("roadster", -125, 125, 0.4, 1.6, 0.5),
   cockpit: meta("cockpit", -150, 150, 0.41, 2, 0.6),

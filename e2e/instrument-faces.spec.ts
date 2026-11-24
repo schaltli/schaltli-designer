@@ -85,16 +85,32 @@ for (const size of [400, 150]) {
   })
 }
 
+const blue = ([r, g, b]: number[]) => b > r + 30 && b > g + 20 && r < 90
+
+for (const size of [400, 150]) {
+  test(`the art deco needle follows the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("deco", size)], "100")
+    expect(blue(await darkestNear(page, size, 100, 100, 50, 135)), "at full it lies at 135°").toBe(true)
+    expect(blue(await darkestNear(page, size, 100, 100, 50, -135)), "and not at -135°").toBe(false)
+  })
+
+  test(`the engraving needle follows the value, ${size} px`, async ({ page }) => {
+    await render(page, [gauge("engraving", size)], "0")
+    expect(dark(await darkestNear(page, size, 100, 100, 50, -135)), "at nought it lies at -135°").toBe(true)
+    expect(dark(await darkestNear(page, size, 100, 100, 50, 0)), "nothing upright").toBe(false)
+  })
+}
+
 const BARS = [
   { direction: "left-to-right", w: 300, h: 100 },
   { direction: "bottom-to-top", w: 100, h: 300 },
 ] as const
 
-function barXY(c: (typeof BARS)[number], pos: number, d: number): [number, number] {
+function barXY(c: (typeof BARS)[number], pos: number, d: number, track = 0.8): [number, number] {
   const vertical = c.direction === "bottom-to-top"
   const length = vertical ? c.h : c.w
   const thickness = vertical ? c.w : c.h
-  const along = length * 0.1 + length * 0.8 * pos
+  const along = (length * (1 - track)) / 2 + length * track * pos
   return vertical ? [20 + d * thickness, 20 + length - along] : [20 + along, 20 + d * thickness]
 }
 
@@ -105,6 +121,24 @@ for (const c of BARS) {
     await render(page, [bar("pressure")], "50")
     expect(teal(await rgb(page, ...barXY(c, 0.25, 0.48))), "water below the value").toBe(true)
     expect(teal(await rgb(page, ...barXY(c, 0.75, 0.48))), "glass above it").toBe(false)
+  })
+
+  test(`the art deco band rises ${c.direction}`, async ({ page }) => {
+    await render(page, [bar("deco")], "50")
+    expect(red(await rgb(page, ...barXY(c, 0.25, 0.5, 0.7))), "red below the value").toBe(true)
+    expect(red(await rgb(page, ...barXY(c, 0.75, 0.5, 0.7))), "not above it").toBe(false)
+  })
+
+  test(`the engraving's hatched fill grows ${c.direction}`, async ({ page }) => {
+    await render(page, [bar("engraving")], "50")
+    const inkAt = async (pos: number) => {
+      const [x, y] = barXY(c, pos, 0.5)
+      const near = await Promise.all([-3, -2, -1, 0, 1, 2, 3].map((d) => (c.direction === "left-to-right" ? rgb(page, x + d, y) : rgb(page, x, y + d))))
+      return near.filter((p) => p.every((v) => v < 150)).length
+    }
+    expect(await inkAt(0.25), "hatching below the value").toBeGreaterThan(0)
+    expect(await inkAt(0.25), "and paper between its lines").toBeLessThan(7)
+    expect(await inkAt(0.75), "paper above it").toBe(0)
   })
 
   test(`the profile meter's pointer runs ${c.direction}`, async ({ page }) => {
